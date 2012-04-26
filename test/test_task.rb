@@ -1351,8 +1351,8 @@ class TC_Task < Test::Unit::TestCase
             end
         end
         t = prepare_plan :permanent => 1, :model => model
-        t.poll do
-            mock.polled_from_instance(t.running?, t)
+        t.poll do |task|
+            mock.polled_from_instance(t.running?, task)
         end
         mock.should_receive(:polled_from_model).once.with(true, t)
         mock.should_receive(:polled_from_instance).once.with(true, t)
@@ -1373,8 +1373,8 @@ class TC_Task < Test::Unit::TestCase
         mock.should_receive(:polled_from_instance).at_least.once.with(true, t)
 
         t.start!
-        t.poll do
-            mock.polled_from_instance(t.running?, t)
+        t.poll do |task|
+            mock.polled_from_instance(t.running?, task)
         end
 
         process_events

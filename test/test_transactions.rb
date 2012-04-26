@@ -1009,7 +1009,7 @@ class TC_Transactions < Test::Unit::TestCase
 	plan.add(t = model.new)
 
         expected = []
-        t.execute { }
+        t.execute { |task| }
         expected << t.execute_handlers[0]
 
         transaction_commit(plan, t) do |trsc, p|
@@ -1026,7 +1026,7 @@ class TC_Transactions < Test::Unit::TestCase
 	plan.add(t = model.new)
 
         expected = []
-        t.poll { }
+        t.poll { |task| }
         expected << t.poll_handlers[0]
 
         transaction_commit(plan, t) do |trsc, p|

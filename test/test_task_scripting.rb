@@ -172,7 +172,7 @@ class TC_TaskScripting < Test::Unit::TestCase
         parent.depends_on(child, :role => 'subtask')
         child.abstract = true
         child.planned_by(planning_task)
-        planning_task.on :start do
+        planning_task.on :start do |event|
             child.depends_on(model.new, :role => 'subsubtask')
             child.abstract = false
             planning_task.emit :success

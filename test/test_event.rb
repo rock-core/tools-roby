@@ -783,7 +783,7 @@ class TC_Event < Test::Unit::TestCase
     def test_once
 	plan.add(ev = EventGenerator.new(true))
 	FlexMock.use do |mock|
-	    ev.once { mock.called_once }
+	    ev.once { |_| mock.called_once }
 	    mock.should_receive(:called_once).once
 
 	    ev.call
@@ -1016,8 +1016,8 @@ class TC_Event < Test::Unit::TestCase
         plan.add(ev = EventGenerator.new(true))
         FlexMock.use do |mock|
             ev.on { |ev| mock.called_other_handler }
-            ev.once { raise ArgumentError }
-            ev.once { mock.called_other_once_handler }
+            ev.once { |_| raise ArgumentError }
+            ev.once { |_| mock.called_other_once_handler }
 
             mock.should_receive(:called_other_handler).once
             mock.should_receive(:called_other_once_handler).once
@@ -1032,7 +1032,7 @@ class TC_Event < Test::Unit::TestCase
         FlexMock.use do |mock|
             ev.on { |ev| mock.called_other_handler }
             ev.on { |ev| raise ArgumentError }
-            ev.once { mock.called_other_once_handler }
+            ev.once { |ev| mock.called_other_once_handler }
 
             mock.should_receive(:called_other_handler).once
             mock.should_receive(:called_other_once_handler).once
