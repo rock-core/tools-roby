@@ -1013,7 +1013,7 @@ class TC_Transactions < Test::Unit::TestCase
         expected << t.execute_handlers[0]
 
         transaction_commit(plan, t) do |trsc, p|
-            p.execute { }
+            p.execute { |_| }
             assert_equal expected, t.execute_handlers
             expected << p.execute_handlers[0]
         end
@@ -1030,7 +1030,7 @@ class TC_Transactions < Test::Unit::TestCase
         expected << t.poll_handlers[0]
 
         transaction_commit(plan, t) do |trsc, p|
-            p.poll { }
+            p.poll { |_| }
             assert_equal expected, t.poll_handlers
             expected << p.poll_handlers[0]
         end
