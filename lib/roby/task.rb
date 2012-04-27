@@ -558,13 +558,14 @@ module Roby
     #
     # Moreover, two hooks #updating and #updated allow to hook into the argument
     # update system.
-    class TaskArguments < Hash
-	private :delete, :delete_if
-
+    class TaskArguments
 	attr_reader :task
+        attr_reader :values
+
 	def initialize(task)
 	    @task   = task
             @static = true
+            @values = Hash.new
 	    super()
 	end
 
@@ -572,23 +573,39 @@ module Roby
             @static
         end
 
+        def has_key?(value)
+            values.has_key?(value)
+        end
+
 	def writable?(key, value)
             if has_key?(key)
                 !task.model.arguments.include?(key) ||
-                    fetch(key).respond_to?(:evaluate_delayed_argument) && !value.respond_to?(:evaluate_delayed_argument)
+                    values[key].respond_to?(:evaluate_delayed_argument) && !value.respond_to?(:evaluate_delayed_argument)
             else
                 true
             end
 	end
 
+        def slice(*args)
+            values.slice(*args)
+        end
+
 	def dup; self.to_hash end
 	def to_hash
-	    inject({}) { |h, (k, v)| h[k] = v ; h }
+	    values.dup
 	end
 
 	def set?(key)
-	    has_key?(key) && !fetch(key).respond_to?(:evaluate_delayed_argument)
+	    has_key?(key) && !values.fetch(key).respond_to?(:evaluate_delayed_argument)
 	end
+
+        def ==(hash)
+            to_hash == hash.to_hash
+        end
+
+        def to_s
+            values.to_s
+        end
 
 	def each_static
 	    each do |key, value|
@@ -598,7 +615,16 @@ module Roby
 	    end
 	end
 
-	alias :update! :[]=
+        def each
+            values.each do |key, value|
+                yield(key, value)
+            end
+        end
+
+	def update!(key, value)
+            values[key] = value
+        end
+
 	def []=(key, value)
             key = key.to_sym if key.respond_to?(:to_str)
 	    if writable?(key, value)
@@ -608,20 +634,20 @@ module Roby
 
                 if value.respond_to?(:evaluate_delayed_argument)
                     @static = false
-                elsif has_key?(key) && fetch(key).respond_to?(:evaluate_delayed_argument)
+                elsif values.has_key?(key) && values[key].respond_to?(:evaluate_delayed_argument)
                     update_static = true
                 end
 
 		updating
-		super
+		values[key] = value
 		updated
 
                 if update_static
-                    @static = all? { |k, v| !v.respond_to?(:evaluate_delayed_argument) }
+                    @static = values.all? { |k, v| !v.respond_to?(:evaluate_delayed_argument) }
                 end
                 value
 	    else
-		raise ArgumentError, "cannot override task argument #{key} as it is already set to #{fetch(key)}"
+		raise ArgumentError, "cannot override task argument #{key} as it is already set to #{values[key]}"
 	    end
 	end
 	def updating; super if defined? super end
@@ -629,7 +655,7 @@ module Roby
 
         def [](key)
             key = key.to_sym if key.respond_to?(:to_str)
-            value = super(key)
+            value = values[key]
             if !value.respond_to?(:evaluate_delayed_argument)
                 value
             end
@@ -638,7 +664,7 @@ module Roby
         # Returns this argument set, but with the delayed arguments evaluated
         def evaluate_delayed_arguments
             result = Hash.new
-            each do |key, val|
+            values.each do |key, val|
                 if val.respond_to?(:evaluate_delayed_argument)
                     catch(:no_value) do
                         result[key] = val.evaluate_delayed_argument(task)
@@ -650,9 +676,12 @@ module Roby
             result
         end
 
-	alias :do_merge! :merge!
+        def force_merge!(hash)
+            values.merge!(hash)
+        end
+
 	def merge!(hash)
-	    super do |key, old, new|
+	    values.merge!(hash) do |key, old, new|
 		if old == new then old
 		elsif writable?(key, new) then new
 		else
@@ -660,6 +689,8 @@ module Roby
 		end
 	    end
 	end
+
+        include Enumerable
     end
 
     # Placeholder that can be used as an argument, to delay the assignation
@@ -1275,7 +1306,7 @@ module Roby
 	    @history = old.history.dup
 
 	    @arguments = TaskArguments.new(self)
-	    arguments.do_merge! old.arguments
+	    arguments.force_merge! old.arguments
 	    arguments.instance_variable_set(:@task, self)
 
 	    @instantiated_model_events = false
