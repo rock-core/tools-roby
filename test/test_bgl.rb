@@ -147,6 +147,30 @@ class TC_BGL < Test::Unit::TestCase
 	assert(v2.parent_vertex?(v3, g2))
     end
 
+    def test_graph_root_p
+	g1 = Graph.new
+	v1, v2, v3, v4 = Vertex.new, Vertex.new, Vertex.new, Vertex.new
+        g1.insert(v3)
+	g1.link v1, v2, nil
+
+        assert g1.root?(v1)
+        assert !g1.root?(v2)
+        assert g1.root?(v3)
+        assert g1.root?(v4)
+    end
+
+    def test_graph_leaf_p
+	g1 = Graph.new
+	v1, v2, v3, v4 = Vertex.new, Vertex.new, Vertex.new, Vertex.new
+	g1.link v1, v2, nil
+        g1.insert(v3)
+
+        assert !g1.leaf?(v1)
+        assert g1.leaf?(v2)
+        assert g1.leaf?(v3)
+        assert g1.leaf?(v4)
+    end
+
     def test_end_predicates
 	g1, g2 = Graph.new, Graph.new
 

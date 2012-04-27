@@ -1,7 +1,5 @@
-Utilrb.unless_ext do
-    raise LoadError, "Roby needs Utilrb's C extension to be compiled"
-end
-
+require 'utilrb/object/attribute'
+require 'roby_bgl'
 module BGL
     module Vertex
         def initialize(*args, &block)

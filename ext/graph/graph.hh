@@ -36,7 +36,7 @@ inline RubyGraph& graph_wrapped(VALUE self)
     return *object;
 }
 
-extern graph_map& vertex_descriptor_map(VALUE self);
+extern graph_map* vertex_descriptor_map(VALUE self, bool create);
 
 /* Return the vertex_descriptor of +self+ in +graph+. The boolean is true if
  * +self+ is in graph, and false otherwise.
@@ -44,9 +44,11 @@ extern graph_map& vertex_descriptor_map(VALUE self);
 inline std::pair<RubyGraph::vertex_descriptor, bool> 
 rb_to_vertex(VALUE vertex, VALUE graph)
 {
-    graph_map& descriptors = vertex_descriptor_map(vertex);
-    graph_map::iterator it = descriptors.find(graph);
-    if(it == descriptors.end())
+    graph_map* descriptors = vertex_descriptor_map(vertex, false);
+    if (!descriptors)
+        return std::make_pair(static_cast<void*>(0), false);
+    graph_map::iterator it = descriptors->find(graph);
+    if(it == descriptors->end())
 	return std::make_pair(static_cast<void*>(0), false);
     else
 	return std::make_pair(it->second, true);
@@ -56,7 +58,7 @@ rb_to_vertex(VALUE vertex, VALUE graph)
  */
 inline std::pair<graph_map::iterator, graph_map::iterator> vertex_descriptors(VALUE self)
 {
-    graph_map& descriptors = vertex_descriptor_map(self);
+    graph_map& descriptors = *vertex_descriptor_map(self, true);
     return make_pair(descriptors.begin(), descriptors.end());
 }
 

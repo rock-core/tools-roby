@@ -145,7 +145,7 @@ static
 VALUE graph_insert(VALUE self, VALUE vertex)
 {
     RubyGraph&	graph = graph_wrapped(self);
-    graph_map&  vertex_graphs = vertex_descriptor_map(vertex);
+    graph_map&  vertex_graphs = *vertex_descriptor_map(vertex, true);
 
     graph_map::iterator it;
     bool inserted;
@@ -166,15 +166,17 @@ static
 VALUE graph_remove(VALUE self, VALUE vertex)
 {
     RubyGraph&	graph = graph_wrapped(self);
-    graph_map&  vertex_graphs = vertex_descriptor_map(vertex);
+    graph_map*  vertex_graphs = vertex_descriptor_map(vertex, false);
+    if (!vertex_graphs)
+        return self;
 
-    graph_map::iterator it = vertex_graphs.find(self);
-    if (it == vertex_graphs.end())
+    graph_map::iterator it = vertex_graphs->find(self);
+    if (it == vertex_graphs->end())
 	return self;
 
     clear_vertex(it->second, graph);
     remove_vertex(it->second, graph);
-    vertex_graphs.erase(it);
+    vertex_graphs->erase(it);
     return self;
 }
 
@@ -193,7 +195,7 @@ VALUE graph_clear(VALUE self)
     for (vertex_iterator it = begin; it != end; ++it)
     {
         VALUE vertex_value = graph[*it];
-        graph_map&  vertex_graphs = vertex_descriptor_map(vertex_value);
+        graph_map& vertex_graphs = *vertex_descriptor_map(vertex_value, false);
 
         graph_map::iterator it = vertex_graphs.find(self);
         vertex_graphs.erase(it);
@@ -336,22 +338,22 @@ static void vertex_mark(graph_map* map)
 }
 
 /* Returns the graph => descriptor map for +self+ */
-graph_map& vertex_descriptor_map(VALUE self)
+graph_map* vertex_descriptor_map(VALUE self, bool create)
 {
-    graph_map* map;
+    graph_map* map = 0;
     VALUE descriptors = rb_ivar_get(self, id_rb_graph_map);
     if (RTEST(descriptors))
     {
 	Data_Get_Struct(descriptors, graph_map, map);
     }
-    else
+    else if (create)
     {
 	map = new graph_map;
 	VALUE rb_map = Data_Wrap_Struct(rb_cObject, vertex_mark, vertex_free, map);
 	rb_ivar_set(self, id_rb_graph_map, rb_map);
     }
 
-    return *map;
+    return map;
 }
 
 /*
@@ -362,8 +364,11 @@ graph_map& vertex_descriptor_map(VALUE self)
  */
 static VALUE vertex_each_graph(VALUE self)
 {
-    graph_map& graphs = vertex_descriptor_map(self);
-    for (graph_map::iterator it = graphs.begin(); it != graphs.end();)
+    graph_map* graphs = vertex_descriptor_map(self, false);
+    if (!graphs)
+        return self;
+
+    for (graph_map::iterator it = graphs->begin(); it != graphs->end();)
     {
 	VALUE graph = it->first;
 	// increment before calling rb_yield since the block
@@ -555,6 +560,29 @@ static VALUE vertex_set_info(VALUE self, VALUE child, VALUE rb_graph, VALUE new_
     return (graph[e].info = new_value);
 }
 
+/*
+ * call-seq:
+ *   graph.root?(vertex)
+ *
+ * Checks if +vertex+ is a root node in +graph+ (it has no parents)
+ */
+static VALUE graph_root_p(VALUE graph, VALUE vertex)
+{
+    VALUE argv[1] = { graph };
+    return vertex_has_adjacent<false>(1, argv, vertex);
+}
+
+/*
+ * call-seq:
+ *   graph.leaf?(vertex)
+ *
+ * Checks if +vertex+ is a leaf node in +graph+ (it has no parents)
+ */
+static VALUE graph_leaf_p(VALUE graph, VALUE vertex)
+{
+    VALUE argv[1] = { graph };
+    return vertex_has_adjacent<true>(1, argv, vertex);
+}
 
 /*
  * call-seq:
@@ -596,6 +624,8 @@ extern "C" void Init_roby_bgl()
     rb_define_method(bglGraph, "empty?",	RUBY_METHOD_FUNC(graph_empty_p), 0);
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
+    rb_define_method(bglGraph, "root?", RUBY_METHOD_FUNC(graph_root_p), 1);
+    rb_define_method(bglGraph, "leaf?", RUBY_METHOD_FUNC(graph_leaf_p), 1);
     rb_define_method(bglGraph, "clear",	RUBY_METHOD_FUNC(graph_clear), 0);
 
     bglVertex = rb_define_module_under(bglModule, "Vertex");
