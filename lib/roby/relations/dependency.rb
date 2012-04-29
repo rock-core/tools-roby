@@ -558,7 +558,7 @@ module Roby::TaskStructure
         def check_structure(plan)
             result = []
 
-            events = Hierarchy.interesting_events
+            events = Dependency.interesting_events
             return result if events.empty? && failing_tasks.empty?
 
             # Get the set of tasks for which a possible failure has been
