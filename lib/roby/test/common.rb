@@ -224,6 +224,10 @@ module Roby
 			Roby.warn "  the following vertices are still present in #{rel}: #{vertices.to_a}"
 			vertices.each { |v| v.clear_vertex }
 		    end
+                    if rel.respond_to?(:task_graph) && !rel.task_graph.empty?
+			Roby.warn "  the task graph for #{rel} is not empty while its corresponding relation graph is"
+			rel.task_graph.clear
+                    end
 		end
 	    end
 
