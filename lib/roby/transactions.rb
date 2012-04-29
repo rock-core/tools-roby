@@ -519,6 +519,7 @@ module Roby
 	end
 
 	def clear
+            auto_tasks.clear
 	    discarded_tasks.clear
 	    proxy_objects.each_value { |proxy| proxy.clear_relations }
 	    proxy_objects.clear
