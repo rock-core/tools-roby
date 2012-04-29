@@ -528,14 +528,16 @@ module Roby
                 end
             end
 
-	    self.plan = nil
-            if EventGenerator.debug_finalization_place?
-                self.removed_at = caller
-            else
-                self.removed_at = []
+            if root_object?
+                self.plan = nil
+                if EventGenerator.debug_finalization_place?
+                    self.removed_at = caller
+                else
+                    self.removed_at = []
+                end
+                self.finalization_time = timestamp || Time.now
+                self.finalized = true
             end
-            self.finalization_time = timestamp || Time.now
-            self.finalized = true
         end
 
         # call-seq:

@@ -451,17 +451,6 @@ module Roby
 	    (object.owners - owners).empty?
 	end
 
-	# Remove all tasks
-	def clear
-	    @known_tasks.each { |t| t.clear_relations }
-	    @known_tasks.clear
-	    @free_events.each { |e| e.clear_relations }
-	    @free_events.clear
-	    @missions.clear
-	    @permanent_tasks.clear
-	    @permanent_events.clear
-	end
-
         def force_replace_task(from, to)
             handle_force_replace(from, to) do
 		from.replace_by(to)
@@ -1012,10 +1001,7 @@ module Roby
             remove_object(object)
         end
 
-        # Remove +object+ from this plan. You usually don't have to do that
-        # manually. Object removal is handled by the plan's garbage collection
-        # mechanism.
-	def remove_object(object, timestamp = nil)
+        def finalize_object(object, timestamp = nil)
 	    if !object.root_object?
 		raise ArgumentError, "cannot remove #{object} which is a non-root object"
 	    elsif object.plan != self
@@ -1040,28 +1026,17 @@ module Roby
 	    # that case these new objects will be discovered as well
 	    object.clear_relations
 
-	    @free_events.delete(object)
-	    @missions.delete(object)
             if object.respond_to? :mission=
                 object.mission = false
             end
-	    @known_tasks.delete(object)
-	    @permanent_tasks.delete(object)
-	    @permanent_events.delete(object)
-	    force_gc.delete(object)
-
-            object.finalized!(timestamp)
 
 	    case object
 	    when EventGenerator
 		finalized_event(object)
 
 	    when Task
-		task_index.remove(object)
-
-		for ev in object.bound_events.values
-		    task_events.delete(ev)
-		    finalized_event(ev)
+		for ev in object.bound_events
+		    finalized_event(ev[1])
 		end
 		finalized_task(object)
 
@@ -1069,8 +1044,60 @@ module Roby
 		raise ArgumentError, "unknown object type #{object}"
 	    end
 
+            object.each_plan_child do |child|
+                child.finalized!(timestamp)
+            end
+            object.finalized!(timestamp)
+        end
+
+        # Remove +object+ from this plan. You usually don't have to do that
+        # manually. Object removal is handled by the plan's garbage collection
+        # mechanism.
+	def remove_object(object, timestamp = nil)
+	    @free_events.delete(object)
+	    @missions.delete(object)
+	    @known_tasks.delete(object)
+	    @permanent_tasks.delete(object)
+	    @permanent_events.delete(object)
+	    @force_gc.delete(object)
+            @task_index.remove(object)
+            
+            case object
+            when Task
+                for ev in object.bound_events
+		    @task_events.delete(ev[1])
+                end
+            end
+
+            finalize_object(object, timestamp)
+
 	    self
 	end
+
+	# Remove all tasks
+	def clear
+	    known_tasks, @known_tasks = @known_tasks, ValueSet.new
+	    free_events, @free_events = @free_events, ValueSet.new
+
+	    @free_events.clear
+	    @missions.clear
+	    @known_tasks.clear
+	    @permanent_tasks.clear
+	    @permanent_events.clear
+            @force_gc.clear
+            @task_index.clear
+            @task_events.clear
+
+            known_tasks.each do |t|
+                finalize_object(t)
+            end
+	    free_events.each do |e|
+                finalize_object(e)
+            end
+
+            self
+	end
+
 
 	# Hook called when +task+ is marked as garbage. It will be garbage
 	# collected as soon as possible
