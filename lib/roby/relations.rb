@@ -505,6 +505,13 @@ module Roby
             end
         end
 
+        def remove(event)
+            super
+            if event.respond_to?(:task)
+                task_graph.remove(event.task)
+            end
+        end
+
         def unlink(from, to)
             super
             if from.respond_to?(:task) && to.respond_to?(:task)

@@ -321,6 +321,13 @@ class TC_Relations < Test::Unit::TestCase
 
         ea.remove_child(eb)
         assert(!r.related_tasks?(ta, tb))
+        assert(r.task_graph.include?(ta))
+        assert(r.task_graph.include?(tb))
+
+        ea.clear_vertex
+        eb.clear_vertex
+        assert(!r.task_graph.include?(ta))
+        assert(!r.task_graph.include?(tb))
     end
 end
 
