@@ -211,6 +211,12 @@ module Roby
 	    if defined? Roby::EventStructure
 		spaces << Roby::EventStructure
 	    end
+            if !plan.transactions.empty?
+                Roby.warn "  #{plan.transactions.size} transactions left attached to the plan"
+                plan.transactions.each do |trsc|
+                    trsc.discard_transaction
+                end
+            end
 	    spaces.each do |space|
 		space.relations.each do |rel| 
 		    vertices = rel.enum_for(:each_vertex).to_a
