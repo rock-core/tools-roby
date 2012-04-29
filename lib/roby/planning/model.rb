@@ -230,6 +230,11 @@ module Roby
         end
 
         class FreeMethod < MethodDefinition
+            def initialize(name, options, body)
+                check_arity(body, 1)
+                super
+            end
+
             def call(planner); planner.instance_eval(&body) end
         end
 
