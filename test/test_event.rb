@@ -943,6 +943,9 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_when_unreachable_event
+        mock = flexmock
+        mock.should_receive(:unreachable_fired).never
+
         plan.add(ev = EventGenerator.new(true))
         ev.when_unreachable.on { |ev| mock.unreachable_fired }
         ev.call
