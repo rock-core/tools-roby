@@ -27,10 +27,24 @@ module Roby
 
         def initialize_copy(source)
             super
-            @by_model = source.by_model.dup
-            @by_state = source.by_state.dup
+	    @by_model = Hash.new { |h, k| h[k] = ValueSet.new }
+            source.by_model.each do |model, set|
+                by_model[model] = set.dup
+            end
+
+            @by_state = Hash.new
+            source.by_state.each do |state, set|
+                by_state[state] = set.dup
+            end
             @by_owner = source.by_owner.dup
             @repaired_tasks = source.repaired_tasks.dup
+        end
+
+        def clear
+            @by_model.clear
+            @by_state.each_value(&:clear)
+            @by_owner.clear
+            @repaired_tasks.clear
         end
 
         # Add a new task to this index
