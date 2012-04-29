@@ -22,7 +22,6 @@ module Roby
 		by_state[state_name] = ValueSet.new
 	    end
 	    @by_owner = Hash.new
-	    @task_state = Hash.new
 	    @repaired_tasks = ValueSet.new
 	end
 
