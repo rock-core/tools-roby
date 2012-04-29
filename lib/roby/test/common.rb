@@ -160,6 +160,18 @@ module Roby
                 engine.join
 	    end
 
+            plan.permanent_tasks.clear
+            plan.permanent_events.clear
+            plan.missions.clear
+            loop do
+                if plan.gc_quarantine.size == plan.known_tasks.size
+                    break
+                end
+                process_events
+            end
+            if !plan.empty?
+                STDERR.puts "failed to teardown: plan has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
+            end
 	    plan.clear
 
 	ensure
