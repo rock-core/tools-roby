@@ -420,7 +420,6 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
 
         task.stop!
         assert(pred.evaluate(task))
-        pp pred.explain_true(task)
         assert_explained_by(true, first_pred,  [task.start_event.last, task.failed_event.last], pred.explain_true(task))
 
         plan.add(task = TaskModel.new)
