@@ -220,7 +220,7 @@ module Roby
 	    spaces.each do |space|
 		space.relations.each do |rel| 
 		    vertices = rel.enum_for(:each_vertex).to_a
-		    unless vertices.empty?
+		    if !vertices.empty?
 			Roby.warn "  the following vertices are still present in #{rel}: #{vertices.to_a}"
 			vertices.each { |v| v.clear_vertex }
 		    end
