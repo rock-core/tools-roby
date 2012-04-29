@@ -984,6 +984,12 @@ module Roby
 	# event generators +collection+ is listening for.
 	def self.event_gathering; @@event_gathering end
 
+        # Called when the object has been removed from its plan
+        def finalized!(timestamp = nil)
+            super
+            EventGenerator.event_gathering.delete(self)
+        end
+
         # True if this event is unreachable, i.e. if it will never be emitted
         # anymore
 	attr_predicate :unreachable?

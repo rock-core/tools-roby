@@ -2044,5 +2044,34 @@ class TC_Task < Test::Unit::TestCase
         assert_equal(planner, planner_task.planner_model)
         assert_equal("m1", planner_task.method_name)
     end
+    
+    def test_gather_events_cleanup_on_removal
+        plan.add(task = Roby::Task.new)
+        EventGenerator.gather_events([], [task.start_event])
+        assert(EventGenerator.event_gathering.has_key?(task.start_event))
+        plan.remove_object(task)
+        assert(!EventGenerator.event_gathering.has_key?(task.start_event))
+    end
+
+    def test_gather_events_cleanup_on_transaction_removal
+        task = nil
+        plan.in_transaction do |trsc|
+            plan.add(task = Roby::Task.new)
+            EventGenerator.gather_events([], [task.start_event])
+            assert(EventGenerator.event_gathering.has_key?(task.start_event))
+            trsc.commit_transaction
+        end
+        assert(EventGenerator.event_gathering.has_key?(task.start_event))
+
+        plan.in_transaction do |trsc|
+            plan.add(task = Roby::Task.new)
+            EventGenerator.gather_events([], [task.start_event])
+            assert(EventGenerator.event_gathering.has_key?(task.start_event))
+            trsc.discard_transaction
+        end
+        assert(!EventGenerator.event_gathering.has_key?(task.start_event),
+            "event gathering kept for discarded event")
+    end
+
 end
 

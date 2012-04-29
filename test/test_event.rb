@@ -864,11 +864,32 @@ class TC_Event < Test::Unit::TestCase
 
 	# Check that the triggering events are cleared when the events are
 	# removed from the plan
-	collection.clear
+        assert(EventGenerator.event_gathering.has_key?(e1))
 	plan.remove_object(e1)
         assert(!EventGenerator.event_gathering.has_key?(e1))
 
 	EventGenerator.remove_event_gathering(collection)
+    end
+
+    def test_setup_gather_events_in_transaction
+        e = nil
+        plan.in_transaction do |trsc|
+            trsc.add(e = EventGenerator.new)
+            EventGenerator.gather_events([], [e])
+            assert(EventGenerator.event_gathering.has_key?(e))
+            trsc.commit_transaction
+        end
+        assert(EventGenerator.event_gathering.has_key?(e))
+        plan.remove_object(e)
+        assert(!EventGenerator.event_gathering.has_key?(e))
+
+        plan.in_transaction do |trsc|
+            trsc.add(e = EventGenerator.new)
+            EventGenerator.gather_events([], [e])
+            assert(EventGenerator.event_gathering.has_key?(e))
+            trsc.discard_transaction
+        end
+        assert(!EventGenerator.event_gathering.has_key?(e), "event gathering kept for discarded event")
     end
 
     def test_achieve_with
