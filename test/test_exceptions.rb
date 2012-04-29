@@ -518,8 +518,11 @@ class TC_Exceptions < Test::Unit::TestCase
                 raise ArgumentError
             end
         end
-        task = prepare_plan :permanent => 1, :model => model
-        error = begin task.start!
+        task = prepare_plan :add => 1, :model => model
+        error = begin
+                    with_log_level(Roby, Logger::FATAL) do
+                        task.start!
+                    end
                 rescue Exception => e; e
                 end
         check_exception_formatting(e)
@@ -592,7 +595,9 @@ class TC_Exceptions < Test::Unit::TestCase
             end
             mock.should_receive(:called).once
             child.stop!
-            process_events
+            with_log_level(Roby, Logger::FATAL) do
+                process_events
+            end
             assert(parent.running?)
             assert(!child.running?)
         end

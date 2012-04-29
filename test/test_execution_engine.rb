@@ -335,7 +335,9 @@ class TC_ExecutionEngine < Test::Unit::TestCase
                    find { |_, _, _, target, _| target == sink1.start_event })
 
 	    current_time += 0.1
-	    process_events
+            # Avoid unnecessary error messages
+            plan.unmark_permanent(sink0)
+            plan.unmark_permanent(sink1)
 	end
     end
 

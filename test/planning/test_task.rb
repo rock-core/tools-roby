@@ -16,7 +16,12 @@ class TC_PlanningTask < Test::Unit::TestCase
         assert(planning_task)
 	plan.add_permanent(planning_task)
 	planning_task.start! if planning_task.pending?
-	planning_task.thread.join
+        begin
+            planning_task.thread.join
+        rescue Exception => e
+            pp e
+            raise
+        end
 	process_events
 	assert(planning_task.success?, "#{planning_task} did not finish successfully: #{planning_task.terminal_event.context}")
 	planning_task.planned_task
@@ -114,7 +119,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 	plan.add_permanent(planning_task)
         planning_task.start!
         loop { sleep 0.1 ; break if started }
-        planning_task.stop!
+	plan.unmark_permanent(planning_task)
         loop do
             begin
                 process_events
@@ -154,7 +159,7 @@ class TC_PlanningTask < Test::Unit::TestCase
         FlexMock.use do |mock|
             mock.should_receive(:method_called).with(:context => nil, :arg => 10).once
 
-            body = lambda do
+            body = proc do |planner|
                 mock.method_called(arguments)
                 Roby::Task.new(:id => 'result_of_lambda')
             end
