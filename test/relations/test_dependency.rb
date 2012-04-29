@@ -323,6 +323,8 @@ class TC_RealizedBy < Test::Unit::TestCase
         assert_equal([[klass], { :id => 'discover-3' }], t_child.fullfilled_model)
         trsc.remove_object(t_p2)
         assert_equal([[klass], { :id => 'discover-3' }], t_child.fullfilled_model)
+    ensure
+        trsc.discard_transaction if trsc
     end
 
     def test_first_children

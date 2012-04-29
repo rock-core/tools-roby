@@ -81,8 +81,9 @@ class TC_Query < Test::Unit::TestCase
 	plan.add_mission(t1)
 	plan.add_mission(t2)
 
-	trsc = Transaction.new(plan)
-	check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])
+        plan.in_transaction do |trsc|
+            check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])
+        end
     end
 
     def assert_query_finds_tasks(task_set)
@@ -173,49 +174,51 @@ class TC_Query < Test::Unit::TestCase
     def test_merged_generated_subgraphs
 	(d1, d2, d3, d4, d5, d6), t1 = prepare_plan :add => 6, :tasks => 1
 
-	trsc = Transaction.new(plan)
-	d1.depends_on d2
-	d2.depends_on d3
-	d4.depends_on d5
-	d5.depends_on d6
+        plan.in_transaction do |trsc|
+            d1.depends_on d2
+            d2.depends_on d3
+            d4.depends_on d5
+            d5.depends_on d6
 
-	# Add a new relation which connects two components. Beware that
-	# modifying trsc[d3] and trsc[d4] makes d2 and d5 proxies to be
-	# discovered
-	trsc[d3].depends_on t1
-	t1.depends_on trsc[d4]
-	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
-	assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
-	assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
-	
-	# Remove the relation and check the result
-	trsc[d3].remove_child t1
-	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
-	assert_equal([d1, d2].to_value_set, plan_set)
-	assert_equal([trsc[d3]].to_value_set, trsc_set)
-	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [], [t1])
-	assert_equal([d5, d6].to_value_set, plan_set)
-	assert_equal([t1, trsc[d4]].to_value_set, trsc_set)
+            # Add a new relation which connects two components. Beware that
+            # modifying trsc[d3] and trsc[d4] makes d2 and d5 proxies to be
+            # discovered
+            trsc[d3].depends_on t1
+            t1.depends_on trsc[d4]
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
+            assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
+            assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
+            
+            # Remove the relation and check the result
+            trsc[d3].remove_child t1
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
+            assert_equal([d1, d2].to_value_set, plan_set)
+            assert_equal([trsc[d3]].to_value_set, trsc_set)
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [], [t1])
+            assert_equal([d5, d6].to_value_set, plan_set)
+            assert_equal([t1, trsc[d4]].to_value_set, trsc_set)
 
-	# Remove a plan relation inside the transaction, and check it is taken into account
-	trsc[d2].remove_child trsc[d3]
-	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
-	assert_equal([d1].to_value_set, plan_set)
-	assert_equal([trsc[d2]].to_value_set, trsc_set)
+            # Remove a plan relation inside the transaction, and check it is taken into account
+            trsc[d2].remove_child trsc[d3]
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
+            assert_equal([d1].to_value_set, plan_set)
+            assert_equal([trsc[d2]].to_value_set, trsc_set)
+        end
     end
 
     def test_roots
 	(t1, t2, t3), (tr1, tr2, tr3) = prepare_plan :add => 3, :tasks => 3
-	trsc = Transaction.new(plan)
-	[tr1, tr2, tr3].each { |t| trsc.add(t) }
+        plan.in_transaction do |trsc|
+            [tr1, tr2, tr3].each { |t| trsc.add(t) }
 
-	assert_equal([t1, t2, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
-	t1.depends_on t2
-	assert_equal([t1, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
+            assert_equal([t1, t2, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
+            t1.depends_on t2
+            assert_equal([t1, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
 
-	tr1.depends_on tr2
-	trsc[t3].depends_on tr3
-	assert_equal([trsc[t1], trsc[t3], tr1].to_value_set, trsc.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
+            tr1.depends_on tr2
+            trsc[t3].depends_on tr3
+            assert_equal([trsc[t1], trsc[t3], tr1].to_value_set, trsc.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
+        end
     end
 
     def test_child_match
@@ -283,21 +286,22 @@ class TC_Query < Test::Unit::TestCase
     def test_child_in_transactions
 	(t1, t2), t3 = prepare_plan :add => 2, :tasks => 1, :model => Tasks::Simple
         t1.depends_on t2
-	trsc = Transaction.new(plan)
-        trsc[t2].depends_on t3
+        plan.in_transaction do |trsc|
+            trsc[t2].depends_on t3
 
-        assert_equal(3, trsc.find_tasks(t1.model).to_a.size)
-        child_match = TaskMatcher.which_fullfills(Tasks::Simple, :id => 1)
-        assert_equal([], trsc.find_tasks(t1.model).
-            with_child(child_match).to_a)
+            assert_equal(3, trsc.find_tasks(t1.model).to_a.size)
+            child_match = TaskMatcher.which_fullfills(Tasks::Simple, :id => 1)
+            assert_equal([], trsc.find_tasks(t1.model).
+                with_child(child_match).to_a)
 
-        child_match = TaskMatcher.which_fullfills(Tasks::Simple)
-        assert_equal([trsc[t1], trsc[t2]].to_set, trsc.find_tasks(t1.model).
-            with_child(child_match).to_set)
+            child_match = TaskMatcher.which_fullfills(Tasks::Simple)
+            assert_equal([trsc[t1], trsc[t2]].to_set, trsc.find_tasks(t1.model).
+                with_child(child_match).to_set)
 
-        child_match = TaskMatcher.which_fullfills(Tasks::Simple, :id => t2.arguments[:id])
-        assert_equal([trsc[t1]].to_set, trsc.find_tasks(t1.model).
-            with_child(child_match).to_set)
+            child_match = TaskMatcher.which_fullfills(Tasks::Simple, :id => t2.arguments[:id])
+            assert_equal([trsc[t1]].to_set, trsc.find_tasks(t1.model).
+                with_child(child_match).to_set)
+        end
     end
 
     def test_parent_match
@@ -340,22 +344,23 @@ class TC_Query < Test::Unit::TestCase
     def test_parent_in_transaction
 	(t1, t2), t3 = prepare_plan :add => 2, :tasks => 1, :model => Tasks::Simple
         t1.depends_on t2
-	trsc = Transaction.new(plan)
-        trsc[t2].depends_on t3
+        plan.in_transaction do |trsc|
+            trsc[t2].depends_on t3
 
-        assert_equal(3, trsc.find_tasks(Tasks::Simple).to_a.size)
+            assert_equal(3, trsc.find_tasks(Tasks::Simple).to_a.size)
 
-        parent_match = TaskMatcher.which_fullfills(Tasks::Simple, :id => 1)
-        assert_equal([], trsc.find_tasks(Tasks::Simple).
-            with_parent(parent_match).to_a)
+            parent_match = TaskMatcher.which_fullfills(Tasks::Simple, :id => 1)
+            assert_equal([], trsc.find_tasks(Tasks::Simple).
+                with_parent(parent_match).to_a)
 
-        parent_match = TaskMatcher.which_fullfills(Tasks::Simple)
-        assert_equal([trsc[t2], t3].to_set, trsc.find_tasks(Tasks::Simple).
-            with_parent(parent_match).to_set)
+            parent_match = TaskMatcher.which_fullfills(Tasks::Simple)
+            assert_equal([trsc[t2], t3].to_set, trsc.find_tasks(Tasks::Simple).
+                with_parent(parent_match).to_set)
 
-        parent_match = TaskMatcher.which_fullfills(Tasks::Simple, :id => t2.arguments[:id])
-        assert_equal([t3].to_set, trsc.find_tasks(Tasks::Simple).
-            with_parent(parent_match).to_set)
+            parent_match = TaskMatcher.which_fullfills(Tasks::Simple, :id => t2.arguments[:id])
+            assert_equal([t3].to_set, trsc.find_tasks(Tasks::Simple).
+                with_parent(parent_match).to_set)
+        end
     end
 
     def test_transactions_simple
@@ -366,31 +371,32 @@ class TC_Query < Test::Unit::TestCase
 	t1.depends_on t2
 	plan.add(t1)
 
-	trsc = Transaction.new(plan)
-	assert(trsc.find_tasks.which_fullfills(Tasks::Simple).to_a.empty?)
-	assert(!trsc.include?(t1))
-	assert(!trsc.include?(t2))
-	assert(!trsc.include?(t3))
+        plan.in_transaction do |trsc|
+            assert(trsc.find_tasks.which_fullfills(Tasks::Simple).to_a.empty?)
+            assert(!trsc.include?(t1))
+            assert(!trsc.include?(t2))
+            assert(!trsc.include?(t3))
 
-	result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
-	assert_equal([trsc[t1]], result)
-	assert(!trsc.include?(t2))
-	assert(!trsc.include?(t3))
+            result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
+            assert_equal([trsc[t1]], result)
+            assert(!trsc.include?(t2))
+            assert(!trsc.include?(t3))
 
-	# Now that the proxy is in the transaction, check that it is still
-	# found by the query
-	result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
-	assert_equal([trsc[t1]], result)
+            # Now that the proxy is in the transaction, check that it is still
+            # found by the query
+            result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
+            assert_equal([trsc[t1]], result)
 
-	trsc.add(t3)
-	result = trsc.find_tasks.which_fullfills(model, :id => 3).to_a
-	assert_equal([t3], result)
+            trsc.add(t3)
+            result = trsc.find_tasks.which_fullfills(model, :id => 3).to_a
+            assert_equal([t3], result)
 
-	# Commit the transaction and check that the tasks are added to the plan
-	# index
-	trsc.commit_transaction
-	result = plan.find_tasks.which_fullfills(model, :id => 3).to_a
-	assert_equal([t3], result)
+            # Commit the transaction and check that the tasks are added to the plan
+            # index
+            trsc.commit_transaction
+            result = plan.find_tasks.which_fullfills(model, :id => 3).to_a
+            assert_equal([t3], result)
+        end
     end
 end
 
