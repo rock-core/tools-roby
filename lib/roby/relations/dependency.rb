@@ -453,6 +453,14 @@ module Roby::TaskStructure
 	# The set of tasks that are currently failing 
 	attribute(:failing_tasks) { ValueSet.new }
 
+        def remove(obj)
+            super
+            failing_tasks.delete(obj)
+            obj.each_event do |ev|
+                interesting_events.delete(ev)
+            end
+        end
+
         def merge_fullfilled_model(model, required_models, required_arguments)
             model, tags, arguments = *model
 
