@@ -25,8 +25,11 @@ struct EdgeProperty
 	: info(info) { }
 };
 
-typedef boost::adjacency_list< boost::setS, boost::setS
-		      , boost::bidirectionalS, VALUE, EdgeProperty>	RubyGraph;
+struct RubyGraph : public boost::adjacency_list< boost::setS, boost::setS
+		      , boost::bidirectionalS, VALUE, EdgeProperty>
+{
+    std::string name;
+};
 typedef std::map<VALUE, RubyGraph::vertex_descriptor>	graph_map;
 
 inline RubyGraph& graph_wrapped(VALUE self)

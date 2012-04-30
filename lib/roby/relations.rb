@@ -237,6 +237,7 @@ module Roby
 	# +distributed+:: 
         #   if this relation graph should be seen by remote hosts
 	def initialize(name, options = {})
+            self.name = name
 	    @name    = name
 	    @options = options
 	    @subsets = ValueSet.new

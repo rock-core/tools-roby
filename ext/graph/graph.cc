@@ -570,6 +570,12 @@ static VALUE vertex_root_p(int argc, VALUE* argv, VALUE self)
 static VALUE vertex_leaf_p(int argc, VALUE* argv, VALUE self)
 { return vertex_has_adjacent<true>(argc, argv, self); }
 
+static VALUE graph_set_name(VALUE self, VALUE name)
+{
+    RubyGraph& graph = graph_wrapped(self);
+    graph.name = StringValuePtr(name);
+}
+
 void Init_graph_algorithms();
 extern "C" void Init_roby_bgl()
 {
@@ -592,6 +598,7 @@ extern "C" void Init_roby_bgl()
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
     rb_define_method(bglGraph, "clear",	RUBY_METHOD_FUNC(graph_clear), 0);
+    rb_define_method(bglGraph, "name=",	RUBY_METHOD_FUNC(graph_set_name), 1);
 
     bglVertex = rb_define_module_under(bglModule, "Vertex");
     rb_define_method(bglVertex, "related_vertex?",	RUBY_METHOD_FUNC(vertex_related_p), -1);
