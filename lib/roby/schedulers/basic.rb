@@ -131,6 +131,8 @@ module Roby
                     end
                     break
                 end
+
+                scheduled_tasks = []
 		for task in query.reset
                     result =
                         if @can_schedule_cache.include?(task)
@@ -141,10 +143,12 @@ module Roby
                     if result
                         Schedulers.debug { "#{self}: scheduled #{task}" }
                         task.start!
+                        scheduled_tasks << task
                     else
                         Schedulers.debug { "#{self}: cannot schedule #{task}" }
                     end
 		end
+                scheduled_tasks
 	    end
 	end
     end

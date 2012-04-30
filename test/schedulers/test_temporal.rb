@@ -3,14 +3,24 @@ require 'roby/test/common'
 require 'roby/tasks/simple'
 require 'roby/relations/temporal_constraints'
 require 'roby/schedulers/temporal'
-require 'flexmock'
+require 'flexmock/test_unit'
 
 class TC_Schedulers_Temporal < Test::Unit::TestCase
     include Roby::Test
 
-    def test_scheduling_time
-        scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
+    attr_reader :scheduler
 
+    def scheduler_initial_events
+        while !scheduler.initial_events.empty?
+        end
+    end
+
+    def setup
+        super
+        @scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
+    end
+
+    def test_scheduling_time
         t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
         e1 = t1.start_event
         e2 = t2.start_event
@@ -24,26 +34,31 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
             current_time = Time.now
             time.should_receive(:now).and_return { current_time }
 
-            scheduler.initial_events
+            scheduler_initial_events
             assert !t1.running?
             assert !t2.running?
             assert !t3.running?
 
             t1.executable = true
-            scheduler.initial_events
+            scheduler_initial_events
             assert t1.running?
             assert !t2.running?
             assert !t3.running?
 
             current_time += 6
-            scheduler.initial_events
-            assert t1.running?
-            assert t2.running?
-            assert !t3.running?
-            scheduler.initial_events
+            verify_event_ordering(t2.start_event, t3.start_event)
+            scheduler_initial_events
             assert t1.running?
             assert t2.running?
             assert t3.running?
+        end
+    end
+
+    def verify_event_ordering(*events)
+        mock = flexmock("event ordering for #{events.map(&:to_s).join(", ")}")
+        events.each do |ev|
+            mock.should_receive(:emitted).with(ev).ordered.once
+            ev.on { |event| mock.emitted(event.generator) }
         end
     end
 
@@ -61,7 +76,7 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
         assert scheduler.can_schedule?(t3)
 
         2.times do
-            scheduler.initial_events
+            scheduler_initial_events
             assert(!t2.running?)
             assert(t3.running?)
         end
@@ -70,7 +85,7 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
         t3.success!
         assert(!t3.running?)
         2.times do
-            scheduler.initial_events
+            scheduler_initial_events
             assert(t2.running?)
         end
     end
@@ -89,7 +104,7 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
         assert !scheduler.can_schedule?(t2_child, Time.now)
 
         2.times do
-            scheduler.initial_events
+            scheduler_initial_events
             assert(t1.running?)
             assert(t1_child.running?)
             assert(t2.running?)
@@ -100,7 +115,7 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
         t1_child.stop!
         assert scheduler.can_schedule?(t2_child, Time.now)
         2.times do
-            scheduler.initial_events
+            scheduler_initial_events
             assert(!t1.running?)
             assert(!t1_child.running?)
             assert(t2.running?)
@@ -123,34 +138,25 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
         assert scheduler.can_schedule?(t1, Time.now)
         assert !scheduler.can_schedule?(t2, Time.now)
         assert !scheduler.can_schedule?(t3, Time.now)
-        2.times do
-            scheduler.initial_events
-            assert(!t1.running?)
-            assert(!t2.running?)
-            assert(!t3.running?)
-        end
-
-        t1.executable = true
-        scheduler.initial_events
-        assert(t1.running?)
+        scheduler_initial_events
+        assert(!t1.running?)
         assert(!t2.running?)
         assert(!t3.running?)
 
-        scheduler.initial_events
+        t1.executable = true
+        verify_event_ordering(t1.start_event, t3.start_event)
+        scheduler_initial_events
         assert(t1.running?)
         assert(!t2.running?)
         assert(t3.running?)
 
         t3.success!
         assert scheduler.can_schedule?(t2, Time.now)
-        2.times do
-            scheduler.initial_events
-            assert(t2.running?)
-        end
+        scheduler_initial_events
+        assert(t2.running?)
     end
 
     def test_parent_waiting_for_child
-        Roby::Schedulers.logger.level = Logger::DEBUG
         scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
         t0, t1 = prepare_plan :add => 2, :model => Tasks::Simple
         t0.depends_on t1
