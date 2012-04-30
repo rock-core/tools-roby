@@ -558,10 +558,16 @@ class TC_Plan < Test::Unit::TestCase
         t1.signals :start, p, :start
         t2.signals :success, p, :start
 
-        plan.quarantine(t2)
+        plan.add(t2)
+        with_log_level(Roby, Logger::FATAL) do
+            plan.quarantine(t2)
+        end
         assert_equal([t2], plan.gc_quarantine.to_a)
         assert(t2.leaf?)
         assert(t2.success_event.leaf?)
+
+        plan.remove_object(t2)
+        assert(plan.gc_quarantine.empty?)
     end
     
     def test_failed_mission

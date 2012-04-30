@@ -1063,6 +1063,7 @@ module Roby
 	    @permanent_events.delete(object)
 	    @force_gc.delete(object)
             @task_index.remove(object)
+            @gc_quarantine.delete(object)
             
             case object
             when Task
@@ -1089,6 +1090,7 @@ module Roby
             @force_gc.clear
             @task_index.clear
             @task_events.clear
+            @gc_quarantine.clear
 
             known_tasks.each do |t|
                 finalize_object(t)
