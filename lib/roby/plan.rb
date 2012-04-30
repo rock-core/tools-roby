@@ -667,7 +667,9 @@ module Roby
 	    tasks = tasks.difference(known_tasks)
 	    for t in tasks
 		t.plan = self
-		task_events.merge t.bound_events.values.to_value_set
+                for ev in t.bound_events
+                    task_events << ev[1]
+                end
 		task_index.add t
 	    end
 	    known_tasks.merge tasks
