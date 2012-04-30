@@ -576,6 +576,9 @@ module Roby
         def has_key?(value)
             values.has_key?(value)
         end
+        def keys
+            values.keys
+        end
 
 	def writable?(key, value)
             if has_key?(key)
