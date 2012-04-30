@@ -26,17 +26,24 @@ class TC_Tasks_ExternalProcess < Test::Unit::TestCase
 
     def test_nominal_array_with_one_element
         plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP]))
+        task.redirect_output "mockup-%p.log"
         engine.run
         assert_succeeds(task)
+    ensure
+        FileUtils.rm_f "mockup-#{task.pid}.log"
     end
 
     def test_nominal_no_array
         plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => MOCKUP))
+        task.redirect_output "mockup-%p.log"
         engine.run
         assert_succeeds(task)
+    ensure
+        FileUtils.rm_f "mockup-#{task.pid}.log"
     end
 
     def test_inexistent_program
+        Roby.logger.level = Logger::FATAL
         plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => ['does_not_exist', "--error"]))
         engine.run
         assert_becomes_unreachable(task.start_event) do
@@ -47,6 +54,7 @@ class TC_Tasks_ExternalProcess < Test::Unit::TestCase
     end
 
     def test_failure
+        Roby.logger.level = Logger::FATAL
         plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--error"]))
         engine.run
         assert_event_emission(task.failed_event) do
@@ -56,6 +64,7 @@ class TC_Tasks_ExternalProcess < Test::Unit::TestCase
     end
 
     def test_signaling
+        Roby.logger.level = Logger::FATAL
         plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--block"]))
         engine.run
         assert_any_event(task.start_event) do

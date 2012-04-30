@@ -32,7 +32,9 @@ class TC_TemporalConstraints < Test::Unit::TestCase
 
         e1.add_occurence_constraint(e2, 1, 2)
         assert !e2.meets_temporal_constraints?(Time.now)
-        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        end
         e1.emit
         assert e2.meets_temporal_constraints?(Time.now)
         e2.emit
@@ -41,7 +43,9 @@ class TC_TemporalConstraints < Test::Unit::TestCase
         e2.emit
         e1.emit
         assert !e2.meets_temporal_constraints?(Time.now)
-        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        end
     end
 
     def test_occurence_constraint_minmax_recurrent
@@ -52,20 +56,26 @@ class TC_TemporalConstraints < Test::Unit::TestCase
 
         e1.add_occurence_constraint(e2, 1, 2, true)
         assert !e2.meets_temporal_constraints?(Time.now)
-        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        end
         e1.emit
         assert e2.meets_temporal_constraints?(Time.now)
         e2.emit
         # Counts are reset
         assert !e2.meets_temporal_constraints?(Time.now)
-        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        end
         e1.emit
         assert e2.meets_temporal_constraints?(Time.now)
         e1.emit
         assert e2.meets_temporal_constraints?(Time.now)
         e1.emit
         assert !e2.meets_temporal_constraints?(Time.now)
-        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        end
     end
 
     def test_has_temporal_constraints
@@ -249,7 +259,9 @@ class TC_TemporalConstraints < Test::Unit::TestCase
 
             e1.emit
             current_time += 12
-            assert_raises(EventStructure::TemporalConstraintViolation) { e2.emit }
+            with_log_level(Roby, Logger::FATAL) do
+                assert_raises(EventStructure::TemporalConstraintViolation) { e2.emit }
+            end
         end
     end
 
@@ -270,7 +282,9 @@ class TC_TemporalConstraints < Test::Unit::TestCase
             current_time += 6
             e2.emit
             current_time += 6
-            assert_raises(EventStructure::TemporalConstraintViolation) { e2.emit }
+            with_log_level(Roby, Logger::FATAL) do
+                assert_raises(EventStructure::TemporalConstraintViolation) { e2.emit }
+            end
         end
     end
 end

@@ -2056,7 +2056,7 @@ class TC_Task < Test::Unit::TestCase
     def test_gather_events_cleanup_on_transaction_removal
         task = nil
         plan.in_transaction do |trsc|
-            plan.add(task = Roby::Task.new)
+            trsc.add(task = Roby::Task.new)
             EventGenerator.gather_events([], [task.start_event])
             assert(EventGenerator.event_gathering.has_key?(task.start_event))
             trsc.commit_transaction
@@ -2064,10 +2064,10 @@ class TC_Task < Test::Unit::TestCase
         assert(EventGenerator.event_gathering.has_key?(task.start_event))
 
         plan.in_transaction do |trsc|
-            plan.add(task = Roby::Task.new)
+            trsc.add(task = Roby::Task.new)
             EventGenerator.gather_events([], [task.start_event])
             assert(EventGenerator.event_gathering.has_key?(task.start_event))
-            trsc.discard_transaction
+            trsc.remove_object(task)
         end
         assert(!EventGenerator.event_gathering.has_key?(task.start_event),
             "event gathering kept for discarded event")

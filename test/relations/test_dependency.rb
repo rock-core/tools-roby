@@ -107,7 +107,7 @@ class TC_Dependency < Test::Unit::TestCase
 	child = child_model.new
 	plan.add([p1, child])
 	p1.depends_on child, options
-	plan.add_mission(p1)
+	plan.add(p1)
 
         if do_start
             child.start!; p1.start!
@@ -172,8 +172,9 @@ class TC_Dependency < Test::Unit::TestCase
             :failure => [:stop]
 
         child.stop!
-	assert_child_failed(child, child.failed_event.last, plan)
-        plan.clear
+        assert_child_failed(child, child.failed_event.last, plan)
+        # To avoid warning messages on teardown
+        plan.remove_object(child)
     end
 
     def test_failure_on_pending_relation
@@ -195,6 +196,8 @@ class TC_Dependency < Test::Unit::TestCase
 
             child.stop!
             assert_child_failed(child, child.failed_event.last, plan)
+            # To avoid warning messages on teardown
+            plan.remove_object(child)
         end
     end
 
@@ -238,6 +241,7 @@ class TC_Dependency < Test::Unit::TestCase
 
             child.failed_to_start!(nil)
             assert_child_failed(child, child.start_event, plan)
+            plan.remove_object(child)
         end
     end
 
@@ -254,7 +258,8 @@ class TC_Dependency < Test::Unit::TestCase
         child.start!
 
 	exception = assert_child_failed(child, child.event(:success), plan)
-        plan.clear
+        # To avoid warning messages on teardown
+        plan.remove_object(child)
     end
 
     def test_failure_on_unreachable
@@ -263,7 +268,8 @@ class TC_Dependency < Test::Unit::TestCase
         child.stop!
 	error = assert_child_failed(child, child.failed_event.last, plan)
         assert_equal(nil, error.explanation.value)
-        plan.clear
+        # To avoid warning messages on teardown
+        plan.remove_object(child)
     end
 
     def test_fullfilled_model_validation
@@ -519,6 +525,8 @@ class TC_Dependency < Test::Unit::TestCase
         assert(plan.check_structure.empty?) # no failure yet
         parent.start!
         assert_child_failed(child, child.failed_event.last, plan)
+        # To avoid warning messages on teardown
+        plan.remove_object(child)
     end
 
     def test_child_from_role_in_planless_tasks

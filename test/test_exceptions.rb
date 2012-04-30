@@ -262,7 +262,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	end.new
 
 	FlexMock.use do |mock|
-	    parent = Class.new(Task) do
+	    parent = Class.new(Tasks::Simple) do
 		on_exception ChildFailedError do |exception|
 		    mock.exception
 		    task.pass_exception
