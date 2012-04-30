@@ -92,6 +92,7 @@ module Roby
                     task.remove_child_object(child, rel)
                 end
             end
+            Roby::ExecutionEngine.warn "putting #{task} in quarantine"
             gc_quarantine << task
             self
         end
