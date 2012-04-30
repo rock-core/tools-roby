@@ -40,6 +40,52 @@ class TC_Event < Test::Unit::TestCase
         end
     end
 
+    def test_error_in_command_before_emission_causes_an_emission_failure
+        mock = flexmock
+        mock.should_receive(:event_handler_called).never
+
+        ev = Roby::EventGenerator.new do |context|
+            raise ArgumentError
+            ev.emit
+        end
+        ev.on { mock.event_handler_called }
+
+        ev_mock = flexmock(ev)
+        ev_mock.should_receive(:emit_failed).once.
+            and_return do |error, *_|
+                plan.engine.add_error(error)
+            end
+
+        plan.add(ev)
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(Roby::CommandFailed) { ev.call }
+        end
+        assert(!ev.happened?)
+    end
+
+    def test_error_in_command_after_emission_does_not_causes_an_emission_failure
+        mock = flexmock
+        mock.should_receive(:event_handler_called).once
+
+        ev = Roby::EventGenerator.new do |context|
+            ev.emit
+            raise ArgumentError
+        end
+        ev.on { mock.event_handler_called }
+
+        ev_mock = flexmock(ev)
+        ev_mock.should_receive(:emit_failed).never.
+            and_return do |error, *_|
+                plan.engine.add_error(error)
+            end
+
+        plan.add(ev)
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(Roby::CommandFailed) { ev.call }
+        end
+        assert(ev.happened?)
+    end
+
     def test_controlable_events
 	event = EventGenerator.new(true)
 	assert(event.controlable?)

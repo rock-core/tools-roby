@@ -302,7 +302,13 @@ module Roby
 		@pending = true
                 @pending_sources = plan.engine.propagation_source_events
 		plan.engine.propagation_context([self]) do
-		    command[context]
+                    begin
+                        @calling_command = true
+                        @command_emitted = false
+                        command[context]
+                    ensure
+                        @calling_command = false
+                    end
 		end
 
 		false
@@ -322,6 +328,11 @@ module Roby
 	    raise
 	end
 
+        # Right after a call to #call_without_propagation, tells the caller
+        # whether the command has emitted or not. This can be used to determine
+        # in which context errors should be raised
+        attr_predicate :command_emitted?, false
+        
 	# Call the command associated with self. Note that an event might be
 	# non-controlable and respond to the :call message. Controlability must
 	# be checked using #controlable?
@@ -733,6 +744,10 @@ module Roby
 	    context.compact!
             engine = plan.engine
 	    if engine.gathering?
+                if @calling_command
+                    @command_emitted = true
+                end
+
 		engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
             else
 		Roby.synchronize do

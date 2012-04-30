@@ -865,9 +865,17 @@ module Roby
                                 rescue Roby::EventNotExecutable => e
                                     add_error(e)
                                 rescue Roby::LocalizedError => e
-                                    signalled.emit_failed(e)
+                                    if signalled.command_emitted?
+                                        add_error(e)
+                                    else
+                                        signalled.emit_failed(e)
+                                    end
                                 rescue Exception => e
-                                    signalled.emit_failed(Roby::CommandFailed.new(e, signalled))
+                                    if signalled.command_emitted?
+                                        add_error(Roby::CommandFailed.new(e, signalled))
+                                    else
+                                        signalled.emit_failed(Roby::CommandFailed.new(e, signalled))
+                                    end
                                 end
                             end
                         end

@@ -2072,5 +2072,19 @@ class TC_Task < Test::Unit::TestCase
             "event gathering kept for discarded event")
     end
 
+    def test_command_raises_after_emission
+        klass = Class.new(Roby::Tasks::Simple) do
+            event :start do |context|
+                emit :start
+                raise ArgumentError
+            end
+        end
+        plan.add(task = klass.new)
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(Roby::CommandFailed) { task.start! }
+        end
+        assert(!task.failed_to_start?, "#{task} is marked as failed to start but should not")
+        assert(task.running?)
+    end
 end
 
