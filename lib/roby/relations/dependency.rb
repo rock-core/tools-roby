@@ -331,7 +331,7 @@ module Roby::TaskStructure
 
                 if !events.empty?
                     for ev in events
-                        ev.if_unreachable { Dependency.interesting_events << ev }
+                        ev.if_unreachable(&DependencyGraphClass.method(:register_interesting_event_if_unreachable))
                     end
                     Roby::EventGenerator.gather_events(Dependency.interesting_events, [event(:start)])
                     Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
@@ -433,6 +433,14 @@ module Roby::TaskStructure
             end
             super
         end
+
+        def finalized!(timestamp = nil)
+            super
+            Dependency.failing_tasks.delete(self)
+            each_event do |ev|
+                Dependency.interesting_events.delete(ev)
+            end
+        end
     end
 
     # For backward compatibility reasons
@@ -453,12 +461,8 @@ module Roby::TaskStructure
 	# The set of tasks that are currently failing 
 	attribute(:failing_tasks) { ValueSet.new }
 
-        def remove(obj)
-            super
-            failing_tasks.delete(obj)
-            obj.each_event do |ev|
-                interesting_events.delete(ev)
-            end
+        def self.register_interesting_event_if_unreachable(reason, ev)
+            Dependency.interesting_events << ev
         end
 
         def merge_fullfilled_model(model, required_models, required_arguments)

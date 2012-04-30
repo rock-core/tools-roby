@@ -113,6 +113,13 @@ module TC_TransactionBehaviour
  	end
  	assert(plan.include?(t1))
  	assert_equal([t2], t1.children.to_a)
+
+        t = nil
+        plan.in_transaction do |trsc|
+            trsc.add(t = Roby::Task.new)
+	    trsc.remove_object(t)
+ 	end
+        assert(!plan.include?(t))
     end
 
     def test_add_tasks_from_plan

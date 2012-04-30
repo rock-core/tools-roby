@@ -564,5 +564,27 @@ class TC_Dependency < Test::Unit::TestCase
             assert_equal([[child, info]], parent.each_child.to_a)
         end
     end
+
+    def test_interesting_events
+        parent, child = prepare_plan :add => 2
+        parent.depends_on(child, :role => 'child')
+        assert(Dependency.interesting_events.empty?)
+        plan.remove_object(child)
+        assert(Dependency.interesting_events.empty?)
+    end
+
+    def test_interesting_events_in_transactions
+        plan.in_transaction do |trsc|
+            parent, child0, child1 = (1..3).map do |i|
+                t = Tasks::Simple.new
+                trsc.add(t)
+                t
+            end
+            parent.depends_on(child0, :role => 'child0')
+            parent.depends_on(child1, :role => 'child1')
+            assert(Dependency.interesting_events.empty?)
+        end
+        assert(Dependency.interesting_events.empty?)
+    end
 end
 

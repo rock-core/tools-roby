@@ -2,7 +2,7 @@ $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE_
 require 'roby/test/common'
 require 'roby/tasks/simple'
 
-require 'flexmock'
+require 'flexmock/test_unit'
 
 
 module TC_PlanStatic
@@ -458,6 +458,40 @@ module TC_PlanStatic
         plan.replace(t2, t3)
         assert_equal(t3, service1.task)
         assert_equal(t3, service2.task)
+    end
+
+    def test_task_finalized_called_on_clear
+        plan.add(task = Roby::Task.new)
+        flexmock(task).should_receive(:finalized!).once
+        task.each_event do |ev|
+            flexmock(ev).should_receive(:finalized!).once
+        end
+        plan.clear
+    end
+
+    def test_event_finalized_called_on_clear
+        plan.add(ev = Roby::EventGenerator.new)
+        flexmock(ev).should_receive(:finalized!).once
+        plan.clear
+    end
+
+    def test_task_events_are_added_and_removed
+        plan.add(task = Roby::Tasks::Simple.new)
+        task.each_event do |ev|
+            assert(plan.task_events.include?(ev))
+        end
+        plan.remove_object(task)
+        task.each_event do |ev|
+            assert(!plan.task_events.include?(ev))
+        end
+    end
+
+    def test_task_events_are_removed_on_clear
+        plan.add(task = Roby::Tasks::Simple.new)
+        plan.clear
+        task.each_event do |ev|
+            assert(!plan.task_events.include?(ev))
+        end
     end
 end
 
