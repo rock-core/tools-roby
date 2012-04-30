@@ -468,6 +468,9 @@ module Roby
 	# Calls +block+ if it is impossible that this event is ever emitted
 	def if_unreachable(cancel_at_emission = false, &block)
             check_arity(block, 2)
+            if unreachable_handlers.any? { |cancel, b| b == block }
+                return b.object_id
+            end
 	    unreachable_handlers << [cancel_at_emission, block]
 	    block.object_id
 	end
