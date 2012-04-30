@@ -992,6 +992,7 @@ module Roby
         def finalized!(timestamp = nil)
             super
             EventGenerator.event_gathering.delete(self)
+            unreachable_handlers.clear
         end
 
         # True if this event is unreachable, i.e. if it will never be emitted
