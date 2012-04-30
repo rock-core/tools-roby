@@ -467,6 +467,7 @@ module Roby
 
 	# Calls +block+ if it is impossible that this event is ever emitted
 	def if_unreachable(cancel_at_emission = false, &block)
+            check_arity(block, 2)
 	    unreachable_handlers << [cancel_at_emission, block]
 	    block.object_id
 	end
@@ -791,7 +792,7 @@ module Roby
 		ev.forward_to_once self
 	    end
 
-	    ev.if_unreachable(true) do |reason|
+	    ev.if_unreachable(true) do |reason, event|
 		emit_failed(UnreachableEvent.new(self, reason))
 	    end
 	end
@@ -1004,7 +1005,7 @@ module Roby
         def call_unreachable_handlers(reason) # :nodoc:
 	    unreachable_handlers.each do |_, block|
 		begin
-		    block.call(reason)
+		    block.call(reason, self)
                 rescue LocalizedError => e
                     if engine
                         engine.add_error(e)
@@ -1186,7 +1187,7 @@ module Roby
 
 	    # If the parent is unreachable, check that it has neither been
 	    # removed, nor it has been emitted
-	    parent.if_unreachable(true) do |reason|
+	    parent.if_unreachable(true) do |reason, event|
 		if @events[parent] == parent.last
 		    unreachable!(reason || parent)
 		end
@@ -1279,7 +1280,7 @@ module Roby
 	    super if defined? super
 	    return unless relations.include?(EventStructure::Signal)
 
-	    parent.if_unreachable(true) do |reason|
+	    parent.if_unreachable(true) do |reason, event|
 		if !happened? && parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }
 		    unreachable!(reason || parent)
 		end

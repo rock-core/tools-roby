@@ -1852,10 +1852,10 @@ module Roby
                 mt.synchronize do
                     done = false
                     once do
-                        ev.if_unreachable(true) do |reason|
+                        ev.if_unreachable(true) do |reason, event|
                             mt.synchronize do
                                 done = true
-                                caller_thread.raise UnreachableEvent.new(ev, reason)
+                                caller_thread.raise UnreachableEvent.new(event, reason)
                             end
                         end
                         ev.on do |ev|

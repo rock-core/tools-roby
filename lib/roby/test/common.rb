@@ -665,8 +665,8 @@ module Roby
                             result_queue.push([error, result])
                         else
                             positive.each do |ev|
-                                ev.if_unreachable(true) do |reason|
-                                    unreachability_reason << [ev, reason]
+                                ev.if_unreachable(true) do |reason, event|
+                                    unreachability_reason << [event, reason]
                                 end
                             end
                             Test.watched_events << [result_queue, positive, negative, Time.now + timeout]
