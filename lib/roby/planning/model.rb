@@ -536,11 +536,7 @@ module Roby
 		# Define the method enumerator and the method public interface
 		if !respond_to?("#{name}_methods")
 		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) do
-                       if defined? superclass and superclass.respond_to?("#{name}_methods")
-                           return superclass.send("#{name}_methods")
-                       else
-                           return Hash.new
-                       end
+                        Hash.new
                     end
 		    class_eval <<-PLANNING_METHOD_END
 		    def #{name}(options = Hash.new)

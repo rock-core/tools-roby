@@ -327,8 +327,8 @@ class TC_Planner < Test::Unit::TestCase
         assert(derived.method_in_derived_description != nil)
         assert(derived.method_in_derived_description.doc == [ derived_doc.to_s ] )
 
-        assert(derived.method_in_base_methods.size == 1 )
-        assert(derived.method_in_derived_methods.size == 1 )
+        assert(derived.each_method_in_base_method.to_a.size == 1 )
+        assert(derived.each_method_in_derived_method.to_a.size == 1 )
     end
 
     def test_method_inheritance
