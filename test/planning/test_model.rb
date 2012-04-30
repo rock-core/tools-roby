@@ -443,7 +443,6 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:test, :id => 2) { arguments[:mock].m(2) }
 	end
 
-        assert_raises(ArgumentError) { Class.new(base).filter(:test) { || true } }
         assert_raises(ArgumentError) { Class.new(base).filter(:test) { |a| true } }
         assert_raises(ArgumentError) { Class.new(base).filter(:test) { |a, b, c| true } }
 

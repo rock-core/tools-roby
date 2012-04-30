@@ -306,7 +306,6 @@ class TC_Task < Test::Unit::TestCase
 
     def test_model_event_handlers
 	model = Class.new(Tasks::Simple)
-        assert_raises(ArgumentError) { model.on(:start) { || } }
         assert_raises(ArgumentError) { model.on(:start) { |a, b| } }
 
 	FlexMock.use do |mock|
@@ -683,7 +682,7 @@ class TC_Task < Test::Unit::TestCase
             end
 	end.new
         plan.add(task)
-        task.stop_event.when_unreachable do |_|
+        task.stop_event.when_unreachable do
             mock.stop_unreachable
         end
 
