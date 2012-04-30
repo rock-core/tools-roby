@@ -434,6 +434,48 @@ class TC_Event < Test::Unit::TestCase
 
     end
 
+    def test_if_unreachable_unconditional
+        mock = flexmock
+        mock.should_receive(:unreachable_1).once.ordered
+        mock.should_receive(:unreachable_2).once.ordered
+
+        plan.add(ev = EventGenerator.new)
+        ev.if_unreachable(false) { mock.unreachable_1 }
+        plan.remove_object(ev)
+
+        plan.add(ev = EventGenerator.new)
+        ev.if_unreachable(false) { mock.unreachable_2 }
+        ev.emit
+        plan.remove_object(ev)
+    end
+
+    def test_if_unreachable_in_transaction_is_ignored_on_discard
+        mock = flexmock
+        mock.should_receive(:unreachable).never
+
+        plan.in_transaction do |trsc|
+            trsc.add(ev = EventGenerator.new)
+            ev.if_unreachable { mock.unreachable }
+            trsc.remove_object(ev)
+        end
+    end
+
+    def test_if_unreachable_if_not_signalled
+        mock = flexmock
+        mock.should_receive(:unreachable_1).once.ordered
+        mock.should_receive(:unreachable_2).never.ordered
+
+        plan.add(ev = EventGenerator.new)
+        ev.if_unreachable(true) { mock.unreachable_1 }
+        plan.remove_object(ev)
+
+        plan.add(ev = EventGenerator.new)
+        mock = flexmock
+        ev.if_unreachable(true) { mock.unreachable_2 }
+        ev.emit
+        plan.remove_object(ev)
+    end
+
     def test_and_unreachability
 	a, b = (1..2).map { EventGenerator.new(true) }.
 	    each { |e| plan.add(e) }
