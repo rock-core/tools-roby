@@ -2270,9 +2270,8 @@ module Roby
         # call-seq:
         #   on(event_name) { |event| ... }
         #
-        # Adds an event handler for the given event model. When the event is fired,
-        # all events given in argument will be called. If they are controlable,
-        # then the command is called. If not, they are just fired
+        # Adds an event handler for the given event model. The block is going to
+        # be called whenever +event_name+ is emitted.
         def self.on(mappings, &user_handler)
             if user_handler
                 check_arity(user_handler, 1)
