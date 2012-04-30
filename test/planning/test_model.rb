@@ -353,14 +353,14 @@ class TC_Planner < Test::Unit::TestCase
 
 	d1_root = []
 	# Define a few methods and check :returns is validated properly
-	assert_nothing_raised { d1_root << d1.method(:root, :returns => tm_a) {} }
-	assert_nothing_raised { d1_root << d1.method(:root, :returns => tm_a_a) {} }
-	assert_nothing_raised { d1_root << d1.method(:root, :returns => tm_b_a) {} }
+	d1_root << d1.method(:root, :returns => tm_a) {}
+	d1_root << d1.method(:root, :returns => tm_a_a) {}
+	d1_root << d1.method(:root, :returns => tm_b_a) {}
 	d2_root = d1_root.dup
-	assert_nothing_raised { d1_root << d1.method(:root, :id => 1, :returns => tm_a_a) {} }
+	d1_root << d1.method(:root, :id => 1, :returns => tm_a_a) {}
 
 	d2 = Class.new(d1)
-	assert_nothing_raised { d2_root << d2.method(:root, :id => 1, :returns => tm_a_a_a) {} }
+	d2_root << d2.method(:root, :id => 1, :returns => tm_a_a_a) {}
 
 	# Check that methods are defined at the proper level in the class hierarchy
 	assert_equal(base_root.to_set, base.enum_for(:each_root_method).to_set)
