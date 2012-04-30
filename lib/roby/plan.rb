@@ -161,7 +161,6 @@ module Roby
 
         def dup
             new_plan = Plan.new
-            new_plan.send(:initialize_copy, self)
             copy_to(new_plan)
             new_plan
         end
