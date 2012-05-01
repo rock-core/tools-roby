@@ -1015,6 +1015,11 @@ module Roby
             # First, try the origins themselves
             exceptions.delete_if do |e|
                 if task = e.origin
+                    if handled = task.handle_exception(e)
+                        handled_exception(e, task)
+                        e.handled = true
+                        true
+                    end
                 else
                     e.generator.unreachable!(e.exception)
                     true
