@@ -1192,7 +1192,7 @@ module Roby
 	    # If the parent is unreachable, check that it has neither been
 	    # removed, nor it has been emitted
 	    parent.if_unreachable(true) do |reason, event|
-		if @events[parent] == parent.last
+		if @events.has_key?(parent) && @events[parent] == parent.last
 		    unreachable!(reason || parent)
 		end
 	    end

@@ -1080,30 +1080,32 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
+    def test_and_on_removal
+	FlexMock.use do |mock|
+	    plan.add(e1 = EventGenerator.new(true))
+	    plan.add(e2 = EventGenerator.new(true))
+	    a = e1 & e2
+	    e1.call
+            e2.remove_child_object(a, Roby::EventStructure::Signal)
+            e2.unreachable!
+            assert(!a.unreachable?, "#{a} has become unreachable when e2 did, but e2 is not a source from a anymore")
+	end
+    end
+
     def test_and_if_unreachable
-	FlexMock.use do |mock|
-	    plan.add(e1 = EventGenerator.new(true))
-	    plan.add(e2 = EventGenerator.new(true))
-	    a = e1 & e2
+        plan.add(e1 = EventGenerator.new(true))
+        plan.add(e2 = EventGenerator.new(true))
+        a = e1 & e2
+        e1.call
+        e2.unreachable!
+        assert(a.unreachable?)
 
-	    a.if_unreachable(false) { mock.called }
-	    e1.call
-
-	    mock.should_receive(:called).once
-	    plan.remove_object(e2)
-	end
-
-	FlexMock.use do |mock|
-	    plan.add(e1 = EventGenerator.new(true))
-	    plan.add(e2 = EventGenerator.new(true))
-	    a = e1 & e2
-
-	    a.if_unreachable(false) { mock.called }
-	    e1.call
-
-	    mock.should_receive(:called).never
-	    plan.remove_object(e1)
-	end
+        plan.add(e1 = EventGenerator.new(true))
+        plan.add(e2 = EventGenerator.new(true))
+        a = e1 & e2
+        e2.call
+        e1.unreachable!
+        assert(a.unreachable?)
     end
 
     def test_dup
