@@ -1012,13 +1012,18 @@ module Roby
                 end
             end
 
+            # First, try the origins themselves
+            exceptions.delete_if do |e|
+                if task = e.origin
+                else
+                    e.generator.unreachable!(e.exception)
+                    true
+                end
+            end
+
             while !exceptions.empty?
                 by_task = Hash.new { |h, k| h[k] = Array.new }
                 by_task = exceptions.inject(by_task) do |by_task, (e, parents)|
-                    unless e.task
-                        Roby.log_exception(e.exception, Roby, :fatal)
-                        raise NotImplementedError, "we do not yet handle exceptions from external event generators. Got #{e.exception.full_message}"
-                    end
                     parents ||= e.task.parent_objects(Roby::TaskStructure::Hierarchy)
 
                     has_parent = false

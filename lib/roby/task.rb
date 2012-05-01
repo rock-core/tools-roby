@@ -474,7 +474,10 @@ module Roby
 	# Checks that the event can be called. Raises various exception
 	# when it is not the case.
 	def check_call_validity # :nodoc:
-  	    super
+            begin
+                super
+            rescue UnreachableEvent
+            end
 
             if task.failed_to_start?
                 raise CommandFailed.new(nil, self), 
@@ -492,6 +495,7 @@ module Roby
                 raise CommandFailed.new(nil, self), 
 		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
             end
+
     	rescue EventNotExecutable => e
 	    refine_call_exception(e)
 	end

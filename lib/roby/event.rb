@@ -264,6 +264,12 @@ module Roby
                 raise PhaseMismatch, "call to #emit is not allowed in this context"
 	    elsif !controlable?
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
+            elsif unreachable?
+                if unreachability_reason
+                    raise UnreachableEvent.new(self, unreachability_reason), "#call called on #{self} which has been made unreachable because of #{unreachability_reason}"
+                else
+                    raise UnreachableEvent.new(self, unreachability_reason), "#call called on #{self} which has been made unreachable"
+                end
 	    elsif !engine.inside_control?
 		raise ThreadMismatch, "#call called while not in control thread"
 	    end
@@ -274,6 +280,12 @@ module Roby
 	def check_emission_validity
 	    if !executable?
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is a non-executable event"
+            elsif unreachable?
+                if unreachability_reason
+                    raise UnreachableEvent.new(self, unreachability_reason), "#emit called on #{self} which has been made unreachable because of #{unreachability_reason}"
+                else
+                    raise UnreachableEvent.new(self, unreachability_reason), "#emit called on #{self} which has been made unreachable"
+                end
             elsif !engine.allow_propagation?
                 raise PhaseMismatch, "call to #emit is not allowed in this context"
 	    elsif !engine.inside_control?
@@ -370,6 +382,8 @@ module Roby
                             end
                             raise "multiple exceptions"
                         end
+                    if unreachable? && unreachability_reason.kind_of?(Exception)
+                        raise unreachability_reason
                     end
 		end
 	    end
@@ -768,6 +782,8 @@ module Roby
                             end
                             raise "multiple exceptions"
                         end
+                    if unreachable? && unreachability_reason.kind_of?(Exception)
+                        raise unreachability_reason
                     end
 		end
 	    end

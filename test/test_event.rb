@@ -119,6 +119,9 @@ class TC_Event < Test::Unit::TestCase
 	event.executable = false
         with_log_level(Roby, Logger::FATAL) do
             assert_raises(EventNotExecutable) { event.call(nil) }
+
+            plan.add(event = EventGenerator.new(true))
+            event.executable = false
             assert_raises(EventNotExecutable) { event.emit(nil) }
         end
 
@@ -130,14 +133,16 @@ class TC_Event < Test::Unit::TestCase
 	other.executable = false
 	event.signals other
         with_log_level(Roby, Logger::FATAL) do
-            assert_raises(EventNotExecutable) { event.call(nil) }
+            assert_event_fails(other, EventNotExecutable) { event.call(nil) }
         end
 
+	plan.add(other = EventGenerator.new(true))
+	other.executable = false
 	event.remove_signal(other)
 	event.emit(nil)
 	event.forward_to other
         with_log_level(Roby, Logger::FATAL) do
-            assert_raises(EventNotExecutable) { event.call(nil) }
+            assert_event_fails(other, EventNotExecutable) { event.call(nil) }
         end
 
 	event.remove_forwarding(other)
@@ -146,26 +151,40 @@ class TC_Event < Test::Unit::TestCase
 	assert_original_error(EventNotExecutable, EventHandlerError) { event.call(nil) }
     end
 
+    def assert_event_fails(ev, error_type)
+        yield
+        assert(ev.unreachable?, "#{ev} was expected to be marked as unreachable, but is not")
+        assert_kind_of(error_type, ev.unreachability_reason)
+    end
+
+    def assert_emission_failed(ev, error_type)
+        assert_event_fails(ev, EmissionFailed) do
+            yield
+        end
+        assert_kind_of(error_type, ev.unreachability_reason.error, "unreachability reason set to #{ev.unreachability_reason.error}, expected an instance of #{error_type}")
+    end
+
     def test_emit_failed_raises
 	plan.add(event = EventGenerator.new)
 	assert_original_error(NilClass, EmissionFailed) { event.emit_failed }
+	plan.add(event = EventGenerator.new)
 	assert_original_error(NilClass, EmissionFailed) { event.emit_failed("test") }
 
 	klass = Class.new(EmissionFailed)
-	assert_raises(klass) { event.emit_failed(klass) }
-	assert_raises(klass) { event.emit_failed(klass, "test") }
+	plan.add(event = EventGenerator.new)
+	assert_event_fails(event, klass) { event.emit_failed(klass) }
+	plan.add(event = EventGenerator.new)
+	assert_event_fails(event, klass) { event.emit_failed(klass, "test") }
 	begin; event.emit_failed(klass, "test")
 	rescue klass => e
 	    assert( e.message =~ /: test$/ )
 	end
 
+	plan.add(event = EventGenerator.new)
 	exception = klass.new(nil, event)
-	assert_raises(klass) { event.emit_failed(exception, "test") }
-	begin; event.emit_failed(exception, "test")
-	rescue klass => e
-	    assert_equal(event, e.failed_generator)
-	    assert( e.message =~ /: test$/ )
-	end
+	assert_event_fails(event, klass) { event.emit_failed(exception, "test") }
+        assert_equal(event, event.unreachability_reason.failed_generator)
+        assert( event.unreachability_reason.message =~ /: test$/ )
     end
 
     def test_pending_includes_queued_events
@@ -183,7 +202,7 @@ class TC_Event < Test::Unit::TestCase
 	plan.add(event)
 	event.call
 	assert(event.pending?)
-	assert_raises(EmissionFailed) { event.emit_failed }
+	assert_event_fails(event, EmissionFailed) { event.emit_failed }
 	assert(!event.pending?)
     end
 
@@ -795,7 +814,8 @@ class TC_Event < Test::Unit::TestCase
         with_log_level(Roby, Logger::FATAL) do
             assert_raises(EventPreconditionFailed) { e1.call(nil) }
         end
-	assert_nothing_raised { e1.call(true) }
+        plan.add(e1 = EventGenerator.new(true))
+	e1.call(true)
     end
 
     def test_cancel
@@ -1001,7 +1021,9 @@ class TC_Event < Test::Unit::TestCase
 
 	master.call
 	assert(!master.happened?)
-	assert_raises(UnreachableEvent) { plan.remove_object(slave) }
+	plan.remove_object(slave)
+        assert(master.unreachable?)
+        assert_kind_of(EmissionFailed, master.unreachability_reason)
 
 	# Now test the filtering case (when a block is given)
 	slave  = EventGenerator.new
