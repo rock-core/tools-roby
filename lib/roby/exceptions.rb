@@ -154,7 +154,7 @@ module Roby
 			    if !kind_of?(PlanObject)
 				engine.add_framework_error(e, 'global exception handling')
 			    else
-				engine.add_error(FailedExceptionHandler.new(e, self, exception_object))
+				add_error(FailedExceptionHandler.new(e, self, exception_object))
 			    end
 			end
 		    end
