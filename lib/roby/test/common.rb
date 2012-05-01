@@ -178,6 +178,10 @@ module Roby
 	    Roby.logger.level = old_gc_roby_logger_level
 	end
 
+        def inhibit_fatal_messages(&block)
+            with_log_level(Roby, Logger::FATAL, &block)
+        end
+
         def with_log_level(log_object, level)
             if log_object.respond_to?(:logger)
                 log_object = log_object.logger

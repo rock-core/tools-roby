@@ -38,7 +38,9 @@ class TC_PlannedBy < Test::Unit::TestCase
 	assert_equal([], plan.check_structure.to_a)
 	planner.start!
 	assert_equal([], plan.check_structure.to_a)
-	planner.failed!
+        inhibit_fatal_messages do
+            assert_raises(PlanningFailedError) { planner.failed! }
+        end
 
 	errors = plan.check_structure.to_a
         error = errors.find { |err| err.first.exception.kind_of?(Roby::PlanningFailedError) }

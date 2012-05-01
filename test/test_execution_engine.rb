@@ -806,15 +806,19 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    begin
 		engine.wait_until(task.event(:success)) do
 		    task.start!
-		    task.stop!
+                    task.stop!
 		end
 	    rescue Exception => e
 		e
 	    end
 	end
 
+        # Wait for #wait_until, in the thread, to wait for the main thread
 	while !t.stop?; sleep(0.1) end
-	process_events
+        # And process the events
+        with_log_level(Roby, Logger::FATAL) do
+            process_events
+        end
 
 	result = t.value
 	assert_kind_of(UnreachableEvent, result)
@@ -1098,7 +1102,10 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
 	task = prepare_plan :missions => 1, :model => model
 	task.start!
-	task.specialized_failure!
+        
+        inhibit_fatal_messages do
+            assert_raises(Roby::MissionFailedError) { task.specialized_failure! }
+        end
 	
 	error = Roby::Plan.check_failed_missions(plan).first.exception
 	assert_kind_of(Roby::MissionFailedError, error)
@@ -1154,8 +1161,8 @@ class TC_ExecutionEngine < Test::Unit::TestCase
                     emit :start
                 end
             end.new(:id => 'target')
-            plan.add_permanent(source)
-            plan.add_permanent(target)
+            plan.add(source)
+            plan.add(target)
 
             source.signals :success, target, :start
             source.on :stop do |ev|

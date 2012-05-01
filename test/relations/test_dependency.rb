@@ -76,7 +76,9 @@ class TC_Dependency < Test::Unit::TestCase
         parent.depends_on child
         parent.start!
         child.start!
-        child.failed!
+        inhibit_fatal_messages do
+            assert_raises(ChildFailedError) { child.failed! }
+        end
 
 	error = plan.check_structure.find { true }[0].exception
 	assert_kind_of(ChildFailedError, error)
@@ -113,6 +115,13 @@ class TC_Dependency < Test::Unit::TestCase
             child.start!; p1.start!
         end
         return p1, child
+    end
+
+    def assert_child_fails(child, reason, plan)
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(ChildFailedError) { yield }
+        end
+        assert_child_failed(child, reason.last, plan)
     end
 
     def assert_child_failed(child, reason, plan)
@@ -171,8 +180,7 @@ class TC_Dependency < Test::Unit::TestCase
         parent, child = create_pair :success => [:first], 
             :failure => [:stop]
 
-        child.stop!
-        assert_child_failed(child, child.failed_event.last, plan)
+        assert_child_fails(child, child.failed_event, plan) { child.stop! }
         # To avoid warning messages on teardown
         plan.remove_object(child)
     end
@@ -192,10 +200,9 @@ class TC_Dependency < Test::Unit::TestCase
             parent, child = create_pair :success => [], :failure => [:stop], :start => false
             child.start!
 
-            mock.should_receive(:decision_control_called).once
+            mock.should_receive(:decision_control_called).at_least.once
 
-            child.stop!
-            assert_child_failed(child, child.failed_event.last, plan)
+            assert_child_fails(child, child.failed_event, plan) { child.stop! }
             # To avoid warning messages on teardown
             plan.remove_object(child)
         end
@@ -240,7 +247,7 @@ class TC_Dependency < Test::Unit::TestCase
             mock.should_receive(:decision_control_called).once
 
             child.failed_to_start!(nil)
-            assert_child_failed(child, child.start_event, plan)
+            assert_child_failed(child, child.start_event, plan) 
             plan.remove_object(child)
         end
     end
@@ -255,9 +262,11 @@ class TC_Dependency < Test::Unit::TestCase
         plan.add(child = model.new(:id => 10))
         parent.depends_on child
         parent.start!
-        child.start!
 
-	exception = assert_child_failed(child, child.event(:success), plan)
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(ChildFailedError) { child.start! }
+        end
+	exception = assert_child_failed(child, child.success_event, plan)
         # To avoid warning messages on teardown
         plan.remove_object(child)
     end
@@ -265,8 +274,7 @@ class TC_Dependency < Test::Unit::TestCase
     def test_failure_on_unreachable
         parent, child = create_pair :success => [:first]
 
-        child.stop!
-	error = assert_child_failed(child, child.failed_event.last, plan)
+	error = assert_child_fails(child, child.failed_event, plan) { child.stop! }
         assert_equal(nil, error.explanation.value)
         # To avoid warning messages on teardown
         plan.remove_object(child)
@@ -523,8 +531,7 @@ class TC_Dependency < Test::Unit::TestCase
         child.start!
         child.stop!
         assert(plan.check_structure.empty?) # no failure yet
-        parent.start!
-        assert_child_failed(child, child.failed_event.last, plan)
+        assert_child_fails(child, child.failed_event, plan) { parent.start! }
         # To avoid warning messages on teardown
         plan.remove_object(child)
     end

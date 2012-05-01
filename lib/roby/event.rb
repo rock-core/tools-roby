@@ -368,20 +368,7 @@ module Roby
                     seeds = engine.gather_propagation do
 			engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
                     end
-		    errors = engine.event_propagation_phase(seeds)
-                    if !errors.empty?
-                        errors.each do |e|
-                            Roby.display_exception(Roby.logger.io(:warn), e.exception)
-                        end
-                        if errors.size == 1
-                            e = errors.first.exception
-                            raise e.dup, e.message, e.backtrace
-                        elsif !errors.empty?
-                            for e in errors
-                                pp e.exception
-                            end
-                            raise "multiple exceptions"
-                        end
+		    engine.process_events_synchronous(seeds)
                     if unreachable? && unreachability_reason.kind_of?(Exception)
                         raise unreachability_reason
                     end
@@ -768,20 +755,7 @@ module Roby
                     seeds = engine.gather_propagation do
 			engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
                     end
-		    errors = engine.event_propagation_phase(seeds)
-                    if !errors.empty?
-                        errors.each do |e|
-                            Roby.display_exception(Roby.logger.io(:warn), e.exception)
-                        end
-                        if errors.size == 1
-                            e = errors.first.exception
-                            raise e.dup, e.message, e.backtrace
-                        elsif !errors.empty?
-                            for e in errors
-                                pp e.exception
-                            end
-                            raise "multiple exceptions"
-                        end
+		    engine.process_events_synchronous(seeds)
                     if unreachable? && unreachability_reason.kind_of?(Exception)
                         raise unreachability_reason
                     end

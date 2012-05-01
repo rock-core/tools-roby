@@ -2084,10 +2084,11 @@ class TC_Task < Test::Unit::TestCase
         end
         plan.add(task = klass.new)
         with_log_level(Roby, Logger::FATAL) do
-            assert_raises(Roby::CommandFailed) { task.start! }
+            task.start!
         end
         assert(!task.failed_to_start?, "#{task} is marked as failed to start but should not")
-        assert(task.running?)
+        assert(task.internal_error?)
+        assert(!task.running?)
     end
 end
 

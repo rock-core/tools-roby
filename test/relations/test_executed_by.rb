@@ -144,7 +144,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	plan.add(task = task_model.new)
         plan.remove_object(task.execution_agent)
         task.executed_by SecondExecutionModel.new(:id => 2)
-        task.start!
+        assert_raises(CommandFailed) { task.start! }
         assert task.failed?
         assert_kind_of CommandFailed, task.failure_reason
 
@@ -152,7 +152,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	plan.add(task = task_model.new)
         plan.remove_object(task.execution_agent)
         task.executed_by ExecutionAgentModel.new(:id => 3)
-        task.start!
+        assert_raises(CommandFailed) { task.start! }
         assert task.failed?
         assert_kind_of CommandFailed, task.failure_reason
     end
@@ -164,7 +164,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	plan.add(task = task_model.new)
         plan.remove_object(task.execution_agent)
 
-        task.start!
+        assert_raises(Roby::CommandFailed) { task.start! }
         assert task.failed?
         assert_kind_of CommandFailed, task.failure_reason
     end
@@ -235,11 +235,10 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	agent = Class.new(Tasks::Simple) do
 	    event :ready, :command => true
 	end.new
-	root, (task, replacement) = prepare_plan :missions => 1, :add => 2, :model => Tasks::Simple
+	task, replacement = prepare_plan :add => 2, :model => Tasks::Simple
 
-        root.depends_on task, :model => Tasks::Simple
 	task.executed_by agent
-        plan.replace_task(task, replacement)
+        plan.force_replace_task(task, replacement)
 
         assert_equal agent, replacement.execution_agent
         assert replacement.used_with_an_execution_agent?

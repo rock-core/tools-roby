@@ -25,22 +25,28 @@ class TC_TemporalConstraints < Test::Unit::TestCase
     end
 
     def test_occurence_constraint_minmax
-        e1 = Roby::EventGenerator.new(true)
-        e2 = Roby::EventGenerator.new(true)
-        plan.add(e1)
-        plan.add(e2)
-
+        plan.add(e1 = Roby::EventGenerator.new(true))
+        plan.add(e2 = Roby::EventGenerator.new(true))
         e1.add_occurence_constraint(e2, 1, 2)
         assert !e2.meets_temporal_constraints?(Time.now)
         with_log_level(Roby, Logger::FATAL) do
             assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
         end
+
+        plan.add(e1 = Roby::EventGenerator.new(true))
+        plan.add(e2 = Roby::EventGenerator.new(true))
+        e1.add_occurence_constraint(e2, 1, 2)
+        e1.emit
+        assert e2.meets_temporal_constraints?(Time.now)
+        e2.emit
+
+        plan.add(e1 = Roby::EventGenerator.new(true))
+        plan.add(e2 = Roby::EventGenerator.new(true))
+        e1.add_occurence_constraint(e2, 1, 2)
         e1.emit
         assert e2.meets_temporal_constraints?(Time.now)
         e2.emit
         e1.emit
-        assert e2.meets_temporal_constraints?(Time.now)
-        e2.emit
         e1.emit
         assert !e2.meets_temporal_constraints?(Time.now)
         with_log_level(Roby, Logger::FATAL) do
@@ -49,16 +55,17 @@ class TC_TemporalConstraints < Test::Unit::TestCase
     end
 
     def test_occurence_constraint_minmax_recurrent
-        e1 = Roby::EventGenerator.new(true)
-        e2 = Roby::EventGenerator.new(true)
-        plan.add(e1)
-        plan.add(e2)
-
+        plan.add(e1 = Roby::EventGenerator.new(true))
+        plan.add(e2 = Roby::EventGenerator.new(true))
         e1.add_occurence_constraint(e2, 1, 2, true)
         assert !e2.meets_temporal_constraints?(Time.now)
         with_log_level(Roby, Logger::FATAL) do
             assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
         end
+
+        plan.add(e1 = Roby::EventGenerator.new(true))
+        plan.add(e2 = Roby::EventGenerator.new(true))
+        e1.add_occurence_constraint(e2, 1, 2, true)
         e1.emit
         assert e2.meets_temporal_constraints?(Time.now)
         e2.emit
@@ -67,6 +74,10 @@ class TC_TemporalConstraints < Test::Unit::TestCase
         with_log_level(Roby, Logger::FATAL) do
             assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
         end
+
+        plan.add(e1 = Roby::EventGenerator.new(true))
+        plan.add(e2 = Roby::EventGenerator.new(true))
+        e1.add_occurence_constraint(e2, 1, 2, true)
         e1.emit
         assert e2.meets_temporal_constraints?(Time.now)
         e1.emit

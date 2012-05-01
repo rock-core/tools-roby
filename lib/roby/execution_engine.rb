@@ -1,4 +1,15 @@
 module Roby
+    # Exception wrapper used to report that multiple errors have been raised
+    # during a synchronous event processing call.
+    # 
+    # See ExecutionEngine#process_events_synchronous for more information
+    class SynchronousEventProcessingMultipleErrors < RuntimeError
+        attr_reader :errors
+        def initialize(errors)
+            @errors = errors
+        end
+    end
+
     # This class contains all code necessary for the propagation steps during
     # execution. This includes event and exception propagation. This
     # documentation will first present some useful tools provided by execution
@@ -494,14 +505,13 @@ module Roby
         # handled later in the execution cycle. Otherwise, calls
         # #add_framework_error
         def add_error(e)
+            plan_exception = ExecutionEngine.to_execution_exception(e)
             if @propagation_exceptions
-                plan_exception = ExecutionEngine.to_execution_exception(e)
                 @propagation_exceptions << plan_exception
             else
-                if e.respond_to?(:error) && e.error
-                    add_framework_error(e.error, "error outside error handling")
-                else
-                    add_framework_error(e, "error outside error handling")
+                gather_framework_errors("") do
+                    stats = Hash[:start => Time.now]
+                    error_handling_phase(stats, [plan_exception])
                 end
             end
         end
@@ -509,9 +519,26 @@ module Roby
         # Yields to the block, calling #add_framework_error if an exception is
         # raised 
         def gather_framework_errors(source)
+            if @application_exceptions
+                has_application_errors = true
+            else
+                @application_exceptions = []
+            end
             yield
         rescue Exception => e
             add_framework_error(e, source)
+        ensure
+            if !has_application_errors
+                process_pending_application_exceptions
+            end
+        end
+
+        def process_pending_application_exceptions
+            application_errors, @application_exceptions = 
+                @application_exceptions, nil
+            for error, origin in application_errors
+                add_framework_error(error, origin)
+            end
         end
 
         # If called in execution context, adds the framework error +error+ to be
@@ -1194,10 +1221,45 @@ module Roby
 
             fatal_errors
         end
+
+        # Tests are using a special mode for propagation, in which everything is
+        # resolved when #emit or #call is called, including error handling. This
+        # mode is implemented using this method
+        #
+        # When errors occur in this mode, the exceptions are raised directly.
+        # This is useful in tests as, this way, we are sure that the exception
+        # will not get overlooked
+        #
+        # If multiple errors are raised in a single call (this is possible due
+        # to Roby's error handling mechanisms), the method will raise
+        # SynchronousEventProcessingMultipleErrors to wrap all the exceptions
+        # into one.
+        def process_events_synchronous(seeds)
+            gather_framework_errors("process_events_simple") do
+                stats = Hash[:start => Time.now]
+                errors = event_propagation_phase(seeds)
+                kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
+
+                if fatal_errors
+                    fatal_errors.each do |e, _|
+                        Roby.display_exception(Roby.logger.io(:warn), e.exception)
+                    end
+                    if fatal_errors.size == 1
+                        e = fatal_errors.find { true }.first.exception
+                        raise e.dup, e.message, e.backtrace
+                    elsif !fatal_errors.empty?
+                        raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
+                    end
+                end
+            end
+        end
         
         # Process the pending events. The time at each event loop step
         # is saved into +stats+.
         def process_events(stats = {:start => Time.now})
+            if @application_exceptions
+                raise "recursive call to process_events"
+            end
             @application_exceptions = []
             add_timepoint(stats, :real_start)
 
@@ -1240,11 +1302,7 @@ module Roby
                 end
             end
 
-            application_errors, @application_exceptions = 
-                @application_exceptions, nil
-            for error, origin in application_errors
-                add_framework_error(error, origin)
-            end
+            process_pending_application_exceptions
 
             if Roby.app.abort_on_exception? && !all_fatal_errors.empty?
                 reraise(all_fatal_errors.map { |e, _| e })

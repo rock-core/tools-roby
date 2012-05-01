@@ -585,7 +585,7 @@ class TC_Plan < Test::Unit::TestCase
         t2.start!
         t3.start!
         t4.start!
-        t4.stop!
+        assert_raises(SynchronousEventProcessingMultipleErrors) { t4.stop! }
         errors = engine.compute_fatal_errors({:start => Time.now}, [])
         assert_equal 2, errors.size
 

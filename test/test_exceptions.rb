@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'flexmock'
+require 'flexmock/test_unit'
 require 'roby/tasks/simple'
 
 require 'roby'
@@ -373,19 +373,20 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_exception_inhibition
-	parent, child = prepare_plan :tasks => 2, :model => Tasks::Simple
-	plan.add_permanent(parent)
+	parent, child = prepare_plan :add => 2, :model => Tasks::Simple
 	parent.depends_on child
 	parent.signals :start, child, :start
 	parent.start!
-	child.failed!
-
-	exceptions = plan.check_structure
-
 	plan.add(repairing_task = Tasks::Simple.new)
 	repairing_task.start!
+        inhibit_fatal_messages do
+            assert_raises(ChildFailedError) { child.failed! }
+        end
+
+	exceptions = plan.check_structure
 	assert_equal(exceptions.to_a, engine.remove_inhibited_exceptions(exceptions))
 	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
+
 	plan.add_repair(child.terminal_event, repairing_task)
 	assert_equal([], engine.remove_inhibited_exceptions(exceptions))
 	assert_equal([], engine.propagate_exceptions(exceptions))
@@ -401,10 +402,8 @@ class TC_Exceptions < Test::Unit::TestCase
 	    forward :blocked => :failed
 	end
 
-	parent, child = prepare_plan :tasks => 2, :model => task_model
-	plan.add_mission(parent)
+	parent, (child, *repair_tasks) = prepare_plan :permanent => 1, :add => 3, :model => task_model
 	parent.depends_on child
-        repair_tasks = [Tasks::Simple.new, Tasks::Simple.new]
 	child.event(:failed).handle_with repair_tasks[0]
 	child.event(:failed).handle_with repair_tasks[1]
 
@@ -453,29 +452,14 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_mission_exceptions
 	mission = prepare_plan :missions => 1, :model => Tasks::Simple
-	repairing_task = Tasks::Simple.new
-	mission.event(:failed).handle_with repairing_task
-
 	mission.start!
-	mission.emit :failed
+        inhibit_fatal_messages do
+            assert_raises(MissionFailedError) { mission.emit(:failed) }
+        end
 
 	exceptions = plan.check_structure
 	assert_equal(1, exceptions.size)
 	assert_kind_of(Roby::MissionFailedError, exceptions.to_a[0][0].exception, exceptions)
-
-	assert_equal([], engine.propagate_exceptions(exceptions))
-	assert_equal({ mission.terminal_event => repairing_task },
-		     plan.repairs_for(mission.terminal_event), [plan.repairs, mission.terminal_event])
-
-	Roby.app.abort_on_exception = false
-	process_events
-	assert(plan.mission?(mission))
-	assert(repairing_task.running?)
-
-	# Make the "repair task" finish, but do not repair the plan.
-	# propagate_exceptions must not add a new repair
-	repairing_task.success!
-	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
 
 	# Discard the mission so that the test teardown does not complain
 	plan.unmark_mission(mission)
@@ -488,10 +472,12 @@ class TC_Exceptions < Test::Unit::TestCase
             end
         end
         task = prepare_plan :permanent => 1, :model => model
-        error = begin task.start!
-                rescue Exception => e; e
-                end
-        check_exception_formatting(e)
+        inhibit_fatal_messages do
+            error = begin task.start!
+                    rescue Exception => e; e
+                    end
+            check_exception_formatting(e)
+        end
 
 
         model = Class.new(Tasks::Simple) do
@@ -500,10 +486,12 @@ class TC_Exceptions < Test::Unit::TestCase
             end
         end
         task = prepare_plan :permanent => 1, :model => model
-        error = begin task.start!
-                rescue Exception => e; e
-                end
-        check_exception_formatting(e)
+        inhibit_fatal_messages do
+            error = begin task.start!
+                    rescue Exception => e; e
+                    end
+            check_exception_formatting(e)
+        end
 
         model = Class.new(Tasks::Simple) do
             on :start do |ev|
@@ -511,13 +499,15 @@ class TC_Exceptions < Test::Unit::TestCase
             end
         end
         task = prepare_plan :add => 1, :model => model
-        error = begin
-                    with_log_level(Roby, Logger::FATAL) do
-                        task.start!
+        inhibit_fatal_messages do
+            error = begin
+                        with_log_level(Roby, Logger::FATAL) do
+                            task.start!
+                        end
+                    rescue Exception => e; e
                     end
-                rescue Exception => e; e
-                end
-        check_exception_formatting(e)
+            check_exception_formatting(e)
+        end
     end
 
     def check_exception_formatting(error)
@@ -574,25 +564,18 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_permanent_task_errors_are_nonfatal
-        parent, child = prepare_plan :add => 2, :model => Tasks::Simple
-        parent.depends_on(child, :success => [:start], :failure => [])
-        child.start!
-        parent.start!
+        task = prepare_plan :permanent => 1, :model => Tasks::Simple
 
-        plan.add_permanent(parent)
-        plan.add_permanent(child)
-        FlexMock.use do |mock|
-            plan.on_exception(PermanentTaskError) do |*_|
-                mock.called
-            end
-            mock.should_receive(:called).once
-            child.stop!
-            with_log_level(Roby, Logger::FATAL) do
-                process_events
-            end
-            assert(parent.running?)
-            assert(!child.running?)
+        mock = flexmock
+        mock.should_receive(:called).once.with(false)
+
+        plan.on_exception(PermanentTaskError) do |plan, error|
+            plan.unmark_permanent(error.task)
+            mock.called(error.fatal?)
         end
+
+        task.start!
+        task.stop!
     end
 end
 
