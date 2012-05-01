@@ -1022,7 +1022,7 @@ module Roby
                     map { |task, _| task }
 
                 if all_repairs.size > 1
-                    if running_repair = all_repairs.find { |t| t.running? }
+                    if running_repair = all_repairs.find { |t| t.running? || t.starting? }
                         all_repairs = [running_repair]
                     end
                 end
@@ -1031,7 +1031,7 @@ module Roby
                 if repair
                     plan.add_repair(failed_event, repair)
                     if repair.pending?
-                        once { repair.start! }
+                        repair.start!
                     end
                     true
                 else
