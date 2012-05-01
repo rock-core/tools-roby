@@ -132,27 +132,26 @@ class TC_Event < Test::Unit::TestCase
 	plan.add(other = EventGenerator.new(true))
 	other.executable = false
 	event.signals other
-        with_log_level(Roby, Logger::FATAL) do
-            assert_event_fails(other, EventNotExecutable) { event.call(nil) }
-        end
+        assert_event_fails(other, EventNotExecutable) { event.call(nil) }
 
+	plan.add(event = EventGenerator.new(true))
 	plan.add(other = EventGenerator.new(true))
 	other.executable = false
 	event.remove_signal(other)
 	event.emit(nil)
 	event.forward_to other
-        with_log_level(Roby, Logger::FATAL) do
-            assert_event_fails(other, EventNotExecutable) { event.call(nil) }
-        end
+        assert_event_fails(other, EventNotExecutable) { event.call(nil) }
 
-	event.remove_forwarding(other)
-	assert_nothing_raised { event.emit(nil) }
+	plan.add(event = EventGenerator.new(true))
+	event.emit(nil)
 	event.on { |ev| other.emit(nil) }
 	assert_original_error(EventNotExecutable, EventHandlerError) { event.call(nil) }
     end
 
     def assert_event_fails(ev, error_type)
-        yield
+        with_log_level(Roby, Logger::FATAL) do
+            yield
+        end
         assert(ev.unreachable?, "#{ev} was expected to be marked as unreachable, but is not")
         assert_kind_of(error_type, ev.unreachability_reason)
     end
@@ -175,10 +174,12 @@ class TC_Event < Test::Unit::TestCase
 	assert_event_fails(event, klass) { event.emit_failed(klass) }
 	plan.add(event = EventGenerator.new)
 	assert_event_fails(event, klass) { event.emit_failed(klass, "test") }
-	begin; event.emit_failed(klass, "test")
-	rescue klass => e
-	    assert( e.message =~ /: test$/ )
-	end
+        inhibit_fatal_messages do
+            begin; event.emit_failed(klass, "test")
+            rescue klass => e
+                assert( e.message =~ /: test$/ )
+            end
+        end
 
 	plan.add(event = EventGenerator.new)
 	exception = klass.new(nil, event)
@@ -1021,9 +1022,9 @@ class TC_Event < Test::Unit::TestCase
 
 	master.call
 	assert(!master.happened?)
-	plan.remove_object(slave)
-        assert(master.unreachable?)
-        assert_kind_of(EmissionFailed, master.unreachability_reason)
+        assert_event_fails(master, EmissionFailed) do
+            plan.remove_object(slave)
+        end
 
 	# Now test the filtering case (when a block is given)
 	slave  = EventGenerator.new
@@ -1067,17 +1068,11 @@ class TC_Event < Test::Unit::TestCase
 	plan.add(e1 = EventGenerator.new(true))
 	plan.add(e2 = EventGenerator.new(true))
 	a = e1 | e2
-	FlexMock.use do |mock|
-	    a.if_unreachable(false) { mock.called }
-	    mock.should_receive(:called).never
-	    plan.remove_object(e1)
-	end
+        e1.unreachable!
+        assert(!a.unreachable?)
 
-	FlexMock.use do |mock|
-	    a.if_unreachable(false) { mock.called }
-	    mock.should_receive(:called).once
-	    plan.remove_object(e2)
-	end
+        e2.unreachable!
+        assert(a.unreachable?)
     end
 
     def test_and_on_removal

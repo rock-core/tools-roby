@@ -1048,6 +1048,7 @@ module Roby
                         true
                     end
                 else
+                    Roby.display_exception(Roby.logger.io(:warn), e.exception)
                     e.generator.unreachable!(e.exception)
                     true
                 end
