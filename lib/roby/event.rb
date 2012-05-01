@@ -785,7 +785,6 @@ module Roby
         # From an event propagation point of view, it looks like:
         # TODO: add a figure
 	def achieve_with(ev)
-	    stack = caller(1)
 	    if block_given?
 		ev.add_causal_link self
 		ev.once do |context|

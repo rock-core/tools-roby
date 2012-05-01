@@ -272,7 +272,6 @@ module Roby
 	    if new_pattern = patterns.reverse.find { |task, ev| task.planned_task.pending? }
                 t, ev = new_pattern
                 ev.call(*context)
-                command = ev.enum_child_objects(EventStructure::Signal).find { true }
             elsif lookahead == 0
 		start_planning = !last_planning_task
 		planning = append_pattern(*context)
