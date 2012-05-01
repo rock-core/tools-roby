@@ -1272,7 +1272,9 @@ class TC_Task < Test::Unit::TestCase
 	slave.start!
 	slave.success!
 	assert(master.started?)
+    end
 
+    def test_achieve_with_fails_emission_if_child_success_becomes_unreachable
 	slave  = Tasks::Simple.new
 	master = Class.new(Task) do
 	    event :start do |context|
@@ -1285,7 +1287,8 @@ class TC_Task < Test::Unit::TestCase
 	assert(master.starting?)
 	plan.remove_object(slave)
         assert master.failed?
-        assert_kind_of UnreachableEvent, master.failure_reason
+        assert_kind_of EmissionFailed, master.failure_reason
+        assert_kind_of UnreachableEvent, master.failure_reason.error
     end
 
     def test_task_group

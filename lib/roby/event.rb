@@ -827,7 +827,7 @@ module Roby
 	    end
 
 	    ev.if_unreachable(true) do |reason, event|
-		emit_failed(UnreachableEvent.new(self, reason))
+		emit_failed(EmissionFailed.new(UnreachableEvent.new(ev, reason), self))
 	    end
 	end
 	# For backwards compatibility. Use #achieve_with.
