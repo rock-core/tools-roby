@@ -687,12 +687,7 @@ module Roby
             end
 
             failed_to_emit(error)
-
-            if block_given?
-                yield(error) 
-            else
-                plan.engine.add_error(error)
-            end
+            plan.engine.add_error(error)
 	ensure
 	    @pending = false
 	end

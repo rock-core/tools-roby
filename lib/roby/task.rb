@@ -324,39 +324,6 @@ module Roby
             task.fired_event(event)
         end
 
-        # See EventGenerator#emit_failed
-        def emit_failed(error = nil, message = nil) # :nodoc:
-            super do |error|
-                if symbol == :start
-                    task.failed_to_start!(error)
-                elsif !terminal? && !task.event(:internal_error).happened?
-                    task.emit :internal_error, error
-                    if task.event(:stop).pending? || !task.event(:stop).controlable?
-                        # In this case, we can't "just" stop the task. We have
-                        # to inject +error+ in the exception handling and kill
-                        # everything that depends on it.
-                        plan.engine.add_error(TaskEmergencyTermination.new(task, error, false))
-                    end
-                else
-                    # No nice way to isolate this error through the task
-                    # interface, as we can't emergency stop it. Quarantine it
-                    # and inject it in the normal exception propagation
-                    # mechanisms.
-                    Robot.fatal "putting #{task} in quarantine: #{self} failed to emit"
-                    if message
-                        Robot.fatal "  #{message}"
-                    end
-                    if error
-                        Robot.fatal "the error is:"
-                        Roby.log_exception(error, Robot, :fatal)
-                    end
-
-                    plan.quarantine(task)
-                    plan.engine.add_error(TaskEmergencyTermination.new(task, error, true))
-                end
-            end
-        end
-
         # See EventGenerator#related_tasks
 	def related_tasks(result = nil) # :nodoc:
 	    tasks = super
@@ -2809,6 +2776,47 @@ module Roby
             default = if abstract? then :copy else :drop end
             options, remaining = InstanceHandler.filter_options options, :on_replace => default
             super(options.merge(remaining), &block)
+        end
+
+        def command_or_handler_error(exception)
+            if exception.originates_from?(self)
+                error = exception.exception
+                gen = exception.generator
+                if gen.symbol == :start && !start_event.happened?
+                    failed_to_start!(error)
+                elsif pending?
+                    pass_exception
+                elsif !gen.terminal? && !event(:internal_error).happened?
+                    emit :internal_error, error
+                    if event(:stop).pending? || !event(:stop).controlable?
+                        # In this case, we can't "just" stop the task. We have
+                        # to inject +error+ in the exception handling and kill
+                        # everything that depends on it.
+                        add_error(TaskEmergencyTermination.new(self, error, false))
+                    end
+                else
+                    # No nice way to isolate this error through the task
+                    # interface, as we can't emergency stop it. Quarantine it
+                    # and inject it in the normal exception propagation
+                    # mechanisms.
+                    Robot.fatal "putting #{self} in quarantine: #{self} failed to emit"
+                    Robot.fatal "the error is:"
+                    Roby.log_exception(error, Robot, :fatal)
+
+                    plan.quarantine(self)
+                    add_error(TaskEmergencyTermination.new(self, error, true))
+                end
+            else
+                pass_exception
+            end
+        end
+
+        on_exception(Roby::EmissionFailed) do |exception|
+            command_or_handler_error(exception)
+        end
+
+        on_exception(Roby::CommandFailed) do |exception|
+            command_or_handler_error(exception)
         end
     end
 

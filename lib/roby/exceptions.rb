@@ -75,6 +75,11 @@ module Roby
 	    end
 	end
 
+        # True if this exception originates from the given task or generator
+        def originates_from?(object)
+            origin == object || (origin.respond_to?(:task) && origin.task == object)
+        end
+
 	# Creates a new execution exception object with the specified source
 	# If +source+ is nil, tries to guess the source from +exception+: if
 	# +exception+ responds to #task or #generator we use either #task or
