@@ -96,7 +96,7 @@ module Roby::TaskStructure
             return if !relations.include?(ExecutionAgent)
             return if used_as_execution_agent?
 
-            ready_event.when_unreachable(&ExecutionAgentGraphClass.method(:execution_agent_failed_to_start))
+            ready_event.when_unreachable(true, &ExecutionAgentGraphClass.method(:execution_agent_failed_to_start))
             on :stop, &ExecutionAgentGraphClass.method(:pending_execution_agent_failed)
 
             self.used_as_execution_agent = true
