@@ -168,9 +168,9 @@ module Roby
                     catch(:retry_block) do
                         return resolve(@task).send(m, *args, &block)
                     end
-                    raise NotMethodError, "child #{@chain.join(".")} does not yet exist on #{@task}"
+                    raise NoMethodError, "child #{@chain.join(".")} does not yet exist on #{@task}"
                 else
-                    raise NotMethodError, "you cannot use this object outside scripting"
+                    raise NoMethodError, "you cannot use this object outside scripting"
                 end
             end
 
