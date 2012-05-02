@@ -215,7 +215,7 @@ class TC_TaskScripting < Test::Unit::TestCase
             time = Time.now
             mock.should_receive(:now).and_return { time }
             task.script do
-                wait 5
+                sleep 5
                 emit :success
             end
 
@@ -362,6 +362,7 @@ class TC_TaskScripting < Test::Unit::TestCase
         process_events
         assert task.done_script1?
         assert !task.done_script2?
+        plan.unmark_permanent(task)
         task.stop!
         assert task.done_script1?
         assert !task.done_script2?
