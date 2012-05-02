@@ -170,7 +170,7 @@ module Roby
                     end
                     raise NoMethodError, "child #{@chain.join(".")} does not yet exist on #{@task}"
                 else
-                    raise NoMethodError, "you cannot use this object outside scripting"
+                    raise NoMethodError, "you cannot use this object outside scripting, you probably forgot to put code in an execute { } or poll { } block."
                 end
             end
 
