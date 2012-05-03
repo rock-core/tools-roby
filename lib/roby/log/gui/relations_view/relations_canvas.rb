@@ -35,7 +35,7 @@ module Roby
                 # with their controllability.
                 flags |= (object.controlable? ? EVENT_CONTROLABLE : EVENT_CONTINGENT)
 
-                if (flags & EVENT_CALLED) != EVENT_CALLED
+                if (flags & EVENT_CALLED) == EVENT_CALLED
                     if (flags & EVENT_CONTROLABLE) != EVENT_CONTROLABLE
                         STDERR.puts "WARN: inconsistency in replayed logs. Found event call on #{object} #{object.object_id} which is marked as contingent (#{object.controlable?}"
                     end
