@@ -354,11 +354,11 @@ module Roby
 
                     if task.history.empty?
                         state = :pending
-                        end_point   = time_to_pixel * ((task.finalization_time || history_widget.time) - current_time) + half_width
+                        end_point   = time_to_pixel * ((task.finalization_time || history_widget.current_time) - current_time) + half_width
                     else
                         state = task.current_display_state(task.history.last.time)
                         if state == :running
-                            end_point = time_to_pixel * (history_widget.time - current_time) + half_width
+                            end_point = time_to_pixel * (history_widget.current_time - current_time) + half_width
                         else
                             end_point = time_to_pixel * (task.history.last.time - current_time) + half_width
                         end
@@ -464,7 +464,7 @@ module Roby
             def update_scroll_ranges
                 if base_time
                     horizontal_scroll_bar.value = time_to_pixel * (current_time - base_time)
-                    horizontal_scroll_bar.setRange(0, time_to_pixel * (history_widget.time - base_time))
+                    horizontal_scroll_bar.setRange(0, time_to_pixel * (history_widget.current_time - base_time))
                     horizontal_scroll_bar.setPageStep(geometry.width / 4)
                 end
                 vertical_scroll_bar.setRange(0, current_tasks.size)
@@ -591,13 +591,13 @@ module Roby
             slots 'play()'
 
             def step
-                if chronicle.current_time == chronicle.history_widget.time
+                if chronicle.current_time == chronicle.history_widget.current_time
                     return
                 end
 
                 new_time = chronicle.current_time + PLAY_STEP
-                if new_time >= chronicle.history_widget.time
-                    new_time = chronicle.history_widget.time
+                if new_time >= chronicle.history_widget.current_time
+                    new_time = chronicle.history_widget.current_time
                 end
                 puts "updating #{new_time} #{new_time.to_f}"
                 chronicle.update(new_time)
