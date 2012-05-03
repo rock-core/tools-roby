@@ -599,7 +599,6 @@ module Roby
                 if new_time >= chronicle.history_widget.current_time
                     new_time = chronicle.history_widget.current_time
                 end
-                puts "updating #{new_time} #{new_time.to_f}"
                 chronicle.update(new_time)
             end
             slots 'step()'
