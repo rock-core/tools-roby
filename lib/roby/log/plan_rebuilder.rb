@@ -45,6 +45,14 @@ module Roby
                 end
             end
 
+            def finalize_object(object, timestamp = nil)
+                # Don't do anything. Due to the nature of the plan replay
+                # mechanisms, tasks that are already finalized can very well be
+                # kept included in plans. That is something that would be caught
+                # by the finalization paths in Plan
+                object.clear_relations
+            end
+
             def clear
                 super
                 clear_integrated

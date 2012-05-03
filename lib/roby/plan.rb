@@ -1011,9 +1011,9 @@ module Roby
 		    raise ArgumentError, "#{object} is included in #{self} but #plan == #{object.plan}"
 		elsif !object.plan
 		    if object.removed_at
-			raise ArgumentError, "#{object} has been removed at\n  #{object.removed_at.join("\n  ")}"
+			raise ArgumentError, "#{object} has already been removed at\n  #{object.removed_at.join("\n  ")}"
 		    else
-			raise ArgumentError, "#{object} has not been included in this plan"
+			raise ArgumentError, "#{object} has never been included in this plan"
 		    end
 		end
 		raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
