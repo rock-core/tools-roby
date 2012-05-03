@@ -783,6 +783,7 @@ module Roby
                     generator.task.update_task_status(event)
                 end
 		generator.plan.emitted_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]
+                announce_event_propagation_update
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
                 generator = local_object(generator)
