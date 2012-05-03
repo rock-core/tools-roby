@@ -663,6 +663,12 @@ module Roby
             PROPAG_FORWARD  = 2
             PROPAG_CALLING  = 3
             PROPAG_EMITTING = 4
+            PROPAG_ORDERING = {
+                PROPAG_SIGNAL => [],
+                PROPAG_FORWARD => [],
+                PROPAG_CALLING => [PROPAG_SIGNAL],
+                PROPAG_EMITTING => [PROPAG_SIGNAL, PROPAG_FORWARD, PROPAG_CALLING]
+            }
 
             EVENT_CONTINGENT  = 0
             EVENT_CONTROLABLE = 1
@@ -681,7 +687,12 @@ module Roby
 		    source_generators = source_generators.map { |source_generator| local_object(source_generator) }.
                         delete_if { |gen| gen == generator }
                     if !source_generators.empty?
-                        generator.plan.propagated_events << [flag, source_generators, generator]
+                        has_superseding_event = generator.plan.propagated_events.find do |fl, src, g|
+                            PROPAG_ORDERING[flag].include?(fl) && g == generator && src == source_generators
+                        end
+                        if !has_superseding_event
+                            generator.plan.propagated_events << [flag, source_generators, generator]
+                        end
                     end
 		end
                 return generator, source_generators

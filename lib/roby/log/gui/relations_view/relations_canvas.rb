@@ -291,6 +291,11 @@ module Roby
 		line.parent_item = ending
 		ending.singleton_class.class_eval do
                     attr_accessor :line
+
+                    def pen=(pen)
+                        super
+                        line.pen = pen
+                    end
                 end
 		ending.line = line
 		ending
@@ -351,6 +356,7 @@ module Roby
 	    arrow.line.set_line(-length, 0, 0, 0)
 	    arrow.translate to[0], to[1]
 	    arrow.rotate(alpha * 180 / Math::PI)
+            arrow
 	end
 
 	class RelationsCanvas < Qt::Object
@@ -422,6 +428,14 @@ module Roby
 		default_colors.each do |rel, color|
 		    update_relation_color(rel, color)
 		end
+
+		relation_pens[Roby::EventStructure::Signal]    = Qt::Pen.new(Qt::Color.new('black'))
+		relation_brushes[Roby::EventStructure::Signal] = Qt::Brush.new(Qt::Color.new('black'))
+		relation_pens[Roby::EventStructure::Forwarding]    = Qt::Pen.new(Qt::Color.new('black'))
+		relation_pens[Roby::EventStructure::Forwarding].style = Qt::DotLine
+		relation_brushes[Roby::EventStructure::Forwarding] = Qt::Brush.new(Qt::Color.new('black'))
+		relation_brushes[Roby::EventStructure::Forwarding].style = Qt::DotLine
+
 
                 enable_relation(Roby::TaskStructure::Dependency)
                 enable_relation(Roby::TaskStructure::ExecutionAgent)
@@ -734,18 +748,17 @@ module Roby
 		unless defined? @@propagation_styles
 		    @@propagation_styles = Hash.new
 		    @@propagation_styles[PROPAG_FORWARD] = 
-			[Qt::Brush.new(Qt::Color.new('black')), (forward_pen = Qt::Pen.new)]
+			[Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, (forward_pen = Qt::Pen.new)]
 		    forward_pen.style = Qt::DotLine
 		    @@propagation_styles[PROPAG_SIGNAL] = 
-			[Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new]
+			[Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, Qt::Pen.new]
 		    @@propagation_styles[PROPAG_EMITTING] = 
-			[Qt::Brush.new(Qt::Color.new('blue')), (emitting_pen = Qt::Pen.new(Qt::Color.new('blue')))]
+			[Qt::Brush.new(Qt::Color.new('blue')), Qt::Pen.new(Qt::Color.new('blue')), (emitting_pen = Qt::Pen.new(Qt::Color.new('blue')))]
 		    emitting_pen.style = Qt::DotLine
 		    @@propagation_styles[PROPAG_CALLING] = 
-			[Qt::Brush.new(Qt::Color.new('blue')), Qt::Pen.new(Qt::Color.new('blue'))]
+			[Qt::Brush.new(Qt::Color.new('blue')), Qt::Pen.new(Qt::Color.new('blue')), Qt::Pen.new(Qt::Color.new('blue'))]
 		end
-		arrow.brush, pen = @@propagation_styles[flag]
-		arrow.pen = arrow.line.pen = pen
+		arrow.brush, arrow.pen, arrow.line.pen = @@propagation_styles[flag]
 	    end
 
             def update_visible_objects
@@ -831,6 +844,7 @@ module Roby
                 if time.kind_of?(Qt::DateTime)
                     time = Time.at(Float(time.toMSecsSinceEpoch) / 1000)
                 end
+                enabled_relations << Roby::EventStructure::Signal << Roby::EventStructure::Forwarding
 
                 if time
                     @current_time = time
@@ -941,23 +955,15 @@ module Roby
                 plans.each do |p|
                     p.propagated_events.each_with_index do |(flag, sources, to), signal_arrow_idx|
                         sources.each do |from|
-                            unless arrow = signal_arrows[signal_arrow_idx]
-                                arrow = signal_arrows[signal_arrow_idx] = scene.add_arrow(ARROW_SIZE)
-                                arrow.z_value      = EVENT_LAYER + 1
-                                arrow.line.z_value = EVENT_LAYER - 1
-                            end
+                            relation =
+                                if (flag & PROPAG_FORWARD) || (flag & PROPAG_EMITTING)
+                                    Roby::EventStructure::Forwarding
+                                else
+                                    Roby::EventStructure::Signal
+                                end
 
-                            # It is possible that the objects have been removed in the
-                            # same display cycle than they have been signalled. Do not
-                            # display them if it is the case
-                            if !(displayed?(from) && displayed?(to))
-                                arrow.visible = false
-                                next
-                            end
-
-                            arrow.visible = true
+                            arrow = arrow(from, to, relation, nil, EVENT_PROPAGATION_LAYER)
                             propagation_style(arrow, flag)
-                            RelationsDisplay.arrow_set(arrow, self[from], self[to])
                         end
                     end
                 end
@@ -969,13 +975,6 @@ module Roby
                     item.visible = false
                 end
                 last_arrows.clear
-
-		# ... and hide the remaining arrows that are not used anymore
-		if signal_arrow_idx + 1 < signal_arrows.size
-		    signal_arrows[(signal_arrow_idx + 1)..-1].each do |arrow| 
-			arrow.visible = false 
-		    end
-		end
 
                 true
             #rescue Exception => e
