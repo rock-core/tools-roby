@@ -423,6 +423,7 @@ module Roby
 
 	# Loads the plugins whose name are listed in +names+
 	def using(*names)
+            register_plugins
 	    names.map do |name|
 		name = name.to_s
 		unless plugin = plugin_definition(name)
@@ -1373,6 +1374,7 @@ module Roby
 	def self.register_plugin(name, mod, &init)
 	    caller(1)[0] =~ /^([^:]+):\d/
 	    dir  = File.expand_path(File.dirname($1))
+            Roby.app.available_plugins.delete_if { |n| n == name }
 	    Roby.app.available_plugins << [name, dir, mod, init]
 	end
 
