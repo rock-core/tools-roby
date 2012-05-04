@@ -376,14 +376,20 @@ module Roby::Log
 
 	rescue 
             current_cycle.each_slice(4) do |m, sec, usec, args|
-		unless (Marshal.dump(args) rescue nil)
+                begin
+                    Marshal.dump(args)
+                rescue Exception => e
+                    Roby::Log.fatal "failed to dump cycle info: #{e}"
                     args.each do |obj|
-                        unless (Marshal.dump(obj) rescue nil)
-                            Roby::Log.fatal "cannot dump the following object in #{m}(#{args.join(", ")}):"
+                        begin
+                            Marshal.dump(obj)
+                        rescue Exception => e
+                            Roby::Log.fatal "cannot dump #{obj}"
+                            Roby::Log.fatal e.to_s
                             obj, exception = find_invalid_marshalling_object(obj)
                             if obj
-                                Roby::Log.fatal "it seems that #{obj} can't be marshalled"
-                                Roby::Log.fatal "  #{exception.class}: #{exception.message}"
+                                Roby::Log.fatal "  it seems that #{obj} can't be marshalled"
+                                Roby::Log.fatal "    #{exception.class}: #{exception.message}"
                             end
                         end
                     end
