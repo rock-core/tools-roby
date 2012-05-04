@@ -561,7 +561,7 @@ module Roby
 	end
 
         def slice(*args)
-            values.slice(*args)
+            evaluate_delayed_arguments.slice(*args)
         end
 
 	def dup; self.to_hash end

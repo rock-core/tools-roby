@@ -1782,6 +1782,18 @@ class TC_Task < Test::Unit::TestCase
         assert_equal 20, task.arg
     end
 
+    def test_delayed_argument_marshalling
+        klass = Class.new(Roby::Task) do
+            terminates
+            argument :arg, :default => Object.new
+        end
+        task = klass.new
+        plan.add(task)
+
+        # Should not raise
+        Marshal.dump(Distributed.format(task))
+    end
+
     def test_as_plan
         plan.add(task = Tasks::Simple.new)
         model = Class.new(Tasks::Simple)
