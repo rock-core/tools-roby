@@ -86,9 +86,13 @@ module Roby
             # The part of +arguments+ that is meaningful for this task model
             def meaningful_arguments(arguments)
                 self_arguments = self.arguments.to_set
-                arguments.evaluate_delayed_arguments.delete_if do |key, _|
-                    !self_arguments.include?(key)
+                result = Hash.new
+                arguments.values.each do |key, value|
+                    if self_arguments.include?(key) && !value.respond_to?(:evaluate_delayed_argument)
+                        result[key] = value
+                    end
                 end
+                result
             end
 
             # Checks if this model fullfills everything in +models+
@@ -1081,7 +1085,7 @@ module Roby
         # it returns the set of elements in the +arguments+ property that define
         # arguments listed in the task model
 	def meaningful_arguments(task_model = self.model)
-	    arguments.slice(*task_model.arguments)
+            task_model.meaningful_arguments(arguments)
 	end
 
         # Called when the start event get called, to resolve the delayed

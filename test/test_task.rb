@@ -111,6 +111,15 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal({:arg => 'B'}, task.meaningful_arguments)
     end
 
+    def test_meaningful_arguments_with_default_arguments
+        child_model = Class.new(Roby::Task) do
+            argument :start, :default => 10
+            argument :target
+        end
+        plan.add(child = child_model.new(:target => 10))
+        assert_equal({:target => 10}, child.meaningful_arguments)
+    end
+
     def test_arguments_cannot_override
 	model = Class.new(Task) { argument :arg }
 	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
