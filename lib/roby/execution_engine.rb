@@ -501,6 +501,19 @@ module Roby
             end
         end
 
+        # Returns true if there is an error queued that originates from +origin+
+        def has_error_from?(origin)
+            if @propagation_exceptions
+                puts "#{@propagation_exceptions.size} exception queued so far:"
+                @propagation_exceptions.each do |error|
+                    puts "  #{error.origin} #{error.originates_from?(origin)}"
+                end
+                @propagation_exceptions.any? do |error|
+                    error.originates_from?(origin)
+                end
+            end
+        end
+
         # If called in execution context, adds the plan-based error +e+ to be
         # handled later in the execution cycle. Otherwise, calls
         # #add_framework_error

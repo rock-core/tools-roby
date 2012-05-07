@@ -69,6 +69,11 @@ module Roby
 	    end
 
             def can_start?(task)
+                if plan.engine.has_error_from?(task.start_event)
+                    Roby::Schedulers.debug { "Basic: not scheduling #{task} as it has a pending error" }
+                    return false
+                end
+
                 start_event = task.start_event
                 if !start_event.controlable?
                     Roby::Schedulers.debug { "Basic: not scheduling #{task} as its start event is not controlable" }
