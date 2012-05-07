@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/test/tasks/empty_task'
-require 'flexmock'
+require 'flexmock/test_unit'
 
 class TC_PlanObject < Test::Unit::TestCase 
     include Roby::Test
@@ -63,4 +63,25 @@ class TC_PlanObject < Test::Unit::TestCase
             obj.finalized!
         end
     end
+
+    def test_plan_synchronization
+        klass = Class.new(PlanObject)
+	space = Roby::RelationSpace(klass)
+        relation = space.relation :R
+
+        plan = Roby::Plan.new
+        parent = klass.new
+        child = klass.new
+        parent.plan = plan
+        flexmock(plan).should_receive(:add).with(child).once
+        parent.add_r(child)
+
+        plan = Roby::Plan.new
+        parent = klass.new
+        child = klass.new
+        child.plan = plan
+        flexmock(plan).should_receive(:add).with(parent).once
+        child.add_r(parent)
+    end
 end
+

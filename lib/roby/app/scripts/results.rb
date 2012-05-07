@@ -1,6 +1,6 @@
 require 'roby'
 require 'fileutils'
-Roby.app.load_base_config
+Roby.app.base_setup
 app = Roby.app
 
 if !(name = ARGV.shift)

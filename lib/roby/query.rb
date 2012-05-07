@@ -3,7 +3,9 @@ module Roby
         # Returns a TaskMatcher object
 	def self.match(*args)
 	    matcher = TaskMatcher.new
-            if !args.empty?
+            if args.empty? && self != Task
+                matcher.which_fullfills(self)
+            else
                 matcher.which_fullfills(*args)
             end
             matcher

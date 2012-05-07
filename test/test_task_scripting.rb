@@ -2,12 +2,18 @@ $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE_
 require 'flexmock'
 require 'roby/test/common'
 require 'roby/tasks/simple'
-require 'flexmock'
+require 'flexmock/test_unit'
 require 'roby/log'
+require 'roby/schedulers/temporal'
 
 class TC_TaskScripting < Test::Unit::TestCase
     include Roby::Test
     include Roby::Test::Assertions
+
+    def setup
+        super
+        engine.scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
+    end
 
     def test_execute
         task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
@@ -58,7 +64,7 @@ class TC_TaskScripting < Test::Unit::TestCase
         process_events
         process_events
         process_events
-        assert_equal 4, counter
+        assert_equal 3, counter
     end
 
     def test_poll_end_if
@@ -105,11 +111,11 @@ class TC_TaskScripting < Test::Unit::TestCase
             
             task.start!
             6.times { process_events }
-            assert_equal 7, counter
+            assert_equal 6, counter
 
             time += 3
             6.times { process_events }
-            assert_equal 8, counter
+            assert_equal 7, counter
         end
     end
 
@@ -147,7 +153,6 @@ class TC_TaskScripting < Test::Unit::TestCase
             execute { counter += 1 }
         end
         parent.start!
-        child.start!
 
         3.times { process_events }
         assert_equal 0, counter
@@ -155,6 +160,50 @@ class TC_TaskScripting < Test::Unit::TestCase
         3.times { process_events }
         assert_equal 1, counter
         child.emit :intermediate
+        3.times { process_events }
+        assert_equal 2, counter
+    end
+
+    def test_wait_for_child_of_child_event_with_child_being_deployed_later
+        model = Class.new(Roby::Tasks::Simple) do
+            event :intermediate
+        end
+        parent, (child, planning_task) = prepare_plan :missions => 1, :add => 2, :model => model
+        parent.depends_on(child, :role => 'subtask')
+        child.abstract = true
+        child.planned_by(planning_task)
+        planning_task.on :start do
+            child.depends_on(model.new, :role => 'subsubtask')
+            child.abstract = false
+            planning_task.emit :success
+        end
+
+        planning_task.executable = false
+
+        counter = 0
+        parent.script do
+            wait intermediate_event
+            execute { counter += 1 }
+            wait subtask_child.subsubtask_child.intermediate_event
+            execute { counter += 1 }
+        end
+        parent.start!
+
+        3.times { process_events }
+        assert_equal 0, counter
+        parent.emit :intermediate
+        3.times { process_events }
+
+        assert(planning_task.pending?)
+        assert(child.pending?)
+        assert_equal 1, counter
+
+        planning_task.executable = true
+        planning_task.start!
+        3.times { process_events }
+        assert_equal 1, counter
+
+        child.subsubtask_child.emit :intermediate
         3.times { process_events }
         assert_equal 2, counter
     end
@@ -308,7 +357,6 @@ class TC_TaskScripting < Test::Unit::TestCase
         end
 
         process_events
-        task.start!
         process_events
         task.emit :start_script1
         process_events
@@ -317,6 +365,123 @@ class TC_TaskScripting < Test::Unit::TestCase
         task.stop!
         assert task.done_script1?
         assert !task.done_script2?
+    end
+
+    def test_start
+        mock = flexmock
+        mock.should_receive(:child_started).once.with(true)
+
+        model = Class.new(Roby::Tasks::Simple) do
+            event :start_child
+        end
+        child_model = Class.new(Roby::Tasks::Simple)
+
+        engine.run
+
+        task = nil
+        execute do
+            task = prepare_plan :permanent => 1, :model => model
+            task.script do
+                wait start_child_event
+                child_task = start(child_model, :role => "subtask")
+                execute do
+                    mock.child_started(child_task.running?)
+                end
+            end
+            task.start!
+        end
+
+        child = task.subtask_child
+        assert_kind_of(child_model, child)
+        assert(!child.running?)
+
+        assert_event_emission(child.start_event) do
+            task.emit :start_child
+        end
+    end
+
+    def test_model_level_script
+        engine.scheduler = nil
+
+        mock = flexmock
+        model = Class.new(Roby::Tasks::Simple) do
+            event :do_it
+            event :done
+            script do
+                execute { mock.before_called(task) }
+                wait :do_it
+                emit :done
+                execute { mock.after_called(task) }
+            end
+        end
+
+        task1, task2 = prepare_plan :permanent => 2, :model => model
+        mock.should_receive(:before_called).with(task1).once.ordered
+        mock.should_receive(:before_called).with(task2).once.ordered
+        mock.should_receive(:after_called).with(task1).once.ordered
+        mock.should_receive(:event_emitted).with(task1).once.ordered
+        mock.should_receive(:after_called).with(task2).once.ordered
+        mock.should_receive(:event_emitted).with(task2).once.ordered
+
+        task1.on(:done) { |ev| mock.event_emitted(ev.task) }
+        task2.on(:done) { |ev| mock.event_emitted(ev.task) }
+
+        task1.start!
+        task2.start!
+        task1.emit :do_it
+        process_events
+
+        task2.emit :do_it
+        process_events
+    end
+
+    def test_transaction_commits_new_script_on_pending_task
+        task = prepare_plan :permanent => 1, :model => Roby::Tasks::Simple
+        task.executable = false
+
+        mock = flexmock
+        mock.should_receive(:executed).with(false).never.ordered
+        mock.should_receive(:barrier).once.ordered
+        mock.should_receive(:executed).with(true).once.ordered
+        plan.in_transaction do |trsc|
+            proxy = trsc[task]
+            proxy.script do
+                execute do
+                    mock.executed(task.executable?)
+                end
+            end
+            process_events
+            mock.barrier
+            trsc.commit_transaction
+        end
+        process_events
+        task.executable = true
+        task.start!
+        process_events
+        process_events
+    end
+
+    def test_transaction_commits_new_script_on_running_task
+        task = prepare_plan :permanent => 1, :model => Roby::Tasks::Simple
+        task.start!
+
+        mock = flexmock
+        mock.should_receive(:executed).with(false).never.ordered
+        mock.should_receive(:barrier).once.ordered
+        mock.should_receive(:executed).with(true).once.ordered
+        plan.in_transaction do |trsc|
+            proxy = trsc[task]
+            proxy.script do
+                execute do
+                    mock.executed(task.executable?)
+                end
+            end
+            process_events
+            mock.barrier
+            trsc.commit_transaction
+        end
+        process_events
+        process_events
     end
 end
 

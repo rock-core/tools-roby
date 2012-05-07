@@ -52,6 +52,27 @@ class TC_Planner < Test::Unit::TestCase
 	assert_raises(Planning::NotFound) { planner.recursive(:recursive => false) }
     end
 
+    def test_find_methods_by_return_value
+        task_t = Class.new(Roby::Task)
+        other_task_t = Class.new(Roby::Task)
+        subtask_t = Class.new(task_t)
+
+        method_model = nil
+        m = []
+        model = Class.new(Planner) do 
+	    method_model = method(:m1)
+	    m << method(:m1) { NullTask.new }
+	    m << method(:m1, :returns => task_t) { NullTask.new }
+	    m << method(:m1, :returns => other_task_t) { NullTask.new }
+	    m << method(:m1, :returns => subtask_t) { NullTask.new }
+        end
+
+        assert_equal(m.to_set, model.find_methods("m1").to_set)
+        assert_equal([m[1], m[3]].to_set, model.find_methods("m1", :returns => task_t).to_set)
+        assert_equal([m[2]], model.find_methods("m1", :returns => other_task_t))
+        assert_equal([m[3]], model.find_methods("m1", :returns => subtask_t))
+    end
+
     def test_reuse
 	task_model = Class.new(Task)
 	derived_model = Class.new(task_model)
@@ -277,6 +298,39 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(derived.root_model.returns, tm_a_a)
     end
 
+    def test_doc_inheritance
+        base_doc = "method_in_base_description"
+        base = Class.new(Planner) do
+            describe(base_doc)
+            method(:method_in_base) { }
+        end
+
+        derived_doc = "method_in_derived_description"
+        derived = Class.new(base) do
+            describe(derived_doc)
+            method(:method_in_derived) { }
+        end
+
+        assert(base.has_method?(:method_in_base))
+        assert(base.planning_method_description(:method_in_base).doc == [ base_doc.to_s])
+        assert(base.method_in_base_description != nil)
+        assert(base.method_in_base_description.doc == [ base_doc.to_s ] )
+
+        assert(derived.has_method?(:method_in_derived))
+        assert(derived.has_method?(:method_in_base))
+
+        assert(derived.planning_method_description(:method_in_base).doc == [ base_doc.to_s ])
+        assert(derived.method_in_base_description != nil)
+        assert(derived.method_in_base_description.doc == [ base_doc.to_s ] )
+
+        assert(derived.planning_method_description(:method_in_derived).doc == [ derived_doc.to_s ])
+        assert(derived.method_in_derived_description != nil)
+        assert(derived.method_in_derived_description.doc == [ derived_doc.to_s ] )
+
+        assert(derived.method_in_base_methods.size == 1 )
+        assert(derived.method_in_derived_methods.size == 1 )
+    end
+
     def test_method_inheritance
 	# Define a few task models
         tm_a	    = Class.new(Roby::Task)
@@ -430,5 +484,6 @@ class TC_Planner < Test::Unit::TestCase
 	end.new(plan)
 	assert_raises(Planning::NotFound) { planner.test }
     end
+
 end
 

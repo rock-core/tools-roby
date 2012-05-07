@@ -29,7 +29,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	end
 	submodel = Class.new(model)
 
-	assert_equal([ExecutionAgentModel, {:id => 20}], submodel.execution_agent)
+	assert_equal([ExecutionAgentModel, {:id => 20}, {:respawn => false}], submodel.execution_agent)
     end
 
     def test_nominal
@@ -67,7 +67,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_start_failed
-	plan.add_permanent(task = Tasks::Simple.new)
+	plan.add(task = Tasks::Simple.new)
 	exec = Class.new(Tasks::Simple) do
 	    event :ready
 	    signal :start => :failed
@@ -141,7 +141,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
         # Wrong agent type
-	plan.add_permanent(task = task_model.new)
+	plan.add(task = task_model.new)
         plan.remove_object(task.execution_agent)
         task.executed_by SecondExecutionModel.new(:id => 2)
         task.start!
@@ -149,7 +149,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
         assert_kind_of CommandFailed, task.failure_reason
 
         # Wrong agent arguments
-	plan.add_permanent(task = task_model.new)
+	plan.add(task = task_model.new)
         plan.remove_object(task.execution_agent)
         task.executed_by ExecutionAgentModel.new(:id => 3)
         task.start!
@@ -161,7 +161,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	task_model = Class.new(Tasks::Simple)
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
-	plan.add_permanent(task = task_model.new)
+	plan.add(task = task_model.new)
         plan.remove_object(task.execution_agent)
 
         task.start!
@@ -171,7 +171,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
     def test_respawn
 	task_model = Class.new(Tasks::Simple)
-	task_model.executed_by ExecutionAgentModel
+	task_model.executed_by ExecutionAgentModel, :respawn => true
 	first, second = prepare_plan :add => 2, :model => task_model
 	assert(first.execution_agent)
 	assert_kind_of(ExecutionAgentModel, first.execution_agent)
@@ -182,7 +182,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	first.start!
 	assert(first.running?)
 	first_agent = first.execution_agent
-	assert(first_agent.running?)
+	assert(first_agent.ready?)
 
 	plan.add(third = task_model.new)
 	assert_equal(first.execution_agent, third.execution_agent)
@@ -190,19 +190,22 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	first.execution_agent.stop!
 	assert(first.event(:aborted).happened?)
 	assert(first_agent.finished?)
-	assert(second.execution_agent)
-	assert(second.execution_agent.running?)
+	assert_not_same(first_agent, second.execution_agent)
+	assert(second.execution_agent.pending?)
+
+        second.start!
+        assert(second.running?)
+        assert(second.execution_agent.ready?)
     end
 
     def test_cannot_respawn
-	plan.add_permanent(task  = Class.new(Tasks::Simple).new)
+	plan.add(task  = Class.new(Tasks::Simple).new)
 	task.executed_by(agent = ExecutionAgentModel.new)
 
 	agent.start!
 	agent.stop!
-	task.start!
-        assert(task.failed?)
-        assert_kind_of CommandFailed, task.failure_reason
+	assert_raises(CommandFailed) { task.start! }
+        assert(task.failed_to_start?)
     end
 
     def test_initialization
@@ -246,6 +249,8 @@ class TC_ExecutedBy < Test::Unit::TestCase
         replacement.start!
         agent.stop!
         assert replacement.aborted?
+
+        Roby.logger.level = Logger::FATAL
     end
 
     def test_as_plan

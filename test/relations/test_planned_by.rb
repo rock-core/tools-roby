@@ -48,6 +48,9 @@ class TC_PlannedBy < Test::Unit::TestCase
 	assert_equal(task, error.planned_task)
 	assert_equal(planner.terminal_event, error.failed_event)
 
+        # Verify that the formatting works fine
+        PP.pp(error, "")
+
 	# Clear the planned task to make test teardown happy
 	plan.remove_object(task)
     end

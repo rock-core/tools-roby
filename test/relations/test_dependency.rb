@@ -518,5 +518,41 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent.start!
         assert_child_failed(child, child.failed_event.last, plan)
     end
+
+    def test_child_from_role_in_planless_tasks
+        parent, child = Roby::Task.new, Roby::Task.new
+        parent.depends_on(child, :role => 'child0')
+
+        assert_equal child, parent.child_from_role('child0')
+        assert_equal nil, parent.child_from_role('nonexist', false)
+        assert_raises(ArgumentError) { parent.child_from_role('nonexist', true) }
+    ensure
+	plan.add(parent) if parent
+    end
+
+    def test_child_from_role
+        parent, child = prepare_plan :add => 2
+        parent.depends_on(child, :role => 'child0')
+
+        assert_equal child, parent.child_from_role('child0')
+        assert_equal nil, parent.child_from_role('nonexist', false)
+        assert_raises(ArgumentError) { parent.child_from_role('nonexist', true) }
+    end
+
+    def test_child_from_role_in_transaction
+        parent, child0, child1 = prepare_plan :add => 3
+        parent.depends_on(child0, :role => 'child0')
+        parent.depends_on(child1, :role => 'child1')
+        info = parent[child0, TaskStructure::Dependency]
+
+        plan.in_transaction do |trsc|
+            parent = trsc[parent]
+            
+            child = parent.child_from_role('child0')
+            assert_equal trsc[child], child
+
+            assert_equal([[child, info]], parent.each_child.to_a)
+        end
+    end
 end
 

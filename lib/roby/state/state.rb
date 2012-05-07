@@ -300,7 +300,7 @@ module Roby
 	    super(name.to_sym, *args, &update) if name =~ FORBIDDEN_NAMES_RX
             if name =~ /(.+)=$/
 		# Setter
-		name = $1
+		name = @aliases[$1] || $1
 
 		value = args.first
 
@@ -333,7 +333,7 @@ module Roby
 
 	    elsif name =~ /(.+)\?$/
 		# Test
-		name = $1
+		name = @aliases[$1] || $1
 		respond_to?(name) && @members[name] && send(name)
 
             elsif args.empty? # getter

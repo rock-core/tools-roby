@@ -1,0 +1,11 @@
+require 'roby/app/installer'
+
+unless robotname = ARGV.shift
+    STDERR.puts "No robot name given on command line"
+    STDERR.puts parser
+    exit(1)
+end
+
+installer = Roby::Installer.new(Roby.app.app_dir)
+installer.robot(robotname)
+

@@ -77,6 +77,24 @@ class TC_State < Test::Unit::TestCase
 	assert_not_equal(child, s.child)
 	assert_equal(10, s.child)
     end
+    
+    def test_alias
+	r = ExtendedStruct.new
+        obj = Object.new
+        r.child = obj
+        r.alias(:child, :aliased_child)
+        assert r.respond_to?(:aliased_child)
+        assert r.aliased_child?
+        assert_same obj, r.aliased_child
+
+        obj = Object.new
+        r.child = obj
+        assert_same obj, r.aliased_child
+
+        obj = Object.new
+        r.aliased_child = obj
+        assert_same obj, r.child
+    end
 
     def test_delete
 	r = ExtendedStruct.new
@@ -204,22 +222,6 @@ class TC_State < Test::Unit::TestCase
 	s.filter(:test) { |v| Integer === v }
 	assert_raises(ArgumentError) { s.test = "10" }
 	assert_nothing_raised { s.test = 10 }
-    end
-
-    def test_alias
-	s = ExtendedStruct.new
-	s.value = 42
-	s.alias(:value, :test)
-	assert( s.respond_to?(:test) )
-	assert_equal(42, s.value)
-	assert_equal(42, s.test)
-	s.value = Time.now
-	assert_equal(s.test, s.value)
-
-	# Test alias detach
-	s.test = 10
-	s.value = 42
-	assert_equal(10, s.test)
     end
 
     def test_change_notification

@@ -346,15 +346,20 @@ module Roby
 			engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
                     end
 		    errors = engine.event_propagation_phase(seeds)
-		    if errors.size == 1
-			e = errors.first.exception
-			raise e.dup, e.message, e.backtrace
-		    elsif !errors.empty?
-			for e in errors
-			    pp e.exception
-			end
-			raise "multiple exceptions"
-		    end
+                    if !errors.empty?
+                        errors.each do |e|
+                            Roby.display_exception(Roby.logger.io(:warn), e.exception)
+                        end
+                        if errors.size == 1
+                            e = errors.first.exception
+                            raise e.dup, e.message, e.backtrace
+                        elsif !errors.empty?
+                            for e in errors
+                                pp e.exception
+                            end
+                            raise "multiple exceptions"
+                        end
+                    end
 		end
 	    end
 	end
@@ -604,15 +609,16 @@ module Roby
 	# This method is always called in a propagation context
 	def fire(event)
 	    plan.engine.propagation_context([event]) do |result|
+		@happened = true
+                @pending = false
+		fired(event)
+
 		each_signal do |signalled|
 		    add_propagation(false, event, signalled, event.context, self[signalled, EventStructure::Signal])
 		end
 		each_forwarding do |signalled|
 		    add_propagation(true, event, signalled, event.context, self[signalled, EventStructure::Forwarding])
 		end
-
-		@happened = true
-		fired(event)
 
 		call_handlers(event)
 	    end
@@ -730,15 +736,20 @@ module Roby
 			engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
                     end
 		    errors = engine.event_propagation_phase(seeds)
-		    if errors.size == 1
-			e = errors.first.exception
-			raise e.dup, e.message, e.backtrace
-		    elsif !errors.empty?
-                        for e in errors
-                            pp e.exception
+                    if !errors.empty?
+                        errors.each do |e|
+                            Roby.display_exception(Roby.logger.io(:warn), e.exception)
                         end
-			raise "multiple exceptions"
-		    end
+                        if errors.size == 1
+                            e = errors.first.exception
+                            raise e.dup, e.message, e.backtrace
+                        elsif !errors.empty?
+                            for e in errors
+                                pp e.exception
+                            end
+                            raise "multiple exceptions"
+                        end
+                    end
 		end
 	    end
 	end

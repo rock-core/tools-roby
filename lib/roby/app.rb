@@ -241,7 +241,7 @@ module Roby
                 robot_name, robot_type = name.split(',')
                 Scripts.robot_name = robot_name
                 Scripts.robot_type = robot_type
-                Roby.app.robot(name, robot_type||robot_name)
+                Roby.app.robot(robot_name, robot_type||robot_name)
             end
             parser.on_tail('-h', '--help', 'this help message') do
                 STDERR.puts parser
@@ -306,6 +306,7 @@ module Roby
 	    @plugins = Array.new
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
+            @created_log_dirs = []
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
@@ -650,6 +651,11 @@ module Roby
 
 	def setup_dirs
             if !File.directory?(log_dir)
+                dir = log_dir
+                while !File.directory?(dir)
+                    @created_log_dirs << dir
+                    dir = File.dirname(dir)
+                end
                 FileUtils.mkdir_p(log_dir)
             end
             if public_logs?
@@ -724,6 +730,14 @@ module Roby
             end
         end
 
+        def load_config_yaml
+            if file = find_file('config', 'app.yml', :order => :specific_first)
+                Application.info "loading config file #{file}"
+                file = YAML.load(File.open(file)) || Hash.new
+                load_yaml(file)
+            end
+        end
+
         # Loads the base configuration
         #
         # This method loads the two most basic configuration files:
@@ -735,17 +749,14 @@ module Roby
         def load_base_config
 	    $LOAD_PATH.unshift(app_dir) unless $LOAD_PATH.include?(app_dir)
 
+            load_config_yaml
+
 	    # Get the application-wide configuration
-            if file = find_file('config', 'app.yml', :order => :specific_first)
-                Application.info "loading config file #{file}"
-                file = YAML.load(File.open(file)) || Hash.new
-                load_yaml(file)
-            end
-            call_plugins(:load, self, options)
             if initfile = find_file('config', 'init.rb', :order => :specific_first)
                 Application.info "loading init file #{initfile}"
                 require initfile
             end
+            call_plugins(:load, self, options)
 
 	    setup_dirs
 	    setup_loggers
@@ -802,7 +813,7 @@ module Roby
             if public_shell_interface?
                 setup_shell_interface
             else
-                DRb.start_service
+                DRb.start_service "druby://localhost:0"
             end
 
         rescue Exception => e
@@ -970,6 +981,12 @@ module Roby
         # The inverse of #setup. It gets called either at the end of #run or at
         # the end of #setup if there is an error during loading
         def cleanup
+            if !public_logs?
+                @created_log_dirs.each do |dir|
+                    FileUtils.rm_rf dir
+                end
+            end
+
             stop_log_server
             stop_drb_service
             call_plugins(:cleanup, self)
@@ -1391,6 +1408,7 @@ module Roby
 
         def reload_planners
             unload_features("planners", ".*\.rb$")
+            unload_features("models", "planners", ".*\.rb$")
             planners.each do |planner_model|
                 planner_model.clear_model
             end

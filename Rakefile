@@ -1,6 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('lib', File.dirname(__FILE__))
 require 'enumerator'
 require 'roby/config'
+require 'utilrb/doc/rake'
 
 task :default => :setup
 begin
@@ -10,13 +11,13 @@ begin
             self.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
             self.summary = 'A plan-based control framework for autonomous systems'
-            self.url         = paragraphs_of('README.txt', 1).join("\n\n")
-            self.description = paragraphs_of('README.txt', 3..5).join("\n\n")
+            self.url         = paragraphs_of('README.rd', 1).join("\n\n")
+            self.description = paragraphs_of('README.rd', 3..5).join("\n\n")
             self.description +=
 "\n\nSee doudou.github.com/roby for more informations, including links to
 tutorials and demonstration videos"
             self.changes     = paragraphs_of('History.txt', 0..1).join("\n\n")
-            self.post_install_message = paragraphs_of('README.txt', 2).join("\n\n")
+            self.post_install_message = paragraphs_of('README.rd', 2).join("\n\n")
 
             self.extra_deps <<
                 ['facets', '>= 2.0'] <<
@@ -38,7 +39,7 @@ tutorials and demonstration videos"
         hoe.spec.description = hoe.summary
             
         hoe.spec.rdoc_options << 
-            '--main' << 'README.txt' <<
+            '--main' << 'README.rd' <<
             "--accessor" << "attribute" << 
             "--accessor" << "attr_predicate"
 
@@ -139,7 +140,7 @@ end
 # This is for the user's guide
 begin
     require 'webgen/webgentask'
-    require 'rdoc/task'
+    require 'roby/app/rake'
     do_doc = true
 rescue LoadError => e
     STDERR.puts "webgen and/or the rdoc Gem are not available, documentation generation disabled"
@@ -148,14 +149,11 @@ end
 
 if do_doc
     namespace 'doc' do
-        require 'roby/app/rake'
-        RDoc::Task.new("api") do |rdoc|
-          rdoc.rdoc_dir = 'doc/html/api'
-          rdoc.title    = "Roby Core"
-          rdoc.options << '--show-hash'
-          rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
-          rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
-        end
+        Utilrb.doc 'api', :include => ['lib/**/*.rb', 'ext/**/*.cc'],
+            :exclude => ['lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*'],
+            :target_dir => 'doc/html/api',
+            :title => 'Rock Core',
+            :plugins => ['utilrb', 'roby']
 
         Webgen::WebgenTask.new('guide') do |website|
             website.clobber_outdir = true
@@ -186,6 +184,7 @@ if do_doc
 
         desc 'regenerate all documentation'
         task 'redocs' do
+            FileUtils.rm_f File.join('doc', 'guide', 'webgen.cache')
             FileUtils.rm_rf File.join('doc', 'html')
             if !system('rake', 'doc:all')
                 raise "failed to regenerate documentation"

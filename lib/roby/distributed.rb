@@ -1,7 +1,6 @@
 require 'roby'
 require 'stringio'
 require 'roby/planning'
-require 'roby_marshalling'
 require 'roby/distributed/peer'
 require 'roby/distributed/drb'
 require 'roby/distributed/protocol'

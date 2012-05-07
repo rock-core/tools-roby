@@ -557,5 +557,17 @@ class TC_Plan < Test::Unit::TestCase
         assert mission_failed
         assert_equal t2, mission_failed.first.origin
     end
+
+    def test_plan_discovery_when_adding_child_task
+        root, t1, t2 = (1..3).map { Roby::Task.new }
+        assert !root.plan
+        assert !t1.plan
+
+        root.depends_on t1, :role => 'bla'
+        plan.add(t1)
+
+        assert_equal plan, root.plan
+        assert_equal plan, t1.plan
+    end
 end
 

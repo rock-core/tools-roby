@@ -39,37 +39,114 @@ module Roby
     #   pred.explain_static(task) => #<Explanation @elements=[task.event(:success)]>
     #
     module EventConstraints
+        # Module that defines the unbound task predicate methods that are
+        # added to the Symbol class
         module UnboundPredicateSupport
+            # Returns an UnboundTaskPredicate that will be true if the generator
+            # represented by this symbol has emitted at least once.
+            #
+            # In its simplest form,
+            #
+            #   :blocked.happened?
+            #
+            # will be true when evaluated on a task whose +blocked+ event has
+            # emitted at least once
             def happened?
                 to_unbound_task_predicate
             end
 
+            # Protocol method. The unbound task predicate call always calls
+            # #to_unbound_task_predicate on the arguments given to it.
             def to_unbound_task_predicate
                 UnboundTaskPredicate::SingleEvent.new(self)
             end
 
-            def self.unbound_temporal_binary_predicate(name)
-                class_eval <<-END
-def #{name}(other)
-    to_unbound_task_predicate.
-        #{name}(other.to_unbound_task_predicate)
-end
-                END
-            end
-
+            # Returns an UnboundTaskPredicate that will be true if the generator
+            # represented by this symbol will never be emitted.
+            #
+            # In its simplest form,
+            #
+            #   :blocked.never
+            #
+            # will be true when evaluated on a task whose +blocked+ event has
+            # not yet been emitted, and has been declared as unreachable
             def never
                 to_unbound_task_predicate.never
             end
 
-            unbound_temporal_binary_predicate :and
-            unbound_temporal_binary_predicate :or
-            unbound_temporal_binary_predicate :followed_by
-            unbound_temporal_binary_predicate :not_followed_by
-            unbound_temporal_binary_predicate :negate
+            # Returns an UnboundTaskPredicate that will be true if the generator
+            # represented by this symbol has emitted at least once, and the
+            # predicate represented by +other+ is true at the same time.
+            #
+            # In its simplest form,
+            #
+            #   :blocked.and(:updated)
+            #
+            # it will be true if the task on which it is applied has both
+            # emitted :blocked and :updated at least once.
+            def and(other)
+                to_unbound_task_predicate.
+                    and(other.to_unbound_task_predicate)
+            end
+
+            # Returns an UnboundTaskPredicate that will be true if the generator
+            # represented by this symbol has emitted at least once, or the
+            # predicate represented by +other+ is true.
+            #
+            # In its simplest form,
+            #
+            #   :blocked.or(:updated)
+            #
+            # it will be true if the task on which it is applied has either
+            # emitted :blocked, or emitted :updated, or both.
+            def or(other)
+                to_unbound_task_predicate.
+                    or(other.to_unbound_task_predicate)
+            end
+
+            # Returns an UnboundTaskPredicate that will be true if the generator
+            # represented by this symbol and the generator represented by
+            # +other+ (as a symbol) have emitted in sequence, i.e. if both
+            # +self+ and +other+ have emitted at least once, and if the last
+            # event e0 emitted by +self+ and the last event e1 emitted by
+            # +other+ match
+            #
+            #     e0.time < e1.time
+            #
+            # Unlike +and+, +or+ and +negate+, this only works on single events
+            # (i.e. it cannot be applied on other predicates)
+            def followed_by(other)
+                to_unbound_task_predicate.
+                    followed_by(other.to_unbound_task_predicate)
+            end
+
+            # Returns an UnboundTaskPredicate that will be true if the generator
+            # represented by this symbol and the generator represented by
+            # +other+ (as a symbol) have not emitted in sequence, i.e. if +self+
+            # has emitted at least once, and either +other+ has not emitted or
+            # +other+ has emitted and the last event e0 emitted by +self+ and
+            # the last event e1 emitted by +other+ do not match
+            #
+            #     e0.time < e1.time
+            #
+            # Unlike +and+, +or+ and +negate+, this only works on single events
+            # (i.e. it cannot be applied on other predicates)
+            def not_followed_by(other)
+                to_unbound_task_predicate.
+                    not_followed_by(other.to_unbound_task_predicate)
+            end
+
+            # Returns an UnboundTaskPredicate that will be true if the generator
+            # represented by +self+ has never emitted
+            def negate
+                to_unbound_task_predicate.negate
+            end
         end
         ::Symbol.include UnboundPredicateSupport
 
         class ::FalseClass
+            # Returns an UnboundTaskPredicate object that will always evaluate
+            # to false
             def to_unbound_task_predicate
                 Roby::EventConstraints::UnboundTaskPredicate::False.new
             end
@@ -83,6 +160,12 @@ end
                 self
             end
 
+            # Returns a predicate that is true if both +self+ and
+            # +other_predicate+ are true.
+            #
+            # Because of the "and" semantic, the predicate is static if one of
+            # the two predicates is false and static, or if both predicates
+            # are static.
             def and(other_predicate)
                 if self == other_predicate then self
                 elsif other_predicate.kind_of?(UnboundTaskPredicate::False)
@@ -92,6 +175,12 @@ end
                 end
             end
 
+            # Returns a predicate that is true if either or both of +self+ and
+            # +other_predicate+ are true.
+            #
+            # Because of the "or" semantic, the predicate is static if one of
+            # the two predicates are true and static, or if both predicates
+            # are static.
             def or(other_predicate)
                 if self == other_predicate then self
                 elsif other_predicate.kind_of?(UnboundTaskPredicate::False)
@@ -101,29 +190,52 @@ end
                 end
             end
 
+            # Returns a predicate that is the negation of +self+
+            #
+            # Because of the "not" semantic, the predicate is static if +self+
+            # is static.
             def negate
                 Negate.new(self)
             end
 
+            # Returns an Explanation object that explains why +self+ is true.
+            # Note that it is valid only if evaluate(task) actually returned
+            # true (it will silently return an invalid explanation if
+            # evaluate(task) returns false).
             def explain_true(task); nil end
 
+            # Returns an Explanation object that explains why +self+ is false.
+            # Note that it is valid only if evaluate(task) actually returned
+            # false (it will silently return an invalid explanation if
+            # evaluate(task) returns true).
             def explain_false(task); nil end
 
-            def explain_unreachability(task)
-                explanation = explain_false(task)
-                explanation.to_unreachability
-                explanation
+            # Returns an Explanation object that explains why +self+ will not
+            # change its value anymore.
+            #
+            # Note that it is valid only if static?(task) actually returned
+            # true (it will silently return an invalid explanation otherwise)
+            def explain_static(task)
             end
 
             def pretty_print(pp)
                 pp.text to_s
             end
 
+            # See #compile.
+            #
+            # Objects of this class hold the compiled predicate used for
+            # evaluation
             class CompiledPredicate
                 def marshal_dump; nil end
                 def marshal_load(obj); nil end
             end
 
+            # Predicates are first represented as an AST using the subclasses of
+            # UnboundTaskPredicate, but are then compiled into code before being
+            # evaluated (for performance reasons).
+            #
+            # This is the main call that performs this compilation
             def compile
                 prelude = required_events.map do |event_name|
                     "    task_event_#{event_name} = task.event(:#{event_name})\n" +
@@ -140,6 +252,8 @@ end
                 @compiled_predicate = compiled_predicate
             end
 
+            # Evaluates this predicate on +task+. It returns either true or
+            # false.
             def evaluate(task)
                 compile if !@compiled_predicate || !@compiled_predicate.respond_to?(:evaluate)
                 @compiled_predicate.evaluate(task)
@@ -147,16 +261,26 @@ end
         end
 
         # An explanation for a given predicate value. +predicate+ is the
-        # predicate, +events+ the involved events as a set of
-        # Event and EventGenerator instances. 
+        # predicate, +elements+ the explanations for +predicate+ having reached
+        # the value.
         #
-        # In the first case, the value of +predicate+ has to be explained by
-        # the event emission. In the second case, the value of +predicate+
-        # has to be explained because the event generator did not emit an
-        # event.
+        # +elements+ is an array of Event and EventGenerator instances. 
+        #
+        # If an Event is stored there, the explanation is that this event has
+        # been emitted.
+        #
+        # If an EventGenerator is stored there, the reason depends on +value+.
+        # If +value+ is nil (static), the reason is that the generator is
+        # unreachable. If +value+ is false (not emitted), it is that the
+        # generator did not emit.
         class Explanation
+            # Representation of what is being explained. It is true if it is
+            # explaining why a predicate is true, false if it is explaining why
+            # it is false and nil for static.
             attr_accessor :value
+            # The predicate that we are providing an explanation for
             attr_reader :predicate
+            # The elements of explanation
             attr_reader :elements
 
             def simple?
@@ -174,7 +298,7 @@ end
                 elsif value == true
                     pp.text " is true"
                 elsif value == nil
-                    pp.text " will never be true"
+                    pp.text " is static"
                 end
                 pp.breakable
 
@@ -207,7 +331,7 @@ end
                                     pp.text " is unreachable"
                                 end
                             elsif value == true
-                                pp.text " is reachable"
+                                pp.text " is reachable, but has not been emitted"
                             else
                                 pp.text " has not been emitted"
                             end
@@ -220,6 +344,7 @@ end
             end
         end
 
+        # Representation of a predicate that is always false
         class UnboundTaskPredicate::False < UnboundTaskPredicate
             def required_events; Set.new end
             def explain_true(task); Hash.new end
@@ -239,6 +364,10 @@ end
             def and(pred); self end
         end
 
+        # Representation of predicates UnboundPredicateSupport#negate and
+        # UnboundTaskPredicate#negate
+        #
+        # See documentation from UnboundTaskPredicate
         class UnboundTaskPredicate::Negate < UnboundTaskPredicate
             attr_reader :predicate
             def initialize(pred)
@@ -259,6 +388,9 @@ end
             def to_s; "!#{predicate}" end
         end
 
+        # Representation of UnboundPredicateSupport#never
+        #
+        # See documentation from UnboundPredicateSupport
         class UnboundTaskPredicate::Never < UnboundTaskPredicate
             attr_reader :predicate
             def initialize(pred)
@@ -303,6 +435,9 @@ end
             def to_s; "never(#{predicate})" end
         end
 
+        # Representation of a binary combination of predicates that is
+        # commutative. It is used to simplify expressions, especially for
+        # explanations.
         class UnboundTaskPredicate::BinaryCommutativePredicate < UnboundTaskPredicate
             attr_reader :predicates
             def initialize(left, right)
@@ -370,6 +505,10 @@ end
             end
         end
 
+        # Representation of UnboundPredicateSupport#and and
+        # UnboundTaskPredicate#and
+        #
+        # See documentation from UnboundTaskPredicate
         class UnboundTaskPredicate::And < UnboundTaskPredicate::BinaryCommutativePredicate
             def code
                 "(#{predicates[0].code}) && (#{predicates[1].code})"
@@ -412,6 +551,10 @@ end
             def to_s; "(#{predicates[0]}) && (#{predicates[1]})" end
         end
 
+        # Representation of UnboundPredicateSupport#or and
+        # UnboundTaskPredicate#or
+        #
+        # See documentation from UnboundTaskPredicate
         class UnboundTaskPredicate::Or < UnboundTaskPredicate::BinaryCommutativePredicate
             def code
                 "(#{predicates[0].code}) || (#{predicates[1].code})"
@@ -457,6 +600,9 @@ end
             def to_s; "(#{predicates[0]}) || (#{predicates[1]})" end
         end
 
+        # Representation of UnboundPredicateSupport#followed_by
+        #
+        # See documentation from UnboundTaskPredicate
         class UnboundTaskPredicate::FollowedBy < UnboundTaskPredicate::BinaryCommutativePredicate
             def explain_true(task)
                 return if !evaluate(task)
@@ -513,6 +659,9 @@ end
             def to_s; "#{predicates[0].event_name}.followed_by(#{predicates[1].event_name})" end
         end
 
+        # Representation of UnboundPredicateSupport#not_followed_by
+        #
+        # See documentation from UnboundTaskPredicate
         class UnboundTaskPredicate::NotFollowedBy < UnboundTaskPredicate::BinaryCommutativePredicate
             def explain_true(task)
                 return if !evaluate(task)
@@ -571,8 +720,15 @@ end
             def to_s; "#{predicates[0].event_name}.not_followed_by(#{predicates[1].event_name})" end
         end
 
+        # Subclass of UnboundTaskPredicate to handle single event generators
+        #
+        # This is the class that is e.g. returned by
+        # UnboundPredicateSupport#to_unbound_task_predicate
         class UnboundTaskPredicate::SingleEvent < UnboundTaskPredicate
+            # The generator name as a symbol
             attr_reader :event_name
+            # The set of events required to compute this predicate. This is used
+            # by UnboundTaskPredicate#compile
             attr_reader :required_events
 
             def initialize(event_name)
@@ -583,10 +739,15 @@ end
 
             def ==(pred); pred.kind_of?(SingleEvent) && pred.event_name == event_name end
 
+            # Code generation to create the overall evaluated predicate
             def code
                 "!!task_#{event_name}"
             end
 
+            # Returns an Explanation object that explains why +self+ is true.
+            # Note that it is valid only if evaluate(task) actually returned
+            # true (it will silently return an invalid explanation if
+            # evaluate(task) returns false).
             def explain_true(task)
                 if event = task.event(event_name).last
                     Explanation.new(true, self, [event])

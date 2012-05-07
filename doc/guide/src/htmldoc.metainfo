@@ -1,14 +1,20 @@
-/introduction:
+index.page:
+    sort_info: 0
+/installation:
+    sort_info: 25
+/concepts:
     sort_info: 50
-/basics:
+/tutorial:
     sort_info: 100
-/cycle:
-    routed_title: Execution Cycle
+/building_plans:
+    sort_info: 150
+/advanced_concepts:
+    sort_info: 170
+/event_relations:
+    sort_info: 180
+/task_relations:
     sort_info: 200
-/abstraction:
-    sort_info: 300
-/relations:
-    sort_info: 400
+
 /plugins:
     sort_info: 950
 /plugins/standard_plugins/index.page:
@@ -20,3 +26,6 @@
 /*/index.page:
     in_menu: false
 
+
+/attic:
+    in_menu: false

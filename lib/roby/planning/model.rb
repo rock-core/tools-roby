@@ -535,18 +535,29 @@ module Roby
 		
 		# Define the method enumerator and the method public interface
 		if !respond_to?("#{name}_methods")
-		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
+		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) do
+                       if defined? superclass and superclass.respond_to?("#{name}_methods")
+                           return superclass.send("#{name}_methods")
+                       else
+                           return Hash.new
+                       end
+                    end
 		    class_eval <<-PLANNING_METHOD_END
 		    def #{name}(options = Hash.new)
 			plan_method("#{name}", options)
 		    end
 		    class << self
 		      cached_enum("#{name}_method", "#{name}_methods", true)
+	              def #{name}_description
+	                if @#{name}_description
+	                  return @#{name}_description
+	                elsif defined? superclass and superclass.respond_to?("#{name}_description")
+	                  return superclass.#{name}_description
+	                end
+                        nil
+	              end
 		    end
 		    PLANNING_METHOD_END
-                    singleton_class.class_eval do
-                        attr_reader "#{name}_description"
-                    end
 		end
                 if @next_method_description
                     if old_description = instance_variable_get("@#{name}_description")
@@ -634,7 +645,14 @@ module Roby
             end
             
             def self.planning_method_description(name)
-                return instance_variable_get("@#{name}_description") || MethodDescription.new
+                description = instance_variable_get("@#{name}_description") 
+                if description
+                    return description
+                elsif defined? superclass and superclass.respond_to?(:planning_method_description)
+                    return superclass.planning_method_description(name)
+                else
+                    return MethodDescription.new
+                end
             end
             def planning_method_description(name)
                 model.planning_method_description(name)
@@ -725,28 +743,30 @@ module Roby
 
 		if method_id = method_selection[:id]
 		    method_selection[:id] = method_id = validate_method_id(method_id)
-		    result = send("enum_#{name}_methods", method_id).find { true }
-		    result = if result && result.options.merge(method_selection) == result.options
-				 [result]
-			     end
-		else
-		    result = send("enum_#{name}_methods", nil).collect do |id, m|
-			if m.options.merge(method_selection) == m.options 
-			    m
-			end
-		    end.compact
-		end
+                    candidates = send("enum_#{name}_methods", method_id)
+                else 
+                    candidates = send("enum_#{name}_methods", nil).map { |a, b| b }
+                end
 
-		return nil if !result
+                expected_model = method_selection.delete(:returns)
+                candidates = candidates.find_all do |m|
+                    if m.options.merge(method_selection) == m.options 
+                        if !expected_model || (m.returns && m.returns.fullfills?(expected_model))
+                            m
+                        end
+                    end
+                end
+
+		return nil if candidates.empty?
 
 		filter_method = "enum_#{name}_filters"
 		if respond_to?(filter_method)
 		    # Remove results for which at least one filter returns false
-		    result.reject! { |m| send(filter_method).any? { |f| !f[options, m] } }
+		    candidates.reject! { |m| send(filter_method).any? { |f| !f[options, m] } }
 		end
 
-		if result.empty?; nil
-		else; result
+		if candidates.empty?; nil
+		else; candidates
 		end
             end
 

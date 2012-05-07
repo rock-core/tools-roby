@@ -1,50 +1,69 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
-
-include Roby::TaskStateHelper 
-
-class TestTask < Roby::Task
-    refine_running_state do
-        event :one do 
-            transition [:running, :zero] => :one
-        end
-
-        event :two do
-            transition [:one] => :two
-        end
-
-        event :three do
-            transition [:two] => :three
-        end
-
-        event :reset do
-            transition all => :zero
-        end
-    end
-end
-
-class SecondTestTask < Roby::Task
-    refine_running_state :namespace => 'test' do
-        event :firstly do 
-            transition [:running] => :first
-        end 
-
-        event :secondly do
-            transition [:first] => :second
-        end
-    end
-end
-
-class DerivedTask < TestTask
-    refine_running_state do
-        event :four do
-	    transition [:three] => :four
-	end
-    end
-end
+require 'roby/test/common'
+require 'roby/tasks/simple'
+require 'roby/test/tasks/empty_task'
+require 'roby/tasks/simple'
+require 'flexmock/test_unit'
 
 class TC_TaskStateMachine < Test::Unit::TestCase
     include Roby::Test
     include Roby::Test::Assertions
+
+    class TestTask < Roby::Task
+        refine_running_state do
+            event :one do 
+                transition [:running, :zero] => :one
+            end
+
+            event :two do
+                transition [:one] => :two
+            end
+
+            event :three do
+                transition [:two] => :three
+            end
+
+            event :reset do
+                transition all => :zero
+            end
+        end
+
+        terminates
+    end
+
+    class SecondTestTask < Roby::Task
+        refine_running_state :namespace => 'test' do
+            event :firstly do 
+                transition [:running] => :first
+            end 
+
+            event :secondly do
+                transition [:first] => :second
+            end
+        end
+
+        terminates
+    end
+
+    class DerivedTask < TestTask
+        refine_running_state do
+            event :four do
+                transition [:three] => :four
+            end
+        end
+
+        terminates
+    end
+
+    class ExceptionTask < Roby::Task
+        refine_running_state do
+            state(:exception) do
+                def poll(task)
+                    raise ArgumentError
+                end
+            end
+        end
+    end
 
     def setup
         super
@@ -84,10 +103,52 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         
         assert(twoTask.state_machine.status == 'running')
         assert(scndTask.state_machine.status == 'running')
+
+        assert(twoTask.state_machine.status_name == :running)
+        assert(scndTask.state_machine.status_name == :running)
         
         assert( SecondTestTask.namespace == "test")
         eval("scndTask.state_machine.firstly_test!") #_#{SecondTestTask.namespace}!")
         assert(scndTask.state_machine.status == 'first')
+    end
+
+    def test_automatically_created_new_events
+        model = Class.new(Roby::Task) do
+            terminates
+            refine_running_state do
+                on(:intermediate) { transition :running => :one }
+            end
+        end
+        assert model.event_model(:intermediate).controlable?
+
+        task = prepare_plan :add => 1, :model => model
+        task.start!
+        assert_equal 'running', task.state_machine.status
+        task.intermediate!
+        assert_equal 'one', task.state_machine.status
+
+        task = prepare_plan :add => 1, :model => model
+        task.start!
+        assert_equal 'running', task.state_machine.status
+        task.emit :intermediate
+        assert_equal 'one', task.state_machine.status
+    end
+
+    def test_does_not_override_existing_events
+        model = Class.new(Roby::Task) do
+            terminates
+            event :intermediate
+            refine_running_state do
+                on(:intermediate) { transition :running => :one }
+            end
+        end
+        assert !model.event_model(:intermediate).controlable?
+
+        task = prepare_plan :add => 1, :model => model
+        task.start!
+        assert_equal 'running', task.state_machine.status
+        task.emit :intermediate
+        assert_equal 'one', task.state_machine.status
     end
 
     def test_inheritance
@@ -101,10 +162,123 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         event = [ :one, :two, :three, :four, :reset ] 
 	begin
 	    event.each do |event|
-		eval("derivedTask.state_machine.#{event}!")
+                derivedTask.state_machine.send("#{event}!")
             end
 	rescue Exception => e
-	    assert (false, "Calling event '#{event} failed")
+	    flunk("Calling event '#{event} failed")
 	end
+    end
+
+    def test_exception
+        task = ExceptionTask.new
+        task.state_machine.status = 'exception'
+        assert(task.state_machine.respond_to?(:do_poll))
+
+        assert_raise(ArgumentError) do
+            task.state_machine.do_poll(task)
+        end
+    end
+
+    def test_has_no_interaction_with_regular_poll
+        mock = flexmock
+        mock.should_receive(:poll_called).at_least.once
+        mock.should_receive(:one_called).at_least.once
+
+        model = Class.new(Roby::Task) do
+            terminates
+            event :intermediate
+
+            poll do
+                mock.poll_called
+            end
+
+            refine_running_state do
+                state :running do
+                    define_method(:poll) do |task|
+                        mock.one_called
+                    end
+                end
+            end
+        end
+
+        task = prepare_plan :permanent => 1, :model => model
+        task.start!
+    end
+
+    def test_poll_in_state
+        mock = flexmock
+        mock.should_receive(:running_poll).at_least.once.ordered
+        mock.should_receive(:running_poll_event).at_least.once.ordered
+        mock.should_receive(:one_poll).at_least.once.ordered
+        mock.should_receive(:one_poll_event).at_least.once.ordered
+
+        model = Class.new(Roby::Task) do
+            terminates
+            event :intermediate
+            event :running_poll
+            event :one_poll
+
+            refine_running_state do
+                poll_in_state :running do |task|
+                    mock.running_poll
+                    task.emit :running_poll
+                end
+                on(:intermediate) { transition :running => :one }
+                poll_in_state :one do |task|
+                    mock.one_poll
+                    task.emit :one_poll
+                end
+            end
+        end
+
+        task = prepare_plan :permanent => 1, :model => model
+        task.start!
+        task.on(:running_poll) { |_| mock.running_poll_event }
+        process_events
+        assert task.running_poll?
+        task.emit :intermediate
+        task.on(:one_poll) { |_| mock.one_poll_event }
+        assert task.running_poll?
+    end
+
+    def test_script_in_state
+        mock = flexmock
+        mock.should_receive(:running_poll).at_least.once
+        mock.should_receive(:running_poll_event).at_least.once
+        mock.should_receive(:one_poll).at_least.once
+        mock.should_receive(:one_poll_event).at_least.once
+
+        model = Class.new(Roby::Task) do
+            terminates
+            event :intermediate
+            event :running_poll
+            event :one_poll
+
+            refine_running_state do
+                script_in_state :running do
+                    execute { mock.running_poll }
+                    emit :running_poll
+                end
+                on(:intermediate) { transition :running => :one }
+                script_in_state :one do
+                    execute { mock.one_poll }
+                    emit :one_poll
+                end
+                on(:one_poll) { transition :one => :running }
+            end
+        end
+
+        task = prepare_plan :permanent => 1, :model => model
+        task.start!
+        task.on(:running_poll) { |_| mock.running_poll_event }
+        process_events
+        assert task.running_poll?
+        task.emit :intermediate
+        task.on(:one_poll) { |_| mock.one_poll_event }
+        process_events
+        assert task.one_poll?, task.history.map(&:symbol).map(&:to_s).join(", ")
+
+        process_events
+        assert_equal [:start, :running_poll, :intermediate, :one_poll, :running_poll], task.history.map(&:symbol)
     end
 end

@@ -1,28 +1,17 @@
 module Roby::TaskStructure
-    module ModelLevelDependency
-        # Specify the base model that will be used as the model for which
-        # this task is used.
-        #
-        # See #fullfilled_model= and #fullfilled_model on the task instances
-        attr_accessor :fullfilled_model
-    end
+    DEPENDENCY_RELATION_ARGUMENTS =
+        [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]
 
-    relation :Dependency, :child_name => :child, :parent_name => :parent_task do
-        # When Dependency support is included in a model (for instance
-        # Roby::Task), add the model-level classes  
-        def self.included(klass) # :nodoc:
-	    klass.extend Roby::TaskStructure::ModelLevelDependency
-            super
-        end
+    relation :Dependency, :child_name => :child, :parent_name => :parent_task
 
-        ##
-        # :method: add_child(v, info)
-        # Adds a new child to +v+. You should use #realized_by instead.
-
+    module DependencyGraphClass::Extension
+        # @deprecated use #depended_upon_by? instead
         def realizes?(obj)
             Roby.warn_deprecated "#realizes? is deprecated. Use #depended_upon_by? instead"
             depended_upon_by?(obj)
         end
+
+        # @deprecated use #depends_on? instead
 	def realized_by?(obj)
             Roby.warn_deprecated "#realized_by? is deprecated. Use #depends_on?(obj, false) instead"
             depends_on?(obj, false)
@@ -46,6 +35,22 @@ module Roby::TaskStructure
 	def parents; parent_objects(Dependency) end
 	# The set of child objects in the Dependency relation
 	def children; child_objects(Dependency) end
+        # Returns the single parent task for this task
+        #
+        # If there is more than one parent or no parent at all, raise an exception
+        def parent_task
+            result = nil
+            each_parent_task do |p|
+                if result
+                    raise ArgumentError, "#{self} has more than one parent. A single parent was expected"
+                end
+                result = p
+            end
+            if !result
+                raise ArgumentError, "#{self} has no parents. A single parent was expected"
+            end
+            result
+        end
 
         # Returns the set of roles that +child+ has
         def roles_of(child)
@@ -78,15 +83,20 @@ module Roby::TaskStructure
         # costly operation of raising an exception in cases it is expected that
         # the role may not exist.
         def child_from_role(role_name, validate = true)
-            each_child do |child_task, info|
-                if info[:roles].include?(role_name)
-                    return child_task
+            merged_relations(:each_child_object, false, Dependency) do |myself, child|
+                roles = myself[child, Dependency][:roles]
+                if roles.include?(role_name)
+		    if plan
+			return plan[child]
+		    else
+			return child
+		    end
                 end
             end
             if validate
                 roles = []
-                each_child do |child_task, info|
-                    roles << "#{child_task} => #{info[:roles]}"
+                merged_relations(:each_child_object, false, Dependency) do |myself, child|
+                    roles << "#{child} => #{myself[child, Dependency][:roles]}"
                 end
                 raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
             end
@@ -425,196 +435,204 @@ module Roby::TaskStructure
         end
     end
 
-    def Dependency.merge_fullfilled_model(model, required_models, required_arguments)
-        model, tags, arguments = *model
-
-        required_models = [required_models] if !required_models.respond_to?(:to_ary)
-
-        for m in required_models
-            if m.kind_of?(Roby::TaskModelTag)
-                tags << m
-            elsif m.has_ancestor?(model)
-                model = m
-            elsif !model.has_ancestor?(m)
-                raise Roby::ModelViolation, "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
-            end
-        end
-
-        arguments.merge!(required_arguments) do |name, old, new| 
-            if old != new
-                raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
-            end
-            old
-        end
-
-        return [model, tags, arguments]
-    end
-
-
-    def Dependency.validate_options(options)
-        Kernel.validate_options options, [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]
-    end
-
+    # For backward compatibility reasons
     Hierarchy = Dependency
 
-    def Dependency.merge_info(parent, child, opt1, opt2)
-        if opt1[:remove_when_done] != opt2[:remove_when_done]
-            raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
-        end
-
-        result = { :remove_when_done => opt1[:remove_when_done], :consider_in_pending => opt1[:consider_in_pending] }
-
-        result[:success] =
-            if !opt1[:success] then opt2[:success]
-            elsif !opt2[:success] then opt1[:success]
-            else
-                opt1[:success].and(opt2[:success])
-            end
-
-        result[:failure] =
-            if !opt1[:failure] then opt2[:failure]
-            elsif !opt2[:failure] then opt1[:failure]
-            else
-                opt1[:failure].or(opt2[:failure])
-            end
-
-        # Check model compatibility
-        models1, arguments1 = opt1[:model]
-        models2, arguments2 = opt2[:model]
-
-        task_model1 = models1.find { |m| m <= Roby::Task }
-        task_model2 = models2.find { |m| m <= Roby::Task }
-
-        result_model = []
-        if task_model1 && task_model2
-            if task_model1 <= task_model2
-                result_model << task_model1
-            elsif task_model2 < task_model1
-                result_model << task_model2
-            else
-                raise ModelViolation, "incompatible models #{task_model1} and #{task_model2}"
-            end
-        elsif task_model1
-            result_model << task_model1
-        elsif task_model2
-            result_model << task_model2
-        end
-        models1.each do |m|
-            next if m <= Roby::Task
-            if !models2.any? { |other_m| other_m.fullfills?(m) }
-                result_model << m
-            end
-        end
-        models2.each do |m|
-            next if m <= Roby::Task
-            if !models1.any? { |other_m| other_m.fullfills?(m) }
-                result_model << m
-            end
-        end
-
-        result[:model] = [result_model]
-        # Merge arguments
-        result[:model][1] = arguments1.merge(arguments2) do |key, old_value, new_value|
-            if old_value != new_value
-                raise Roby::ModelViolation, "incompatible argument constraint #{old_value} and #{new_value} for #{key}"
-            end
-            old_value
-        end
-
-        # Finally, merge the roles (the easy part ;-))
-        result[:roles] = opt1[:roles] | opt2[:roles]
-
-        result
+    module DependencyGraphClass::Extension::ClassExtension
+        # Specify the base model that will be used as the model for which
+        # this task is used.
+        #
+        # See #fullfilled_model= and #fullfilled_model on the task instances
+        attr_accessor :fullfilled_model
     end
 
-    # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
-    # relations. It returns an array of ChildFailedError for all failed
-    # hierarchy relations
-    def Dependency.check_structure(plan)
-	result = []
-
-	events = Hierarchy.interesting_events
-	return result if events.empty? && failing_tasks.empty?
-
-	# Get the set of tasks for which a possible failure has been
-	# registered The tasks that are failing the hierarchy requirements
-	# are registered in Hierarchy.failing_tasks. The interesting_events
-	# set is cleared at cycle end (see below)
-        tasks, @failing_tasks = failing_tasks, ValueSet.new
-	events.each do |event|
-            task =
-                if event.respond_to?(:generator)
-                    event.generator.task
-                else
-                    event.task
-                end
-            tasks << task
-
-            if event.symbol == :start # also add the children
-                task.each_child do |child_task, _|
-                    tasks << child_task
-                end
-            end
-        end
-
-	for child in tasks
-	    # Check if the task has been removed from the plan
-	    next unless child.plan
-
-            removed_parents = []
-	    child.each_parent_task do |parent|
-	        next if parent.finished?
-		next unless parent.self_owned?
-
-		options = parent[child, Dependency]
-		success = options[:success]
-		failure = options[:failure]
-
-                has_success = success && success.evaluate(child)
-                if !has_success
-                    has_failure = failure && failure.evaluate(child)
-                end
-
-                error = nil
-		if has_success
-		    if options[:remove_when_done]
-                        # Must not delete it here as we are iterating over the
-                        # parents
-			removed_parents << parent
-		    end
-                elsif has_failure
-                    explanation = failure.explain_true(child)
-		    error = Roby::ChildFailedError.new(parent, child, explanation)
-		elsif success && success.static?(child)
-                    explanation = success.explain_static(child)
-		    error = Roby::ChildFailedError.new(parent, child, explanation)
-		end
-
-                if error
-                    if parent.running?
-                        result << error
-                        failing_tasks << child
-                    elsif options[:consider_in_pending] && plan.control.pending_dependency_failed(parent, child, error)
-                        result << error
-                        failing_tasks << child
-                    end
-                end
-	    end
-            for parent in removed_parents
-                parent.remove_child child
-            end
-	end
-
-	events.clear
-	result
-    end
-
-    class << Dependency
+    class DependencyGraphClass
 	# The set of events that have been fired in this cycle and are involved in a Hierarchy relation
 	attribute(:interesting_events) { Array.new }
 
 	# The set of tasks that are currently failing 
 	attribute(:failing_tasks) { ValueSet.new }
+
+        def merge_fullfilled_model(model, required_models, required_arguments)
+            model, tags, arguments = *model
+
+            required_models = [required_models] if !required_models.respond_to?(:to_ary)
+
+            for m in required_models
+                if m.kind_of?(Roby::TaskModelTag)
+                    tags << m
+                elsif m.has_ancestor?(model)
+                    model = m
+                elsif !model.has_ancestor?(m)
+                    raise Roby::ModelViolation, "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
+                end
+            end
+
+            arguments.merge!(required_arguments) do |name, old, new| 
+                if old != new
+                    raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
+                end
+                old
+            end
+
+            return [model, tags, arguments]
+        end
+
+        def validate_options(options)
+            Kernel.validate_options options, [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]
+        end
+
+        def merge_info(parent, child, opt1, opt2)
+            if opt1[:remove_when_done] != opt2[:remove_when_done]
+                raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
+            end
+
+            result = { :remove_when_done => opt1[:remove_when_done], :consider_in_pending => opt1[:consider_in_pending] }
+
+            result[:success] =
+                if !opt1[:success] then opt2[:success]
+                elsif !opt2[:success] then opt1[:success]
+                else
+                    opt1[:success].and(opt2[:success])
+                end
+
+            result[:failure] =
+                if !opt1[:failure] then opt2[:failure]
+                elsif !opt2[:failure] then opt1[:failure]
+                else
+                    opt1[:failure].or(opt2[:failure])
+                end
+
+            # Check model compatibility
+            models1, arguments1 = opt1[:model]
+            models2, arguments2 = opt2[:model]
+
+            task_model1 = models1.find { |m| m <= Roby::Task }
+            task_model2 = models2.find { |m| m <= Roby::Task }
+
+            result_model = []
+            if task_model1 && task_model2
+                if task_model1 <= task_model2
+                    result_model << task_model1
+                elsif task_model2 < task_model1
+                    result_model << task_model2
+                else
+                    raise ModelViolation, "incompatible models #{task_model1} and #{task_model2}"
+                end
+            elsif task_model1
+                result_model << task_model1
+            elsif task_model2
+                result_model << task_model2
+            end
+            models1.each do |m|
+                next if m <= Roby::Task
+                if !models2.any? { |other_m| other_m.fullfills?(m) }
+                    result_model << m
+                end
+            end
+            models2.each do |m|
+                next if m <= Roby::Task
+                if !models1.any? { |other_m| other_m.fullfills?(m) }
+                    result_model << m
+                end
+            end
+
+            result[:model] = [result_model]
+            # Merge arguments
+            result[:model][1] = arguments1.merge(arguments2) do |key, old_value, new_value|
+                if old_value != new_value
+                    raise Roby::ModelViolation, "incompatible argument constraint #{old_value} and #{new_value} for #{key}"
+                end
+                old_value
+            end
+
+            # Finally, merge the roles (the easy part ;-))
+            result[:roles] = opt1[:roles] | opt2[:roles]
+
+            result
+        end
+
+        # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
+        # relations. It returns an array of ChildFailedError for all failed
+        # hierarchy relations
+        def check_structure(plan)
+            result = []
+
+            events = Hierarchy.interesting_events
+            return result if events.empty? && failing_tasks.empty?
+
+            # Get the set of tasks for which a possible failure has been
+            # registered The tasks that are failing the hierarchy requirements
+            # are registered in Hierarchy.failing_tasks. The interesting_events
+            # set is cleared at cycle end (see below)
+            tasks, @failing_tasks = failing_tasks, ValueSet.new
+            events.each do |event|
+                task =
+                    if event.respond_to?(:generator)
+                        event.generator.task
+                    else
+                        event.task
+                    end
+                tasks << task
+
+                if event.symbol == :start # also add the children
+                    task.each_child do |child_task, _|
+                        tasks << child_task
+                    end
+                end
+            end
+
+            for child in tasks
+                # Check if the task has been removed from the plan
+                next unless child.plan
+
+                removed_parents = []
+                child.each_parent_task do |parent|
+                    next if parent.finished?
+                    next unless parent.self_owned?
+
+                    options = parent[child, Dependency]
+                    success = options[:success]
+                    failure = options[:failure]
+
+                    has_success = success && success.evaluate(child)
+                    if !has_success
+                        has_failure = failure && failure.evaluate(child)
+                    end
+
+                    error = nil
+                    if has_success
+                        if options[:remove_when_done]
+                            # Must not delete it here as we are iterating over the
+                            # parents
+                            removed_parents << parent
+                        end
+                    elsif has_failure
+                        explanation = failure.explain_true(child)
+                        error = Roby::ChildFailedError.new(parent, child, explanation)
+                    elsif success && success.static?(child)
+                        explanation = success.explain_static(child)
+                        error = Roby::ChildFailedError.new(parent, child, explanation)
+                    end
+
+                    if error
+                        if parent.running?
+                            result << error
+                            failing_tasks << child
+                        elsif options[:consider_in_pending] && plan.control.pending_dependency_failed(parent, child, error)
+                            result << error
+                            failing_tasks << child
+                        end
+                    end
+                end
+                for parent in removed_parents
+                    parent.remove_child child
+                end
+            end
+
+            events.clear
+            result
+        end
     end
 end
 

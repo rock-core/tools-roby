@@ -1,7 +1,6 @@
 require 'drb'
 require 'set'
 require 'utilrb/value_set'
-require 'roby_marshalling'
 
 class NilClass
     def droby_dump(dest); nil end

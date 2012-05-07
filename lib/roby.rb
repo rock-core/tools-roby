@@ -42,7 +42,18 @@ require 'roby/support.rb'
 require 'roby/basic_object.rb'
 require 'roby/standard_errors.rb'
 require 'roby/exceptions.rb'
-require 'roby_bgl'
+
+begin
+    require 'roby_bgl'
+rescue LoadError
+    STDERR.puts "Cannot require Roby's roby_bgl C extension"
+    STDERR.puts "If you are using Rock, it should have been built automatically."
+    STDERR.puts "Run"
+    STDERR.puts "  amake roby"
+    STDERR.puts "and try again"
+    exit 1
+end
+
 require 'roby/graph.rb'
 require 'roby/relations.rb'
 
@@ -69,6 +80,17 @@ require 'roby/plan.rb'
 require 'roby/transactions/proxy.rb'
 require 'roby/transactions.rb'
 require 'roby/query.rb'
+
+begin
+    require 'roby_marshalling'
+rescue LoadError
+    STDERR.puts "Cannot require Roby's roby_marshalling C extension"
+    STDERR.puts "If you are using Rock, it should have been built automatically."
+    STDERR.puts "Run"
+    STDERR.puts "  amake roby"
+    STDERR.puts "and try again"
+    exit 1
+end
 
 require 'roby/distributed/base'
 require 'roby/decision_control.rb'

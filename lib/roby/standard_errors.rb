@@ -53,9 +53,12 @@ module Roby
 
         def pp_failure_reason(pp, reason)
             reason.pretty_print(pp)
-            if reason.context.first.kind_of?(Exception)
-                pp.breakable
-                pp_exception(pp, reason.context[0])
+            if reason.respond_to?(:context) && reason.context
+                reason.context.each do |c|
+                    if c.kind_of?(Exception)
+                        pp_exception(pp, c)
+                    end
+                end
             end
         end
 
@@ -115,9 +118,29 @@ module Roby
     # Raised when an error occurs on a task while we were terminating it
     class TaskEmergencyTermination < LocalizedError
         attr_reader :reason
-        def initialize(task, reason)
+        def quarantined?
+            !!@quarantined
+        end
+        def initialize(task, reason, quarantined = false)
             @reason = reason
+            @quarantined = quarantined
             super(task)
+        end
+
+        def pretty_print(pp)
+            pp.text "The following task is being terminated because of an internal error"
+            pp.breakable
+            if quarantined?
+                pp.text "It has been put under quarantine"
+            else
+                pp.text "It is not yet put under quarantine"
+            end
+            pp.breakable
+
+            super
+
+            pp.breakable
+            reason.pretty_print(pp)
         end
     end
 
