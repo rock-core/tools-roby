@@ -74,6 +74,8 @@ module Roby
 	end
 
 	def setup
+            Roby.app.reload_config
+
             @timings = Hash.new
             Roby.app.public_logs = false
 
@@ -81,13 +83,6 @@ module Roby
 
 	    @console_logger ||= false
             @event_logger   ||= false
-	    if !defined? Roby::State
-                Roby.const_set(:State, StateSpace.new)
-                Roby.const_set(:Conf, StateSpace.new)
-            else
-                Roby::State.clear
-                Roby::Conf.clear
-	    end
 
 	    @original_roby_logger_level = Roby.logger.level
 	    @timings[:start] = Time.now
@@ -98,9 +93,6 @@ module Roby
 
             Roby.app.log_setup 'robot', 'DEBUG:robot.txt'
             Roby.app.log_server = false
-
-            Roby.app.setup
-            Roby.app.prepare
 
 	    if Test.check_allocation_count
 		GC.start
@@ -115,12 +107,6 @@ module Roby
 		Roby::Planning::Planner.last_id = 0 
 	    end
 
-            @plan ||= Plan.new
-            @control ||= DecisionControl.new
-            Roby.app.plan = plan
-            if !plan.engine
-                ExecutionEngine.new(@plan, @control)
-            end
             plan.engine.gc_warning = false
 
 	    # Save and restore some arrays
@@ -163,11 +149,19 @@ module Roby
             plan.permanent_tasks.clear
             plan.permanent_events.clear
             plan.missions.clear
+
+            counter = 0
             loop do
+                process_events
+
+                counter += 1
+                if counter > 1000
+                    STDERR.puts "more than #{counter} iterations while trying to shut down the current plan, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
+                end
                 if plan.gc_quarantine.size == plan.known_tasks.size
                     break
                 end
-                process_events
+                sleep 0.01
             end
             if !plan.empty?
                 STDERR.puts "failed to teardown: plan has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
@@ -275,7 +269,6 @@ module Roby
                 end
                 plan.clear
             end
-	    Roby.app.cleanup
 
 	    Roby.logger.level = @original_roby_logger_level
 	    self.console_logger = false
@@ -785,6 +778,9 @@ module Roby
 
             planner = options[:planner_model].new(plan)
             planner.send(method_name, args)
+        rescue Roby::Planning::NotFound => e
+            Roby.log_exception(e, Roby, :fatal)
+            raise
         end
 
         module ClassExtension
@@ -804,6 +800,30 @@ module Roby
                 end
             end
         end
+    end
+
+    # Module used to setup tests for Roby itself
+    module SelfTest
+        include Test
+
+        def setup
+            Roby.app.setup
+            Roby.app.prepare
+
+            @plan ||= Plan.new
+            @control ||= DecisionControl.new
+            Roby.app.plan = plan
+            if !plan.engine
+                ExecutionEngine.new(@plan, @control)
+            end
+
+            super
+        end
+
+        def teardown
+            super
+        end
+
     end
 end
 

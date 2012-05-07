@@ -7,8 +7,8 @@ require 'roby'
 require 'roby/event_constraints'
 
 class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     class TaskModel < Roby::Tasks::Simple
         event :first, :controlable => true

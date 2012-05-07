@@ -3,7 +3,7 @@ require 'roby/test/common'
 require 'flexmock'
 
 class TC_EnsuredEvent < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     def test_ensure
 	setup = lambda do |mock|

@@ -7,7 +7,7 @@ require 'roby/tasks/simple'
 
 class TC_Planner < Test::Unit::TestCase
     include Roby::Planning
-    include Roby::Test
+    include Roby::SelfTest
 
     NullTask = Roby::NullTask
 

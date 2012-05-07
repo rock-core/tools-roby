@@ -9,7 +9,7 @@ require 'test_plan'
 # Check that a transaction behaves like a plan
 class TC_TransactionAsPlan < Test::Unit::TestCase
     include TC_PlanStatic
-    include Roby::Test
+    include Roby::SelfTest
 
     attr_reader :real_plan
     attr_reader :plan
@@ -857,7 +857,7 @@ end
 
 class TC_Transactions < Test::Unit::TestCase
     include TC_TransactionBehaviour
-    include Roby::Test
+    include Roby::SelfTest
 
     def test_real_plan
         transaction_commit(plan) do |trsc|
@@ -1110,7 +1110,7 @@ end
 
 class TC_RecursiveTransaction < Test::Unit::TestCase
     include TC_TransactionBehaviour
-    include Roby::Test
+    include Roby::SelfTest
 
     attr_reader :real_plan
     def engine; (real_plan || plan).engine end

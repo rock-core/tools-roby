@@ -4,7 +4,7 @@ require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_Dependency < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     # Set to true to have the tests display the pretty-printed errors.
     DISPLAY_FORMATTED_ERRORS = false

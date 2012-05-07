@@ -5,8 +5,8 @@ require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_Test_TestCase < Test::Unit::TestCase 
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     Assertion = if defined?(MiniTest::Assertion)
                     MiniTest::Assertion

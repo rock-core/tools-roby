@@ -6,8 +6,8 @@ require 'roby/tasks/simple'
 require 'roby'
 
 class TC_Exceptions < Test::Unit::TestCase 
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
     class SpecializedError < LocalizedError; end
 
     DO_PRETTY_PRINT = false

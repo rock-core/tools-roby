@@ -6,7 +6,7 @@ require 'roby/relations/conflicts'
 require 'flexmock'
 
 class TC_Conflicts < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     def test_model_relations
 	m1, m2 = (1..2).map do

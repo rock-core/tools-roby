@@ -7,7 +7,7 @@ require 'flexmock/test_unit'
 
 module TC_PlanStatic
     include Roby
-    include Roby::Test
+    include Roby::SelfTest
 
     def assert_task_state(task, state)
         assert_planobject_state(task, state)

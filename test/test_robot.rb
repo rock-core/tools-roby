@@ -6,8 +6,8 @@ require 'flexmock/test_unit'
 
 require 'roby'
 class TC_Robot < Test::Unit::TestCase
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     def test_action_from_model_no_match
         task_t = Class.new(Roby::Task)

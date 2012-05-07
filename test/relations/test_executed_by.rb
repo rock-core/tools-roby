@@ -4,7 +4,7 @@ require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_ExecutedBy < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     class ExecutionAgentModel < Tasks::Simple
 	event :ready

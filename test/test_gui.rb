@@ -6,7 +6,7 @@ require 'roby/test/tasks/empty_task'
 require 'roby/log/gui/relations'
 
 class TC_Task < Test::Unit::TestCase 
-    include Roby::Test
+    include Roby::SelfTest
 
     def test_index_handling
         model = Ui::RelationConfigModel.new(nil)

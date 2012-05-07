@@ -4,8 +4,8 @@ require 'roby/test/tasks/empty_task'
 require 'flexmock/test_unit'
 
 class TC_PlanObject < Test::Unit::TestCase 
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
     def setup
         super
         Roby.app.filter_backtraces = false

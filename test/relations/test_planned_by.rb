@@ -3,7 +3,7 @@ require 'roby/test/common'
 require 'roby/tasks/simple'
 
 class TC_PlannedBy < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     PlannedBy = Roby::TaskStructure::PlannedBy
     def test_replace

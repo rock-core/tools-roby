@@ -6,8 +6,8 @@ require 'roby/tasks/simple'
 require 'flexmock/test_unit'
 
 class TC_TaskStateMachine < Test::Unit::TestCase
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     class TestTask < Roby::Task
         refine_running_state do

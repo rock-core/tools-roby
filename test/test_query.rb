@@ -5,7 +5,7 @@ require 'roby/state/information'
 require 'flexmock'
 
 class TC_Query < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     def check_matches_fullfill(task_model, plan, t0, t1, t2)
 	result = TaskMatcher.new.enum_for(:each, plan).to_set

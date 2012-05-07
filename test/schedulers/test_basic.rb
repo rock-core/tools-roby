@@ -5,7 +5,7 @@ require 'roby/schedulers/basic'
 require 'flexmock/test_unit'
 
 class TC_Schedulers_Basic < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     attr_reader :scheduler
 

@@ -7,8 +7,8 @@ require 'roby/log'
 require 'roby/schedulers/temporal'
 
 class TC_TaskScripting < Test::Unit::TestCase
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     def setup
         super

@@ -3,7 +3,7 @@ require 'roby/test/common'
 require 'roby/tasks/simple'
 
 class TC_TransactionsProxy < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     attr_reader :transaction
     def setup

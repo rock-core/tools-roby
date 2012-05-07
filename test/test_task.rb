@@ -6,8 +6,8 @@ require 'roby/tasks/simple'
 require 'flexmock/test_unit'
 
 class TC_Task < Test::Unit::TestCase 
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
     def setup
         super
         Roby.app.filter_backtraces = false

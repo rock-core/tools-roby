@@ -6,7 +6,7 @@ require 'roby/schedulers/temporal'
 require 'flexmock'
 
 class TC_TemporalConstraints < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
     TemporalConstraints = EventStructure::TemporalConstraints
 
     def test_empty_constraints

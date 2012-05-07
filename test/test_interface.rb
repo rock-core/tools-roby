@@ -4,7 +4,7 @@ require 'roby/interface'
 require 'flexmock'
 
 class TC_Interface < Test::Unit::TestCase 
-    include Roby::Test
+    include Roby::SelfTest
 
     def setup
         super

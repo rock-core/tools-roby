@@ -7,8 +7,8 @@ require 'roby/tasks/simple'
 
 class TC_PlanningTask < Test::Unit::TestCase
     include Roby::Planning
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     PlannedBy = TaskStructure::PlannedBy
 

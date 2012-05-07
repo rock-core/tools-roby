@@ -5,8 +5,8 @@ require 'roby/tasks/simple'
 
 require 'roby'
 class TC_Event < Test::Unit::TestCase
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     def setup
         super

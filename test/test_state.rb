@@ -5,7 +5,7 @@ require 'flexmock'
 require 'roby/state/events'
 
 class TC_State < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     def test_openstruct_behavior
 	s = ExtendedStruct.new

@@ -5,7 +5,7 @@ require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 
 class TC_ThreadTask < Test::Unit::TestCase 
-    include Roby::Test
+    include Roby::SelfTest
 
     # Starts +task+ and waits for the thread to end
     def wait_thread_end(task)

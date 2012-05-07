@@ -7,8 +7,8 @@ require 'roby/tasks/simple'
 
 class TC_PlanningLoop < Test::Unit::TestCase
     include Roby::Planning
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     # The planner model
     attr_reader :planner_model

@@ -5,8 +5,8 @@ require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 
 class TC_Tasks_ExternalProcess < Test::Unit::TestCase 
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     MOCKUP = File.expand_path(
         File.join("..", "mockups", "external_process"),

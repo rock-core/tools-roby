@@ -4,7 +4,7 @@ require 'enumerator'
 require 'flexmock'
 
 class TC_BGL < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
     class Vertex
 	include BGL::Vertex
     end

@@ -2,7 +2,7 @@ require 'roby/test/common'
 require 'roby'
 
 class TC_KnownFailures < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     def create_event_with_return; EventGenerator.new { |_| return } end
     def test_return_in_event_commands # WILL FAIL

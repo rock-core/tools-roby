@@ -30,10 +30,16 @@ app.testing = true
 require 'roby/test/testcase'
 
 parser.parse! ARGV
+Roby.app.setup
+Roby.app.prepare
 
-r = Test::Unit::AutoRunner.new(true)
-r.process_args(ARGV + testrb_args) or
-  abort r.options.banner + " tests..."
+begin
+    r = Test::Unit::AutoRunner.new(true)
+    r.process_args(ARGV + testrb_args) or
+      abort r.options.banner + " tests..."
 
-exit r.run
+    exit r.run
+ensure
+    Roby.app.cleanup
+end
 

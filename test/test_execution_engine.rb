@@ -9,8 +9,8 @@ require 'utilrb/hash/slice'
 require 'roby/log'
 
 class TC_ExecutionEngine < Test::Unit::TestCase
-    include Roby::Test
-    include Roby::Test::Assertions
+    include Roby::SelfTest
+    include Roby::SelfTest::Assertions
 
     def setup
 	super

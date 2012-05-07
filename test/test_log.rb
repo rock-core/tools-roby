@@ -8,7 +8,7 @@ require 'roby/log'
 require 'flexmock'
 
 class TC_Log < Test::Unit::TestCase
-    include Roby::Test
+    include Roby::SelfTest
 
     def teardown
 	super
