@@ -285,6 +285,13 @@ module Roby
 	    end
 	end
 
+        # Use to call the original method on a partial mock
+        #
+        # This should be in flexmock, but is not ...
+        def flexmock_call_original(object, method, *args, &block)
+            object.class.instance_method(method).bind(object).call(*args, &block)
+        end
+
 	# The list of children started using #remote_process
 	attr_reader :remote_processes
 

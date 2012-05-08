@@ -198,6 +198,21 @@ class TC_Event < Test::Unit::TestCase
         end
     end
 
+    def test_command_failure_does_not_remove_pending
+        e = EventGenerator.new do
+            raise ArgumentError
+        end
+        plan.add(e)
+        flexmock(e).should_receive(:emit_failed).once.and_return do |*args|
+            assert(e.pending?)
+            flexmock_call_original(e, :emit_failed, *args)
+        end
+        inhibit_fatal_messages do
+            assert_raises(Roby::CommandFailed) { e.call }
+        end
+        assert(!e.pending?)
+    end
+
     def test_emit_failed_removes_pending
 	event = EventGenerator.new { }
 	plan.add(event)

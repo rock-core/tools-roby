@@ -334,10 +334,6 @@ module Roby
 		called(context)
 		true
 	    end
-
-	rescue Exception
-	    @pending = false
-	    raise
 	end
 
         # Right after a call to #call_without_propagation, tells the caller
@@ -720,9 +716,8 @@ module Roby
                 @pending_sources = nil
             end
             event
-
-	ensure
-	    @pending = false
+        ensure
+            @pending = false
 	end
 
 	# Emit the event with +context+ as the event context
