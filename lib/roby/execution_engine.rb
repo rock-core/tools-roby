@@ -504,10 +504,6 @@ module Roby
         # Returns true if there is an error queued that originates from +origin+
         def has_error_from?(origin)
             if @propagation_exceptions
-                puts "#{@propagation_exceptions.size} exception queued so far:"
-                @propagation_exceptions.each do |error|
-                    puts "  #{error.origin} #{error.originates_from?(origin)}"
-                end
                 @propagation_exceptions.any? do |error|
                     error.originates_from?(origin)
                 end
