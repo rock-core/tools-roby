@@ -2,6 +2,7 @@ require 'roby'
 require 'optparse'
 
 app = Roby.app
+app.public_logs = false
 
 testrb_args = []
 parser = OptionParser.new do |opt|
@@ -9,10 +10,7 @@ parser = OptionParser.new do |opt|
 	Roby.app.simulation = val
     end
     opt.on("-k", "--keep-logs", "keep all logs") do |val|
-	Roby.app.testing_keep_logs = val
-    end
-    opt.on("-o", "--overwrite-oldlogs", "if there are logs for the same test case, overwrite them") do |val|
-	Roby.app.testing_overwrites_logs = val
+	Roby.app.public_logs = true
     end
     opt.on("-i", "--interactive", "allow user interaction during tests") do |val|
 	Roby.app.automatic_testing = false

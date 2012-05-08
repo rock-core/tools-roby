@@ -185,26 +185,7 @@ module Roby
 			    raise
 			end
 		    end
-
-		    keep_logdir = @failed_test || Roby.app.testing_keep_logs?
-		    save_logdir = (@failed_test && automatic_testing?) ||  Roby.app.testing_keep_logs?
-		    if save_logdir
-			subdir = @failed_test ? 'failures' : 'results'
-			basedir = File.join(Roby.app.app_dir, 'test', subdir)
-			dirname = Roby::Application.unique_dirname(basedir, dataset_prefix)
-
-			if Roby.app.testing_overwrites_logs?
-			    dirname.gsub!(/\.\d+$/, '')
-			    FileUtils.rm_rf dirname
-			end
-
-			FileUtils.mv Roby.app.log_dir, dirname
-		    end
-		    if !keep_logdir
-			FileUtils.rm_rf Roby.app.log_dir
-		    end
 		end
-
 	    end
 
 	    def add_error(*args, &block) # :nodoc:

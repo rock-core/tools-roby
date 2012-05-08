@@ -666,7 +666,7 @@ module Roby
         end
 
         def call_propagation_handlers
-            if scheduler
+            if scheduler && scheduler.enabled?
                 gather_framework_errors('scheduler') { scheduler.initial_events }
             end
             call_poll_blocks(self.class.propagation_handlers, false)

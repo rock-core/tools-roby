@@ -66,7 +66,10 @@ module Roby
 		    self_owned
 
                 @can_schedule_cache = Hash.new
+                @enabled = true
 	    end
+
+            attr_predicate :enabled?, true
 
             def can_start?(task)
                 if plan.engine.has_error_from?(task.start_event)

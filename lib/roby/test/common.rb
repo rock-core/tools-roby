@@ -77,7 +77,6 @@ module Roby
             Roby.app.reload_config
 
             @timings = Hash.new
-            Roby.app.public_logs = false
 
             super if defined? super
 
@@ -146,12 +145,16 @@ module Roby
                 engine.join
 	    end
 
-            plan.permanent_tasks.clear
-            plan.permanent_events.clear
-            plan.missions.clear
-
             counter = 0
             loop do
+                plan.permanent_tasks.clear
+                plan.permanent_events.clear
+                plan.missions.clear
+
+                # Mark all readily-removable tasks as non-executable
+                if Roby.scheduler
+                    Roby.scheduler.enabled = false
+                end
                 process_events
 
                 counter += 1
@@ -816,6 +819,8 @@ module Roby
             if !plan.engine
                 ExecutionEngine.new(@plan, @control)
             end
+
+            Roby.app.public_logs = false
 
             super
         end
