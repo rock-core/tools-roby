@@ -355,6 +355,31 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    t.start!(42)
 	end
     end
+
+    def test_default_task_ordering
+	a = Class.new(Tasks::Simple) do
+	    event :intermediate
+	end.new(:id => 'a')
+
+	plan.add_mission(a)
+	a.depends_on(b = Tasks::Simple.new(:id => 'b'))
+
+	b.forward_to(:success, a, :intermediate)
+	b.forward_to(:success, a, :success)
+
+	FlexMock.use do |mock|
+            b.on(:success) { |ev| mock.child_success }
+	    a.on(:intermediate) { |ev| mock.parent_intermediate }
+	    a.on(:success) { |ev| mock.parent_success }
+	    mock.should_receive(:child_success).once.ordered
+	    mock.should_receive(:parent_intermediate).once.ordered
+	    mock.should_receive(:parent_success).once.ordered
+	    a.start!
+	    b.start!
+	    b.success!
+	end
+    end
+
     def test_diamond_structure
 	a = Class.new(Tasks::Simple) do
 	    event :child_success

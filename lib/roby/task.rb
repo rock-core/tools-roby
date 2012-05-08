@@ -1311,16 +1311,10 @@ module Roby
 	    # Add the model-level signals to this instance
 	    @instantiated_model_events = true
 	    
-            right_side   = ValueSet.new
-	    right_border = bound_events.values.to_value_set
-            left_border  = right_border.dup
-
 	    model.all_signals.each do |generator, signalled_events|
 	        next if signalled_events.empty?
 	        generator = bound_events[generator]
-	        right_border.delete(generator)
 
-                right_side.merge(signalled_events)
 	        for signalled in signalled_events
 	            signalled = bound_events[signalled]
 	            generator.signals signalled
@@ -1330,9 +1324,7 @@ module Roby
 	    model.all_forwardings.each do |generator, signalled_events|
 		next if signalled_events.empty?
 	        generator = bound_events[generator]
-	        right_border.delete(generator)
 
-                right_side.merge(signalled_events)
 	        for signalled in signalled_events
 	            signalled = bound_events[signalled]
 	            generator.forward_to signalled
@@ -1342,17 +1334,13 @@ module Roby
 	    model.all_causal_links.each do |generator, signalled_events|
 	        next if signalled_events.empty?
 	        generator = bound_events[generator]
-	        right_border.delete(generator)
 
-                right_side.merge(signalled_events)
 	        for signalled in signalled_events
 	            signalled = bound_events[signalled]
 	            generator.add_causal_link signalled
 	        end
 	    end
 
-            left_border.difference!(right_side)
-            
             # Add a link from internal_event to stop if stop is controllable
             if event(:stop).controlable?
                 event(:internal_error).signals event(:stop)
@@ -1360,28 +1348,27 @@ module Roby
 
 	    terminal_events, success_events, failure_events = update_terminal_flag
 
-	    # WARNING: this works only because:
-	    #   * there is always at least updated_data as an intermediate event
-	    #   * there is always one terminal event which is not stop
-	    start_event = bound_events[:start]
-	    stop_event  = bound_events[:stop]
-	    left_border.delete(start_event)
-	    right_border.delete(start_event)
-	    left_border.delete(stop_event)
-	    right_border.delete(stop_event)
-
 	    # WARN: the start event CAN be terminal: it can be a signal from
 	    # :start to a terminal event
 	    #
 	    # Create the precedence relations between 'normal' events and the terminal events
-            left_border.difference!(terminal_events)
-            right_border.intersection!(terminal_events)
-	    for terminal in left_border
-		start_event.add_precedence(terminal)
-	        for generator in right_border
-                    generator.add_precedence(terminal)
-	        end
-	    end
+            root_terminal_events = terminal_events.find_all do |ev|
+                ev.symbol != :start && ev.root?(Roby::EventStructure::Precedence)
+            end
+
+            each_event do |ev|
+                next if ev.symbol == :start
+                if !ev.terminal?
+                    if ev.root?(Roby::EventStructure::Precedence)
+                        start_event.add_precedence(ev)
+                    end
+                    if ev.leaf?(Roby::EventStructure::Precedence)
+                        for terminal in root_terminal_events
+                            ev.add_precedence(terminal)
+                        end
+                    end
+                end
+            end
 	end
 
 	def plan=(new_plan) # :nodoc:

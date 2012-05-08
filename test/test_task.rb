@@ -59,6 +59,44 @@ class TC_Task < Test::Unit::TestCase
         assert task.executable?
     end
 
+    def test_instanciate_model_event_relations(make_start_terminal = false)
+        model = Class.new(Roby::Tasks::Simple) do
+            event :ev1
+            event :ev2
+            event :ev3
+            forward :ev1 => :ev2
+            if make_start_terminal
+                forward :start => :stop
+            end
+        end
+        plan.add(task = model.new)
+
+
+        assert(task.start_event.child_object?(
+            task.ev1_event, Roby::EventStructure::Precedence))
+        assert(!task.start_event.child_object?(
+            task.ev2_event, Roby::EventStructure::Precedence))
+        assert(task.start_event.child_object?(
+            task.ev3_event, Roby::EventStructure::Precedence))
+
+        task.each_event do |ev|
+            if ev.terminal?
+                assert(!task.ev1_event.child_object?(
+                    ev, Roby::EventStructure::Precedence))
+            end
+        end
+        [:success, :aborted, :internal_error].each do |terminal|
+            assert(task.ev2_event.child_object?(
+                task.event(terminal), Roby::EventStructure::Precedence), "ev2 is not marked as preceding #{terminal}")
+            assert(task.ev3_event.child_object?(
+                task.event(terminal), Roby::EventStructure::Precedence), "ev3 is not marked as preceding #{terminal}")
+        end
+    end
+
+    def test_instanciate_model_event_relations_with_terminal_start_event
+        test_instanciate_model_event_relations(true)
+    end
+
     def test_arguments_declaration
 	model = Class.new(Task) { argument :from; argument :to }
 	assert_equal([], Task.arguments.to_a)
