@@ -1049,7 +1049,7 @@ module Roby
             end
 
             # First, try the origins themselves
-            exceptions.delete_if do |e|
+            exceptions.delete_if do |e,_|
                 if task = e.origin
                     if handled = task.handle_exception(e)
                         handled_exception(e, task)
