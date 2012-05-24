@@ -113,7 +113,7 @@ module Roby
         end
 
 	def planning_thread(context)
-	    result_task = if planning_method.respond_to?(:to_str)
+	    result_task = if !planning_method.respond_to?(:to_str)
                               planner.send(method_name, method_options.merge(:context => context))
                           else
                               planner.send(:call_planning_methods, Hash.new, method_options.merge(:context => context), planning_method)
