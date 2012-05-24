@@ -922,9 +922,9 @@ module Roby
             # It raises NotFound if none of the methods returned successfully
             def call_planning_methods(errors, method_options, method, *methods)
                 begin
-                    @stack.push [method.name, method.id]
+                    @stack.push [method.name, method.object_id]
                     @arguments.push(method_options)
-		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments}" }
+		    Planning.debug { "calling #{method.name}:#{method.object_id} with arguments #{arguments}" }
 		    begin
 			result = method.call(self)
 		    rescue PlanModelError, Interrupt
