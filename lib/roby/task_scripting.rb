@@ -662,8 +662,15 @@ module Roby
         def script(&block)
             script = TaskScripting::ScriptEngine.new
             script.load(&block)
-            execute do |task|
+
+            if running?
                 script.prepare(self)
+                script.execute
+            else
+                on(:start) do |event|
+                    script.prepare(event.task)
+                    script.execute
+                end
             end
             poll do |task|
                 script.execute
