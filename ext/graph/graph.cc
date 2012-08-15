@@ -197,8 +197,8 @@ VALUE graph_clear(VALUE self)
         VALUE vertex_value = graph[*it];
         graph_map& vertex_graphs = *vertex_descriptor_map(vertex_value, false);
 
-        graph_map::iterator it = vertex_graphs.find(self);
-        vertex_graphs.erase(it);
+        graph_map::iterator it2 = vertex_graphs.find(self);
+        vertex_graphs.erase(it2);
     }
     graph.clear();
     return self;
