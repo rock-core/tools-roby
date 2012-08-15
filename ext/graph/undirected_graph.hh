@@ -50,7 +50,7 @@ namespace utilmm {
 
 	// Out edges do not need to be swapped
 	static edge_descriptor make_out_edge_descriptor(typename Traits::edge_descriptor e)
-	{ return make_pair(e, false); }
+	{ return std::make_pair(e, false); }
 	class base_out_edge_iterator : 
 	    public boost::transform_iterator<make_undirected_edge_descriptor, typename Traits::out_edge_iterator>
 	{
@@ -64,7 +64,7 @@ namespace utilmm {
 	};
 
 	static edge_descriptor make_in_edge_descriptor(typename Traits::edge_descriptor e)
-	{ return make_pair(e, true); }
+	{ return std::make_pair(e, true); }
 	class base_in_edge_iterator : 
 	    public boost::transform_iterator<make_undirected_edge_descriptor, typename Traits::in_edge_iterator>
 	{
@@ -108,7 +108,7 @@ namespace utilmm {
 	typedef typename Traits::vertex_iterator vertex_iterator;
 
 	// EdgeListGraph requirements
-	typedef typename Traits::edge_iterator   edge_iterator;
+	typedef typename Traits::edge_iterator   traits_edge_iterator;
 	typedef typename Traits::vertices_size_type vertices_size_type;
 	typedef typename Traits::edges_size_type edges_size_type;
 
@@ -195,7 +195,7 @@ namespace utilmm {
 		      in_edges = boost::in_edges(u, g.m_g);
 
 	typedef typename undirected_graph<BidirectionalGraph,GRef>::out_edge_iterator edge_iterator;
-	return make_pair(
+	return std::make_pair(
 		edge_iterator(in_edges.first, in_edges.second, out_edges.first, out_edges.first),
 		edge_iterator(in_edges.second, in_edges.second, out_edges.second, out_edges.second));
     }
