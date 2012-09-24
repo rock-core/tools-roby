@@ -815,7 +815,9 @@ module Roby
             end
 
         rescue Exception => e
-            cleanup
+            begin cleanup
+            rescue Exception
+            end
             raise
 	end
 
