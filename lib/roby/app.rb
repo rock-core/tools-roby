@@ -475,8 +475,8 @@ module Roby
 		State.clear
                 Conf.clear
 	    else
-		Roby.const_set(:State,  StateSpace.new)
-		Roby.const_set(:Conf, StateSpace.new)
+		Roby.const_set(:State,  StateModel.new)
+		Roby.const_set(:Conf, ConfModel.new)
 	    end
 
 	    # Import some constants directly at toplevel before loading the

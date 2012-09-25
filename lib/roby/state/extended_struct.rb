@@ -1,4 +1,7 @@
 module Roby
+    # This module defines functionality that can be mixed-in other objects to
+    # have an 'automatically extensible struct' behaviour, i.e.
+    #
     # ExtendedStruct objects are OpenStructs where attributes have a default
     # class. They are used to build hierarchical data structure on-the-fly
     #
@@ -24,7 +27,7 @@ module Roby
     # you will want YAML#y to *not* get in the way. The exceptions are the methods
     # listed in NOT_OVERRIDABLE
     #
-    class ExtendedStruct < BasicObject
+    module ExtendedStruct
 	include DRbUndumped
 
 	# +attach_to+ and +attach_name+
@@ -49,7 +52,7 @@ module Roby
 	#   bla.test = 20
 	#
 	# will not fail
-	def initialize(children_class = ExtendedStruct, attach_to = nil, attach_name = nil) # :nodoc
+	def initialize_extended_struct(children_class = nil, attach_to = nil, attach_name = nil) # :nodoc
 	    clear
             @attach_as = [attach_to, attach_name.to_s] if attach_to
 	    @children_class = children_class
@@ -74,27 +77,29 @@ module Roby
             end
         end
 
-	def self._load(io)
-	    marshalled_members, aliases = Marshal.load(io)
-	    members = marshalled_members.inject({}) do |h, (n, mv)|
-		begin
-		    h[n] = Marshal.load(mv)
-		rescue Exception
-		    Roby::Distributed.warn "cannot load #{n} #{mv}: #{$!.message}"
-		end
+        module ClassExtension
+            def _load(io)
+                marshalled_members, aliases = Marshal.load(io)
+                members = marshalled_members.inject({}) do |h, (n, mv)|
+                    begin
+                        h[n] = Marshal.load(mv)
+                rescue Exception
+                    Roby::Distributed.warn "cannot load #{n} #{mv}: #{$!.message}"
+                end
 
-		h
-	    end
+                h
+                end
 
-	    result = ExtendedStruct.new
-	    result.instance_variable_set("@members", members)
-	    result.instance_variable_set("@aliases", aliases)
-	    result
+                result = new
+                result.instance_variable_set("@members", members)
+                result.instance_variable_set("@aliases", aliases)
+                result
 
-	rescue Exception
-	    Roby::Distributed.warn "cannot load #{members} #{io}: #{$!.message}"
-	    raise
-	end
+            rescue Exception
+                Roby::Distributed.warn "cannot load #{members} #{io}: #{$!.message}"
+                raise
+            end
+        end
 
 	def _dump(lvl = -1)
 	    marshalled_members = @members.map do |name, value|
@@ -195,12 +200,21 @@ module Roby
 	    end
 	end
 
-	# Define a filter for the +name+ attribute on self. The given block
-	# is called when the attribute is written, and should return true if
-	# the new value if valid or false otherwise
+        # Define a filter for the +name+ attribute on self. The given block is
+        # called when the attribute is written with both the attribute name and
+        # value. It should return the value that should actually be written, and
+        # raise an exception if the new value is invalid.
 	def filter(name, &block)
 	    @filters[name.to_s] = block
 	end
+
+        # Define a filter for the +name+ attribute on self. The given block is
+        # called when the attribute is written with both the attribute name and
+        # value. It should return the value that should actually be written, and
+        # raise an exception if the new value is invalid.
+        def global_filter(&block)
+            @filters[nil] = block
+        end
 	
 	# If self is stable, it cannot be updated. That is, calling a setter method
 	# raises NoMethodError
@@ -220,7 +234,6 @@ module Roby
 	    if @observers.has_key?(name)
 		@observers[name].each { |b| b.call(value) }
 	    end
-	    @observers[nil].each { |b| b.call(value) }
 
 	    if __parent_struct
 		__parent_struct.updated(__parent_name, self)
@@ -230,17 +243,26 @@ module Roby
 	# Returns true if this object has no member
 	def empty?; @members.empty? end
 
-        # has_method? will be used to know if a given method is already defined
-        # on the ExtendedStruct object, without taking into account the members
-        # and aliases.
-        alias :has_method? :respond_to?
-
         if RUBY_VERSION >= "1.8.7"
+            # has_method? will be used to know if a given method is already defined
+            # on the ExtendedStruct object, without taking into account the members
+            # and aliases.
+            def has_method?(name)
+                Object.instance_method(:respond_to?).bind(self).call(name, true)
+            end
+
             def respond_to?(name, include_private = false) # :nodoc:
                 return true  if super
                 return __respond_to__(name)
             end
         else
+            # has_method? will be used to know if a given method is already defined
+            # on the ExtendedStruct object, without taking into account the members
+            # and aliases.
+            def has_method?(name)
+                Object.instance_method(:respond_to?).bind(self).call(name)
+            end
+
             def respond_to?(name) # :nodoc:
                 return true  if super
                 return __respond_to__(name)
@@ -306,15 +328,23 @@ module Roby
 
                 if stable?
                     raise NoMethodError, "#{self} is stable"
-		elsif @filters.has_key?(name) && !@filters[name].call(value)
-		    raise ArgumentError, "value #{value} is not valid for #{name}"
-		elsif has_method?(name)
+		elsif @filters.has_key?(name)
+                    value = @filters[name].call(value)
+		elsif @filters.has_key?(nil)
+                    value = @filters[nil].call(name, value)
+                end
+
+		if has_method?(name)
 		    if NOT_OVERRIDABLE_RX =~ name
 			raise ArgumentError, "#{name} is already defined an cannot be overriden"
 		    end
 
 		    # Override it
-		    singleton_class.class_eval { private name }
+		    singleton_class.class_eval do
+                        define_method(name) do
+                            method_missing(name)
+                        end
+                    end
 		end
 
 		attach
@@ -347,7 +377,8 @@ module Roby
 		    elsif stable?
 			raise NoMethodError, "no such attribute #{name} (#{self} is stable)"
 		    else
-			member = children_class.new(children_class, self, name)
+			member = children_class.new
+                        member.initialize_extended_struct(children_class, self, name)
 			@pending[name] = member
 		    end
 		end
@@ -365,35 +396,6 @@ module Roby
 
 	def alias(from, to)
 	    @aliases[to.to_s] = from.to_s
-	end
-    end
-
-    class StateSpace < ExtendedStruct
-	def initialize
-            @exported_fields = Set.new
-	    super
-	end
-
-	def _dump(lvl = -1)
-	    marshalled_members = @exported_fields.map do |name|
-		value = @members[name]
-		[name, Marshal.dump(value)] rescue nil
-	    end
-	    marshalled_members.compact!
-	    Marshal.dump([marshalled_members, @aliases])
-	end
-
-	def deep_copy
-	    exported_fields, @exported_fields = @exported_fields, Set.new
-	    Marshal.load(Marshal.dump(self))
-	ensure
-	    @exported_fields = exported_fiels
-	end
-
-	def testing?; Roby.app.testing? end
-	def simulation?; Roby.app.simulation? end
-	def export(*names)
-	    @exported_fields.merge names.map { |n| n.to_s }.to_set
 	end
     end
 end

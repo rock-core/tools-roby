@@ -1,5 +1,5 @@
-require 'roby/state/state'
+require 'roby/state/extended_struct'
+require 'roby/state/state_model'
 require 'roby/state/events'
-require 'roby/state/pos'
-require 'roby/state/shapes'
+require 'roby/state/conf_model'
 
