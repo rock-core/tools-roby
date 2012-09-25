@@ -306,14 +306,72 @@ module Roby
         #
         # Unlike #method_missing, it will return nil if the field is not set
         def get(name)
+            __get(name, false)
+        end
+
+        def __get(name, create_substruct = true, &update)
             name = name.to_s
             if @members.has_key?(name)
-                @members[name]
+                member = @members[name]
             else
                 if alias_to = @aliases[name]
-                    get(alias_to)
+                    return send(alias_to)
+                elsif stable?
+                    raise NoMethodError, "no such attribute #{name} (#{self} is stable)"
+                elsif create_substruct
+                    attach
+                    member = children_class.new
+                    member.initialize_extended_struct(children_class, self, name)
+                    @pending[name] = member
+                else return
                 end
             end
+
+            if update
+                member.update(&update)
+            else
+                member
+            end
+        end
+
+        def __set(name, *args)
+            name = @aliases[name] || name
+
+            value = args.first
+
+            if stable?
+                raise NoMethodError, "#{self} is stable"
+            elsif @filters.has_key?(name)
+                value = @filters[name].call(value)
+            elsif @filters.has_key?(nil)
+                value = @filters[nil].call(name, value)
+            end
+
+            if has_method?(name)
+                if NOT_OVERRIDABLE_RX =~ name
+                    raise ArgumentError, "#{name} is already defined an cannot be overriden"
+                end
+
+                # Override it
+                singleton_class.class_eval do
+                    define_method(name) do
+                        method_missing(name)
+                    end
+                end
+            end
+
+            attach
+
+            @aliases.delete(name)
+            pending = @pending.delete(name)
+
+            if pending && pending != value
+                pending.detach
+            end
+
+            @members[name] = value
+            updated(name, value)
+            return value
         end
 
         def method_missing(name, *args, &update) # :nodoc:
@@ -321,45 +379,8 @@ module Roby
 
 	    super(name.to_sym, *args, &update) if name =~ FORBIDDEN_NAMES_RX
             if name =~ /(.+)=$/
-		# Setter
-		name = @aliases[$1] || $1
-
-		value = args.first
-
-                if stable?
-                    raise NoMethodError, "#{self} is stable"
-		elsif @filters.has_key?(name)
-                    value = @filters[name].call(value)
-		elsif @filters.has_key?(nil)
-                    value = @filters[nil].call(name, value)
-                end
-
-		if has_method?(name)
-		    if NOT_OVERRIDABLE_RX =~ name
-			raise ArgumentError, "#{name} is already defined an cannot be overriden"
-		    end
-
-		    # Override it
-		    singleton_class.class_eval do
-                        define_method(name) do
-                            method_missing(name)
-                        end
-                    end
-		end
-
-		attach
-
-
-		@aliases.delete(name)
-		pending = @pending.delete(name)
-
-		if pending && pending != value
-		    pending.detach
-		end
-
-		@members[name] = value
-		updated(name, value)
-                return value
+                ret = __set($1, *args)
+                return ret
 
 	    elsif name =~ /(.+)\?$/
 		# Test
@@ -368,26 +389,7 @@ module Roby
 
             elsif args.empty? # getter
 		attach
-
-		if @members.has_key?(name)
-		    member = @members[name]
-		else
-		    if alias_to = @aliases[name]
-			return send(alias_to)
-		    elsif stable?
-			raise NoMethodError, "no such attribute #{name} (#{self} is stable)"
-		    else
-			member = children_class.new
-                        member.initialize_extended_struct(children_class, self, name)
-			@pending[name] = member
-		    end
-		end
-
-                if update
-                    member.update(&update)
-		else
-                    member
-                end
+                return __get(name, &update)
 
 	    else
 		super(name.to_sym, *args, &update)
