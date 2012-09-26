@@ -97,7 +97,7 @@ module Roby
             global_filter do |name, value|
                 if (field_model = model.get(name)) && (field_type = field_model.type)
                     if !(field_type === value)
-                        raise ArgumentError, "field #{field_name} is expected to have values of type #{expected_type.name}, #{value} is of type #{value.class}"
+                        raise ArgumentError, "field #{name} is expected to have values of type #{field_type.name}, #{value} is of type #{value.class}"
                     end
                     value
                 end

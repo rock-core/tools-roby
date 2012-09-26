@@ -162,5 +162,23 @@ class TC_StateModel < Test::Unit::TestCase
         assert_same nil, s.pose.position
         assert_same obj, s.last_known.pose.position
     end
+
+    def test_state_model_read_should_validate_type
+        source = flexmock
+        source.should_receive(:read).once.
+            and_return(obj = Object.new)
+        field_type = Class.new
+
+        s = StateModel.new
+        s.model.pose.position = field_type
+        s.data_sources.pose.position = source
+        assert_raises(ArgumentError) { s.pose.read }
+        assert !s.pose.position?
+        assert !s.last_known.pose.position?
+        source.should_receive(:read).once.
+            and_return(field_type.new)
+        s.pose.read
+
+    end
 end
 
