@@ -172,10 +172,6 @@ module Roby
         end
 
         # Reimplemented from ExtendedStruct
-        def create_subfield(name)
-            children_class.new(self, name)
-        end
-
         def attach
             @model.attach
             @last_known.attach
