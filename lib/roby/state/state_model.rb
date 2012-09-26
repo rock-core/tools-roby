@@ -1,6 +1,6 @@
 class Class
-    def to_state_leaf_model
-        model = Roby::StateLeafModel.new
+    def to_state_leaf_model(field, name)
+        model = Roby::StateLeafModel.new(field, name)
         model.type = self
         return model
     end
@@ -17,6 +17,31 @@ module Roby
         # #read, and #read must return either a value if the source is active
         # and has one, or nil if the source is currently inactive
         attr_accessor :data_source
+
+        # The name of this leaf in its parent field
+        attr_accessor :name
+
+        # The parent field
+        attr_accessor :field
+
+        def initialize(field, name)
+            @field, @name = field, name
+        end
+
+        # Returns the full path of this leaf w.r.t. the root of the state
+        # structure
+        def path
+            path = field.path.dup
+            path << name
+            path
+        end
+
+        def to_state_field_model(field, name)
+            result = dup
+            result.field = field
+            result.name = name
+            result
+        end
     end
 
     # Representation of a level in the state model
@@ -27,7 +52,7 @@ module Roby
             initialize_extended_struct(StateFieldModel, attach_to, attach_name)
             global_filter do |name, value|
                 if value.respond_to?(:to_state_leaf_model)
-                    value.to_state_leaf_model
+                    value.to_state_leaf_model(self, name)
                 else
                     raise ArgumentError, "cannot set #{value} on #{name} in a state model. Only allowed values are StateFieldModel, and values that respond to #to_state_field_model"
                 end

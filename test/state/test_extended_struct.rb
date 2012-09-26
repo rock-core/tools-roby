@@ -393,6 +393,15 @@ class TC_ExtendedStruct < Test::Unit::TestCase
         s = ExtendedStruct.new
         assert_raises(ArgumentError) { s.get = 10 }
     end
+
+    def test_path
+        s = ExtendedStruct.new
+        assert_equal [], s.path
+        s.pose.attach
+        assert_equal ['pose'], s.pose.path
+        s.pose.position.attach
+        assert_equal ['pose', 'position'], s.pose.position.path
+    end
 end
 
 

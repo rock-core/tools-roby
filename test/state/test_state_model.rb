@@ -30,7 +30,9 @@ class TC_StateModel < Test::Unit::TestCase
 
     def test_class_to_state_leaf_model
         klass = Class.new
-        model = klass.to_state_leaf_model
+        model = klass.to_state_leaf_model('a', 'b')
+        assert_equal 'a', model.field
+        assert_equal 'b', model.name
         assert !model.data_source
         assert_same klass, model.type
     end
@@ -179,6 +181,13 @@ class TC_StateModel < Test::Unit::TestCase
             and_return(field_type.new)
         s.pose.read
 
+    end
+
+    def test_state_leaf_model_path
+        s = StateFieldModel.new
+        klass = Class.new
+        s.pose.position = klass
+        assert_equal %w{pose position}, s.pose.position.path
     end
 end
 

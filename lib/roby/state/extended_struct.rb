@@ -299,6 +299,19 @@ module Roby
             __get(name, false)
         end
 
+        # Returns the path to root, i.e. the list of field names from the root
+        # of the extended struct tree
+        def path
+            result = []
+            obj = self
+            while obj
+                result.unshift(obj.__parent_name)
+                obj = obj.__parent_struct
+            end
+            result.shift # we alwas add a nil for one-after-the-root
+            result
+        end
+
         def __get(name, create_substruct = true, &update)
             name = name.to_s
             if @members.has_key?(name)
