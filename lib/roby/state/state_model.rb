@@ -56,13 +56,6 @@ module Roby
         def initialize(attach_to = nil, attach_name = nil)
             initialize_extended_struct(StateDataSourceField, attach_to, attach_name)
         end
-
-        def method_missing(name, *args, &block)
-            if name.to_s =~ /=$/
-                raise ArgumentError, "cannot write to a StateDataSourceField object"
-            end
-            return super
-        end
     end
 
     # Representation of a level in the current state
@@ -123,6 +116,16 @@ module Roby
             super
         end
 
+        def method_missing(name, *args)
+            if name.to_s =~ /(.*)=$/
+                if data_source = data_sources.get($1)
+                    raise ArgumentError, "cannot explicitely set a field for which a data source exists"
+                end
+            end
+            super
+        end
+
+
         def __get(name, create_substruct = true)
             name = name.to_s
             if field_model = model.get(name)
@@ -131,21 +134,23 @@ module Roby
                     return super(name, false)
                 end
             end
+            if (data_source = data_sources.get(name)) && !data_source.kind_of?(StateDataSourceField)
+                # A data source is specified, don't do automatic struct creation
+                # either
+                return super(name, false)
+            end
+
             return super
         end
 
         # Read each subfield that have a source, and update both their
         # last_known and current value.
         def read
-            @members.each do |field_name|
-                if model.respond_to?(field_name)
-                    if source = data_sources.get(field_name)
-                        new_value = source.read
-                        __set(field_name, new_value)
-                        if new_value
-                            last_known.__set(field_name, new_value)
-                        end
-                    end
+            data_sources.each_member do |field_name, field_source|
+                new_value = field_source.read
+                __set(field_name, new_value)
+                if new_value
+                    last_known.__set(field_name, new_value)
                 end
             end
         end

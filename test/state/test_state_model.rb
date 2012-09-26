@@ -50,6 +50,18 @@ class TC_StateModel < Test::Unit::TestCase
         assert_same s.pose.model.position, s.model.pose.position
     end
 
+    def test_field_returns_nil_if_a_data_source_is_specified_and_no_value_exists
+        s = StateModel.new
+        s.pose.data_sources.position = Object.new
+        assert !s.pose.position
+    end
+
+    def test_field_cannot_be_assigned_if_a_data_source_is_specified
+        s = StateModel.new
+        s.pose.data_sources.position = Object.new
+        assert_raises(ArgumentError) { s.pose.position = Object.new }
+    end
+
     def test_field_returns_nil_if_a_type_is_specified_and_no_value_exists
         s = StateModel.new
         s.pose.model.position = Position
@@ -124,19 +136,31 @@ class TC_StateModel < Test::Unit::TestCase
         source = Object.new
 
         s = StateModel.new
-        s.data_sources.pose.__set(:position, source)
+        s.data_sources.pose.position = source
         assert_same s.pose.data_sources.position, s.data_sources.pose.position
 
         s = StateModel.new
-        s.pose.data_sources.__set(:position, source)
+        s.data_sources.pose.position = source
         assert_same s.pose.data_sources.position, s.data_sources.pose.position
     end
 
-    def test_data_sources_is_read_only
-        source = Object.new
+    def test_state_model_read
+        source = flexmock
+        source.should_receive(:read).once.
+            and_return(obj = Object.new)
 
         s = StateModel.new
-        assert_raises(ArgumentError) { s.data_sources.pose.position = source }
+
+        s.data_sources.pose.position = source
+        assert !s.pose.position?
+        s.pose.read
+        assert_same obj, s.pose.position
+        assert_same obj, s.last_known.pose.position
+
+        source.should_receive(:read).once.and_return(nil)
+        s.pose.read
+        assert_same nil, s.pose.position
+        assert_same obj, s.last_known.pose.position
     end
 end
 
