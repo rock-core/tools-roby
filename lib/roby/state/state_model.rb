@@ -16,7 +16,7 @@ module Roby
         # Returns a data source for that field. The data source must answer to
         # #read, and #read must return either a value if the source is active
         # and has one, or nil if the source is currently inactive
-        attr_accessor :source
+        attr_accessor :data_source
     end
 
     # Representation of a level in the state model

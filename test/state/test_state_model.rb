@@ -31,7 +31,7 @@ class TC_StateModel < Test::Unit::TestCase
     def test_class_to_state_leaf_model
         klass = Class.new
         model = klass.to_state_leaf_model
-        assert !model.source
+        assert !model.data_source
         assert_same klass, model.type
     end
 
