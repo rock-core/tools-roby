@@ -55,7 +55,7 @@ module Roby
 	def initialize_extended_struct(children_class = nil, attach_to = nil, attach_name = nil) # :nodoc
 	    clear
             @attach_as = [attach_to, attach_name.to_s] if attach_to
-	    @children_class = children_class
+	    @children_class = children_class || self.class
             @observers       = Hash.new { |h, k| h[k] = [] }
         end
 
