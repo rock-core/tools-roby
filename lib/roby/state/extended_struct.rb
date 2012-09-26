@@ -292,14 +292,6 @@ module Roby
             end
         end
 
-	def get(name, default_value)
-	    if respond_to?(name)
-		send(name.to_sym)
-	    else
-		default_value
-	    end
-	end
-
 	FORBIDDEN_NAMES=%w{marshal each enum to}.map { |str| "^#{str}_" }
 	FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join("|")})/
 
