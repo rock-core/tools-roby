@@ -67,7 +67,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
 	assert_equal({:a => 10, :b => s.b}, s.to_hash(false))
     end
 
-    def test_attach
+    def test_pending_subfields_behaviour
 	s = ExtendedStruct.new
 	child = s.child
 	assert_not_equal(child, s.child)
@@ -86,6 +86,24 @@ class TC_ExtendedStruct < Test::Unit::TestCase
 	child.test = 20
 	assert_not_equal(child, s.child)
 	assert_equal(10, s.child)
+    end
+
+    def test_field_attaches_when_read_from
+        s = ExtendedStruct.new
+        field = s.child
+        assert !field.attached?
+        field.test
+        assert field.attached?
+        assert_same(field, s.child)
+    end
+
+    def test_field_attaches_when_written_to
+        s = ExtendedStruct.new
+        field = s.child
+        assert !field.attached?
+        field.test = 10
+        assert field.attached?
+        assert_same(field, s.child)
     end
     
     def test_alias
