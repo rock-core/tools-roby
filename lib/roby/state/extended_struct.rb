@@ -116,21 +116,36 @@ module Roby
 	attr_reader :children_class
 
 	attr_reader :attach_as, :__parent_struct, :__parent_name
-        def attach # :nodoc:
+
+        # When a field is dynamically created by #method_missing, it is created
+        # in a pending state, in which it is not yet attached to its parent
+        # structure
+        #
+        # This method does the attachment. It calls #attach_child on the parent
+        # to notify it
+        def attach
 	    if @attach_as
 		@__parent_struct, @__parent_name = @attach_as
 		@attach_as = nil
 		__parent_struct.attach_child(__parent_name, self)
 	    end
         end
+        # When a field is dynamically created by #method_missing, it is created
+        # in a pending state, in which it is not yet attached to its parent
+        # structure
+        #
+        # This method makes sure that the field will never be attached to the
+        # parent. It has no effect once #attach has been called
 	def detach
 	    @attach_as = nil
 	end
+        # Called by a child when #attach is called
 	def attach_child(name, obj)
 	    @members[name.to_s] = obj
 	end
 	protected :detach, :attach_as
 
+        # If true, this field is attached to a parent structure
         def attached?
             !!@__parent_struct
         end
@@ -336,6 +351,9 @@ module Roby
             end
         end
 
+        # Called by #method_missing to create a subfield when needed.
+        #
+        # The default is to create a subfield of the same class than +self+
         def create_subfield(name)
             children_class.new(self, name)
         end

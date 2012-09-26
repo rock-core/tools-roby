@@ -1,4 +1,9 @@
 class Class
+    # Implementation of a conversion to StateLeafModel
+    #
+    # It makes it possible to use a class to initialize a state leaf model with
+    #
+    #   state.model.path.to.value = MyClass
     def to_state_leaf_model(field, name)
         model = Roby::StateLeafModel.new(field, name)
         model.type = self
@@ -87,21 +92,57 @@ module Roby
     class StateField
         include ExtendedStruct
 
-        # Returns the model of this field. It is also a StateField, but all the
-        # leafs on this StateField are StateFieldModel instances.
+        # Returns a structure that gives access to the models of the
+        # members of this struct. I.e.
+        #
+        #   state.pose.model.position
+        #   
+        # is the model for state.pose.position
+        #
+        # Due to the use of open structures, one should always check for the
+        # presence of the field first with
+        #
+        #   if state.pose.model.position?
+        #      # do something with state.pose.model.position
+        #   end
+        #
+        # Note that the models are accessible from any level, i.e.
+        # state.model.pose.position is an equivalent of the above example.
         def model
             attach
             @model
         end
 
-        # Returns the last known value for this field
+        # Returns a structure that gives access to the last known values for the
+        # members of this struct. I.e.
+        #
+        #   state.pose.last_known.position
+        #   
+        # is the last value known for state.pose.position
+        #
+        # Note that the last known values are accessible from any level, i.e.
+        # state.last_known.pose.position is an equivalent of the above example.
         def last_known
             attach
             @last_known
         end
 
-        # The actual data sources for the members of this field. Data source
-        # models are available under model.field_name.data_source
+        # Returns a structure that gives access to the data sources for the
+        # members of this struct. I.e.
+        #
+        #   state.pose.data_sources.position
+        #   
+        # will give the data source for state.pose.position if there is one.
+        #
+        # Due to the use of open structures, one should always check for the
+        # presence of the field first with
+        #
+        #   if state.pose.data_sources.position?
+        #      # do something with state.pose.data_sources.position
+        #   end
+        #
+        # Note that the models are accessible from any level, i.e.
+        # state.model.pose.position is an equivalent of the above example.
         def data_sources
             attach
             @data_sources
@@ -130,6 +171,7 @@ module Roby
             end
         end
 
+        # Reimplemented from ExtendedStruct
         def create_subfield(name)
             children_class.new(self, name)
         end
@@ -141,6 +183,7 @@ module Roby
             super
         end
 
+        # Reimplemented from ExtendedStruct
         def method_missing(name, *args)
             if name.to_s =~ /(.*)=$/
                 if data_source = data_sources.get($1)
@@ -150,7 +193,7 @@ module Roby
             super
         end
 
-
+        # Reimplemented from ExtendedStruct
         def __get(name, create_substruct = true)
             name = name.to_s
             if field_model = model.get(name)
@@ -181,25 +224,60 @@ module Roby
         end
     end
 
+    # Implementation of the state representation at runtime.
+    #
+    # It gives access to three views to the state:
+    #  * the current values are directly accessible from this state object
+    #  * the last known value is stored in last_known.path.to.value
+    #  * the state model is stored in model.path.to.value
+    #  * the current data source for a state variable is stored in
+    #    data_sources.path.to.value
     class StateModel < StateField
 	def initialize
             @exported_fields = nil
 	    super
 	end
 
+        # Declares that no state fields should be marshalled. The default is to
+        # export everything
+        #
+        # It cancels any list of fields exported with #export
+        #
+        # See also #export_all and #export
         def export_none
             @exported_fields = Set.new
         end
 
+        # Declares that all the state fields should be marshalled. This is the
+        # default
+        #
+        # It cancels any list of fields exported with #export
+        #
+        # See also #export_none and #export
         def export_all
             @exported_fields = nil
         end
 
+        # Declares that only the given names should be marshalled, instead of
+        # marshalling every field. It is cumulative, i.e. if multiple calls to
+        # #export follow each other then the fields get added to the list of
+        # exported fields instead of replacing it.
+        #
+        # If #export_all has been called, a call to #export cancels it.
+        #
+        # See also #export_none and #export_all
 	def export(*names)
             @exported_fields ||= Set.new
 	    @exported_fields.merge names.map { |n| n.to_s }.to_set
 	end
 
+        # Implementation of marshalling with Ruby's Marshal
+        #
+        # Only the fields that can be marshalled will be saved. Any other field
+        # will silently be ignored.
+        #
+        # Which fields get marshalled can be controlled with #export_all,
+        # #export_none and #export. The default is to marshal all fields.
 	def _dump(lvl = -1)
             if !@exported_fields
                 super
