@@ -292,12 +292,6 @@ module Roby
             end
         end
 
-	FORBIDDEN_NAMES=%w{marshal each enum to}.map { |str| "^#{str}_" }
-	FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join("|")})/
-
-	NOT_OVERRIDABLE = %w{class} + instance_methods(false)
-	NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/
-
         # Returns the value of the given field
         #
         # Unlike #method_missing, it will return nil if the field is not set
@@ -399,6 +393,13 @@ module Roby
 	def alias(from, to)
 	    @aliases[to.to_s] = from.to_s
 	end
+
+	FORBIDDEN_NAMES=%w{marshal each enum to}.map { |str| "^#{str}_" }
+	FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join("|")})/
+
+	NOT_OVERRIDABLE = %w{class} + instance_methods(false)
+	NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/
+
     end
 end
 

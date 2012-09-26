@@ -381,12 +381,17 @@ class TC_ExtendedStruct < Test::Unit::TestCase
 	assert_raises(NoMethodError) { s.to_blah }
     end
 
-    def test_does_not_override
+    def test_overrides_methods_that_are_not_protected
 	s = ExtendedStruct.new
         def s.y(i); end
 	assert_raises(ArgumentError) { s.y }
 	s.y = 10
 	assert_equal(10, s.y)
+    end
+
+    def test_existing_instance_methods_are_protected
+        s = ExtendedStruct.new
+        assert_raises(ArgumentError) { s.get = 10 }
     end
 end
 
