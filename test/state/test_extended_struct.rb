@@ -9,8 +9,8 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     class ExtendedStruct
         include Roby::ExtendedStruct
 
-        def initialize
-            initialize_extended_struct(ExtendedStruct)
+        def initialize(attach_to = nil, attach_name = nil)
+            initialize_extended_struct(ExtendedStruct, attach_to, attach_name)
         end
     end
 

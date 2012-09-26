@@ -1,13 +1,71 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'flexmock'
+require 'flexmock/test_unit'
 require 'roby/state'
 
 class TC_StateModel < Test::Unit::TestCase
     include Roby::SelfTest
 
+    class Position
+    end
+
+    def test_model_access_from_subfield
+        s = StateModel.new
+        assert_same(s.pose.model, s.model.pose)
+    end
+
+    def test_assign_leaf_model_calls_to_state_leaf_model
+        klass = flexmock
+        klass.should_receive(:to_state_leaf_model).twice.
+            and_return(obj = Object.new)
+
+        s = StateModel.new
+        s.model.position = klass
+        assert_same obj, s.model.position
+
+        s = StateModel.new
+        s.pose.model.position = klass
+        assert_same obj, s.pose.model.position
+    end
+
+    def test_class_to_state_leaf_model
+        klass = Class.new
+        model = klass.to_state_leaf_model
+        assert !model.source
+        assert_same klass, model.type
+    end
+
+    def test_assign_leaf_model_validation
+        s = StateModel.new
+        assert_raises(ArgumentError) { s.model.position = Object.new }
+    end
+
+    def test_field_model_is_accessible_from_the_field
+        s = StateModel.new
+        s.model.pose.position = Position
+        assert_same s.pose.model.position, s.model.pose.position
+
+        s = StateModel.new
+        s.pose.model.position = Position
+        assert_same s.pose.model.position, s.model.pose.position
+    end
+
+    def test_field_returns_nil_if_a_type_is_specified_and_no_value_exists
+        s = StateModel.new
+        s.pose.model.position = Position
+        assert !s.pose.position
+    end
+
+    def test_field_assignation_validates_type_if_model_gives_one
+        s = StateModel.new
+        s.pose.model.position = Position
+        s.pose.position = Position.new
+
+        assert_raises(ArgumentError) { s.pose.position = Object.new }
+    end
+
     def test_export
-	s = StateSpace.new
+	s = StateModel.new
 	s.pos.x   = 42
 	s.speed.x = 0
 
@@ -34,6 +92,51 @@ class TC_StateModel < Test::Unit::TestCase
 	obj = Marshal.load(Marshal.dump(s))
 	assert(!obj.respond_to?(:pos))
 	assert(!obj.respond_to?(:speed))
+
+        s.export_all
+	obj = Marshal.load(Marshal.dump(s))
+	assert(obj.respond_to?(:pos))
+	assert(obj.respond_to?(:speed))
+	assert_equal(42, obj.pos.x)
+	assert_equal(0, obj.speed.x)
+    end
+
+    def test_last_known_is_accessible_from_the_field
+        source = Object.new
+
+        s = StateModel.new
+        s.last_known.pose.__set(:position, source)
+        assert_same s.pose.last_known.position, s.last_known.pose.position
+
+        s = StateModel.new
+        s.pose.last_known.__set(:position, source)
+        assert_same s.pose.last_known.position, s.last_known.pose.position
+    end
+
+    def test_last_known_is_read_only
+        source = Object.new
+
+        s = StateModel.new
+        assert_raises(ArgumentError) { s.last_known.pose.position = source }
+    end
+
+    def test_data_sources_is_accessible_from_the_field
+        source = Object.new
+
+        s = StateModel.new
+        s.data_sources.pose.__set(:position, source)
+        assert_same s.pose.data_sources.position, s.data_sources.pose.position
+
+        s = StateModel.new
+        s.pose.data_sources.__set(:position, source)
+        assert_same s.pose.data_sources.position, s.data_sources.pose.position
+    end
+
+    def test_data_sources_is_read_only
+        source = Object.new
+
+        s = StateModel.new
+        assert_raises(ArgumentError) { s.data_sources.pose.position = source }
     end
 end
 

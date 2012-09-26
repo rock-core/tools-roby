@@ -57,6 +57,7 @@ module Roby
             @attach_as = [attach_to, attach_name.to_s] if attach_to
 	    @children_class = children_class || self.class
             @observers       = Hash.new { |h, k| h[k] = [] }
+            @filters         = Hash.new
         end
 
 	def clear
@@ -64,14 +65,17 @@ module Roby
             @stable          = false
             @members         = Hash.new
             @pending         = Hash.new
-            @filters         = Hash.new
             @aliases         = Hash.new
 	end
 
         def pretty_print(pp)
             pp.seplist(@members) do |child|
                 child_name, child_obj = *child
-                pp.text "#{child_name}"
+                if child_obj.kind_of?(ExtendedStruct)
+                    pp.text "#{child_name} >"
+                else
+                    pp.text "#{child_name}"
+                end
                 pp.breakable
                 child_obj.pretty_print(pp)
             end
@@ -320,8 +324,7 @@ module Roby
                     raise NoMethodError, "no such attribute #{name} (#{self} is stable)"
                 elsif create_substruct
                     attach
-                    member = children_class.new
-                    member.initialize_extended_struct(children_class, self, name)
+                    member = create_subfield(name)
                     @pending[name] = member
                 else return
                 end
@@ -334,7 +337,12 @@ module Roby
             end
         end
 
+        def create_subfield(name)
+            children_class.new(self, name)
+        end
+
         def __set(name, *args)
+            name = name.to_s
             name = @aliases[name] || name
 
             value = args.first
