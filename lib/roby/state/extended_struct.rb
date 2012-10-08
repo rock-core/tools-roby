@@ -431,6 +431,18 @@ module Roby
 	NOT_OVERRIDABLE = %w{class} + instance_methods(false)
 	NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/
 
+        def __merge(other)
+            @members.merge(other) do |k, v1, v2|
+                if v1.kind_of?(ExtendedStruct) && v2.kind_of?(ExtendedStruct)
+                    if v1.class != v2.class
+                        raise ArgumentError, "#{k} is a #{v1.class} in self and #{v2.class} in other, I don't know what to do"
+                    end
+                    v1.__merge(v2)
+                else
+                    v2
+                end
+            end
+        end
     end
 end
 
