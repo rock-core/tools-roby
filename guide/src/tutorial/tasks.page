@@ -18,6 +18,7 @@ end
 {coderay}
 
 Then, to use it, one would do:
+
 {coderay:: ruby}
 plan.add(task = MoveTo.new)
 {coderay}
@@ -131,6 +132,7 @@ execution. __failed__ and __success__ are examples of terminal events. To declar
 terminal event, one does as for the "finished" event above.
 
 Now, read that code into the ruby shell with
+
 {coderay:: ruby}
 >> source "my_task.rb"
 {coderay}
@@ -159,6 +161,7 @@ contingent event emitted
 
 Instead of calling #on, #signal, #emit and #call on the event object, one can use
 shortcuts that are defined on {rdoc_class: Task}:
+
 {coderay:: ruby}
 # Same as task.event(:contingent).on { ... }
 >> task.on(:contingent) { puts "contingent event emitted" } 
@@ -274,6 +277,7 @@ stop event emitted
 {coderay}
 
 As you can see, 'terminates' is equivalent to
+
 {coderay:: ruby}
  >> class MyTask
  ?>   event(:failed) { emit :failed }

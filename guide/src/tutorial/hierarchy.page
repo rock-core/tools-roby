@@ -109,6 +109,7 @@ again, we could describe this plan with:
     The MoveTo task is a sequence of ComputePath followed by ExecutePath
 
 and could be written
+
 {coderay:: ruby}
  move    = MoveTo.new :goal => a
  compute = ComputePath.new :goal => a

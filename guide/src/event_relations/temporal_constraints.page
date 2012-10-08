@@ -5,9 +5,9 @@ sort_info: 110
 
 Available as Roby::EventStructure::TemporalConstraints
 
-See {rdoc_class: Roby::EventStructure::TemporalConstraints::InstanceMethods} for the list
+See {rdoc_class: EventStructure::TemporalConstraintsGraphClass::Extension} for the list
 of methods that are defined on Roby::EventGenerator and
-Roby::EventGenerator::TemporalConstraintsGraphClass for the methods accessible on the
+{rdoc_class: EventStructure::TemporalConstraintsGraphClass} for the methods accessible on the
 relation graph.
 
 Semantics

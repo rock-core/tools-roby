@@ -25,6 +25,7 @@ Moreover, before typing in the Roby shell, you will need to prepare it a bit. Do
 the following:
 
      $ irb -rroby/standalone
+
 {coderay:: ruby}
 >> plan = Roby.plan
 {coderay}

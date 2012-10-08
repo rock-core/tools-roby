@@ -5,9 +5,9 @@ sort_info: 120
 
 Available as Roby::EventStructure::SchedulingConstraints
 
-See {rdoc_class: Roby::EventStructure::SchedulingConstraints::InstanceMethods} for the list
+See {rdoc_class: EventStructure::SchedulingConstraintsGraphClass::Extension} for the list
 of methods that are defined on Roby::EventGenerator and
-Roby::EventGenerator::SchedulingConstraintsGraphClass for the methods accessible on the
+{rdoc_class: EventStructure::SchedulingConstraintsGraphClass} for the methods accessible on the
 relation graph.
 
 Semantics

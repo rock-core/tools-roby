@@ -8,6 +8,7 @@ Moreover, to run the examples on this page, you must first set up your ruby
 shell:
 
      $ irb -rroby/standalone
+
 {coderay:: ruby}
 >> plan = Roby.plan
 {coderay}
