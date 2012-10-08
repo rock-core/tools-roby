@@ -53,7 +53,43 @@ module Roby
     class StateFieldModel
         include ExtendedStruct
 
-        def initialize(attach_to = nil, attach_name = nil)
+        attr_accessor :superclass
+
+        def __get(name, create_substruct = true, &update)
+            if result = super(name, false, &update)
+                return result
+            elsif superclass && (result = superclass.__get(name, false, &update))
+                return result
+            elsif create_substruct
+                return super
+            end
+        end
+
+        def __respond_to__(name)
+            super || (superclass.__respond_to__(name) if superclass)
+        end
+
+        def create_subfield(name)
+            if superclass
+                children_class.new(superclass.get(name), self, name)
+            else
+                children_class.new(nil, self, name)
+            end
+        end
+
+        def each_member(&block)
+            super(&block)
+            if superclass
+                superclass.each do |name, value|
+                    if !@members.has_key?(name)
+                        yield(name, value)
+                    end
+                end
+            end
+        end
+
+        def initialize(superclass = nil, attach_to = nil, attach_name = nil)
+            @superclass = superclass
             initialize_extended_struct(StateFieldModel, attach_to, attach_name)
             global_filter do |name, value|
                 if value.respond_to?(:to_state_leaf_model)

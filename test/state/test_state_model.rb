@@ -42,6 +42,22 @@ class TC_StateModel < Test::Unit::TestCase
         assert_raises(ArgumentError) { s.model.position = Object.new }
     end
 
+    def test_child_state_model_accesses_parent_members
+        parent_model = StateFieldModel.new
+        child_model = StateFieldModel.new(parent_model)
+
+        parent_model.pose = Position
+        assert child_model.pose?
+        assert_same parent_model.pose, child_model.pose
+    end
+
+    def test_child_state_model_does_not_change_parent
+        parent_model = StateFieldModel.new
+        child_model = StateFieldModel.new(parent_model)
+        child_model.pose = Position
+        assert !parent_model.pose?
+    end
+
     def test_field_model_is_accessible_from_the_field
         s = StateModel.new
         s.model.pose.position = Position
