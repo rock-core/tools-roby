@@ -64,6 +64,16 @@ class TC_StateModel < Test::Unit::TestCase
         assert !parent_model.pose?
     end
 
+    def test_child_state_model_access_creates_new_subfields_attached_to_the_parent_subfields
+        parent_model = StateFieldModel.new
+        child_model = StateFieldModel.new(parent_model)
+
+        parent_model.pose.position = Position
+        child_field = child_model.pose
+        assert_not_same parent_model.pose, child_field
+        assert_same parent_model.pose, child_field.superclass
+    end
+
     def test_field_model_is_accessible_from_the_field
         s = StateModel.new
         s.model.pose.position = Position

@@ -71,7 +71,10 @@ module Roby
             if result = super(name, false, &update)
                 return result
             elsif superclass && (result = superclass.__get(name, false, &update))
-                return result
+                if result.kind_of?(StateFieldModel)
+                    return super(name, true, &update)
+                else return result
+                end
             elsif create_substruct
                 return super
             end
