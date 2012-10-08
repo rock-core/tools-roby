@@ -146,14 +146,17 @@ module Roby
 	protected :detach, :attach_as
 
         def __root?
-            !@attach_as && !attached?
+            !__parent
+        end
+
+        def __parent
+            @__parent_struct ||
+                (@attach_as[0] if @attach_as)
         end
 
         def __root
-            if @__parent_struct
-                @__parent_struct.__root
-            elsif @attach_as
-                @attach_as[0].__root
+            if p = __parent
+                return p.__root
             else self
             end
         end

@@ -408,6 +408,15 @@ class TC_ExtendedStruct < Test::Unit::TestCase
         assert_raises(NoMethodError) { s <= 10 }
     end
 
+    def test_parent
+        s = ExtendedStruct.new
+        assert !s.__parent
+
+        s.pose.attach
+        assert_same s.pose, s.pose.position.__parent
+        assert_same s, s.pose.__parent
+    end
+
     def test_root
         s = ExtendedStruct.new
         assert s.__root?
@@ -416,5 +425,4 @@ class TC_ExtendedStruct < Test::Unit::TestCase
         assert_same s, s.pose.position.__root
     end
 end
-
 
