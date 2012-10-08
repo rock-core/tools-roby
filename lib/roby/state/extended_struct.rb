@@ -402,12 +402,15 @@ module Roby
         def method_missing(name, *args, &update) # :nodoc:
 	    name = name.to_s
 
-	    super(name.to_sym, *args, &update) if name =~ FORBIDDEN_NAMES_RX
-            if name =~ /(.+)=$/
+            if name =~ FORBIDDEN_NAMES_RX
+                super(name.to_sym, *args, &update) 
+            end
+
+            if name =~ /^(\w+)=$/
                 ret = __set($1, *args)
                 return ret
 
-	    elsif name =~ /(.+)\?$/
+	    elsif name =~ /^(\w+)\?$/
 		# Test
 		name = @aliases[$1] || $1
 		respond_to?(name) && get(name) && send(name)

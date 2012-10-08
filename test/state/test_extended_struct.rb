@@ -402,6 +402,11 @@ class TC_ExtendedStruct < Test::Unit::TestCase
         s.pose.position.attach
         assert_equal ['pose', 'position'], s.pose.position.path
     end
+
+    def test_does_not_catch_equality_operators
+        s = ExtendedStruct.new
+        assert_raises(NoMethodError) { s <= 10 }
+    end
 end
 
 
