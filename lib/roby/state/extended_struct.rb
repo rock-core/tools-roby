@@ -145,6 +145,19 @@ module Roby
 	end
 	protected :detach, :attach_as
 
+        def __root?
+            !@attach_as && !attached?
+        end
+
+        def __root
+            if @__parent_struct
+                @__parent_struct.__root
+            elsif @attach_as
+                @attach_as[0].__root
+            else self
+            end
+        end
+
         # If true, this field is attached to a parent structure
         def attached?
             !!@__parent_struct
