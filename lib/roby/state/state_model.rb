@@ -18,9 +18,11 @@ module Roby
         # against values using #===
         attr_accessor :type
 
-        # Returns a data source for that field. The data source must answer to
-        # #read, and #read must return either a value if the source is active
-        # and has one, or nil if the source is currently inactive
+        # Returns a data source for that field
+        #
+        # At this level, the format data source is unspecified. It is meant to
+        # be used by other mechanisms to fill the data_source tree in the state
+        # object (this is the state model)
         attr_accessor :data_source
 
         # The name of this leaf in its parent field
