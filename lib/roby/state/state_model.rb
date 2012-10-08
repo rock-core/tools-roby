@@ -53,7 +53,17 @@ module Roby
     class StateFieldModel
         include ExtendedStruct
 
-        attr_accessor :superclass
+        # Returns the superclass, i.e. the state model this is a refinement on
+        attr_reader :superclass
+
+        # Returns the task model this state model applies on
+        def task_model
+            if !__root?
+                __root.task_model
+            else
+                @task_model
+            end
+        end
 
         def __get(name, create_substruct = true, &update)
             if result = super(name, false, &update)
@@ -88,8 +98,18 @@ module Roby
             end
         end
 
-        def initialize(superclass = nil, attach_to = nil, attach_name = nil)
-            @superclass = superclass
+        def initialize(superclass_or_task_model = nil, attach_to = nil, attach_name = nil)
+            if !superclass_or_task_model || superclass_or_task_model.kind_of?(StateFieldModel)
+                @task_model = nil
+                @superclass = superclass_or_task_model
+            else
+                @task_model = superclass_or_task_model
+                @superclass =
+                    if task_model.superclass && task_model.superclass.respond_to?(:state)
+                        task_model.superclass.state
+                    end
+            end
+
             initialize_extended_struct(StateFieldModel, attach_to, attach_name)
             global_filter do |name, value|
                 if value.respond_to?(:to_state_leaf_model)
