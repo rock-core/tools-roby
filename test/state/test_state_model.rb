@@ -221,5 +221,22 @@ class TC_StateModel < Test::Unit::TestCase
         s.pose.position = klass
         assert_equal %w{pose position}, s.pose.position.path
     end
+
+    def test_state_field_model_initialization_with_object
+        object = flexmock
+        object.should_receive(:respond_to?).with(:superclass).and_return(false).once
+        
+        s = StateFieldModel.new(object)
+        assert_same object, s.__object
+        assert_same object, s.position.__object
+    end
+
+    def test_state_field_model_automatically_gets_supermodel_from_object
+        parent = flexmock(:state => (parent_state = Object.new))
+        child = flexmock(:superclass => parent)
+        s = StateFieldModel.new(child)
+        assert_same child, s.__object
+        assert_same parent_state, s.superclass
+    end
 end
 

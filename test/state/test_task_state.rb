@@ -9,10 +9,10 @@ class TC_TaskState < Test::Unit::TestCase
     def test_task_state_model_is_attached_to_task
         task_model = Class.new(Roby::Task)
         task_state = task_model.state
-        assert_same task_model, task_state.task_model
+        assert_same task_model, task_state.__object
     end
 
-    def test_task_state_model_refines_parent_task_model
+    def test_task_state_model_refines_parent_object
         parent_model = Class.new(Roby::Task)
         child_model = Class.new(parent_model)
 

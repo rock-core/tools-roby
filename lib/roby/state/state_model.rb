@@ -59,11 +59,11 @@ module Roby
         attr_reader :superclass
 
         # Returns the task model this state model applies on
-        def task_model
+        def __object
             if !__root?
-                __root.task_model
+                __root.__object
             else
-                @task_model
+                @__object
             end
         end
 
@@ -103,16 +103,15 @@ module Roby
             end
         end
 
-        def initialize(superclass_or_task_model = nil, attach_to = nil, attach_name = nil)
-            if !superclass_or_task_model || superclass_or_task_model.kind_of?(StateFieldModel)
-                @task_model = nil
-                @superclass = superclass_or_task_model
+        def initialize(super_or_obj = nil, attach_to = nil, attach_name = nil)
+            if !super_or_obj || super_or_obj.kind_of?(StateFieldModel)
+                @__object = nil
+                @superclass = super_or_obj
             else
-                @task_model = superclass_or_task_model
-                @superclass =
-                    if task_model.superclass && task_model.superclass.respond_to?(:state)
-                        task_model.superclass.state
-                    end
+                @__object = super_or_obj
+                if @__object.respond_to?(:superclass) && @__object.superclass.respond_to?(:state)
+                    @superclass = super_or_obj.superclass.state
+                end
             end
 
             initialize_extended_struct(StateFieldModel, attach_to, attach_name)
