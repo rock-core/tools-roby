@@ -58,6 +58,13 @@ module Roby
         # Returns the superclass, i.e. the state model this is a refinement on
         attr_reader :superclass
 
+        def __rebind(object)
+            if !__root?
+                raise ArgumentError, "cannot rebind a non-root state model"
+            else @__object = object
+            end
+        end
+
         # Returns the task model this state model applies on
         def __object
             if !__root?

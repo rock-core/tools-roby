@@ -238,5 +238,17 @@ class TC_StateModel < Test::Unit::TestCase
         assert_same child, s.__object
         assert_same parent_state, s.superclass
     end
+
+    def test_state_field_model_rebind
+        s = StateFieldModel.new
+        s.__rebind(obj = Object.new)
+        assert_same obj, s.__object
+        s.__rebind(obj = Object.new)
+        assert_same obj, s.__object
+
+        s.position.attach
+        assert_raises(ArgumentError) { s.position.__rebind(Object.new) }
+        assert_same obj, s.position.__object
+    end
 end
 
