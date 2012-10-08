@@ -11,14 +11,14 @@ begin
             self.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
             self.summary = 'A plan-based control framework for autonomous systems'
-            self.url         = paragraphs_of('README.rd', 1).join("\n\n")
-            self.description = paragraphs_of('README.rd', 3..5).join("\n\n")
-            self.description +=
-"\n\nSee doudou.github.com/roby for more informations, including links to
-tutorials and demonstration videos"
-            self.changes     = paragraphs_of('History.txt', 0..1).join("\n\n")
-            self.post_install_message = paragraphs_of('README.rd', 2).join("\n\n")
-
+            self.urls        = ["http://rock-robotics.org/master/api/tools/roby", "http://rock-robotics.org/stable/documentation/system"]
+            self.description = <<-EOD
+The Roby plan manager is currently developped from within the Robot Construction
+Kit (http://rock-robotics.org). Have a look there. Additionally, the [Roby User
+Guide](http://rock-robotics.org/api/tools/roby) is a good place to start wit
+Roby.
+            EOD
+ 
             self.extra_deps <<
                 ['facets', '>= 2.0'] <<
                 ['utilrb', '>= 1.3.1']
