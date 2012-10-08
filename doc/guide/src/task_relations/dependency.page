@@ -5,7 +5,7 @@ sort_info: 100
 
 Available as Roby::TaskStructure::Dependency
 
-See {rdoc_class: Roby::TaskStructure::Dependency::InstanceMethods} for the list
+See {rdoc_class: TaskStructure::DependencyGraphClass::Extension} for the list
 of methods that are defined on Roby::Task and
 Roby::TaskStructure::DependencyGraphClass for the methods accessible on the
 relation graph.
