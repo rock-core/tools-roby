@@ -7,7 +7,7 @@ task :default => :setup
 begin
     require 'hoe'
     namespace 'dist' do
-        hoe = Hoe.spec 'roby' do
+        hoe = Hoe.spec 'roby' do |hoe|
             self.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
             self.summary = 'A plan-based control framework for autonomous systems'
@@ -25,7 +25,7 @@ Roby.
 
             self.extra_dev_deps <<
                 ['rdoc', '>= 2.4'] <<
-                ['webgen', '>= 0.5'] <<
+                ['webgen', '>= 0.5']
 
             self.need_rdoc = false
         end
@@ -54,6 +54,7 @@ Roby.
     end
 
 rescue Exception => e
+    puts e.backtrace.join("\n  ")
     if e.message !~ /\.rubyforge/
         STDERR.puts "cannot load the Hoe gem, or Hoe fails. Distribution is disabled"
         STDERR.puts "error message is: #{e.message}"

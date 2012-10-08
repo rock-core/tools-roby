@@ -86,6 +86,7 @@ example, the emission is done by calling emit directly. More complex
 represented by tasks (that we will see later on).
 
 Let's try our controllable event
+
 {coderay:: ruby}
 >> ev2.call(10)
 ev2 called with argument=[10]
@@ -148,6 +149,7 @@ they are linked to ev1 and ev2, so Roby added them to the plan automatically.
 
 You can see that the "OR" event is emitted only once. If you want it to be
 emitted every time one of its sources are, you would do:
+
 {coderay:: ruby}
  >> or_ev = ev1 | ev2
  >> or_ev.on { puts "OR" }

@@ -181,6 +181,7 @@ embeds the [state_machine gem](http://github.com/pluginaweek/state_machine).
 When defining a Roby task the user can inject substates to the 'running' state. The initial state is 'running' by default.
 
 With each state a poll block can be associated. This block is repeatedly called, as long as the task remain in the corresponding state.
+
 {coderay:: ruby}
 class MyTask < Roby::Task
     ..
@@ -254,6 +255,7 @@ end
 {coderay}
 
 The current state of a task can be retrieved (as usual). However the list of states will be extended given the newly introduced substates of running:
+
 {coderay:: ruby}
 mytask = MyTask.new
 if mytask.current_state == :paused

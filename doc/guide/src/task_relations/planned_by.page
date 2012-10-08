@@ -5,9 +5,9 @@ sort_info: 120
 
 Available as Roby::TaskStructure::PlannedBy
 
-See {rdoc_class: Roby::TaskStructure::PlannedBy::InstanceMethods} for the list
+See {rdoc_class: TaskStructure::PlannedByGraphClass::Extension} for the list
 of methods that are defined on Roby::Task and
-Roby::TaskStructure::PlannedByGraphClass for the methods accessible on the
+{rdoc_class: TaskStructure::PlannedByGraphClass} for the methods accessible on the
 relation graph.
 
 Semantics
