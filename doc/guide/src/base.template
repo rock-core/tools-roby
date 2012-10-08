@@ -82,7 +82,7 @@ template: ~
       <div class="footer">
           <div class="nav1">
               <ul>
-                  <li><a href="{relocatable: documentation/about/index.html}">About Rock</a></li>
+                  <li><a href="http://rock-robotics.org/stable/documentation/about/index.html">About Rock</a></li>
               </ul>
           </div>
       </div>
