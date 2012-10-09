@@ -405,6 +405,7 @@ module Roby::TaskStructure
                 [[self.model], self.meaningful_arguments]
             else
                 model, tags, arguments = *current_model
+                tags = tags.dup
                 tags.unshift model
                 [tags, arguments]
             end

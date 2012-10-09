@@ -315,6 +315,25 @@ class TC_Dependency < Test::Unit::TestCase
 	assert_equal([[klass, tag], {:id => 'discover-3'}], child.fullfilled_model)
     end
 
+    def test_explicit_fullfilled_model
+	tag = TaskModelTag.new
+	klass = Class.new(Tasks::Simple) do
+	    include tag
+	end
+        t, p = prepare_plan :add => 2, :model => klass
+        t.fullfilled_model = [Roby::Task, [], Hash.new]
+        assert_equal([[Roby::Task], Hash.new], t.fullfilled_model)
+        assert_equal([[Roby::Task], Hash.new], t.fullfilled_model)
+        t.fullfilled_model = [Roby::Task, [tag], Hash.new]
+        assert_equal([[Roby::Task, tag], Hash.new], t.fullfilled_model)
+        assert_equal([[Roby::Task, tag], Hash.new], t.fullfilled_model)
+
+
+        p.depends_on t, :model => klass
+        assert_equal([[klass, tag], Hash.new], t.fullfilled_model)
+        assert_equal([[klass, tag], Hash.new], t.fullfilled_model)
+    end
+
     def test_fullfilled_model_transaction
 	tag = TaskModelTag.new
 	klass = Class.new(Tasks::Simple) do
