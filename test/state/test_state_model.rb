@@ -14,9 +14,9 @@ class TC_StateModel < Test::Unit::TestCase
         assert_same(s.pose.model, s.model.pose)
     end
 
-    def test_assign_leaf_model_calls_to_state_leaf_model
+    def test_assign_on_state_field_model_calls_to_state_variable_model
         klass = flexmock
-        klass.should_receive(:to_state_leaf_model).twice.
+        klass.should_receive(:to_state_variable_model).twice.
             and_return(obj = Object.new)
 
         s = StateModel.new
@@ -28,16 +28,16 @@ class TC_StateModel < Test::Unit::TestCase
         assert_same obj, s.pose.model.position
     end
 
-    def test_class_to_state_leaf_model
+    def test_class_to_state_variable_model
         klass = Class.new
-        model = klass.to_state_leaf_model('a', 'b')
+        model = klass.to_state_variable_model('a', 'b')
         assert_equal 'a', model.field
         assert_equal 'b', model.name
         assert !model.data_source
         assert_same klass, model.type
     end
 
-    def test_assign_leaf_model_validation
+    def test_assign_variable_model_validation
         s = StateModel.new
         assert_raises(ArgumentError) { s.model.position = Object.new }
     end

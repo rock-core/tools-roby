@@ -1,11 +1,11 @@
 class Class
-    # Implementation of a conversion to StateLeafModel
+    # Implementation of a conversion to StateVariableModel
     #
     # It makes it possible to use a class to initialize a state leaf model with
     #
     #   state.model.path.to.value = MyClass
-    def to_state_leaf_model(field, name)
-        model = Roby::StateLeafModel.new(field, name)
+    def to_state_variable_model(field, name)
+        model = Roby::StateVariableModel.new(field, name)
         model.type = self
         return model
     end
@@ -13,7 +13,7 @@ end
 
 module Roby
     # Representation of a leaf in the state model
-    class StateLeafModel
+    class StateVariableModel
         # Returns the type of this field. nil means any type. It is matched
         # against values using #===
         attr_accessor :type
@@ -123,10 +123,10 @@ module Roby
 
             initialize_extended_struct(StateFieldModel, attach_to, attach_name)
             global_filter do |name, value|
-                if value.respond_to?(:to_state_leaf_model)
-                    value.to_state_leaf_model(self, name)
+                if value.respond_to?(:to_state_variable_model)
+                    value.to_state_variable_model(self, name)
                 else
-                    raise ArgumentError, "cannot set #{value} on #{name} in a state model. Only allowed values are StateFieldModel, and values that respond to #to_state_field_model"
+                    raise ArgumentError, "cannot set #{value} on #{name} in a state model. Only allowed values are StateVariableModel, and values that respond to #to_state_variable_model"
                 end
             end
         end
@@ -260,7 +260,7 @@ module Roby
         def __get(name, create_substruct = true)
             name = name.to_s
             if field_model = model.get(name)
-                if field_model.kind_of?(StateLeafModel) && field_model.type
+                if field_model.kind_of?(StateVariableModel) && field_model.type
                     # A type is specified, don't do automatic struct creation
                     return super(name, false)
                 end
