@@ -366,9 +366,11 @@ class TC_ExtendedStruct < Test::Unit::TestCase
 	s.filter(:value) { |v| Numeric === v }
 
 	str = nil
-	assert_nothing_raised { str = Marshal.dump(s) }
-	assert_nothing_raised { s = Marshal.load(str) }
+	str = Marshal.dump(s)
+	s = Marshal.load(str)
 	assert_equal(42, s.value)
+        assert_equal(s, s.substruct.__parent_struct)
+        assert_equal('substruct', s.substruct.__parent_name)
 	assert_equal(24, s.substruct.value)
 	assert(!s.respond_to?(:invalid))
     end

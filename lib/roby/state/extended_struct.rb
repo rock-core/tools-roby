@@ -84,23 +84,26 @@ module Roby
         module ClassExtension
             def _load(io)
                 marshalled_members, aliases = Marshal.load(io)
-                members = marshalled_members.inject({}) do |h, (n, mv)|
-                    begin
-                        h[n] = Marshal.load(mv)
-                rescue Exception
-                    Roby::Distributed.warn "cannot load #{n} #{mv}: #{$!.message}"
-                end
-
-                h
-                end
 
                 result = new
-                result.instance_variable_set("@members", members)
+                marshalled_members.each do |name, marshalled_field|
+                    begin
+                        value = Marshal.load(marshalled_field)
+                        if value.kind_of?(ExtendedStruct)
+                            value.attach_to(result, name)
+                        else
+                            result.__set(name, value)
+                        end
+                    rescue Exception
+                        Roby::Distributed.warn "cannot load #{name} #{marshalled_field}: #{$!.message}"
+                    end
+                end
+
                 result.instance_variable_set("@aliases", aliases)
                 result
 
             rescue Exception
-                Roby::Distributed.warn "cannot load #{members} #{io}: #{$!.message}"
+                Roby::Distributed.warn "cannot load #{marshalled_members} #{io}: #{$!.message}"
                 raise
             end
         end
@@ -116,6 +119,11 @@ module Roby
 	attr_reader :children_class
 
 	attr_reader :attach_as, :__parent_struct, :__parent_name
+
+        def attach_to(parent, name)
+            @attach_as = [parent, name]
+            attach
+        end
 
         # When a field is dynamically created by #method_missing, it is created
         # in a pending state, in which it is not yet attached to its parent
