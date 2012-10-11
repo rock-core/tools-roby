@@ -43,7 +43,7 @@ module Roby
             path
         end
 
-        def to_state_field_model(field, name)
+        def to_state_variable_model(field, name)
             result = dup
             result.field = field
             result.name = name
@@ -52,7 +52,7 @@ module Roby
     end
 
     # Representation of a level in the state model
-    class StateFieldModel
+    class StateModel
         include ExtendedStruct
 
         # Returns the superclass, i.e. the state model this is a refinement on
@@ -78,7 +78,7 @@ module Roby
             if result = super(name, false, &update)
                 return result
             elsif superclass && (result = superclass.__get(name, false, &update))
-                if result.kind_of?(StateFieldModel)
+                if result.kind_of?(StateSpace)
                     return super(name, true, &update)
                 else return result
                 end
@@ -111,7 +111,7 @@ module Roby
         end
 
         def initialize(super_or_obj = nil, attach_to = nil, attach_name = nil)
-            if !super_or_obj || super_or_obj.kind_of?(StateFieldModel)
+            if !super_or_obj || super_or_obj.kind_of?(StateModel)
                 @__object = nil
                 @superclass = super_or_obj
             else
@@ -121,12 +121,25 @@ module Roby
                 end
             end
 
-            initialize_extended_struct(StateFieldModel, attach_to, attach_name)
+            initialize_extended_struct(StateModel, attach_to, attach_name)
             global_filter do |name, value|
                 if value.respond_to?(:to_state_variable_model)
                     value.to_state_variable_model(self, name)
                 else
                     raise ArgumentError, "cannot set #{value} on #{name} in a state model. Only allowed values are StateVariableModel, and values that respond to #to_state_variable_model"
+                end
+            end
+        end
+
+        # This methods iterates over the state model, and for each state
+        # variable for which a data source model is provided, create the
+        # corresponding data source by calling #bind
+        def resolve_data_sources(object, state)
+            each_member do |name, field|
+                if field.respond_to?(:data_source)
+                    state.data_sources.__set(name, field.data_source.bind(object, state))
+                else
+                    field.resolve_data_sources(object, state.__get(name, true))
                 end
             end
         end
@@ -176,7 +189,6 @@ module Roby
         # Note that the models are accessible from any level, i.e.
         # state.model.pose.position is an equivalent of the above example.
         def model
-            attach
             @model
         end
 
@@ -190,7 +202,6 @@ module Roby
         # Note that the last known values are accessible from any level, i.e.
         # state.last_known.pose.position is an equivalent of the above example.
         def last_known
-            attach
             @last_known
         end
 
@@ -211,39 +222,44 @@ module Roby
         # Note that the models are accessible from any level, i.e.
         # state.model.pose.position is an equivalent of the above example.
         def data_sources
-            attach
             @data_sources
         end
 
-        def initialize(attach_to = nil, attach_name = nil)
-            if attach_to
-                @model = attach_to.model.__get(attach_name)
-                @last_known = attach_to.last_known.__get(attach_name)
-                @data_sources = attach_to.data_sources.__get(attach_name)
+        def initialize(attach_to_or_model = nil, attach_name = nil)
+            if attach_name
+                attach_to(attach_to_or_model, attach_name)
             else
-                @model = StateFieldModel.new
+                @model = attach_to_or_model
+                attach_to_or_model = nil
                 @last_known = StateLastValueField.new
                 @data_sources = StateDataSourceField.new
             end
 
-            initialize_extended_struct(StateField, attach_to, attach_name)
-            global_filter do |name, value|
-                if (field_model = model.get(name)) && (field_type = field_model.type)
-                    if !(field_type === value)
-                        raise ArgumentError, "field #{name} is expected to have values of type #{field_type.name}, #{value} is of type #{value.class}"
+            initialize_extended_struct(StateField, attach_to_or_model, attach_name)
+            attach
+
+            if model
+                global_filter do |name, value|
+                    if (field_model = model.get(name)) && (field_type = field_model.type)
+                        if !(field_type === value)
+                            raise ArgumentError, "field #{name} is expected to have values of type #{field_type.name}, #{value} is of type #{value.class}"
+                        end
+                        value
                     end
                     value
                 end
-                value
             end
         end
 
-        # Reimplemented from ExtendedStruct
-        def attach
-            @model.attach
-            @last_known.attach
-            @data_sources.attach
+        def attach_to(parent, name)
             super
+            @model = if parent.model
+                         parent.model.get(name)
+                     end
+            @last_known = StateLastValueField.new(parent.last_known, name)
+            @last_known.attach
+            @data_sources = StateDataSourceField.new(parent.data_sources, name)
+            @data_sources.attach
         end
 
         # Reimplemented from ExtendedStruct
@@ -257,21 +273,26 @@ module Roby
         end
 
         # Reimplemented from ExtendedStruct
-        def __get(name, create_substruct = true)
-            name = name.to_s
-            if field_model = model.get(name)
-                if field_model.kind_of?(StateVariableModel) && field_model.type
-                    # A type is specified, don't do automatic struct creation
-                    return super(name, false)
-                end
+        #
+        # It only allows writing to state variables
+        def __set(name, value)
+            if model && !model.get(name).kind_of?(StateVariableModel)
+                raise ArgumentError, "#{name} is not a state variable on #{self}"
             end
-            if (data_source = data_sources.get(name)) && !data_source.kind_of?(StateDataSourceField)
-                # A data source is specified, don't do automatic struct creation
-                # either
-                return super(name, false)
-            end
+            super
+        end
 
-            return super
+        # Reimplemented from ExtendedStruct
+        #
+        # It disables automatic substruct creation. The reason is that the model
+        # does it for us.
+        def __get(name, create_substruct = true)
+            if model || data_sources.get(name)
+                # We never automatically create levels as the model should tell us
+                # what we want
+                create_substruct = false
+            end
+            return super(name, create_substruct)
         end
 
         # Read each subfield that have a source, and update both their
@@ -285,6 +306,21 @@ module Roby
                 end
             end
         end
+
+        # Prepares the state structure using the provided model. In practice, it
+        # creates all the sublevels declared in the model
+        def initialize_from_model
+            model.each_member do |name, field|
+                case field
+                when StateVariableModel
+                    # Don't do anything here, as we don't know which values to
+                    # set
+                else
+                    @members[name] = StateField.new(self, name)
+                    @members[name].initialize_from_model
+                end
+            end
+        end
     end
 
     # Implementation of the state representation at runtime.
@@ -295,10 +331,13 @@ module Roby
     #  * the state model is stored in model.path.to.value
     #  * the current data source for a state variable is stored in
     #    data_sources.path.to.value
-    class StateModel < StateField
-	def initialize
+    class StateSpace < StateField
+	def initialize(model = nil)
             @exported_fields = nil
-	    super
+	    super(model, nil)
+            if model
+                initialize_from_model
+            end
 	end
 
         # Declares that no state fields should be marshalled. The default is to
@@ -364,5 +403,4 @@ module Roby
 	def testing?; Roby.app.testing? end
 	def simulation?; Roby.app.simulation? end
     end
-    StateSpace = StateModel
 end
