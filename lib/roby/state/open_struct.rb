@@ -199,6 +199,7 @@ module Roby
         # Called by a child when #attach is called
 	def attach_child(name, obj)
 	    @members[name.to_s] = obj
+            updated(name, obj)
 	end
 	protected :detach, :attach_as
 

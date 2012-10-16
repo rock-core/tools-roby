@@ -3,22 +3,6 @@ module Roby
         # Returns the superclass, i.e. the state model this is a refinement on
         attr_reader :superclass
 
-        def __rebind(object)
-            if !__root?
-                raise ArgumentError, "cannot rebind a non-root model"
-            else @__object = object
-            end
-        end
-
-        # Returns the task model this goal model applies on
-        def __object
-            if !__root?
-                __root.__object
-            else
-                @__object
-            end
-        end
-
         def __get(name, create_substruct = true, &update)
             if result = super(name, false, &update)
                 return result
@@ -56,16 +40,7 @@ module Roby
         end
 
         def initialize(super_or_obj = nil, attach_to = nil, attach_name = nil)
-            if !super_or_obj || super_or_obj.kind_of?(StateModel)
-                @__object = nil
-                @superclass = super_or_obj
-            else
-                @__object = super_or_obj
-                if @__object.respond_to?(:superclass) && @__object.superclass.respond_to?(:state)
-                    @superclass = super_or_obj.superclass.state
-                end
-            end
-
+            @superclass = super_or_obj
             super(nil, attach_to, attach_name)
         end
 
@@ -77,7 +52,7 @@ module Roby
             # The parent field
             attr_accessor :field
 
-            def initialize(field, name)
+            def initialize(field = nil, name = nil)
                 @field, @name = field, name
             end
 

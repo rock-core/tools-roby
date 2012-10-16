@@ -337,26 +337,30 @@ class TC_OpenStruct < Test::Unit::TestCase
         s.value = 42
 
         mock = flexmock
+        # Notification when substruct gets attached
+        mock.should_receive(:updated).with('substruct', OpenStruct).once.ordered
+        # Notification when the value gets written
+        mock.should_receive(:updated).with('value', 42).once.ordered
+        # Notification when the value gets written
+        mock.should_receive(:updated).with('substruct', 42).once.ordered
         s.on_change(:substruct, true) { |n, v| mock.updated(n, v.value) }
         s.substruct.on_change(:value, true) { |n, v| mock.updated(n, v) }
-        mock.should_receive(:updated).with('value', 42).once.ordered
-        mock.should_receive(:updated).with('substruct', 42).once.ordered
         s.substruct.value = 42
     end
 
     def test_on_change_all_names
 	s = OpenStruct.new
-
         mock = flexmock
         s.on_change(nil, false) { |n, v| mock.updated(n, v) }
         mock.should_receive(:updated).with('value', 42).once
         s.value = 42
 
+	s = OpenStruct.new
         mock = flexmock
+        mock.should_receive(:updated).with('substruct', any).once
+        mock.should_receive(:updated).with('value', 42).once
         s.on_change(nil, false) { |n, v| mock.updated(n, v.value) }
         s.substruct.on_change(nil, false) { |n, v| mock.updated(n, v) }
-        mock.should_receive(:updated).with('substruct').never
-        mock.should_receive(:updated).with('value', 42).once
         s.substruct.value = 42
     end
 
@@ -369,10 +373,12 @@ class TC_OpenStruct < Test::Unit::TestCase
         s.value = 42
 
         mock = flexmock
+        # One notification when the substruct gets attached
+        mock.should_receive(:updated).with('substruct', any).once
+        # One notification when the value gets written
+        mock.should_receive(:updated).with('value', 42).once
         s.on_change(:substruct, false) { |n, v| mock.updated(n, v.value) }
         s.substruct.on_change(:value, false) { |n, v| mock.updated(n, v) }
-        mock.should_receive(:updated).with('substruct').never
-        mock.should_receive(:updated).with('value', 42).once
         s.substruct.value = 42
     end
 
@@ -473,6 +479,28 @@ class TC_OpenStruct < Test::Unit::TestCase
         m.subfield.value = Object
         s = OpenStruct.new(m)
         assert s.subfield.attached?
+    end
+
+    def test_add_field_to_model_after_creation
+        m = Roby::OpenStructModel.new
+        s = Roby::OpenStruct.new(m)
+        m.pose.position = Object
+        assert_same Object, s.pose.model.position
+    end
+
+    def test_add_model_after_creation
+        s = Roby::OpenStruct.new
+        assert s.pose
+        assert s.another_value
+
+        m = s.new_model
+        m.pose.position = OpenStructModel::Variable.new
+
+        assert s.pose
+        assert !s.pose.position
+        assert !s.another_value
+
+        s.pose.position = Object.new
     end
 end
 

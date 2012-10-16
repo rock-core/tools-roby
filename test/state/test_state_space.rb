@@ -239,35 +239,6 @@ class TC_StateSpace < Test::Unit::TestCase
         assert_equal %w{pose position}, s.pose.position.path
     end
 
-    def test_state_field_model_initialization_with_object
-        object = flexmock
-        object.should_receive(:respond_to?).with(:superclass).and_return(false).once
-        
-        s = StateModel.new(object)
-        assert_same object, s.__object
-        assert_same object, s.position.__object
-    end
-
-    def test_state_field_model_automatically_gets_supermodel_from_object
-        parent = flexmock(:state => (parent_state = Object.new))
-        child = flexmock(:superclass => parent)
-        s = StateModel.new(child)
-        assert_same child, s.__object
-        assert_same parent_state, s.superclass
-    end
-
-    def test_state_field_model_rebind
-        s = StateModel.new
-        s.__rebind(obj = Object.new)
-        assert_same obj, s.__object
-        s.__rebind(obj = Object.new)
-        assert_same obj, s.__object
-
-        s.position.attach
-        assert_raises(ArgumentError) { s.position.__rebind(Object.new) }
-        assert_same obj, s.position.__object
-    end
-
     def test_state_model_resolve_data_sources
         source_model = flexmock
         source_model.should_receive(:to_state_variable_model).
