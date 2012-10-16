@@ -2,30 +2,31 @@ module Roby
     # Ruby (the language) has no support for multiple inheritance. Instead, it
     # uses module to extend classes outside of the class hierarchy.
     #
-    # TaskModelTag are the equivalent concept in the world of task models. They
+    # TaskService are the equivalent concept in the world of task models. They
     # are a limited for of task models, which can be used to represent that
     # certain task models have multiple functions.
     #
     # For instance,
     #   
-    #   CameraDriver = TaskModelTag.new
-    #   # CameraDriver is an abstract model used to represent that some tasks
-    #   # are providing the services of cameras. They can be used to tag tasks
-    #   # that belong to different class hirerachies.
-    #   # 
-    #   # One can set up arguments on TaskModelTag the same way than class models:
-    #   CameraDriver.argument :camera_name
-    #   CameraDriver.argument :aperture
-    #   CameraDriver.argument :aperture
+    #   CameraDriver = Roby.task_service do
+    #      # CameraDriver is an abstract model used to represent that some tasks
+    #      # are providing the services of cameras. They can be used to tag tasks
+    #      # that belong to different class hirerachies.
+    #      # 
+    #      # One can set up arguments on TaskService the same way than class models:
+    #      argument :camera_name
+    #      argument :aperture
+    #      argument :aperture
+    #   end
     #
-    #   FirewireDriver.include CameraDriver
+    #   FirewireDriver.provides CameraDriver
     #   # FirewireDriver can now be used in relationships where CameraDriver was
     #   # needed
-    class TaskModelTag < Module
+    class TaskService < Module
         # Module which contains the extension for the task models themselves.
         # When one does
         #
-        #   tag = TaskModelTag.new
+        #   tag = TaskService.new
         #   <setup the tag>
         #   task_model.include tag
         #
@@ -109,7 +110,7 @@ module Roby
                 true
             end
 	end
-	include TaskModelTag::ClassExtension
+	include TaskService::ClassExtension
 
 	def initialize(&block)
 	    super do
@@ -117,7 +118,7 @@ module Roby
 		inherited_enumerable("argument_default", "argument_defaults", :map => true) { Hash.new }
                 define_or_reuse(:ClassExtension, Module.new)
 
-		self::ClassExtension.include TaskModelTag::ClassExtension
+		self::ClassExtension.include TaskService::ClassExtension
 	    end
 	    class_eval(&block) if block_given?
 	end
@@ -126,6 +127,27 @@ module Roby
 	    @argument_set.clear if @argument_set
 	    @argument_defaults.clear if @argument_defaults
 	end
+    end
+    TaskModelTag = TaskService
+
+    # Define a new task service. When defining the service, one does:
+    #
+    #   module MyApplication
+    #      NavigationService = Roby.task_service do
+    #         argument :target, :type => Eigen::Vector3
+    #      end
+    #   end
+    #
+    # Then, to use it:
+    #
+    #   class GoTo
+    #     provides NavigationService
+    #   end
+    #
+    def self.task_service(&block)
+        service = TaskService.new
+        service.class_eval(&block)
+        service
     end
 
     # Base class for events emitted by tasks.
@@ -894,9 +916,9 @@ module Roby
     #
 
     class Task < PlanObject
-	unless defined? RootTaskTag
-	    RootTaskTag = TaskModelTag.new
-	    include RootTaskTag
+	unless defined? RootTaskService
+	    RootTaskService = TaskService.new
+	    include RootTaskService
 	end
         
         # Proxy class used as intermediate by Task.with_arguments
@@ -1974,7 +1996,7 @@ module Roby
 	end
 
         # Declares that this task model provides the given interface. +model+
-        # must be an instance of TaskModelTag
+        # must be an instance of TaskService
         def self.provides(model)
             include model
         end
@@ -2386,7 +2408,7 @@ module Roby
 
         # Returns the lists of tags this model fullfills.
 	def self.tags
-	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
+	    ancestors.find_all { |m| m.instance_of?(TaskService) }
 	end
 
         # The set of instance-level execute blocks (InstanceHandler instances)
