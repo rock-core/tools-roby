@@ -31,6 +31,13 @@ module Roby
         def goal
             @goal ||= GoalSpace.new(self.model.goal)
         end
+
+        def resolve_goals
+            if !fully_instanciated?
+                raise ArgumentError, "cannot resolve goals on a task that is not fully instanciated"
+            end
+            self.model.goal.resolve_goals(self, self.goal)
+        end
     end
 end
 
