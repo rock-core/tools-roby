@@ -22,12 +22,21 @@ module Roby
             result.name = name
             result
         end
+
+        def call(task)
+            reader.call(task)
+        end
     end
 
     # Representation of a level in the state model
     class GoalModel < OpenStructModel
-        def initialize(superclass = nil, attach_to = nil, attach_name = nil)
+        def initialize(state_model = nil, superclass = nil, attach_to = nil, attach_name = nil)
             super(superclass, attach_to, attach_name)
+
+            @model = state_model
+            if @model
+                attach_model
+            end
 
             global_filter do |name, value|
                 if value.respond_to?(:to_goal_variable_model)
@@ -38,24 +47,31 @@ module Roby
             end
         end
 
-        def state_model
-            model
-        end
-
-        def state_model=(value)
-            @model = value
-            attach_model
-        end
-
         def create_model
             GoalModel.new
+        end
+
+        def create_subfield(name)
+            superklass = if superclass then superclass.get(name) end
+            supermodel = if model then model.get(name) end
+            self.class.new(supermodel, superklass, self, name)
+        end
+
+        # Once the task is completely instanciated, we should be able to
+        # determine its goal
+        def resolve_goals(obj, space)
+            each_member do |name, value|
+                if value.respond_to?(:resolve_goals)
+                    value.resolve_goals(obj, space.get(name))
+                else
+                    space.__set(name, value.call(obj))
+                end
+            end
         end
     end
 
     # Representation of the set of goals for a task, as targets in state
     class GoalSpace < OpenStruct
-        def initialize(model = nil)
-            super(model)
-        end
     end
 end
+

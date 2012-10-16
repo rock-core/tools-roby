@@ -23,8 +23,7 @@ module Roby
                 if superclass.respond_to?(:goal)
                     supermodel = superclass.goal
                 end
-                @goal = GoalModel.new(supermodel)
-                goal.state_model = self.state
+                @goal = GoalModel.new(self.state, supermodel)
             end
             @goal
         end
