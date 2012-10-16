@@ -53,75 +53,17 @@ module Roby
 
     # Representation of a level in the state model
     class StateModel
-        include ExtendedStruct
+        include ExtendedStructModel
 
         # Returns the superclass, i.e. the state model this is a refinement on
         attr_reader :superclass
 
-        def __rebind(object)
-            if !__root?
-                raise ArgumentError, "cannot rebind a non-root state model"
-            else @__object = object
-            end
-        end
-
-        # Returns the task model this state model applies on
-        def __object
-            if !__root?
-                __root.__object
-            else
-                @__object
-            end
-        end
-
-        def __get(name, create_substruct = true, &update)
-            if result = super(name, false, &update)
-                return result
-            elsif superclass && (result = superclass.__get(name, false, &update))
-                if result.kind_of?(StateSpace)
-                    return super(name, true, &update)
-                else return result
-                end
-            elsif create_substruct
-                return super
-            end
-        end
-
-        def __respond_to__(name)
-            super || (superclass.__respond_to__(name) if superclass)
-        end
-
-        def create_subfield(name)
-            if superclass
-                children_class.new(superclass.get(name), self, name)
-            else
-                children_class.new(nil, self, name)
-            end
-        end
-
-        def each_member(&block)
-            super(&block)
-            if superclass
-                superclass.each do |name, value|
-                    if !@members.has_key?(name)
-                        yield(name, value)
-                    end
-                end
-            end
+        def to_s
+            "#<StateModel:#{object_id} path=#{path.join("/")} fields=#{@members.keys.sort.join(",")}>"
         end
 
         def initialize(super_or_obj = nil, attach_to = nil, attach_name = nil)
-            if !super_or_obj || super_or_obj.kind_of?(StateModel)
-                @__object = nil
-                @superclass = super_or_obj
-            else
-                @__object = super_or_obj
-                if @__object.respond_to?(:superclass) && @__object.superclass.respond_to?(:state)
-                    @superclass = super_or_obj.superclass.state
-                end
-            end
-
-            initialize_extended_struct(StateModel, attach_to, attach_name)
+            initialize_extended_struct(StateModel, super_or_obj, attach_to, attach_name)
             global_filter do |name, value|
                 if value.respond_to?(:to_state_variable_model)
                     value.to_state_variable_model(self, name)
@@ -172,6 +114,10 @@ module Roby
     class StateField
         include ExtendedStruct
 
+        def to_s
+            "#<StateField:#{object_id} path=#{path.join("/")} fields=#{@members.keys.sort.join(",")}>"
+        end
+
         # Returns a structure that gives access to the models of the
         # members of this struct. I.e.
         #
@@ -204,6 +150,7 @@ module Roby
         def last_known
             @last_known
         end
+
 
         # Returns a structure that gives access to the data sources for the
         # members of this struct. I.e.
