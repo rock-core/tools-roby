@@ -1,14 +1,24 @@
 module Roby
     class Task
         def self.state
-            @state ||= StateFieldModel.new(self)
+            if !@state
+                if superclass.respond_to?(:state)
+                    supermodel = superclass.state
+                end
+                @state = StateModel.new(supermodel)
+            end
+            @state
         end
 
         def state
             if @state
                 return @state
             end
-            @state = StateModel.new(self.class.full_state_model)
+            @state = StateSpace.new(self.model.state)
+        end
+
+        def resolve_state_sources
+            model.state.resolve_data_sources(self, state)
         end
     end
 end
