@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'flexmock'
+require 'flexmock/test_unit'
 require 'roby/state'
 
 class TC_OpenStruct < Test::Unit::TestCase
@@ -322,19 +322,58 @@ class TC_OpenStruct < Test::Unit::TestCase
         assert_equal 10, s.test
     end
 
-    def test_change_notification
+    def test_on_change_attaches
 	s = OpenStruct.new
-	FlexMock.use do |mock|
-	    s.on(:value) { |v| mock.updated(v) }
-	    mock.should_receive(:updated).with(42).once
-	    s.value = 42
+        s.substruct.on_change { |_| }
+        assert s.substruct.attached?
+    end
 
-	    s.on(:substruct) { |v| mock.updated_substruct(v.value) }
-	    mock.should_receive(:updated_substruct).with(24).once.ordered
-	    mock.should_receive(:updated_substruct).with(42).once.ordered
-	    s.substruct.value = 24
-	    s.substruct.value = 42
-	end
+    def test_on_change_recursive
+	s = OpenStruct.new
+
+        mock = flexmock
+        s.on_change(:value, true) { |n, v| mock.updated(n, v) }
+        mock.should_receive(:updated).with('value', 42).once
+        s.value = 42
+
+        mock = flexmock
+        s.on_change(:substruct, true) { |n, v| mock.updated(n, v.value) }
+        s.substruct.on_change(:value, true) { |n, v| mock.updated(n, v) }
+        mock.should_receive(:updated).with('value', 42).once.ordered
+        mock.should_receive(:updated).with('substruct', 42).once.ordered
+        s.substruct.value = 42
+    end
+
+    def test_on_change_all_names
+	s = OpenStruct.new
+
+        mock = flexmock
+        s.on_change(nil, false) { |n, v| mock.updated(n, v) }
+        mock.should_receive(:updated).with('value', 42).once
+        s.value = 42
+
+        mock = flexmock
+        s.on_change(nil, false) { |n, v| mock.updated(n, v.value) }
+        s.substruct.on_change(nil, false) { |n, v| mock.updated(n, v) }
+        mock.should_receive(:updated).with('substruct').never
+        mock.should_receive(:updated).with('value', 42).once
+        s.substruct.value = 42
+    end
+
+    def test_on_change_non_recursive
+	s = OpenStruct.new
+
+        mock = flexmock
+        s.on_change(:value, false) { |n, v| mock.updated(n, v) }
+        mock.should_receive(:updated).with('value', 42).once
+        s.value = 42
+
+        mock = flexmock
+        s.on_change(:substruct, false) { |n, v| mock.updated(n, v.value) }
+        s.substruct.on_change(:value, false) { |n, v| mock.updated(n, v) }
+        mock.should_receive(:updated).with('substruct').never
+        mock.should_receive(:updated).with('value', 42).once
+        s.substruct.value = 42
     end
 
     def test_predicate
@@ -354,7 +393,7 @@ class TC_OpenStruct < Test::Unit::TestCase
 	s.substruct.value = 24
 	s.invalid = Proc.new {}
 
-	s.on(:substruct) {}
+	s.on_change(:substruct) {}
 	s.filter(:value) { |v| Numeric === v }
 
 	str = nil
@@ -427,6 +466,13 @@ class TC_OpenStruct < Test::Unit::TestCase
         assert field.attached?
         assert s.a.deep.attached?
         assert s.a.attached?
+    end
+
+    def test_create_with_model_initializes_structure
+        m = OpenStructModel.new
+        m.subfield.value = Object
+        s = OpenStruct.new(m)
+        assert s.subfield.attached?
     end
 end
 

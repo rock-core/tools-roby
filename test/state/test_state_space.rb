@@ -289,6 +289,18 @@ class TC_StateSpace < Test::Unit::TestCase
         model.resolve_data_sources(obj, state)
         assert_equal source, state.data_sources.pose.position
     end
+
+    def test_global_state_can_be_given_a_model_after_the_fact
+        # State should be open at this point
+        assert !State.model
+        assert State.position
+        State.new_model
+        # Now create a model
+        State.model.position = Object
+        # And it should now follow it
+        assert_equal Object, State.model.position.type
+        assert !State.value
+    end
 end
 
 

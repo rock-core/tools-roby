@@ -56,15 +56,10 @@ module Roby
 	#   bla.test = 20
 	#
 	# will not fail
-	def initialize(attach_to_or_model = nil, attach_name = nil) # :nodoc
+	def initialize(model = nil, attach_to = nil, attach_name = nil) # :nodoc
 	    clear
 
-            if attach_name
-                attach_to, @model = attach_to_or_model, nil
-            else
-                attach_to, @model = nil, attach_to_or_model
-            end
-
+            @model = model
             @observers       = Hash.new { |h, k| h[k] = [] }
             @filters         = Hash.new
 
@@ -72,7 +67,8 @@ module Roby
                 link_to(attach_to, attach_name)
             end
 
-            if @model
+            if model
+                attach_model
                 attach
             end
         end
@@ -133,12 +129,40 @@ module Roby
 
 	attr_reader :attach_as, :__parent_struct, :__parent_name
 
+        # Create a model structure and associate it with this openstruct
+        def new_model
+            if !@model
+                @model = create_model
+                attach_model
+            end
+            @model
+        end
+
+        def create_model
+            OpenStructModel.new
+        end
+
+        # Do the necessary initialization after having added a model to this
+        # task
+        def attach_model
+            model.each_member do |name, field|
+                case field
+                when OpenStructModel
+                    @members[name] ||= create_subfield(name)
+                end
+            end
+
+            # Trigger updating the structure whenever the state model is
+            # changed
+            model.on_change(nil, false) do |name, value|
+                if value.kind_of?(OpenStructModel)
+                    @members[name] ||= create_subfield(name)
+                end
+            end
+        end
+
         def link_to(parent, name)
             @attach_as = [parent, name]
-            @model =
-                if parent.model
-                    parent.model.get(name)
-                end
         end
 
         def attach_to(parent, name)
@@ -199,10 +223,26 @@ module Roby
             !!@__parent_struct
         end
 
+        # Internal data structure used to register the observers defined with
+        # #on_change
+        class Observer
+            def recursive?; !!@recursive end
+            def initialize(recursive, block)
+                @recursive, @block = recursive, block
+            end
+            def call(name, value)
+                @block.call(name, value)
+            end
+        end
+
 	# Call +block+ with the new value if +name+ changes
-	def on(name = nil, &block)
+        #
+        # If name is not given, it will be called for any change
+	def on_change(name = nil, recursive = false, &block)
+            attach
 	    name = name.to_s if name
-	    @observers[name] << block
+	    @observers[name] << Observer.new(recursive, block)
+            self
 	end
 
 	# Converts this OpenStruct into a corresponding hash, where all
@@ -305,13 +345,23 @@ module Roby
             end
         end
 
-	def updated(name, value)
+	def updated(name, value, recursive = false)
 	    if @observers.has_key?(name)
-		@observers[name].each { |b| b.call(value) }
+                @observers[name].each do |ob|
+                    if ob.recursive? || !recursive
+                        ob.call(name, value)
+                    end
+                end
 	    end
 
+            @observers[nil].each do |ob|
+                if ob.recursive? || !recursive
+                    ob.call(name, value)
+                end
+            end
+
 	    if __parent_struct
-		__parent_struct.updated(__parent_name, self)
+		__parent_struct.updated(__parent_name, self, true)
 	    end
 	end
 
@@ -401,8 +451,7 @@ module Roby
                     raise NoMethodError, "no such attribute #{name} (#{self} is stable)"
                 elsif create_substruct
                     attach
-                    member = create_subfield(name)
-                    @pending[name] = member
+                    member = @pending[name] = create_subfield(name)
                 else return
                 end
             end
@@ -418,7 +467,8 @@ module Roby
         #
         # The default is to create a subfield of the same class than +self+
         def create_subfield(name)
-            self.class.new(self, name)
+            model = if self.model then self.model.get(name) end
+            self.class.new(model, self, name)
         end
 
         def __set(name, *args)
@@ -510,21 +560,6 @@ module Roby
                     v1.__merge(v2)
                 else
                     v2
-                end
-            end
-        end
-
-        # Prepares the state structure using the provided model. In practice, it
-        # creates all the sublevels declared in the model
-        def initialize_from_model
-            model.each_member do |name, field|
-                case field
-                when OpenStructModel::Variable
-                    # Don't do anything here, as we don't know which values to
-                    # set
-                else
-                    @members[name] = create_subfield(name)
-                    @members[name].initialize_from_model
                 end
             end
         end

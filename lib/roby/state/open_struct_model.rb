@@ -66,7 +66,7 @@ module Roby
                 end
             end
 
-            super(attach_to, attach_name)
+            super(nil, attach_to, attach_name)
         end
 
         # Base implementation for "leaf" values in an extended struct model

@@ -141,14 +141,14 @@ module Roby
             @data_sources
         end
 
-        def initialize(attach_to_or_model = nil, attach_name = nil)
-            if !attach_name
+        def initialize(model = nil, attach_to = nil, attach_name = nil)
+            if !attach_to
                 # We are root, initialize last_known and data_sources
                 @last_known = StateLastValueField.new
                 @data_sources = StateDataSourceField.new
             end
 
-            super(attach_to_or_model, attach_name)
+            super(model, attach_to, attach_name)
 
             if model
                 # If we do have a model, verify that the assigned values match
@@ -167,9 +167,9 @@ module Roby
         def link_to(parent, name)
             super
             @last_known = parent.last_known.get(name) ||
-                StateLastValueField.new(parent.last_known, name)
+                StateLastValueField.new(nil, parent.last_known, name)
             @data_sources = parent.data_sources.get(name) ||
-                StateDataSourceField.new(parent.data_sources, name)
+                StateDataSourceField.new(nil, parent.data_sources, name)
         end
 
         def attach
@@ -212,6 +212,10 @@ module Roby
                 end
             end
         end
+
+        def create_model
+            StateModel.new
+        end
     end
 
     # Implementation of the state representation at runtime.
@@ -225,10 +229,7 @@ module Roby
     class StateSpace < StateField
 	def initialize(model = nil)
             @exported_fields = nil
-	    super(model, nil)
-            if model
-                initialize_from_model
-            end
+	    super(model)
 	end
 
         # Declares that no state fields should be marshalled. The default is to
@@ -265,7 +266,8 @@ module Roby
 	end
 
         def create_subfield(name)
-            StateField.new(self, name)
+            model = if self.model then self.model.get(name) end
+            StateField.new(model, self, name)
         end
 
         # Implementation of marshalling with Ruby's Marshal
