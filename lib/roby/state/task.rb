@@ -11,14 +11,26 @@ module Roby
         end
 
         def state
-            if @state
-                return @state
-            end
-            @state = StateSpace.new(self.model.state)
+            @state ||= StateSpace.new(self.model.state)
         end
 
         def resolve_state_sources
             model.state.resolve_data_sources(self, state)
+        end
+
+        def self.goal
+            if !@goal
+                if superclass.respond_to?(:goal)
+                    supermodel = superclass.goal
+                end
+                @goal = GoalModel.new(supermodel)
+                goal.state_model = self.state
+            end
+            @goal
+        end
+
+        def goal
+            @goal ||= GoalSpace.new(self.model.goal)
         end
     end
 end

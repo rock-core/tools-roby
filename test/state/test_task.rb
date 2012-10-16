@@ -4,12 +4,12 @@ require 'flexmock/test_unit'
 require 'roby/state'
 
 class TC_StateInTask < Test::Unit::TestCase
-    def test_model_gets_inherited
+    def test_state_model_gets_inherited
         task_model = Class.new(Roby::Task)
         assert_same Roby::Task.state, task_model.state.superclass
     end
 
-    def test_state_space_gets_task_model_state_as_model
+    def test_task_state_space_gets_model_from_task
         task_model = Class.new(Roby::Task)
         task = task_model.new
         assert_same task.state.model, task.model.state
@@ -31,6 +31,22 @@ class TC_StateInTask < Test::Unit::TestCase
             and_return(source = Object.new)
         task.resolve_state_sources
         assert_same source, task.state.data_sources.pose.position
+    end
+
+    def test_goal_model_gets_inherited
+        task_model = Class.new(Roby::Task)
+        assert_same Roby::Task.goal, task_model.goal.superclass
+    end
+
+    def test_goal_space_gets_model_from_task_model
+        task_model = Class.new(Roby::Task)
+        task = task_model.new
+        assert_same task.goal.model, task.model.goal
+    end
+
+    def test_goal_model_uses_state_model
+        task_model = Class.new(Roby::Task)
+        assert_same task_model.state, task_model.goal.model
     end
 end
 
