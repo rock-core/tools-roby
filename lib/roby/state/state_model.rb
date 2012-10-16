@@ -13,7 +13,7 @@ end
 
 module Roby
     # Representation of a leaf in the state model
-    class StateVariableModel
+    class StateVariableModel < OpenStructModel::Variable
         # Returns the type of this field. nil means any type. It is matched
         # against values using #===
         attr_accessor :type
@@ -25,24 +25,6 @@ module Roby
         # object (this is the state model)
         attr_accessor :data_source
 
-        # The name of this leaf in its parent field
-        attr_accessor :name
-
-        # The parent field
-        attr_accessor :field
-
-        def initialize(field, name)
-            @field, @name = field, name
-        end
-
-        # Returns the full path of this leaf w.r.t. the root of the state
-        # structure
-        def path
-            path = field.path.dup
-            path << name
-            path
-        end
-
         def to_state_variable_model(field, name)
             result = dup
             result.field = field
@@ -52,9 +34,7 @@ module Roby
     end
 
     # Representation of a level in the state model
-    class StateModel
-        include ExtendedStructModel
-
+    class StateModel < OpenStructModel
         # Returns the superclass, i.e. the state model this is a refinement on
         attr_reader :superclass
 
@@ -63,7 +43,7 @@ module Roby
         end
 
         def initialize(super_or_obj = nil, attach_to = nil, attach_name = nil)
-            initialize_extended_struct(StateModel, super_or_obj, attach_to, attach_name)
+            super(super_or_obj, attach_to, attach_name)
             global_filter do |name, value|
                 if value.respond_to?(:to_state_variable_model)
                     value.to_state_variable_model(self, name)
@@ -88,12 +68,7 @@ module Roby
     end
 
     # Representation of the last known state
-    class StateLastValueField
-        include ExtendedStruct
-        def initialize(attach_to = nil, attach_name = nil)
-            initialize_extended_struct(StateLastValueField, attach_to, attach_name)
-        end
-
+    class StateLastValueField < OpenStruct
         def method_missing(name, *args, &block)
             if name =~ /=$/
                 raise ArgumentError, "cannot write to a StateLastValueField object"
@@ -103,17 +78,11 @@ module Roby
     end
 
     # Representation of the data sources in the state
-    class StateDataSourceField
-        include ExtendedStruct
-        def initialize(attach_to = nil, attach_name = nil)
-            initialize_extended_struct(StateDataSourceField, attach_to, attach_name)
-        end
+    class StateDataSourceField < OpenStruct
     end
 
     # Representation of a level in the current state
-    class StateField
-        include ExtendedStruct
-
+    class StateField < OpenStruct
         def to_s
             "#<StateField:#{object_id} path=#{path.join("/")} fields=#{@members.keys.sort.join(",")}>"
         end
@@ -173,43 +142,43 @@ module Roby
         end
 
         def initialize(attach_to_or_model = nil, attach_name = nil)
-            if attach_name
-                attach_to(attach_to_or_model, attach_name)
-            else
-                @model = attach_to_or_model
-                attach_to_or_model = nil
+            if !attach_name
+                # We are root, initialize last_known and data_sources
                 @last_known = StateLastValueField.new
                 @data_sources = StateDataSourceField.new
             end
 
-            initialize_extended_struct(StateField, attach_to_or_model, attach_name)
-            attach
+            super(attach_to_or_model, attach_name)
 
             if model
+                # If we do have a model, verify that the assigned values match
+                # the model's type
                 global_filter do |name, value|
                     if (field_model = model.get(name)) && (field_type = field_model.type)
                         if !(field_type === value)
                             raise ArgumentError, "field #{name} is expected to have values of type #{field_type.name}, #{value} is of type #{value.class}"
                         end
-                        value
                     end
                     value
                 end
             end
         end
 
-        def attach_to(parent, name)
+        def link_to(parent, name)
             super
-            @model = if parent.model
-                         parent.model.get(name)
-                     end
-            @last_known = StateLastValueField.new(parent.last_known, name)
+            @last_known = parent.last_known.get(name) ||
+                StateLastValueField.new(parent.last_known, name)
+            @data_sources = parent.data_sources.get(name) ||
+                StateDataSourceField.new(parent.data_sources, name)
+        end
+
+        def attach
+            super
             @last_known.attach
-            @data_sources = StateDataSourceField.new(parent.data_sources, name)
             @data_sources.attach
         end
 
-        # Reimplemented from ExtendedStruct
+        # Reimplemented from OpenStruct
         def method_missing(name, *args)
             if name.to_s =~ /(.*)=$/
                 if data_source = data_sources.get($1)
@@ -219,24 +188,14 @@ module Roby
             super
         end
 
-        # Reimplemented from ExtendedStruct
+        # Reimplemented from OpenStruct
         #
-        # It only allows writing to state variables
-        def __set(name, value)
-            if model && !model.get(name).kind_of?(StateVariableModel)
-                raise ArgumentError, "#{name} is not a state variable on #{self}"
-            end
-            super
-        end
-
-        # Reimplemented from ExtendedStruct
-        #
-        # It disables automatic substruct creation. The reason is that the model
-        # does it for us.
+        # It disables automatic substruct creation for state variables for which
+        # a data source exists
         def __get(name, create_substruct = true)
-            if model || data_sources.get(name)
-                # We never automatically create levels as the model should tell us
-                # what we want
+            if (source = data_sources.get(name)) && !source.kind_of?(StateDataSourceField)
+                # Don't create a substruct, we know that this subfield should be
+                # populated by the data source
                 create_substruct = false
             end
             return super(name, create_substruct)
@@ -250,21 +209,6 @@ module Roby
                 __set(field_name, new_value)
                 if new_value
                     last_known.__set(field_name, new_value)
-                end
-            end
-        end
-
-        # Prepares the state structure using the provided model. In practice, it
-        # creates all the sublevels declared in the model
-        def initialize_from_model
-            model.each_member do |name, field|
-                case field
-                when StateVariableModel
-                    # Don't do anything here, as we don't know which values to
-                    # set
-                else
-                    @members[name] = StateField.new(self, name)
-                    @members[name].initialize_from_model
                 end
             end
         end
@@ -319,6 +263,10 @@ module Roby
             @exported_fields ||= Set.new
 	    @exported_fields.merge names.map { |n| n.to_s }.to_set
 	end
+
+        def create_subfield(name)
+            StateField.new(self, name)
+        end
 
         # Implementation of marshalling with Ruby's Marshal
         #

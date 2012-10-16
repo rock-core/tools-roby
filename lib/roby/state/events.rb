@@ -1,5 +1,5 @@
 module Roby
-    class StateModel
+    class StateSpace
         # Create an event which will be emitted everytime some state parameters
         # vary more than the given deltas. The following state parameters are
         # available:

@@ -171,6 +171,14 @@ class TC_StateSpace < Test::Unit::TestCase
         assert_raises(ArgumentError) { s.last_known.pose.position = source }
     end
 
+    def test_assigning_data_source_attaches_the_field
+        s = StateSpace.new
+        s.pose.data_sources.position = Object.new
+        assert s.pose.data_sources.attached?
+        assert_same s.data_sources, s.pose.data_sources.__parent_struct
+        assert_equal "pose", s.pose.data_sources.__parent_name
+    end
+
     def test_data_sources_is_accessible_from_the_field
         source = Object.new
 
@@ -180,6 +188,10 @@ class TC_StateSpace < Test::Unit::TestCase
 
         s = create_state_space('pose.position')
         s.data_sources.pose.position = source
+        assert_same s.pose.data_sources.position, s.data_sources.pose.position
+
+        s = create_state_space('pose.position')
+        s.pose.data_sources.position = source
         assert_same s.pose.data_sources.position, s.data_sources.pose.position
     end
 

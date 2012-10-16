@@ -3,19 +3,11 @@ require 'roby/test/common'
 require 'flexmock'
 require 'roby/state'
 
-class TC_ExtendedStruct < Test::Unit::TestCase
+class TC_OpenStruct < Test::Unit::TestCase
     include Roby::SelfTest
 
-    class ExtendedStruct
-        include Roby::ExtendedStruct
-
-        def initialize(attach_to = nil, attach_name = nil)
-            initialize_extended_struct(ExtendedStruct, attach_to, attach_name)
-        end
-    end
-
     def test_openstruct_behavior
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	assert( s.respond_to?(:value=) )
         assert( ! s.respond_to?(:value) )
 	s.value = 42
@@ -24,7 +16,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_update
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.value.update { |v| v.test = 10 }
 	assert_equal(10, s.value.test)
 
@@ -33,13 +25,13 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_send
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.x = 10
 	assert_equal(10, s.send(:x))
     end
 
     def test_override_existing_method
-        k = Class.new(ExtendedStruct) do
+        k = Class.new(OpenStruct) do
             def m(a, b, c); end
         end
         s = k.new
@@ -50,7 +42,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_get
-	s = ExtendedStruct.new
+	s = OpenStruct.new
         assert_equal nil, s.get(:x)
         s.x
         assert_equal nil, s.get(:x)
@@ -59,7 +51,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_to_hash
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.a = 10
 	s.b.a = 10
 
@@ -68,14 +60,14 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_pending_subfields_behaviour
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	child = s.child
 	assert_not_equal(child, s.child)
 	child = s.child
 	child.send(:attach)
 	assert_equal(child, s.child)
 	
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	child = s.child
 	assert_equal([s, 'child'], child.send(:attach_as))
 	s.child = 10
@@ -89,7 +81,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_field_attaches_when_read_from
-        s = ExtendedStruct.new
+        s = OpenStruct.new
         field = s.child
         assert !field.attached?
         field.test
@@ -98,7 +90,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_field_attaches_when_written_to
-        s = ExtendedStruct.new
+        s = OpenStruct.new
         field = s.child
         assert !field.attached?
         field.test = 10
@@ -107,7 +99,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
     
     def test_alias
-	r = ExtendedStruct.new
+	r = OpenStruct.new
         obj = Object.new
         r.child = obj
         r.alias(:child, :aliased_child)
@@ -125,12 +117,12 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_delete_free_struct
-	r = ExtendedStruct.new
+	r = OpenStruct.new
 	assert_raises(ArgumentError) { r.delete }
     end
 
     def test_delete_from_pending_child
-	r = ExtendedStruct.new
+	r = OpenStruct.new
 	child = r.child
 	child.delete
 	child.value = 10
@@ -138,7 +130,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_delete_specific_pending_child_from_parent
-	r = ExtendedStruct.new
+	r = OpenStruct.new
 	child = r.child
 	r.delete(:child)
 	child.value = 10
@@ -146,7 +138,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_delete_from_attached_child
-	r = ExtendedStruct.new
+	r = OpenStruct.new
 	r.child.value = 10
 	assert(r.child?)
 	r.delete(:child)
@@ -154,7 +146,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_delete_specific_attached_child_from_parent
-	r = ExtendedStruct.new
+	r = OpenStruct.new
 	r.child.value = 10
 	assert(r.child?)
 	r.child.delete
@@ -162,7 +154,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_delete_alias_from_parent
-	r = ExtendedStruct.new
+	r = OpenStruct.new
 	r.child.value = 10
 	r.alias(:child, :aliased_child)
 	assert(r.aliased_child?)
@@ -171,7 +163,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_delete_aliased_child_from_parent_deletes_the_alias
-	r = ExtendedStruct.new
+	r = OpenStruct.new
 	r.child.value = 10
 	r.alias(:child, :aliased_child)
 	assert(r.aliased_child?)
@@ -181,7 +173,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_delete_from_attached_child_deletes_aliased_child
-	r = ExtendedStruct.new
+	r = OpenStruct.new
 	r.child.value = 10
 	r.alias(:child, :aliased_child)
 	assert(r.aliased_child?)
@@ -191,7 +183,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_empty
-	r = ExtendedStruct.new
+	r = OpenStruct.new
 	c = r.child
 	assert(r.empty?)
 	r.child = 10
@@ -201,7 +193,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_stable
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.other.attach
 	
         s.stable!
@@ -241,7 +233,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_filter
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.filter(:test) do |v|
             Integer(v)
         end
@@ -250,21 +242,21 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_filter_can_call_stable
-        s = ExtendedStruct.new
+        s = OpenStruct.new
         s.filter(:test) do |v|
-            result = ExtendedStruct.new
+            result = OpenStruct.new
             result.value = v
             s.stable!
             result
         end
         s.test = 10
         assert s.stable?
-        assert_kind_of ExtendedStruct, s.test
+        assert_kind_of OpenStruct, s.test
         assert_equal 10, s.test.value
     end
 
     def test_raising_filter_cancels_attachment
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.filter(:test) do |v|
             Integer(v)
         end
@@ -273,7 +265,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_raising_filter_cancels_update
-	s = ExtendedStruct.new
+	s = OpenStruct.new
         s.test = 10
 	s.filter(:test) do |v|
             Integer(v)
@@ -284,7 +276,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_global_filter
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.global_filter do |name, v|
             assert_equal 'test', name
             Integer(v)
@@ -294,22 +286,22 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_global_filter_can_call_stable
-        s = ExtendedStruct.new
+        s = OpenStruct.new
 	s.global_filter do |name, v|
             assert_equal 'test', name
-            result = ExtendedStruct.new
+            result = OpenStruct.new
             result.value = v
             s.stable!
             result
         end
         s.test = 10
         assert s.stable?
-        assert_kind_of ExtendedStruct, s.test
+        assert_kind_of OpenStruct, s.test
         assert_equal 10, s.test.value
     end
 
     def test_raising_global_filter_cancels_attachment
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.global_filter do |name, v|
             assert_equal 'test', name
             Integer(v)
@@ -319,7 +311,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_raising_global_filter_cancels_update
-	s = ExtendedStruct.new
+	s = OpenStruct.new
         s.test = 10
 	s.global_filter do |name, v|
             assert_equal 'test', name
@@ -331,7 +323,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_change_notification
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	FlexMock.use do |mock|
 	    s.on(:value) { |v| mock.updated(v) }
 	    mock.should_receive(:updated).with(42).once
@@ -346,7 +338,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_predicate
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.a = false
 	s.b = 1
         s.unattached
@@ -357,7 +349,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_marshalling
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	s.value = 42
 	s.substruct.value = 24
 	s.invalid = Proc.new {}
@@ -376,7 +368,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_forbidden_names
-	s = ExtendedStruct.new
+	s = OpenStruct.new
 	assert_raises(NoMethodError) { s.each_blah }
 	assert_nothing_raised { s.blato }
 	assert_raises(NoMethodError) { s.enum_blah }
@@ -384,7 +376,7 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_overrides_methods_that_are_not_protected
-	s = ExtendedStruct.new
+	s = OpenStruct.new
         def s.y(i); end
 	assert_raises(ArgumentError) { s.y }
 	s.y = 10
@@ -392,12 +384,12 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_existing_instance_methods_are_protected
-        s = ExtendedStruct.new
+        s = OpenStruct.new
         assert_raises(ArgumentError) { s.get = 10 }
     end
 
     def test_path
-        s = ExtendedStruct.new
+        s = OpenStruct.new
         assert_equal [], s.path
         s.pose.attach
         assert_equal ['pose'], s.pose.path
@@ -406,12 +398,12 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_does_not_catch_equality_operators
-        s = ExtendedStruct.new
+        s = OpenStruct.new
         assert_raises(NoMethodError) { s <= 10 }
     end
 
     def test_parent
-        s = ExtendedStruct.new
+        s = OpenStruct.new
         assert !s.__parent
 
         s.pose.attach
@@ -420,11 +412,21 @@ class TC_ExtendedStruct < Test::Unit::TestCase
     end
 
     def test_root
-        s = ExtendedStruct.new
+        s = OpenStruct.new
         assert s.__root?
 
         assert !s.pose.position.__root?
         assert_same s, s.pose.position.__root
+    end
+
+    def test_attach_is_recursive
+        s = OpenStruct.new
+        field = s.a.deep.value
+        assert !field.attached?
+        field.value = 10
+        assert field.attached?
+        assert s.a.deep.attached?
+        assert s.a.attached?
     end
 end
 

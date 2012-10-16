@@ -1,7 +1,5 @@
 module Roby
-    module ExtendedStructModel
-	include ExtendedStruct
-
+    class OpenStructModel < OpenStruct
         # Returns the superclass, i.e. the state model this is a refinement on
         attr_reader :superclass
 
@@ -25,7 +23,7 @@ module Roby
             if result = super(name, false, &update)
                 return result
             elsif superclass && (result = superclass.__get(name, false, &update))
-                if result.kind_of?(ExtendedStructModel)
+                if result.kind_of?(OpenStructModel)
                     return super(name, true, &update)
                 else return result
                 end
@@ -40,9 +38,9 @@ module Roby
 
         def create_subfield(name)
             if superclass
-                children_class.new(superclass.get(name), self, name)
+                self.class.new(superclass.get(name), self, name)
             else
-                children_class.new(nil, self, name)
+                self.class.new(nil, self, name)
             end
         end
 
@@ -57,7 +55,7 @@ module Roby
             end
         end
 
-        def initialize_extended_struct(child_class, super_or_obj = nil, attach_to = nil, attach_name = nil)
+        def initialize(super_or_obj = nil, attach_to = nil, attach_name = nil)
             if !super_or_obj || super_or_obj.kind_of?(StateModel)
                 @__object = nil
                 @superclass = super_or_obj
@@ -68,7 +66,28 @@ module Roby
                 end
             end
 
-            super(child_class, attach_to, attach_name)
+            super(attach_to, attach_name)
+        end
+
+        # Base implementation for "leaf" values in an extended struct model
+        class Variable
+            # The name of this leaf in its parent field
+            attr_accessor :name
+
+            # The parent field
+            attr_accessor :field
+
+            def initialize(field, name)
+                @field, @name = field, name
+            end
+
+            # Returns the full path of this leaf w.r.t. the root of the state
+            # structure
+            def path
+                path = field.path.dup
+                path << name
+                path
+            end
         end
     end
 end

@@ -2,11 +2,13 @@ module Roby
     # This module defines functionality that can be mixed-in other objects to
     # have an 'automatically extensible struct' behaviour, i.e.
     #
-    # ExtendedStruct objects are OpenStructs where attributes have a default
-    # class. They are used to build hierarchical data structure on-the-fly
+    # Roby::OpenStruct objects are OpenStructs where attributes have a default
+    # class. They are used to build hierarchical data structure on-the-fly.
+    # Additionally, they may have a model which constrains what can be created
+    # on them
     #
     # For instance
-    #	root = ExtendedStruct.new
+    #	root = Roby::OpenStruct.new
     #	root.child.value = 42
     #
     # However, you *cannot* check if a value is defined or not with
@@ -23,16 +25,18 @@ module Roby
     # == Handling of methods defined on parents
     #
     # Methods defined in Object or Kernel are automatically overriden if needed.
-    # For instance, if you're managing a (x, y, z) position using ExtendedStruct, 
+    # For instance, if you're managing a (x, y, z) position using OpenStruct, 
     # you will want YAML#y to *not* get in the way. The exceptions are the methods
     # listed in NOT_OVERRIDABLE
     #
-    module ExtendedStruct
+    class OpenStruct
 	include DRbUndumped
+
+        attr_reader :model
 
 	# +attach_to+ and +attach_name+
 	# are used so that
-	#   root = ExtendedStruct.new
+	#   root = OpenStruct.new
 	#   root.bla
 	# does *not* add a +bla+ attribute to root, while the following constructs
 	#   root.bla.test = 20
@@ -52,12 +56,25 @@ module Roby
 	#   bla.test = 20
 	#
 	# will not fail
-	def initialize_extended_struct(children_class = nil, attach_to = nil, attach_name = nil) # :nodoc
+	def initialize(attach_to_or_model = nil, attach_name = nil) # :nodoc
 	    clear
-            @attach_as = [attach_to, attach_name.to_s] if attach_to
-	    @children_class = children_class || self.class
+
+            if attach_name
+                attach_to, @model = attach_to_or_model, nil
+            else
+                attach_to, @model = nil, attach_to_or_model
+            end
+
             @observers       = Hash.new { |h, k| h[k] = [] }
             @filters         = Hash.new
+
+            if attach_to
+                link_to(attach_to, attach_name)
+            end
+
+            if @model
+                attach
+            end
         end
 
 	def clear
@@ -71,7 +88,7 @@ module Roby
         def pretty_print(pp)
             pp.seplist(@members) do |child|
                 child_name, child_obj = *child
-                if child_obj.kind_of?(ExtendedStruct)
+                if child_obj.kind_of?(OpenStruct)
                     pp.text "#{child_name} >"
                 else
                     pp.text "#{child_name}"
@@ -81,31 +98,29 @@ module Roby
             end
         end
 
-        module ClassExtension
-            def _load(io)
-                marshalled_members, aliases = Marshal.load(io)
+        def self._load(io)
+            marshalled_members, aliases = Marshal.load(io)
 
-                result = new
-                marshalled_members.each do |name, marshalled_field|
-                    begin
-                        value = Marshal.load(marshalled_field)
-                        if value.kind_of?(ExtendedStruct)
-                            value.attach_to(result, name)
-                        else
-                            result.__set(name, value)
-                        end
-                    rescue Exception
-                        Roby::Distributed.warn "cannot load #{name} #{marshalled_field}: #{$!.message}"
+            result = new
+            marshalled_members.each do |name, marshalled_field|
+                begin
+                    value = Marshal.load(marshalled_field)
+                    if value.kind_of?(OpenStruct)
+                        value.attach_to(result, name)
+                    else
+                        result.__set(name, value)
                     end
+                rescue Exception
+                    Roby::Distributed.warn "cannot load #{name} #{marshalled_field}: #{$!.message}"
                 end
-
-                result.instance_variable_set("@aliases", aliases)
-                result
-
-            rescue Exception
-                Roby::Distributed.warn "cannot load #{marshalled_members} #{io}: #{$!.message}"
-                raise
             end
+
+            result.instance_variable_set("@aliases", aliases)
+            result
+
+        rescue Exception
+            Roby::Distributed.warn "cannot load #{marshalled_members} #{io}: #{$!.message}"
+            raise
         end
 
 	def _dump(lvl = -1)
@@ -116,12 +131,18 @@ module Roby
 	    Marshal.dump([marshalled_members, @aliases])
 	end
 
-	attr_reader :children_class
-
 	attr_reader :attach_as, :__parent_struct, :__parent_name
 
-        def attach_to(parent, name)
+        def link_to(parent, name)
             @attach_as = [parent, name]
+            @model =
+                if parent.model
+                    parent.model.get(name)
+                end
+        end
+
+        def attach_to(parent, name)
+            link_to(parent, name)
             attach
         end
 
@@ -136,8 +157,12 @@ module Roby
 		@__parent_struct, @__parent_name = @attach_as
 		@attach_as = nil
 		__parent_struct.attach_child(__parent_name, self)
+                if @model
+                    @model.attach
+                end
 	    end
         end
+
         # When a field is dynamically created by #method_missing, it is created
         # in a pending state, in which it is not yet attached to its parent
         # structure
@@ -180,7 +205,7 @@ module Roby
 	    @observers[name] << block
 	end
 
-	# Converts this ExtendedStruct into a corresponding hash, where all
+	# Converts this OpenStruct into a corresponding hash, where all
 	# keys are symbols. If +recursive+ is true, any member which responds
 	# to #to_hash will be converted as well
 	def to_hash(recursive = true)
@@ -263,6 +288,13 @@ module Roby
 	# raises NoMethodError
         def stable?; @stable end
 
+        def freeze
+            freeze
+            each_member do |name, field|
+                field.freeze
+            end
+        end
+
 	# Sets the stable attribute of +self+ to +is_stable+. If +recursive+ is true,
 	# set it on the child struct as well. 
 	#
@@ -288,7 +320,7 @@ module Roby
 
         if RUBY_VERSION >= "1.8.7"
             # has_method? will be used to know if a given method is already defined
-            # on the ExtendedStruct object, without taking into account the members
+            # on the OpenStruct object, without taking into account the members
             # and aliases.
             def has_method?(name)
                 Object.instance_method(:respond_to?).bind(self).call(name, true)
@@ -300,7 +332,7 @@ module Roby
             end
         else
             # has_method? will be used to know if a given method is already defined
-            # on the ExtendedStruct object, without taking into account the members
+            # on the OpenStruct object, without taking into account the members
             # and aliases.
             def has_method?(name)
                 Object.instance_method(:respond_to?).bind(self).call(name)
@@ -353,6 +385,13 @@ module Roby
 
         def __get(name, create_substruct = true, &update)
             name = name.to_s
+
+            if model
+                # We never automatically create levels as the model should tell us
+                # what we want
+                create_substruct = false
+            end
+
             if @members.has_key?(name)
                 member = @members[name]
             else
@@ -379,12 +418,16 @@ module Roby
         #
         # The default is to create a subfield of the same class than +self+
         def create_subfield(name)
-            children_class.new(self, name)
+            self.class.new(self, name)
         end
 
         def __set(name, *args)
             name = name.to_s
             name = @aliases[name] || name
+
+            if model && !model.get(name).kind_of?(OpenStructModel::Variable)
+                raise ArgumentError, "#{name} is not a state variable on #{self}"
+            end
 
             value = args.first
 
@@ -460,13 +503,28 @@ module Roby
 
         def __merge(other)
             @members.merge(other) do |k, v1, v2|
-                if v1.kind_of?(ExtendedStruct) && v2.kind_of?(ExtendedStruct)
+                if v1.kind_of?(OpenStruct) && v2.kind_of?(OpenStruct)
                     if v1.class != v2.class
                         raise ArgumentError, "#{k} is a #{v1.class} in self and #{v2.class} in other, I don't know what to do"
                     end
                     v1.__merge(v2)
                 else
                     v2
+                end
+            end
+        end
+
+        # Prepares the state structure using the provided model. In practice, it
+        # creates all the sublevels declared in the model
+        def initialize_from_model
+            model.each_member do |name, field|
+                case field
+                when OpenStructModel::Variable
+                    # Don't do anything here, as we don't know which values to
+                    # set
+                else
+                    @members[name] = create_subfield(name)
+                    @members[name].initialize_from_model
                 end
             end
         end
