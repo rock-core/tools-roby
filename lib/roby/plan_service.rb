@@ -123,6 +123,10 @@ module Roby
             end
         end
 
+        def respond_to?(name, *args)
+            super || task.respond_to?(name, *args)
+        end
+
         def method_missing(*args, &block) # :nodoc:
             task.send(*args, &block)
         end
