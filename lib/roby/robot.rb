@@ -11,6 +11,11 @@ module Robot
     @logger.formatter = Roby.logger.formatter
     @logger.progname = "Robot"
 
+    # Find an action on the planning interface that can generate the given task
+    # model
+    #
+    # Raises ArgumentError if there either none or more than one. Otherwise,
+    # returns the action name.
     def self.action_from_model(model)
 	candidates = []
         Roby.app.planners.each do |planner_model|
@@ -32,6 +37,13 @@ module Robot
         end
     end
 
+    # Generate the plan pattern that will call the required action on the
+    # planning interface, with the given arguments.
+    #
+    # This returns immediately, and the action is not yet deployed at that
+    # point.
+    #
+    # @returns task, planning_task
     def self.prepare_action(plan, name, arguments = Hash.new)
         if name.kind_of?(Class)
             planner_model, m = action_from_model(name)
@@ -69,6 +81,14 @@ module Robot
 	return task, planner
     end
 
+    # Implements that one can call
+    #
+    #   Robot.action_name! :arg0 => value0, :arg1 => value1
+    #
+    # To inject a given action in Roby.plan. The added action is added as a
+    # mission.
+    #
+    # See also Robot.prepare_action
     def self.method_missing(name, *args)
 	if name.to_s =~ /!$/
 	    name = $`.to_sym
