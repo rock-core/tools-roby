@@ -59,7 +59,7 @@ module Roby
         def resolve_data_sources(object, state)
             each_member do |name, field|
                 if field.respond_to?(:data_source)
-                    state.data_sources.__set(name, field.data_source.bind(object, state))
+                    state.data_sources.__set(name, field.data_source.bind(object))
                 else
                     field.resolve_data_sources(object, state.__get(name, true))
                 end
