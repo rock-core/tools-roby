@@ -134,5 +134,9 @@ module Roby
         def to_task # :nodoc:
             task
         end
+
+        def kind_of?(*args)
+            task.kind_of?(*args)
+        end
     end
 end
