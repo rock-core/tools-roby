@@ -193,6 +193,12 @@ module Roby
             permanent_events.each { |e| copy.permanent_events << e }
         end
 
+        def deep_copy
+            plan = Roby::Plan.new
+            mappings = deep_copy_to(plan)
+            return plan, mappings
+        end
+
         # Copies this plan's state (tasks, events and their relations) into the
         # provided plan
         #
@@ -1281,6 +1287,38 @@ module Roby
         def on_exception(*matchers, &handler)
             check_arity(handler, 2)
             exception_handlers.unshift [matchers, handler]
+        end
+
+        # Compares this plan to +other_plan+, mappings providing the mapping
+        # from task/Events in +self+ to task/events in other_plan
+        def same_plan?(other_plan, mappings)
+            all_self_objects = known_tasks | free_events
+
+            all_other_objects = (other_plan.known_tasks | other_plan.free_events)
+            all_mapped_objects = all_self_objects.map do |obj|
+                return false if !mappings.has_key?(obj)
+                mappings[obj]
+            end.to_value_set
+            if all_mapped_objects != all_other_objects
+                return false
+            end
+            all_self_objects.each do |self_obj|
+                other_obj = mappings[self_obj]
+
+                self_obj.each_relation do |rel|
+                    self_children  = self_obj.enum_child_objects(rel).to_a
+                    other_children = other_obj.enum_child_objects(rel).to_a
+                    return false if self_children.size != other_children.size
+
+                    for self_child in self_children
+                        self_info = self_obj[self_child, rel]
+                        other_child = mappings[self_child]
+                        return false if !other_obj.child_object?(other_child, rel)
+                        other_info = other_obj[other_child, rel]
+                        return false if self_info != other_info
+                    end
+                end
+            end
         end
     end
 
