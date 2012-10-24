@@ -255,7 +255,7 @@ class TC_StateSpace < Test::Unit::TestCase
 
         obj = Object.new
         source = flexmock
-        source_model.should_receive(:bind).with(obj).once.
+        source_model.should_receive(:resolve).with(obj).once.
             and_return(source)
         model.resolve_data_sources(obj, state)
         assert_equal source, state.data_sources.pose.position

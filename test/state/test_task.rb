@@ -27,7 +27,7 @@ class TC_StateInTask < Test::Unit::TestCase
         task_model.state.pose.position = source_model
 
         task = task_model.new
-        source_model.should_receive(:bind).with(task, task.state.pose).once.
+        source_model.should_receive(:resolve).with(task).once.
             and_return(source = Object.new)
         task.resolve_state_sources
         assert_same source, task.state.data_sources.pose.position

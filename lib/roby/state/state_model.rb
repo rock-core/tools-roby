@@ -55,11 +55,11 @@ module Roby
 
         # This methods iterates over the state model, and for each state
         # variable for which a data source model is provided, create the
-        # corresponding data source by calling #bind
+        # corresponding data source by calling #resolve
         def resolve_data_sources(object, state)
             each_member do |name, field|
                 if field.respond_to?(:data_source)
-                    state.data_sources.__set(name, field.data_source.bind(object))
+                    state.data_sources.__set(name, field.data_source.resolve(object))
                 else
                     field.resolve_data_sources(object, state.__get(name, true))
                 end
