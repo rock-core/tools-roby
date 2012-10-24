@@ -834,6 +834,7 @@ module Roby
 
         def teardown
             super
+            Roby.app.cleanup
         end
 
     end
