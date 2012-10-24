@@ -353,7 +353,7 @@ module Roby
             end
         end
 	# Checks if +task+ is a mission of this plan
-	def mission?(task); @missions.include?(task) end
+	def mission?(task); @missions.include?(task.to_task) end
 
         def remove_mission(task) # :nodoc:
             Roby.warn_deprecated "#remove_mission renamed #unmark_mission"
@@ -362,6 +362,7 @@ module Roby
 
 	# Removes the task in +tasks+ from the list of missions
 	def unmark_mission(task)
+            task = task.to_task
 	    @missions.delete(task)
 	    task.mission = false if task.self_owned?
 
@@ -423,8 +424,13 @@ module Roby
         #
         # See also #add_permanent and #permanent?
 	def unmark_permanent(object)
-            @permanent_tasks.delete(object) 
-            @permanent_events.delete(object)
+            if object.respond_to?(:to_task)
+                @permanent_tasks.delete(object.to_task) 
+            elsif object.respond_to?(:to_event)
+                @permanent_events.delete(object.to_event)
+            else
+                raise ArgumentError, "expected a task or event and got #{object}"
+            end
         end
 
         def auto(obj) # :nodoc:
@@ -435,7 +441,15 @@ module Roby
         # True if +obj+ is neither a permanent task nor a permanent object.
         #
         # See also #add_permanent and #unmark_permanent
-	def permanent?(obj); @permanent_tasks.include?(obj) || @permanent_events.include?(obj) end
+	def permanent?(object)
+            if object.respond_to?(:to_task)
+                @permanent_tasks.include?(object.to_task) 
+            elsif object.respond_to?(:to_event)
+                @permanent_events.include?(object.to_event)
+            else
+                raise ArgumentError, "expected a task or event and got #{object}"
+            end
+        end
 
 	def edit
 	    if block_given?
