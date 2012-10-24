@@ -214,9 +214,6 @@ module Roby
 	# If true, abort if an application exception is found
 	attr_predicate :abort_on_application_exception, true
 
-	# An array of directories in which to search for plugins
-	attr_reader :plugin_dirs
-
 	# True if user interaction is disabled during tests
 	attr_predicate :automatic_testing?, true
 
@@ -314,30 +311,38 @@ module Roby
             @filter_out_patterns = [Roby::RX_IN_FRAMEWORK, Roby::RX_REQUIRE]
             self.abort_on_application_exception = true
 
-	    @plugin_dirs = []
             @planners    = []
 	end
 
-	# Adds +dir+ in the list of directories searched for plugins
-	def plugin_dir(dir)
-	    dir = File.expand_path(dir)
-	    @plugin_dirs << dir
-	    $LOAD_PATH.unshift File.expand_path(dir)
+        # Looks into subdirectories of +dir+ for files called app.rb and
+        # registers them as Roby plugins
+        def load_plugins_from_prefix(dir)
+            dir = File.expand_path(dir)
+	    $LOAD_PATH.unshift dir
 
 	    Dir.new(dir).each do |subdir|
 		subdir = File.join(dir, subdir)
 		next unless File.directory?(subdir)
 		appfile = File.join(subdir, "app.rb")
 		next unless File.file?(appfile)
-
-		begin
-		    require appfile
-		rescue
-		    Roby.warn "cannot load plugin in #{subdir}: #{$!.full_message}\n"
-		end
-		Roby.info "loaded plugin in #{subdir}"
+                load_plugin_file(appfile)
 	    end
-	end
+        end
+
+        # Load the given Roby plugin file. It is usually called app.rb, and
+        # should call register_plugin with the relevant information
+        #
+        # Note that the file should not do anything yet. The actions required to
+        # have a functional plugin should be taken only in the block given to
+        # register_plugin or in the relevant plugin methods.
+        def load_plugin_file(appfile)
+            begin
+                require appfile
+            rescue
+                Roby.warn "cannot load plugin #{appfile}: #{$!.full_message}\n"
+            end
+            Roby.info "loaded plugin #{appfile}"
+        end
 
 	# Returns true if +name+ is a loaded plugin
 	def loaded_plugin?(name)
@@ -411,11 +416,13 @@ module Roby
         
         def register_plugins
             # Load the plugins 'main' files
-            plugin_dir File.join(ROBY_ROOT_DIR, 'plugins')
+            load_plugins_from_prefix File.join(ROBY_ROOT_DIR, 'plugins')
             if plugin_path = ENV['ROBY_PLUGIN_PATH']
-                plugin_path.split(':').each do |dir|
-                    if File.directory?(dir)
-                        plugin_dir File.expand_path(dir)
+                plugin_path.split(':').each do |plugin|
+                    if File.directory?(plugin)
+                        load_plugins_from_prefix plugin
+                    else
+                        load_plugin_file plugin
                     end
                 end
             end
