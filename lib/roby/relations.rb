@@ -27,6 +27,26 @@ module Roby
             end
         end
 
+        def each_root_relation
+            each_graph do |g|
+                yield(g) if g.kind_of?(RelationGraph) && g.root_relation?
+            end
+        end
+
+        def sorted_relations
+            Roby.all_relations.
+                find_all { |rel| rel.include?(self) }
+        end
+
+        # Yields each relation this vertex is part of, starting with the most
+        # specialized relations
+        def each_relation_sorted
+            # Remove from the set of relations the ones that are not leafs
+            for rel in sorted_relations
+                yield(rel)
+            end
+        end
+
 	# Removes +self+ from all the graphs it is included in.
 	def clear_vertex
             for rel in sorted_relations
@@ -166,20 +186,6 @@ module Roby
                 relation.remove_relation(self, child)
             end
 	end
-
-        def sorted_relations
-            @sorted_relations ||= Roby.all_relations.
-                find_all { |rel| rel.include?(self) }
-        end
-
-        # Yields each relation this vertex is part of, starting with the most
-        # specialized relations
-        def each_relation_sorted
-            # Remove from the set of relations the ones that are not leafs
-            for rel in sorted_relations
-                yield(rel)
-            end
-        end
 
         def []=(object, relation, value)
             super
