@@ -60,11 +60,6 @@ module Roby
 		    pending.
 		    self_owned
 
-		@debug_query = self.plan.find_tasks.
-		    not_executable.
-		    pending.
-		    self_owned
-
                 @can_schedule_cache = Hash.new
                 @enabled = true
 	    end
@@ -125,7 +120,12 @@ module Roby
                 @can_schedule_cache.clear
                 time = Time.now
                 Schedulers.debug do
-                    not_executable = @debug_query.reset.to_a
+                    not_executable = self.plan.find_tasks.
+                        not_executable.
+                        pending.
+                        self_owned.
+                        to_a
+
                     if !not_executable.empty?
                         Schedulers.debug "#{not_executable.size} tasks are pending but not executable"
                         for task in not_executable
