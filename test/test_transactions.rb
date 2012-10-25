@@ -1118,6 +1118,18 @@ class TC_Transactions < Test::Unit::TestCase
             assert(trsc.task_index.by_state[:finished?].include?(p3))
 	end
     end
+
+    def test_when_unreachable_is_propagated_to_the_plan
+	t1 = prepare_plan :add => 1, :model => Tasks::Simple
+        mock = flexmock
+        mock.should_receive(:is_unreachable).once
+        transaction_commit(plan, t1) do |trsc, p1|
+            p1.stop_event.when_unreachable do |*_|
+                mock.is_unreachable
+            end
+        end
+        plan.remove_object(t1)
+    end
 end
 
 class TC_RecursiveTransaction < Test::Unit::TestCase
