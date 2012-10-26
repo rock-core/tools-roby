@@ -693,7 +693,11 @@ module Roby
             # Make the file relative to the search path
             file = make_path_relative(absolute_path)
             Roby::Application.info "loading #{file} (#{absolute_path})"
-            Kernel.require(file)
+            begin
+                Kernel.require(File.join(".", file))
+            rescue LoadError
+                Kernel.require absolute_path
+            end
         end
 
         # Loads the models, based on the given robot name and robot type
