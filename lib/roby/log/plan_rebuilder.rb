@@ -154,7 +154,7 @@ module Roby
                 # Check if we need to override the model, or only the bound
                 # event
                 if !self.model.event_model(symbol).controlable? && marshalled_event.controlable
-                    terminal = event(symbol).terminal?
+                    terminal = self.model.event_model(symbol).terminal?
                     event_model = self.model.
                         event(symbol, :controlable => marshalled_event.controlable,
                               :terminal => terminal)
