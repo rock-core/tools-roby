@@ -415,33 +415,37 @@ module Roby
             # false otherwise.
 	    def process(data)
 		data.each_slice(4) do |m, sec, usec, args|
-		    time = Time.at(sec, usec)
-                    @current_time = time
-		    reason = catch :ignored do
-			begin
-			    if respond_to?(m)
-				send(m, time, *args)
-			    end
-			rescue Exception => e
-			    display_args = args.map do |obj|
-				case obj
-				when NilClass then 'nil'
-				when Time then obj.to_hms
-				when DRbObject then obj.inspect
-				else (obj.to_s rescue "failed_to_s")
-				end
-			    end
-
-			    raise e, "#{e.message} while serving #{m}(#{display_args.join(", ")})", e.backtrace
-			end
-			nil
-		    end
-		    if reason
-			Roby.warn "Ignored #{m}(#{args.join(", ")}): #{reason}"
-		    end
+                    process_one_event(m, sec, usec, args)
 		end
                 has_event_propagation_updates? || has_structure_updates?
 	    end
+
+            def process_one_event(m, sec, usec, args)
+                time = Time.at(sec, usec)
+                @current_time = time
+                reason = catch :ignored do
+                    begin
+                        if respond_to?(m)
+                            send(m, time, *args)
+                        end
+                    rescue Exception => e
+                        display_args = args.map do |obj|
+                            case obj
+                            when NilClass then 'nil'
+                            when Time then obj.to_hms
+                            when DRbObject then obj.inspect
+                            else (obj.to_s rescue "failed_to_s")
+                            end
+                        end
+
+                        raise e, "#{e.message} while serving #{m}(#{display_args.join(", ")})", e.backtrace
+                    end
+                    nil
+                end
+                if reason
+                    Roby.warn "Ignored #{m}(#{args.join(", ")}): #{reason}"
+                end
+            end
 
 	    def local_object(object, create = true)
                 return manager.local_object(object, create)
