@@ -1,6 +1,5 @@
-
 module Roby
-    class ExtendedStruct
+    class StateSpace
         # Create an event which will be emitted everytime some state parameters
         # vary more than the given deltas. The following state parameters are
         # available:
@@ -303,7 +302,4 @@ module Roby
 	def read;  State.pos.dup end
     end
 end
-
-
-
 

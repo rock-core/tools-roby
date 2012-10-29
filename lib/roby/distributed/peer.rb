@@ -349,7 +349,13 @@ module Roby::Distributed
         #
         # It is usually called by Roby::BasicObject#remove_sibling_for
         def removed_sibling(remote_object)
-            proxies.delete(remote_object)
+            if remote_object.respond_to?(:remote_siblings)
+                remote_object.remote_siblings.each_value do |remote_id|
+                    proxies.delete(remote_id)
+                end
+            else
+                proxies.delete(remote_object)
+            end
         end
 
         def clear

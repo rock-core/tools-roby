@@ -193,6 +193,12 @@ module Roby
             permanent_events.each { |e| copy.permanent_events << e }
         end
 
+        def deep_copy
+            plan = Roby::Plan.new
+            mappings = deep_copy_to(plan)
+            return plan, mappings
+        end
+
         # Copies this plan's state (tasks, events and their relations) into the
         # provided plan
         #
@@ -353,7 +359,7 @@ module Roby
             end
         end
 	# Checks if +task+ is a mission of this plan
-	def mission?(task); @missions.include?(task) end
+	def mission?(task); @missions.include?(task.to_task) end
 
         def remove_mission(task) # :nodoc:
             Roby.warn_deprecated "#remove_mission renamed #unmark_mission"
@@ -362,6 +368,7 @@ module Roby
 
 	# Removes the task in +tasks+ from the list of missions
 	def unmark_mission(task)
+            task = task.to_task
 	    @missions.delete(task)
 	    task.mission = false if task.self_owned?
 
@@ -423,8 +430,13 @@ module Roby
         #
         # See also #add_permanent and #permanent?
 	def unmark_permanent(object)
-            @permanent_tasks.delete(object) 
-            @permanent_events.delete(object)
+            if object.respond_to?(:to_task)
+                @permanent_tasks.delete(object.to_task) 
+            elsif object.respond_to?(:to_event)
+                @permanent_events.delete(object.to_event)
+            else
+                raise ArgumentError, "expected a task or event and got #{object}"
+            end
         end
 
         def auto(obj) # :nodoc:
@@ -435,7 +447,15 @@ module Roby
         # True if +obj+ is neither a permanent task nor a permanent object.
         #
         # See also #add_permanent and #unmark_permanent
-	def permanent?(obj); @permanent_tasks.include?(obj) || @permanent_events.include?(obj) end
+	def permanent?(object)
+            if object.respond_to?(:to_task)
+                @permanent_tasks.include?(object.to_task) 
+            elsif object.respond_to?(:to_event)
+                @permanent_events.include?(object.to_event)
+            else
+                raise ArgumentError, "expected a task or event and got #{object}"
+            end
+        end
 
 	def edit
 	    if block_given?
@@ -1267,6 +1287,38 @@ module Roby
         def on_exception(*matchers, &handler)
             check_arity(handler, 2)
             exception_handlers.unshift [matchers, handler]
+        end
+
+        # Compares this plan to +other_plan+, mappings providing the mapping
+        # from task/Events in +self+ to task/events in other_plan
+        def same_plan?(other_plan, mappings)
+            all_self_objects = known_tasks | free_events
+
+            all_other_objects = (other_plan.known_tasks | other_plan.free_events)
+            all_mapped_objects = all_self_objects.map do |obj|
+                return false if !mappings.has_key?(obj)
+                mappings[obj]
+            end.to_value_set
+            if all_mapped_objects != all_other_objects
+                return false
+            end
+            all_self_objects.each do |self_obj|
+                other_obj = mappings[self_obj]
+
+                self_obj.each_relation do |rel|
+                    self_children  = self_obj.enum_child_objects(rel).to_a
+                    other_children = other_obj.enum_child_objects(rel).to_a
+                    return false if self_children.size != other_children.size
+
+                    for self_child in self_children
+                        self_info = self_obj[self_child, rel]
+                        other_child = mappings[self_child]
+                        return false if !other_obj.child_object?(other_child, rel)
+                        other_info = other_obj[other_child, rel]
+                        return false if self_info != other_info
+                    end
+                end
+            end
         end
     end
 
