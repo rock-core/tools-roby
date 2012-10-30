@@ -104,7 +104,7 @@ module Roby
                     end
 
                     wrapped = do_wrap(object, true)
-                    if plan.mission?(object)
+                    if object.respond_to?(:to_task) && plan.mission?(object)
                         add_mission(wrapped)
                     elsif plan.permanent?(object)
                         add_permanent(wrapped)
