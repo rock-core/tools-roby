@@ -74,6 +74,18 @@ module Roby
 		yield(e) unless e == self
 	    end
 	end
+        # Enumerates all tasks that are involved in this exception (either
+        # origin or in the trace)
+        def each_involved_task
+            return enum_for(:each_involved_task) if !block_given?
+            trace.each do |tr|
+                if tr.respond_to?(:to_ary)
+                    tr.each { |t| yield(t) }
+                else
+                    yield(tr)
+                end
+            end
+        end
 
         # True if this exception originates from the given task or generator
         def originates_from?(object)

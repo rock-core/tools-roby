@@ -132,13 +132,13 @@ module Roby
             @exception_handlers = Array.new
 
             on_exception LocalizedError do |plan, error|
-                error.trace.
+                error.each_involved_task.
                     find_all { |t| plan.mission?(t) && t != error.origin }.
                     each do |m|
                         plan.add_error(MissionFailedError.new(m, error.exception))
                     end
 
-                error.trace.
+                error.each_involved_task.
                     find_all { |t| plan.permanent?(t) && t != error.origin }.
                     each do |m|
                         plan.add_error(PermanentTaskError.new(m, error.exception))
