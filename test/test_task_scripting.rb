@@ -436,6 +436,16 @@ class TC_TaskScripting < Test::Unit::TestCase
         process_events
     end
 
+    def test_script_is_prepared_with_the_new_task_after_a_replacement
+        model = Class.new(Roby::Task) { terminates }
+        old, new = prepare_plan :add => 2, :model => model
+        old.abstract = true
+        script = old.script { }
+        plan.replace_task(old, new)
+        flexmock(script).should_receive(:prepare).with(new).once
+        new.start!
+    end
+
     def test_transaction_commits_new_script_on_pending_task
         task = prepare_plan :permanent => 1, :model => Roby::Tasks::Simple
         task.executable = false

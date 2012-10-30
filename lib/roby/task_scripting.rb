@@ -667,16 +667,16 @@ module Roby
 
         # Adds a task script that is going to be executed while this task
         # instance runs.
-        def script(&block)
+        def script(options = Hash.new, &block)
             script = TaskScripting::ScriptEngine.new
             script.load(&block)
-            execute do |task|
-                script.prepare(self)
+            execute(options) do |task|
+                script.prepare(task)
             end
-            poll do |task|
+            poll(options) do |task|
                 script.execute
             end
-            self
+            script
         end
     end
 end
