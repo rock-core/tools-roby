@@ -24,33 +24,15 @@ Roby.
                 ['utilrb', '>= 1.3.1']
 
             self.extra_dev_deps <<
-                ['rdoc', '>= 2.4'] <<
                 ['webgen', '>= 0.5']
-
-            self.need_rdoc = false
         end
 	hoe.spec.extensions << 
 	    'ext/droby/extconf.rb' <<
 	    'ext/graph/extconf.rb'
 
-        hoe.spec.extra_rdoc_files =
-            hoe.spec.files.grep /(\.rdoc|\.cc|\.hh|\.rb|\.txt)$/
-
         hoe.spec.description = hoe.summary
             
-        hoe.spec.rdoc_options << 
-            '--main' << 'README.rd' <<
-            "--accessor" << "attribute" << 
-            "--accessor" << "attr_predicate"
-
         Rake.clear_tasks(/doc/)
-
-        desc 'update the pages that are displayed on doudou.github.com/roby'
-        task "publish_docs" => "doc:all" do
-            if !system( File.join("doc", "misc", "update_github") )
-                raise "cannot update the gh-pages branch"
-            end
-        end
     end
 
 rescue Exception => e
