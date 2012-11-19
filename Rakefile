@@ -122,11 +122,11 @@ end
 
 # This is for the user's guide
 begin
-    require 'webgen/webgentask'
     require 'roby/app/rake'
+    require 'webgen/webgentask'
     do_doc = true
 rescue LoadError => e
-    STDERR.puts "webgen and/or the rdoc Gem are not available, documentation generation disabled"
+    STDERR.puts "webgen is not available, documentation generation disabled"
     STDERR.puts "  Ruby reported the following load error: #{e.message}"
 end
 

@@ -1140,7 +1140,7 @@ module Roby
 	end
 	
 	# This predicate is true if this task is a mission for its owners. If
-	# you want to know if it a mission for the local pDB, use Plan#mission?
+	# you want to know if it a mission for the local system, use Plan#mission?
 	attr_predicate :mission?, true
 
 	def inspect
@@ -1826,8 +1826,9 @@ module Roby
         # This is equivalent to
         #   event(event_model).emit(*context)
         #
-        # @param [Symbol] the event that should be fired
-        # @param [Object] context
+        # @param [Symbol] event_model the event that should be fired
+        # @param [Object] context the event context, i.e. payload data that is
+        #   propagated along with the event itself
         # @return self
         def emit(event_model, *context)
             event(event_model).emit(*context)
@@ -1849,7 +1850,7 @@ module Roby
         # Registers an event handler for the given event.
         #
         # @overload on(event_name, options = Hash.new, &handler)
-        #   @param [Symbol] the generator for which this handler should be registered
+        #   @param [Symbol] event_model the generator for which this handler should be registered
         #   @yield [event] the event handler
         #   @yieldparam [TaskEvent] event the emitted event that caused this
         #     handler to be called
@@ -2005,15 +2006,15 @@ module Roby
         #
         # @param [Symbol,String] event_name the event name
         # @param [Hash] options an option hash
-        # @options options [Boolean] :controllable if true, the event is
+        # @option options [Boolean] :controllable if true, the event is
         #   controllable and will use the default command of emitting directly
         #   in the command
-        # @options options [Boolean] :terminal if true, the event is marked as
+        # @option options [Boolean] :terminal if true, the event is marked as
         #   terminal, i.e. it will terminate the task upon emission. Giving this
         #   flag is required to redeclare an existing terminal event in a
         #   subclass. Otherwise, it is determined automatically by checking
         #   whether the event is forwarded to :stop
-        # @options options [Class] :model the base class used to create the
+        # @option options [Class] :model the base class used to create the
         #   model for this event. This class is going to be used to generate the
         #   event. Defaults to TaskEvent.
         #
