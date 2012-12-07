@@ -11,17 +11,26 @@ sampling_period = Roby::Log::Server::DEFAULT_SAMPLING_PERIOD
 config = 'roby-display.yml'
 display_mode = 'relations'
 
+def parse_remote_host(host_spec)
+    if !host_spec
+        host_spec = 'localhost'
+    end
+    host, port = host_spec.split(':')
+    if host.empty?
+        host = 'localhost'
+    end
+    port = Integer(port || Roby::Log::Server::DEFAULT_PORT)
+    return host, port
+end
+
 options = OptionParser.new do |opt|
-    opt.on('--client[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host|
+    opt.on('--client[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host_spec|
         data_source_mode = :client
-        if !host
-            host = 'localhost'
-        end
-        host, port = host.split(':')
-        if host.empty?
-            host = 'localhost'
-        end
-        port = Integer(port || Roby::Log::Server::DEFAULT_PORT)
+        host, port = parse_remote_host(host_spec)
+    end
+    opt.on('--host[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host_spec|
+        data_source_mode = :client
+        host, port = parse_remote_host(host_spec)
     end
     opt.on('--server[=PORT]', Integer, "starts in server mode. If the port number is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |server_port|
         data_source_mode = :server
