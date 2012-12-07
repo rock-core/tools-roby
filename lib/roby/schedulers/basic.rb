@@ -5,17 +5,16 @@ module Roby
     # any given time. There can be only one scheduler, which is set at
     # initialization time with
     #
-    #   Roby.engine.scheduler = <scheduler object>.
+    #   Roby.scheduler = <scheduler object>.
     #
     # For instance
     #
-    #   Roby.engine.scheduler = Roby::Schedulers::Basic.new
+    #   Roby.scheduler = Roby::Schedulers::Basic.new
     #
     # Then, the scheduler's #initial_events method is called at the
     # beginning of each execution cycle. This method is supposed to call
     # whatever event is reasonable to call with respect to the system's
     # state (i.e. execution situation).
-    #
     module Schedulers
         extend Logger::Hierarchy
         extend Logger::Forward

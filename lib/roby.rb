@@ -97,6 +97,7 @@ require 'roby/distributed/base'
 require 'roby/decision_control.rb'
 require 'roby/execution_engine.rb'
 require 'roby/app.rb'
+require 'roby/singletons'
 require 'roby/log'
 
 require 'roby/robot.rb'

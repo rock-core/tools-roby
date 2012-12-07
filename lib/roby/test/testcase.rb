@@ -87,8 +87,8 @@ module Roby
 
 	    def setup # :nodoc:
                 @plan = Roby.plan
-                @engine = Roby.engine
-                @control = Roby.control
+                @engine = plan.engine
+                @control = plan.engine.control
 
 		super
 	    end

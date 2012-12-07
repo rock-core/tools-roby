@@ -59,8 +59,8 @@ module Roby
 
         # The main plan on which this application acts
         #
-        # It is usually, but not necessarily, the same as Roby.plan
-        attr_accessor :plan
+        # It is the same as Roby.plan
+        attr_reader :plan
         
 	# A set of planners declared in this application
 	attr_reader :planners
@@ -301,6 +301,7 @@ module Roby
 
 	def initialize
 	    @plugins = Array.new
+            @plan = Plan.new
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
             @created_log_dirs = []
@@ -469,29 +470,7 @@ module Roby
 	end
 
 	def reset
-            if !plan
-                @plan = Plan.new
-                if !Roby.plan
-                    Roby.instance_variable_set :@plan, @plan
-                end
-            end
-
             plan.clear
-
-	    if defined? State
-		State.clear
-                Conf.clear
-	    else
-		Roby.const_set(:State,  StateSpace.new)
-		Roby.const_set(:Conf, ConfModel.new)
-	    end
-
-	    # Import some constants directly at toplevel before loading the
-	    # user-defined models
-            Object.define_or_reuse :Application, Roby::Application
-            Object.define_or_reuse :State, Roby::State
-            Object.define_or_reuse :Conf, Roby::Conf
-
 	    call_plugins(:reset, self)
 	end
 
@@ -779,7 +758,13 @@ module Roby
             require 'roby/interface'
 	    load_base_config
 
-            setup_global_singletons
+            if !Roby.control
+                Roby.control = DecisionControl.new
+            end
+            plan.engine = ExecutionEngine.new(plan, Roby.control)
+            if Roby.scheduler
+                plan.engine.scheduler = Roby.scheduler
+            end
 
 	    # Set up the loaded plugins
 	    call_plugins(:base_setup, self)
@@ -872,9 +857,9 @@ module Roby
 
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
-		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(Roby.engine)
+		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(plan.engine)
 	    else
-		DRb.start_service "druby://#{host}", Interface.new(Roby.engine)
+		DRb.start_service "druby://#{host}", Interface.new(plan.engine)
             end
 
             # Consistency check: DRb.here?(DRbObject.new(obj).__drburi) should
@@ -936,7 +921,7 @@ module Roby
             prepare
 
 	    engine_config = self.engine
-	    engine = Roby.engine
+	    engine = self.plan.engine
 	    options = { :cycle => engine_config['cycle'] || 0.1 }
 	    
 	    engine.run options
@@ -960,8 +945,7 @@ module Roby
         # Note that the cleanup we talk about here is related to running.
         # Cleanup required after #setup must be done in #cleanup
 	def run_plugins(mods, &block)
-	    engine = Roby.engine
-
+            engine = plan.engine
 	    if mods.empty?
 		yield
 
@@ -980,7 +964,7 @@ module Roby
 	    end
 
 	rescue Exception => e
-	    if Roby.engine.running?
+	    if engine.running?
 		engine.quit
 		engine.join
 		raise e, e.message, e.backtrace
@@ -1348,30 +1332,6 @@ module Roby
 	def single?; @single end
 	def single;  @single = true end
 
-        def setup_global_singletons
-            if !Roby.engine && Roby.plan.engine
-                # This checks coherence with Roby.control, and sets it
-                # accordingly
-                Roby.engine  = Roby.plan.engine
-            elsif !Roby.control
-                Roby.control = DecisionControl.new
-            end
-
-            if !Roby.engine
-                Roby.engine  = ExecutionEngine.new(Roby.plan, Roby.control)
-            end
-
-            if Roby.control != Roby.engine.control
-                raise "inconsistency between Roby.control and Roby.engine.control"
-            elsif Roby.engine != Roby.plan.engine
-                raise "inconsistency between Roby.engine and Roby.plan.engine"
-            end
-
-            if !Roby.engine.scheduler && Roby.scheduler
-                Roby.engine.scheduler = Roby.scheduler
-            end
-        end
-
         def find_data(*name)
             Application.find_data(*name)
         end
@@ -1427,20 +1387,6 @@ module Roby
             end
             require_planners
         end
-    end
-
-    @app = Application.new
-    class << self
-        # The one and only Application object
-        attr_reader :app
-
-        # The scheduler object to be used during execution. See
-        # ExecutionEngine#scheduler.
-        #
-        # This is only used during the configuration of the application, and
-        # not afterwards. It is also possible to set per-engine through
-        # ExecutionEngine#scheduler=
-        attr_accessor :scheduler
     end
 end
 

@@ -1321,14 +1321,5 @@ module Roby
             end
         end
     end
-
-    class << self
-        # Returns the main plan
-        attr_reader :plan
-    end
-    
-    # Defines a global exception handler on the main plan.
-    # See also Plan#on_exception
-    def self.on_exception(*matchers, &handler); Roby.plan.on_exception(*matchers, &handler) end
 end
 

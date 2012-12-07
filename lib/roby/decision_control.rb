@@ -91,19 +91,5 @@ module Roby
             end
         end
     end
-
-    class << self
-	attr_reader :control
-
-        def control=(new)
-            if control
-                raise ArgumentError, "cannot change the decision control object"
-            elsif engine && new != engine.control
-                raise ArgumentError, "must have Roby.control == Roby.engine.control"
-            end
-
-            @control = new
-        end
-    end
 end
 
