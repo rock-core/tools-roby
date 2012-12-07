@@ -377,17 +377,23 @@ module Roby::TaskStructure
         # the class object
         attr_writer :fullfilled_model
 
-	# Return [tags, arguments] where +tags+ is a list of task models which
-	# are required by the parent tasks of this task, and arguments the
-	# required arguments
-	#
-	# If there is a task class in the required models, it is always the
-	# first element of +tags+
+	# The list of models and arguments that this task fullfilles
+        #
+        # If there is a task model in the list of models, it is always the first
+        # element of the model set
+        #
+        # @return [(Array<Model<Task>,TaskModelTag>,{String=>Object}]
+        #
+        # Beware that, for historical reasons, this is not the same format than
+        # {#fullfilled_model=}
 	def fullfilled_model
 	    current_model =
-                if explicit = (@fullfilled_model || self.model.fullfilled_model)
+                if explicit = @fullfilled_model
                     has_value = true
-                    explicit
+                    @fullfilled_model
+                elsif models = self.model.fullfilled_model
+                    tasks, tags = models.partition { |m| m <= Roby::Task }
+                    [tasks.first || Roby::Task, tags, Hash.new]
                 else
                     has_value = false
                     [Roby::Task, [], {}]
@@ -410,6 +416,10 @@ module Roby::TaskStructure
                 [tags, arguments]
             end
 	end
+
+        def each_fullfilled_model(&block)
+            fullfilled_model[0].each(&block)
+        end
 
 	# Remove all children that have successfully finished
 	def remove_finished_children
@@ -448,11 +458,38 @@ module Roby::TaskStructure
     Hierarchy = Dependency
 
     module DependencyGraphClass::Extension::ClassExtension
-        # Specify the base model that will be used as the model for which
-        # this task is used.
+        # Specifies the models that all instances of this task model fullfill
         #
-        # See #fullfilled_model= and #fullfilled_model on the task instances
-        attr_accessor :fullfilled_model
+        # (see DependencyGraphClass::Extension#fullfilled_model=
+        attr_writer :fullfilled_model
+
+        # Returns the model that all instances of this taks model fullfill
+        #
+        # (see DependencyGraphClass::Extension#fullfilled_model)
+        def fullfilled_model
+            return each_fullfilled_model.to_a
+        end
+        
+        # Enumerates the models that all instances of this task model fullfill
+        #
+        # @yields [Model<Task>,TaskModelTag]
+        # @return [void]
+        def each_fullfilled_model
+            return enum_for(:each_fullfilled_model) if !block_given?
+            # Do NOT use #fullfilled_model here, as it is using
+            # #each_fullfilled_model for its purposes
+            if @fullfilled_model
+                yield(@fullfilled_model[0])
+                @fullfilled_model[1].each { |m| yield(m) }
+            else
+                ancestors.each do |m|
+                    yield(m) if m.kind_of?(Class) || m.kind_of?(Roby::TaskModelTag)
+                    if m == Roby::Task
+                        return
+                    end
+                end
+            end
+        end
     end
 
     class DependencyGraphClass
