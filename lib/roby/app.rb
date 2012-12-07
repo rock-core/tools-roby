@@ -328,6 +328,8 @@ module Roby
 		next unless File.file?(appfile)
                 load_plugin_file(appfile)
 	    end
+        ensure
+            $LOAD_PATH.shift
         end
 
         # Load the given Roby plugin file. It is usually called app.rb, and
