@@ -998,6 +998,7 @@ module Roby
                 end
             end
 
+            Roby::Task.clear_submodels
             stop_log_server
             stop_drb_service
             call_plugins(:cleanup, self)

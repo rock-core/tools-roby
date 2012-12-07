@@ -982,16 +982,18 @@ module Roby
             end
         end
 
-        class << self
-            attr_reader :all_models
-        end
-        @all_models = ValueSet.new
+        extend Utilrb::Models::Registration
 
-        def self.inherited(klass)
-            Task.all_models << klass
+        # @deprecated
+        #
+        # Use #each_submodel instead
+        def self.all_models
+            submodels
         end
-        def self.deregister(klass)
-            Task.all_models.delete(klass)
+
+        # Returns the model that is parent of this one
+        def self.supermodel
+            @supermodel ||= ancestors[1..-1].find { |t| t.kind_of?(Class) && t.respond_to?(:register_submodel) }
         end
 
         # Clears all definitions saved in this model. This is to be used by the
