@@ -529,10 +529,17 @@ module Roby::TaskStructure
         end
 
         def validate_options(options)
-            Kernel.validate_options options, [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]
+            Kernel.validate_options options, 
+                :model => [[Roby::Task], Hash.new],
+                :success => nil,
+                :failure => nil,
+                :remove_when_done => false,
+                :consider_in_pending => false,
+                :roles => Set.new,
+                :role => nil
         end
 
-        def merge_info(parent, child, opt1, opt2)
+        def self.merge_dependency_options(opt1, opt2)
             if opt1[:remove_when_done] != opt2[:remove_when_done]
                 raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
             end
@@ -600,6 +607,10 @@ module Roby::TaskStructure
             result[:roles] = opt1[:roles] | opt2[:roles]
 
             result
+        end
+
+        def merge_info(parent, child, opt1, opt2)
+            DependencyGraphClass.merge_dependency_options(opt1, opt2)
         end
 
         # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
