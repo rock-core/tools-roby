@@ -2118,6 +2118,13 @@ module Roby
                     event(event_name).happened?
                 end
             end
+            if !respond_to?("#{ev_s}_event")
+                singleton_class.class_eval do
+                    define_method("#{ev_s}_event") do
+                        find_event_model(ev_s)
+                    end
+                end
+            end
 
 	    new_event
         end

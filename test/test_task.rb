@@ -13,6 +13,15 @@ class TC_Task < Test::Unit::TestCase
         Roby.app.filter_backtraces = false
     end
 
+    def test_model_allows_to_get_events_using_the_blabla_event_syntax
+        model = Class.new(Roby::Task) do
+            event :custom
+            event :other
+        end
+        event_model = model.custom_event
+        assert_same model.find_event_model('custom'), event_model
+    end
+
     def test_model_tag
         tag1 = TaskModelTag.new { argument :model_tag_1 }
 	assert(tag1.const_defined?(:ClassExtension))
