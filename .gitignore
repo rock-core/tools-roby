@@ -12,3 +12,4 @@ doc/cache
 
 pkg/
 logs/
+.yardoc
