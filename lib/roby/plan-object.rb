@@ -92,8 +92,12 @@ module Roby
 	# case
 	def plan=(new_plan)
 	    if removed_at
-		raise ArgumentError, "#{self} has been removed from plan, cannot add it back\n" +
-		    "Removed at\n  #{removed_at.join("\n  ")}"
+                if PlanObject.debug_finalization_place?
+                    raise ArgumentError, "#{self} has been removed from plan, cannot add it back\n" +
+                        "Removed at\n  #{removed_at.join("\n  ")}"
+                else
+                    raise ArgumentError, "#{self} has been removed from plan, cannot add it back. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
+                end
 	    end
             if !@addition_time
                 @addition_time = Time.now
