@@ -772,7 +772,16 @@ module TC_TransactionBehaviour
 	end
     end
 
-    def test_plan_finalized_task
+    def test_wrap_raises_if_wrapping_a_finalized_task
+	t1 = prepare_plan :add => 1
+        plan.remove_object(t1)
+
+        plan.in_transaction do |trsc|
+            assert_raises(ArgumentError) { trsc.wrap(t1) }
+        end
+    end
+
+    def test_finalizing_a_task_invalidates_the_transaction
 	t1, t2, t3 = prepare_plan :missions => 1, :add => 1
 	t1.depends_on t2
 
@@ -783,7 +792,6 @@ module TC_TransactionBehaviour
 		assert(trsc.wrap(t1, false))
 		plan.remove_object(t1)
 		assert(trsc.invalid?)
-		assert(!trsc.wrap(t1, false))
 	    end
 	end
     end

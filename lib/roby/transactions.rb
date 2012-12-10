@@ -108,7 +108,7 @@ module Roby
 		elsif proxy = proxy_objects[object] then return proxy
 		end
 
-                if !object.plan && !object.finalized?
+                if !object.plan
                     object.plan = self
                     add(object)
                     return object
