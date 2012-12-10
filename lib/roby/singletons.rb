@@ -1,9 +1,17 @@
 module Roby
     @app = Application.new
+    @state = Roby::StateSpace.new
+    @conf = Roby::ConfModel.new
 
     class << self
         # The one and only Application object
         attr_reader :app
+
+        # The one and only StateSpace object
+        attr_reader :state
+
+        # The one and only ConfModel object
+        attr_reader :conf
 
         # The scheduler object to be used during execution. See
         # ExecutionEngine#scheduler.
@@ -43,12 +51,12 @@ module Roby
     def self.on_exception(*matchers, &handler); Roby.app.plan.on_exception(*matchers, &handler) end
 
     # The main state object
-    State = Roby::StateSpace.new
+    State = Roby.state
     # The main configuration object
-    Conf  = Roby::ConfModel.new
+    Conf  = Roby.conf
 end
 
 # The main state object
-State = Roby::State
+State = Roby.state
 # The main configuration object
-Conf  = Roby::Conf
+Conf  = Roby.conf
