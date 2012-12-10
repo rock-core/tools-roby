@@ -6,14 +6,27 @@ module Roby
     # sandbox, and then to apply the modifications to the real plan (using #commit_transaction), or
     # to discard all modifications (using #discard)
     class Transaction < Plan
-	# A transaction is not an executable plan
+	# If true, an engine could execute tasks included in this plan. This is
+        # alwxays false for transactions
+        #
+        # @return [Boolean]
 	def executable?; false end
 
         # If this is true, no new proxies can be created on the transaction.
         # This is used during the commit process to verify that no new
         # modifications are applied to the transaction
         attr_predicate :frozen?
-        attr_predicate :committed
+
+        # True if this transaction has been committed
+        #
+        # @see #finalized?
+        attr_predicate :committed?
+
+        # True if this transaction has either been discarded or committed
+        #
+        # @return [Boolean]
+        # @see #committed?
+	def finalized?; !plan end
 
         def create_proxy(proxy, object, klass = nil)
             proxy ||= object.dup
@@ -22,7 +35,6 @@ module Roby
             proxy.setup_proxy(object, self)
             proxy
         end
-
 
         def register_proxy(proxy, object, do_include = false)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
@@ -335,8 +347,15 @@ module Roby
 	    end
 	end
 
+        # The set of invalidation reasons registered with {#invalidate}. It is
+        # cleared if the transaction is marked as valid again by calling
+        # {#invalid=}.
+        #
+        # @return [Array<String>]
 	attribute(:invalidation_reasons) { Array.new }
 
+        # Marks this transaction as either invalid or valid. If it is marked as
+        # valid, it clears {#invalidation_reasons}.
 	def invalid=(flag)
 	    if !flag
 		invalidation_reasons.clear
@@ -344,8 +363,19 @@ module Roby
 	    @invalid = flag
 	end
 
+        # True if {#invalidate} has been called, and {#invalid=} has not been
+        # called to clear the invalidation afterwards.
 	def invalid?; @invalid end
+
+        # Tests if it is safe to commit this transaction
+        #
+        # @return [Boolean] it returns false if there are other transactions on
+        #   top of it. They must be committed or discarded before this transaction
+        #   can be committed or discarded. It also returns safe if if this
+        #   transaction has been marked as invalid with {#invalidate}
 	def valid_transaction?; transactions.empty? && !invalid? end
+
+        # Marks this transaction as valid
 	def invalidate(reason = nil)
 	    self.invalid = true
 	    invalidation_reasons << [reason, caller(1)] if reason
@@ -353,6 +383,12 @@ module Roby
 		"invalidating #{self}: #{reason}"
 	    end
 	end
+
+        # Tests if it is safe to commit this transaction
+        #
+        # @return [void]
+        # @raise [InvalidTransaction] in all cases where {#valid_transaction?}
+        #   returns false
 	def check_valid_transaction
 	    return if valid_transaction?
 
@@ -483,8 +519,11 @@ module Roby
 		yield if block_given?
 	    end
 	end
+
+        # Hook called just after this transaction has been committed
+        #
+        # @return [void]
 	def committed_transaction; super if defined? super end
-	def finalized?; !plan end
 
 	def enable_proxying; @disable_proxying = false end
 	def disable_proxying
@@ -511,9 +550,9 @@ module Roby
 
 	# Discard all the modifications that have been registered 
 	# in this transaction
+        #
+        # @return [void]
 	def discard_transaction
-	#    if !Roby.control.running?
-	#	raise "#commit_transaction requires the presence of a control thread"
 	    if !transactions.empty?
 		raise InvalidTransaction, "there is still transactions on top of this one"
 	    end
@@ -528,12 +567,20 @@ module Roby
 	    end
 	    @plan = nil
 	end
+
+        # Hook called just after this transaction has been discarded
+        #
+        # @return [void]
 	def discarded_transaction; super if defined? super end
 
 	def frozen!
 	    @frozen = true
 	end
 
+        # Clears this transaction
+        #
+        # A cleared transaction behaves as a new transaction on the same plan
+        # @return [void]
 	def clear
             auto_tasks.clear
 	    discarded_tasks.clear
@@ -542,6 +589,13 @@ module Roby
 	    super
 	end
 
+        # Hook called when a task included in self got finalized from {#plan}
+        #
+        # It invalidates the transaction and calls
+        # DecisionControl#finalized_plan_task(self, event) for further actions
+        #
+        # @param [Task] task the finalized task represented by its proxy in self
+        # @return [void]
 	def finalized_plan_task(task)
             proxied_task = task.__getobj__
 
@@ -550,6 +604,13 @@ module Roby
 	    control.finalized_plan_task(self, task)
 	end
 
+        # Hook called when an event included in self got finalized from {#plan}
+        #
+        # It invalidates the transaction and calls
+        # DecisionControl#finalized_plan_event(self, event) for further actions
+        #
+        # @param [EventGenerator] event the finalized event represented by its proxy in self
+        # @return [void]
 	def finalized_plan_event(event)
             proxied_event = event.__getobj__
 
@@ -558,6 +619,20 @@ module Roby
 	    control.finalized_plan_event(self, event)
 	end
 
+        # Hook called when a relation is added between plan objects that are
+        # present in the transaction
+        #
+        # If the new relation is not present in the transaction as well, it
+        # invalidates the transaction and calls 
+        # DecisionControl#adding_plan_relation(self, parent, child, relations, info) for further action
+        #
+        # @param [PlanObject] parent the parent object represented by its proxy in self
+        # @param [PlanObject] child the child object represented by its proxy in self
+        # @param [Array<RelationGraph>] relations the graphs in which a relation
+        #   has been added
+        # @param [Object] info the added information for the new edges
+        #   (relation specific)
+        # @return [void]
 	def adding_plan_relation(parent, child, relations, info)
 	    missing_relations = relations.find_all do |rel|
 		!parent.child_object?(child, rel)
@@ -568,6 +643,18 @@ module Roby
 	    end
 	end
 
+        # Hook called when a relation is removed between plan objects that are
+        # present in the transaction
+        #
+        # If the removed relation is still present in the transaction as well, it
+        # invalidates the transaction and calls 
+        # DecisionControl#removing_plan_relation(self, parent, child, relations, info) for further action
+        #
+        # @param [PlanObject] parent the parent object represented by its proxy in self
+        # @param [PlanObject] child the child object represented by its proxy in self
+        # @param [Array<RelationGraph>] relations the graphs in which a relation
+        #   has been added
+        # @return [void]
 	def removing_plan_relation(parent, child, relations)
 	    present_relations = relations.find_all do |rel|
 		parent.child_object?(child, rel)
