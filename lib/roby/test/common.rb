@@ -823,9 +823,8 @@ module Roby
             Roby.app.setup
             Roby.app.prepare
 
-            @plan ||= Plan.new
-            @control ||= DecisionControl.new
-            Roby.app.plan = plan
+            @plan    = Plan.new
+            @control = DecisionControl.new
             if !plan.engine
                 ExecutionEngine.new(@plan, @control)
             end
