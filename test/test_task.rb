@@ -1214,18 +1214,12 @@ class TC_Task < Test::Unit::TestCase
 	assert(t3.fullfills?(t1))
     end
 
-    def test_fullfill_using_provided_services
+    def test_fullfill_using_explicit_fullfilled_model_on_task_model
         tag = TaskModelTag.new
         proxy_model = Class.new(Task) do
             include tag
-
-            @tag = tag
-            class << self
-                define_method(:provided_services) do
-                    [@tag]
-                end
-            end
         end
+        proxy_model.fullfilled_model = [tag]
         real_model = Class.new(Task) do
             include tag
         end

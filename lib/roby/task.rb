@@ -2530,22 +2530,6 @@ module Roby
             end
         end
 
-        # The list of Task and/or tag classes that represent the services this
-        # task provides
-        #
-        # By default, it is [model], i.e. the task's class itself
-        def provided_services
-            self.class.provided_services
-        end
-
-        # The list of Task and/or tag classes that represent the services this
-        # task model
-        #
-        # By default, it is [self], i.e. the task model itself
-        def self.provided_services
-            [self]
-        end
-
 	# The fullfills? predicate checks if this task can be used
 	# to fullfill the need of the given +model+ and +arguments+
 	# The default is to check if
@@ -2562,8 +2546,8 @@ module Roby
                     args = m.meaningful_arguments
                 end
 
-                if m.respond_to?(:provided_services)
-                    models.concat(m.provided_services.to_a)
+                if m.respond_to?(:each_fullfilled_model)
+                    models.concat(m.each_fullfilled_model.to_a)
                 else
                     models << m
                 end

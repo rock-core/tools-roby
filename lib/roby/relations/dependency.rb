@@ -212,7 +212,7 @@ module Roby::TaskStructure
             end
 
             options = DependencyGraphClass.validate_options options, 
-		:model => [task.provided_services, task.meaningful_arguments], 
+		:model => [task.provided_models, task.meaningful_arguments], 
 		:success => :success.to_unbound_task_predicate, 
 		:failure => false.to_unbound_task_predicate,
 		:remove_when_done => true,
@@ -379,7 +379,21 @@ module Roby::TaskStructure
         #
         # This parameter can be set model-wide by using #fullfilled_model= on
         # the class object
-        attr_writer :fullfilled_model
+        def fullfilled_model=(model)
+            if !model[0].kind_of?(Class)
+                raise ArgumentError, "expected a task model as first element, got #{model[0]}"
+            end
+            if !model[1].respond_to?(:to_ary)
+                raise ArgumentError, "expected an array as second element, got #{model[1]}"
+            elsif !model[1].all? { |t| t.kind_of?(Roby::TaskModelTag) }
+                raise ArgumentError, "expected an array of model tags as second element, got #{model[1]}"
+            end
+
+            if !model[2].respond_to?(:to_hash)
+                raise ArgumentError, "expected a hash as third element, got #{model[2]}"
+            end
+            @fullfilled_model = model
+        end
 
 	# The list of models and arguments that this task fullfilles
         #
@@ -393,15 +407,15 @@ module Roby::TaskStructure
 	def fullfilled_model
 	    current_model =
                 if explicit = @fullfilled_model
-                    has_value = true
                     @fullfilled_model
-                elsif models = self.model.fullfilled_model
+                elsif self.model.explicit_fullfilled_model?
+                    models = self.model.fullfilled_model
                     tasks, tags = models.partition { |m| m <= Roby::Task }
                     [tasks.first || Roby::Task, tags, Hash.new]
-                else
-                    has_value = false
-                    [Roby::Task, [], {}]
                 end
+            if current_model then has_value = true
+            else current_model = [Roby::Task, [], {}]
+            end
 
 	    merged_relations(:each_parent_task, false) do |myself, parent|
                 has_value = true
@@ -421,6 +435,36 @@ module Roby::TaskStructure
             end
 	end
 
+        # True if #fullfilled_model has been set on this task or on this task's
+        # model
+        #
+        # @return [Boolean]
+        def explicit_fullfilled_model?
+            !!@fullfilled_model || self.model.explicit_fullfilled_model?
+        end
+
+        # Returns the set of models this task is providing by itself
+        #
+        # It differs from #fullfilled_model because it is not considering the
+        # models that are required because of the dependency relation
+        #
+        # @return [Array<Model<Task>,TaskService>]
+        # @see #fullfilled_model
+        def provided_models
+            if explicit_fullfilled_model?
+                if @fullfilled_model
+                    return [@fullfilled_model[0]] + @fullfilled_model[1]
+                else return self.model.fullfilled_model
+                end
+            else
+                [self.model]
+            end
+        end
+
+        # Enumerates the models that are fullfilled by this task
+        #
+        # @return [Array<Model<Task>,TaskService>]
+        # @see #provided_models
         def each_fullfilled_model(&block)
             fullfilled_model[0].each(&block)
         end
@@ -462,10 +506,22 @@ module Roby::TaskStructure
     Hierarchy = Dependency
 
     module DependencyGraphClass::Extension::ClassExtension
+        # True if a fullfilled model has been explicitly set on {#self}
+        # @return [Boolean]
+        def explicit_fullfilled_model?; !!@fullfilled_model end
+
         # Specifies the models that all instances of this task model fullfill
         #
         # (see DependencyGraphClass::Extension#fullfilled_model=
-        attr_writer :fullfilled_model
+        def fullfilled_model=(models)
+            if !models.respond_to?(:to_ary)
+                raise ArgumentError, "expected an array, got #{models}"
+            elsif !models.all? { |t| t.kind_of?(Roby::TaskModelTag) || (t.respond_to?(:<=) && (t <= Roby::Task)) }
+                raise ArgumentError, "expected a submodel of TaskModelTag, got #{models}"
+            end
+
+            @fullfilled_model = models
+        end
 
         # Returns the model that all instances of this taks model fullfill
         #
@@ -483,11 +539,10 @@ module Roby::TaskStructure
             # Do NOT use #fullfilled_model here, as it is using
             # #each_fullfilled_model for its purposes
             if @fullfilled_model
-                yield(@fullfilled_model[0])
-                @fullfilled_model[1].each { |m| yield(m) }
+                @fullfilled_model.each { |m| yield(m) }
             else
                 ancestors.each do |m|
-                    yield(m) if m.kind_of?(Class) || m.kind_of?(Roby::TaskModelTag)
+                    yield(m) if m.kind_of?(Class) || (m.kind_of?(Roby::TaskService) && m != Roby::Task::RootTaskService)
                     if m == Roby::Task
                         return
                     end
