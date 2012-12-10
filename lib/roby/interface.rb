@@ -63,10 +63,17 @@ module Roby
 	end
     end
 
+    # Base class for synchronously calling methods on a running Roby plan
     class ShellInterface
         include DRbUndumped
 
+        # The engine this shell acts on
         attr_reader :engine
+
+        # The plan this shell acts on
+        def plan
+            @engine.plan
+        end
         
         def initialize(engine)
             @engine = engine
@@ -513,8 +520,6 @@ help                              | this help message                           
 
 	# Make the Roby event loop quit
 	def stop; engine.quit; nil end
-	# The Roby plan
-	def plan; engine.plan end
 
 	def find_tasks(model = nil, args = nil)
 	    plan.find_tasks(model, args)
