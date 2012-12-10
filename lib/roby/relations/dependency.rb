@@ -211,7 +211,7 @@ module Roby::TaskStructure
                 task = task.as_plan
             end
 
-            options = validate_options options, 
+            options = DependencyGraphClass.validate_options options, 
 		:model => [task.provided_services, task.meaningful_arguments], 
 		:success => :success.to_unbound_task_predicate, 
 		:failure => false.to_unbound_task_predicate,
@@ -532,15 +532,15 @@ module Roby::TaskStructure
             return [model, tags, arguments]
         end
 
-        def validate_options(options)
-            Kernel.validate_options options, 
-                :model => [[Roby::Task], Hash.new],
+        def self.validate_options(options, defaults = Hash.new)
+            defaults = Hash[:model => [[Roby::Task], Hash.new],
                 :success => nil,
                 :failure => nil,
                 :remove_when_done => false,
                 :consider_in_pending => false,
                 :roles => Set.new,
-                :role => nil
+                :role => nil].merge(defaults)
+            Kernel.validate_options options, defaults
         end
 
         def self.merge_dependency_options(opt1, opt2)
