@@ -8,7 +8,11 @@ module Roby
     class Transaction < Plan
 	# A transaction is not an executable plan
 	def executable?; false end
-        attr_predicate :freezed
+
+        # If this is true, no new proxies can be created on the transaction.
+        # This is used during the commit process to verify that no new
+        # modifications are applied to the transaction
+        attr_predicate :frozen?
         attr_predicate :committed
 
         def create_proxy(proxy, object, klass = nil)
@@ -21,7 +25,7 @@ module Roby
 
 
         def register_proxy(proxy, object, do_include = false)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
 
             proxy = create_proxy(proxy, object)
             proxy_objects[object] = proxy
@@ -44,7 +48,7 @@ module Roby
         end
 
 	def do_wrap(object, do_include = false) # :nodoc:
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
 
 	    if proxy = proxy_objects[object]
                 return proxy
@@ -156,7 +160,7 @@ module Roby
         # objects directly is (at best) dangerous, and should be handled by
         # garbage collection.
 	def remove_object(object)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
 
 	    object = may_unwrap(object)
             proxy  = proxy_objects.delete(object)
@@ -226,7 +230,7 @@ module Roby
 	# Creates a new transaction which applies on +plan+
 	def initialize(plan, options = {})
 	    @options = options
-            @freezed = false
+            @frozen = false
             @disable_proxying = false
             @invalid = false
 
@@ -282,29 +286,31 @@ module Roby
 	end
 
 	def add_mission(t)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
             t = t.as_plan
 	    if proxy = self[t, false]
 		discarded_tasks.delete(may_unwrap(proxy))
 	    end
 	    super(t)
 	end
+
 	def add_permanent(t)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
             t = t.as_plan
 	    if proxy = self[t, false]
 		auto_tasks.delete(may_unwrap(proxy))
 	    end
 	    super(t)
 	end
+
 	def add(objects)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
 	    super(objects)
 	    self
 	end
 
 	def unmark_permanent(t)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
             t = t.as_plan
 	    if proxy = self[t, false]
 		super(proxy)
@@ -317,7 +323,7 @@ module Roby
 	end
 
 	def unmark_mission(t)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
             t = t.as_plan
 	    if proxy = self[t, false]
 		super(proxy)
@@ -367,7 +373,7 @@ module Roby
 	    # end
 
 	    check_valid_transaction
-	    freezed!
+	    frozen!
 
 	    plan.execute do
 		auto_tasks.each      { |t| plan.unmark_permanent(t) }
@@ -491,7 +497,7 @@ module Roby
 		end
 	    end
 	end
-	def proxying?; !@freezed && !@disable_proxying end
+	def proxying?; !@frozen && !@disable_proxying end
 
         # Discards this transaction and all the transactions it is part of
         #
@@ -512,7 +518,7 @@ module Roby
 		raise InvalidTransaction, "there is still transactions on top of this one"
 	    end
 
-	    freezed!
+	    frozen!
 	    proxy_objects.each_value { |proxy| proxy.discard_transaction }
 	    clear
 
@@ -524,8 +530,8 @@ module Roby
 	end
 	def discarded_transaction; super if defined? super end
 
-	def freezed!
-	    @freezed = true
+	def frozen!
+	    @frozen = true
 	end
 
 	def clear
