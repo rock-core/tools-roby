@@ -241,6 +241,10 @@ module Roby
 
 	# Creates a new transaction which applies on +plan+
 	def initialize(plan, options = {})
+            if !plan
+                raise ArgumentError, "cannot create a transaction with no plan"
+            end
+
 	    @options = options
             @frozen = false
             @disable_proxying = false
