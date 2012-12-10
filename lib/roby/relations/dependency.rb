@@ -598,6 +598,11 @@ module Roby::TaskStructure
             Kernel.validate_options options, defaults
         end
 
+        # Merges the dependency descriptions (i.e. the relation payload),
+        # verifying that the two provided option hashes are compatible
+        #
+        # @return [Hash] the merged options
+        # @raise [ModelViolation] if the two hashes are not compatible
         def self.merge_dependency_options(opt1, opt2)
             if opt1[:remove_when_done] != opt2[:remove_when_done]
                 raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
@@ -668,6 +673,10 @@ module Roby::TaskStructure
             result
         end
 
+        # Called by the relation management when two dependency relations need
+        # to be merged
+        #
+        # @see DependencyGraphClass.merge_dependency_options
         def merge_info(parent, child, opt1, opt2)
             DependencyGraphClass.merge_dependency_options(opt1, opt2)
         end
