@@ -150,6 +150,9 @@ module Roby
                 plan.permanent_tasks.clear
                 plan.permanent_events.clear
                 plan.missions.clear
+                plan.transactions.each do |trsc|
+                    trsc.discard_transaction!
+                end
 
                 # Mark all readily-removable tasks as non-executable
                 if Roby.scheduler

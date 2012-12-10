@@ -493,6 +493,16 @@ module Roby
 	end
 	def proxying?; !@freezed && !@disable_proxying end
 
+        # Discards this transaction and all the transactions it is part of
+        #
+        # @return [void]
+        def discard_transaction!
+            transactions.each do |trsc|
+                trsc.discard_transaction!
+            end
+            discard_transaction
+        end
+
 	# Discard all the modifications that have been registered 
 	# in this transaction
 	def discard_transaction
