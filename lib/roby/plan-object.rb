@@ -530,7 +530,7 @@ module Roby
 
             if root_object?
                 self.plan = nil
-                if EventGenerator.debug_finalization_place?
+                if PlanObject.debug_finalization_place?
                     self.removed_at = caller
                 else
                     self.removed_at = []
