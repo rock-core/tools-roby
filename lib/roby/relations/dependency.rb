@@ -98,7 +98,11 @@ module Roby::TaskStructure
                 merged_relations(:each_child_object, false, Dependency) do |myself, child|
                     roles << "#{child} => #{myself[child, Dependency][:roles]}"
                 end
-                raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
+                if roles.empty?
+                    raise ArgumentError, "#{self} has no child with the role '#{role_name}', actually, it has not child at all"
+                else
+                    raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
+                end
             end
         end
 
