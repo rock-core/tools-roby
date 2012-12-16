@@ -161,7 +161,7 @@ module Roby
                 process_events
 
                 counter += 1
-                if counter > 1000
+                if counter > 100
                     STDERR.puts "more than #{counter} iterations while trying to shut down the current plan, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
                 end
                 if plan.gc_quarantine.size == plan.known_tasks.size
