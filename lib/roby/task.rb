@@ -2597,8 +2597,8 @@ module Roby
         end
 
 	def can_merge?(target)
-            if defined?(super) && !(can_merge = super)
-                return can_merge
+            if defined?(super) && !super
+                return
             end
 
             if finished? || target.finished?
