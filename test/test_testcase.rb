@@ -14,13 +14,6 @@ class TC_Test_TestCase < Test::Unit::TestCase
                     Test::Unit::AssertionFailedError
                 end
     
-    def setup
-        @plan    = Roby.plan
-        @control = Roby.control
-        @engine  = Roby.engine
-        super
-    end
-
     def test_assert_any_event
 	plan.add(t = Tasks::Simple.new)
 	t.start!
@@ -96,7 +89,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 
 	i = 0
         # Sampling of 1s, every 100ms (== 1 cycle)
-	samples = Roby::Test.sampling(1, 0.1, :time_test, :index, :dummy) do
+	samples = Roby::Test.sampling(engine, 1, 0.1, :time_test, :index, :dummy) do
 	    i += 1
 	    [engine.cycle_start, i + rand / 10 - 0.05, rand / 10 + 0.95]
 	end

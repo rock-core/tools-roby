@@ -247,7 +247,7 @@ module Roby
 		end
 	    end
 
-	    def sampling(*args, &block); Test.sampling(*args, &block) end
+	    def sampling(*args, &block); Test.sampling(engine, *args, &block) end
 	    def stats(*args, &block); Test.stats(*args, &block) end
 	end
     end

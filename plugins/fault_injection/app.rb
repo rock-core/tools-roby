@@ -42,7 +42,7 @@ module Roby
 
             # Called by the Roby application when it starts
             def self.start(app)
-                @handler = Roby.engine.add_propagation_handler(:type => :external_events) do |plan|
+                @handler = app.engine.add_propagation_handler(:type => :external_events) do |plan|
                     FaultInjection.apply(app.fault_models, plan)
                 end
             end
@@ -50,7 +50,7 @@ module Roby
             # Called by the Roby application when it starts
             def self.cleanup(app)
                 if @handler
-                    Roby.engine.remove_propagation_handler(@handler)
+                    app.engine.remove_propagation_handler(@handler)
                 end
             end
 	end

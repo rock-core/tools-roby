@@ -58,9 +58,10 @@ module Roby
         extend Logger::Forward
 
         # The main plan on which this application acts
-        #
-        # It is the same as Roby.plan
         attr_reader :plan
+
+        # The engine associated with {#plan}
+        def engine; plan.engine if plan end
         
 	# A set of planners declared in this application
 	attr_reader :planners
