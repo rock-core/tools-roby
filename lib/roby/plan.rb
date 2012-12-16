@@ -1289,18 +1289,20 @@ module Roby
             exception_handlers.unshift [matchers, handler]
         end
 
-        # Compares this plan to +other_plan+, mappings providing the mapping
-        # from task/Events in +self+ to task/events in other_plan
-        def same_plan?(other_plan, mappings)
+        # Finds a single difference between this plan and the other plan, using
+        # the provided mappings to map objects from self to object in other_plan
+        def find_plan_difference(other_plan, mappings)
             all_self_objects = known_tasks | free_events
 
             all_other_objects = (other_plan.known_tasks | other_plan.free_events)
             all_mapped_objects = all_self_objects.map do |obj|
-                return false if !mappings.has_key?(obj)
+                if !mappings.has_key?(obj)
+                    return [:new_object, obj]
+                end
                 mappings[obj]
             end.to_value_set
             if all_mapped_objects != all_other_objects
-                return false
+                return [:removed_objects, all_other_objects - all_mapped_objects]
             end
             all_self_objects.each do |self_obj|
                 other_obj = mappings[self_obj]
@@ -1308,17 +1310,24 @@ module Roby
                 self_obj.each_relation do |rel|
                     self_children  = self_obj.enum_child_objects(rel).to_a
                     other_children = other_obj.enum_child_objects(rel).to_a
-                    return false if self_children.size != other_children.size
+                    return [:child_mismatch, self_obj, other_obj] if self_children.size != other_children.size
 
                     for self_child in self_children
                         self_info = self_obj[self_child, rel]
                         other_child = mappings[self_child]
-                        return false if !other_obj.child_object?(other_child, rel)
+                        return [:removed_child, self_obj, rel, self_child, other_child] if !other_obj.child_object?(other_child, rel)
                         other_info = other_obj[other_child, rel]
-                        return false if self_info != other_info
+                        return [:info_mismatch, self_obj, rel, self_child, other_child] if !other_obj.child_object?(other_child, rel)
                     end
                 end
             end
+            nil
+        end
+
+        # Compares this plan to +other_plan+, mappings providing the mapping
+        # from task/Events in +self+ to task/events in other_plan
+        def same_plan?(other_plan, mappings)
+            !find_plan_difference(other_plan, mappings)
         end
     end
 end
