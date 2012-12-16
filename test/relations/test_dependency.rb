@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/tasks/simple'
-require 'flexmock'
+require 'flexmock/test_unit'
 require 'pry'
 
 class TC_Dependency < Test::Unit::TestCase
@@ -314,6 +314,13 @@ class TC_Dependency < Test::Unit::TestCase
 	p2.remove_child(child)
 	p2.depends_on child, :model => [klass, { :id => 'discover-3' }]
 	assert_equal([[klass, tag], {:id => 'discover-3'}], child.fullfilled_model)
+    end
+
+    def test_fullfilled_model_uses_model_fullfilled_model_for_its_default_value
+        task_model = Class.new(Roby::Task)
+        flexmock(task_model).should_receive(:fullfilled_model).and_return([Roby::Task, subtask = Class.new(Roby::Task)])
+        plan.add(task = task_model.new)
+        assert_equal [subtask], task.fullfilled_model[0]
     end
 
     def test_explicit_fullfilled_model

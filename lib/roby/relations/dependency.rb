@@ -426,7 +426,8 @@ module Roby::TaskStructure
 	    end
 
             if !has_value
-                [[self.model], self.meaningful_arguments]
+                model = self.model.fullfilled_model.find_all { |m| m <= Roby::Task }.min
+                [[model], self.meaningful_arguments]
             else
                 model, tags, arguments = *current_model
                 tags = tags.dup
