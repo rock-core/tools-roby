@@ -1186,6 +1186,7 @@ module Roby
             @finished = false
             @finishing = false
             @success = nil
+            @reusable = true
 
 	    @arguments = TaskArguments.new(self)
             # First assign normal values
@@ -1581,9 +1582,15 @@ module Roby
         # True if the task is finishing, i.e. if a terminal event is pending.
         attr_predicate :finishing?, true
 
+        # Call to force the value of {#reusable?} to false
+        # @return [void]
+        def do_not_reuse
+            @reusable = false
+        end
+
         # True if this task can be reused by some other parts in the plan
         def reusable?
-            !finished? && !finishing?
+            @reusable && !finished? && !finishing?
         end
 
         def failed_to_start?; !!@failed_to_start end

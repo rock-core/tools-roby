@@ -2172,5 +2172,54 @@ class TC_Task < Test::Unit::TestCase
         assert(task.internal_error?)
         assert(!task.running?)
     end
+
+    def test_new_tasks_are_reusable
+        assert Roby::Task.new.reusable?
+    end
+    def test_do_not_reuse
+        task = Roby::Task.new
+        task.do_not_reuse
+        assert !task.reusable?
+    end
+    def test_running_tasks_are_reusable
+        task = Roby::Task.new
+        flexmock(task).should_receive(:running?).and_return(true)
+        assert task.reusable?
+    end
+    def test_finishing_tasks_are_not_reusable
+        task = Roby::Task.new
+        flexmock(task).should_receive(:finishing?).and_return(true)
+        assert !task.reusable?
+    end
+    def test_finished_tasks_are_not_reusable
+        task = Roby::Task.new
+        flexmock(task).should_receive(:finished?).and_return(true)
+        assert !task.reusable?
+    end
+    def test_reusable_propagation_to_transaction
+        plan.add(task = Roby::Task.new)
+        plan.in_transaction do |trsc|
+            assert trsc[task].reusable?
+        end
+    end
+    def test_do_not_reuse_propagation_to_transaction
+        plan.add(task = Roby::Task.new)
+        task.do_not_reuse
+        plan.in_transaction do |trsc|
+            assert !trsc[task].reusable?
+        end
+    end
+    def test_do_not_reuse_propagation_from_transaction
+        plan.add(task = Roby::Task.new)
+        plan.in_transaction do |trsc|
+            proxy = trsc[task]
+            assert proxy.reusable?
+            proxy.do_not_reuse
+            assert !proxy.reusable?
+            assert task.reusable?
+            trsc.commit_transaction
+        end
+        assert !task.reusable?
+    end
 end
 
