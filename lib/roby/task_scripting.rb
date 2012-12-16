@@ -635,7 +635,9 @@ module Roby
     end
 
     class Task
-        inherited_enumerable(:script, :scripts) { Array.new }
+        class << self
+            define_inherited_enumerable(:script, :scripts) { Array.new }
+        end
 
         # Adds a script that is going to be executed for every instance of this
         # task model

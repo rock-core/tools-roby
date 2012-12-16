@@ -540,14 +540,14 @@ module Roby
 		
 		# Define the method enumerator and the method public interface
 		if !respond_to?("#{name}_methods")
-		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) do
-                        Hash.new
-                    end
 		    class_eval <<-PLANNING_METHOD_END, __FILE__, __LINE__+1
 		    def #{name}(options = Hash.new)
 			plan_method("#{name}", options)
 		    end
 		    class << self
+		      define_inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) do
+                          Hash.new
+                      end
 		      cached_enum("#{name}_method", "#{name}_methods", true)
 	              def #{name}_description
 	                if @#{name}_description
@@ -672,13 +672,13 @@ module Roby
                 @next_method_description = nil
 
 		remove_method(name)
-		remove_inherited_enumerable("#{name}_method", "#{name}_methods")
+		clear_inherited_enumerable("#{name}_method", "#{name}_methods")
 		if method_defined?("#{name}_filter")
-		    remove_inherited_enumerable("#{name}_filter", "#{name}_filters")
+		    clear_inherited_enumerable("#{name}_filter", "#{name}_filters")
 		end
 	    end
 
-	    def self.remove_inherited_enumerable(enum, attr = enum)
+	    def self.clear_inherited_enumerable(enum, attr = enum)
 		if instance_variable_defined?("@#{attr}")
 		    remove_instance_variable("@#{attr}")
 		end
@@ -717,9 +717,9 @@ module Roby
                 check_arity(filter, 2)
 
 		if !respond_to?("#{name}_filters")
-		    inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
 		    class_eval <<-EOD, __FILE__, __LINE__+1
 			class << self
+		            define_inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
 			    cached_enum("#{name}_filter", "#{name}_filters", false)
 			end
 		    EOD

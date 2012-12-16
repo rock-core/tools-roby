@@ -33,6 +33,9 @@ module Roby
         # Then the methods defined on this ClassExtension module become
         # methods of +task_model+
 	module ClassExtension
+            define_inherited_enumerable("argument_set", "argument_set") { ValueSet.new }
+            define_inherited_enumerable("argument_default", "argument_defaults", :map => true) { Hash.new }
+
 	    # Returns the list of static arguments required by this task model
 	    def arguments(*new_arguments)
                 if new_arguments.empty?
@@ -114,18 +117,15 @@ module Roby
 
 	def initialize(&block)
 	    super do
-		inherited_enumerable("argument_set", "argument_set") { ValueSet.new }
-		inherited_enumerable("argument_default", "argument_defaults", :map => true) { Hash.new }
                 define_or_reuse(:ClassExtension, Module.new)
-
 		self::ClassExtension.include TaskService::ClassExtension
 	    end
 	    class_eval(&block) if block_given?
 	end
 
 	def clear_model
-	    @argument_set.clear if @argument_set
-	    @argument_defaults.clear if @argument_defaults
+	    argument_set.clear
+	    argument_defaults.clear
 	end
     end
     TaskModelTag = TaskService
@@ -1024,35 +1024,37 @@ module Roby
         #   #each_signal(model)
         #   
 	def self.model_attribute_list(name) # :nodoc:
-	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = ValueSet.new } }
 	    class_eval <<-EOD, __FILE__, __LINE__+1
-		def self.each_#{name}(model)
-		    for obj in #{name}s(model)
-			yield(obj)
+                class << self
+	            define_inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = ValueSet.new } }
+		    def each_#{name}(model)
+		        for obj in #{name}s(model)
+		    	yield(obj)
+		        end
+		        self
 		    end
-		    self
-		end
-		def self.#{name}s(model)
-		    result = ValueSet.new
-		    each_#{name}_set(model, false) do |set|
-			result.merge set
+		    def #{name}s(model)
+		        result = ValueSet.new
+		        each_#{name}_set(model, false) do |set|
+		    	result.merge set
+		        end
+		        result
 		    end
-		    result
-		end
-		def each_#{name}(model); self.model.each_#{name}(model) { |o| yield(o) } end
 
-                def self.all_#{name}s
-                    if @all_#{name}s
-                        @all_#{name}s
-                    else
-                        result = Hash.new
-                        each_#{name}_set do |from, targets|
-                            result[from] ||= ValueSet.new
-                            result[from].merge(targets)
+                    def all_#{name}s
+                        if @all_#{name}s
+                            @all_#{name}s
+                        else
+                            result = Hash.new
+                            each_#{name}_set do |from, targets|
+                                result[from] ||= ValueSet.new
+                                result[from].merge(targets)
+                            end
+                            @all_#{name}s = result
                         end
-                        @all_#{name}s = result
                     end
                 end
+		def each_#{name}(model); self.model.each_#{name}(model) { |o| yield(o) } end
 	    EOD
 	end
 
@@ -2153,10 +2155,12 @@ module Roby
             end
         end
 
-        # The events defined by the task model
-        #
-        # @return [Hash<Symbol,TaskEvent>]
-        inherited_enumerable(:event, :events, :map => true) { Hash.new }
+        class << self
+            # The events defined by the task model
+            #
+            # @return [Hash<Symbol,TaskEvent>]
+            define_inherited_enumerable(:event, :events, :map => true) { Hash.new }
+        end
 
 	def self.enum_events # :nodoc
 	    @__enum_events__ ||= enum_for(:each_event)
@@ -2616,7 +2620,6 @@ module Roby
         end
 
 	include ExceptionHandlingObject
-	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
 
         # Lists all exception handlers attached to this task
 	def each_exception_handler(&iterator); model.each_exception_handler(&iterator) end
