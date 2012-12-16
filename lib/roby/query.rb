@@ -370,6 +370,9 @@ module Roby
         # Finishing tasks are also running task, use the index on 'running'
         match_predicate :finishing, [[":running?"], []]
 
+        # Reusable tasks must be neither finishing nor finished
+        match_predicate :reusable, [[], [:finished]]
+
 
         # Helper method for #with_child and #with_parent
         def handle_parent_child_arguments(other_query, relation, relation_options) # :nodoc:
