@@ -210,6 +210,8 @@ module Roby
                 @description, @handler, @on_error, @late =
                     description, handler, options[:on_error], options[:late]
             end
+        
+            def to_s; "#<PollBlockDefinition: #{description} #{handler} on_error:#{on_error}>" end
 
             def call(engine)
                 handler.call(engine.plan)
