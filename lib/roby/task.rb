@@ -2491,10 +2491,10 @@ module Roby
                     poll_block.block.call(self)
                 end
             rescue LocalizedError => e
-                Roby.log_pp(e, Roby.logger, :debug)
+                Roby.log_pp(e, Roby.logger, :warn)
                 emit :internal_error, e
             rescue Exception => e
-                Roby.log_pp(e, Roby.logger, :debug)
+                Roby.log_pp(e, Roby.logger, :warn)
                 emit :internal_error, CodeError.new(e, self)
             end
         end
