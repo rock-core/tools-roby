@@ -93,15 +93,16 @@ rescue LoadError
     exit 1
 end
 
+
 require 'roby/distributed/base'
 require 'roby/decision_control.rb'
 require 'roby/execution_engine.rb'
 require 'roby/app.rb'
+require 'roby/state.rb'
 require 'roby/singletons'
 require 'roby/log'
 
 require 'roby/robot.rb'
 require 'roby/planning.rb'
-require 'roby/state.rb'
 require 'roby/task_scripting.rb'
 
