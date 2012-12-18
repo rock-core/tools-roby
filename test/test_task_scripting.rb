@@ -64,7 +64,7 @@ class TC_TaskScripting < Test::Unit::TestCase
         process_events
         process_events
         process_events
-        assert_equal 3, counter
+        assert_equal 4, counter
     end
 
     def test_poll_end_if
@@ -111,11 +111,11 @@ class TC_TaskScripting < Test::Unit::TestCase
             
             task.start!
             6.times { process_events }
-            assert_equal 6, counter
+            assert_equal 7, counter
 
             time += 3
             6.times { process_events }
-            assert_equal 7, counter
+            assert_equal 8, counter
         end
     end
 

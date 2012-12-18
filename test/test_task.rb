@@ -1410,12 +1410,33 @@ class TC_Task < Test::Unit::TestCase
         mock.should_receive(:polled_from_instance).once.with(true, t)
 
         t.start!
-        process_events
 
         # Verify that the poll block gets deregistered when  the task is
         # finished
         plan.unmark_permanent(t)
         t.stop!
+        process_events
+    end
+
+    def test_poll_should_be_called_at_least_once
+        mock = flexmock
+        model = Class.new(Tasks::Simple) do
+            on :start do |event|
+                stop!
+            end
+
+            poll do
+                mock.polled_from_model(running?, self)
+            end
+        end
+        t = prepare_plan :permanent => 1, :model => model
+        t.poll do |task|
+            mock.polled_from_instance(t.running?, task)
+        end
+        mock.should_receive(:polled_from_model).once.with(true, t)
+        mock.should_receive(:polled_from_instance).once.with(true, t)
+
+        t.start!
         process_events
     end
 
@@ -1932,6 +1953,9 @@ class TC_Task < Test::Unit::TestCase
         old, new = prepare_plan :missions => 2, :model => model
 
         FlexMock.use do |mock|
+            mock.should_receive(:should_not_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(new).once
             old.poll { |task| mock.should_not_be_passed_on(task) }
             old.poll(:on_replace => :copy) { |task| mock.should_be_passed_on(task) }
 
@@ -1942,11 +1966,6 @@ class TC_Task < Test::Unit::TestCase
 
             old.start!
             new.start!
-            mock.should_receive(:should_not_be_passed_on).with(old).once
-            mock.should_receive(:should_be_passed_on).with(old).once
-            mock.should_receive(:should_be_passed_on).with(new).once
-
-            process_events
         end
     end
 
@@ -1957,6 +1976,10 @@ class TC_Task < Test::Unit::TestCase
         old, new = prepare_plan :missions => 2, :model => model
 
         FlexMock.use do |mock|
+            mock.should_receive(:should_be_passed_on).with(new).once
+            mock.should_receive(:should_be_passed_on).with(old).once
+            mock.should_receive(:should_not_be_passed_on).with(old).once
+
             old.start_event.on { |event| mock.should_not_be_passed_on(event.task) }
             old.start_event.on(:on_replace => :copy) { |event| mock.should_be_passed_on(event.task) }
 
@@ -1965,9 +1988,6 @@ class TC_Task < Test::Unit::TestCase
             assert_equal(1, new.start_event.handlers.size)
             assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[1].block)
 
-            mock.should_receive(:should_be_passed_on).with(new).once
-            mock.should_receive(:should_be_passed_on).with(old).once
-            mock.should_receive(:should_not_be_passed_on).with(old).once
             old.start!
             new.start!
         end
@@ -1985,6 +2005,8 @@ class TC_Task < Test::Unit::TestCase
         plan.add_permanent(new = Roby::Tasks::Simple.new)
 
         FlexMock.use do |mock|
+            mock.should_receive(:should_be_passed_on).with(new).twice
+
             old.poll { |task| mock.should_be_passed_on(task) }
             old.poll(:on_replace => :drop) { |task| mock.should_not_be_passed_on(task) }
 
@@ -1993,8 +2015,6 @@ class TC_Task < Test::Unit::TestCase
 
             assert_equal(1, new.poll_handlers.size, new.poll_handlers.map(&:block))
             assert_equal(new.poll_handlers[0].block, old.poll_handlers[0].block)
-
-            mock.should_receive(:should_be_passed_on).with(new).once
             process_events
         end
     end

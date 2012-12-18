@@ -2521,10 +2521,7 @@ module Roby
         on :start do |ev|
             engine = plan.engine
 
-            # Call all the execute handlers
-            while execute_block = @execute_handlers.pop
-                execute_block.block.call(self)
-            end
+            do_poll(self.plan)
 
             # Register poll:
             #  - single class poll_handler add be class method Task#poll
