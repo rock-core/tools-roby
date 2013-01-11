@@ -206,7 +206,7 @@ module Roby
         def actions_with_signature(with_advanced = false)
             methods = @interface.actions
             if !with_advanced
-                methods = methods.find_all {|m| !m.description.advanced? }            
+                methods = methods.find_all {|m| !m.advanced? }            
             end
             methods
         end
@@ -217,13 +217,13 @@ module Roby
         def actions_summary(with_advanced = false)
             methods = @interface.actions
             if !with_advanced
-                methods = methods.delete_if { |m| m.description.advanced? }
+                methods = methods.delete_if { |m| m.advanced? }
             end
 
             if !methods.empty?
                 puts
                 desc = methods.map do |p|
-                    doc = p.description.doc || ["(no description set)"]
+                    doc = p.doc || ["(no description set)"]
                     Hash['Name' => "#{p.name}!", 'Description' => doc.join("\n")]
                 end
 
@@ -243,7 +243,7 @@ module Roby
         # Actions are planning methods defined on a registered Planner class.
         # For instance:
         #
-        #   class MainPlanner < Roby::Planning::Planner
+        #   class Main < Roby::Actions::Interface
         #
         #       describe("grasps the given object").
         #           arg("object", "the object name ('GLASS' or 'PLATE')")
@@ -253,7 +253,7 @@ module Roby
         #   end
         def actions(with_advanced = false)
             @interface.actions.each do |m|
-                next if m.description.advanced? if !with_advanced
+                next if m.advanced? if !with_advanced
                 display_action_description(m)
                 puts
             end
@@ -322,7 +322,7 @@ module Roby
             m = @interface.actions.find_all { |p| name === p.name }
 
             if !with_advanced
-                filtered = m.find_all { |m| !m.description.advanced? }
+                filtered = m.find_all { |m| !m.advanced? }
                 m = filtered if !filtered.empty?
             end
 
@@ -371,7 +371,7 @@ help                              | this help message                           
         # Standard display of an action description. +m+ is a PlanningMethod
         # object.
         def display_action_description(m) # :nodoc:
-            args = m.description.arguments.
+            args = m.arguments.
                 sort_by { |arg_desc| arg_desc.name }
 
             first = true
@@ -392,9 +392,9 @@ help                              | this help message                           
                          'Description' => (arg_desc.doc || "(no description set)")]
                 end
 
-            method_doc = m.description.doc || [""]
+            method_doc = m.doc || [""]
             puts "#{m.name}! #{args_summary.join("")}\n#{method_doc.join("\n")}"
-            if m.description.arguments.empty?
+            if m.arguments.empty?
                 puts "No arguments"
             else
                 ColumnFormatter.from_hashes(args_table, STDOUT,
@@ -570,7 +570,7 @@ help                              | this help message                           
 	def actions
 	    Roby.app.planners.
 		map do |p|
-                    p.planning_methods
+                    p.each_action.to_a
                 end.flatten.sort_by { |p| p.name }
 	end
 

@@ -2114,7 +2114,7 @@ class TC_Task < Test::Unit::TestCase
         task, planner_task = task_t.new, task_t.new
 
         planner = flexmock
-        planning_method = flexmock(:name => 'm1', :returns => task_t)
+        planning_method = flexmock(:name => 'm1', :returned_type => task_t)
         flexmock(Robot).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
 
         as_plan = task_t.as_plan

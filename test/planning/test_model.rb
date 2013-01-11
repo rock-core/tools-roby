@@ -2,7 +2,7 @@ $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(_
 require 'roby/test/common'
 require 'roby/planning'
 
-require 'flexmock'
+require 'flexmock/test_unit'
 require 'roby/tasks/simple'
 
 class TC_Planner < Test::Unit::TestCase
@@ -482,6 +482,61 @@ class TC_Planner < Test::Unit::TestCase
 	    filter(:test) { |a, b| false }
 	end.new(plan)
 	assert_raises(Planning::NotFound) { planner.test }
+    end
+
+    def test_find_all_actions_by_type_no_match
+        task_t = Class.new(Roby::Task)
+
+        flexmock(planner = Class.new(Roby::Planning::Planner)) do |pl|
+            pl.should_receive(:planning_methods_names).and_return(%w{m1 m2 m3})
+            pl.should_receive(:find_methods).with("m1", :returns => task_t).once.and_return(nil)
+            pl.should_receive(:find_methods).with("m2", :returns => task_t).once.and_return(nil)
+            pl.should_receive(:find_methods).with("m3", :returns => task_t).once.and_return(nil)
+        end
+        assert_equal [], planner.find_all_actions_by_type(task_t)
+    end
+
+    def test_find_all_actions_by_type_single_match
+        task_t = Class.new(Roby::Task)
+
+        m2 = flexmock(:name => "m2", :options => Hash.new)
+        flexmock(planner = Class.new(Roby::Planning::Planner)) do |pl|
+            pl.should_receive(:planning_methods_names).and_return(%w{m1 m2 m3})
+            pl.should_receive(:find_methods).with("m1", :returns => task_t).once.and_return(nil)
+            pl.should_receive(:find_methods).with("m2", :returns => task_t).once.and_return([m2])
+            pl.should_receive(:find_methods).with("m3", :returns => task_t).once.and_return(nil)
+        end
+        assert_equal [m2], planner.find_all_actions_by_type(task_t)
+    end
+
+
+    def test_find_all_actions_by_type_multiple_matches_same_method
+        task_t = Class.new(Roby::Task)
+
+        m2_1 = flexmock(:name => "m2_1", :options => {:id => 1}) 
+        m2_2 = flexmock(:name => "m2_2", :options => {:id => 2})
+        flexmock(:safe, planner = Class.new(Roby::Planning::Planner)) do |pl|
+            pl.should_receive(:planning_methods_names).and_return(%w{m1 m2 m3})
+            pl.should_receive(:find_methods).with("m1", :returns => task_t).once.and_return(nil)
+            pl.should_receive(:find_methods).with("m2", :returns => task_t).once.and_return([m2_1, m2_2])
+            pl.should_receive(:find_methods).with("m3", :returns => task_t).once.and_return(nil)
+        end
+        assert_equal [m2_1, m2_2], planner.find_all_actions_by_type(task_t)
+    end
+
+    def test_find_all_actions_by_type_multiple_matches_different_methods
+        task_t = Class.new(Roby::Task)
+
+        m1 = flexmock(:name => "m1", :options => Hash.new) 
+        m2 = flexmock(:name => "m2", :options => {:id => 2})
+
+        flexmock(planner = Class.new(Roby::Planning::Planner)) do |pl|
+            pl.should_receive(:planning_methods_names).and_return(%w{m1 m2 m3})
+            pl.should_receive(:find_methods).with("m1", :returns => task_t).once.and_return([m1])
+            pl.should_receive(:find_methods).with("m2", :returns => task_t).once.and_return([m2])
+            pl.should_receive(:find_methods).with("m3", :returns => task_t).once.and_return(nil)
+        end
+        assert_equal [m1, m2], planner.find_all_actions_by_type(task_t)
     end
 
 end

@@ -703,17 +703,24 @@ module Roby
         # This method is called at the end of require_models, before the
         # plugins' require_models hook is called
         def require_planners
-            main_files = find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
+            main_files =
+                find_files('models', 'actions', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
+                find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
                 find_files('planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first)
             main_files.each do |path|
                 require path
             end
 
-            if !defined?(MainPlanner)
+            if !defined?(MainPlanner) # For backward compatibility reasons
                 Object.const_set(:MainPlanner, Class.new(Roby::Planning::Planner))
             end
+            if !defined?(Main)
+                Object.const_set(:Main, Class.new(Roby::Actions::Interface))
+            end
 
-            all_files = find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+            all_files =
+                find_files_in_dirs('models', 'actions', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+                find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
                 find_files_in_dirs('planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/)
             all_files.each do |p|
                 require(p)
@@ -793,9 +800,7 @@ module Roby
             require_config
 
 	    # MainPlanner is always included in the planner list
-            if defined? MainPlanner
-                self.planners << MainPlanner
-            end
+            self.planners << MainPlanner << Main
 	   
 	    # If we are in test mode, import the test extensions from plugins
 	    if testing?

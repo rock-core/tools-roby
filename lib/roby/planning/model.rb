@@ -32,8 +32,10 @@ module Roby
         #   end
         #
         class MethodDescription
+            # The method name
+            attr_accessor :name
             # The method description
-            attr_reader :doc
+            attr_accessor :doc
             # The description of the method arguments, as an array of
             # MethodArgDescription instances
             attr_reader :arguments
@@ -190,6 +192,7 @@ module Roby
             # If this is nil, the method may return a task array or a task
             # aggregation
             def returns;    options[:returns] end
+            def returned_type; returns end
             # If the method allows reusing tasks already in the plan
             # reuse? is always false if there is no return type defined
             def reuse?; options[:reuse] end
@@ -316,8 +319,6 @@ module Roby
 
             def to_s; "#{name}(#{options})" end
         end
-
-        PlanningMethod = Struct.new :name, :model, :description, :instances
 
 	# A planner searches a suitable development for a set of methods. 
 	# Methods are defined using Planner::method. You can then ask
@@ -633,15 +634,7 @@ module Roby
                 end.compact.sort
 
                 names.map do |name|
-                    desc = PlanningMethod.new
-                    desc.name = name
-                    desc.description = planning_method_description(name)
-                    #desc.model = method_model(name)
-                    #desc.instances = Array.new
-                    #send("each_#{name}_method") do |instance|
-                    #    desc.instances << instance
-                    #end
-                    desc
+                    planning_method_description(name)
                 end
             end
             
@@ -652,7 +645,9 @@ module Roby
                 elsif defined? superclass and superclass.respond_to?(:planning_method_description)
                     return superclass.planning_method_description(name)
                 else
-                    return MethodDescription.new
+                    desc = MethodDescription.new(name)
+                    desc.name = name
+                    return desc
                 end
             end
             def planning_method_description(name)
@@ -801,7 +796,7 @@ module Roby
 	    end
 
 	    def self.default_method_model(name)
-		MethodModel.new(name, :returns => Task)
+		MethodModel.new(name, :returns => Roby::Task)
 	    end
 
             # Creates a TaskSequence with the given tasks
@@ -1007,6 +1002,27 @@ module Roby
 		options[:method_options][:id] = loop_method.id
 		PlanningLoop.new(options)
 	    end
+
+            def self.find_all_actions_by_type(model)
+                all = []
+                planning_methods_names.each do |method_name|
+                    if result = find_methods(method_name, :returns => model)
+                        all.concat(result)
+                    end
+                end
+                all
+            end
+
+            def self.find_action_by_name(name)
+                if has_method?(name)
+                    model_of(name, Hash.new)
+                end
+            end
+
+            # Added to honor a common API with Actions::Interface
+            def self.each_action
+                planning_methods
+            end
         end
 
 	# A planning Library is only a way to gather a set of planning
