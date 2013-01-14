@@ -28,6 +28,14 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         assert_same description, m.find_action_by_name('an_action')
     end
 
+    def test_it_returns_nil_for_unknown_actions
+        m = Class.new(Actions::Interface) do
+            describe('an action')
+            def an_action; end
+        end
+        assert !m.find_action_by_name('bla')
+    end
+
     def test_it_does_not_export_methods_without_description
         m = Class.new(Actions::Interface) do
             def an_action; end

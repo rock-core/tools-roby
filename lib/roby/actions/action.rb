@@ -9,7 +9,7 @@ module Roby
             # @return [Hash]
             attr_reader :arguments
 
-            def initialize(model, arguments)
+            def initialize(model, arguments = Hash.new)
                 @model, @arguments = model, arguments
             end
 

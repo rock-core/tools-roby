@@ -63,7 +63,7 @@ module Roby
             # @return [Action]
             def method_missing(m, *args, &block)
                 if model = find_action_by_name(m.to_s)
-                    if args.size != 1
+                    if args.size > 1
                         raise ArgumentError, "expected zero or one argument, got #{args.size}"
                     end
                     return Action.new(model, *args)
