@@ -81,6 +81,7 @@ require 'roby/plan.rb'
 require 'roby/transactions/proxy.rb'
 require 'roby/transactions.rb'
 require 'roby/query.rb'
+require 'roby/actions'
 
 begin
     require 'roby_marshalling'
