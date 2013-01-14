@@ -1969,6 +1969,19 @@ class TC_Task < Test::Unit::TestCase
         end
     end
 
+    def test_poll_is_called_while_the_task_is_running
+        test_case = self
+        model = Class.new(Roby::Task) do
+            terminates
+
+            poll do
+                test_case.assert running?
+            end
+        end
+        plan.add(task = model.new)
+        task.start!
+    end
+
     def test_event_handlers_with_replacing
         model = Class.new(Roby::Task) do
             terminates
