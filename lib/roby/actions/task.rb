@@ -2,26 +2,41 @@ module Roby
     module Actions
         # A task that calls an action interface to generate a plan
         class Task < Roby::Task
-            attr_reader :planner, :transaction
+            terminates
 
-            # The Interface class that should be used to generate the action
+            # Once the task has been started, this is the interface object that
+            # is being used / has been used to generate the action in the plan
             # @return [Interface]
-            argument :action_interface_model
+            attr_reader :action_interface
+            # Once the task has been started, this is the transaction object that
+            # is being used / has been used to generate before committing in the
+            # plan
+            # @return [Transaction]
+            attr_reader :transaction
+
             # The action itself
-            # @return [Description]
-            argument :action_description
+            # @return [ActionModel]
+            argument :action_model
             # The arguments for the action method
             # @return [Hash]
             argument :action_arguments, :default => Hash.new
 
             # The model of the roby task that is going to represent the action
             # in the plan
+            # @return [Model<Roby::Task>] 
             def planned_model
-                action_description.returns
+                action_model.returned_type
             end
 
+            # The action interface model used by this planner
+            # @return [InterfaceModel]
+            def action_interface_model
+                action_model.action_interface_model
+            end
+                
+
             def to_s
-                "#{super}[#{interface_model}:#{action_description}](#{action_arguments}) -> #{action_description.returns}"
+                "#{super}[#{action_interface_model}:#{action_model}](#{action_arguments}) -> #{action_model.returned_type}"
             end
 
             def planned_task
@@ -58,8 +73,8 @@ module Roby
             end
 
             poll do
-                planner = action_interface_model.new(transaction)
-                @result = action_description.execute(planner, action_arguments)
+                @action_interface = action_interface_model.new(transaction)
+                result_task = action_model.run(action_interface, action_arguments)
 
                 # Don't replace the planning task with ourselves if the
                 # transaction specifies another planning task
@@ -78,6 +93,11 @@ module Roby
                 transaction.propose
                 transaction.commit_transaction
                 @result = result_task
+                emit :success
+            end
+
+            on :failed do |event|
+                transaction.discard_transaction
             end
         end
     end
