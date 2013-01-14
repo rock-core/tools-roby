@@ -54,4 +54,16 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         assert_equal [m0, m1].to_set, actions.find_all_actions_by_type(task_m).to_set
         assert_equal [m1], actions.find_all_actions_by_type(subtask_m)
     end
+
+    def test_it_allows_to_get_an_action_object_dynamically
+        m = nil
+        actions = Class.new(Actions::Interface) do
+            m = describe('an action').
+                required_arg('test')
+            def an_action; end
+        end
+        act = actions.an_action('test' => 10)
+        assert_same m, act.model
+        assert_equal Hash['test' => 10], act.arguments
+    end
 end
