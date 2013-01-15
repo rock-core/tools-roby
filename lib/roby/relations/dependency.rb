@@ -112,7 +112,7 @@ module Roby::TaskStructure
                     roles << "#{child} => #{myself[child, Dependency][:roles]}"
                 end
                 if roles.empty?
-                    raise ArgumentError, "#{self} has no child with the role '#{role_name}', actually, it has not child at all"
+                    raise ArgumentError, "#{self} has no child with the role '#{role_name}', actually, it has no child at all"
                 else
                     raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
                 end
