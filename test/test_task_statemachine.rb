@@ -11,19 +11,19 @@ class TC_TaskStateMachine < Test::Unit::TestCase
 
     class TestTask < Roby::Task
         refine_running_state do
-            event :one do 
+            on :one do 
                 transition [:running, :zero] => :one
             end
 
-            event :two do
+            on :two do
                 transition [:one] => :two
             end
 
-            event :three do
+            on :three do
                 transition [:two] => :three
             end
 
-            event :reset do
+            on :reset do
                 transition all => :zero
             end
         end
@@ -33,11 +33,11 @@ class TC_TaskStateMachine < Test::Unit::TestCase
 
     class SecondTestTask < Roby::Task
         refine_running_state :namespace => 'test' do
-            event :firstly do 
+            on :firstly do 
                 transition [:running] => :first
             end 
 
-            event :secondly do
+            on :secondly do
                 transition [:first] => :second
             end
         end
@@ -47,7 +47,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
 
     class DerivedTask < TestTask
         refine_running_state do
-            event :four do
+            on :four do
                 transition [:three] => :four
             end
         end
@@ -97,18 +97,14 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         twoTask = TestTask.new
         scndTask = SecondTestTask.new
 	
-        assert( TestTask.namespace == nil)
-        eval("oneTask.state_machine.one#{TestTask.namespace}!")
+        oneTask.state_machine.one!
         assert(oneTask.state_machine.status == 'one')
-        
         assert(twoTask.state_machine.status == 'running')
         assert(scndTask.state_machine.status == 'running')
-
-        assert(twoTask.state_machine.status_name == :running)
-        assert(scndTask.state_machine.status_name == :running)
         
-        assert( SecondTestTask.namespace == "test")
-        eval("scndTask.state_machine.firstly_test!") #_#{SecondTestTask.namespace}!")
+        scndTask.state_machine.firstly!
+        assert(oneTask.state_machine.status == 'one')
+        assert(twoTask.state_machine.status == 'running')
         assert(scndTask.state_machine.status == 'first')
     end
 
@@ -208,10 +204,10 @@ class TC_TaskStateMachine < Test::Unit::TestCase
 
     def test_poll_in_state
         mock = flexmock
-        mock.should_receive(:running_poll).at_least.once.ordered
-        mock.should_receive(:running_poll_event).at_least.once.ordered
-        mock.should_receive(:one_poll).at_least.once.ordered
-        mock.should_receive(:one_poll_event).at_least.once.ordered
+        mock.should_receive(:running_poll).once.ordered
+        mock.should_receive(:running_poll_event).once.ordered
+        mock.should_receive(:one_poll).once.ordered
+        mock.should_receive(:one_poll_event).once.ordered
 
         model = Class.new(Roby::Task) do
             terminates
@@ -232,15 +228,11 @@ class TC_TaskStateMachine < Test::Unit::TestCase
             end
         end
 
-        task = prepare_plan :permanent => 1, :model => model
-        task.start!
+        task = prepare_plan :missions => 1, :model => model
         task.on(:running_poll) { |_| mock.running_poll_event }
-        process_events
-        assert task.running_poll?
-        task.emit :intermediate
+        task.start!
         task.on(:one_poll) { |_| mock.one_poll_event }
-        assert task.running_poll?
-        process_events
+        task.emit :intermediate
     end
 
     def test_script_in_state
