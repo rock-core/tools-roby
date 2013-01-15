@@ -62,12 +62,12 @@ module Roby
             end
 
             # Instanciate this action on the given plan
-            def instanciate(plan, arguments)
+            def instanciate(plan, arguments = Hash.new)
                 run(action_interface_model.new(plan), arguments)
             end
 
             # Executes the action on the given action interface
-            def run(action_interface, arguments)
+            def run(action_interface, arguments = Hash.new)
                 if self.arguments.empty?
                     action_interface.send(name)
                 else
