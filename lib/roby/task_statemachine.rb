@@ -344,9 +344,7 @@ class TaskStateMachine
     end
 
 end # module TaskStateHelper
+Task.include Roby::TaskStateHelper
 
 end # module Roby
 
-Class.class_eval do
-    include Roby::TaskStateHelper
-end
