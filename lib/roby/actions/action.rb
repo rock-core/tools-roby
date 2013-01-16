@@ -19,6 +19,11 @@ module Roby
             def as_plan
                 model.plan_pattern(arguments)
             end
+
+            # Deploys this action on the given plan
+            def instanciate(plan)
+                model.instanciate(plan, arguments)
+            end
         end
     end
 end
