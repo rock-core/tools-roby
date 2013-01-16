@@ -2244,5 +2244,13 @@ class TC_Task < Test::Unit::TestCase
         end
         assert !task.reusable?
     end
+    def test_model_terminal_event_forces_terminal
+        task_model = Class.new(Roby::Task) do
+            event :terminal, :terminal => true
+        end
+        plan.add(task = task_model.new)
+        assert(task.event(:terminal).terminal?)
+        puts task.event(:terminal).terminal_flag
+    end
 end
 
