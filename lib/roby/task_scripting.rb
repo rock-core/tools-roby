@@ -177,7 +177,7 @@ module Roby
             # Returns the specified child when applied on +task+
             def resolve(task)
                 @chain.inject(task) do |child, role|
-                    if !(next_child = child.child_from_role(role, false))
+                    if !(next_child = child.find_child_from_role(role))
                         if child.abstract? && child.planning_task && !child.planning_task.finished?
                             throw :retry_block
                         end

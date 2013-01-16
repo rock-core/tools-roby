@@ -73,16 +73,14 @@ module Roby::TaskStructure
         end
 
         def has_role?(role_name)
-            !!child_from_role(role_name, false)
+            !!find_child_from_role(role_name)
         end
 
         # Returns the child whose role is +role_name+
         #
-        # If +validate+ is true (the default), raises ArgumentError if there is
-        # none. Otherwise, returns nil. This argument is meant only to avoid the
-        # costly operation of raising an exception in cases it is expected that
-        # the role may not exist.
-        def child_from_role(role_name, validate = true)
+        # @return [nil,Task] the task if a dependency with the given role is
+        #   found, and nil otherwise
+        def find_child_from_role(role_name)
             merged_relations(:each_child_object, false, Dependency) do |myself, child|
                 roles = myself[child, Dependency][:roles]
                 if roles.include?(role_name)
@@ -93,7 +91,22 @@ module Roby::TaskStructure
 		    end
                 end
             end
-            if validate
+            nil
+        end
+
+        # Returns the child whose role is +role_name+
+        #
+        # If +validate+ is true (the default), raises ArgumentError if there is
+        # none. Otherwise, returns nil. This argument is meant only to avoid the
+        # costly operation of raising an exception in cases it is expected that
+        # the role may not exist.
+        def child_from_role(role_name, validate = true)
+            if !validate
+                Roby.warn_deprecated "#child_from_role(name, false) has been replaced by #find_child_from_role"
+            end
+
+            child = find_child_from_role(role_name)
+            if !child && validate
                 roles = []
                 merged_relations(:each_child_object, false, Dependency) do |myself, child|
                     roles << "#{child} => #{myself[child, Dependency][:roles]}"
@@ -104,6 +117,7 @@ module Roby::TaskStructure
                     raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
                 end
             end
+            child
         end
 
         # DEPRECATED. Use #depends_on instead 
@@ -131,7 +145,7 @@ module Roby::TaskStructure
             up_until_now = []
             path.inject(self) do |task, role|
                 up_until_now << role
-                if !(next_task = task.child_from_role(role, false))
+                if !(next_task = task.find_child_from_role(role))
                     raise ArgumentError, "the child #{up_until_now.join(".")} of #{task} does not exist"
                 end
                 next_task
