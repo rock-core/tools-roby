@@ -25,8 +25,24 @@ module Roby
             # The return type for this method, as a task or task service model.
             # It is Roby::Task by default
             #
-            # @return [Roby::Task]
+            # @return [Model<Roby::Task>,Model<Roby::TaskService>]
             attr_reader :returned_type
+
+            # Task model that can be used to represent this action in a plan
+            def returned_task_type
+                if @returned_task_type
+                    return @returned_task_type
+                end
+
+                if returned_type.kind_of?(Roby::TaskModelTag)
+                    model = Class.new(Roby::Task)
+                    model.provides m.returned_type
+                    @returned_task_type = model
+                else
+                    # Create an abstract task which will be planned
+                    @returned_task_type = returned_type
+                end
+            end
 
             def initialize(action_interface_model = nil, doc = nil)
                 @action_interface_model = action_interface_model
@@ -73,6 +89,15 @@ module Roby
                 else
                     action_interface.send(name, arguments)
                 end
+            end
+
+            # Returns the plan pattern that will deploy this action on the plan
+            def plan_pattern(arguments = Hash.new)
+                planner = Roby::Actions::Task.new(
+                    :action_interface_model => action_interface_model,
+                    :action_model => self,
+                    :action_arguments => arguments)
+                planner.planned_task
             end
         end
     end

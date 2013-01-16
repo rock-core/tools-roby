@@ -73,6 +73,17 @@ class TC_Planner < Test::Unit::TestCase
         assert_equal([m[3]], model.find_methods("m1", :returns => subtask_t))
     end
 
+    def test_returned_type_from_specific_method_is_inherited_from_method_model
+        task_model = Class.new(Roby::Task)
+	planner_model = Class.new(Planner) do
+	    method(:m, :returns => task_model)
+            method(:m, :id => :bla) do
+            end
+	end
+
+        assert_equal task_model, planner_model.find_methods(:m).first.returned_type
+    end
+
     def test_reuse
 	task_model = Class.new(Task)
 	derived_model = Class.new(task_model)
@@ -176,7 +187,10 @@ class TC_Planner < Test::Unit::TestCase
 		    task_model.new(:id => 'root')
 		else
 		    @root_already_called = true
-		    [recursive, not_recursive]
+                    root = recursive
+                    child = not_recursive
+                    root.depends_on child
+                    root
 		end
             end
         end

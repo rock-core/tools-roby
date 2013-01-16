@@ -36,5 +36,16 @@ class TC_Robot < Test::Unit::TestCase
         Roby.app.planners << planner
         assert_raises(ArgumentError) { Robot.action_from_model(task_m) }
     end
+    def test_prepare_action_with_model
+        task_t = Class.new(Roby::Task)
+        task, planner_task = task_t.new, task_t.new
+        task.planned_by planner_task
+        planner = flexmock
+        planning_method = flexmock(:plan_pattern => task)
+        flexmock(Robot).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
+
+        assert_equal [task, planner_task], Robot.prepare_action(plan, task_t)
+        assert_same plan, task.plan
+    end
 end
 

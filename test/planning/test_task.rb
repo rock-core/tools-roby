@@ -163,7 +163,7 @@ class TC_PlanningTask < Test::Unit::TestCase
                 mock.method_called(arguments)
                 Roby::Task.new(:id => 'result_of_lambda')
             end
-            m = FreeMethod.new 'test_object', {:id => 10}, body
+            m = FreeMethod.new planner_model, 'test_object', {:id => 10}, body
             planning_task = PlanningTask.new(:planner_model => planner_model, :planning_method => m, :arg => 10)
             plan.add_permanent(planning_task)
             planning_task.start!

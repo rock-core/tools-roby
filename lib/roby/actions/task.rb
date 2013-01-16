@@ -25,7 +25,7 @@ module Roby
             # in the plan
             # @return [Model<Roby::Task>] 
             def planned_model
-                action_model.returned_type
+                action_model.returned_task_type
             end
 
             # The action interface model used by this planner
@@ -47,7 +47,7 @@ module Roby
                 elsif pending?
                     task = planned_model.new
                     task.planned_by self
-                    task.executable = false
+                    task.abstract = true
                     task
                 end
             end

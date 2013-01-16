@@ -2125,21 +2125,11 @@ class TC_Task < Test::Unit::TestCase
     def test_task_as_plan
         task_t = Class.new(Roby::Task)
         task, planner_task = task_t.new, task_t.new
+        task.planned_by planner_task
+        flexmock(Robot).should_receive(:prepare_action).with(nil, task_t, Hash.new).and_return([task, planner_task])
 
-        planner = flexmock
-        planning_method = flexmock(:name => 'm1', :returned_type => task_t)
-        flexmock(Robot).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
-
-        as_plan = task_t.as_plan
-        plan.add(as_plan)
-        assert_kind_of(task_t, as_plan)
-
-        planner_task = as_plan.planning_task
-        assert_kind_of(Roby::PlanningTask, planner_task)
-        assert_equal(planning_method, planner_task.planning_method)
-        assert_equal(task_t, planner_task.planned_model)
-        assert_equal(planner, planner_task.planner_model)
-        assert_equal("m1", planner_task.method_name)
+        plan.add(as_plan = task_t.as_plan)
+        assert_same task, as_plan
     end
     
     def test_gather_events_cleanup_on_removal

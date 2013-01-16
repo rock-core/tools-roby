@@ -79,7 +79,7 @@ module Roby
 	    elsif pending?
 		task = planned_model.new
 		task.planned_by self
-		task.executable = false
+		task.abstract = true
 		task
 	    end
 	end

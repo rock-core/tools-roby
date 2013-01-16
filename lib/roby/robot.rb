@@ -67,33 +67,10 @@ module Robot
         else
             planner_model, m = action_from_name(name)
         end
-
-	if m.returned_type.kind_of?(Roby::TaskModelTag)
-	    task = Roby::Task.new
-	    task.extend m.returned_type
-	else
-	    # Create an abstract task which will be planned
-	    task = m.returned_type.new
-	end
-
-        if m.kind_of?(Roby::Actions::ActionModel)
-            planner = Roby::Actions::Task.new(
-                :action_interface_model => planner_model,
-                :action_description => m,
-                :action_arguments => arguments)
-        else
-            planner = Roby::PlanningTask.new(
-                :planner_model => planner_model,
-                :planning_method => m,
-                :method_options => arguments)
-        end
-
         if plan
-            plan.add([task, planner])
+            plan.add(task = m.plan_pattern)
         end
-	task.planned_by planner
-        task.abstract = true
-	return task, planner
+	return task, task.planning_task
     end
 
     # Implements that one can call

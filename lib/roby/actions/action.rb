@@ -17,10 +17,7 @@ module Roby
             # @return [Roby::Task] the task, with a planning task of type
             #   {Actions::Task}
             def as_plan
-                planner = Actions::Task.new(
-                    :action_model => model,
-                    :action_arguments => arguments)
-                planner.planned_task
+                model.plan_pattern(arguments)
             end
         end
     end

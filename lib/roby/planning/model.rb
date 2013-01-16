@@ -178,9 +178,9 @@ module Roby
         class MethodDefinition
             include MethodInheritance
 
-            attr_reader :name, :options, :body
-            def initialize(name, options, body)
-                @name, @options, @body = name, options, body
+            attr_reader :planner_model, :name, :options, :body
+            def initialize(planner_model, name, options, body)
+                @planner_model, @name, @options, @body = planner_model, name, options, body
             end
 
             # The method ID
@@ -191,7 +191,7 @@ module Roby
             #
             # If this is nil, the method may return a task array or a task
             # aggregation
-            def returns;    options[:returns] end
+            def returns;    options[:returns] || Roby::Task end
             def returned_type; returns end
             # If the method allows reusing tasks already in the plan
             # reuse? is always false if there is no return type defined
@@ -205,15 +205,32 @@ module Roby
                 "#{name}:#{id}(#{opts.to_s[1..-2]})"
             end
 
+            def plan_pattern(arguments = Hash.new)
+                if returned_type.kind_of?(Roby::TaskModelTag)
+                    planned_model = Class.new(Roby::Task)
+                    planned_model.include returned_type
+                else
+                    # Create an abstract task which will be planned
+                    planned_model = returned_type
+                end
+
+                planner = Roby::PlanningTask.new(
+                    :planner_model => planner_model,
+                    :planned_model => planned_model,
+                    :planning_method => self,
+                    :method_options => arguments)
+                planner.planned_task
+            end
+
             # Intermediate representation used during marshalling
             class DRoby
-                attr_reader :name, :options
-                def initialize(name, options)
-                    @name, @options = name, options
+                attr_reader :planner_model, :name, :options
+                def initialize(planner_model, name, options)
+                    @planner_model, @name, @options = name, options
                 end
 
                 def _dump(lvl) # :nodoc:
-                    Marshal.dump([name, options])
+                    Marshal.dump([planner_model, name, options])
                 end
 
                 def self._load(str) # :nodoc:
@@ -221,19 +238,19 @@ module Roby
                 end
 
                 def proxy(peer)
-                    MethodDefinition.new(name, options, nil)
+                    MethodDefinition.new(peer.local_object(planner_model), name, options, nil)
                 end
             end
 
             # Returns an intermediate representation of the method definition
             # suitable for marshalling (distributed Roby and/or logging)
             def droby_dump(dest)
-                DRoby.new(name, options)
+                DRoby.new(planner_model.droby_dump(dest), name, options)
             end
         end
 
         class FreeMethod < MethodDefinition
-            def initialize(name, options, body)
+            def initialize(planner_model, name, options, body)
                 check_arity(body, 1)
                 super
             end
@@ -246,11 +263,16 @@ module Roby
         class MethodModel
             include MethodInheritance
 
+            attr_reader :planner_model
+
             # The return type the method model defines
             #
             # If this is nil, methods of this model may return a task array
             # or a task aggregation
-            def returns;    options[:returns] end
+            def returns;    options[:returns] || Roby::Task end
+            # Backward compatibilty to support transition to the action
+            # interface
+            def returned_type; returns end
             # If the model allows reusing tasks already in the plan
             def reuse?; options[:reuse] end
 
@@ -259,8 +281,8 @@ module Roby
             # The model options, as a Hash
             attr_reader :options
 
-            def initialize(name, options = Hash.new)
-                @name, @options = name, options
+            def initialize(planner_model, name, options = Hash.new)
+                @planner_model, @name, @options = planner_model, name, options
             end
             def ==(model)
                 name == model.name && options == model.options
@@ -313,6 +335,7 @@ module Roby
             end
 
             def initialize_copy(from) # :nodoc:
+                super
                 @name    = from.name.dup
                 @options = from.options.dup
             end
@@ -407,7 +430,7 @@ module Roby
 		end
 
 		old_model = method_model(name)
-		new_model = MethodModel.new(name)
+		new_model = MethodModel.new(self, name)
 		new_model.merge(options)
 
 		if old_model == new_model
@@ -609,7 +632,7 @@ module Roby
 		end
 		temp_method_name = "m#{@@temp_method_id += 1}"
 		define_method(temp_method_name, &body)
-                mdef = MethodDefinition.new(name, options, instance_method(temp_method_name))
+                mdef = MethodDefinition.new(self, name, options, instance_method(temp_method_name))
 		send("#{name}_methods")[method_id] = mdef
             end
 	    @@temp_method_id = 0
@@ -796,7 +819,7 @@ module Roby
 	    end
 
 	    def self.default_method_model(name)
-		MethodModel.new(name, :returns => Roby::Task)
+		MethodModel.new(self, name, :returns => Roby::Task)
 	    end
 
             # Creates a TaskSequence with the given tasks
