@@ -990,7 +990,7 @@ module Roby
                 end
             end
 
-            Roby::Task.clear_submodels
+            clear_models
             stop_log_server
             stop_drb_service
             call_plugins(:cleanup, self)
@@ -1360,10 +1360,14 @@ module Roby
 	    Roby.app.available_plugins << [name, dir, mod, init]
 	end
 
+        # Returns true if the given path points to a file in the Roby app
 	def app_file?(path)
-	    (path =~ %r{(^|/)#{app_dir}(/|$)}) ||
-		((path[0] != ?/) && File.file?(File.join(app_dir, path)))
+            search_path.any? do |app_dir|
+                (path =~ %r{(^|/)#{app_dir}(/|$)}) ||
+                    ((path[0] != ?/) && File.file?(File.join(app_dir, path)))
+            end
 	end
+
 	def framework_file?(path)
 	    if path =~ /roby\/.*\.rb$/
 		true
@@ -1385,6 +1389,32 @@ module Roby
             unload_features("config", ".*\.rb$")
             call_plugins(:reload_config, self)
             require_config
+        end
+
+        def model_defined_in_app?(model)
+            model.definition_location.each do |file, _, method|
+                return if method == :require
+                return true if app_file?(file)
+            end
+        end
+
+        def clear_models
+            # Clear all Task and TaskService submodels that have been defined in
+            # this app
+            Task.each_submodel do |m|
+                if model_defined_in_app?(m)
+                    m.clear_model
+                end
+            end
+            Task.clear_submodels
+
+            call_plugins(:clear_models, self)
+        end
+
+        def reload_models
+            clear_models
+            unload_features("models", ".*\.rb$")
+            require_models
         end
 
         def reload_planners
