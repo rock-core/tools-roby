@@ -151,6 +151,13 @@ module Roby
         # Allows to override the application base directory. See #app_dir
         attr_writer :app_dir
 
+        # If set to true, files that generate errors while loading will be
+        # ignored. This is used for model browsing GUIs to be usable even if
+        # there are errors
+        #
+        # It is false by default
+        attr_predicate :ignore_all_load_errors?, true
+
         # Returns the application base directory
         def app_dir
             if defined?(APP_DIR)
@@ -676,9 +683,17 @@ module Roby
             file = make_path_relative(absolute_path)
             Roby::Application.info "loading #{file} (#{absolute_path})"
             begin
-                Kernel.require(File.join(".", file))
-            rescue LoadError
-                Kernel.require absolute_path
+                begin
+                    Kernel.require(File.join(".", file))
+                rescue LoadError
+                    Kernel.require absolute_path
+                end
+            rescue ::Exception => e
+                if ignore_all_load_errors?
+                    Robot.warn "ignored file #{file}"
+                    Roby.log_exception(e, Robot, :warn)
+                else raise
+                end
             end
         end
 
