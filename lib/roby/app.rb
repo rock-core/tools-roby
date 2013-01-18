@@ -708,10 +708,10 @@ module Roby
                 require(p)
             end
 
-            require_planners
-
 	    # Set up the loaded plugins
 	    call_plugins(:require_models, self)
+
+            require_planners
 	end
 
         # Loads the planner models
@@ -741,6 +741,8 @@ module Roby
             all_files.each do |p|
                 require(p)
             end
+
+	    call_plugins(:require_planners, self)
         end
 
         def load_config_yaml
