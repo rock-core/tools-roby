@@ -70,7 +70,7 @@ module Roby
                     if options.has_key?(:default)
 			defval = options[:default]
 			if !defval.respond_to?(:evaluate_delayed_argument)
-			    argument_defaults[arg_name] = DelayedTaskArgument.new { |t| defval }
+			    argument_defaults[arg_name] = DefaultArgument.new(defval)
 			else
 			    argument_defaults[arg_name] = defval
 			end
@@ -711,6 +711,26 @@ module Roby
         end
     end
 
+    # Placeholder that can be used as an argument to represent a default value
+    class DefaultArgument
+        attr_reader :value
+
+        def initialize(value)
+            @value = value
+        end
+
+        def evaluate_delayed_argument(task)
+            value
+        end
+
+        def to_s
+            "default(" + if value.nil?
+                'nil'
+            else value.to_s
+            end + ")"
+        end
+    end
+
     # Placeholder that can be used to assign an argument from an object's
     # attribute, reading the attribute only when the task is started
     #
@@ -759,6 +779,10 @@ module Roby
             other.kind_of?(DelayedArgumentFromObject) &&
                 @object.object_id == other.instance_variable_get(:@object).object_id &&
                 @methods == other.instance_variable_get(:@methods)
+        end
+
+        def to_s
+            "#{@object || 'task'}.#{@methods.map(&:to_s).join(".")}"
         end
 
         def pretty_print(pp)
