@@ -1419,13 +1419,14 @@ module Roby
         def clear_models
             # Clear all Task and TaskService submodels that have been defined in
             # this app
-            Task.each_submodel do |m|
-                if model_defined_in_app?(m)
-                    m.clear_model
+            [Task, Actions::Interface].each do |root_model|
+                root_model.each_submodel do |m|
+                    if model_defined_in_app?(m)
+                        m.clear_model
+                    end
                 end
+                root_model.clear_submodels
             end
-            Task.clear_submodels
-
             call_plugins(:clear_models, self)
         end
 
