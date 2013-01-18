@@ -682,7 +682,6 @@ module Roby
         def require(absolute_path)
             # Make the file relative to the search path
             file = make_path_relative(absolute_path)
-            Roby.logger.level = Logger::INFO
             Roby::Application.info "loading #{file} (#{absolute_path})"
             begin
                 begin
