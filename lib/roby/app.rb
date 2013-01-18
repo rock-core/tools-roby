@@ -164,8 +164,6 @@ module Roby
                 APP_DIR
             elsif @app_dir
                 @app_dir
-            else
-                Dir.pwd
             end
         end
 
@@ -178,7 +176,10 @@ module Roby
         # The list of paths in which the application should be looking for files
         def search_path
             if !@search_path
-                [app_dir]
+                if app_dir
+                    [app_dir]
+                else []
+                end
             else
                 @search_path
             end
@@ -511,7 +512,7 @@ module Roby
         # provided value, it is interpreted relative to the application
         # directory. It defaults to "data".
         def log_base_dir
-            File.expand_path(log['dir'] || 'logs', app_dir)
+            File.expand_path(log['dir'] || 'logs', app_dir || Dir.pwd)
         end
 
 	# The directory in which logs are to be saved
@@ -659,7 +660,7 @@ module Roby
             find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
                 each do |libdir|
                     if !$LOAD_PATH.include?(libdir)
-                        $LOAD_PATH.unshift File.join(app_dir, 'lib')
+                        $LOAD_PATH.unshift libdir
                     end
                 end
 
@@ -681,6 +682,7 @@ module Roby
         def require(absolute_path)
             # Make the file relative to the search path
             file = make_path_relative(absolute_path)
+            Roby.logger.level = Logger::INFO
             Roby::Application.info "loading #{file} (#{absolute_path})"
             begin
                 begin
@@ -762,7 +764,9 @@ module Roby
         #
         # It also calls the plugin's 'load' method
         def load_base_config
-	    $LOAD_PATH.unshift(app_dir) unless $LOAD_PATH.include?(app_dir)
+            search_path.each do |app_dir|
+                $LOAD_PATH.unshift(app_dir) if !$LOAD_PATH.include?(app_dir)
+            end
 
             load_config_yaml
 
@@ -1232,9 +1236,7 @@ module Roby
             search_path = find_dirs(*dir_search)
 
             result = []
-            search_path.each do |element|
-                dirname = File.expand_path(element, app_dir)
-
+            search_path.each do |dirname|
                 Application.debug "  dir: #{dirname}"
                 Dir.new(dirname).each do |file_name|
                     file_path = File.join(dirname, file_name)
