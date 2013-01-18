@@ -281,10 +281,6 @@ module Roby
         message.split("\n")
     end
 
-    def self.log_exception(e, logger, level)
-        log_pp(e, logger, level)
-    end
-
     def self.log_pp(obj, logger, level)
         if logger.respond_to?(:logger)
             logger = logger.logger
@@ -301,6 +297,23 @@ module Roby
             end
             break
         end
+    end
+
+    def self.log_exception(e, logger, level)
+        log_pp(e, logger, level)
+    end
+
+    def self.log_backtrace(e, logger, level)
+        format_exception(BacktraceFormatter.new(e)).each do |line|
+            logger.send(level, line)
+        end
+    end
+
+    def self.log_exception_with_backtrace(e, logger, level)
+        log_exception(e, logger, level)
+        logger.send level, color("= Backtrace", :bold, :red)
+        log_backtrace(e, logger, level)
+        logger.send level, color("= ", :bold, :red)
     end
 
     class BacktraceFormatter
