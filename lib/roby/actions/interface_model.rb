@@ -1,6 +1,7 @@
 module Roby
     module Actions
         module InterfaceModel
+            include Utilrb::Models::Registration
             # The set of actions defined on this interface
             #
             # @returns [Hash<String,ActionModel>]
