@@ -7,6 +7,12 @@ module Roby
             # @key_name action_name
             define_inherited_enumerable(:action, :actions, :map => true) { Hash.new }
 
+            # Clears everything stored on this model
+            def clear_model
+                super if defined? super
+                actions.clear
+            end
+
             # Create a new action description that is going to be used to
             # describe the next method. Note that only methods that have a
             # description are exported as actions
