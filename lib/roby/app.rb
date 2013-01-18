@@ -691,7 +691,8 @@ module Roby
             rescue ::Exception => e
                 if ignore_all_load_errors?
                     Robot.warn "ignored file #{file}"
-                    Roby.log_exception(e, Robot, :warn)
+                    Roby.log_exception(e, Application, :warn)
+                    Roby.log_backtrace(e, Application, :info)
                 else raise
                 end
             end
