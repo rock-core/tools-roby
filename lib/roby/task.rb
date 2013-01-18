@@ -1015,11 +1015,6 @@ module Roby
             submodels
         end
 
-        # Returns the model that is parent of this one
-        def self.supermodel
-            @supermodel ||= ancestors[1..-1].find { |t| t.kind_of?(Class) && t.respond_to?(:register_submodel) }
-        end
-
         # Clears all definitions saved in this model. This is to be used by the
         # reloading code
 	def self.clear_model
