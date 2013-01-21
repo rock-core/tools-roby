@@ -73,6 +73,13 @@ module Roby
         # overlaid 
 	attr_reader :options
 
+        # A set of exceptions that have been encountered by the application
+        # The associated string, if given, is a hint about in which context
+        # this exception got raised
+        # @return [Array<(Exception,String)>]
+        # @see #register_exception #clear_exceptions
+        attr_reader :registered_exceptions
+
         # Allows to attribute configuration keys to override configuration
         # parameters stored in config/app.yml
         #
@@ -317,6 +324,7 @@ module Roby
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
+            @registered_exceptions = []
 
             @filter_out_patterns = [Roby::RX_IN_FRAMEWORK, Roby::RX_REQUIRE]
             self.abort_on_application_exception = true
@@ -679,6 +687,14 @@ module Roby
             path
         end
 
+        def register_exception(e, reason = nil)
+            registered_exceptions << [e, reason]
+        end
+
+        def clear_exceptions
+            registered_exceptions.clear
+        end
+
         def require(absolute_path)
             # Make the file relative to the search path
             file = make_path_relative(absolute_path)
@@ -690,10 +706,11 @@ module Roby
                     Kernel.require absolute_path
                 end
             rescue ::Exception => e
+                register_exception(e, "ignored file #{file}")
                 if ignore_all_load_errors?
                     Robot.warn "ignored file #{file}"
                     Roby.log_exception(e, Application, :warn)
-                    Roby.log_backtrace(e, Application, :info)
+                    Roby.log_backtrace(e, Application, :warn)
                 else raise
                 end
             end
