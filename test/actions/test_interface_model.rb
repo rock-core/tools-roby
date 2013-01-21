@@ -74,4 +74,11 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         assert_same m, act.model
         assert_equal Hash['test' => 10], act.arguments
     end
+
+    def test_action_libraries_are_not_registered_as_submodels
+        library = Module.new do
+            action_library
+        end
+        assert !Actions::Interface.each_submodel.to_a.include?(library)
+    end
 end
