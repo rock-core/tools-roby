@@ -564,6 +564,9 @@ module Roby
 		
 		# Define the method enumerator and the method public interface
 		if !respond_to?("#{name}_methods")
+                    if method_defined?(name)
+                        raise ArgumentError, "#{name} is already a normal method name on #{self}, cannot add a planning method with that name"
+                    end
 		    class_eval <<-PLANNING_METHOD_END, __FILE__, __LINE__+1
 		    def #{name}(options = Hash.new)
 			plan_method("#{name}", options)

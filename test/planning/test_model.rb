@@ -553,5 +553,10 @@ class TC_Planner < Test::Unit::TestCase
         assert_equal [m1, m2], planner.find_all_actions_by_type(task_t)
     end
 
+    def test_it_does_not_allow_to_override_an_existing_normal_method_with_a_planning_method
+        planner_m = Class.new(Roby::Planning::Planner)
+        assert_raises(ArgumentError) { planner_m.method(:stop) }
+    end
+
 end
 
