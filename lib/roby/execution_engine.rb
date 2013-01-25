@@ -1375,7 +1375,7 @@ module Roby
                 ExecutionEngine.debug do
                     ExecutionEngine.debug "#{local_tasks.size} tasks are unneeded in this plan"
                     local_tasks.each do |t|
-                        ExecutionEngine.debug "  #{t} #{plan.mission?(t)} #{plan.permanent?(t)}"
+                        ExecutionEngine.debug "  #{t} mission=#{plan.mission?(t)} permanent=#{plan.permanent?(t)}"
                     end
                     break
                 end
