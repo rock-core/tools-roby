@@ -1432,6 +1432,7 @@ module Roby
                 return if method == :require
                 return true if app_file?(file)
             end
+            false
         end
 
         def clear_models
