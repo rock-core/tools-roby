@@ -606,6 +606,15 @@ module Roby
             to_hash == hash.to_hash
         end
 
+        def pretty_print(pp)
+            pp.seplist(values) do |keyvalue|
+                key, value = *keyvalue
+                key.pretty_print(pp)
+                pp.text " => "
+                value.pretty_print(pp)
+            end
+        end
+
         def to_s
             values.to_s
         end
