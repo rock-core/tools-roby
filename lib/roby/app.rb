@@ -1438,10 +1438,28 @@ module Roby
         def clear_models
             # Clear all Task and TaskService submodels that have been defined in
             # this app
-            [Task, Actions::Interface, Actions::Library].each do |root_model|
+            [Task, TaskService, Actions::Interface, Actions::Library].each do |root_model|
                 root_model.each_submodel do |m|
-                    if model_defined_in_app?(m)
+                    if model_defined_in_app?(m) || !m.permanent_model?
                         m.clear_model
+                    end
+                    next if m.permanent_model?
+
+                    # Deregister non-permanent models that are registered in the
+                    # constant hierarchy
+                    valid_name =
+                        begin
+                            constant(m.name) == m
+                        rescue NameError
+                        end
+
+                    if valid_name
+                        parent_module =
+                            if m.name =~ /::/
+                                m.name.gsub(/::[^:]*$/, '')
+                            else Object
+                            end
+                        constant(parent_module).send(:remove_const, m.name.gsub(/.*::/, ''))
                     end
                 end
                 root_model.clear_submodels
