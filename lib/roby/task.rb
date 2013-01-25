@@ -23,6 +23,9 @@ module Roby
     #   # FirewireDriver can now be used in relationships where CameraDriver was
     #   # needed
     class TaskService < Module
+        extend Utilrb::Models::Registration
+        def supermodel; TaskService end
+
         # Module which contains the extension for the task models themselves.
         # When one does
         #
