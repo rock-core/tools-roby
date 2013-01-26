@@ -272,20 +272,27 @@ module Roby
             super if defined? super
 
 	rescue Exception => e
+            teardown_failure = e
             raise
 
 	ensure
-            if plan
-                while engine.running?
-                    engine.quit
-                    engine.join rescue nil
+            begin
+                if plan
+                    while engine.running?
+                        engine.quit
+                        engine.join rescue nil
+                    end
+                    plan.clear
                 end
-                plan.clear
-            end
 
-	    Roby.logger.level = @original_roby_logger_level
-	    self.console_logger = false
-            self.event_logger   = false
+                Roby.logger.level = @original_roby_logger_level
+                self.console_logger = false
+                self.event_logger   = false
+            rescue Exception => e
+                if teardown_failure then raise teardown_failure
+                else raise e
+                end
+            end
 	end
 
 	# Process pending events
