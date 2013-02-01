@@ -1163,7 +1163,8 @@ module Roby
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :all, :order)
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :path)
+            search_path = options[:path] || self.search_path
             if !options.has_key?(:all)
                 raise ArgumentError, "no :all argument given"
             elsif !options.has_key?(:order)
@@ -1190,7 +1191,7 @@ module Roby
                 end
             end
 
-            root_paths = self.search_path.dup
+            root_paths = search_path.dup
             if options[:order] == :specific_first
                 relative_paths = relative_paths.reverse
             else
@@ -1242,13 +1243,13 @@ module Roby
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :all, :order, :pattern => Regexp.new(""))
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :path, :pattern => Regexp.new(""))
             if options[:pattern].respond_to?(:to_str)
                 options[:pattern] = Regexp.new("^" + Regexp.quote(options[:pattern]) + "$")
             end
 
             dir_search = dir_path.dup
-            dir_search << { :all => true, :order => options[:order] }
+            dir_search << { :all => true, :order => options[:order], :path => options[:path] }
             search_path = find_dirs(*dir_search)
 
             result = []
