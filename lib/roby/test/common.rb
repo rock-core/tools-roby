@@ -7,6 +7,12 @@ if !defined?(Test::Unit::AssertionFailedError)
 Test::Unit::AssertionFailedError = MiniTest::Assertion
 end
 
+begin
+    require 'pry'
+rescue LoadError
+    Roby.warn "pry gem is not present, not enabled"
+end
+
 module Roby
     module Test
 	include Roby
