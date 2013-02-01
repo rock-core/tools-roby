@@ -6,7 +6,17 @@ module Roby
             #
             # @returns [Hash<String,ActionModel>]
             # @key_name action_name
-            define_inherited_enumerable(:action, :actions, :map => true) { Hash.new }
+            define_inherited_enumerable(:registered_action, :actions, :map => true) { Hash.new }
+
+            # Enumerates the actions registered on this interface
+            #
+            # @yieldparam [ActionModel] action
+            def each_action
+                return enum_for(:each_action) if !block_given?
+                each_registered_action do |_, description|
+                    yield(description)
+                end
+            end
 
             # Clears everything stored on this model
             def clear_model
@@ -47,7 +57,7 @@ module Roby
             # @param [String] name
             # @returns [ActionModel,nil]
             def find_action_by_name(name)
-                find_action(name)
+                find_registered_action(name)
             end
 
             # Returns all the action description for the actions that can
