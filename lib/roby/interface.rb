@@ -237,6 +237,61 @@ module Roby
             nil
         end
 
+        # A class that (in a very limited way) makes a pretty print object "look
+        # like" an IO object
+        class PPIOAdaptor
+            def print(text)
+                first = true
+                text.split("\n").each do |text|
+                    pp.breakable if !first
+                    pp.text text
+                    first = false
+                end
+            end
+            def puts(text)
+                print text
+                pp.breakable
+            end
+        end
+
+        # Value returned by #actions to allow for enumerating actions and
+        # redefine #pretty_print to display the action information
+        class ActionList
+            attr_reader :actions
+            def initialize(actions)
+                @actions = actions
+            end
+
+            def pretty_print(pp)
+                if actions.empty?
+                    pp.text "No actions defined"
+                    return
+                end
+
+                puts
+                desc = actions.map do |p|
+                    doc = p.doc || ["(no description set)"]
+                    Hash['Name' => "#{p.name}!(#{p.arguments.map(&:name).sort.join(", ")})", 'Description' => doc.join("\n")]
+                end
+
+                ColumnFormatter.from_hashes(desc, PPIOAdaptor.new(pp),
+                                            :header_delimiter => true, 
+                                            :column_delimiter => "|",
+                                            :order => %w{Name Description})
+            end
+
+            def each(&block)
+                actions.each(&block)
+            end
+            include Enumerable
+
+            def pretty_print(pp)
+                display_action_description(m)
+                puts
+            end
+        end
+
+
         # Displays a detailed description of available actions. If +advanced+ is
         # true (false by default), advanced actions are displayed as well.
         #
@@ -252,12 +307,9 @@ module Roby
         #       end
         #   end
         def actions(with_advanced = false)
-            @interface.actions.each do |m|
-                next if m.advanced? if !with_advanced
-                display_action_description(m)
-                puts
+            @interface.actions.find_all do |m|
+                !m.advanced? || with_advanced
             end
-            nil
         end
 
         # Standard way to display a set of tasks
@@ -565,13 +617,13 @@ help                              | this help message                           
             task_models.map { |t| t.droby_dump(nil) }
 	end
 
-        # Returns the set of PlanningMethod objects that describe the methods
+        # Returns the set of action description objects that describe the methods
         # exported in the application's planners.
 	def actions
 	    Roby.app.planners.
-		map do |p|
-                    p.each_action.to_a
-                end.flatten.sort_by { |p| p.name }
+		inject([]) do |list, p|
+                    list.concat(p.each_action.to_a)
+                end.sort_by(&:name)
 	end
 
         # Called every once in a while by RemoteInterface to read and clear the
