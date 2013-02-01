@@ -17,6 +17,27 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal('foo', Planner.validate_method_id('foo'))
     end
 
+    def test_default_method_description_has_name_set
+        planner = Class.new(Planner) { method :test_method }
+        assert_equal 'test_method', planner.find_action_by_name(:test_method).name
+        planner = Class.new(Planner) { method(:test_method) { } }
+        assert_equal 'test_method', planner.find_action_by_name(:test_method).name
+    end
+
+    def test_explicit_method_description_has_name_set
+        planner = Class.new(Planner) do
+            describe "this is the test method"
+            method :test_method
+        end
+        assert_equal 'test_method', planner.find_action_by_name(:test_method).name
+        planner = Class.new(Planner) do
+            describe "this is the test method"
+            method(:test_method) { }
+        end
+        assert_equal 'test_method', planner.find_action_by_name(:test_method).name
+    end
+
+
     def test_method_definition
 	base_model, base_1, base_15, base_foobar, base_barfoo, recursive = nil
         model = Class.new(Planner) do 
