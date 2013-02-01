@@ -22,6 +22,12 @@ class TC_Task < Test::Unit::TestCase
         assert_same model.find_event_model('custom'), event_model
     end
 
+    def test_subclasses_of_task_are_registered_on_Task
+        subclass = Class.new(Roby::Task)
+        assert_equal Roby::Task, subclass.supermodel
+        assert Roby::Task.each_submodel.to_a.include?(subclass)
+    end
+
     def test_model_tag
         tag1 = TaskModelTag.new { argument :model_tag_1 }
 	assert(tag1.const_defined?(:ClassExtension))
