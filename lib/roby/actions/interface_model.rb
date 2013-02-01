@@ -8,6 +8,11 @@ module Roby
             # @key_name action_name
             define_inherited_enumerable(:registered_action, :actions, :map => true) { Hash.new }
 
+            # Adds all actions defined in this library in this interface
+            def use_library(library)
+                include library
+            end
+
             # Enumerates the actions registered on this interface
             #
             # @yieldparam [ActionModel] action
