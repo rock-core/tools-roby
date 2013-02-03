@@ -93,7 +93,7 @@ module Roby
             # @returns [Array<ActionModel>]
             def find_all_actions_by_type(type)
                 result = []
-                each_action do |_, description|
+                each_action do |description|
                     if description.returned_type.fullfills?(type)
                         result << description
                     end
