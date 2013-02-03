@@ -83,7 +83,7 @@ module Roby
             # @param [String] name
             # @returns [ActionModel,nil]
             def find_action_by_name(name)
-                find_registered_action(name)
+                find_registered_action(name.to_s)
             end
 
             # Returns all the action description for the actions that can

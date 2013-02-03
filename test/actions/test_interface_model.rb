@@ -26,6 +26,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         end
         assert_equal 'an_action', description.name
         assert_same description, m.find_action_by_name('an_action')
+        assert_same description, m.find_action_by_name(:an_action)
     end
 
     def test_it_returns_nil_for_unknown_actions
