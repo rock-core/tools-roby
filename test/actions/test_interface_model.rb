@@ -101,4 +101,14 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
             end
         end
     end
+
+    def test_it_passes_the_argument_hash_if_the_method_expects_one
+        task_m = Class.new(Roby::Task) { argument :id }
+        actions = Class.new(Actions::Interface) do
+            m = describe('an action').
+                required_arg('test')
+            define_method(:an_action) { |args| task_m.new(:id => args[:test]) }
+        end
+        assert_equal 10, actions.an_action(:test => 10).instanciate(plan).id
+    end
 end
