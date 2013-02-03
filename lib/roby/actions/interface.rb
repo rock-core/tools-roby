@@ -22,6 +22,12 @@ module Roby
             def initialize(plan)
                 @plan = plan
             end
+
+            def state_machine(task, &block)
+                machine_model = StateMachine.new_submodel(self.model, task.model)
+                machine_model.parse(&block)
+                machine_model.new(task)
+            end
         end
     end
 end
