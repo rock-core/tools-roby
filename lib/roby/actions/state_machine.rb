@@ -22,31 +22,35 @@ module Roby
             end
         end
 
-        # A representation of a state as a binding of a selected action and
-        # arguments
-        class State
-            attr_reader :action
-            attr_reader :arguments
-            attr_accessor :name
+        # Placeholder, in the state machine definition, for variables. It is
+        # used for instance to hold the arguments to the state machine during
+        # modelling, replaced by their values during instanciation
+        StateMachineVariable = Struct.new :name
 
-            def initialize(action, arguments)
-                @action, @arguments = action, arguments
-                @name = action.name
+        # Generic representation of a state in a StateMachine
+        #
+        # It requires to be given a task model, which is the model of the task
+        # that is going to represent the state at runtime, and an
+        # instanciation object. The latter is simply an object on which
+        # #instanciate(plan) is going to be called when the state is entered and
+        # should return the task that is executing the state
+        #
+        # In a given StateMachineModel, a state is represented by an unique
+        # instance of State or of one of its subclasses
+        class State
+            attr_reader :task_model
+
+            def initialize(task_model)
+                @task_model = task_model
             end
 
             # Returns the state event for the given event on this state
             def find_event(name)
-                if ev = action.returned_type.find_event(name.to_sym)
+                if ev = task_model.find_event(name.to_sym)
                     StateEvent.new(self, ev.symbol)
                 end
             end
 
-            # Generates a task for this state in the given plan and returns
-            # it
-            def instanciate(plan)
-                action.instanciate(plan, arguments)
-            end
-            
             def method_missing(m, *args, &block)
                 if m.to_s =~ /(\w+)_event$/
                     ev_name = $1
@@ -60,6 +64,65 @@ module Roby
                     return ev
                 else return super
                 end
+            end
+        end
+
+        class StateFromInstanciationObject < State
+            attr_reader :instanciation_object
+
+            def initialize(instanciation_object, task_model)
+                super(task_model)
+                @instanciation_object = instanciation_object
+            end
+
+            def instanciate(plan, variables)
+                instanciation_object.instanciate(plan)
+            end
+        end
+
+        # A representation of a state based on an action
+        class StateFromAction < State
+            # The associated action
+            # @return [Roby::Actions::Action]
+            attr_reader :action
+
+            def initialize(action)
+                @action = action
+                super(action.model.returned_type)
+            end
+
+            # Generates a task for this state in the given plan and returns
+            # it
+            def instanciate(plan, variables)
+                arguments = action.arguments.map_value do |key, value|
+                    if value.kind_of?(StateMachineVariable)
+                        if variables.has_key?(value.name)
+                            variables[value.name]
+                        else
+                            raise ArgumentError, "expected a value for #{arg}, got none"
+                        end
+                    else value
+                    end
+                end
+                action.instanciate(plan, arguments)
+            end
+        end
+
+        # State whose instanciation object is provided through a state machine
+        # variable
+        class StateFromVariable < State
+            attr_reader :variable_name
+            def initialize(variable_name, task_model)
+                @variable_name = variable_name
+                super(task_model)
+            end
+
+            def instanciate(plan, variables)
+                obj = variables[variable_name]
+                if !obj.respond_to?(:instanciate)
+                    raise ArgumentError, "expected variable #{variable_name} to contain an object that can generate tasks, found #{obj}"
+                end
+                obj.instanciate(plan)
             end
         end
 
@@ -84,6 +147,9 @@ module Roby
             # The set of defined forwards, as (State,EventName)=>EventName
             # @return [Array<(StateEvent,TaskEvent)>]
             define_inherited_enumerable(:forward, :forwards) { Array.new }
+            # The set of arguments available on this state machine
+            # @return [Array<Symbol>]
+            define_inherited_enumerable(:argument, :arguments) { Array.new }
 
             # Creates a new state machine model as a submodel of self
             #
@@ -93,22 +159,49 @@ module Roby
             #   task model that is going to be used as a toplevel task for the
             #   state machine
             # @return [Model<StateMachine>] a subclass of StateMachine
-            def new_submodel(action_interface, task_model = Roby::Task)
+            def new_submodel(action_interface, task_model = Roby::Task, arguments = Array.new)
                 submodel = Class.new(self)
                 submodel.task_model = task_model
+                submodel.arguments.concat(arguments.to_a)
                 submodel.action_interface = action_interface
                 submodel
             end
 
+            def make_state(object, task_model = Roby::Task)
+                if object.kind_of?(State)
+                    return object
+                elsif object.respond_to?(:to_action_state)
+                    state = object.to_action_state
+                    states << state
+                    state
+                elsif object.respond_to?(:instanciate)
+                    state = State.new(object, task_model)
+                    states << state
+                    state
+                elsif object.kind_of?(StateMachineVariable)
+                    state = StateFromVariable.new(object.name, task_model)
+                    states << state
+                    state
+                else raise ArgumentError, "cannot create a state from #{object}"
+                end
+            end
+
+            def validate_state(object)
+                if !object.kind_of?(State)
+                    raise ArgumentError, "expected a state object, got #{object}. Did you forget to define a state with #make_state first ?"
+                end
+                object
+            end
+
             # Declares the starting state
             def start(state)
-                @starting_state = state
+                @starting_state = validate_state(state)
             end
 
             # Declares a transition from a state to a new state, caused by an
             # event
             def transition(state_event, new_state)
-                transitions << [state_event.state, state_event.symbol, new_state]
+                transitions << [state_event.state, state_event.symbol, validate_state(new_state)]
             end
 
             # Declares that the given event on the root task of the state should
@@ -130,12 +223,20 @@ module Roby
                 end
             end
 
+            # Returns true if this is the name of an argument for this state
+            # machine model
+            def has_argument?(name)
+                each_argument.any? { |n| n == name }
+            end
+
             def method_missing(m, *args, &block)
-                if action = action_interface.find_action_by_name(m.to_s)
-                    if args.size > 1
-                        raise ArgumentError, "expected zero or one argument to #{m}, got #{args.size}"
+                if has_argument?(m)
+                    if args.size != 0
+                        raise ArgumentError, "expected zero arguments to #{m}, got #{args.size}"
                     end
-                    s = State.new(action, args.first || Hash.new)
+                    StateMachineVariable.new(m)
+                elsif action = action_interface.find_action_by_name(m.to_s)
+                    s = StateFromAction.new(action_interface.send(m, *args, &block))
                     states << s
                     s
                 elsif m.to_s =~ /(.*)_event$/
@@ -144,26 +245,6 @@ module Roby
                 end
             end
         end
-
-        module StateMachineInterface
-            # Creates a state machine of actions
-            def state_machine(name, &block)
-                if !@current_description
-                    raise ArgumentError, "you must describe the action with #describe before calling #state_machine"
-                end
-
-                root_m = @current_description.returned_type
-                machine_model = StateMachine.new_submodel(self, root_m)
-                machine_model.parse(&block)
-
-                define_method(name) do
-                    plan.add(root = root_m.new)
-                    machine_model.new(root) 
-                    root
-                end
-            end
-        end
-        Interface.extend StateMachineInterface
 
         # A state machine defined on action interfaces
         #
@@ -178,6 +259,10 @@ module Roby
             # @return [Roby::Task]
             attr_reader :root_task
 
+            # The set of arguments given to this state machine model
+            # @return [Hash]
+            attr_reader :arguments
+
             # The state machine model
             # @return [Model<StateMachine>] a subclass of StateMachine
             # @see StateMachineModel
@@ -185,8 +270,14 @@ module Roby
                 self.class
             end
 
-            def initialize(root_task)
+            def initialize(root_task, arguments = Hash.new)
                 @root_task = root_task
+                @arguments = arguments
+                model.arguments.each do |key|
+                    if !arguments.has_key?(key)
+                        raise ArgumentError, "expected an argument named #{key} but got none"
+                    end
+                end
                 root_task.execute do
                     instanciate_state(model.starting_state)
                 end
@@ -200,7 +291,10 @@ module Roby
                     end
                 end
 
-                root_task.depends_on(task = state.instanciate(root_task.plan), :role => state.name, :failure => :stop, :success => known_transitions)
+                root_task.depends_on(task = state.instanciate(root_task.plan, arguments),
+                            :role => 'current_state',
+                            :failure => :stop,
+                            :success => known_transitions)
                 model.transitions.each do |src_state, src_event, dst_state|
                     if state == src_state
                         task.on(src_event) do |context|

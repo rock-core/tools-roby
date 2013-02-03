@@ -21,8 +21,8 @@ module Roby
             end
 
             # Deploys this action on the given plan
-            def instanciate(plan)
-                model.instanciate(plan, arguments)
+            def instanciate(plan, arguments = Hash.new)
+                model.instanciate(plan, self.arguments.merge(arguments))
             end
         end
     end

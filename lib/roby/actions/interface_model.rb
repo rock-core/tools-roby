@@ -101,6 +101,24 @@ module Roby
                 result
             end
 
+            # Creates a state machine of actions
+            def state_machine(name, &block)
+                if !@current_description
+                    raise ArgumentError, "you must describe the action with #describe before calling #state_machine"
+                end
+
+                root_m = @current_description.returned_type
+                arguments = @current_description.arguments.map(&:name)
+                machine_model = StateMachine.new_submodel(self, root_m, arguments)
+                machine_model.parse(&block)
+
+                define_method(name) do |*arguments|
+                    plan.add(root = root_m.new)
+                    machine_model.new(root, *arguments) 
+                    root
+                end
+            end
+
             # Returns an action description if 'm' is the name of a known action
             #
             # @return [Action]
