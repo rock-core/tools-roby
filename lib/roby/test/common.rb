@@ -14,6 +14,13 @@ rescue LoadError
 end
 
 module Roby
+    # This module is defining common support for tests that need the Roby
+    # infrastructure
+    #
+    # It assumes that the tests are started using roby's test command. Tests
+    # using this module can NOT be started with only e.g. testrb.
+    #
+    # @see SelfTest
     module Test
 	include Roby
 	Unit = ::Test::Unit
@@ -83,6 +90,7 @@ module Roby
             Roby.app.reload_config
 
             @timings = Hash.new
+            @plan = Roby.plan
 
             super if defined? super
 
@@ -136,7 +144,6 @@ module Roby
                 Test.verify_watched_events
             end
 	end
-
 
 	def teardown_plan
             return if !engine
@@ -837,7 +844,12 @@ module Roby
         end
     end
 
-    # Module used to setup tests for Roby itself
+    # This module is extending Test to be able to run tests using the normal
+    # testrb command. It is meant to be used to test libraries (e.g. Roby
+    # itself) as, in complex Roby applications, the setup and teardown steps
+    # would be very expensive.
+    #
+    # @see Test
     module SelfTest
         include Test
 
