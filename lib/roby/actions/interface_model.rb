@@ -8,6 +8,11 @@ module Roby
             # @key_name action_name
             define_inherited_enumerable(:registered_action, :actions, :map => true) { Hash.new }
 
+            # Exception raised when an action is defined with the wrong count of
+            # argument (zero if no arguments are specified and one if arguments
+            # are specified)
+            class ArgumentCountMismatch < ScriptError; end
+
             # Adds all actions defined in this library in this interface
             def use_library(library)
                 include library
@@ -42,9 +47,25 @@ module Roby
             # Registers the action that is currently described with the given
             # action name
             def register_current_action(name)
-                description = @current_description.name = name
-                actions[name] = @current_description
-                @current_description = nil
+                description, @current_description = @current_description, nil
+
+                expected_argument_count =
+                    if description.arguments.empty? then 0
+                    else 1
+                    end
+                begin
+                    check_arity(instance_method(name), expected_argument_count)
+                rescue ArgumentError
+                    if expected_argument_count == 0
+                        raise ArgumentCountMismatch, "action #{name} has been declared to have arguments, the #{name} method must be callable with a single Hash argument"
+                    else
+                        raise ArgumentCountMismatch, "action #{name} has been declared to have no arguments, the #{name} method must be callable without any arguments"
+                    end
+                end
+
+                description.name = name
+                raise if !description
+                actions[name] = description
                 description
             end
 

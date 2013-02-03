@@ -68,7 +68,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         actions = Class.new(Actions::Interface) do
             m = describe('an action').
                 required_arg('test')
-            def an_action; end
+            def an_action(arguments); end
         end
         act = actions.an_action('test' => 10)
         assert_same m, act.model
@@ -80,5 +80,24 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
             action_library
         end
         assert !Actions::Interface.each_submodel.to_a.include?(library)
+    end
+
+    def test_it_raises_if_an_action_model_specifies_arguments_but_the_method_does_not_accept_one
+        assert_raises(Actions::InterfaceModel::ArgumentCountMismatch) do
+            Class.new(Actions::Interface) do
+                m = describe('an action').
+                    required_arg('test')
+                def an_action; end
+            end
+        end
+    end
+
+    def test_it_raises_if_an_action_model_specifies_no_arguments_but_the_method_expects_one
+        assert_raises(Actions::InterfaceModel::ArgumentCountMismatch) do
+            Class.new(Actions::Interface) do
+                m = describe('an action')
+                def an_action(argument); end
+            end
+        end
     end
 end
