@@ -294,7 +294,8 @@ module Roby
                 root_task.depends_on(task = state.instanciate(root_task.plan, arguments),
                             :role => 'current_state',
                             :failure => :stop,
-                            :success => known_transitions)
+                            :success => known_transitions,
+                            :remove_when_done => false)
                 model.transitions.each do |src_state, src_event, dst_state|
                     if state == src_state
                         task.on(src_event) do |event|
