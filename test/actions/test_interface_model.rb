@@ -122,4 +122,12 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         # Verify it did not modify the original
         assert_same parent_m, parent_m.find_action_by_name('an_action').action_interface_model
     end
+
+    def test_it_defines_a_simple_task_model_for_return_type_if_none_is_given
+        parent_m = Class.new(Actions::Interface) do
+            describe('an action')
+            def an_action; end
+        end
+        assert_equal parent_m::AnAction, parent_m.find_action_by_name('an_action').returned_type
+    end
 end

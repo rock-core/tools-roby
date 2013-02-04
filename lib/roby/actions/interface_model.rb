@@ -50,36 +50,51 @@ module Roby
                 @current_description = ActionModel.new(self, doc)
             end
 
-            # Registers the action that is currently described with the given
-            # action name
-            def register_current_action(name)
-                description, @current_description = @current_description, nil
-
-                expected_argument_count =
-                    if description.arguments.empty? then 0
-                    else 1
-                    end
-                begin
-                    check_arity(instance_method(name), expected_argument_count)
-                rescue ArgumentError
-                    if expected_argument_count == 0
-                        raise ArgumentCountMismatch, "action #{name} has been declared to have arguments, the #{name} method must be callable with a single Hash argument"
+            # Registers a new action on this model
+            #
+            # If no specific return type has been specified, one is created
+            # automatically and registered as a constant on this action
+            # interface. For instance, the start_all_devices action would create
+            # a simple StartAllDevices task model.
+            def register_action(name, action_model)
+                if action_model.returned_type == Roby::Task
+                    task_model_name = name.camelcase(:upper)
+                    if const_defined_here?(task_model_name)
+                        action_model.returns(const_get(task_model_name))
                     else
-                        raise ArgumentCountMismatch, "action #{name} has been declared to have no arguments, the #{name} method must be callable without any arguments"
+                        task_model = Class.new(Roby::Task) do
+                            terminates
+                        end
+                        const_set task_model_name, task_model
+                        action_model.returns(task_model)
                     end
                 end
 
-                description.name = name
-                raise if !description
-                actions[name] = description
-                description
+                action_model.name = name
+                actions[action_model.name] = action_model
             end
 
             # Hook used to export methods for which there is a description
             def method_added(method_name)
                 super
                 if @current_description
-                    register_current_action(method_name.to_s)
+                    name = method_name.to_s
+                    description, @current_description = @current_description, nil
+
+                    expected_argument_count =
+                        if description.arguments.empty? then 0
+                        else 1
+                        end
+                    begin
+                        check_arity(instance_method(name), expected_argument_count)
+                    rescue ArgumentError
+                        if expected_argument_count == 0
+                            raise ArgumentCountMismatch, "action #{name} has been declared to have arguments, the #{name} method must be callable with a single Hash argument"
+                        else
+                            raise ArgumentCountMismatch, "action #{name} has been declared to have no arguments, the #{name} method must be callable without any arguments"
+                        end
+                    end
+                    register_action(name, description)
                 end
             end
 
