@@ -297,8 +297,8 @@ module Roby
                             :success => known_transitions)
                 model.transitions.each do |src_state, src_event, dst_state|
                     if state == src_state
-                        task.on(src_event) do |context|
-                            instanciate_state_transition(task, dst_state)
+                        task.on(src_event) do |event|
+                            instanciate_state_transition(event.task, dst_state)
                         end
                     end
                 end
