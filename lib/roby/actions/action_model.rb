@@ -5,7 +5,11 @@ module Roby
             # Structure that stores the information about planning method arguments
             #
             # See MethodDescription
-            Argument = Struct.new :name, :doc, :required
+            Argument = Struct.new :name, :doc, :required do
+                def pretty_print(pp)
+                    pp.text "#{name}: #{doc} (#{if required then 'required' else 'optional' end})"
+                end
+            end
 
             # The action interface on which this action is defined
             attr_reader :action_interface_model
@@ -98,6 +102,26 @@ module Roby
                     :action_model => self,
                     :action_arguments => arguments)
                 planner.planned_task
+            end
+            def pretty_print(pp)
+                pp.text "Action #{name} defined on #{action_interface_model.name}"
+                pp.nest(2) do
+                    pp.breakable
+                    pp.text "Returns "
+                    returned_type.pretty_print(pp)
+                    pp.breakable
+                    if arguments.empty?
+                        pp.text "No arguments."
+                    else
+                        pp.text "Arguments:"
+                        pp.nest(2) do
+                            pp.seplist(arguments.sort_by(&:name)) do |arg|
+                                pp.breakable
+                                arg.pretty_print(pp)
+                            end
+                        end
+                    end
+                end
             end
         end
     end
