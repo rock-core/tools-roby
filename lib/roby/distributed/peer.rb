@@ -342,7 +342,7 @@ module Roby::Distributed
         # This is used to customize the anonymous task tag building process
         # based on the RemoteObjectManager instance that is being provided
         def local_task_tag(name)
-            Roby::TaskModelTag.anon_tag_factory(name)
+            Roby::TaskModelTag::DRoby.anon_tag_factory(name)
         end
 
         # Called when +remote_object+ is a sibling that should be "forgotten"

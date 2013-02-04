@@ -50,13 +50,17 @@ module Roby
                 return interfaces[m]
             end
 
-	    result = @interface.send(m, *args)
+            dump = args.droby_dump(nil)
+	    result = @interface.send(m, *dump)
             if result.kind_of?(ShellInterface)
-                result = interfaces[m] = RemoteShellInterface.new(result)
+                interfaces[m] = RemoteShellInterface.new(result)
 	    elsif result.kind_of?(RemoteObjectProxy)
 		result.remote_interface = @interface
+                result
+            elsif result.respond_to?(:proxy)
+                result.proxy(Distributed::DumbManager)
+            else result
 	    end
-	    result
 
 	rescue Exception => e
 	    raise e, e.message, e.backtrace
@@ -215,16 +219,18 @@ module Roby
         #
         # See #actions for details
         def actions_summary(with_advanced = false)
-            methods = @interface.actions
+            methods = self.actions
             if !with_advanced
-                methods = methods.delete_if { |m| m.advanced? }
+                methods = methods.delete_if do |m|
+                    m.advanced?
+                end
             end
 
             if !methods.empty?
                 puts
                 desc = methods.map do |p|
                     doc = p.doc || ["(no description set)"]
-                    Hash['Name' => "#{p.name}!", 'Description' => doc.join("\n")]
+                    Hash['Name' => "#{p.name}!", 'Description' => Array(doc).join("\n")]
                 end
 
                 ColumnFormatter.from_hashes(desc, STDOUT,
@@ -307,7 +313,8 @@ module Roby
         #       end
         #   end
         def actions(with_advanced = false)
-            @interface.actions.find_all do |m|
+            actions = @interface.send(:droby_call, :actions).proxy(Distributed::DumbManager)
+            actions.find_all do |m|
                 !m.advanced? || with_advanced
             end
         end
@@ -584,7 +591,7 @@ help                              | this help message                           
 	end
         # For using Query on Interface objects
 	def remote_query_roots(result_set, m_relation) # :nodoc:
-	    plan.query_roots(result_set, m_relation.proxy(nil)).
+	    plan.query_roots(result_set, m_relation.proxy(Distributed::DumbManager)).
 		map { |t| RemoteObjectProxy.new(t) }
 	end
 
@@ -616,6 +623,10 @@ help                              | this help message                           
 	    end
             task_models.map { |t| t.droby_dump(nil) }
 	end
+
+        def droby_call(m, *args)
+            send(m, *args).droby_dump(nil)
+        end
 
         # Returns the set of action description objects that describe the methods
         # exported in the application's planners.
@@ -669,10 +680,14 @@ help                              | this help message                           
 	# Tries to find a planner method which matches +name+ with +args+. If it finds
 	# one, creates a task planned by a planning task and yields both
 	def method_missing(name, *args)
+            args = args.proxy(Distributed::DumbManager)
+
 	    if name.to_s =~ /!$/
 		name = $`.to_sym
             elsif Robot.respond_to?(name)
                 return Robot.send(name, *args)
+            elsif action = Robot.action_from_name(name.to_s)
+                return action.last.droby_dump(nil)
             else
 		super
 	    end
@@ -681,7 +696,7 @@ help                              | this help message                           
 		raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in #{name}!"
 	    end
 
-	    options = args.first || {}
+	    options = (args.first || {})
             # Verify that all options are properly resolved (i.e. no DrbObject
             # are lying around)
             verify_no_drbobject(options)
