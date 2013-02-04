@@ -111,4 +111,15 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         end
         assert_equal 10, actions.an_action(:test => 10).instanciate(plan).id
     end
+
+    def test_inherited_actions_are_rebound_to_the_interface_model
+        parent_m = Class.new(Actions::Interface) do
+            describe('an action')
+            def an_action; end
+        end
+        child_m = Class.new(parent_m)
+        assert_same child_m, child_m.find_action_by_name('an_action').action_interface_model
+        # Verify it did not modify the original
+        assert_same parent_m, parent_m.find_action_by_name('an_action').action_interface_model
+    end
 end

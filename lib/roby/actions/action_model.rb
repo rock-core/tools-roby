@@ -12,7 +12,7 @@ module Roby
             end
 
             # The action interface on which this action is defined
-            attr_reader :action_interface_model
+            attr_accessor :action_interface_model
 
             # The action name
             attr_accessor :name
@@ -93,6 +93,12 @@ module Roby
                 else
                     action_interface.send(name, arguments)
                 end
+            end
+
+            def rebind(action_interface_model)
+                m = dup
+                m.action_interface_model = action_interface_model
+                m
             end
 
             # Returns the plan pattern that will deploy this action on the plan
