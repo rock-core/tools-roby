@@ -16,6 +16,7 @@ module Roby
         #     end
         class Interface
             extend InterfaceModel
+            extend Logger::Hierarchy
 
             # The plan to which this action interface adds tasks
             attr_reader :plan

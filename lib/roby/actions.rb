@@ -1,3 +1,9 @@
+module Roby
+    module Actions
+        extend Logger::Hierarchy
+    end
+end
+
 require 'roby/actions/action_model'
 require 'roby/actions/action'
 require 'roby/actions/interface_model'
