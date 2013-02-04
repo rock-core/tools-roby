@@ -25,6 +25,8 @@ module Roby
                 @plan = plan
             end
 
+            def model; self.class end
+
             def state_machine(task, &block)
                 machine_model = StateMachine.new_submodel(self.model, task.model)
                 machine_model.parse(&block)
