@@ -109,7 +109,7 @@ module Roby
 	def droby_dump(dest)
 	    unless @__droby_marshalled__
 		tagdef = ancestors.map do |mod|
-		    if mod.instance_of?(Roby::TaskModelTag)
+		    if mod.kind_of?(Roby::TaskModelTag)
 			unless id = TaskModelTag.local_to_remote[mod]
 			    id = [mod.name, mod.remote_id]
 			end
