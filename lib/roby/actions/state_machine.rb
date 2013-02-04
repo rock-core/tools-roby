@@ -162,7 +162,7 @@ module Roby
             def new_submodel(action_interface, task_model = Roby::Task, arguments = Array.new)
                 submodel = Class.new(self)
                 submodel.task_model = task_model
-                submodel.arguments.concat(arguments.to_a)
+                submodel.arguments.concat(arguments.map(&:to_sym).to_a)
                 submodel.action_interface = action_interface
                 submodel
             end
@@ -272,9 +272,9 @@ module Roby
 
             def initialize(root_task, arguments = Hash.new)
                 @root_task = root_task
-                @arguments = arguments
+                @arguments = Kernel.normalize_options arguments
                 model.arguments.each do |key|
-                    if !arguments.has_key?(key)
+                    if !@arguments.has_key?(key)
                         raise ArgumentError, "expected an argument named #{key} but got none"
                     end
                 end
