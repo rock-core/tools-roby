@@ -45,7 +45,7 @@ module Roby
             # description are exported as actions
             def describe(doc = nil)
                 if @current_description
-                    raise ArgumentError, "#{@current_description} started but never used. Did you forget to add a method to your action interface ?"
+                    Interface.warn "#{@current_description} started but never used. Did you forget to add a method to your action interface ?"
                 end
                 @current_description = ActionModel.new(self, doc)
             end
