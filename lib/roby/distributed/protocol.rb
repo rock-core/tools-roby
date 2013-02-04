@@ -76,9 +76,12 @@ module Roby
 	    end
 
             def self.anon_tag_factory(tag_name)
-                Roby::TaskModelTag.new do
-                    define_method(:name) { tag_name }
+                m = Roby::TaskModelTag.new
+                class << m
+                    attr_accessor :name
                 end
+                m.name = tag_name
+                m
             end
 
 	    def self.local_tag(name, remote_tag, unknown_model_factory = method(:anon_tag_factory))
