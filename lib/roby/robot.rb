@@ -68,7 +68,7 @@ module Robot
             planner_model, m = action_from_name(name)
         end
         if plan
-            plan.add(task = m.plan_pattern)
+            plan.add(task = m.plan_pattern(arguments))
         end
 	return task, task.planning_task
     end
