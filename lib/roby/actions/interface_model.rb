@@ -2,6 +2,7 @@ module Roby
     module Actions
         module InterfaceModel
             include Utilrb::Models::Registration
+	    include Distributed::DRobyModel::Dump
 
             def promote_registered_action(name, action)
                 actions[name] ||= action.rebind(self)

@@ -465,7 +465,6 @@ module Roby
 	    end
 	end
 	Roby::EventGenerator.extend Distributed::DRobyModel::Dump
-	Roby::Planning::Planner.extend Distributed::DRobyModel::Dump
 
         # Dumping intermediate for Task classes. This dumps both the ancestor
         # list via DRobyModel and the list of task tags.

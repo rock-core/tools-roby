@@ -109,6 +109,35 @@ module Roby
                     :action_arguments => arguments)
                 planner.planned_task
             end
+
+            def droby_dump(dest)
+                dump = self.dup
+                dump.droby_dump!(dest)
+                dump
+            end
+
+            def droby_dump!(dest)
+                @action_interface_model = action_interface_model.droby_dump(dest)
+                @returned_type = returned_type.droby_dump(dest)
+                @returned_task_type = nil
+            end
+
+            def proxy(peer)
+                interface_model = action_interface_model.proxy(peer)
+                if action = interface_model.find_action_by_name(name)
+                    return action
+                end
+
+                result = self.dup
+                result.proxy!(peer, interface_model)
+                result
+            end
+
+            def proxy!(peer, interface_model)
+                @action_interface_model = interface_model
+                @returned_type = returned_type.proxy(peer)
+            end
+
             def pretty_print(pp)
                 pp.text "Action #{name} defined on #{action_interface_model.name}"
                 pp.nest(2) do

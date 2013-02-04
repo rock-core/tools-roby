@@ -362,6 +362,7 @@ module Roby
 	#
         class Planner
 	    extend Tools
+            extend Distributed::DRobyModel::Dump
 
 	    # The resulting plan
 	    attr_reader :plan
