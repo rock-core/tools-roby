@@ -59,7 +59,7 @@ module Roby
                     end
                     ev = find_event(ev_name)
                     if !ev
-                        raise NoMethodError, "#{ev_name} is not an event of #{action.returned_type}"
+                        raise NoMethodError, "#{ev_name} is not an event of #{self}"
                     end
                     return ev
                 else return super
