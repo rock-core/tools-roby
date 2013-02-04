@@ -78,6 +78,8 @@ module Roby
             def instanciate(plan, variables)
                 instanciation_object.instanciate(plan)
             end
+
+            def to_s; "#{instanciation_object}[#{task_model}]" end
         end
 
         # A representation of a state based on an action
@@ -106,6 +108,8 @@ module Roby
                 end
                 action.instanciate(plan, arguments)
             end
+
+            def to_s; "action(#{action.name})[#{task_model}]" end
         end
 
         # State whose instanciation object is provided through a state machine
@@ -124,6 +128,8 @@ module Roby
                 end
                 obj.instanciate(plan)
             end
+
+            def to_s; "var(#{variable_name})[#{task_model}]" end
         end
 
         # Definition of model-level functionality for StateMachine models
