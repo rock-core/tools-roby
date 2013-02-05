@@ -703,6 +703,17 @@ module Roby
 	end
 
         include Enumerable
+
+        DRoby = Struct.new :values do
+            def proxy(peer)
+                obj = TaskArguments.new(nil)
+                obj.values.merge!(peer.local_object(values))
+                obj
+            end
+        end
+        def droby_dump(peer)
+            DRoby.new(values.droby_dump(peer))
+        end
     end
 
     # Placeholder that can be used as an argument, to delay the assignation
