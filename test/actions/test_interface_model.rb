@@ -44,12 +44,6 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         assert !m.find_action_by_name('an_action')
     end
 
-    def test_it_raises_if_a_method_description_is_unused
-        m = Class.new(Actions::Interface)
-        m.describe('an action')
-        assert_raises(ArgumentError) { m.describe('an action') }
-    end
-
     def test_it_allows_to_find_methods_by_type
         task_m = Class.new(Roby::Task)
         subtask_m = Class.new(task_m)
