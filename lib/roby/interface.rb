@@ -752,7 +752,11 @@ help                              | this help message                           
         def kill_job(id)
             engine.execute do
                 if j = job(id)
-                    j.stop!
+                    if j.running?
+                        j.stop!
+                    else
+                        plan.unmark_mission(j)
+                    end
                 end
                 nil
             end
