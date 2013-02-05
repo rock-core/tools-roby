@@ -713,6 +713,7 @@ module Roby
                                 engine.process_events
                                 sleep(0.05)
                             end
+                            error, result = result_queue.pop
                         end
                     ensure
                         Test.watched_events.delete_if { |_, q, _| q == result_queue }
