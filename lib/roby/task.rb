@@ -23,6 +23,9 @@ module Roby
     #   # FirewireDriver can now be used in relationships where CameraDriver was
     #   # needed
     class TaskService < Module
+        extend Utilrb::Models::Registration
+        def supermodel; TaskService end
+
         # Module which contains the extension for the task models themselves.
         # When one does
         #
@@ -603,6 +606,15 @@ module Roby
             to_hash == hash.to_hash
         end
 
+        def pretty_print(pp)
+            pp.seplist(values) do |keyvalue|
+                key, value = *keyvalue
+                key.pretty_print(pp)
+                pp.text " => "
+                value.pretty_print(pp)
+            end
+        end
+
         def to_s
             values.to_s
         end
@@ -691,6 +703,17 @@ module Roby
 	end
 
         include Enumerable
+
+        DRoby = Struct.new :values do
+            def proxy(peer)
+                obj = TaskArguments.new(nil)
+                obj.values.merge!(peer.local_object(values))
+                obj
+            end
+        end
+        def droby_dump(peer)
+            DRoby.new(values.droby_dump(peer))
+        end
     end
 
     # Placeholder that can be used as an argument, to delay the assignation

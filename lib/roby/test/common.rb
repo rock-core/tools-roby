@@ -7,7 +7,20 @@ if !defined?(Test::Unit::AssertionFailedError)
 Test::Unit::AssertionFailedError = MiniTest::Assertion
 end
 
+begin
+    require 'pry'
+rescue LoadError
+    Roby.warn "pry gem is not present, not enabled"
+end
+
 module Roby
+    # This module is defining common support for tests that need the Roby
+    # infrastructure
+    #
+    # It assumes that the tests are started using roby's test command. Tests
+    # using this module can NOT be started with only e.g. testrb.
+    #
+    # @see SelfTest
     module Test
 	include Roby
 	Unit = ::Test::Unit
@@ -77,6 +90,7 @@ module Roby
             Roby.app.reload_config
 
             @timings = Hash.new
+            @plan = Roby.plan
 
             super if defined? super
 
@@ -125,15 +139,14 @@ module Roby
 	    save_collection plan.exception_handlers
 	    timings[:setup] = Time.now
 
-            engine.at_cycle_end(&Test.method(:verify_watched_events))
-            engine.finalizers << Test.method(:finalize_watched_events)
+            @handler_ids = Array.new
+            @handler_ids << engine.add_propagation_handler(:type => :external_events) do |plan|
+                Test.verify_watched_events
+            end
 	end
-
 
 	def teardown_plan
             return if !engine
-            engine.at_cycle_end_handlers.delete(Test.method(:verify_watched_events))
-            engine.finalizers.delete(Test.method(:finalize_watched_events))
 
 	    old_gc_roby_logger_level = Roby.logger.level
 	    if debug_gc?
@@ -202,6 +215,13 @@ module Roby
 	    teardown_plan
 	    timings[:teardown_plan] = Time.now
 
+            if @handler_ids
+                @handler_ids.each do |handler_id|
+                    engine.remove_propagation_handler(handler_id)
+                end
+            end
+            Test.verify_watched_events
+
 	    stop_remote_processes
 	    DRb.stop_service if DRb.thread
 
@@ -265,20 +285,27 @@ module Roby
             super if defined? super
 
 	rescue Exception => e
+            teardown_failure = e
             raise
 
 	ensure
-            if plan
-                while engine.running?
-                    engine.quit
-                    engine.join rescue nil
+            begin
+                if plan
+                    while engine.running?
+                        engine.quit
+                        engine.join rescue nil
+                    end
+                    plan.clear
                 end
-                plan.clear
-            end
 
-	    Roby.logger.level = @original_roby_logger_level
-	    self.console_logger = false
-            self.event_logger   = false
+                Roby.logger.level = @original_roby_logger_level
+                self.console_logger = false
+                self.event_logger   = false
+            rescue Exception => e
+                if teardown_failure then raise teardown_failure
+                else raise e
+                end
+            end
 	end
 
 	# Process pending events
@@ -610,10 +637,6 @@ module Roby
             end
         end
 
-        def self.finalize_watched_events
-            verify_watched_events
-        end
-
 	module Assertions
 	    # Wait for any event in +positive+ to happen. If +negative+ is
 	    # non-empty, any event happening in this set will make the
@@ -644,7 +667,6 @@ module Roby
                     end
                 end
             end
-
             def watch_events(positive, negative, timeout, &block)
                 positive = Array[*(positive || [])].to_value_set
                 negative = Array[*(negative || [])].to_value_set
@@ -684,7 +706,15 @@ module Roby
                     end
 
                     begin
-                        error, result = result_queue.pop
+                        if engine.running?
+                            error, result = result_queue.pop
+                        else
+                            while result_queue.empty?
+                                engine.process_events
+                                sleep(0.05)
+                            end
+                            error, result = result_queue.pop
+                        end
                     ensure
                         Test.watched_events.delete_if { |_, q, _| q == result_queue }
                     end
@@ -815,7 +845,12 @@ module Roby
         end
     end
 
-    # Module used to setup tests for Roby itself
+    # This module is extending Test to be able to run tests using the normal
+    # testrb command. It is meant to be used to test libraries (e.g. Roby
+    # itself) as, in complex Roby applications, the setup and teardown steps
+    # would be very expensive.
+    #
+    # @see Test
     module SelfTest
         include Test
 

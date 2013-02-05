@@ -1,3 +1,4 @@
+require 'roby/distributed/protocol'
 module Roby
     module Actions
         # Functionality to gather information about the actions available on a
@@ -15,12 +16,21 @@ module Roby
         #     end
         class Interface
             extend InterfaceModel
+            extend Logger::Hierarchy
 
             # The plan to which this action interface adds tasks
             attr_reader :plan
 
             def initialize(plan)
                 @plan = plan
+            end
+
+            def model; self.class end
+
+            def state_machine(task, &block)
+                machine_model = StateMachine.new_submodel(self.model, task.model)
+                machine_model.parse(&block)
+                machine_model.new(task)
             end
         end
     end

@@ -47,5 +47,19 @@ class TC_Robot < Test::Unit::TestCase
         assert_equal [task, planner_task], Robot.prepare_action(plan, task_t)
         assert_same plan, task.plan
     end
+    def test_prepare_action_passes_arguments
+        arguments = {:id => 10}
+
+        task_t = Class.new(Roby::Task)
+        task, planner_task = task_t.new, task_t.new
+        task.planned_by planner_task
+        planner = flexmock
+        planning_method = flexmock
+        planning_method.should_receive(:plan_pattern).with(arguments).once.and_return(task)
+        flexmock(Robot).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
+
+        assert_equal [task, planner_task], Robot.prepare_action(plan, task_t, arguments)
+        assert_same plan, task.plan
+    end
 end
 

@@ -5,10 +5,14 @@ module Roby
             # Structure that stores the information about planning method arguments
             #
             # See MethodDescription
-            Argument = Struct.new :name, :doc, :required
+            Argument = Struct.new :name, :doc, :required do
+                def pretty_print(pp)
+                    pp.text "#{name}: #{doc} (#{if required then 'required' else 'optional' end})"
+                end
+            end
 
             # The action interface on which this action is defined
-            attr_reader :action_interface_model
+            attr_accessor :action_interface_model
 
             # The action name
             attr_accessor :name
@@ -91,6 +95,12 @@ module Roby
                 end
             end
 
+            def rebind(action_interface_model)
+                m = dup
+                m.action_interface_model = action_interface_model
+                m
+            end
+
             # Returns the plan pattern that will deploy this action on the plan
             def plan_pattern(arguments = Hash.new)
                 planner = Roby::Actions::Task.new(
@@ -98,6 +108,55 @@ module Roby
                     :action_model => self,
                     :action_arguments => arguments)
                 planner.planned_task
+            end
+
+            def droby_dump(dest)
+                dump = self.dup
+                dump.droby_dump!(dest)
+                dump
+            end
+
+            def droby_dump!(dest)
+                @action_interface_model = action_interface_model.droby_dump(dest)
+                @returned_type = returned_type.droby_dump(dest)
+                @returned_task_type = nil
+            end
+
+            def proxy(peer)
+                interface_model = action_interface_model.proxy(peer)
+                if action = interface_model.find_action_by_name(name)
+                    return action
+                end
+
+                result = self.dup
+                result.proxy!(peer, interface_model)
+                result
+            end
+
+            def proxy!(peer, interface_model)
+                @action_interface_model = interface_model
+                @returned_type = returned_type.proxy(peer)
+            end
+
+            def pretty_print(pp)
+                pp.text "Action #{name} defined on #{action_interface_model.name}"
+                pp.nest(2) do
+                    pp.breakable
+                    pp.text "Returns "
+                    returned_type.pretty_print(pp)
+                    pp.breakable
+                    if arguments.empty?
+                        pp.text "No arguments."
+                    else
+                        pp.text "Arguments:"
+                        pp.nest(2) do
+                            pp.seplist(arguments.sort_by(&:name)) do |arg|
+                                pp.breakable
+                                arg.pretty_print(pp)
+                            end
+                        end
+                    end
+                end
             end
         end
     end

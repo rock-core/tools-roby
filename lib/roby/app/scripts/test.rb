@@ -25,7 +25,6 @@ parser = OptionParser.new do |opt|
 end
 
 app.testing = true
-require 'roby/test/testcase'
 
 parser.parse! ARGV
 Roby.app.setup

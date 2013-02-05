@@ -1,6 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/actions'
+require 'roby/tasks/simple'
 require 'flexmock/test_unit'
 
 class TC_Actions_Task < Test::Unit::TestCase
@@ -8,14 +9,17 @@ class TC_Actions_Task < Test::Unit::TestCase
     include Roby::SelfTest
     include Roby::SelfTest::Assertions
 
+    class TaskModel < Roby::Task; end
+
     attr_reader :iface_m, :task
     def setup
         super
 
         @iface_m = Class.new(Actions::Interface) do
-            describe "the test action"
+            describe("the test action").
+                returns(TaskModel)
             def test_action
-                Roby::Task.new
+                TaskModel.new
             end
         end
         plan.add(task = iface_m.test_action.as_plan)
@@ -25,7 +29,7 @@ class TC_Actions_Task < Test::Unit::TestCase
     def test_it_calls_the_action_and_adds_the_result_to_the_transaction
         flexmock(iface_m).new_instances.
             should_receive(:test_action).once.
-            and_return(result_task = Roby::Task.new)
+            and_return(result_task = TaskModel.new)
         flexmock(Transaction).new_instances.
             should_receive(:add).with(any).pass_thru
         flexmock(Transaction).new_instances.

@@ -4,7 +4,7 @@ module Roby
         class Action
             # The action model
             # @return [ActionModel]
-            attr_reader :model
+            attr_accessor :model
             # The action arguments
             # @return [Hash]
             attr_reader :arguments
@@ -20,9 +20,15 @@ module Roby
                 model.plan_pattern(arguments)
             end
 
+            def rebind(action_interface_model)
+                result = dup
+                result.model = result.model.rebind(action_interface_model)
+                result
+            end
+
             # Deploys this action on the given plan
-            def instanciate(plan)
-                model.instanciate(plan, arguments)
+            def instanciate(plan, arguments = Hash.new)
+                model.instanciate(plan, self.arguments.merge(arguments))
             end
         end
     end

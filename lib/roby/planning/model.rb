@@ -362,6 +362,7 @@ module Roby
 	#
         class Planner
 	    extend Tools
+            extend Distributed::DRobyModel::Dump
 
 	    # The resulting plan
 	    attr_reader :plan
@@ -591,6 +592,7 @@ module Roby
                     if old_description = instance_variable_get("@#{name}_description")
                         raise "#{name} already has a description (#{old_description.doc.first})"
                     end
+                    @next_method_description.name = name
                     instance_variable_set("@#{name}_description", @next_method_description)
                     @next_method_description = nil
                 end

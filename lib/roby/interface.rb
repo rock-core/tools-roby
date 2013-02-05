@@ -50,13 +50,17 @@ module Roby
                 return interfaces[m]
             end
 
-	    result = @interface.send(m, *args)
+            dump = args.droby_dump(nil)
+	    result = @interface.send(m, *dump)
             if result.kind_of?(ShellInterface)
-                result = interfaces[m] = RemoteShellInterface.new(result)
+                interfaces[m] = RemoteShellInterface.new(result)
 	    elsif result.kind_of?(RemoteObjectProxy)
 		result.remote_interface = @interface
+                result
+            elsif result.respond_to?(:proxy)
+                result.proxy(Distributed::DumbManager)
+            else result
 	    end
-	    result
 
 	rescue Exception => e
 	    raise e, e.message, e.backtrace
@@ -215,16 +219,18 @@ module Roby
         #
         # See #actions for details
         def actions_summary(with_advanced = false)
-            methods = @interface.actions
+            methods = self.actions
             if !with_advanced
-                methods = methods.delete_if { |m| m.advanced? }
+                methods = methods.delete_if do |m|
+                    m.advanced?
+                end
             end
 
             if !methods.empty?
                 puts
                 desc = methods.map do |p|
                     doc = p.doc || ["(no description set)"]
-                    Hash['Name' => "#{p.name}!", 'Description' => doc.join("\n")]
+                    Hash['Name' => "#{p.name}!", 'Description' => Array(doc).join("\n")]
                 end
 
                 ColumnFormatter.from_hashes(desc, STDOUT,
@@ -236,6 +242,61 @@ module Roby
 
             nil
         end
+
+        # A class that (in a very limited way) makes a pretty print object "look
+        # like" an IO object
+        class PPIOAdaptor
+            def print(text)
+                first = true
+                text.split("\n").each do |text|
+                    pp.breakable if !first
+                    pp.text text
+                    first = false
+                end
+            end
+            def puts(text)
+                print text
+                pp.breakable
+            end
+        end
+
+        # Value returned by #actions to allow for enumerating actions and
+        # redefine #pretty_print to display the action information
+        class ActionList
+            attr_reader :actions
+            def initialize(actions)
+                @actions = actions
+            end
+
+            def pretty_print(pp)
+                if actions.empty?
+                    pp.text "No actions defined"
+                    return
+                end
+
+                puts
+                desc = actions.map do |p|
+                    doc = p.doc || ["(no description set)"]
+                    Hash['Name' => "#{p.name}!(#{p.arguments.map(&:name).sort.join(", ")})", 'Description' => doc.join("\n")]
+                end
+
+                ColumnFormatter.from_hashes(desc, PPIOAdaptor.new(pp),
+                                            :header_delimiter => true, 
+                                            :column_delimiter => "|",
+                                            :order => %w{Name Description})
+            end
+
+            def each(&block)
+                actions.each(&block)
+            end
+            include Enumerable
+
+            def pretty_print(pp)
+                display_action_description(m)
+                puts
+            end
+        end
+
 
         # Displays a detailed description of available actions. If +advanced+ is
         # true (false by default), advanced actions are displayed as well.
@@ -252,12 +313,10 @@ module Roby
         #       end
         #   end
         def actions(with_advanced = false)
-            @interface.actions.each do |m|
-                next if m.advanced? if !with_advanced
-                display_action_description(m)
-                puts
+            actions = @interface.send(:droby_call, :actions).proxy(Distributed::DumbManager)
+            actions.find_all do |m|
+                !m.advanced? || with_advanced
             end
-            nil
         end
 
         # Standard way to display a set of tasks
@@ -532,7 +591,7 @@ help                              | this help message                           
 	end
         # For using Query on Interface objects
 	def remote_query_roots(result_set, m_relation) # :nodoc:
-	    plan.query_roots(result_set, m_relation.proxy(nil)).
+	    plan.query_roots(result_set, m_relation.proxy(Distributed::DumbManager)).
 		map { |t| RemoteObjectProxy.new(t) }
 	end
 
@@ -565,13 +624,17 @@ help                              | this help message                           
             task_models.map { |t| t.droby_dump(nil) }
 	end
 
-        # Returns the set of PlanningMethod objects that describe the methods
+        def droby_call(m, *args)
+            send(m, *args).droby_dump(nil)
+        end
+
+        # Returns the set of action description objects that describe the methods
         # exported in the application's planners.
 	def actions
 	    Roby.app.planners.
-		map do |p|
-                    p.each_action.to_a
-                end.flatten.sort_by { |p| p.name }
+		inject([]) do |list, p|
+                    list.concat(p.each_action.to_a)
+                end.sort_by(&:name)
 	end
 
         # Called every once in a while by RemoteInterface to read and clear the
@@ -617,10 +680,14 @@ help                              | this help message                           
 	# Tries to find a planner method which matches +name+ with +args+. If it finds
 	# one, creates a task planned by a planning task and yields both
 	def method_missing(name, *args)
+            args = args.proxy(Distributed::DumbManager)
+
 	    if name.to_s =~ /!$/
 		name = $`.to_sym
             elsif Robot.respond_to?(name)
                 return Robot.send(name, *args)
+            elsif action = Robot.action_from_name(name.to_s)
+                return action.last.droby_dump(nil)
             else
 		super
 	    end
@@ -629,7 +696,7 @@ help                              | this help message                           
 		raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in #{name}!"
 	    end
 
-	    options = args.first || {}
+	    options = (args.first || {})
             # Verify that all options are properly resolved (i.e. no DrbObject
             # are lying around)
             verify_no_drbobject(options)
@@ -685,7 +752,11 @@ help                              | this help message                           
         def kill_job(id)
             engine.execute do
                 if j = job(id)
-                    j.stop!
+                    if j.running?
+                        j.stop!
+                    else
+                        plan.unmark_mission(j)
+                    end
                 end
                 nil
             end

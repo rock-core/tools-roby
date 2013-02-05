@@ -73,6 +73,13 @@ module Roby
         # overlaid 
 	attr_reader :options
 
+        # A set of exceptions that have been encountered by the application
+        # The associated string, if given, is a hint about in which context
+        # this exception got raised
+        # @return [Array<(Exception,String)>]
+        # @see #register_exception #clear_exceptions
+        attr_reader :registered_exceptions
+
         # Allows to attribute configuration keys to override configuration
         # parameters stored in config/app.yml
         #
@@ -317,6 +324,7 @@ module Roby
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
+            @registered_exceptions = []
 
             @filter_out_patterns = [Roby::RX_IN_FRAMEWORK, Roby::RX_REQUIRE]
             self.abort_on_application_exception = true
@@ -679,6 +687,14 @@ module Roby
             path
         end
 
+        def register_exception(e, reason = nil)
+            registered_exceptions << [e, reason]
+        end
+
+        def clear_exceptions
+            registered_exceptions.clear
+        end
+
         def require(absolute_path)
             # Make the file relative to the search path
             file = make_path_relative(absolute_path)
@@ -690,10 +706,11 @@ module Roby
                     Kernel.require absolute_path
                 end
             rescue ::Exception => e
+                register_exception(e, "ignored file #{file}")
                 if ignore_all_load_errors?
                     Robot.warn "ignored file #{file}"
                     Roby.log_exception(e, Application, :warn)
-                    Roby.log_backtrace(e, Application, :info)
+                    Roby.log_backtrace(e, Application, :warn)
                 else raise
                 end
             end
@@ -1146,7 +1163,8 @@ module Roby
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :all, :order)
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :path)
+            search_path = options[:path] || self.search_path
             if !options.has_key?(:all)
                 raise ArgumentError, "no :all argument given"
             elsif !options.has_key?(:order)
@@ -1173,7 +1191,7 @@ module Roby
                 end
             end
 
-            root_paths = self.search_path.dup
+            root_paths = search_path.dup
             if options[:order] == :specific_first
                 relative_paths = relative_paths.reverse
             else
@@ -1225,13 +1243,13 @@ module Roby
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :all, :order, :pattern => Regexp.new(""))
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :path, :pattern => Regexp.new(""))
             if options[:pattern].respond_to?(:to_str)
                 options[:pattern] = Regexp.new("^" + Regexp.quote(options[:pattern]) + "$")
             end
 
             dir_search = dir_path.dup
-            dir_search << { :all => true, :order => options[:order] }
+            dir_search << { :all => true, :order => options[:order], :path => options[:path] }
             search_path = find_dirs(*dir_search)
 
             result = []
@@ -1415,15 +1433,34 @@ module Roby
                 return if method == :require
                 return true if app_file?(file)
             end
+            false
         end
 
         def clear_models
             # Clear all Task and TaskService submodels that have been defined in
             # this app
-            [Task, Actions::Interface].each do |root_model|
+            [Task, TaskService, Actions::Interface, Actions::Library].each do |root_model|
                 root_model.each_submodel do |m|
-                    if model_defined_in_app?(m)
+                    if model_defined_in_app?(m) || !m.permanent_model?
                         m.clear_model
+                    end
+                    next if m.permanent_model?
+
+                    # Deregister non-permanent models that are registered in the
+                    # constant hierarchy
+                    valid_name =
+                        begin
+                            constant(m.name) == m
+                        rescue NameError
+                        end
+
+                    if valid_name
+                        parent_module =
+                            if m.name =~ /::/
+                                m.name.gsub(/::[^:]*$/, '')
+                            else Object
+                            end
+                        constant(parent_module).send(:remove_const, m.name.gsub(/.*::/, ''))
                     end
                 end
                 root_model.clear_submodels
