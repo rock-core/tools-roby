@@ -75,7 +75,7 @@ module Roby
                 @instanciation_object = instanciation_object
             end
 
-            def instanciate(plan, variables)
+            def instanciate(action_interface_model, plan, variables)
                 instanciation_object.instanciate(plan)
             end
 
@@ -95,7 +95,7 @@ module Roby
 
             # Generates a task for this state in the given plan and returns
             # it
-            def instanciate(plan, variables)
+            def instanciate(action_interface_model, plan, variables)
                 arguments = action.arguments.map_value do |key, value|
                     if value.kind_of?(StateMachineVariable)
                         if variables.has_key?(value.name)
@@ -106,7 +106,7 @@ module Roby
                     else value
                     end
                 end
-                action.instanciate(plan, arguments)
+                action.rebind(action_interface_model).instanciate(plan, arguments)
             end
 
             def to_s; "action(#{action.name})[#{task_model}]" end
@@ -121,7 +121,7 @@ module Roby
                 super(task_model)
             end
 
-            def instanciate(plan, variables)
+            def instanciate(action_interface_model, plan, variables)
                 obj = variables[variable_name]
                 if !obj.respond_to?(:instanciate)
                     raise ArgumentError, "expected variable #{variable_name} to contain an object that can generate tasks, found #{obj}"
@@ -269,6 +269,9 @@ module Roby
             # @return [Hash]
             attr_reader :arguments
 
+            # The action interface model that is supporting this state machine
+            attr_reader :action_interface_model
+
             # The state machine model
             # @return [Model<StateMachine>] a subclass of StateMachine
             # @see StateMachineModel
@@ -276,7 +279,8 @@ module Roby
                 self.class
             end
 
-            def initialize(root_task, arguments = Hash.new)
+            def initialize(action_interface_model, root_task, arguments = Hash.new)
+                @action_interface_model = action_interface_model
                 @root_task = root_task
                 @arguments = Kernel.normalize_options arguments
                 model.arguments.each do |key|
@@ -297,7 +301,7 @@ module Roby
                     end
                 end
 
-                root_task.depends_on(task = state.instanciate(root_task.plan, arguments),
+                root_task.depends_on(task = state.instanciate(action_interface_model, root_task.plan, arguments),
                             :role => 'current_state',
                             :failure => :stop,
                             :success => known_transitions,

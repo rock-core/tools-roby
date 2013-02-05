@@ -159,5 +159,21 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         task = start_machine('test', :first_task => obj)
         assert_equal first_task, task.current_state_child
     end
+
+    def test_it_rebinds_the_action_states_to_the_actual_interface_model
+        task_m = self.task_m
+
+        child_m = Class.new(action_m)
+        flexmock(Actions::ActionModel).new_instances.
+            should_receive(:run).once.
+            with(child_m, any).pass_thru
+        action_m.state_machine('test') do
+            start(start_task)
+        end
+
+        task = child_m.find_action_by_name('test').instanciate(plan)
+        task.start!
+        assert task.current_state_child
+    end
 end
 

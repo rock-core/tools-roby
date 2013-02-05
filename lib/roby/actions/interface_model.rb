@@ -135,7 +135,7 @@ module Roby
 
                 define_method(name) do |*arguments|
                     plan.add(root = root_m.new)
-                    machine_model.new(root, *arguments) 
+                    machine_model.new(self.model, root, *arguments) 
                     root
                 end
             end

@@ -4,7 +4,7 @@ module Roby
         class Action
             # The action model
             # @return [ActionModel]
-            attr_reader :model
+            attr_accessor :model
             # The action arguments
             # @return [Hash]
             attr_reader :arguments
@@ -18,6 +18,12 @@ module Roby
             #   {Actions::Task}
             def as_plan
                 model.plan_pattern(arguments)
+            end
+
+            def rebind(action_interface_model)
+                result = dup
+                result.model = result.model.rebind(action_interface_model)
+                result
             end
 
             # Deploys this action on the given plan
