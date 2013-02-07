@@ -443,7 +443,7 @@ module Roby
                     # Look locally for the constant listed in the name
                     obj = Object
                     while subname = names.shift
-                        if obj.const_defined_here?(subname)
+                        if subname =~ /^[A-Z]\w*$/ && obj.const_defined_here?(subname)
                             obj = obj.const_get(subname)
                         else
                             obj = nil
