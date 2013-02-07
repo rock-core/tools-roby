@@ -22,6 +22,8 @@ Roby.display_exception do
                 if controller_file
                     Robot.info "loading controller file #{controller_file}"
                     load controller_file
+                else
+                    Robot.info "found no controller file to load"
                 end
 		Robot.info "done initialization"
 	    rescue Interrupt
