@@ -815,6 +815,8 @@ module Roby
         def load_base_config
             search_path.each do |app_dir|
                 $LOAD_PATH.unshift(app_dir) if !$LOAD_PATH.include?(app_dir)
+                libdir = File.join(app_dir, 'lib')
+                $LOAD_PATH.unshift(libdir) if !$LOAD_PATH.include?(libdir)
             end
 
             load_config_yaml
@@ -1026,7 +1028,7 @@ module Roby
 	def run_plugins(mods, &block)
             engine = plan.engine
 	    if mods.empty?
-		yield
+		yield if block_given?
 
                 Robot.info "ready"
 		engine.join

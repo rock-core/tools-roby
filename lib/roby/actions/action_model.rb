@@ -57,12 +57,12 @@ module Roby
 
             # Documents a new required argument to the method
             def required_arg(name, doc = nil)
-                arguments << Argument.new(name, doc, true)
+                arguments << Argument.new(name.to_s, doc, true)
                 self
             end
             # Documents a new optional argument to the method
             def optional_arg(name, doc = nil)
-                arguments << Argument.new(name, doc, false)
+                arguments << Argument.new(name.to_s, doc, false)
                 self
             end
             # Sets the advanced flag to true. See #advanced?
@@ -124,7 +124,7 @@ module Roby
 
             def proxy(peer)
                 interface_model = action_interface_model.proxy(peer)
-                if action = interface_model.find_action_by_name(name)
+                if action_interface_model.respond_to?(:find_action_by_name) && (action = interface_model.find_action_by_name(name))
                     return action
                 end
 
