@@ -14,7 +14,7 @@ display_mode = 'relations'
 
 # Look for a default config file in the Roby app structure
 if Roby.app.app_dir
-    config = Roby.app.find_file('config', 'roby-display.yml', :order => :specific_first)) ||
+    config = Roby.app.find_file('config', 'roby-display.yml', :order => :specific_first) ||
         File.join(Roby.app.app_dir, "config", "roby-display.yml")
 end
 
