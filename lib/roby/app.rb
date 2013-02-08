@@ -815,6 +815,8 @@ module Roby
         def load_base_config
             search_path.each do |app_dir|
                 $LOAD_PATH.unshift(app_dir) if !$LOAD_PATH.include?(app_dir)
+                libdir = File.join(app_dir, 'lib')
+                $LOAD_PATH.unshift(libdir) if !$LOAD_PATH.include?(libdir)
             end
 
             load_config_yaml
