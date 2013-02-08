@@ -57,12 +57,12 @@ module Roby
 
             # Documents a new required argument to the method
             def required_arg(name, doc = nil)
-                arguments << Argument.new(name, doc, true)
+                arguments << Argument.new(name.to_s, doc, true)
                 self
             end
             # Documents a new optional argument to the method
             def optional_arg(name, doc = nil)
-                arguments << Argument.new(name, doc, false)
+                arguments << Argument.new(name.to_s, doc, false)
                 self
             end
             # Sets the advanced flag to true. See #advanced?
