@@ -2,6 +2,7 @@ require 'roby'
 require 'optparse'
 
 app = Roby.app
+app.guess_app_dir
 app.public_logs = false
 
 testrb_args = []

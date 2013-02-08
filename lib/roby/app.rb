@@ -4,6 +4,7 @@ require 'singleton'
 require 'utilrb/hash'
 require 'utilrb/module/attr_predicate'
 require 'yaml'
+require 'utilrb/pathname/find_matching_parent'
 
 module Roby
     # Regular expression that matches backtrace paths that are within the
@@ -171,6 +172,38 @@ module Roby
                 APP_DIR
             elsif @app_dir
                 @app_dir
+            end
+        end
+
+        # Tests if the given directory looks like the root of a Roby app
+        def self.is_app_dir?(test_dir)
+            File.file?(File.join(test_dir, 'config', 'app.yml')) ||
+                File.directory?(File.join(test_dir, 'model')) ||
+                File.file?(File.join(test_dir, 'scripts', 'controllers'))
+        end
+
+        # Guess the app directory based on the current directory. It will not do
+        # anything if the current directory is not in a Roby app. Moreover, it
+        # does nothing if #app_dir is already set
+        #
+        # @return [String] the selected app directory
+        def guess_app_dir
+            return if @app_dir
+            app_dir = Pathname.new(Dir.pwd).find_matching_parent do |test_dir|
+                Application.is_app_dir?(test_dir.to_s)
+            end
+            if app_dir
+                @app_dir = app_dir.to_s
+            end
+        end
+
+        # Call to require this roby application to be in a Roby application
+        #
+        # It tries to guess the app directory. If none is found, it raises.
+        def require_app_dir
+            guess_app_dir
+            if !@app_dir
+                raise ArgumentError, "this needs to be started from within a Roby application"
             end
         end
 

@@ -13,6 +13,7 @@ end
 opt.parse! ARGV
 
 app = Roby.app
+app.guess_app_dir
 app.shell
 app.single
 
@@ -44,7 +45,9 @@ IRB.conf[:INSPECT_MODE] = false
 IRB.conf[:IRB_NAME]     = remote_url
 IRB.conf[:PROMPT_MODE]  = :ROBY
 IRB.conf[:AUTO_INDENT] = true
-IRB.conf[:HISTORY_FILE] = File.join(Roby.app.app_dir, 'config', 'shell_history')
+if Roby.app.app_dir
+    IRB.conf[:HISTORY_FILE] = File.join(Roby.app.app_dir, 'config', 'shell_history')
+end
 IRB.conf[:SAVE_HISTORY] = 1000
 IRB.conf[:PROMPT][:ROBY] = {
     :PROMPT_I => "%N > ",

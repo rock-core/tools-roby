@@ -1,6 +1,6 @@
 require File.join(File.dirname(__FILE__), '..', 'run')
 app = Roby.app
-app.app_dir ||= Dir.pwd
+app.require_app_dir
 
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)

@@ -3,6 +3,7 @@
 require 'roby'
 require 'roby/log'
 require 'roby/log/server'
+Roby.app.guess_app_dir
 
 data_source_mode = :file
 host = 'localhost'
@@ -10,6 +11,12 @@ port = Roby::Log::Server::DEFAULT_PORT
 sampling_period = Roby::Log::Server::DEFAULT_SAMPLING_PERIOD
 config = 'roby-display.yml'
 display_mode = 'relations'
+
+# Look for a default config file in the Roby app structure
+if Roby.app.app_dir
+    config = Roby.app.find_file('config', 'roby-display.yml', :order => :specific_first)) ||
+        File.join(Roby.app.app_dir, "config", "roby-display.yml")
+end
 
 def parse_remote_host(host_spec)
     if !host_spec
