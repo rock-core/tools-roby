@@ -124,7 +124,7 @@ module Roby
 
             def proxy(peer)
                 interface_model = action_interface_model.proxy(peer)
-                if action = interface_model.find_action_by_name(name)
+                if action_interface_model.respond_to?(:find_action_by_name) && (action = interface_model.find_action_by_name(name))
                     return action
                 end
 
