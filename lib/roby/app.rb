@@ -1028,7 +1028,7 @@ module Roby
 	def run_plugins(mods, &block)
             engine = plan.engine
 	    if mods.empty?
-		yield
+		yield if block_given?
 
                 Robot.info "ready"
 		engine.join
