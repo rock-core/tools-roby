@@ -11,7 +11,7 @@ scripts/controllers/ and/or some explicitly given actions
     EOD
     opt.on "--robot NAME[:TYPE]", '-r NAME[:TYPE', "the robot configuration to load" do |robot_desc|
         robot_name, robot_type = robot_desc.split(':')
-        app.robot robot_name, (robot_type || robot_name)
+        Roby.app.robot robot_name, (robot_type || robot_name)
     end
     opt.on "--controller", '-c', "run the controller file"  do
         run_controller = true
