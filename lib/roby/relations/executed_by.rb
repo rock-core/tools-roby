@@ -155,7 +155,7 @@ module Roby::TaskStructure
             if execution_agent.ready?
                 tasks = []
                 execution_agent.each_executed_task do |task|
-                    tasks << task if task.pending?
+                    tasks << task if task.pending? || task.starting?
                 end
                 
                 plan = execution_agent.plan
