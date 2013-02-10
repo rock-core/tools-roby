@@ -855,6 +855,7 @@ module Roby
         include Test
 
         def setup
+            Roby.app.log['server'] = false
             Roby.app.setup
             Roby.app.prepare
 
