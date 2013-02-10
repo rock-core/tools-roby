@@ -39,9 +39,11 @@ module Roby
         # instance of State or of one of its subclasses
         class State
             attr_reader :task_model
+            attr_reader :dependencies
 
             def initialize(task_model)
                 @task_model = task_model
+                @dependencies = Set.new
             end
 
             # Returns the state event for the given event on this state
@@ -49,6 +51,12 @@ module Roby
                 if ev = task_model.find_event(name.to_sym)
                     StateEvent.new(self, ev.symbol)
                 end
+            end
+
+            def depends_on(action, options = Hash.new)
+                options = Kernel.validate_options options, :role
+                StateMachineModel.validate_state(action)
+                dependencies << [action, options[:role]]
             end
 
             def method_missing(m, *args, &block)
@@ -109,7 +117,7 @@ module Roby
                 action.rebind(action_interface_model).instanciate(plan, arguments)
             end
 
-            def to_s; "action(#{action.name})[#{task_model}]" end
+            def to_s; "action(#{action})[#{task_model}]" end
         end
 
         # State whose instanciation object is provided through a state machine
@@ -156,6 +164,10 @@ module Roby
             # The set of arguments available on this state machine
             # @return [Array<Symbol>]
             define_inherited_enumerable(:argument, :arguments) { Array.new }
+            # A set of actions that should always be active when this state
+            # machine is running
+            # @return [Set<State>]
+            define_inherited_enumerable(:dependency, :dependencies) { Set.new }
 
             # Creates a new state machine model as a submodel of self
             #
@@ -173,7 +185,7 @@ module Roby
                 submodel
             end
 
-            def make_state(object, task_model = Roby::Task)
+            def make(object, task_model = Roby::Task)
                 if object.kind_of?(State)
                     return object
                 elsif object.respond_to?(:to_action_state)
@@ -192,28 +204,87 @@ module Roby
                 end
             end
 
-            def validate_state(object)
+            def self.validate_state(object)
                 if !object.kind_of?(State)
-                    raise ArgumentError, "expected a state object, got #{object}. Did you forget to define a state with #make_state first ?"
+                    raise ArgumentError, "expected a state object, got #{object}. Did you forget to define it by calling #make first ?"
                 end
                 object
             end
 
             # Declares the starting state
             def start(state)
-                @starting_state = validate_state(state)
+                @starting_state = StateMachineModel.validate_state(state)
             end
 
             # Declares a transition from a state to a new state, caused by an
             # event
-            def transition(state_event, new_state)
-                transitions << [state_event.state, state_event.symbol, validate_state(new_state)]
+            #
+            # @overload transition(state.my_event, new_state)
+            #   declares that once the 'my' event on the given state is emitted,
+            #   we should transition to new_state
+            # @overload transition(state, event, new_state)
+            #   declares that, while in state 'state', transition to 'new_state'
+            #   if the given event is emitted
+            #
+            def transition(*spec)
+                if spec.size == 2
+                    state_event, new_state = *spec
+                    transition(state_event.state, state_event, StateMachineModel.validate_state(new_state))
+                elsif spec.size != 3
+                    raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
+                else
+                    state, state_event, new_state = *spec
+                    transitions << [state, state_event, StateMachineModel.validate_state(new_state)]
+                end
             end
 
             # Declares that the given event on the root task of the state should
             # be forwarded to an event on this task
-            def forward(state_event, root_event)
-                forwards << [state_event.state, state_event.symbol, root_event.symbol]
+            #
+            # @overload forward(state.my_event, target_event)
+            #   declares that, while in state 'state', forward 'my_event' to the
+            #   given event name on the state machine task
+            # @overload forward(state, event, target_event)
+            #   declares that, while in state 'state', forward 'event' to the
+            #   given event name on the state machine task
+            #
+            def forward(*spec)
+                if spec.size == 2
+                    state_event, target_event = *spec
+                    forward(state_event.state, state_event, target_event)
+                elsif spec.size != 3
+                    raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
+                else
+                    state, event, target_event = *spec
+                    forwards << [state, event, target_event.symbol]
+                end
+            end
+
+            def depends_on(task, options = Hash.new)
+                options = Kernel.validate_options options, :role
+                task = StateMachineModel.validate_state(task)
+                dependencies << [task, options[:role]]
+                task
+            end
+
+            # Returns the set of actions that should be active when in state
+            # +state+.
+            #
+            # It includes state itself, as state should run when it is active
+            # @return [Set<State>]
+            def required_actions_in_state(state)
+                result = Hash.new
+                state.dependencies.each do |action, role|
+                    result[action] ||= Set.new
+                    result[action] << role if role
+                end
+                each_dependency do |action, role|
+                    result[action] ||= Set.new
+                    result[action] << role if role
+                end
+                result[state] ||= Set.new
+                result[state] << 'current_state'
+                result
             end
 
             # Evaluates a state machine definition block
@@ -279,6 +350,15 @@ module Roby
                 self.class
             end
 
+            # The current state
+            attr_reader :current_state
+
+            # Resolved form of the state machine model
+            #
+            # It is a mapping from a state to the information required to
+            # instanciate this state
+            attr_reader :state_info
+
             def initialize(action_interface_model, root_task, arguments = Hash.new)
                 @action_interface_model = action_interface_model
                 @root_task = root_task
@@ -291,40 +371,69 @@ module Roby
                 root_task.execute do
                     instanciate_state(model.starting_state)
                 end
+
+                @state_info = generate_state_info
+            end
+
+            def generate_state_info
+                result = Hash.new
+                model.each_state do |state|
+                    actions = model.required_actions_in_state(state)
+                    transitions = Hash.new
+                    forwards = Hash.new
+                    model.each_transition do |in_state, event, new_state|
+                        if in_state == state
+                            actions[event.state] ||= Set.new
+                            transitions[event.state] ||= Set.new
+                            transitions[event.state] << [event.symbol, new_state]
+                        end
+                    end
+                    model.each_forward do |in_state, event, target_symbol|
+                        if in_state == state
+                            actions[event.state] ||= Set.new
+                            forwards[event.state] ||= Set.new
+                            forwards[event.state] << [event.symbol, target_symbol]
+                        end
+                    end
+                    actions.each_key do |a|
+                        forwards[a] ||= Array.new
+                        transitions[a] ||= Array.new
+                    end
+                    result[state] = [actions, transitions, forwards]
+                end
+                result
             end
 
             def instanciate_state(state)
-                known_transitions = Array.new
-                model.transitions.each do |src_state, src_event, dst_state|
-                    if state == src_state
-                        known_transitions << src_event
-                    end
-                end
+                actions, known_transitions, forwards = state_info[state]
+                actions.each do |action, roles|
+                    root_task.depends_on(task = action.instanciate(action_interface_model, root_task.plan, arguments),
+                                :roles => roles,
+                                :failure => :stop,
+                                :success => known_transitions[action].map(&:first),
+                                :remove_when_done => true)
 
-                root_task.depends_on(task = state.instanciate(action_interface_model, root_task.plan, arguments),
-                            :role => 'current_state',
-                            :failure => :stop,
-                            :success => known_transitions,
-                            :remove_when_done => false)
-                model.transitions.each do |src_state, src_event, dst_state|
-                    if state == src_state
-                        task.on(src_event) do |event|
+                    known_transitions[action].each do |src_symbol, dst_state|
+                        task.on(src_symbol) do |event|
                             instanciate_state_transition(event.task, dst_state)
                         end
                     end
-                end
-                model.forwards.each do |src_state, src_event, dst_event|
-                    if state == src_state
+                    forwards[action].each do |src_event, dst_event|
                         task.event(src_event).forward_to root_task.event(dst_event)
                     end
                 end
-                task
+                @current_state = state
+                root_task.current_state_child
             end
 
             def instanciate_state_transition(task, new_state)
+                current_state_child = root_task.find_child_from_role('current_state')
+                state_info[current_state].first.each do |_, roles|
+                    if child_task = root_task.find_child_from_role(roles.first)
+                        root_task.remove_dependency(child_task)
+                    end
+                end
                 new_task = instanciate_state(new_state)
-                new_task.should_start_after task.stop_event
-                root_task.remove_dependency task
                 new_task
             end
         end

@@ -16,11 +16,12 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         end
         description = nil
         @action_m = Class.new(Actions::Interface) do
-            describe("the start task").
-                optional_arg(:id, "the task ID")
+            describe("the start task").optional_arg(:id, "the task ID")
             define_method(:start_task) { |arg| task_m.new(:id => (arg[:id] || :start)) }
             describe("the next task")
             define_method(:next_task) { task_m.new(:id => :next) }
+            describe("a monitoring task")
+            define_method(:monitoring_task) { task_m.new(:id => 'monitoring') }
             description = describe("state machine").returns(task_m)
         end
         @description = description
@@ -48,19 +49,56 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         assert_equal Hash[:id => :start], start.arguments
     end
 
-    def test_it_can_transition_from_a_task_to_another
+    def test_it_can_transition_using_an_arbitrary_event
         action_m.state_machine 'test' do
+            monitor = depends_on monitoring_task
             start_state = start_task
             next_state  = next_task
             start(start_state)
-            transition(start_state.success_event, next_state)
+            transition(start_state, monitor.success_event, next_state)
         end
 
         task = start_machine('test')
-        task.current_state_child.start!
-        task.current_state_child.emit :success
+        monitor = plan.find_tasks.with_arguments(:id => 'monitoring').first
+        monitor.start!
+        monitor.emit :success
         assert_equal Hash[:id => :next], task.current_state_child.arguments
     end
+
+    def test_it_removes_during_transition_the_dependency_from_the_root_to_the_instanciated_tasks
+        action_m.state_machine 'test' do
+            monitor = depends_on monitoring_task, :role => 'monitor'
+            start_state = start_task
+            next_state  = next_task
+            start(start_state)
+            transition(start_state, monitor.start_event, next_state)
+        end
+        task = start_machine('test')
+        assert_equal Hash[:id => :start], task.current_state_child.arguments
+        assert_equal 2, task.children.to_a.size
+        assert_equal([task.current_state_child, task.monitor_child].to_set, task.children.to_set)
+    end
+
+    def test_it_applies_a_transition_only_for_the_state_it_is_defined_in
+        action_m.state_machine 'test' do
+            monitor = depends_on monitoring_task, :role => 'monitor'
+            start_state = start_task
+            next_state  = next_task
+            start(start_state)
+            transition(next_state, monitor.start_event, start_state)
+            transition(start_state, monitor.success_event, next_state)
+        end
+
+        task = start_machine('test')
+        assert_equal Hash[:id => :start], task.current_state_child.arguments
+        task.monitor_child.start!
+        assert_equal Hash[:id => :start], task.current_state_child.arguments
+        task.monitor_child.emit :success
+        assert_equal Hash[:id => :next], task.current_state_child.arguments
+        task.monitor_child.start!
+        assert_equal Hash[:id => :start], task.current_state_child.arguments
+    end
+
 
     def test_it_can_forward_events_from_child_to_parent
         task_m.event :next_is_done
@@ -138,7 +176,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
                     required_arg(:first_state, 'the first state').
                     returns(task_m)
                 state_machine('test') do
-                    state = make_state(obj)
+                    state = make(obj)
                     start(state)
                 end
             end
@@ -150,7 +188,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
 
         description.required_arg(:first_task, 'the first state')
         action_m.state_machine('test') do
-            first_state = make_state(first_task)
+            first_state = make(first_task)
             start(first_state)
         end
 
