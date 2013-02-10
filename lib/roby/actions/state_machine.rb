@@ -1,3 +1,4 @@
+require 'roby/actions/calculus'
 module Roby
     module Actions
         # A representation of an event on a state
@@ -25,7 +26,16 @@ module Roby
         # Placeholder, in the state machine definition, for variables. It is
         # used for instance to hold the arguments to the state machine during
         # modelling, replaced by their values during instanciation
-        StateMachineVariable = Struct.new :name
+        StateMachineVariable = Struct.new :name do
+            include Tools::Calculus::Build
+            def evaluate(variables)
+                if variables.has_key?(value.name)
+                    variables[value.name]
+                else
+                    raise ArgumentError, "expected a value for #{arg}, got none"
+                end
+            end
+        end
 
         # Generic representation of a state in a StateMachine
         #
@@ -105,12 +115,8 @@ module Roby
             # it
             def instanciate(action_interface_model, plan, variables)
                 arguments = action.arguments.map_value do |key, value|
-                    if value.kind_of?(StateMachineVariable)
-                        if variables.has_key?(value.name)
-                            variables[value.name]
-                        else
-                            raise ArgumentError, "expected a value for #{arg}, got none"
-                        end
+                    if value.respond_to?(:evaluate)
+                        value.evaluate(variables)
                     else value
                     end
                 end
