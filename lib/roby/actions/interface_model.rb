@@ -87,11 +87,11 @@ module Roby
                         end
                     begin
                         check_arity(instance_method(name), expected_argument_count)
-                    rescue ArgumentError
+                    rescue ArgumentError => e
                         if expected_argument_count == 0
-                            raise ArgumentCountMismatch, "action #{name} has been declared to have arguments, the #{name} method must be callable with a single Hash argument"
-                        else
                             raise ArgumentCountMismatch, "action #{name} has been declared to have no arguments, the #{name} method must be callable without any arguments"
+                        else
+                            raise ArgumentCountMismatch, "action #{name} has been declared to have arguments, the #{name} method must be callable with a single Hash argument"
                         end
                     end
                     register_action(name, description)
