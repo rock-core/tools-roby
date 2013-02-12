@@ -71,7 +71,7 @@ class TC_Exceptions < Test::Unit::TestCase
     def test_task_handle_exception
 	FlexMock.use do |mock|
 	    received_handler2 = false
-	    klass = Class.new(Task) do 
+	    klass = Task.new_submodel do 
 		on_exception(SpecializedError) do |exception|
 		    mock.handler1(exception, exception.task, self)
 		end
@@ -107,7 +107,7 @@ class TC_Exceptions < Test::Unit::TestCase
     def test_linear_propagation
 	FlexMock.use do |mock|
 	    t1, t2 = Task.new, Task.new
-	    t0 = Class.new(Task) do 
+	    t0 = Task.new_submodel do 
 		on_exception(SpecializedError) do |exception|
 		    mock.handler(exception, exception.task, self)
 		end
@@ -143,7 +143,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    t1, t2, t3 = prepare_plan :add => 3
-	    t0 = Class.new(Task) do 
+	    t0 = Task.new_submodel do 
 		attr_accessor :handled_exception
 		on_exception(Roby::CodeError) do |exception|
 		    self.handled_exception = exception
@@ -187,7 +187,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t1, t2, t3 = prepare_plan :add => 3
 
 	    found_exception = nil
-	    t0 = Class.new(Task) do 
+	    t0 = Task.new_submodel do 
 		on_exception(Roby::LocalizedError) do |exception|
 		    found_exception = exception
 		    mock.handler(exception, exception.task.to_set, self)
@@ -254,7 +254,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	Roby.app.abort_on_exception = true
 	Roby::ExecutionEngine.logger.level = Logger::FATAL + 1
 
-	task = Class.new(Tasks::Simple) do
+	task = Tasks::Simple.new_submodel do
 	    event :start do |context|
 		emit(:start)
 		raise RuntimeError, "failed"
@@ -262,7 +262,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	end.new
 
 	FlexMock.use do |mock|
-	    parent = Class.new(Tasks::Simple) do
+	    parent = Tasks::Simple.new_submodel do
 		on_exception ChildFailedError do |exception|
 		    mock.exception
 		    task.pass_exception
@@ -291,11 +291,11 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_exception_argument_count_validation
         assert_raises(ArgumentError) do
-            Class.new(Task).on_exception(RuntimeError) do |a, b|
+            Task.new_submodel.on_exception(RuntimeError) do |a, b|
             end
         end
         assert_nothing_raised do
-            Class.new(Task).on_exception(RuntimeError) do |_|
+            Task.new_submodel.on_exception(RuntimeError) do |_|
             end
         end
 
@@ -315,7 +315,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t12 = Task.new(:id => '12')
 	    t13 = Task.new(:id => '13')
 
-	    root = Class.new(Task) do
+	    root = Task.new_submodel do
 		include Test::Unit::Assertions
 		on_exception(RuntimeError) do |exception|
 		    assert_equal([t11, t12, t13].to_set, exception.task.to_set)
@@ -340,7 +340,7 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_plan_repairs
-	model = Class.new(Tasks::Simple) do
+	model = Tasks::Simple.new_submodel do
 	    event :blocked
 	    forward :blocked => :failed
 	end
@@ -397,7 +397,7 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_error_handling_relation(error_event = :failed)
-	task_model = Class.new(Tasks::Simple) do
+	task_model = Tasks::Simple.new_submodel do
 	    event :blocked
 	    forward :blocked => :failed
 	end
@@ -439,7 +439,7 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_error_handling_relation_with_as_plan
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             def self.as_plan
                 new(:id => 10)
             end
@@ -466,7 +466,7 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_code_error_formatting
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             event :start do |context|
                 raise ArgumentError
             end
@@ -480,7 +480,7 @@ class TC_Exceptions < Test::Unit::TestCase
         end
 
 
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             event :start do |context|
                 start_event.emit_failed
             end
@@ -493,7 +493,7 @@ class TC_Exceptions < Test::Unit::TestCase
             check_exception_formatting(e)
         end
 
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             on :start do |ev|
                 raise ArgumentError
             end
@@ -530,7 +530,7 @@ class TC_Exceptions < Test::Unit::TestCase
         def engine.fatal; @fatal ||= [] end
         engine.fatal
 
-        task_model = Class.new(Tasks::Simple) do
+        task_model = Tasks::Simple.new_submodel do
             event :intermediate do |context|
                 emit :intermediate
             end

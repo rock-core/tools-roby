@@ -36,7 +36,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	    Tasks::Simple.new(:id => 2), 
 	    task.event(:start), 
 	    Roby::TaskStructure::Hierarchy, 
-	    Class.new(Tasks::Simple).new(:id => 3) ]
+	    Tasks::Simple.new_submodel.new(:id => 3) ]
     end
     def dumpable_hash
 	Hash[*(0...TEST_ARRAY_SIZE).zip(dumpable_array).flatten]
@@ -162,7 +162,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def model; Tasks::Simple end
-		def anonymous_model; @anonymous ||= Class.new(model) end
+		def anonymous_model; @anonymous ||= model.new_submodel end
 		def check_anonymous_model(remote_model)
 		    @anonymous == peer.local_object(remote_model)
 		end
@@ -181,7 +181,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def task
-		    plan.add_mission(@task = Class.new(Tasks::Simple).new(:id => 1))
+		    plan.add_mission(@task = Tasks::Simple.new_submodel.new(:id => 1))
 		    @task.data = [42, @task.class]
 		    [@task, @task.remote_id]
 		end
@@ -360,7 +360,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 		    @task
 		end
 		def model
-		    @model ||= Class.new(Tasks::Simple) do
+		    @model ||= Tasks::Simple.new_submodel do
                         argument :model
                     end
 		end
@@ -382,7 +382,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	    PeerServer.class_eval do
 		attr_reader :task
 		def task_event
-		    @task = Class.new(Tasks::Simple).new(:id => 1)
+		    @task = Tasks::Simple.new_submodel.new(:id => 1)
 		    task.event(:start)
 		end
 	    end
@@ -396,25 +396,25 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal(remote_peer.local_object(task), remote_peer.local_object(remote_event.task))
     end
 
-    CommonTaskModelTag = TaskModelTag.new
+    CommonTaskModelTag = TaskService.new_submodel
     def test_marshal_task_model_tag
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def tag; CommonTaskModelTag end
 		def anonymous_tag
-		    @anonymous ||= TaskModelTag.new do
-			include CommonTaskModelTag
+		    @anonymous ||= TaskService.new_submodel do
+			provides CommonTaskModelTag
 		    end
 		end
 		def tagged_task_model
-		    Class.new(Tasks::Simple) do
-			include CommonTaskModelTag
+		    Tasks::Simple.new_submodel do
+			provides CommonTaskModelTag
 		    end
 		end
 		def anonymously_tagged_task_model
 		    tag = anonymous_tag
-		    Class.new(Tasks::Simple) do
-			include tag
+		    Tasks::Simple.new_submodel do
+			provides tag
 		    end
 		end
 	    end
@@ -497,7 +497,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     end
 
     def test_local_object
-	model = Class.new(Roby::Task) do
+	model = Roby::Task.new_submodel do
 	    local_only
 	end
 	task = model.new

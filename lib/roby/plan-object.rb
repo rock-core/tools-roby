@@ -499,7 +499,8 @@ module Roby
         attr_reader :finalization_handlers
 
         class << self
-            define_inherited_enumerable(:finalization_handler, :finalization_handlers) { Array.new }
+            extend MetaRuby::Attributes
+            inherited_attribute(:finalization_handler, :finalization_handlers) { Array.new }
         end
 
         # Adds a model-level finalization handler, i.e. a handler that will be

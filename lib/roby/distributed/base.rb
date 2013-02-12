@@ -474,7 +474,7 @@ module Roby
             end
 
             def self.local_task_tag(*args)
-                Roby::TaskModelTag::DRoby.anon_tag_factory(*args)
+                Roby::Models::TaskServiceModel::DRoby.anon_tag_factory(*args)
             end
 
             def self.local_model(*args)

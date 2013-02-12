@@ -120,7 +120,7 @@ class TC_TaskScripting < Test::Unit::TestCase
     end
 
     def test_wait
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
         end
         task = prepare_plan :missions => 1, :model => model
@@ -139,7 +139,7 @@ class TC_TaskScripting < Test::Unit::TestCase
     end
 
     def test_wait_for_child_event
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
         end
         parent, child = prepare_plan :missions => 1, :add => 1, :model => model
@@ -165,7 +165,7 @@ class TC_TaskScripting < Test::Unit::TestCase
     end
 
     def test_wait_for_child_of_child_event_with_child_being_deployed_later
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
         end
         parent, (child, planning_task) = prepare_plan :missions => 1, :add => 2, :model => model
@@ -255,7 +255,7 @@ class TC_TaskScripting < Test::Unit::TestCase
     end
 
     def test_wait_barrier
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             3.times do |i|
                 event "event#{i + 1}"
                 event "found_event#{i + 1}"
@@ -283,7 +283,7 @@ class TC_TaskScripting < Test::Unit::TestCase
     end
 
     def test_timeout_pass
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
             event :timeout
         end
@@ -311,7 +311,7 @@ class TC_TaskScripting < Test::Unit::TestCase
     end
 
     def test_timeout_fail
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
             event :timeout
         end
@@ -339,7 +339,7 @@ class TC_TaskScripting < Test::Unit::TestCase
     end
 
     def test_parallel_scripts
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :start_script1
             event :done_script1
             event :start_script2
@@ -372,10 +372,10 @@ class TC_TaskScripting < Test::Unit::TestCase
         mock = flexmock
         mock.should_receive(:child_started).once.with(true)
 
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :start_child
         end
-        child_model = Class.new(Roby::Tasks::Simple)
+        child_model = Roby::Tasks::Simple.new_submodel
 
         engine.run
 
@@ -405,7 +405,7 @@ class TC_TaskScripting < Test::Unit::TestCase
         engine.scheduler = nil
 
         mock = flexmock
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :do_it
             event :done
             script do
@@ -437,7 +437,7 @@ class TC_TaskScripting < Test::Unit::TestCase
     end
 
     def test_script_is_prepared_with_the_new_task_after_a_replacement
-        model = Class.new(Roby::Task) { terminates }
+        model = Roby::Task.new_submodel { terminates }
         old, new = prepare_plan :add => 2, :model => model
         old.abstract = true
         script = old.script { }

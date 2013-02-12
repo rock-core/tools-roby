@@ -13,7 +13,7 @@ class TC_KnownFailures < Test::Unit::TestCase
     end
 
     def test_return_in_task_commands
-	model = Class.new(Task) do
+	model = Task.new_submodel do
             event :test_event do |context|
                 return
             end

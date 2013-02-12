@@ -149,7 +149,8 @@ module Roby
     # See Task::on_exception and Task#on_exception
     module ExceptionHandlingObject
         module ClassExtension
-            define_inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
+            extend MetaRuby::Attributes
+            inherited_attribute('exception_handler', 'exception_handlers') { Array.new }
         end
 
         # To be used in exception handlers themselves. Passes the exception to

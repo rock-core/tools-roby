@@ -10,7 +10,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
 
     def test_it_allows_to_create_description_objects
         doc = 'this is an action'
-        m = Class.new(Actions::Interface)
+        m = Actions::Interface.new_submodel
         flexmock(Actions::ActionModel).should_receive(:new).once.
             with(m, doc).and_return(stub = Object.new)
 
@@ -18,7 +18,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     end
 
     def test_it_exports_methods_with_description
-        m = Class.new(Actions::Interface)
+        m = Actions::Interface.new_submodel
         description = m.describe('an action')
         m.class_eval do
             def an_action
@@ -30,7 +30,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     end
 
     def test_it_returns_nil_for_unknown_actions
-        m = Class.new(Actions::Interface) do
+        m = Actions::Interface.new_submodel do
             describe('an action')
             def an_action; end
         end
@@ -38,17 +38,17 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     end
 
     def test_it_does_not_export_methods_without_description
-        m = Class.new(Actions::Interface) do
+        m = Actions::Interface.new_submodel do
             def an_action; end
         end
         assert !m.find_action_by_name('an_action')
     end
 
     def test_it_allows_to_find_methods_by_type
-        task_m = Class.new(Roby::Task)
-        subtask_m = Class.new(task_m)
+        task_m = Roby::Task.new_submodel
+        subtask_m = task_m.new_submodel
         m0, m1 = nil
-        actions = Class.new(Actions::Interface) do
+        actions = Actions::Interface.new_submodel do
             m0 = describe('an action').returns(task_m)
             def an_action; end
             m1 = describe('another action').returns(subtask_m)
@@ -60,7 +60,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
 
     def test_it_allows_to_get_an_action_object_dynamically
         m = nil
-        actions = Class.new(Actions::Interface) do
+        actions = Actions::Interface.new_submodel do
             m = describe('an action').
                 required_arg('test')
             def an_action(arguments); end
@@ -79,7 +79,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
 
     def test_it_raises_if_an_action_model_specifies_arguments_but_the_method_does_not_accept_one
         assert_raises(Actions::InterfaceModel::ArgumentCountMismatch) do
-            Class.new(Actions::Interface) do
+            Actions::Interface.new_submodel do
                 m = describe('an action').
                     required_arg('test')
                 def an_action; end
@@ -89,7 +89,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
 
     def test_it_raises_if_an_action_model_specifies_no_arguments_but_the_method_expects_one
         assert_raises(Actions::InterfaceModel::ArgumentCountMismatch) do
-            Class.new(Actions::Interface) do
+            Actions::Interface.new_submodel do
                 m = describe('an action')
                 def an_action(argument); end
             end
@@ -97,8 +97,8 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     end
 
     def test_it_passes_the_argument_hash_if_the_method_expects_one
-        task_m = Class.new(Roby::Task) { argument :id }
-        actions = Class.new(Actions::Interface) do
+        task_m = Roby::Task.new_submodel { argument :id }
+        actions = Actions::Interface.new_submodel do
             m = describe('an action').
                 required_arg('test')
             define_method(:an_action) { |args| task_m.new(:id => args[:test]) }
@@ -107,18 +107,18 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     end
 
     def test_inherited_actions_are_rebound_to_the_interface_model
-        parent_m = Class.new(Actions::Interface) do
+        parent_m = Actions::Interface.new_submodel do
             describe('an action')
             def an_action; end
         end
-        child_m = Class.new(parent_m)
+        child_m = parent_m.new_submodel
         assert_same child_m, child_m.find_action_by_name('an_action').action_interface_model
         # Verify it did not modify the original
         assert_same parent_m, parent_m.find_action_by_name('an_action').action_interface_model
     end
 
     def test_it_defines_a_simple_task_model_for_return_type_if_none_is_given
-        parent_m = Class.new(Actions::Interface) do
+        parent_m = Actions::Interface.new_submodel do
             describe('an action')
             def an_action; end
         end

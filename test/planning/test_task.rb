@@ -41,7 +41,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 
     def test_planned_task
 	planner = Class.new(Planning::Planner)
-        task_model = Class.new(Task)
+        task_model = Task.new_submodel
 
         result = task_model.new
 

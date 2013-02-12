@@ -229,7 +229,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_executed_by
 	peer2peer do |remote|
 	    task = Task.new(:id => 1) 
-	    exec = Class.new(Task) do
+	    exec = Task.new_submodel do
 		event :ready, :command => true
 	    end.new(:id => 'exec')
 	    task.executed_by exec

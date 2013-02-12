@@ -36,7 +36,7 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_match_task_fullfills
-	task_model = Class.new(Task) do
+	task_model = Task.new_submodel do
 	    argument :value
 	end
 
@@ -52,10 +52,10 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_match_tag
-        tag = TaskModelTag.new
+        tag = TaskService.new_submodel
         tag.argument :id
-	task_model = Class.new(Tasks::Simple)
-        task_model.include tag
+	task_model = Tasks::Simple.new_submodel
+        task_model.provides tag
 
         plan.add(task = task_model.new(:id => 3))
         assert(Task.match(tag)              === task)
@@ -69,7 +69,7 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_match_proxy_fullfills
-	task_model = Class.new(Task) do
+	task_model = Task.new_submodel do
 	    argument :value
 	end
 
@@ -95,7 +95,7 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_query_predicates
-	t1 = Class.new(Tasks::Simple) { argument :fake }.new
+	t1 = Tasks::Simple.new_submodel { argument :fake }.new
 	t2 = Roby::Task.new
 	plan.add [t1, t2]
 
@@ -143,8 +143,8 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_negate
-	t1 = Class.new(Tasks::Simple) { argument :id }.new(:id => 1)
-	t2 = Class.new(Tasks::Simple) { argument :id }.new(:id => 2)
+	t1 = Tasks::Simple.new_submodel { argument :id }.new(:id => 1)
+	t2 = Tasks::Simple.new_submodel { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
 	plan.add [t1, t2, t3]
 
@@ -152,8 +152,8 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_or
-	t1 = Class.new(Tasks::Simple) { argument :id }.new(:id => 1)
-	t2 = Class.new(Tasks::Simple) { argument :id }.new(:id => 2)
+	t1 = Tasks::Simple.new_submodel { argument :id }.new(:id => 1)
+	t2 = Tasks::Simple.new_submodel { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
 	plan.add [t1, t2, t3]
 
@@ -161,8 +161,8 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_and
-	t1 = Class.new(Tasks::Simple) { argument :id }.new(:id => 1)
-	t2 = Class.new(Tasks::Simple) { argument :id }.new(:id => 2)
+	t1 = Tasks::Simple.new_submodel { argument :id }.new(:id => 1)
+	t2 = Tasks::Simple.new_submodel { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
 	plan.add [t1, t2, t3]
 
@@ -223,11 +223,11 @@ class TC_Query < Test::Unit::TestCase
 
     def test_child_match
         plan.add(t1 = Tasks::Simple.new(:id => 1))
-        t2 = Class.new(Tasks::Simple).new(:id => '2')
-        tag = TaskModelTag.new do
+        t2 = Tasks::Simple.new_submodel.new(:id => '2')
+        tag = TaskService.new_submodel do
             argument :tag_id
         end
-        t3_model = Class.new(Tasks::Simple)
+        t3_model = Tasks::Simple.new_submodel
         t3_model.include tag
         t3 = t3_model.new(:id => 3, :tag_id => 3)
         t1.depends_on t2
@@ -306,8 +306,8 @@ class TC_Query < Test::Unit::TestCase
 
     def test_parent_match
         plan.add(t1 = Tasks::Simple.new(:id => 1))
-        t2 = Class.new(Tasks::Simple).new(:id => 2)
-        t3 = Class.new(Tasks::Simple).new(:id => 3)
+        t2 = Tasks::Simple.new_submodel.new(:id => 2)
+        t3 = Tasks::Simple.new_submodel.new(:id => 3)
         t3.depends_on t2
         t3.depends_on t1
         t2.depends_on t1
@@ -364,7 +364,7 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_transactions_simple
-	model = Class.new(Roby::Task) do
+	model = Roby::Task.new_submodel do
 	    argument :id
 	end
 	t1, t2, t3 = (1..3).map { |i| model.new(:id => i) }

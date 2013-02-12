@@ -38,7 +38,7 @@ module Roby
                     return @returned_task_type
                 end
 
-                if returned_type.kind_of?(Roby::TaskModelTag)
+                if returned_type.kind_of?(Roby::Models::TaskServiceModel)
                     model = Class.new(Roby::Task)
                     model.provides m.returned_type
                     @returned_task_type = model
@@ -72,7 +72,7 @@ module Roby
             end
             # Sets the type of task returned by the action
             def returns(type)
-                if !type.kind_of?(Class) && !type.kind_of?(TaskService)
+                if !type.kind_of?(Class) && !type.kind_of?(TaskServiceModel)
                     raise ArgumentError, "#{type} is neither a task model nor a task service model"
                 elsif type.kind_of?(Class) && !(type <= Roby::Task)
                     raise ArgumentError, "#{type} is neither a task model nor a task service model"
@@ -124,7 +124,7 @@ module Roby
 
             def proxy(peer)
                 interface_model = action_interface_model.proxy(peer)
-                if action_interface_model.respond_to?(:find_action_by_name) && (action = interface_model.find_action_by_name(name))
+                if interface_model.respond_to?(:find_action_by_name) && (action = interface_model.find_action_by_name(name))
                     return action
                 end
 

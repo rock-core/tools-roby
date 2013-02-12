@@ -15,7 +15,7 @@ class TC_Actions_Task < Test::Unit::TestCase
     def setup
         super
 
-        @iface_m = Class.new(Actions::Interface) do
+        @iface_m = Actions::Interface.new_submodel do
             describe("the test action").
                 returns(TaskModel)
             def test_action

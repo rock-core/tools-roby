@@ -148,6 +148,8 @@ module Roby
 
         # Definition of model-level functionality for StateMachine models
         module StateMachineModel
+            include MetaRuby::ModelAsClass
+
             # The action model for this state machine
             # @return [Model<Roby::Task>] a subclass of Roby::Task
             attr_accessor :task_model
@@ -160,20 +162,20 @@ module Roby
 
             # The set of defined states
             # @return [Array<State>]
-            define_inherited_enumerable(:state, :states) { Array.new }
+            inherited_attribute(:state, :states) { Array.new }
             # The set of defined transitions, as (State,EventName)=>State
             # @return [Array<(StateEvent,State)>]
-            define_inherited_enumerable(:transition, :transitions) { Array.new }
+            inherited_attribute(:transition, :transitions) { Array.new }
             # The set of defined forwards, as (State,EventName)=>EventName
             # @return [Array<(StateEvent,TaskEvent)>]
-            define_inherited_enumerable(:forward, :forwards) { Array.new }
+            inherited_attribute(:forward, :forwards) { Array.new }
             # The set of arguments available on this state machine
             # @return [Array<Symbol>]
-            define_inherited_enumerable(:argument, :arguments) { Array.new }
+            inherited_attribute(:argument, :arguments) { Array.new }
             # A set of actions that should always be active when this state
             # machine is running
             # @return [Set<State>]
-            define_inherited_enumerable(:dependency, :dependencies) { Set.new }
+            inherited_attribute(:dependency, :dependencies) { Set.new }
 
             # Creates a new state machine model as a submodel of self
             #

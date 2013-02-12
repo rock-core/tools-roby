@@ -8,8 +8,8 @@ class TC_Actions_ActionModel < Test::Unit::TestCase
     include Roby::SelfTest::Assertions
 
     def test_it_can_be_dumped_and_loaded_as_identity
-        task_m = Class.new(Roby::Task)
-        interface_m = Class.new(Roby::Actions::Interface) do
+        task_m = Roby::Task.new_submodel
+        interface_m = Actions::Interface.new_submodel do
             describe('action').
                 returns(task_m)
             def an_action; end

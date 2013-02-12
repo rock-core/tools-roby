@@ -628,7 +628,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_replace_copies_poll_handlers_to_new_task
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
 	task = prepare_plan :add => 1, :model => model
 
         expected = []
@@ -651,7 +651,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_replace_copies_poll_handlers_to_proxy
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
 	task = prepare_plan :add => 1, :model => model
         plan.add(new_task = model.new)
 
@@ -673,7 +673,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_replace_copies_poll_handlers_from_abstract
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
 	task = prepare_plan :add => 1, :model => model
         task.abstract = true
         plan.add(new_task = model.new)
@@ -693,7 +693,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_replace_copies_event_handlers_to_new_task
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
 	task = prepare_plan :add => 1, :model => model
 
         expected = []
@@ -716,7 +716,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_replace_copies_event_handlers_to_proxy
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
 	task = prepare_plan :add => 1, :model => model
         plan.add(new_task = model.new)
 
@@ -738,7 +738,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_replace_copies_event_handlers_from_abstract
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
 	task = prepare_plan :add => 1, :model => model
         task.abstract = true
         plan.add(new_task = model.new)
@@ -903,7 +903,7 @@ class TC_Transactions < Test::Unit::TestCase
     end
 
     def test_commit_finalization_handlers_on_replace_behaviour
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
         end
 	t1, t2 = prepare_plan :add => 2, :model => model
@@ -932,7 +932,7 @@ class TC_Transactions < Test::Unit::TestCase
     end
 
     def test_commit_finalization_handlers_on_replace_default_behaviour_for_abstract_tasks
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
         end
         plan.add(t1 = Roby::Task.new)
@@ -1032,7 +1032,7 @@ class TC_Transactions < Test::Unit::TestCase
     end
 
     def test_commit_execute_handlers
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
 	plan.add(t = model.new)
 
         expected = []
@@ -1049,7 +1049,7 @@ class TC_Transactions < Test::Unit::TestCase
     end
 
     def test_commit_poll_handlers
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
 	plan.add(t = model.new)
 
         expected = []

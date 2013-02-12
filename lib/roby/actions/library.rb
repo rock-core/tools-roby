@@ -2,7 +2,8 @@ module Roby
     module Actions
         module Library
             include Roby::Actions::InterfaceModel
-            extend Utilrb::Models::Registration
+            include MetaRuby::ModelAsModule
+            extend MetaRuby::Registration
 
             attr_accessor :supermodel
 

@@ -10,7 +10,7 @@ class TC_Conflicts < Test::Unit::TestCase
 
     def test_model_relations
 	m1, m2 = (1..2).map do
-	    Class.new(Tasks::Simple)
+	    Tasks::Simple.new_submodel
 	end
 
 	m1.conflicts_with m2

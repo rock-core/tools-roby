@@ -11,11 +11,11 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
     attr_reader :task_m, :action_m, :description
     def setup
         super
-        task_m = @task_m = Class.new(Roby::Task) do
+        task_m = @task_m = Roby::Task.new_submodel do
             terminates
         end
         description = nil
-        @action_m = Class.new(Actions::Interface) do
+        @action_m = Actions::Interface.new_submodel do
             describe("the start task").optional_arg(:id, "the task ID")
             define_method(:start_task) { |arg| task_m.new(:id => (arg[:id] || :start)) }
             describe("the next task")
@@ -155,7 +155,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         obj.should_receive(:to_action_state)
         task_m = self.task_m
         assert_raises(ArgumentError) do
-            Class.new(Roby::Actions::Interface) do
+            Actions::Interface.new_submodel do
                 describe('state machine').
                     required_arg(:first_state, 'the first state').
                     returns(task_m)
@@ -171,7 +171,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         obj.should_receive(:to_action_state).and_return(task = Roby::Task.new)
         task_m = self.task_m
         assert_raises(ArgumentError) do
-            Class.new(Roby::Actions::Interface) do
+            Actions::Interface.new_submodel do
                 describe('state machine').
                     required_arg(:first_state, 'the first state').
                     returns(task_m)
@@ -201,7 +201,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
     def test_it_rebinds_the_action_states_to_the_actual_interface_model
         task_m = self.task_m
 
-        child_m = Class.new(action_m)
+        child_m = action_m.new_submodel
         flexmock(Actions::ActionModel).new_instances.
             should_receive(:run).once.
             with(child_m, any).pass_thru
