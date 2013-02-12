@@ -341,7 +341,7 @@ module TC_PlanStatic
     end
 
     def test_replace_task_and_copy_relations_on_replace
-        agent_t = Class.new(Roby::Task) do
+        agent_t = Roby::Task.new_submodel do
             event :ready, :controlable => true
         end
 
@@ -400,7 +400,7 @@ module TC_PlanStatic
 		raise RuntimeError
 	    end
 	end
-	model = Class.new(Task) do
+	model = Task.new_submodel do
 	    include adding_child_failure
 	end
 	t1, t2 = model.new, model.new

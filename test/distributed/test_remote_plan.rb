@@ -459,7 +459,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     # Check that remote events that are unknown locally are properly ignored
     def test_ignored_events
 	peer2peer do |remote|
-	    model = Class.new(Tasks::Simple) do
+	    model = Tasks::Simple.new_submodel do
 		event :unknown, :command => true
 	    end
 	    remote.plan.add_mission(t1 = Tasks::Simple.new(:id => 1))

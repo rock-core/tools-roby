@@ -123,7 +123,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_proxy_not_executable
-	task  = Class.new(Tasks::Simple) do
+	task  = Tasks::Simple.new_submodel do
 	    event :intermediate, :command => true
 	end.new
 	plan.add(task)
@@ -143,9 +143,9 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_proxy_fullfills
-        model = Class.new(Roby::Task)
-        other_model = Class.new(model)
-        tag   = Roby::TaskModelTag.new do
+        model = Roby::Task.new_submodel
+        other_model = model.new_submodel
+        tag   = Roby::TaskService.new_submodel do
             argument :id
             argument :other
         end

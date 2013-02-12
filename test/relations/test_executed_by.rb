@@ -24,10 +24,10 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_inherits_execution_model
-	model = Class.new(Roby::Task) do
+	model = Roby::Task.new_submodel do
 	    executed_by ExecutionAgentModel, :id => 20
 	end
-	submodel = Class.new(model)
+	submodel = model.new_submodel
 
 	assert_equal([ExecutionAgentModel, {:id => 20}, {:respawn => false}], submodel.execution_agent)
     end
@@ -68,7 +68,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
     def test_agent_start_failed
 	plan.add(task = Tasks::Simple.new)
-	exec = Class.new(Tasks::Simple) do
+	exec = Tasks::Simple.new_submodel do
 	    event :ready
 	    signal :start => :failed
 	end.new
@@ -80,7 +80,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_model_spawns
-	task_model = Class.new(Tasks::Simple)
+	task_model = Tasks::Simple.new_submodel
 
 	task_model.executed_by ExecutionAgentModel, :id => 10
 	plan.add_mission(task = task_model.new)
@@ -96,7 +96,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     def test_agent_model_reuses
         plan.add_permanent(agent = ExecutionAgentModel.new)
 
-	task_model = Class.new(Tasks::Simple)
+	task_model = Tasks::Simple.new_submodel
 	task_model.executed_by ExecutionAgentModel
 
 	plan.add_mission(task = task_model.new)
@@ -111,7 +111,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
         plan.add_permanent(agent = ExecutionAgentModel.new)
         agent.start!
 
-	task_model = Class.new(Tasks::Simple)
+	task_model = Tasks::Simple.new_submodel
 	task_model.executed_by ExecutionAgentModel
 
 	plan.add_mission(task = task_model.new)
@@ -125,7 +125,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
         plan.add_permanent(agent1 = ExecutionAgentModel.new(:id => 1))
         plan.add_permanent(agent2 = ExecutionAgentModel.new(:id => 2))
 
-	task_model = Class.new(Tasks::Simple)
+	task_model = Tasks::Simple.new_submodel
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
 	plan.add_mission(task = task_model.new)
@@ -137,7 +137,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_task_has_wrong_agent
-	task_model = Class.new(Tasks::Simple)
+	task_model = Tasks::Simple.new_submodel
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
         # Wrong agent type
@@ -158,7 +158,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_model_requires_agent_but_none_exists
-	task_model = Class.new(Tasks::Simple)
+	task_model = Tasks::Simple.new_submodel
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
 	plan.add(task = task_model.new)
@@ -170,7 +170,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_respawn
-	task_model = Class.new(Tasks::Simple)
+	task_model = Tasks::Simple.new_submodel
 	task_model.executed_by ExecutionAgentModel, :respawn => true
 	first, second = prepare_plan :add => 2, :model => task_model
 	assert(first.execution_agent)
@@ -199,7 +199,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_cannot_respawn
-	plan.add(task  = Class.new(Tasks::Simple).new)
+	plan.add(task  = Tasks::Simple.new_submodel.new)
 	task.executed_by(agent = ExecutionAgentModel.new)
 
 	agent.start!
@@ -209,7 +209,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_initialization
-	agent = Class.new(Tasks::Simple) do
+	agent = Tasks::Simple.new_submodel do
 	    event :ready, :command => true
 	end.new
 	task, (init1, init2) = prepare_plan :missions => 1, :add => 2, :model => Tasks::Simple
@@ -232,7 +232,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_replacement
-	agent = Class.new(Tasks::Simple) do
+	agent = Tasks::Simple.new_submodel do
 	    event :ready, :command => true
 	end.new
 	task, replacement = prepare_plan :add => 2, :model => Tasks::Simple
@@ -253,7 +253,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_as_plan
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
 	    event :ready, :controlable => true
             def self.as_plan
                 new(:id => 10)

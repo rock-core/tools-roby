@@ -58,7 +58,7 @@ class TC_PlannedBy < Test::Unit::TestCase
     end
 
     def test_as_plan
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             def self.as_plan
                 new(:id => 10)
             end

@@ -206,9 +206,9 @@ module Roby
             end
 
             def plan_pattern(arguments = Hash.new)
-                if returned_type.kind_of?(Roby::TaskModelTag)
-                    planned_model = Class.new(Roby::Task)
-                    planned_model.include returned_type
+                if returned_type.kind_of?(Roby::Models::TaskServiceModel)
+                    planned_model = Roby::Task.new_submodel
+                    planned_model.provides returned_type
                 else
                     # Create an abstract task which will be planned
                     planned_model = returned_type
@@ -363,6 +363,9 @@ module Roby
         class Planner
 	    extend Tools
             extend Distributed::DRobyModel::Dump
+            class << self
+                extend MetaRuby::Attributes
+            end
 
 	    # The resulting plan
 	    attr_reader :plan
@@ -390,7 +393,7 @@ module Roby
 
                 validate_option(options, :returns, false, 
                                 "the ':returns' option must be a task model") do |opt| 
-                    opt.is_a?(Roby::TaskModelTag) ||
+                    opt.kind_of?(Roby::Models::TaskServiceModel) ||
 			opt.has_ancestor?(Roby::Task)
                 end
 
@@ -573,7 +576,7 @@ module Roby
 			plan_method("#{name}", options)
 		    end
 		    class << self
-		      define_inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) do
+		      inherited_attribute("#{name}_method", "#{name}_methods", :map => true) do
                           Hash.new
                       end
 		      cached_enum("#{name}_method", "#{name}_methods", true)
@@ -742,7 +745,7 @@ module Roby
 		if !respond_to?("#{name}_filters")
 		    class_eval <<-EOD, __FILE__, __LINE__+1
 			class << self
-		            define_inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
+		            inherited_attribute("#{name}_filter", "#{name}_filters") { Array.new }
 			    cached_enum("#{name}_filter", "#{name}_filters", false)
 			end
 		    EOD

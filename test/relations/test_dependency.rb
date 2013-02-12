@@ -21,8 +21,8 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_definition
-	tag   = TaskService.new
-	klass = Class.new(Tasks::Simple) do
+	tag   = TaskService.new_submodel
+	klass = Tasks::Simple.new_submodel do
 	    argument :id
 	    include tag
 	end
@@ -37,8 +37,8 @@ class TC_Dependency < Test::Unit::TestCase
 	t1.depends_on klass.new, :model => tag
 
 	plan.add(simple_task = Tasks::Simple.new)
-	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => [Class.new(Roby::Task), {}] }
-	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => TaskService.new }
+	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => [Roby::Task.new_submodel, {}] }
+	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => TaskService.new_submodel }
 	
 	# Check validation of the arguments
 	plan.add(model_task = klass.new)
@@ -100,7 +100,7 @@ class TC_Dependency < Test::Unit::TestCase
             do_start = true
         end
 
-	child_model = Class.new(Tasks::Simple) do
+	child_model = Tasks::Simple.new_submodel do
 	    event :first, :command => true
 	    event :second, :command => true
 	end
@@ -254,7 +254,7 @@ class TC_Dependency < Test::Unit::TestCase
 
     def test_failure_on_failed_start
         plan.add(parent = Tasks::Simple.new)
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             event :start do |context|
                 raise ArgumentError
             end
@@ -281,8 +281,8 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_fullfilled_model_validation
-	tag = TaskService.new
-	klass = Class.new(Roby::Task)
+	tag = TaskService.new_submodel
+	klass = Roby::Task.new_submodel
 
 	p1, p2, child = prepare_plan :add => 3, :model => Tasks::Simple
 	p1.depends_on child, :model => [Tasks::Simple, { :id => "discover-3" }]
@@ -296,8 +296,8 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_fullfilled_model
-	tag = TaskService.new
-	klass = Class.new(Tasks::Simple) do
+	tag = TaskService.new_submodel
+	klass = Tasks::Simple.new_submodel do
 	    include tag
 	end
 
@@ -316,15 +316,15 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_fullfilled_model_uses_model_fullfilled_model_for_its_default_value
-        task_model = Class.new(Roby::Task)
-        flexmock(task_model).should_receive(:fullfilled_model).and_return([Roby::Task, subtask = Class.new(Roby::Task)])
+        task_model = Roby::Task.new_submodel
+        flexmock(task_model).should_receive(:fullfilled_model).and_return([Roby::Task, subtask = Roby::Task.new_submodel])
         plan.add(task = task_model.new)
         assert_equal [subtask], task.fullfilled_model[0]
     end
 
     def test_explicit_fullfilled_model
-	tag = TaskService.new
-	klass = Class.new(Tasks::Simple) do
+	tag = TaskService.new_submodel
+	klass = Tasks::Simple.new_submodel do
 	    include tag
 	end
         t, p = prepare_plan :add => 2, :model => klass
@@ -342,12 +342,12 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_fullfilled_model_transaction
-	tag = TaskService.new
-	klass = Class.new(Tasks::Simple) do
+	tag = TaskService.new_submodel
+	klass = Tasks::Simple.new_submodel do
 	    include tag
 	end
 
-	p1, p2, child = prepare_plan :add => 3, :model => Class.new(klass)
+	p1, p2, child = prepare_plan :add => 3, :model => klass.new_submodel
         trsc = Transaction.new(plan)
 
 	p1.depends_on child, :model => [Tasks::Simple, { :id => "discover-3" }]
@@ -406,10 +406,10 @@ class TC_Dependency < Test::Unit::TestCase
 
     def setup_merging_test(special_options = Hash.new)
         plan.add(parent = Tasks::Simple.new)
-        tag = TaskService.new
-        intermediate = Class.new(Tasks::Simple)
-        intermediate.include tag
-        child_model = Class.new(intermediate)
+        tag = TaskService.new_submodel
+        intermediate = Tasks::Simple.new_submodel
+        intermediate.provides tag
+        child_model = intermediate.new_submodel
         child = child_model.new(:id => 'child')
 
         options = { :role => 'child1', :model => Task, :success => [], :failure => [] }.
@@ -538,7 +538,7 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_as_plan_handler
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             def self.as_plan
                 new(:id => 10)
             end
@@ -619,22 +619,22 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_each_fullfilled_model_returns_the_task_model_itself_by_default
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
         plan.add(task = model.new)
         assert_equal [model], task.each_fullfilled_model.to_a
     end
 
     def test_each_fullfilled_model_with_explicit_assignation_on_task_model
-        model = Class.new(Roby::Task)
-        tag = Roby::TaskService.new
+        model = Roby::Task.new_submodel
+        tag = Roby::TaskService.new_submodel
         model.fullfilled_model = [Roby::Task, tag]
         assert_equal [Roby::Task, tag].to_set, model.each_fullfilled_model.to_set
     end
 
     def test_fullfilled_model_on_instance_with_explicit_assignation_on_task_model
-        model = Class.new(Roby::Task)
-        submodel = Class.new(model)
-        tag = Roby::TaskService.new
+        model = Roby::Task.new_submodel
+        submodel = model.new_submodel
+        tag = Roby::TaskService.new_submodel
         submodel.fullfilled_model = [model, tag]
         plan.add(task = submodel.new)
         assert_equal [[model, tag], Hash.new], task.fullfilled_model

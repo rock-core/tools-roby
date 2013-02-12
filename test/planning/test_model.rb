@@ -74,8 +74,8 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_find_methods_by_return_value
-        task_t = Class.new(Roby::Task)
-        other_task_t = Class.new(Roby::Task)
+        task_t = Roby::Task.new_submodel
+        other_task_t = Roby::Task.new_submodel
         subtask_t = Class.new(task_t)
 
         method_model = nil
@@ -95,7 +95,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_returned_type_from_specific_method_is_inherited_from_method_model
-        task_model = Class.new(Roby::Task)
+        task_model = Roby::Task.new_submodel
 	planner_model = Class.new(Planner) do
 	    method(:m, :returns => task_model)
             method(:m, :id => :bla) do
@@ -106,7 +106,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_reuse
-	task_model = Class.new(Task)
+	task_model = Task.new_submodel
 	derived_model = Class.new(task_model)
 	planner_model = Class.new(Planner) do
 	    method(:reusable, :returns => task_model)
@@ -162,7 +162,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_empty_method_set
-	task_model = Class.new(Roby::Task)
+	task_model = Roby::Task.new_submodel
 	model = Class.new(Roby::Planning::Planner) do
 	    method(:empty_set, :returns => task_model)
 	end
@@ -189,7 +189,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_recursive
-	task_model = Class.new(Roby::Task) do
+	task_model = Roby::Task.new_submodel do
 	    argument :id
 	end
 
@@ -245,9 +245,9 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_method_model
 	# Some task models
-        tm_a = Class.new(Roby::Task)
+        tm_a = Roby::Task.new_submodel
         tm_a_a = Class.new(tm_a)
-        tm_b = Class.new(Roby::Task)
+        tm_b = Roby::Task.new_submodel
         foo_klass = Class.new
 
 	# The planning model
@@ -278,7 +278,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_model_of
-        tm1 = Class.new(Roby::Task)
+        tm1 = Roby::Task.new_submodel
 	tm2 = Class.new(tm1)
 	tm3 = Class.new(tm2)
 	base = Class.new(Planner) do
@@ -305,8 +305,8 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_returns_validation
-        task_model = Class.new(Roby::Task)
-	task_tag   = TaskModelTag.new
+        task_model = Roby::Task.new_submodel
+	task_tag   = TaskService.new_submodel
 
 	planner_model = Class.new(Planning::Planner)
 	assert_nothing_raised { planner_model.method(:returns_task, :returns => task_model) }
@@ -316,9 +316,9 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_returns_inheritance
 	# Some task models
-        tm_a = Class.new(Roby::Task)
+        tm_a = Roby::Task.new_submodel
         tm_a_a = Class.new(tm_a)
-        tm_b = Class.new(Roby::Task)
+        tm_b = Roby::Task.new_submodel
         foo_klass = Class.new
 
 	# The planning models
@@ -368,8 +368,8 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_method_inheritance
 	# Define a few task models
-        tm_a	    = Class.new(Roby::Task)
-        tm_b	    = Class.new(Roby::Task)
+        tm_a	    = Roby::Task.new_submodel
+        tm_b	    = Roby::Task.new_submodel
         tm_a_a	    = Class.new(tm_a)
         tm_a_a_a    = Class.new(tm_a_a)
         tm_b_a	    = Class.new(tm_a)
@@ -442,7 +442,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_return_type
-	task_model = Class.new(Task) do
+	task_model = Task.new_submodel do
 	    argument :arg
 	end
 	planner = Class.new(Planner) do
@@ -520,7 +520,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_find_all_actions_by_type_no_match
-        task_t = Class.new(Roby::Task)
+        task_t = Roby::Task.new_submodel
 
         flexmock(planner = Class.new(Roby::Planning::Planner)) do |pl|
             pl.should_receive(:planning_methods_names).and_return(%w{m1 m2 m3})
@@ -532,7 +532,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_find_all_actions_by_type_single_match
-        task_t = Class.new(Roby::Task)
+        task_t = Roby::Task.new_submodel
 
         m2 = flexmock(:name => "m2", :options => Hash.new)
         flexmock(planner = Class.new(Roby::Planning::Planner)) do |pl|
@@ -546,7 +546,7 @@ class TC_Planner < Test::Unit::TestCase
 
 
     def test_find_all_actions_by_type_multiple_matches_same_method
-        task_t = Class.new(Roby::Task)
+        task_t = Roby::Task.new_submodel
 
         m2_1 = flexmock(:name => "m2_1", :options => {:id => 1}) 
         m2_2 = flexmock(:name => "m2_2", :options => {:id => 2})
@@ -560,7 +560,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_find_all_actions_by_type_multiple_matches_different_methods
-        task_t = Class.new(Roby::Task)
+        task_t = Roby::Task.new_submodel
 
         m1 = flexmock(:name => "m1", :options => Hash.new) 
         m2 = flexmock(:name => "m2", :options => {:id => 2})

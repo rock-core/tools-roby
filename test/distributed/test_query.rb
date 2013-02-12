@@ -13,8 +13,8 @@ class TC_DistributedQuery < Test::Unit::TestCase
 	    fake_peer.should_receive(:subscribed_plan?).and_return(false)
 	    fake_peer.should_receive(:subscribed?).and_return(false)
 
-	    t1 = Class.new(Task).new
-	    t2 = Class.new(Task).new
+	    t1 = Task.new_submodel.new
+	    t2 = Task.new_submodel.new
 	    t2.owners << fake_peer
 	    plan.add [t1, t2]
 
@@ -47,7 +47,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
     # Check that we can query the remote plan database
     def test_query
 	peer2peer do |remote|
-	    local_model = Class.new(Tasks::Simple)
+	    local_model = Tasks::Simple.new_submodel
 
 	    mission, subtask = QueryTaskModel.new(:id => 1), local_model.new(:id => 2)
 	    mission.depends_on subtask

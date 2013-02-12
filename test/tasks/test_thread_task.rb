@@ -17,7 +17,7 @@ class TC_ThreadTask < Test::Unit::TestCase
     end
 
     def test_normal
-        model = Class.new(Roby::Tasks::Thread) do
+        model = Roby::Tasks::Thread.new_submodel do
             implementation do
                 1
             end
@@ -33,7 +33,7 @@ class TC_ThreadTask < Test::Unit::TestCase
     def test_implementation_fails
         Thread.abort_on_exception = false
         Roby.app.abort_on_exception = false
-        model = Class.new(Roby::Tasks::Thread) do
+        model = Roby::Tasks::Thread.new_submodel do
             implementation do
                 raise ArgumentError, "blaaaaaaaaah"
             end
@@ -49,7 +49,7 @@ class TC_ThreadTask < Test::Unit::TestCase
 
     def test_interruptible
         Thread.abort_on_exception = false
-        model = Class.new(Roby::Tasks::Thread) do
+        model = Roby::Tasks::Thread.new_submodel do
             interruptible
             implementation do
                 loop do

@@ -10,7 +10,7 @@ class TC_Robot < Test::Unit::TestCase
     include Roby::SelfTest::Assertions
 
     def test_action_from_model_no_match
-        task_m = Class.new(Roby::Task)
+        task_m = Roby::Task.new_submodel
         planner = flexmock
         planner.should_receive(:find_all_actions_by_type).once.
             with(task_m).and_return([])
@@ -19,7 +19,7 @@ class TC_Robot < Test::Unit::TestCase
         assert_raises(ArgumentError) { Robot.action_from_model(task_m) }
     end
     def test_action_from_model_one_match
-        task_m = Class.new(Roby::Task)
+        task_m = Roby::Task.new_submodel
         planner = flexmock
         planner.should_receive(:find_all_actions_by_type).once.
             with(task_m).and_return([action = flexmock(:name => 'A')])
@@ -28,7 +28,7 @@ class TC_Robot < Test::Unit::TestCase
         assert_equal [planner, action], Robot.action_from_model(task_m)
     end
     def test_action_from_model_multiple_matches
-        task_m = Class.new(Roby::Task)
+        task_m = Roby::Task.new_submodel
         planner = flexmock
         planner.should_receive(:find_all_actions_by_type).once.
             with(task_m).and_return([flexmock(:name => 'A'), flexmock(:name => 'A')])
@@ -37,7 +37,7 @@ class TC_Robot < Test::Unit::TestCase
         assert_raises(ArgumentError) { Robot.action_from_model(task_m) }
     end
     def test_prepare_action_with_model
-        task_t = Class.new(Roby::Task)
+        task_t = Roby::Task.new_submodel
         task, planner_task = task_t.new, task_t.new
         task.planned_by planner_task
         planner = flexmock
@@ -50,7 +50,7 @@ class TC_Robot < Test::Unit::TestCase
     def test_prepare_action_passes_arguments
         arguments = {:id => 10}
 
-        task_t = Class.new(Roby::Task)
+        task_t = Roby::Task.new_submodel
         task, planner_task = task_t.new, task_t.new
         task.planned_by planner_task
         planner = flexmock

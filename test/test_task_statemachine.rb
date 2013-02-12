@@ -109,7 +109,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
     end
 
     def test_automatically_created_new_events
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
             refine_running_state do
                 on(:intermediate) { transition :running => :one }
@@ -131,7 +131,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
     end
 
     def test_does_not_override_existing_events
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
             event :intermediate
             refine_running_state do
@@ -180,7 +180,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         mock.should_receive(:poll_called).at_least.once
         mock.should_receive(:one_called).at_least.once
 
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
             event :intermediate
 
@@ -209,7 +209,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         mock.should_receive(:one_poll).once.ordered
         mock.should_receive(:one_poll_event).once.ordered
 
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
             event :intermediate
             event :running_poll
@@ -242,7 +242,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         mock.should_receive(:one_poll).at_least.once
         mock.should_receive(:one_poll_event).at_least.once
 
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
             event :intermediate
             event :running_poll

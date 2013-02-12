@@ -1,8 +1,8 @@
 module Roby
     module Actions
         module InterfaceModel
-            include Utilrb::Models::Registration
 	    include Distributed::DRobyModel::Dump
+            extend MetaRuby::Attributes
 
             def promote_registered_action(name, action)
                 actions[name] ||= action.rebind(self)
@@ -12,7 +12,7 @@ module Roby
             #
             # @returns [Hash<String,ActionModel>]
             # @key_name action_name
-            define_inherited_enumerable(:registered_action, :actions, :map => true) { Hash.new }
+            inherited_attribute(:registered_action, :actions, :map => true) { Hash.new }
 
             # Exception raised when an action is defined with the wrong count of
             # argument (zero if no arguments are specified and one if arguments

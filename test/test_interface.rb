@@ -16,7 +16,7 @@ class TC_Interface < Test::Unit::TestCase
     def test_method_missing
         iface   = Interface.new(engine)
 
-        task_model = Class.new(Task)
+        task_model = Task.new_submodel
 
         result_task = nil
         planner = Class.new(Planner) do
@@ -48,7 +48,7 @@ class TC_Interface < Test::Unit::TestCase
             describe("test planning method")
             method(:my_method) { }
         end
-        actions = Class.new(Roby::Actions::Interface) do
+        actions = Actions::Interface.new_submodel do
             describe "test action"
             def test_action
             end

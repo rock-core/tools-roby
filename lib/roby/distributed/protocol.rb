@@ -47,83 +47,82 @@ class Class
 end
 
 module Roby
-    class TaskModelTag
-	@@local_to_remote = Hash.new
-	@@remote_to_local = Hash.new
-	def self.local_to_remote; @@local_to_remote end
-	def self.remote_to_local; @@remote_to_local end
+    module Models
+        class TaskServiceModel
+            @@local_to_remote = Hash.new
+            @@remote_to_local = Hash.new
+            def self.local_to_remote; @@local_to_remote end
+            def self.remote_to_local; @@remote_to_local end
 
-	class DRoby
-	    attr_reader :tagdef
-	    def initialize(tagdef); @tagdef = tagdef end
-	    def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump(tagdef) end
-	    def self._load(str); DRoby.new(Marshal.load(str)) end
+            class DRoby
+                attr_reader :tagdef
+                def initialize(tagdef); @tagdef = tagdef end
+                def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump(tagdef) end
+                def self._load(str); DRoby.new(Marshal.load(str)) end
 
-	    def proxy(peer)
-		including = []
-                factory = if peer then peer.method(:local_task_tag)
-                          else
-                              DRoby.method(:anon_tag_factory)
-                          end
+                def proxy(peer)
+                    including = []
+                    factory = if peer then peer.method(:local_task_tag)
+                              else
+                                  DRoby.method(:anon_tag_factory)
+                              end
 
-		tagdef.each do |name, remote_tag|
-		    tag = DRoby.local_tag(name, remote_tag, factory) do |tag|
-			including.each { |mod| tag.include mod }
-		    end
-		    including << tag
-		end
-		including.last
-	    end
-
-            def self.anon_tag_factory(tag_name)
-                m = Roby::TaskModelTag.new
-                class << m
-                    attr_accessor :name
+                    tagdef.each do |name, remote_tag|
+                        tag = DRoby.local_tag(name, remote_tag, factory) do |tag|
+                            including.each { |mod| tag.include mod }
+                        end
+                        including << tag
+                    end
+                    including.last
                 end
-                m.name = tag_name
-                m
+
+                def self.anon_tag_factory(tag_name)
+                    m = Roby::TaskService.new_submodel
+                    m.name = tag_name
+                    m
+                end
+
+                def self.local_tag(name, remote_tag, unknown_model_factory = method(:anon_tag_factory))
+                    if !remote_tag.kind_of?(Distributed::RemoteID)
+                        remote_tag
+                    elsif local_model = TaskServiceModel.remote_to_local[remote_tag]
+                        local_model
+                    else
+                        if name && !name.empty?
+                            local_model = constant(name) rescue nil
+                        end
+                        unless local_model
+                            local_model = unknown_model_factory[name]
+                            TaskServiceModel.remote_to_local[remote_tag] = local_model
+                            TaskServiceModel.local_to_remote[local_model] = [name, remote_tag]
+                            yield(local_model) if block_given?
+                        end
+                        local_model
+                    end
+                end
+
+                def ==(other)
+                    other.kind_of?(DRoby) && 
+                        tagdef.zip(other.tagdef).all? { |a, b| a == b }
+                end
             end
 
-	    def self.local_tag(name, remote_tag, unknown_model_factory = method(:anon_tag_factory))
-		if !remote_tag.kind_of?(Distributed::RemoteID)
-		    remote_tag
-		elsif local_model = TaskModelTag.remote_to_local[remote_tag]
-		    local_model
-		else
-		    if name && !name.empty?
-			local_model = constant(name) rescue nil
-		    end
-		    unless local_model
-			local_model = unknown_model_factory[name]
-			TaskModelTag.remote_to_local[remote_tag] = local_model
-			TaskModelTag.local_to_remote[local_model] = [name, remote_tag]
-			yield(local_model) if block_given?
-		    end
-		    local_model
-		end
-	    end
-
-	    def ==(other)
-		other.kind_of?(DRoby) && 
-		    tagdef.zip(other.tagdef).all? { |a, b| a == b }
-	    end
-	end
-
-	def droby_dump(dest)
-	    unless @__droby_marshalled__
-		tagdef = ancestors.map do |mod|
-		    if mod.kind_of?(Roby::TaskModelTag)
-			unless id = TaskModelTag.local_to_remote[mod]
-			    id = [mod.name, mod.remote_id]
-			end
-			id
-		    end
-		end
-		tagdef.compact!
-		@__droby_marshalled__ = DRoby.new(tagdef.reverse)
-	    end
-	    @__droby_marshalled__
-	end
+            def droby_dump(dest)
+                unless @__droby_marshalled__
+                    tagdef = ancestors.map do |mod|
+                        if mod.kind_of?(TaskServiceModel)
+                            unless id = TaskServiceModel.local_to_remote[mod]
+                                id = [mod.name, mod.remote_id]
+                            end
+                            id
+                        end
+                    end
+                    tagdef.compact!
+                    @__droby_marshalled__ = DRoby.new(tagdef.reverse)
+                end
+                @__droby_marshalled__
+            end
+        end
     end
 
     class TaskMatcher
@@ -488,12 +487,12 @@ module Roby
 		include DRobyModel::Dump
 
                 # This augments DRobyModel::Dump#droby_dump by taking into
-                # account TaskModelTag modules in the ancestors list.
+                # account TaskService modules in the ancestors list.
 		def droby_dump(dest)
 		    unless @__droby_marshalled__
 			formatted_class = super
 			tags = ancestors.map do |mod|
-			    if mod.instance_of?(Roby::TaskModelTag)
+			    if mod.kind_of?(Roby::Models::TaskServiceModel)
 				mod.droby_dump(dest)
 			    end
 			end

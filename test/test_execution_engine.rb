@@ -357,7 +357,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_default_task_ordering
-	a = Class.new(Tasks::Simple) do
+	a = Tasks::Simple.new_submodel do
 	    event :intermediate
 	end.new(:id => 'a')
 
@@ -381,7 +381,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_diamond_structure
-	a = Class.new(Tasks::Simple) do
+	a = Tasks::Simple.new_submodel do
 	    event :child_success
 	    event :child_stop
 	    forward :child_success => :child_stop
@@ -562,7 +562,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	Roby.app.abort_on_exception = true
 
 	# Test that the event is not pending if the command raises
-	model = Class.new(Tasks::Simple) do
+	model = Tasks::Simple.new_submodel do
 	    event :start do |context|
 		raise SpecificException, "bla"
             end
@@ -575,7 +575,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	# Check that the propagation is pruned if the command raises
 	t = nil
 	FlexMock.use do |mock|
-	    t = Class.new(Tasks::Simple) do
+	    t = Tasks::Simple.new_submodel do
 		event :start do |context|
 		    mock.command_called
 		    raise SpecificException, "bla"
@@ -602,7 +602,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         # To stop the error message
 	Roby.logger.level = Logger::FATAL
 
-	model = Class.new(Tasks::Simple) do
+	model = Tasks::Simple.new_submodel do
 	    on :start do |event|
 		raise SpecificException, "bla"
             end
@@ -940,7 +940,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_garbage_collect_tasks
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
 	    attr_accessor :delays
 
 	    event(:start, :command => true)
@@ -987,7 +987,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
     
     def test_force_garbage_collect_tasks
-	t1 = Class.new(Task) do
+	t1 = Task.new_submodel do
 	    event(:stop) { |context| }
 	end.new
 	t2 = Task.new
@@ -1027,7 +1027,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	Roby::Plan.logger.level = Logger::WARN
 	running_task = nil
 	FlexMock.use do |mock|
-	    task_model = Class.new(Task) do
+	    task_model = Task.new_submodel do
 		event :start, :command => true
 		event :stop do |context|
 		    mock.stop(self)
@@ -1120,7 +1120,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_mission_failed
-	model = Class.new(Tasks::Simple) do
+	model = Tasks::Simple.new_submodel do
 	    event :specialized_failure, :command => true
 	    forward :specialized_failure => :failed
 	end
@@ -1178,7 +1178,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         100.times do
             stop_called = false
             source = Tasks::Simple.new(:id => 'source')
-            target = Class.new(Tasks::Simple) do
+            target = Tasks::Simple.new_submodel do
                 event :start do |context|
                     if !stop_called
                         raise ArgumentError, "ordering failed"

@@ -69,14 +69,14 @@ class TC_Test_TestCase < Test::Unit::TestCase
     def test_assert_succeeds
 	engine.run
     
-	task = Class.new(Tasks::Simple) do
+	task = Tasks::Simple.new_submodel do
 	    forward :start => :success
 	end.new
 	assert_nothing_raised do
 	    assert_succeeds(task)
 	end
 
-	task = Class.new(Tasks::Simple) do
+	task = Tasks::Simple.new_submodel do
 	    forward :start => :failed
 	end.new
 	assert_raises(Assertion) do

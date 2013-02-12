@@ -1068,15 +1068,24 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
-    def test_when_unreachable_event
+    def test_when_unreachable_event_not_cancelled_at_emission
+        mock = flexmock
+        mock.should_receive(:unreachable_fired).once
+
+        plan.add(ev = EventGenerator.new(true))
+        ev.when_unreachable(false).on { |ev| mock.unreachable_fired }
+        ev.call
+        plan.remove_object(ev)
+    end
+
+    def test_when_unreachable_event_cancelled_at_emission
         mock = flexmock
         mock.should_receive(:unreachable_fired).never
 
         plan.add(ev = EventGenerator.new(true))
-        ev.when_unreachable.on { |ev| mock.unreachable_fired }
+        ev.when_unreachable(true).on { |ev| mock.unreachable_fired }
         ev.call
-        engine.garbage_collect
-        assert(ev.happened?)
+        plan.remove_object(ev)
     end
 
     def test_or_if_unreachable

@@ -22,7 +22,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
         super
 	Roby.app.filter_backtraces = false
 
-	task_model = @task_model = Class.new(Tasks::Simple)
+	task_model = @task_model = Tasks::Simple.new_submodel
         pattern_id = 0
 	@planner_model = Class.new(Planning::Planner) do
 	    method(:task) do
@@ -345,7 +345,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
     end
 
     #def test_planning_loop_reinit_zero_lookahead
-    #    task_model = Class.new(Tasks::Simple)
+    #    task_model = Tasks::Simple.new_submodel
     #    planner_model = Class.new(Planning::Planner) do 
     #        @@id = 0
     #        method(:task) do 

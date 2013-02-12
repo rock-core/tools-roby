@@ -399,7 +399,7 @@ module Roby::TaskStructure
             end
             if !model[1].respond_to?(:to_ary)
                 raise ArgumentError, "expected an array as second element, got #{model[1]}"
-            elsif !model[1].all? { |t| t.kind_of?(Roby::TaskModelTag) }
+            elsif !model[1].all? { |t| t.kind_of?(Roby::Models::TaskServiceModel) }
                 raise ArgumentError, "expected an array of model tags as second element, got #{model[1]}"
             end
 
@@ -414,7 +414,7 @@ module Roby::TaskStructure
         # If there is a task model in the list of models, it is always the first
         # element of the model set
         #
-        # @return [(Array<Model<Task>,TaskModelTag>,{String=>Object}]
+        # @return [(Array<Model<Task>,Model<TaskService>>,{String=>Object}]
         #
         # Beware that, for historical reasons, this is not the same format than
         # {#fullfilled_model=}
@@ -531,8 +531,8 @@ module Roby::TaskStructure
         def fullfilled_model=(models)
             if !models.respond_to?(:to_ary)
                 raise ArgumentError, "expected an array, got #{models}"
-            elsif !models.all? { |t| t.kind_of?(Roby::TaskModelTag) || (t.respond_to?(:<=) && (t <= Roby::Task)) }
-                raise ArgumentError, "expected a submodel of TaskModelTag, got #{models}"
+            elsif !models.all? { |t| t.kind_of?(Roby::Models::TaskServiceModel) || (t.respond_to?(:<=) && (t <= Roby::Task)) }
+                raise ArgumentError, "expected a submodel of TaskService, got #{models}"
             end
 
             @fullfilled_model = models
@@ -547,7 +547,7 @@ module Roby::TaskStructure
         
         # Enumerates the models that all instances of this task model fullfill
         #
-        # @yields [Model<Task>,TaskModelTag]
+        # @yields [Model<Task>,Model<TaskService>]
         # @return [void]
         def each_fullfilled_model
             return enum_for(:each_fullfilled_model) if !block_given?
@@ -557,7 +557,7 @@ module Roby::TaskStructure
                 @fullfilled_model.each { |m| yield(m) }
             else
                 ancestors.each do |m|
-                    yield(m) if m.kind_of?(Class) || (m.kind_of?(Roby::TaskService) && m != Roby::Task::RootTaskService)
+                    yield(m) if m.kind_of?(Class) || (m.kind_of?(Roby::Models::TaskServiceModel) && m != Roby::TaskService)
                     if m == Roby::Task
                         return
                     end
@@ -583,7 +583,7 @@ module Roby::TaskStructure
             required_models = [required_models] if !required_models.respond_to?(:to_ary)
 
             for m in required_models
-                if m.kind_of?(Roby::TaskModelTag)
+                if m.kind_of?(Roby::Models::TaskServiceModel)
                     tags << m
                 elsif m.has_ancestor?(model)
                     model = m

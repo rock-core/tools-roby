@@ -14,7 +14,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_model_allows_to_get_events_using_the_blabla_event_syntax
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             event :custom
             event :other
         end
@@ -23,26 +23,24 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_subclasses_of_task_are_registered_on_Task
-        subclass = Class.new(Roby::Task)
+        subclass = Roby::Task.new_submodel
         assert_equal Roby::Task, subclass.supermodel
         assert Roby::Task.each_submodel.to_a.include?(subclass)
     end
 
-    def test_model_tag
-        tag1 = TaskModelTag.new { argument :model_tag_1 }
-	assert(tag1.const_defined?(:ClassExtension))
-	assert(tag1::ClassExtension.method_defined?(:argument))
+    def test_task_service_model
+        tag1 = TaskService.new_submodel { argument :model_tag_1 }
+        assert tag1.has_argument?(:model_tag_1)
 
-	tag2 = TaskModelTag.new do
-            include tag1
+	tag2 = tag1.new_submodel do
             argument :model_tag_2
         end
 	assert(tag2 < tag1)
-	assert(tag2.const_defined?(:ClassExtension))
-	assert(tag2::ClassExtension.method_defined?(:argument))
+        assert tag2.has_argument?(:model_tag_1)
+        assert tag2.has_argument?(:model_tag_2)
 
-	task = Class.new(Task) do
-	    include tag2
+	task = Task.new_submodel do
+	    provides tag2
 	    argument :task_tag
 	end
 	assert_equal([:task_tag, :model_tag_2, :model_tag_1].to_set, task.arguments.to_set)
@@ -51,10 +49,10 @@ class TC_Task < Test::Unit::TestCase
     def test_abstract
         assert Roby::Task.abstract?
 
-        model = Class.new(Roby::Task)
+        model = Roby::Task.new_submodel
         assert !model.abstract?
 
-        abstract_model = Class.new(model) do
+        abstract_model = model.new_submodel do
             abstract
         end
         assert abstract_model.abstract?
@@ -75,7 +73,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_instanciate_model_event_relations(make_start_terminal = false)
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :ev1
             event :ev2
             event :ev3
@@ -113,13 +111,13 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_arguments_declaration
-	model = Class.new(Task) { argument :from; argument :to }
+	model = Task.new_submodel { argument :from; argument :to }
 	assert_equal([], Task.arguments.to_a)
 	assert_equal([:from, :to].to_value_set, model.arguments.to_value_set)
     end
 
     def test_arguments_initialization
-	model = Class.new(Task) { argument :arg; argument :to }
+	model = Task.new_submodel { argument :arg; argument :to }
 	plan.add(task = model.new(:arg => 'B'))
 	assert_equal({:arg => 'B'}, task.arguments)
         assert_equal('B', task.arg)
@@ -127,7 +125,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_arguments_initialization_uses_assignation_operator
-	model = Class.new(Task) do
+	model = Task.new_submodel do
             argument :arg; argument :to
 
             undef_method :arg=
@@ -142,7 +140,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_arguments_assignation
-	model = Class.new(Task) { argument :arg }
+	model = Task.new_submodel { argument :arg }
 	plan.add(task = model.new)
 	task.arguments[:arg] = 'A'
         assert_equal('A', task.arg)
@@ -150,7 +148,7 @@ class TC_Task < Test::Unit::TestCase
     end
     
     def test_arguments_assignation_operator
-	model = Class.new(Task) { argument :arg }
+	model = Task.new_submodel { argument :arg }
 	plan.add(task = model.new)
         task.arg = 'B'
         assert_equal('B', task.arg)
@@ -158,14 +156,14 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_meaningful_arguments
-	model = Class.new(Task) { argument :arg }
+	model = Task.new_submodel { argument :arg }
 	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
 	assert_equal({:arg => 'B', :useless => 'bla'}, task.arguments)
 	assert_equal({:arg => 'B'}, task.meaningful_arguments)
     end
 
     def test_meaningful_arguments_with_default_arguments
-        child_model = Class.new(Roby::Task) do
+        child_model = Roby::Task.new_submodel do
             argument :start, :default => 10
             argument :target
         end
@@ -174,7 +172,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_arguments_cannot_override
-	model = Class.new(Task) { argument :arg }
+	model = Task.new_submodel { argument :arg }
 	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
 	assert_raises(ArgumentError) { task.arg = 10 }
 
@@ -184,7 +182,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_arguments_partially_instanciated
-	model = Class.new(Task) { argument :arg0; argument :arg1 }
+	model = Task.new_submodel { argument :arg0; argument :arg1 }
 	plan.add(task = model.new(:arg0 => 'B', :useless => 'bla'))
 	assert(task.partially_instanciated?)
         task.arg1 = 'C'
@@ -193,7 +191,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_command_block
 	FlexMock.use do |mock|
-	    model = Class.new(Tasks::Simple) do 
+	    model = Tasks::Simple.new_submodel do 
 		event :start do |context|
 		    mock.start(self, context)
 		    emit :start
@@ -207,14 +205,14 @@ class TC_Task < Test::Unit::TestCase
 
     def test_command_inheritance
         FlexMock.use do |mock|
-            parent_m = Class.new(Tasks::Simple) do
+            parent_m = Tasks::Simple.new_submodel do
                 event :start do |context|
                     mock.parent_started(self, context)
                     emit :start
                 end
             end
 
-            child_m = Class.new(parent_m) do
+            child_m = parent_m.new_submodel do
                 event :start do |context|
                     mock.child_started(self, context.first)
                     super(context.first / 2)
@@ -244,7 +242,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def do_test_instantiate_model_relations(method, relation, additional_links = Hash.new)
-	klass = Class.new(Roby::Test::Tasks::Simple) do
+	klass = Class.new(Roby::Tasks::Simple) do
             4.times { |i| event "e#{i + 1}", :command => true }
             send(method, :e1 => [:e2, :e3], :e4 => :stop)
 	end
@@ -273,11 +271,11 @@ class TC_Task < Test::Unit::TestCase
 
     
     def do_test_inherit_model_relations(method, relation, additional_links = Hash.new)
-	base = Class.new(Roby::Test::Tasks::Simple) do
+	base = Roby::Tasks::Simple.new_submodel do
             4.times { |i| event "e#{i + 1}", :command => true }
             send(method, :e1 => [:e2, :e3])
 	end
-        subclass = Class.new(base) do
+        subclass = base.new_submodel do
             send(method, :e4 => :stop)
         end
 
@@ -347,7 +345,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_model_forwardings
-	model = Class.new(Tasks::Simple) do
+	model = Tasks::Simple.new_submodel do
 	    forward :start => :failed
 	end
 	assert_equal({ :start => [:failed, :stop].to_value_set }, model.forwarding_sets)
@@ -367,7 +365,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_model_event_handlers
-	model = Class.new(Tasks::Simple)
+	model = Tasks::Simple.new_submodel
         assert_raises(ArgumentError) { model.on(:start) { |a, b| } }
 
 	FlexMock.use do |mock|
@@ -413,7 +411,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_terminal_option
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
             event :terminal, :terminal => true
         end
         assert klass.event_model(:terminal).terminal?
@@ -449,7 +447,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_terminal_forward_stop(target_event = :stop)
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
 	    event :direct
 
             event :indirect
@@ -466,7 +464,7 @@ class TC_Task < Test::Unit::TestCase
     def test_terminal_forward_failed; test_terminal_forward_stop(:failed) end
 
     def test_terminal_forward_stop_in_model(target_event = :stop)
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
 	    event :direct
             forward :direct => target_event
 
@@ -485,7 +483,7 @@ class TC_Task < Test::Unit::TestCase
     def test_terminal_forward_failed_in_model; test_terminal_forward_stop_in_model(:failed) end
 
     def test_terminal_signal_stop(target_event = :stop)
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
 	    event :direct
 
             event :indirect
@@ -503,7 +501,7 @@ class TC_Task < Test::Unit::TestCase
     def test_terminal_signal_failed; test_terminal_signal_stop(:failed) end
 
     def test_terminal_signal_stop_in_model(target_event = :stop)
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
 	    event :direct
 
             event :indirect
@@ -524,7 +522,7 @@ class TC_Task < Test::Unit::TestCase
     def test_terminal_signal_failed_in_model; test_terminal_signal_stop_in_model(:failed) end
 
     def test_terminal_alternate_stop(target_event = :stop)
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
             event :forward_first
             event :intermediate_signal
             event target_event, :controlable => true, :terminal => true
@@ -547,7 +545,7 @@ class TC_Task < Test::Unit::TestCase
     def test_terminal_alternate_failed; test_terminal_signal_stop(:failed) end
 
     def test_terminal_alternate_stop_in_model(target_event = :stop)
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
             event :forward_first
             event :intermediate_signal
             event target_event, :controlable => true, :terminal => true
@@ -570,7 +568,7 @@ class TC_Task < Test::Unit::TestCase
     def test_terminal_alternate_failed_in_model; test_terminal_signal_stop_in_model(:failed) end
 
     def test_should_not_establish_signal_from_terminal_to_non_terminal
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
 	    event :terminal, :terminal => true
             event :intermediate
 	end
@@ -580,7 +578,7 @@ class TC_Task < Test::Unit::TestCase
 
     # Tests Task::event
     def test_event_declaration
-	klass = Class.new(Task) do
+	klass = Task.new_submodel do
 	    def ev_not_controlable;     end
 	    def ev_method(event = :ev_method); :ev_method if event == :ev_redirected end
 
@@ -643,10 +641,10 @@ class TC_Task < Test::Unit::TestCase
         assert_equal([task.event(:stop), task.event(:success)].to_set, start_event.enum_for(:each_forwarding).to_set)
         start_model = task.event_model(:start)
         assert_equal(start_model, start_event.event_model)
-        assert_equal([:stop, :success].to_set, task.enum_for(:each_forwarding, :start).to_set)
+        assert_equal([:stop, :success].to_set, task.model.enum_for(:each_forwarding, :start).to_set)
     end
     def test_status
-	task = Class.new(Roby::Task) do
+	task = Roby::Task.new_submodel do
 	    event :start do |context|
 	    end
 	    event :failed, :terminal => true do |context|
@@ -715,7 +713,7 @@ class TC_Task < Test::Unit::TestCase
         end
 
         mock = flexmock
-	task = Class.new(Roby::Task) do
+	task = Roby::Task.new_submodel do
             define_method(:complete_status) do
                 as_array = status_flags.map { |s| [s, send(s)] }
                 Hash[as_array]
@@ -765,7 +763,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_context_propagation
 	FlexMock.use do |mock|
-	    model = Class.new(Tasks::Simple) do
+	    model = Tasks::Simple.new_submodel do
 		event :start do |context|
 		    mock.starting(context)
 		    event(:start).emit(*context)
@@ -796,14 +794,14 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_inheritance_overloading
-        base = Class.new(Roby::Task) do 
+        base = Roby::Task.new_submodel do 
             extend Test::Unit::Assertions
             event :ctrl, :command => true
 	    event :stop
             assert(!find_event_model(:stop).controlable?)
         end
 
-        Class.new(base) do
+        base.new_submodel do
             extend Test::Unit::Assertions
 
             assert_nothing_raised { event :start, :command => true }
@@ -815,13 +813,13 @@ class TC_Task < Test::Unit::TestCase
             assert(find_event_model(:stop).controlable?)
         end
 
-	Class.new(base) do
+	base.new_submodel do
 	    assert_nothing_raised { event(:start) { |context| } }
 	end
     end
 
     def test_singleton
-	model = Class.new(Task) do
+	model = Task.new_submodel do
 	    def initialize
 		singleton_class.event(:start, :command => true)
 		singleton_class.event(:stop)
@@ -841,7 +839,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_check_running
-	model = Class.new(Tasks::Simple) do
+	model = Tasks::Simple.new_submodel do
 	    event(:inter, :command => true)
 	end
 	plan.add(task = model.new)
@@ -860,7 +858,7 @@ class TC_Task < Test::Unit::TestCase
             assert(!task.event(:inter).pending)
         end
 
-	model = Class.new(Tasks::Simple) do
+	model = Tasks::Simple.new_submodel do
 	    event :start do |context|
 		emit :inter
 		emit :start
@@ -875,7 +873,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_finished
-	model = Class.new(Roby::Task) do
+	model = Roby::Task.new_submodel do
 	    event :start, :command => true
 	    event :failed, :command => true, :terminal => true
 	    event :success, :command => true, :terminal => true
@@ -920,7 +918,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_cannot_start_if_not_executable
         Roby.logger.level = Logger::FATAL
-	model = Class.new(Tasks::Simple) do 
+	model = Tasks::Simple.new_submodel do 
 	    event(:inter, :command => true)
             def executable?; false end
 	end
@@ -934,7 +932,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_cannot_leave_pending_if_not_executable
         Roby.logger.level = Logger::FATAL
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             def executable?; !pending?  end
         end
 	plan.add(task = model.new)
@@ -942,7 +940,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_executable
-	model = Class.new(Tasks::Simple) do 
+	model = Tasks::Simple.new_submodel do 
 	    event(:inter, :command => true)
 	end
 	task = model.new
@@ -1153,7 +1151,7 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
     def test_sequence_to_task
-	model = Class.new(Tasks::Simple)
+	model = Tasks::Simple.new_submodel
 	t1, t2 = prepare_plan :tasks => 2, :model => Tasks::Simple
 
 	seq = (t1 + t2)
@@ -1189,10 +1187,10 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_fullfills
-	abstract_task_model = TaskModelTag.new do
+	abstract_task_model = TaskService.new_submodel do
 	    argument :abstract
 	end
-	task_model = Class.new(Task) do
+	task_model = Task.new_submodel do
 	    include abstract_task_model
 	    argument :index; argument :universe
 	end
@@ -1212,21 +1210,21 @@ class TC_Task < Test::Unit::TestCase
 	plan.add(t3 = task_model.new(:universe => 42, :index => 21))
 	assert(t3.fullfills?(task_model, :universe => 42))
 
-	plan.add(t3 = Class.new(Task).new)
+	plan.add(t3 = Task.new_submodel.new)
 	assert(!t1.fullfills?(t3))
 
-	plan.add(t3 = Class.new(task_model).new)
+	plan.add(t3 = task_model.new_submodel.new)
 	assert(!t1.fullfills?(t3))
 	assert(t3.fullfills?(t1))
     end
 
     def test_fullfill_using_explicit_fullfilled_model_on_task_model
-        tag = TaskModelTag.new
-        proxy_model = Class.new(Task) do
+        tag = TaskService.new_submodel
+        proxy_model = Task.new_submodel do
             include tag
         end
         proxy_model.fullfilled_model = [tag]
-        real_model = Class.new(Task) do
+        real_model = Task.new_submodel do
             include tag
         end
 
@@ -1255,7 +1253,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_if_unreachable
-	model = Class.new(Tasks::Simple) do
+	model = Tasks::Simple.new_submodel do
 	    event :ready
 	end
 
@@ -1314,7 +1312,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_achieve_with
 	slave  = Tasks::Simple.new
-	master = Class.new(Task) do
+	master = Task.new_submodel do
 	    terminates
 	    event :start do |context|
 		event(:start).achieve_with slave
@@ -1332,7 +1330,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_achieve_with_fails_emission_if_child_success_becomes_unreachable
 	slave  = Tasks::Simple.new
-	master = Class.new(Task) do
+	master = Task.new_submodel do
 	    event :start do |context|
 		event(:start).achieve_with slave.event(:start)
 	    end
@@ -1362,7 +1360,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_execute_on_pending_tasks
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
         end
 
@@ -1380,7 +1378,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_execute_on_running_tasks
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
         end
 
@@ -1403,7 +1401,7 @@ class TC_Task < Test::Unit::TestCase
     def test_poll_on_pending_tasks
         mock = flexmock
 
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             poll do
                 mock.polled_from_model(running?, self)
             end
@@ -1426,7 +1424,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_poll_should_be_called_at_least_once
         mock = flexmock
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             on :start do |event|
                 stop!
             end
@@ -1470,7 +1468,7 @@ class TC_Task < Test::Unit::TestCase
         Roby::ExecutionEngine.logger.level = Logger::FATAL
 	FlexMock.use do |mock|
 	    mock.should_receive(:polled).once
-	    klass = Class.new(Tasks::Simple) do
+	    klass = Tasks::Simple.new_submodel do
 		poll do
 		    mock.polled(self)
 		    raise ArgumentError
@@ -1495,7 +1493,7 @@ class TC_Task < Test::Unit::TestCase
         t = nil
 	FlexMock.use do |mock|
 	    mock.should_receive(:polled).once
-	    klass = Class.new(Tasks::Simple) do
+	    klass = Tasks::Simple.new_submodel do
 		poll do
 		    mock.polled(self)
 		    raise ArgumentError
@@ -1538,7 +1536,7 @@ class TC_Task < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    mock.should_receive(:polled).once
 	    mock.should_receive(:emitted).once
-	    klass = Class.new(Tasks::Simple) do
+	    klass = Tasks::Simple.new_submodel do
 		poll do
 		    mock.polled(self)
                     emit :internal_error
@@ -1562,7 +1560,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_event_task_sources
-	task = Class.new(Tasks::Simple) do
+	task = Tasks::Simple.new_submodel do
 	    event :specialized_failure, :command => true
 	    forward :specialized_failure => :failed
 	end.new
@@ -1610,7 +1608,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_dup
-        model = Class.new(Roby::Test::Tasks::Simple) do
+        model = Class.new(Roby::Tasks::Simple) do
             event :intermediate
         end
 	plan.add(task = model.new)
@@ -1678,7 +1676,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_intermediate_emit_failed
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             event :intermediate
         end
 	plan.add(task = model.new)
@@ -1692,7 +1690,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_emergency_termination_fails
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             event :command_fails do |context|
                 raise ArgumentError
             end
@@ -1722,7 +1720,7 @@ class TC_Task < Test::Unit::TestCase
             m.cmd_failed.once.ordered
         end
 
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             event :failed, :terminal => true do |context|
                 mock.cmd_failed
                 raise ArgumentError
@@ -1749,7 +1747,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_nil_default_argument
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             argument 'value', :default => nil
         end
         task = model.new
@@ -1762,7 +1760,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_plain_default_argument
-        model = Class.new(Tasks::Simple) do
+        model = Tasks::Simple.new_submodel do
             argument 'value', :default => 10
         end
         task = model.new
@@ -1785,7 +1783,7 @@ class TC_Task < Test::Unit::TestCase
             end
         end
 
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
             argument 'value', :default => (Roby::DelayedTaskArgument.new(&block))
         end
@@ -1816,7 +1814,7 @@ class TC_Task < Test::Unit::TestCase
             attr_accessor :value
         end.new
 
-        klass = Class.new(Roby::Task) do
+        klass = Roby::Task.new_submodel do
             terminates
             argument :arg, :default => from(:planned_task).arg.of_type(Numeric)
         end
@@ -1842,7 +1840,7 @@ class TC_Task < Test::Unit::TestCase
             attr_accessor :value
         end.new
 
-        klass = Class.new(Roby::Task) do
+        klass = Roby::Task.new_submodel do
             terminates
             argument :arg
         end
@@ -1860,7 +1858,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_delayed_argument_marshalling
-        klass = Class.new(Roby::Task) do
+        klass = Roby::Task.new_submodel do
             terminates
             argument :arg, :default => Object.new
         end
@@ -1873,7 +1871,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_as_plan
         plan.add(task = Tasks::Simple.new)
-        model = Class.new(Tasks::Simple)
+        model = Tasks::Simple.new_submodel
 
         child = task.depends_on(model)
         assert_kind_of model, child
@@ -1882,7 +1880,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_as_plan_with_arguments
         plan.add(task = Tasks::Simple.new)
-        model = Class.new(Tasks::Simple)
+        model = Tasks::Simple.new_submodel
 
         child = task.depends_on(model.with_arguments(:id => 20))
         assert_kind_of model, child
@@ -1891,9 +1889,9 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_can_merge_model
-        test_model1 = Class.new(Roby::Task)
-        test_model2 = Class.new(Roby::Task)
-        test_model3 = Class.new(test_model1)
+        test_model1 = Roby::Task.new_submodel
+        test_model2 = Roby::Task.new_submodel
+        test_model3 = test_model1.new_submodel
 
         t1 = test_model1.new
         t2 = test_model2.new
@@ -1909,7 +1907,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_can_merge_arguments
-        test_model = Class.new(Roby::Task) do
+        test_model = Roby::Task.new_submodel do
             argument :id
         end
         t1 = test_model.new
@@ -1928,7 +1926,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_execute_handlers_with_replacing
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
         end
         old, new = prepare_plan :missions => 2, :model => model
@@ -1953,7 +1951,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_poll_handlers_with_replacing
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
         end
         old, new = prepare_plan :missions => 2, :model => model
@@ -1977,7 +1975,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_poll_is_called_while_the_task_is_running
         test_case = self
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
 
             poll do
@@ -1989,7 +1987,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_event_handlers_with_replacing
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
         end
         old, new = prepare_plan :missions => 2, :model => model
@@ -2013,7 +2011,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_abstract_tasks_automatically_mark_the_poll_handlers_as_replaced
-        abstract_model = Class.new(Roby::Task) do
+        abstract_model = Roby::Task.new_submodel do
             abstract
 
             def fullfilled_model
@@ -2039,7 +2037,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_abstract_tasks_automatically_mark_the_event_handlers_as_replaced
-        abstract_model = Class.new(Roby::Task) do
+        abstract_model = Roby::Task.new_submodel do
             abstract
 
             def fullfilled_model
@@ -2064,7 +2062,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_finalization_handlers_with_replacing
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
         end
         old, new = prepare_plan :missions => 2, :model => model
@@ -2087,7 +2085,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_finalization_handlers_are_copied_by_default_on_abstract_tasks
-        model = Class.new(Roby::Task) do
+        model = Roby::Task.new_submodel do
             terminates
         end
         old = prepare_plan :add => 1, :model => Roby::Task
@@ -2129,7 +2127,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_task_as_plan
-        task_t = Class.new(Roby::Task)
+        task_t = Roby::Task.new_submodel
         task, planner_task = task_t.new, task_t.new
         task.planned_by planner_task
         flexmock(Robot).should_receive(:prepare_action).with(nil, task_t, Hash.new).and_return([task, planner_task])
@@ -2167,7 +2165,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_start_command_raises_before_emission
-        klass = Class.new(Roby::Tasks::Simple) do
+        klass = Roby::Tasks::Simple.new_submodel do
             event :start do |context|
                 if context == [true]
                     raise ArgumentError
@@ -2186,7 +2184,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_start_command_raises_after_emission
-        klass = Class.new(Roby::Tasks::Simple) do
+        klass = Roby::Tasks::Simple.new_submodel do
             event :start do |context|
                 emit :start
                 raise ArgumentError
@@ -2251,7 +2249,7 @@ class TC_Task < Test::Unit::TestCase
         assert !task.reusable?
     end
     def test_model_terminal_event_forces_terminal
-        task_model = Class.new(Roby::Task) do
+        task_model = Roby::Task.new_submodel do
             event :terminal, :terminal => true
         end
         plan.add(task = task_model.new)
