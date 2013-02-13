@@ -16,5 +16,6 @@
   <depend package="boost" />
   <depend package="graphviz" />
   <depend package="state_machine" />
+  <depend package="tools/metaruby" />
 </package>
 
