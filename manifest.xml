@@ -11,10 +11,10 @@
 
   <depend package="utilmm" />
   <depend package="utilrb" />
-  <rosdep name="facets" />
-  <rosdep name="qtruby" />
-  <rosdep name="boost" />
-  <rosdep name="graphviz" />
-  <rosdep name="state_machine" />
+  <depend package="facets" />
+  <depend package="qtruby" />
+  <depend package="boost" />
+  <depend package="graphviz" />
+  <depend package="state_machine" />
 </package>
 
