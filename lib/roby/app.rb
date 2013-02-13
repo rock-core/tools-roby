@@ -4,6 +4,7 @@ require 'singleton'
 require 'utilrb/hash'
 require 'utilrb/module/attr_predicate'
 require 'yaml'
+require 'utilrb/pathname/find_matching_parent'
 
 module Roby
     # Regular expression that matches backtrace paths that are within the
@@ -58,9 +59,10 @@ module Roby
         extend Logger::Forward
 
         # The main plan on which this application acts
-        #
-        # It is usually, but not necessarily, the same as Roby.plan
-        attr_accessor :plan
+        attr_reader :plan
+
+        # The engine associated with {#plan}
+        def engine; plan.engine if plan end
         
 	# A set of planners declared in this application
 	attr_reader :planners
@@ -71,6 +73,13 @@ module Roby
         # This attribute contains the raw hash as read from the file. It is
         # overlaid 
 	attr_reader :options
+
+        # A set of exceptions that have been encountered by the application
+        # The associated string, if given, is a hint about in which context
+        # this exception got raised
+        # @return [Array<(Exception,String)>]
+        # @see #register_exception #clear_exceptions
+        attr_reader :registered_exceptions
 
         # Allows to attribute configuration keys to override configuration
         # parameters stored in config/app.yml
@@ -150,14 +159,51 @@ module Roby
         # Allows to override the application base directory. See #app_dir
         attr_writer :app_dir
 
+        # If set to true, files that generate errors while loading will be
+        # ignored. This is used for model browsing GUIs to be usable even if
+        # there are errors
+        #
+        # It is false by default
+        attr_predicate :ignore_all_load_errors?, true
+
         # Returns the application base directory
         def app_dir
             if defined?(APP_DIR)
                 APP_DIR
             elsif @app_dir
                 @app_dir
-            else
-                Dir.pwd
+            end
+        end
+
+        # Tests if the given directory looks like the root of a Roby app
+        def self.is_app_dir?(test_dir)
+            File.file?(File.join(test_dir, 'config', 'app.yml')) ||
+                File.directory?(File.join(test_dir, 'model')) ||
+                File.file?(File.join(test_dir, 'scripts', 'controllers'))
+        end
+
+        # Guess the app directory based on the current directory. It will not do
+        # anything if the current directory is not in a Roby app. Moreover, it
+        # does nothing if #app_dir is already set
+        #
+        # @return [String] the selected app directory
+        def guess_app_dir
+            return if @app_dir
+            app_dir = Pathname.new(Dir.pwd).find_matching_parent do |test_dir|
+                Application.is_app_dir?(test_dir.to_s)
+            end
+            if app_dir
+                @app_dir = app_dir.to_s
+            end
+        end
+
+        # Call to require this roby application to be in a Roby application
+        #
+        # It tries to guess the app directory. If none is found, it raises.
+        def require_app_dir
+            guess_app_dir
+            if !@app_dir
+                raise ArgumentError, "this needs to be started from within a Roby application"
             end
         end
 
@@ -170,7 +216,10 @@ module Roby
         # The list of paths in which the application should be looking for files
         def search_path
             if !@search_path
-                [app_dir]
+                if app_dir
+                    [app_dir]
+                else []
+                end
             else
                 @search_path
             end
@@ -213,9 +262,6 @@ module Roby
 	attr_predicate :abort_on_exception, true
 	# If true, abort if an application exception is found
 	attr_predicate :abort_on_application_exception, true
-
-	# An array of directories in which to search for plugins
-	attr_reader :plugin_dirs
 
 	# True if user interaction is disabled during tests
 	attr_predicate :automatic_testing?, true
@@ -304,40 +350,52 @@ module Roby
 
 	def initialize
 	    @plugins = Array.new
+            @plan = Plan.new
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
             @created_log_dirs = []
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
+            @registered_exceptions = []
 
             @filter_out_patterns = [Roby::RX_IN_FRAMEWORK, Roby::RX_REQUIRE]
             self.abort_on_application_exception = true
 
-	    @plugin_dirs = []
             @planners    = []
 	end
 
-	# Adds +dir+ in the list of directories searched for plugins
-	def plugin_dir(dir)
-	    dir = File.expand_path(dir)
-	    @plugin_dirs << dir
-	    $LOAD_PATH.unshift File.expand_path(dir)
+        # Looks into subdirectories of +dir+ for files called app.rb and
+        # registers them as Roby plugins
+        def load_plugins_from_prefix(dir)
+            dir = File.expand_path(dir)
+	    $LOAD_PATH.unshift dir
 
 	    Dir.new(dir).each do |subdir|
 		subdir = File.join(dir, subdir)
 		next unless File.directory?(subdir)
 		appfile = File.join(subdir, "app.rb")
 		next unless File.file?(appfile)
-
-		begin
-		    require appfile
-		rescue
-		    Roby.warn "cannot load plugin in #{subdir}: #{$!.full_message}\n"
-		end
-		Roby.info "loaded plugin in #{subdir}"
+                load_plugin_file(appfile)
 	    end
-	end
+        ensure
+            $LOAD_PATH.shift
+        end
+
+        # Load the given Roby plugin file. It is usually called app.rb, and
+        # should call register_plugin with the relevant information
+        #
+        # Note that the file should not do anything yet. The actions required to
+        # have a functional plugin should be taken only in the block given to
+        # register_plugin or in the relevant plugin methods.
+        def load_plugin_file(appfile)
+            begin
+                require appfile
+            rescue
+                Roby.warn "cannot load plugin #{appfile}: #{$!.full_message}\n"
+            end
+            Roby.info "loaded plugin #{appfile}"
+        end
 
 	# Returns true if +name+ is a loaded plugin
 	def loaded_plugin?(name)
@@ -411,11 +469,13 @@ module Roby
         
         def register_plugins
             # Load the plugins 'main' files
-            plugin_dir File.join(ROBY_ROOT_DIR, 'plugins')
+            load_plugins_from_prefix File.join(ROBY_ROOT_DIR, 'plugins')
             if plugin_path = ENV['ROBY_PLUGIN_PATH']
-                plugin_path.split(':').each do |dir|
-                    if File.directory?(dir)
-                        plugin_dir File.expand_path(dir)
+                plugin_path.split(':').each do |plugin|
+                    if File.directory?(plugin)
+                        load_plugins_from_prefix plugin
+                    else
+                        load_plugin_file plugin
                     end
                 end
             end
@@ -462,29 +522,7 @@ module Roby
 	end
 
 	def reset
-            if !plan
-                @plan = Plan.new
-                if !Roby.plan
-                    Roby.instance_variable_set :@plan, @plan
-                end
-            end
-
             plan.clear
-
-	    if defined? State
-		State.clear
-                Conf.clear
-	    else
-		Roby.const_set(:State,  StateSpace.new)
-		Roby.const_set(:Conf, StateSpace.new)
-	    end
-
-	    # Import some constants directly at toplevel before loading the
-	    # user-defined models
-            Object.define_or_reuse :Application, Roby::Application
-            Object.define_or_reuse :State, Roby::State
-            Object.define_or_reuse :Conf, Roby::Conf
-
 	    call_plugins(:reset, self)
 	end
 
@@ -515,7 +553,7 @@ module Roby
         # provided value, it is interpreted relative to the application
         # directory. It defaults to "data".
         def log_base_dir
-            File.expand_path(log['dir'] || 'logs', app_dir)
+            File.expand_path(log['dir'] || 'logs', app_dir || Dir.pwd)
         end
 
 	# The directory in which logs are to be saved
@@ -663,7 +701,7 @@ module Roby
             find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
                 each do |libdir|
                     if !$LOAD_PATH.include?(libdir)
-                        $LOAD_PATH.unshift File.join(app_dir, 'lib')
+                        $LOAD_PATH.unshift libdir
                     end
                 end
 
@@ -682,11 +720,33 @@ module Roby
             path
         end
 
+        def register_exception(e, reason = nil)
+            registered_exceptions << [e, reason]
+        end
+
+        def clear_exceptions
+            registered_exceptions.clear
+        end
+
         def require(absolute_path)
             # Make the file relative to the search path
             file = make_path_relative(absolute_path)
             Roby::Application.info "loading #{file} (#{absolute_path})"
-            Kernel.require(file)
+            begin
+                begin
+                    Kernel.require(File.join(".", file))
+                rescue LoadError
+                    Kernel.require absolute_path
+                end
+            rescue ::Exception => e
+                register_exception(e, "ignored file #{file}")
+                if ignore_all_load_errors?
+                    Robot.warn "ignored file #{file}"
+                    Roby.log_exception(e, Application, :warn)
+                    Roby.log_backtrace(e, Application, :warn)
+                else raise
+                end
+            end
         end
 
         # Loads the models, based on the given robot name and robot type
@@ -699,10 +759,10 @@ module Roby
                 require(p)
             end
 
-            require_planners
-
 	    # Set up the loaded plugins
 	    call_plugins(:require_models, self)
+
+            require_planners
 	end
 
         # Loads the planner models
@@ -710,21 +770,30 @@ module Roby
         # This method is called at the end of require_models, before the
         # plugins' require_models hook is called
         def require_planners
-            main_files = find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
+            main_files =
+                find_files('models', 'actions', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
+                find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
                 find_files('planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first)
             main_files.each do |path|
                 require path
             end
 
-            if !defined?(MainPlanner)
+            if !defined?(MainPlanner) # For backward compatibility reasons
                 Object.const_set(:MainPlanner, Class.new(Roby::Planning::Planner))
             end
+            if !defined?(Main)
+                Object.const_set(:Main, Class.new(Roby::Actions::Interface))
+            end
 
-            all_files = find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+            all_files =
+                find_files_in_dirs('models', 'actions', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+                find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
                 find_files_in_dirs('planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/)
             all_files.each do |p|
                 require(p)
             end
+
+	    call_plugins(:require_planners, self)
         end
 
         def load_config_yaml
@@ -744,7 +813,11 @@ module Roby
         #
         # It also calls the plugin's 'load' method
         def load_base_config
-	    $LOAD_PATH.unshift(app_dir) unless $LOAD_PATH.include?(app_dir)
+            search_path.each do |app_dir|
+                $LOAD_PATH.unshift(app_dir) if !$LOAD_PATH.include?(app_dir)
+                libdir = File.join(app_dir, 'lib')
+                $LOAD_PATH.unshift(libdir) if !$LOAD_PATH.include?(libdir)
+            end
 
             load_config_yaml
 
@@ -768,7 +841,13 @@ module Roby
             require 'roby/interface'
 	    load_base_config
 
-            setup_global_singletons
+            if !Roby.control
+                Roby.control = DecisionControl.new
+            end
+            plan.engine = ExecutionEngine.new(plan, Roby.control)
+            if Roby.scheduler
+                plan.engine.scheduler = Roby.scheduler
+            end
 
 	    # Set up the loaded plugins
 	    call_plugins(:base_setup, self)
@@ -794,9 +873,7 @@ module Roby
             require_config
 
 	    # MainPlanner is always included in the planner list
-            if defined? MainPlanner
-                self.planners << MainPlanner
-            end
+            self.planners << MainPlanner << Main
 	   
 	    # If we are in test mode, import the test extensions from plugins
 	    if testing?
@@ -861,9 +938,9 @@ module Roby
 
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
-		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(Roby.engine)
+		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(plan.engine)
 	    else
-		DRb.start_service "druby://#{host}", Interface.new(Roby.engine)
+		DRb.start_service "druby://#{host}", Interface.new(plan.engine)
             end
 
             # Consistency check: DRb.here?(DRbObject.new(obj).__drburi) should
@@ -925,7 +1002,7 @@ module Roby
             prepare
 
 	    engine_config = self.engine
-	    engine = Roby.engine
+	    engine = self.plan.engine
 	    options = { :cycle => engine_config['cycle'] || 0.1 }
 	    
 	    engine.run options
@@ -949,10 +1026,9 @@ module Roby
         # Note that the cleanup we talk about here is related to running.
         # Cleanup required after #setup must be done in #cleanup
 	def run_plugins(mods, &block)
-	    engine = Roby.engine
-
+            engine = plan.engine
 	    if mods.empty?
-		yield
+		yield if block_given?
 
                 Robot.info "ready"
 		engine.join
@@ -969,7 +1045,7 @@ module Roby
 	    end
 
 	rescue Exception => e
-	    if Roby.engine.running?
+	    if engine.running?
 		engine.quit
 		engine.join
 		raise e, e.message, e.backtrace
@@ -987,6 +1063,7 @@ module Roby
                 end
             end
 
+            clear_models
             stop_log_server
             stop_drb_service
             call_plugins(:cleanup, self)
@@ -1121,7 +1198,8 @@ module Roby
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :all, :order)
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :path)
+            search_path = options[:path] || self.search_path
             if !options.has_key?(:all)
                 raise ArgumentError, "no :all argument given"
             elsif !options.has_key?(:order)
@@ -1148,7 +1226,7 @@ module Roby
                 end
             end
 
-            root_paths = self.search_path.dup
+            root_paths = search_path.dup
             if options[:order] == :specific_first
                 relative_paths = relative_paths.reverse
             else
@@ -1200,19 +1278,17 @@ module Roby
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :all, :order, :pattern => Regexp.new(""))
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :path, :pattern => Regexp.new(""))
             if options[:pattern].respond_to?(:to_str)
                 options[:pattern] = Regexp.new("^" + Regexp.quote(options[:pattern]) + "$")
             end
 
             dir_search = dir_path.dup
-            dir_search << { :all => true, :order => options[:order] }
+            dir_search << { :all => true, :order => options[:order], :path => options[:path] }
             search_path = find_dirs(*dir_search)
 
             result = []
-            search_path.each do |element|
-                dirname = File.expand_path(element, app_dir)
-
+            search_path.each do |dirname|
                 Application.debug "  dir: #{dirname}"
                 Dir.new(dirname).each do |file_name|
                     file_path = File.join(dirname, file_name)
@@ -1336,30 +1412,6 @@ module Roby
 	def single?; @single end
 	def single;  @single = true end
 
-        def setup_global_singletons
-            if !Roby.engine && Roby.plan.engine
-                # This checks coherence with Roby.control, and sets it
-                # accordingly
-                Roby.engine  = Roby.plan.engine
-            elsif !Roby.control
-                Roby.control = DecisionControl.new
-            end
-
-            if !Roby.engine
-                Roby.engine  = ExecutionEngine.new(Roby.plan, Roby.control)
-            end
-
-            if Roby.control != Roby.engine.control
-                raise "inconsistency between Roby.control and Roby.engine.control"
-            elsif Roby.engine != Roby.plan.engine
-                raise "inconsistency between Roby.engine and Roby.plan.engine"
-            end
-
-            if !Roby.engine.scheduler && Roby.scheduler
-                Roby.engine.scheduler = Roby.scheduler
-            end
-        end
-
         def find_data(*name)
             Application.find_data(*name)
         end
@@ -1380,10 +1432,14 @@ module Roby
 	    Roby.app.available_plugins << [name, dir, mod, init]
 	end
 
+        # Returns true if the given path points to a file in the Roby app
 	def app_file?(path)
-	    (path =~ %r{(^|/)#{app_dir}(/|$)}) ||
-		((path[0] != ?/) && File.file?(File.join(app_dir, path)))
+            search_path.any? do |app_dir|
+                (path =~ %r{(^|/)#{app_dir}(/|$)}) ||
+                    ((path[0] != ?/) && File.file?(File.join(app_dir, path)))
+            end
 	end
+
 	def framework_file?(path)
 	    if path =~ /roby\/.*\.rb$/
 		true
@@ -1407,6 +1463,52 @@ module Roby
             require_config
         end
 
+        def model_defined_in_app?(model)
+            model.definition_location.each do |file, _, method|
+                return if method == :require
+                return true if app_file?(file)
+            end
+            false
+        end
+
+        def clear_models
+            # Clear all Task and TaskService submodels that have been defined in
+            # this app
+            [Task, TaskService, Actions::Interface, Actions::Library].each do |root_model|
+                root_model.each_submodel do |m|
+                    if model_defined_in_app?(m) || !m.permanent_model?
+                        m.clear_model
+                    end
+                    next if m.permanent_model?
+
+                    # Deregister non-permanent models that are registered in the
+                    # constant hierarchy
+                    valid_name =
+                        begin
+                            constant(m.name) == m
+                        rescue NameError
+                        end
+
+                    if valid_name
+                        parent_module =
+                            if m.name =~ /::/
+                                m.name.gsub(/::[^:]*$/, '')
+                            else Object
+                            end
+                        constant(parent_module).send(:remove_const, m.name.gsub(/.*::/, ''))
+                    end
+                end
+                root_model.clear_submodels
+            end
+            call_plugins(:clear_models, self)
+        end
+
+        def reload_models
+            clear_models
+            unload_features("models", ".*\.rb$")
+            require_models
+        end
+
         def reload_planners
             unload_features("planners", ".*\.rb$")
             unload_features("models", "planners", ".*\.rb$")
@@ -1415,20 +1517,6 @@ module Roby
             end
             require_planners
         end
-    end
-
-    @app = Application.new
-    class << self
-        # The one and only Application object
-        attr_reader :app
-
-        # The scheduler object to be used during execution. See
-        # ExecutionEngine#scheduler.
-        #
-        # This is only used during the configuration of the application, and
-        # not afterwards. It is also possible to set per-engine through
-        # ExecutionEngine#scheduler=
-        attr_accessor :scheduler
     end
 end
 

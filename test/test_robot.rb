@@ -10,71 +10,56 @@ class TC_Robot < Test::Unit::TestCase
     include Roby::SelfTest::Assertions
 
     def test_action_from_model_no_match
-        task_t = Class.new(Roby::Task)
-
+        task_m = Class.new(Roby::Task)
         planner = flexmock
-        planner.should_expect do |pl|
-            pl.planning_methods_names.and_return(%w{m1 m2 m3})
-            pl.find_methods("m1", :returns => task_t).once.and_return(nil)
-            pl.find_methods("m2", :returns => task_t).once.and_return(nil)
-            pl.find_methods("m3", :returns => task_t).once.and_return(nil)
-        end
+        planner.should_receive(:find_all_actions_by_type).once.
+            with(task_m).and_return([])
         Roby.app.planners.clear
         Roby.app.planners << planner
-        assert_raises(ArgumentError) { Robot.action_from_model(task_t) }
+        assert_raises(ArgumentError) { Robot.action_from_model(task_m) }
     end
-
-    def test_action_from_model_single_match
-        task_t = Class.new(Roby::Task)
-
-        m2 = flexmock(:name => "m2", :options => Hash.new)
+    def test_action_from_model_one_match
+        task_m = Class.new(Roby::Task)
         planner = flexmock
-        planner.should_expect do |pl|
-            pl.planning_methods_names.and_return(%w{m1 m2 m3})
-            pl.find_methods("m1", :returns => task_t).once.and_return(nil)
-            pl.find_methods("m2", :returns => task_t).once.and_return([m2])
-            pl.find_methods("m3", :returns => task_t).once.and_return(nil)
-        end
+        planner.should_receive(:find_all_actions_by_type).once.
+            with(task_m).and_return([action = flexmock(:name => 'A')])
         Roby.app.planners.clear
         Roby.app.planners << planner
-        assert_equal [planner, m2], Robot.action_from_model(task_t)
+        assert_equal [planner, action], Robot.action_from_model(task_m)
     end
-
-
-    def test_action_from_model_multiple_matches_same_method
-        task_t = Class.new(Roby::Task)
-
-        m2_1 = flexmock(:name => "m2_1", :options => {:id => 1}) 
-        m2_2 = flexmock(:name => "m2_2", :options => {:id => 2})
+    def test_action_from_model_multiple_matches
+        task_m = Class.new(Roby::Task)
         planner = flexmock
-        planner.should_expect do |pl|
-            pl.planning_methods_names.and_return(%w{m1 m2 m3})
-            pl.find_methods("m1", :returns => task_t).once.and_return(nil)
-            pl.find_methods("m2", :returns => task_t).once.and_return([m2_1, m2_2])
-            pl.find_methods("m3", :returns => task_t).once.and_return(nil)
-        end
+        planner.should_receive(:find_all_actions_by_type).once.
+            with(task_m).and_return([flexmock(:name => 'A'), flexmock(:name => 'A')])
         Roby.app.planners.clear
         Roby.app.planners << planner
-        assert_raises(ArgumentError) { Robot.action_from_model(task_t) }
+        assert_raises(ArgumentError) { Robot.action_from_model(task_m) }
     end
-
-
-    def test_action_from_model_multiple_matches_different_methods
+    def test_prepare_action_with_model
         task_t = Class.new(Roby::Task)
-
-        m1 = flexmock(:name => "m1", :options => Hash.new) 
-        m2 = flexmock(:name => "m2", :options => {:id => 2})
-
+        task, planner_task = task_t.new, task_t.new
+        task.planned_by planner_task
         planner = flexmock
-        planner.should_expect do |pl|
-            pl.planning_methods_names.and_return(%w{m1 m2 m3})
-            pl.find_methods("m1", :returns => task_t).once.and_return([m1])
-            pl.find_methods("m2", :returns => task_t).once.and_return([m2])
-            pl.find_methods("m3", :returns => task_t).once.and_return(nil)
-        end
-        Roby.app.planners.clear
-        Roby.app.planners << planner
-        assert_raises(ArgumentError) { Robot.action_from_model(task_t) }
+        planning_method = flexmock(:plan_pattern => task)
+        flexmock(Robot).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
+
+        assert_equal [task, planner_task], Robot.prepare_action(plan, task_t)
+        assert_same plan, task.plan
+    end
+    def test_prepare_action_passes_arguments
+        arguments = {:id => 10}
+
+        task_t = Class.new(Roby::Task)
+        task, planner_task = task_t.new, task_t.new
+        task.planned_by planner_task
+        planner = flexmock
+        planning_method = flexmock
+        planning_method.should_receive(:plan_pattern).with(arguments).once.and_return(task)
+        flexmock(Robot).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
+
+        assert_equal [task, planner_task], Robot.prepare_action(plan, task_t, arguments)
+        assert_same plan, task.plan
     end
 end
 

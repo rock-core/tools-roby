@@ -73,16 +73,14 @@ module Roby::TaskStructure
         end
 
         def has_role?(role_name)
-            !!child_from_role(role_name, false)
+            !!find_child_from_role(role_name)
         end
 
         # Returns the child whose role is +role_name+
         #
-        # If +validate+ is true (the default), raises ArgumentError if there is
-        # none. Otherwise, returns nil. This argument is meant only to avoid the
-        # costly operation of raising an exception in cases it is expected that
-        # the role may not exist.
-        def child_from_role(role_name, validate = true)
+        # @return [nil,Task] the task if a dependency with the given role is
+        #   found, and nil otherwise
+        def find_child_from_role(role_name)
             merged_relations(:each_child_object, false, Dependency) do |myself, child|
                 roles = myself[child, Dependency][:roles]
                 if roles.include?(role_name)
@@ -93,13 +91,33 @@ module Roby::TaskStructure
 		    end
                 end
             end
-            if validate
+            nil
+        end
+
+        # Returns the child whose role is +role_name+
+        #
+        # If +validate+ is true (the default), raises ArgumentError if there is
+        # none. Otherwise, returns nil. This argument is meant only to avoid the
+        # costly operation of raising an exception in cases it is expected that
+        # the role may not exist.
+        def child_from_role(role_name, validate = true)
+            if !validate
+                Roby.warn_deprecated "#child_from_role(name, false) has been replaced by #find_child_from_role"
+            end
+
+            child = find_child_from_role(role_name)
+            if !child && validate
                 roles = []
                 merged_relations(:each_child_object, false, Dependency) do |myself, child|
                     roles << "#{child} => #{myself[child, Dependency][:roles]}"
                 end
-                raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
+                if roles.empty?
+                    raise ArgumentError, "#{self} has no child with the role '#{role_name}', actually, it has no child at all"
+                else
+                    raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
+                end
             end
+            child
         end
 
         # DEPRECATED. Use #depends_on instead 
@@ -127,7 +145,7 @@ module Roby::TaskStructure
             up_until_now = []
             path.inject(self) do |task, role|
                 up_until_now << role
-                if !(next_task = task.child_from_role(role, false))
+                if !(next_task = task.find_child_from_role(role))
                     raise ArgumentError, "the child #{up_until_now.join(".")} of #{task} does not exist"
                 end
                 next_task
@@ -207,8 +225,8 @@ module Roby::TaskStructure
                 task = task.as_plan
             end
 
-            options = validate_options options, 
-		:model => [task.provided_services, task.meaningful_arguments], 
+            options = DependencyGraphClass.validate_options options, 
+		:model => [task.provided_models, task.meaningful_arguments], 
 		:success => :success.to_unbound_task_predicate, 
 		:failure => false.to_unbound_task_predicate,
 		:remove_when_done => true,
@@ -375,23 +393,43 @@ module Roby::TaskStructure
         #
         # This parameter can be set model-wide by using #fullfilled_model= on
         # the class object
-        attr_writer :fullfilled_model
+        def fullfilled_model=(model)
+            if !model[0].kind_of?(Class)
+                raise ArgumentError, "expected a task model as first element, got #{model[0]}"
+            end
+            if !model[1].respond_to?(:to_ary)
+                raise ArgumentError, "expected an array as second element, got #{model[1]}"
+            elsif !model[1].all? { |t| t.kind_of?(Roby::TaskModelTag) }
+                raise ArgumentError, "expected an array of model tags as second element, got #{model[1]}"
+            end
 
-	# Return [tags, arguments] where +tags+ is a list of task models which
-	# are required by the parent tasks of this task, and arguments the
-	# required arguments
-	#
-	# If there is a task class in the required models, it is always the
-	# first element of +tags+
+            if !model[2].respond_to?(:to_hash)
+                raise ArgumentError, "expected a hash as third element, got #{model[2]}"
+            end
+            @fullfilled_model = model
+        end
+
+	# The list of models and arguments that this task fullfilles
+        #
+        # If there is a task model in the list of models, it is always the first
+        # element of the model set
+        #
+        # @return [(Array<Model<Task>,TaskModelTag>,{String=>Object}]
+        #
+        # Beware that, for historical reasons, this is not the same format than
+        # {#fullfilled_model=}
 	def fullfilled_model
 	    current_model =
-                if explicit = (@fullfilled_model || self.model.fullfilled_model)
-                    has_value = true
-                    explicit
-                else
-                    has_value = false
-                    [Roby::Task, [], {}]
+                if explicit = @fullfilled_model
+                    @fullfilled_model
+                elsif self.model.explicit_fullfilled_model?
+                    models = self.model.fullfilled_model
+                    tasks, tags = models.partition { |m| m <= Roby::Task }
+                    [tasks.first || Roby::Task, tags, Hash.new]
                 end
+            if current_model then has_value = true
+            else current_model = [Roby::Task, [], {}]
+            end
 
 	    merged_relations(:each_parent_task, false) do |myself, parent|
                 has_value = true
@@ -402,7 +440,8 @@ module Roby::TaskStructure
 	    end
 
             if !has_value
-                [[self.model], self.meaningful_arguments]
+                model = self.model.fullfilled_model.find_all { |m| m <= Roby::Task }.min
+                [[model], self.meaningful_arguments]
             else
                 model, tags, arguments = *current_model
                 tags = tags.dup
@@ -410,6 +449,40 @@ module Roby::TaskStructure
                 [tags, arguments]
             end
 	end
+
+        # True if #fullfilled_model has been set on this task or on this task's
+        # model
+        #
+        # @return [Boolean]
+        def explicit_fullfilled_model?
+            !!@fullfilled_model || self.model.explicit_fullfilled_model?
+        end
+
+        # Returns the set of models this task is providing by itself
+        #
+        # It differs from #fullfilled_model because it is not considering the
+        # models that are required because of the dependency relation
+        #
+        # @return [Array<Model<Task>,TaskService>]
+        # @see #fullfilled_model
+        def provided_models
+            if explicit_fullfilled_model?
+                if @fullfilled_model
+                    return [@fullfilled_model[0]] + @fullfilled_model[1]
+                else return self.model.fullfilled_model
+                end
+            else
+                [self.model]
+            end
+        end
+
+        # Enumerates the models that are fullfilled by this task
+        #
+        # @return [Array<Model<Task>,TaskService>]
+        # @see #provided_models
+        def each_fullfilled_model(&block)
+            fullfilled_model[0].each(&block)
+        end
 
 	# Remove all children that have successfully finished
 	def remove_finished_children
@@ -448,11 +521,49 @@ module Roby::TaskStructure
     Hierarchy = Dependency
 
     module DependencyGraphClass::Extension::ClassExtension
-        # Specify the base model that will be used as the model for which
-        # this task is used.
+        # True if a fullfilled model has been explicitly set on {#self}
+        # @return [Boolean]
+        def explicit_fullfilled_model?; !!@fullfilled_model end
+
+        # Specifies the models that all instances of this task model fullfill
         #
-        # See #fullfilled_model= and #fullfilled_model on the task instances
-        attr_accessor :fullfilled_model
+        # (see DependencyGraphClass::Extension#fullfilled_model=
+        def fullfilled_model=(models)
+            if !models.respond_to?(:to_ary)
+                raise ArgumentError, "expected an array, got #{models}"
+            elsif !models.all? { |t| t.kind_of?(Roby::TaskModelTag) || (t.respond_to?(:<=) && (t <= Roby::Task)) }
+                raise ArgumentError, "expected a submodel of TaskModelTag, got #{models}"
+            end
+
+            @fullfilled_model = models
+        end
+
+        # Returns the model that all instances of this taks model fullfill
+        #
+        # (see DependencyGraphClass::Extension#fullfilled_model)
+        def fullfilled_model
+            return each_fullfilled_model.to_a
+        end
+        
+        # Enumerates the models that all instances of this task model fullfill
+        #
+        # @yields [Model<Task>,TaskModelTag]
+        # @return [void]
+        def each_fullfilled_model
+            return enum_for(:each_fullfilled_model) if !block_given?
+            # Do NOT use #fullfilled_model here, as it is using
+            # #each_fullfilled_model for its purposes
+            if @fullfilled_model
+                @fullfilled_model.each { |m| yield(m) }
+            else
+                ancestors.each do |m|
+                    yield(m) if m.kind_of?(Class) || (m.kind_of?(Roby::TaskService) && m != Roby::Task::RootTaskService)
+                    if m == Roby::Task
+                        return
+                    end
+                end
+            end
+        end
     end
 
     class DependencyGraphClass
@@ -491,11 +602,23 @@ module Roby::TaskStructure
             return [model, tags, arguments]
         end
 
-        def validate_options(options)
-            Kernel.validate_options options, [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]
+        def self.validate_options(options, defaults = Hash.new)
+            defaults = Hash[:model => [[Roby::Task], Hash.new],
+                :success => nil,
+                :failure => nil,
+                :remove_when_done => false,
+                :consider_in_pending => false,
+                :roles => Set.new,
+                :role => nil].merge(defaults)
+            Kernel.validate_options options, defaults
         end
 
-        def merge_info(parent, child, opt1, opt2)
+        # Merges the dependency descriptions (i.e. the relation payload),
+        # verifying that the two provided option hashes are compatible
+        #
+        # @return [Hash] the merged options
+        # @raise [ModelViolation] if the two hashes are not compatible
+        def self.merge_dependency_options(opt1, opt2)
             if opt1[:remove_when_done] != opt2[:remove_when_done]
                 raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
             end
@@ -563,6 +686,14 @@ module Roby::TaskStructure
             result[:roles] = opt1[:roles] | opt2[:roles]
 
             result
+        end
+
+        # Called by the relation management when two dependency relations need
+        # to be merged
+        #
+        # @see DependencyGraphClass.merge_dependency_options
+        def merge_info(parent, child, opt1, opt2)
+            DependencyGraphClass.merge_dependency_options(opt1, opt2)
         end
 
         # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy

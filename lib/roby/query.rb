@@ -176,37 +176,44 @@ module Roby
 		end
 	    end
 
+            def match_predicate(name, positive_index = nil, negative_index = nil)
+                if TaskIndex::STATE_PREDICATES.include?(:"#{name}?")
+                    positive_index ||= [[":#{name}?"], []]
+                    negative_index ||= [[], [":#{name}?"]]
+                end
+                positive_index ||= [[], []]
+                negative_index ||= [[], []]
+                class_eval <<-EOD, __FILE__, __LINE__+1
+                def #{name}
+                    if neg_predicates.include?(:#{name}?)
+                        raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+                    end
+                    predicates << :#{name}?
+                    #{if !positive_index[0].empty? then ["indexed_predicates", *positive_index[0]].join(" << ") end}
+                    #{if !positive_index[1].empty? then ["indexed_neg_predicates", *positive_index[1]].join(" << ") end}
+                    self
+                end
+                def not_#{name}
+                    if predicates.include?(:#{name}?)
+                        raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+                    end
+                    neg_predicates << :#{name}?
+                    #{if !negative_index[0].empty? then ["indexed_predicates", *negative_index[0]].join(" << ") end}
+                    #{if !negative_index[1].empty? then ["indexed_neg_predicates", *negative_index[1]].join(" << ") end}
+                    self
+                end
+                EOD
+                declare_class_methods(name, "not_#{name}")
+            end
+
             # For each name in +names+, define a #name and a #not_name method.
             # If the first is called, the matcher will match only tasks whose
             # #name? method returns true.  If the second is called, the
             # opposite will be done.
 	    def match_predicates(*names)
 		names.each do |name|
-		    class_eval <<-EOD, __FILE__, __LINE__+1
-		    def #{name}
-			if neg_predicates.include?(:#{name}?)
-			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
-		        end
-			predicates << :#{name}?
-                        if TaskIndex::STATE_PREDICATES.include?(:#{name}?)
-                            indexed_predicates << :#{name}?
-                        end
-			self
-		    end
-		    def not_#{name}
-			if predicates.include?(:#{name}?)
-			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
-		        end
-			neg_predicates << :#{name}?
-                        if TaskIndex::STATE_PREDICATES.include?(:#{name}?)
-                            indexed_neg_predicates << :#{name}?
-                        end
-			self
-		    end
-		    EOD
+                    match_predicate(name)
 		end
-		declare_class_methods(*names)
-		declare_class_methods(*names.map { |n| "not_#{n}" })
 	    end
 	end
 
@@ -358,7 +365,14 @@ module Roby
         # See also #finishing, Task#finishing?
 
 	match_predicates :executable, :abstract, :partially_instanciated, :fully_instanciated,
-	    :pending, :running, :finished, :success, :failed, :interruptible, :finishing
+	    :pending, :running, :finished, :success, :failed, :interruptible
+
+        # Finishing tasks are also running task, use the index on 'running'
+        match_predicate :finishing, [[":running?"], []]
+
+        # Reusable tasks must be neither finishing nor finished
+        match_predicate :reusable, [[], [:finished]]
+
 
         # Helper method for #with_child and #with_parent
         def handle_parent_child_arguments(other_query, relation, relation_options) # :nodoc:

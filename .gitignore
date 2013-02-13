@@ -11,6 +11,5 @@ doc/cache
 .*.swp
 
 pkg/
-
-test/logs
-test/relations/logs
+logs/
+.yardoc

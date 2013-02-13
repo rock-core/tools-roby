@@ -51,9 +51,9 @@ module Roby
             task_options = validate_planning_options(task_options)
 	    task_options[:planned_model] ||= 
                 if !task_options[:planning_method].respond_to?(:to_str)
-                    task_options[:planning_method].returns
+                    task_options[:planning_method].returned_type
                 elsif task_options[:method_name]
-                    task_options[:planner_model].model_of(task_options[:method_name], method_options).returns
+                    task_options[:planner_model].model_of(task_options[:method_name], method_options).returned_type
                 end
             task_options[:planned_model] ||= Roby::Task
 
@@ -79,7 +79,7 @@ module Roby
 	    elsif pending?
 		task = planned_model.new
 		task.planned_by self
-		task.executable = false
+		task.abstract = true
 		task
 	    end
 	end
@@ -113,7 +113,7 @@ module Roby
         end
 
 	def planning_thread(context)
-	    result_task = if !planning_method.respond_to?(:to_str)
+	    result_task = if planning_method.respond_to?(:to_str)
                               planner.send(method_name, method_options.merge(:context => context))
                           else
                               planner.send(:call_planning_methods, Hash.new, method_options.merge(:context => context), planning_method)

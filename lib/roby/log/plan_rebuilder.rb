@@ -154,7 +154,7 @@ module Roby
                 # Check if we need to override the model, or only the bound
                 # event
                 if !self.model.event_model(symbol).controlable? && marshalled_event.controlable
-                    terminal = event(symbol).terminal?
+                    terminal = self.model.event_model(symbol).terminal?
                     event_model = self.model.
                         event(symbol, :controlable => marshalled_event.controlable,
                               :terminal => terminal)
@@ -415,33 +415,37 @@ module Roby
             # false otherwise.
 	    def process(data)
 		data.each_slice(4) do |m, sec, usec, args|
-		    time = Time.at(sec, usec)
-                    @current_time = time
-		    reason = catch :ignored do
-			begin
-			    if respond_to?(m)
-				send(m, time, *args)
-			    end
-			rescue Exception => e
-			    display_args = args.map do |obj|
-				case obj
-				when NilClass then 'nil'
-				when Time then obj.to_hms
-				when DRbObject then obj.inspect
-				else (obj.to_s rescue "failed_to_s")
-				end
-			    end
-
-			    raise e, "#{e.message} while serving #{m}(#{display_args.join(", ")})", e.backtrace
-			end
-			nil
-		    end
-		    if reason
-			Roby.warn "Ignored #{m}(#{args.join(", ")}): #{reason}"
-		    end
+                    process_one_event(m, sec, usec, args)
 		end
                 has_event_propagation_updates? || has_structure_updates?
 	    end
+
+            def process_one_event(m, sec, usec, args)
+                time = Time.at(sec, usec)
+                @current_time = time
+                reason = catch :ignored do
+                    begin
+                        if respond_to?(m)
+                            send(m, time, *args)
+                        end
+                    rescue Exception => e
+                        display_args = args.map do |obj|
+                            case obj
+                            when NilClass then 'nil'
+                            when Time then obj.to_hms
+                            when DRbObject then obj.inspect
+                            else (obj.to_s rescue "failed_to_s")
+                            end
+                        end
+
+                        raise e, "#{e.message} while serving #{m}(#{display_args.join(", ")})", e.backtrace
+                    end
+                    nil
+                end
+                if reason
+                    Roby.warn "Ignored #{m}(#{args.join(", ")}): #{reason}"
+                end
+            end
 
 	    def local_object(object, create = true)
                 return manager.local_object(object, create)
@@ -509,8 +513,8 @@ module Roby
                 object = local_object(object)
                 plan.garbage << object
 	    end
-	    def finalized_event(time, plan, event)
-		event = local_object(event)
+	    def finalized_event(time, plan, event_id)
+		event = local_object(event_id)
 		plan  = local_object(plan)
                 event.finalization_time = time
                 if !plan.garbage.include?(event) && event.root_object?
@@ -518,9 +522,10 @@ module Roby
                     plan.remove_object(event)
                     announce_structure_update
                 end
+                manager.removed_sibling(event_id)
 	    end
-	    def finalized_task(time, plan, task)
-		task = local_object(task)
+	    def finalized_task(time, plan, task_id)
+		task = local_object(task_id)
 		plan = local_object(plan)
                 task.finalization_time = time
                 if !plan.garbage.include?(task)
@@ -528,16 +533,18 @@ module Roby
                     plan.remove_object(task)
                     announce_structure_update
                 end
+                manager.removed_sibling(task_id)
 	    end
 	    def added_transaction(time, plan, trsc)
 		plan = local_object(plan)
 		trsc = local_object(trsc, true)
                 plans << trsc
 	    end
-	    def removed_transaction(time, plan, trsc)
+	    def removed_transaction(time, plan, trsc_id)
 		plan = local_object(plan)
-		trsc = local_object(trsc)
+		trsc = local_object(trsc_id)
 		plans.delete(trsc)
+                manager.removed_sibling(trsc_id)
 	    end
 
 	    GENERATOR_TO_STATE = { :start => :started,

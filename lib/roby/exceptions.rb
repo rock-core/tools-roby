@@ -74,6 +74,18 @@ module Roby
 		yield(e) unless e == self
 	    end
 	end
+        # Enumerates all tasks that are involved in this exception (either
+        # origin or in the trace)
+        def each_involved_task
+            return enum_for(:each_involved_task) if !block_given?
+            trace.each do |tr|
+                if tr.respond_to?(:to_ary)
+                    tr.each { |t| yield(t) }
+                else
+                    yield(tr)
+                end
+            end
+        end
 
         # True if this exception originates from the given task or generator
         def originates_from?(object)
@@ -136,6 +148,10 @@ module Roby
     #
     # See Task::on_exception and Task#on_exception
     module ExceptionHandlingObject
+        module ClassExtension
+            define_inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
+        end
+
         # To be used in exception handlers themselves. Passes the exception to
         # the next matching exception handler
 	def pass_exception
@@ -265,10 +281,6 @@ module Roby
         message.split("\n")
     end
 
-    def self.log_exception(e, logger, level)
-        log_pp(e, logger, level)
-    end
-
     def self.log_pp(obj, logger, level)
         if logger.respond_to?(:logger)
             logger = logger.logger
@@ -285,6 +297,23 @@ module Roby
             end
             break
         end
+    end
+
+    def self.log_exception(e, logger, level)
+        log_pp(e, logger, level)
+    end
+
+    def self.log_backtrace(e, logger, level)
+        format_exception(BacktraceFormatter.new(e)).each do |line|
+            logger.send(level, line)
+        end
+    end
+
+    def self.log_exception_with_backtrace(e, logger, level)
+        log_exception(e, logger, level)
+        logger.send level, color("= Backtrace", :bold, :red)
+        log_backtrace(e, logger, level)
+        logger.send level, color("= ", :bold, :red)
     end
 
     class BacktraceFormatter

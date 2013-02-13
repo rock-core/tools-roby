@@ -43,11 +43,11 @@ module Roby
     #
     # To simplify the controller development, those tools are available directly
     # as singleton methods of the Roby module, which forwards them to the
-    # main execution engine (Roby.engine). One can for instance do
+    # main execution engine. One can for instance do
     #   Roby.once { puts "start of the execution thread" }
     #
     # Instead of
-    #   Roby.engine.once { ... }
+    #   Roby.app.plan.engine.once { ... }
     #
     # Or 
     #   engine.once { ... }
@@ -210,6 +210,8 @@ module Roby
                 @description, @handler, @on_error, @late =
                     description, handler, options[:on_error], options[:late]
             end
+        
+            def to_s; "#<PollBlockDefinition: #{description} #{handler} on_error:#{on_error}>" end
 
             def call(engine)
                 handler.call(engine.plan)
@@ -1373,7 +1375,7 @@ module Roby
                 ExecutionEngine.debug do
                     ExecutionEngine.debug "#{local_tasks.size} tasks are unneeded in this plan"
                     local_tasks.each do |t|
-                        ExecutionEngine.debug "  #{t} #{plan.mission?(t)} #{plan.permanent?(t)}"
+                        ExecutionEngine.debug "  #{t} mission=#{plan.mission?(t)} permanent=#{plan.permanent?(t)}"
                     end
                     break
                 end
@@ -1958,25 +1960,6 @@ module Roby
                     end
                 end
             end
-        end
-    end
-
-    class << self
-        # The ExecutionEngine object which executes Roby.plan
-        attr_reader :engine
-
-        # Sets the engine. This can be done only once
-        def engine=(new_engine)
-            if engine
-                raise ArgumentError, "cannot change the execution engine"
-            elsif plan && plan.engine && plan.engine != new_engine
-                raise ArgumentError, "must have Roby.engine == Roby.plan.engine"
-            elsif control && new_engine.control != control
-                raise ArgumentError, "must have Roby.control == Roby.engine.control"
-            end
-
-            @engine  = new_engine
-            @control = new_engine.control
         end
     end
 

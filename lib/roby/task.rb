@@ -2,36 +2,43 @@ module Roby
     # Ruby (the language) has no support for multiple inheritance. Instead, it
     # uses module to extend classes outside of the class hierarchy.
     #
-    # TaskModelTag are the equivalent concept in the world of task models. They
+    # TaskService are the equivalent concept in the world of task models. They
     # are a limited for of task models, which can be used to represent that
     # certain task models have multiple functions.
     #
     # For instance,
     #   
-    #   CameraDriver = TaskModelTag.new
-    #   # CameraDriver is an abstract model used to represent that some tasks
-    #   # are providing the services of cameras. They can be used to tag tasks
-    #   # that belong to different class hirerachies.
-    #   # 
-    #   # One can set up arguments on TaskModelTag the same way than class models:
-    #   CameraDriver.argument :camera_name
-    #   CameraDriver.argument :aperture
-    #   CameraDriver.argument :aperture
+    #   CameraDriver = Roby.task_service do
+    #      # CameraDriver is an abstract model used to represent that some tasks
+    #      # are providing the services of cameras. They can be used to tag tasks
+    #      # that belong to different class hirerachies.
+    #      # 
+    #      # One can set up arguments on TaskService the same way than class models:
+    #      argument :camera_name
+    #      argument :aperture
+    #      argument :aperture
+    #   end
     #
-    #   FirewireDriver.include CameraDriver
+    #   FirewireDriver.provides CameraDriver
     #   # FirewireDriver can now be used in relationships where CameraDriver was
     #   # needed
-    class TaskModelTag < Module
+    class TaskService < Module
+        extend Utilrb::Models::Registration
+        def supermodel; TaskService end
+
         # Module which contains the extension for the task models themselves.
         # When one does
         #
-        #   tag = TaskModelTag.new
+        #   tag = TaskService.new
         #   <setup the tag>
         #   task_model.include tag
         #
         # Then the methods defined on this ClassExtension module become
         # methods of +task_model+
 	module ClassExtension
+            define_inherited_enumerable("argument_set", "argument_set") { ValueSet.new }
+            define_inherited_enumerable("argument_default", "argument_defaults", :map => true) { Hash.new }
+
 	    # Returns the list of static arguments required by this task model
 	    def arguments(*new_arguments)
                 if new_arguments.empty?
@@ -66,7 +73,7 @@ module Roby
                     if options.has_key?(:default)
 			defval = options[:default]
 			if !defval.respond_to?(:evaluate_delayed_argument)
-			    argument_defaults[arg_name] = DelayedTaskArgument.new { |t| defval }
+			    argument_defaults[arg_name] = DefaultArgument.new(defval)
 			else
 			    argument_defaults[arg_name] = defval
 			end
@@ -109,23 +116,41 @@ module Roby
                 true
             end
 	end
-	include TaskModelTag::ClassExtension
+	include TaskService::ClassExtension
 
 	def initialize(&block)
 	    super do
-		inherited_enumerable("argument_set", "argument_set") { ValueSet.new }
-		inherited_enumerable("argument_default", "argument_defaults", :map => true) { Hash.new }
                 define_or_reuse(:ClassExtension, Module.new)
-
-		self::ClassExtension.include TaskModelTag::ClassExtension
+		self::ClassExtension.include TaskService::ClassExtension
 	    end
 	    class_eval(&block) if block_given?
 	end
 
 	def clear_model
-	    @argument_set.clear if @argument_set
-	    @argument_defaults.clear if @argument_defaults
+	    argument_set.clear
+	    argument_defaults.clear
 	end
+    end
+    TaskModelTag = TaskService
+
+    # Define a new task service. When defining the service, one does:
+    #
+    #   module MyApplication
+    #      NavigationService = Roby.task_service do
+    #         argument :target, :type => Eigen::Vector3
+    #      end
+    #   end
+    #
+    # Then, to use it:
+    #
+    #   class GoTo
+    #     provides NavigationService
+    #   end
+    #
+    def self.task_service(&block)
+        service = TaskService.new
+        service.class_eval(&block)
+        service
     end
 
     # Base class for events emitted by tasks.
@@ -581,6 +606,15 @@ module Roby
             to_hash == hash.to_hash
         end
 
+        def pretty_print(pp)
+            pp.seplist(values) do |keyvalue|
+                key, value = *keyvalue
+                key.pretty_print(pp)
+                pp.text " => "
+                value.pretty_print(pp)
+            end
+        end
+
         def to_s
             values.to_s
         end
@@ -669,6 +703,17 @@ module Roby
 	end
 
         include Enumerable
+
+        DRoby = Struct.new :values do
+            def proxy(peer)
+                obj = TaskArguments.new(nil)
+                obj.values.merge!(peer.local_object(values))
+                obj
+            end
+        end
+        def droby_dump(peer)
+            DRoby.new(values.droby_dump(peer))
+        end
     end
 
     # Placeholder that can be used as an argument, to delay the assignation
@@ -686,6 +731,26 @@ module Roby
 
         def pretty_print(pp)
             pp.text "delayed_argument_from(#{@block})"
+        end
+    end
+
+    # Placeholder that can be used as an argument to represent a default value
+    class DefaultArgument
+        attr_reader :value
+
+        def initialize(value)
+            @value = value
+        end
+
+        def evaluate_delayed_argument(task)
+            value
+        end
+
+        def to_s
+            "default(" + if value.nil?
+                'nil'
+            else value.to_s
+            end + ")"
         end
     end
 
@@ -739,6 +804,10 @@ module Roby
                 @methods == other.instance_variable_get(:@methods)
         end
 
+        def to_s
+            "#{@object || 'task'}.#{@methods.map(&:to_s).join(".")}"
+        end
+
         def pretty_print(pp)
             pp.text "delayed_argument_from(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
         end
@@ -758,7 +827,7 @@ module Roby
 
         def evaluate_delayed_argument(task)
             result = super
-            if result.kind_of?(ExtendedStruct) && !result.attached?
+            if result.kind_of?(OpenStruct) && !result.attached?
                 throw :no_value
             end
             result
@@ -894,9 +963,9 @@ module Roby
     #
 
     class Task < PlanObject
-	unless defined? RootTaskTag
-	    RootTaskTag = TaskModelTag.new
-	    include RootTaskTag
+	unless defined? RootTaskService
+	    RootTaskService = TaskService.new
+	    include RootTaskService
 	end
         
         # Proxy class used as intermediate by Task.with_arguments
@@ -960,21 +1029,19 @@ module Roby
             end
         end
 
-        class << self
-            attr_reader :all_models
-        end
-        @all_models = ValueSet.new
+        extend Utilrb::Models::Registration
 
-        def self.inherited(klass)
-            Task.all_models << klass
-        end
-        def self.deregister(klass)
-            Task.all_models.delete(klass)
+        # @deprecated
+        #
+        # Use #each_submodel instead
+        def self.all_models
+            submodels
         end
 
         # Clears all definitions saved in this model. This is to be used by the
         # reloading code
 	def self.clear_model
+            super if defined? super
 	    class_eval do
 		# Remove event models
 		events.each_key do |ev_symbol|
@@ -1000,35 +1067,37 @@ module Roby
         #   #each_signal(model)
         #   
 	def self.model_attribute_list(name) # :nodoc:
-	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = ValueSet.new } }
 	    class_eval <<-EOD, __FILE__, __LINE__+1
-		def self.each_#{name}(model)
-		    for obj in #{name}s(model)
-			yield(obj)
+                class << self
+	            define_inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = ValueSet.new } }
+		    def each_#{name}(model)
+		        for obj in #{name}s(model)
+		    	yield(obj)
+		        end
+		        self
 		    end
-		    self
-		end
-		def self.#{name}s(model)
-		    result = ValueSet.new
-		    each_#{name}_set(model, false) do |set|
-			result.merge set
+		    def #{name}s(model)
+		        result = ValueSet.new
+		        each_#{name}_set(model, false) do |set|
+		    	result.merge set
+		        end
+		        result
 		    end
-		    result
-		end
-		def each_#{name}(model); self.model.each_#{name}(model) { |o| yield(o) } end
 
-                def self.all_#{name}s
-                    if @all_#{name}s
-                        @all_#{name}s
-                    else
-                        result = Hash.new
-                        each_#{name}_set do |from, targets|
-                            result[from] ||= ValueSet.new
-                            result[from].merge(targets)
+                    def all_#{name}s
+                        if @all_#{name}s
+                            @all_#{name}s
+                        else
+                            result = Hash.new
+                            each_#{name}_set do |from, targets|
+                                result[from] ||= ValueSet.new
+                                result[from].merge(targets)
+                            end
+                            @all_#{name}s = result
                         end
-                        @all_#{name}s = result
                     end
                 end
+		def each_#{name}(model); self.model.each_#{name}(model) { |o| yield(o) } end
 	    EOD
 	end
 
@@ -1118,7 +1187,7 @@ module Roby
 	end
 	
 	# This predicate is true if this task is a mission for its owners. If
-	# you want to know if it a mission for the local pDB, use Plan#mission?
+	# you want to know if it a mission for the local system, use Plan#mission?
 	attr_predicate :mission?, true
 
 	def inspect
@@ -1160,6 +1229,7 @@ module Roby
             @finished = false
             @finishing = false
             @success = nil
+            @reusable = true
 
 	    @arguments = TaskArguments.new(self)
             # First assign normal values
@@ -1555,9 +1625,15 @@ module Roby
         # True if the task is finishing, i.e. if a terminal event is pending.
         attr_predicate :finishing?, true
 
+        # Call to force the value of {#reusable?} to false
+        # @return [void]
+        def do_not_reuse
+            @reusable = false
+        end
+
         # True if this task can be reused by some other parts in the plan
         def reusable?
-            !finished? && !finishing?
+            @reusable && !finished? && !finishing?
         end
 
         def failed_to_start?; !!@failed_to_start end
@@ -1804,8 +1880,9 @@ module Roby
         # This is equivalent to
         #   event(event_model).emit(*context)
         #
-        # @param [Symbol] the event that should be fired
-        # @param [Object] context
+        # @param [Symbol] event_model the event that should be fired
+        # @param [Object] context the event context, i.e. payload data that is
+        #   propagated along with the event itself
         # @return self
         def emit(event_model, *context)
             event(event_model).emit(*context)
@@ -1827,7 +1904,7 @@ module Roby
         # Registers an event handler for the given event.
         #
         # @overload on(event_name, options = Hash.new, &handler)
-        #   @param [Symbol] the generator for which this handler should be registered
+        #   @param [Symbol] event_model the generator for which this handler should be registered
         #   @yield [event] the event handler
         #   @yieldparam [TaskEvent] event the emitted event that caused this
         #     handler to be called
@@ -1974,7 +2051,7 @@ module Roby
 	end
 
         # Declares that this task model provides the given interface. +model+
-        # must be an instance of TaskModelTag
+        # must be an instance of TaskService
         def self.provides(model)
             include model
         end
@@ -1983,15 +2060,15 @@ module Roby
         #
         # @param [Symbol,String] event_name the event name
         # @param [Hash] options an option hash
-        # @options options [Boolean] :controllable if true, the event is
+        # @option options [Boolean] :controllable if true, the event is
         #   controllable and will use the default command of emitting directly
         #   in the command
-        # @options options [Boolean] :terminal if true, the event is marked as
+        # @option options [Boolean] :terminal if true, the event is marked as
         #   terminal, i.e. it will terminate the task upon emission. Giving this
         #   flag is required to redeclare an existing terminal event in a
         #   subclass. Otherwise, it is determined automatically by checking
         #   whether the event is forwarded to :stop
-        # @options options [Class] :model the base class used to create the
+        # @option options [Class] :model the base class used to create the
         #   model for this event. This class is going to be used to generate the
         #   event. Defaults to TaskEvent.
         #
@@ -2093,6 +2170,13 @@ module Roby
                     event(event_name).happened?
                 end
             end
+            if !respond_to?("#{ev_s}_event")
+                singleton_class.class_eval do
+                    define_method("#{ev_s}_event") do
+                        find_event_model(ev_s)
+                    end
+                end
+            end
 
 	    new_event
         end
@@ -2114,17 +2198,19 @@ module Roby
 		raise ArgumentError, "event #{event_name} already defined" 
             elsif old_event = find_event_model(event_name)
                 if old_event.terminal? && !options[:terminal]
-                    raise ArgumentError, "trying to override a terminal event into a non-terminal one", caller(2)
+                    raise ArgumentError, "trying to override #{old_event.symbol} in #{self} which is terminal into a non-terminal event"
                 elsif old_event.controlable? && !options[:command]
-                    raise ArgumentError, "trying to override a controlable event into a non-controlable one", caller(2)
+                    raise ArgumentError, "trying to override #{old_event.symbol} in #{self} which is controlable into a non-controlable event"
                 end
             end
         end
 
-        # The events defined by the task model
-        #
-        # @return [Hash<Symbol,TaskEvent>]
-        inherited_enumerable(:event, :events, :map => true) { Hash.new }
+        class << self
+            # The events defined by the task model
+            #
+            # @return [Hash<Symbol,TaskEvent>]
+            define_inherited_enumerable(:event, :events, :map => true) { Hash.new }
+        end
 
 	def self.enum_events # :nodoc
 	    @__enum_events__ ||= enum_for(:each_event)
@@ -2386,7 +2472,7 @@ module Roby
 
         # Returns the lists of tags this model fullfills.
 	def self.tags
-	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
+	    ancestors.find_all { |m| m.instance_of?(TaskService) }
 	end
 
         # The set of instance-level execute blocks (InstanceHandler instances)
@@ -2448,10 +2534,10 @@ module Roby
                     poll_block.block.call(self)
                 end
             rescue LocalizedError => e
-                Roby.log_pp(e, Roby.logger, :debug)
+                Roby.log_pp(e, Roby.logger, :warn)
                 emit :internal_error, e
             rescue Exception => e
-                Roby.log_pp(e, Roby.logger, :debug)
+                Roby.log_pp(e, Roby.logger, :warn)
                 emit :internal_error, CodeError.new(e, self)
             end
         end
@@ -2478,10 +2564,7 @@ module Roby
         on :start do |ev|
             engine = plan.engine
 
-            # Call all the execute handlers
-            while execute_block = @execute_handlers.pop
-                execute_block.block.call(self)
-            end
+            do_poll(self.plan)
 
             # Register poll:
             #  - single class poll_handler add be class method Task#poll
@@ -2496,22 +2579,6 @@ module Roby
             if @poll_handler_id
                 plan.engine.remove_propagation_handler(@poll_handler_id)
             end
-        end
-
-        # The list of Task and/or tag classes that represent the services this
-        # task provides
-        #
-        # By default, it is [model], i.e. the task's class itself
-        def provided_services
-            self.class.provided_services
-        end
-
-        # The list of Task and/or tag classes that represent the services this
-        # task model
-        #
-        # By default, it is [self], i.e. the task model itself
-        def self.provided_services
-            [self]
         end
 
 	# The fullfills? predicate checks if this task can be used
@@ -2530,8 +2597,8 @@ module Roby
                     args = m.meaningful_arguments
                 end
 
-                if m.respond_to?(:provided_services)
-                    models.concat(m.provided_services.to_a)
+                if m.respond_to?(:each_fullfilled_model)
+                    models.concat(m.each_fullfilled_model.to_a)
                 else
                     models << m
                 end
@@ -2570,8 +2637,8 @@ module Roby
         end
 
 	def can_merge?(target)
-            if defined?(super) && !(can_merge = super)
-                return can_merge
+            if defined?(super) && !super
+                return
             end
 
             if finished? || target.finished?
@@ -2600,7 +2667,6 @@ module Roby
         end
 
 	include ExceptionHandlingObject
-	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
 
         # Lists all exception handlers attached to this task
 	def each_exception_handler(&iterator); model.each_exception_handler(&iterator) end

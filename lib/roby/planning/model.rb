@@ -32,8 +32,10 @@ module Roby
         #   end
         #
         class MethodDescription
+            # The method name
+            attr_accessor :name
             # The method description
-            attr_reader :doc
+            attr_accessor :doc
             # The description of the method arguments, as an array of
             # MethodArgDescription instances
             attr_reader :arguments
@@ -176,9 +178,9 @@ module Roby
         class MethodDefinition
             include MethodInheritance
 
-            attr_reader :name, :options, :body
-            def initialize(name, options, body)
-                @name, @options, @body = name, options, body
+            attr_reader :planner_model, :name, :options, :body
+            def initialize(planner_model, name, options, body)
+                @planner_model, @name, @options, @body = planner_model, name, options, body
             end
 
             # The method ID
@@ -189,7 +191,8 @@ module Roby
             #
             # If this is nil, the method may return a task array or a task
             # aggregation
-            def returns;    options[:returns] end
+            def returns;    options[:returns] || Roby::Task end
+            def returned_type; returns end
             # If the method allows reusing tasks already in the plan
             # reuse? is always false if there is no return type defined
             def reuse?; options[:reuse] end
@@ -202,15 +205,32 @@ module Roby
                 "#{name}:#{id}(#{opts.to_s[1..-2]})"
             end
 
+            def plan_pattern(arguments = Hash.new)
+                if returned_type.kind_of?(Roby::TaskModelTag)
+                    planned_model = Class.new(Roby::Task)
+                    planned_model.include returned_type
+                else
+                    # Create an abstract task which will be planned
+                    planned_model = returned_type
+                end
+
+                planner = Roby::PlanningTask.new(
+                    :planner_model => planner_model,
+                    :planned_model => planned_model,
+                    :planning_method => self,
+                    :method_options => arguments)
+                planner.planned_task
+            end
+
             # Intermediate representation used during marshalling
             class DRoby
-                attr_reader :name, :options
-                def initialize(name, options)
-                    @name, @options = name, options
+                attr_reader :planner_model, :name, :options
+                def initialize(planner_model, name, options)
+                    @planner_model, @name, @options = name, options
                 end
 
                 def _dump(lvl) # :nodoc:
-                    Marshal.dump([name, options])
+                    Marshal.dump([planner_model, name, options])
                 end
 
                 def self._load(str) # :nodoc:
@@ -218,19 +238,19 @@ module Roby
                 end
 
                 def proxy(peer)
-                    MethodDefinition.new(name, options, nil)
+                    MethodDefinition.new(peer.local_object(planner_model), name, options, nil)
                 end
             end
 
             # Returns an intermediate representation of the method definition
             # suitable for marshalling (distributed Roby and/or logging)
             def droby_dump(dest)
-                DRoby.new(name, options)
+                DRoby.new(planner_model.droby_dump(dest), name, options)
             end
         end
 
         class FreeMethod < MethodDefinition
-            def initialize(name, options, body)
+            def initialize(planner_model, name, options, body)
                 check_arity(body, 1)
                 super
             end
@@ -243,11 +263,16 @@ module Roby
         class MethodModel
             include MethodInheritance
 
+            attr_reader :planner_model
+
             # The return type the method model defines
             #
             # If this is nil, methods of this model may return a task array
             # or a task aggregation
-            def returns;    options[:returns] end
+            def returns;    options[:returns] || Roby::Task end
+            # Backward compatibilty to support transition to the action
+            # interface
+            def returned_type; returns end
             # If the model allows reusing tasks already in the plan
             def reuse?; options[:reuse] end
 
@@ -256,8 +281,8 @@ module Roby
             # The model options, as a Hash
             attr_reader :options
 
-            def initialize(name, options = Hash.new)
-                @name, @options = name, options
+            def initialize(planner_model, name, options = Hash.new)
+                @planner_model, @name, @options = planner_model, name, options
             end
             def ==(model)
                 name == model.name && options == model.options
@@ -310,14 +335,13 @@ module Roby
             end
 
             def initialize_copy(from) # :nodoc:
+                super
                 @name    = from.name.dup
                 @options = from.options.dup
             end
 
             def to_s; "#{name}(#{options})" end
         end
-
-        PlanningMethod = Struct.new :name, :model, :description, :instances
 
 	# A planner searches a suitable development for a set of methods. 
 	# Methods are defined using Planner::method. You can then ask
@@ -338,6 +362,7 @@ module Roby
 	#
         class Planner
 	    extend Tools
+            extend Distributed::DRobyModel::Dump
 
 	    # The resulting plan
 	    attr_reader :plan
@@ -406,7 +431,7 @@ module Roby
 		end
 
 		old_model = method_model(name)
-		new_model = MethodModel.new(name)
+		new_model = MethodModel.new(self, name)
 		new_model.merge(options)
 
 		if old_model == new_model
@@ -540,14 +565,17 @@ module Roby
 		
 		# Define the method enumerator and the method public interface
 		if !respond_to?("#{name}_methods")
-		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) do
-                        Hash.new
+                    if method_defined?(name)
+                        raise ArgumentError, "#{name} is already a normal method name on #{self}, cannot add a planning method with that name"
                     end
 		    class_eval <<-PLANNING_METHOD_END, __FILE__, __LINE__+1
 		    def #{name}(options = Hash.new)
 			plan_method("#{name}", options)
 		    end
 		    class << self
+		      define_inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) do
+                          Hash.new
+                      end
 		      cached_enum("#{name}_method", "#{name}_methods", true)
 	              def #{name}_description
 	                if @#{name}_description
@@ -564,6 +592,7 @@ module Roby
                     if old_description = instance_variable_get("@#{name}_description")
                         raise "#{name} already has a description (#{old_description.doc.first})"
                     end
+                    @next_method_description.name = name
                     instance_variable_set("@#{name}_description", @next_method_description)
                     @next_method_description = nil
                 end
@@ -608,7 +637,7 @@ module Roby
 		end
 		temp_method_name = "m#{@@temp_method_id += 1}"
 		define_method(temp_method_name, &body)
-                mdef = MethodDefinition.new(name, options, instance_method(temp_method_name))
+                mdef = MethodDefinition.new(self, name, options, instance_method(temp_method_name))
 		send("#{name}_methods")[method_id] = mdef
             end
 	    @@temp_method_id = 0
@@ -633,15 +662,7 @@ module Roby
                 end.compact.sort
 
                 names.map do |name|
-                    desc = PlanningMethod.new
-                    desc.name = name
-                    desc.description = planning_method_description(name)
-                    #desc.model = method_model(name)
-                    #desc.instances = Array.new
-                    #send("each_#{name}_method") do |instance|
-                    #    desc.instances << instance
-                    #end
-                    desc
+                    planning_method_description(name)
                 end
             end
             
@@ -652,7 +673,9 @@ module Roby
                 elsif defined? superclass and superclass.respond_to?(:planning_method_description)
                     return superclass.planning_method_description(name)
                 else
-                    return MethodDescription.new
+                    desc = MethodDescription.new(name)
+                    desc.name = name
+                    return desc
                 end
             end
             def planning_method_description(name)
@@ -672,13 +695,13 @@ module Roby
                 @next_method_description = nil
 
 		remove_method(name)
-		remove_inherited_enumerable("#{name}_method", "#{name}_methods")
+		clear_inherited_enumerable("#{name}_method", "#{name}_methods")
 		if method_defined?("#{name}_filter")
-		    remove_inherited_enumerable("#{name}_filter", "#{name}_filters")
+		    clear_inherited_enumerable("#{name}_filter", "#{name}_filters")
 		end
 	    end
 
-	    def self.remove_inherited_enumerable(enum, attr = enum)
+	    def self.clear_inherited_enumerable(enum, attr = enum)
 		if instance_variable_defined?("@#{attr}")
 		    remove_instance_variable("@#{attr}")
 		end
@@ -717,9 +740,9 @@ module Roby
                 check_arity(filter, 2)
 
 		if !respond_to?("#{name}_filters")
-		    inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
 		    class_eval <<-EOD, __FILE__, __LINE__+1
 			class << self
+		            define_inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
 			    cached_enum("#{name}_filter", "#{name}_filters", false)
 			end
 		    EOD
@@ -801,7 +824,7 @@ module Roby
 	    end
 
 	    def self.default_method_model(name)
-		MethodModel.new(name, :returns => Task)
+		MethodModel.new(self, name, :returns => Roby::Task)
 	    end
 
             # Creates a TaskSequence with the given tasks
@@ -927,9 +950,9 @@ module Roby
             # It raises NotFound if none of the methods returned successfully
             def call_planning_methods(errors, method_options, method, *methods)
                 begin
-                    @stack.push [method.name, method.object_id]
+                    @stack.push [method.name, method.id]
                     @arguments.push(method_options)
-		    Planning.debug { "calling #{method.name}:#{method.object_id} with arguments #{arguments}" }
+		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments}" }
 		    begin
 			result = method.call(self)
 		    rescue PlanModelError, Interrupt
@@ -1007,6 +1030,27 @@ module Roby
 		options[:method_options][:id] = loop_method.id
 		PlanningLoop.new(options)
 	    end
+
+            def self.find_all_actions_by_type(model)
+                all = []
+                planning_methods_names.each do |method_name|
+                    if result = find_methods(method_name, :returns => model)
+                        all.concat(result)
+                    end
+                end
+                all
+            end
+
+            def self.find_action_by_name(name)
+                if has_method?(name)
+                    model_of(name, Hash.new)
+                end
+            end
+
+            # Added to honor a common API with Actions::Interface
+            def self.each_action
+                planning_methods
+            end
         end
 
 	# A planning Library is only a way to gather a set of planning

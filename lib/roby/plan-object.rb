@@ -92,8 +92,12 @@ module Roby
 	# case
 	def plan=(new_plan)
 	    if removed_at
-		raise ArgumentError, "#{self} has been removed from plan, cannot add it back\n" +
-		    "Removed at\n  #{removed_at.join("\n  ")}"
+                if PlanObject.debug_finalization_place?
+                    raise ArgumentError, "#{self} has been removed from plan, cannot add it back\n" +
+                        "Removed at\n  #{removed_at.join("\n  ")}"
+                else
+                    raise ArgumentError, "#{self} has been removed from plan, cannot add it back. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
+                end
 	    end
             if !@addition_time
                 @addition_time = Time.now
@@ -494,7 +498,9 @@ module Roby
 
         attr_reader :finalization_handlers
 
-        inherited_enumerable(:finalization_handler, :finalization_handlers) { Array.new }
+        class << self
+            define_inherited_enumerable(:finalization_handler, :finalization_handlers) { Array.new }
+        end
 
         # Adds a model-level finalization handler, i.e. a handler that will be
         # called on every instance of the class
@@ -530,7 +536,7 @@ module Roby
 
             if root_object?
                 self.plan = nil
-                if EventGenerator.debug_finalization_place?
+                if PlanObject.debug_finalization_place?
                     self.removed_at = caller
                 else
                     self.removed_at = []

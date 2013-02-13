@@ -25,6 +25,7 @@ require 'thread'
 require 'set'
 require 'yaml'
 require 'utilrb/value_set'
+require 'utilrb/models/registration'
 require 'utilrb/object/attribute'
 require 'utilrb/module/ancestor_p'
 require 'utilrb/kernel/options'
@@ -42,6 +43,8 @@ require 'roby/support.rb'
 require 'roby/basic_object.rb'
 require 'roby/standard_errors.rb'
 require 'roby/exceptions.rb'
+
+require 'roby/distributed/base'
 
 begin
     require 'roby_bgl'
@@ -91,15 +94,18 @@ rescue LoadError
     STDERR.puts "and try again"
     exit 1
 end
+require 'roby/distributed/peer'
+require 'roby/distributed/protocol'
 
-require 'roby/distributed/base'
 require 'roby/decision_control.rb'
 require 'roby/execution_engine.rb'
 require 'roby/app.rb'
+require 'roby/state.rb'
+require 'roby/singletons'
 require 'roby/log'
 
 require 'roby/robot.rb'
+require 'roby/actions'
 require 'roby/planning.rb'
-require 'roby/state.rb'
 require 'roby/task_scripting.rb'
 

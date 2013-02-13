@@ -177,7 +177,7 @@ module Roby
             # Returns the specified child when applied on +task+
             def resolve(task)
                 @chain.inject(task) do |child, role|
-                    if !(next_child = child.child_from_role(role, false))
+                    if !(next_child = child.find_child_from_role(role))
                         if child.abstract? && child.planning_task && !child.planning_task.finished?
                             throw :retry_block
                         end
@@ -635,7 +635,9 @@ module Roby
     end
 
     class Task
-        inherited_enumerable(:script, :scripts) { Array.new }
+        class << self
+            define_inherited_enumerable(:script, :scripts) { Array.new }
+        end
 
         # Adds a script that is going to be executed for every instance of this
         # task model
@@ -667,23 +669,16 @@ module Roby
 
         # Adds a task script that is going to be executed while this task
         # instance runs.
-        def script(&block)
+        def script(options = Hash.new, &block)
             script = TaskScripting::ScriptEngine.new
             script.load(&block)
-
-            if running?
-                script.prepare(self)
-                script.execute
-            else
-                on(:start) do |event|
-                    script.prepare(event.task)
-                    script.execute
-                end
+            execute(options) do |task|
+                script.prepare(task)
             end
-            poll do |task|
+            poll(options) do |task|
                 script.execute
             end
-            self
+            script
         end
     end
 end

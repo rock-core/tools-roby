@@ -14,41 +14,34 @@ class TC_Test_TestCase < Test::Unit::TestCase
                     Test::Unit::AssertionFailedError
                 end
     
-    def setup
-        @plan    = Roby.plan
-        @control = Roby.control
-        @engine  = Roby.engine
-        super
-    end
-
-    def test_assert_any_event
+    def test_assert_event_emission
 	plan.add(t = Tasks::Simple.new)
 	t.start!
-        assert_any_event(t.event(:start))
+        assert_event_emission(t.event(:start))
 
 	t.success!
-        assert_any_event(t.event(:start))
-        assert_any_event([t.event(:success)], [t.event(:stop)])
+        assert_event_emission(t.event(:start))
+        assert_event_emission([t.event(:success)], [t.event(:stop)])
 
 	plan.add(t = Tasks::Simple.new)
 	t.start!
 	t.failed!
 	assert_raises(Assertion) do
-	    assert_any_event([t.event(:success)], [t.event(:stop)])
+	    assert_event_emission([t.event(:success)], [t.event(:stop)])
 	end
 
 	Roby.logger.level = Logger::FATAL
         Robot.logger.level = Logger::FATAL
 	engine.run
 	plan.add_permanent(t = Tasks::Simple.new)
-	assert_any_event(t.event(:success)) do 
+	assert_event_emission(t.event(:success)) do 
 	    t.start!
 	    t.success!
 	end
 
 	plan.add_permanent(t = Tasks::Simple.new)
 	assert_raises(Assertion) do
-	    assert_any_event(t.event(:success)) do
+	    assert_event_emission(t.event(:success)) do
 		t.start!
 		t.failed!
 	    end
@@ -58,15 +51,15 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	## checking that +failed+ happens
 	plan.add_permanent(t = Tasks::Simple.new)
 	assert_nothing_raised do
-	    assert_any_event(t.event(:failed)) do
+	    assert_event_emission(t.event(:failed)) do
 		t.start!
 		t.failed!
 	    end
 	end
     end
 
-    def test_assert_any_event_events_given_by_block
-        assert_any_event do
+    def test_assert_event_emission_events_given_by_block
+        assert_event_emission do
             plan.add(t = Tasks::Simple.new)
             t.start!
             t.start_event
@@ -96,7 +89,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 
 	i = 0
         # Sampling of 1s, every 100ms (== 1 cycle)
-	samples = Roby::Test.sampling(1, 0.1, :time_test, :index, :dummy) do
+	samples = Roby::Test.sampling(engine, 1, 0.1, :time_test, :index, :dummy) do
 	    i += 1
 	    [engine.cycle_start, i + rand / 10 - 0.05, rand / 10 + 0.95]
 	end

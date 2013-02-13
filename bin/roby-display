@@ -3,6 +3,7 @@
 require 'roby'
 require 'roby/log'
 require 'roby/log/server'
+Roby.app.guess_app_dir
 
 data_source_mode = :file
 host = 'localhost'
@@ -11,17 +12,32 @@ sampling_period = Roby::Log::Server::DEFAULT_SAMPLING_PERIOD
 config = 'roby-display.yml'
 display_mode = 'relations'
 
+# Look for a default config file in the Roby app structure
+if Roby.app.app_dir
+    config = Roby.app.find_file('config', 'roby-display.yml', :order => :specific_first) ||
+        File.join(Roby.app.app_dir, "config", "roby-display.yml")
+end
+
+def parse_remote_host(host_spec)
+    if !host_spec
+        host_spec = 'localhost'
+    end
+    host, port = host_spec.split(':')
+    if host.empty?
+        host = 'localhost'
+    end
+    port = Integer(port || Roby::Log::Server::DEFAULT_PORT)
+    return host, port
+end
+
 options = OptionParser.new do |opt|
-    opt.on('--client[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host|
+    opt.on('--client[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host_spec|
         data_source_mode = :client
-        if !host
-            host = 'localhost'
-        end
-        host, port = host.split(':')
-        if host.empty?
-            host = 'localhost'
-        end
-        port = Integer(port || Roby::Log::Server::DEFAULT_PORT)
+        host, port = parse_remote_host(host_spec)
+    end
+    opt.on('--host[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host_spec|
+        data_source_mode = :client
+        host, port = parse_remote_host(host_spec)
     end
     opt.on('--server[=PORT]', Integer, "starts in server mode. If the port number is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |server_port|
         data_source_mode = :server

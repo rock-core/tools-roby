@@ -185,11 +185,11 @@ module BGL
                     pp.nest(4) do
                         children = Array.new
                         parent.each_child_vertex(self) do |child|
-                            children << child.to_s
+                            children << [child.to_s, parent[child, self].to_s]
                         end
-                        children.sort.each do |child_name|
+                        children.sort_by(&:first).each do |child_name, child_info|
                             pp.breakable
-                            pp.text "=> #{child_name}"
+                            pp.text "=> #{child_name} (#{child_info})"
                         end
                     end
                 end

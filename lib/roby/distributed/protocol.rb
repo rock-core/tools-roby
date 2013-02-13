@@ -76,9 +76,12 @@ module Roby
 	    end
 
             def self.anon_tag_factory(tag_name)
-                Roby::TaskModelTag.new do
-                    define_method(:name) { tag_name }
+                m = Roby::TaskModelTag.new
+                class << m
+                    attr_accessor :name
                 end
+                m.name = tag_name
+                m
             end
 
 	    def self.local_tag(name, remote_tag, unknown_model_factory = method(:anon_tag_factory))
@@ -109,7 +112,7 @@ module Roby
 	def droby_dump(dest)
 	    unless @__droby_marshalled__
 		tagdef = ancestors.map do |mod|
-		    if mod.instance_of?(Roby::TaskModelTag)
+		    if mod.kind_of?(Roby::TaskModelTag)
 			unless id = TaskModelTag.local_to_remote[mod]
 			    id = [mod.name, mod.remote_id]
 			end
@@ -310,13 +313,15 @@ module Roby
 		def droby_dump(dest)
 		    unless DRobyConstant.valid_constants[self]
                         begin
-                            constant(name)
-                            DRobyConstant.valid_constants[self] = DRobyConstant.new(name)
+                            if name && (constant(name) == self)
+                                return(DRobyConstant.valid_constants[self] = DRobyConstant.new(name))
+                            end
                         rescue Exception => e
-                            Roby.info "could not resolve constant name for #{self}"
-                            Roby.log_pp(e, Roby, :warn)
-			    raise ArgumentError, "cannot resolve constant name for #{self}"
 			end
+
+                        Roby.info "could not resolve constant name for #{self}"
+                        Roby.log_pp(e, Roby, :warn)
+                        raise ArgumentError, "cannot resolve constant name for #{self}"
 		    end
 		    DRobyConstant.valid_constants[self]
 		end
@@ -438,7 +443,7 @@ module Roby
                     # Look locally for the constant listed in the name
                     obj = Object
                     while subname = names.shift
-                        if obj.const_defined_here?(subname)
+                        if subname =~ /^[A-Z]\w*$/ && obj.const_defined_here?(subname)
                             obj = obj.const_get(subname)
                         else
                             obj = nil
@@ -465,7 +470,6 @@ module Roby
 	    end
 	end
 	Roby::EventGenerator.extend Distributed::DRobyModel::Dump
-	Roby::Planning::Planner.extend Distributed::DRobyModel::Dump
 
         # Dumping intermediate for Task classes. This dumps both the ancestor
         # list via DRobyModel and the list of task tags.

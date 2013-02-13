@@ -1,7 +1,7 @@
 module Roby
     module Test
 	class << self
-	    def sampling(duration, period, *fields)
+	    def sampling(engine, duration, period, *fields)
 		Test.info "starting sampling #{fields.join(", ")} every #{period}s for #{duration}s"
 
 		samples = Array.new
@@ -22,11 +22,11 @@ module Roby
 		    first_sample = nil
 		    mt.synchronize do
                         timeout = false
-			id = Roby.every(period) do
+			id = engine.every(period) do
 			    result = yield
 			    if result
 				if compute_time
-				    result << Roby.engine.cycle_start
+				    result << engine.cycle_start
 				end
 				new_sample = sample_type.new(*result)
 
@@ -47,7 +47,7 @@ module Roby
                         while !timeout
                             cv.wait(mt)
                         end
-			Roby.engine.remove_periodic_handler(id)
+			engine.remove_periodic_handler(id)
 		    end
 		end
 

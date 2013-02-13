@@ -1,4 +1,4 @@
-require 'state_machine'
+require 'state_machine/machine'
 
 module Roby
 # The TaskStateHelper allows to add a statemachine to 
@@ -74,6 +74,13 @@ module TaskStateHelper
         end
     end
 
+    # Proxy object used in the definition of state machines on Roby::Task
+    class Proxy
+        def self.state_machine(*args, &block)
+            StateMachine::Machine.find_or_create(self, *args, &block)
+        end
+    end
+
     # Refine the running state of the Roby::Task
     # using a state machine description. The initial
     # state of the machine is set to 'running' by default.
@@ -132,7 +139,7 @@ module TaskStateHelper
         if parent_model = TaskStateMachine.from_model(name.superclass)
             proxy_klass = Class.new(parent_model.name)
         else
-            proxy_klass = Class.new
+            proxy_klass = Proxy
         end
         
         # Create the state machine instance that will serve as base model for instances of the Roby::Task (or its subclasses) this
@@ -344,9 +351,7 @@ class TaskStateMachine
     end
 
 end # module TaskStateHelper
+Task.extend TaskStateHelper
 
 end # module Roby
 
-Class.class_eval do
-    include Roby::TaskStateHelper
-end

@@ -355,6 +355,7 @@ module Roby
             if @fullfilled_model
                 __getobj__.fullfilled_model = @fullfilled_model.dup
             end
+            __getobj__.do_not_reuse if !@reusable
 	end
 
         # Perform the operations needed for the transaction to be discarded.

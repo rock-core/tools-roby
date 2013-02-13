@@ -13,6 +13,21 @@ class TC_Task < Test::Unit::TestCase
         Roby.app.filter_backtraces = false
     end
 
+    def test_model_allows_to_get_events_using_the_blabla_event_syntax
+        model = Class.new(Roby::Task) do
+            event :custom
+            event :other
+        end
+        event_model = model.custom_event
+        assert_same model.find_event_model('custom'), event_model
+    end
+
+    def test_subclasses_of_task_are_registered_on_Task
+        subclass = Class.new(Roby::Task)
+        assert_equal Roby::Task, subclass.supermodel
+        assert Roby::Task.each_submodel.to_a.include?(subclass)
+    end
+
     def test_model_tag
         tag1 = TaskModelTag.new { argument :model_tag_1 }
 	assert(tag1.const_defined?(:ClassExtension))
@@ -1205,18 +1220,12 @@ class TC_Task < Test::Unit::TestCase
 	assert(t3.fullfills?(t1))
     end
 
-    def test_fullfill_using_provided_services
+    def test_fullfill_using_explicit_fullfilled_model_on_task_model
         tag = TaskModelTag.new
         proxy_model = Class.new(Task) do
             include tag
-
-            @tag = tag
-            class << self
-                define_method(:provided_services) do
-                    [@tag]
-                end
-            end
         end
+        proxy_model.fullfilled_model = [tag]
         real_model = Class.new(Task) do
             include tag
         end
@@ -1407,12 +1416,33 @@ class TC_Task < Test::Unit::TestCase
         mock.should_receive(:polled_from_instance).once.with(true, t)
 
         t.start!
-        process_events
 
         # Verify that the poll block gets deregistered when  the task is
         # finished
         plan.unmark_permanent(t)
         t.stop!
+        process_events
+    end
+
+    def test_poll_should_be_called_at_least_once
+        mock = flexmock
+        model = Class.new(Tasks::Simple) do
+            on :start do |event|
+                stop!
+            end
+
+            poll do
+                mock.polled_from_model(running?, self)
+            end
+        end
+        t = prepare_plan :permanent => 1, :model => model
+        t.poll do |task|
+            mock.polled_from_instance(t.running?, task)
+        end
+        mock.should_receive(:polled_from_model).once.with(true, t)
+        mock.should_receive(:polled_from_instance).once.with(true, t)
+
+        t.start!
         process_events
     end
 
@@ -1929,6 +1959,9 @@ class TC_Task < Test::Unit::TestCase
         old, new = prepare_plan :missions => 2, :model => model
 
         FlexMock.use do |mock|
+            mock.should_receive(:should_not_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(new).once
             old.poll { |task| mock.should_not_be_passed_on(task) }
             old.poll(:on_replace => :copy) { |task| mock.should_be_passed_on(task) }
 
@@ -1939,12 +1972,20 @@ class TC_Task < Test::Unit::TestCase
 
             old.start!
             new.start!
-            mock.should_receive(:should_not_be_passed_on).with(old).once
-            mock.should_receive(:should_be_passed_on).with(old).once
-            mock.should_receive(:should_be_passed_on).with(new).once
-
-            process_events
         end
+    end
+
+    def test_poll_is_called_while_the_task_is_running
+        test_case = self
+        model = Class.new(Roby::Task) do
+            terminates
+
+            poll do
+                test_case.assert running?
+            end
+        end
+        plan.add(task = model.new)
+        task.start!
     end
 
     def test_event_handlers_with_replacing
@@ -1954,6 +1995,10 @@ class TC_Task < Test::Unit::TestCase
         old, new = prepare_plan :missions => 2, :model => model
 
         FlexMock.use do |mock|
+            mock.should_receive(:should_be_passed_on).with(new).once
+            mock.should_receive(:should_be_passed_on).with(old).once
+            mock.should_receive(:should_not_be_passed_on).with(old).once
+
             old.start_event.on { |event| mock.should_not_be_passed_on(event.task) }
             old.start_event.on(:on_replace => :copy) { |event| mock.should_be_passed_on(event.task) }
 
@@ -1962,9 +2007,6 @@ class TC_Task < Test::Unit::TestCase
             assert_equal(1, new.start_event.handlers.size)
             assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[1].block)
 
-            mock.should_receive(:should_be_passed_on).with(new).once
-            mock.should_receive(:should_be_passed_on).with(old).once
-            mock.should_receive(:should_not_be_passed_on).with(old).once
             old.start!
             new.start!
         end
@@ -1982,6 +2024,8 @@ class TC_Task < Test::Unit::TestCase
         plan.add_permanent(new = Roby::Tasks::Simple.new)
 
         FlexMock.use do |mock|
+            mock.should_receive(:should_be_passed_on).with(new).twice
+
             old.poll { |task| mock.should_be_passed_on(task) }
             old.poll(:on_replace => :drop) { |task| mock.should_not_be_passed_on(task) }
 
@@ -1990,8 +2034,6 @@ class TC_Task < Test::Unit::TestCase
 
             assert_equal(1, new.poll_handlers.size, new.poll_handlers.map(&:block))
             assert_equal(new.poll_handlers[0].block, old.poll_handlers[0].block)
-
-            mock.should_receive(:should_be_passed_on).with(new).once
             process_events
         end
     end
@@ -2089,21 +2131,11 @@ class TC_Task < Test::Unit::TestCase
     def test_task_as_plan
         task_t = Class.new(Roby::Task)
         task, planner_task = task_t.new, task_t.new
+        task.planned_by planner_task
+        flexmock(Robot).should_receive(:prepare_action).with(nil, task_t, Hash.new).and_return([task, planner_task])
 
-        planner = flexmock
-        planning_method = flexmock(:name => 'm1', :returns => task_t)
-        flexmock(Robot).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
-
-        as_plan = task_t.as_plan
-        plan.add(as_plan)
-        assert_kind_of(task_t, as_plan)
-
-        planner_task = as_plan.planning_task
-        assert_kind_of(Roby::PlanningTask, planner_task)
-        assert_equal(planning_method, planner_task.planning_method)
-        assert_equal(task_t, planner_task.planned_model)
-        assert_equal(planner, planner_task.planner_model)
-        assert_equal("m1", planner_task.method_name)
+        plan.add(as_plan = task_t.as_plan)
+        assert_same task, as_plan
     end
     
     def test_gather_events_cleanup_on_removal
@@ -2168,6 +2200,63 @@ class TC_Task < Test::Unit::TestCase
         assert(!task.executable?)
         assert(task.internal_error?)
         assert(!task.running?)
+    end
+
+    def test_new_tasks_are_reusable
+        assert Roby::Task.new.reusable?
+    end
+    def test_do_not_reuse
+        task = Roby::Task.new
+        task.do_not_reuse
+        assert !task.reusable?
+    end
+    def test_running_tasks_are_reusable
+        task = Roby::Task.new
+        flexmock(task).should_receive(:running?).and_return(true)
+        assert task.reusable?
+    end
+    def test_finishing_tasks_are_not_reusable
+        task = Roby::Task.new
+        flexmock(task).should_receive(:finishing?).and_return(true)
+        assert !task.reusable?
+    end
+    def test_finished_tasks_are_not_reusable
+        task = Roby::Task.new
+        flexmock(task).should_receive(:finished?).and_return(true)
+        assert !task.reusable?
+    end
+    def test_reusable_propagation_to_transaction
+        plan.add(task = Roby::Task.new)
+        plan.in_transaction do |trsc|
+            assert trsc[task].reusable?
+        end
+    end
+    def test_do_not_reuse_propagation_to_transaction
+        plan.add(task = Roby::Task.new)
+        task.do_not_reuse
+        plan.in_transaction do |trsc|
+            assert !trsc[task].reusable?
+        end
+    end
+    def test_do_not_reuse_propagation_from_transaction
+        plan.add(task = Roby::Task.new)
+        plan.in_transaction do |trsc|
+            proxy = trsc[task]
+            assert proxy.reusable?
+            proxy.do_not_reuse
+            assert !proxy.reusable?
+            assert task.reusable?
+            trsc.commit_transaction
+        end
+        assert !task.reusable?
+    end
+    def test_model_terminal_event_forces_terminal
+        task_model = Class.new(Roby::Task) do
+            event :terminal, :terminal => true
+        end
+        plan.add(task = task_model.new)
+        assert(task.event(:terminal).terminal?)
+        puts task.event(:terminal).terminal_flag
     end
 end
 

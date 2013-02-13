@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/tasks/simple'
-require 'flexmock'
+require 'flexmock/test_unit'
 
 class TC_Dependency < Test::Unit::TestCase
     include Roby::SelfTest
@@ -21,7 +21,7 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_definition
-	tag   = TaskModelTag.new
+	tag   = TaskService.new
 	klass = Class.new(Tasks::Simple) do
 	    argument :id
 	    include tag
@@ -38,7 +38,7 @@ class TC_Dependency < Test::Unit::TestCase
 
 	plan.add(simple_task = Tasks::Simple.new)
 	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => [Class.new(Roby::Task), {}] }
-	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => TaskModelTag.new }
+	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => TaskService.new }
 	
 	# Check validation of the arguments
 	plan.add(model_task = klass.new)
@@ -281,7 +281,7 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_fullfilled_model_validation
-	tag = TaskModelTag.new
+	tag = TaskService.new
 	klass = Class.new(Roby::Task)
 
 	p1, p2, child = prepare_plan :add => 3, :model => Tasks::Simple
@@ -296,7 +296,7 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_fullfilled_model
-	tag = TaskModelTag.new
+	tag = TaskService.new
 	klass = Class.new(Tasks::Simple) do
 	    include tag
 	end
@@ -315,8 +315,15 @@ class TC_Dependency < Test::Unit::TestCase
 	assert_equal([[klass, tag], {:id => 'discover-3'}], child.fullfilled_model)
     end
 
+    def test_fullfilled_model_uses_model_fullfilled_model_for_its_default_value
+        task_model = Class.new(Roby::Task)
+        flexmock(task_model).should_receive(:fullfilled_model).and_return([Roby::Task, subtask = Class.new(Roby::Task)])
+        plan.add(task = task_model.new)
+        assert_equal [subtask], task.fullfilled_model[0]
+    end
+
     def test_explicit_fullfilled_model
-	tag = TaskModelTag.new
+	tag = TaskService.new
 	klass = Class.new(Tasks::Simple) do
 	    include tag
 	end
@@ -335,7 +342,7 @@ class TC_Dependency < Test::Unit::TestCase
     end
 
     def test_fullfilled_model_transaction
-	tag = TaskModelTag.new
+	tag = TaskService.new
 	klass = Class.new(Tasks::Simple) do
 	    include tag
 	end
@@ -399,7 +406,7 @@ class TC_Dependency < Test::Unit::TestCase
 
     def setup_merging_test(special_options = Hash.new)
         plan.add(parent = Tasks::Simple.new)
-        tag = TaskModelTag.new
+        tag = TaskService.new
         intermediate = Class.new(Tasks::Simple)
         intermediate.include tag
         child_model = Class.new(intermediate)
@@ -528,8 +535,6 @@ class TC_Dependency < Test::Unit::TestCase
 
         assert_same t2, t1.resolve_role_path(['1'])
         assert_same t3, t1.resolve_role_path(['1', '2'])
-    rescue Exception => e
-        STDERR.puts e
     end
 
     def test_as_plan_handler
@@ -560,8 +565,8 @@ class TC_Dependency < Test::Unit::TestCase
         parent.depends_on(child, :role => 'child0')
 
         assert_equal child, parent.child_from_role('child0')
-        assert_equal nil, parent.child_from_role('nonexist', false)
-        assert_raises(ArgumentError) { parent.child_from_role('nonexist', true) }
+        assert_equal nil, parent.find_child_from_role('nonexist')
+        assert_raises(ArgumentError) { parent.child_from_role('nonexist') }
     ensure
 	plan.add(parent) if parent
     end
@@ -571,8 +576,8 @@ class TC_Dependency < Test::Unit::TestCase
         parent.depends_on(child, :role => 'child0')
 
         assert_equal child, parent.child_from_role('child0')
-        assert_equal nil, parent.child_from_role('nonexist', false)
-        assert_raises(ArgumentError) { parent.child_from_role('nonexist', true) }
+        assert_equal nil, parent.find_child_from_role('nonexist')
+        assert_raises(ArgumentError) { parent.child_from_role('nonexist') }
     end
 
     def test_child_from_role_in_transaction
@@ -611,6 +616,28 @@ class TC_Dependency < Test::Unit::TestCase
             assert(Dependency.interesting_events.empty?)
         end
         assert(Dependency.interesting_events.empty?)
+    end
+
+    def test_each_fullfilled_model_returns_the_task_model_itself_by_default
+        model = Class.new(Roby::Task)
+        plan.add(task = model.new)
+        assert_equal [model], task.each_fullfilled_model.to_a
+    end
+
+    def test_each_fullfilled_model_with_explicit_assignation_on_task_model
+        model = Class.new(Roby::Task)
+        tag = Roby::TaskService.new
+        model.fullfilled_model = [Roby::Task, tag]
+        assert_equal [Roby::Task, tag].to_set, model.each_fullfilled_model.to_set
+    end
+
+    def test_fullfilled_model_on_instance_with_explicit_assignation_on_task_model
+        model = Class.new(Roby::Task)
+        submodel = Class.new(model)
+        tag = Roby::TaskService.new
+        submodel.fullfilled_model = [model, tag]
+        plan.add(task = submodel.new)
+        assert_equal [[model, tag], Hash.new], task.fullfilled_model
     end
 end
 

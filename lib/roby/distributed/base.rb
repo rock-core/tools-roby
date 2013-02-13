@@ -55,7 +55,7 @@ end
 class DRbObject
     # We don't want this method to call the remote object.
     def to_s
-        inspect 
+        "#<DRbObject>"
     end
     # Converts this DRbObject into Roby::Distributed::RemoteID
     def remote_id
@@ -461,5 +461,26 @@ module Roby
 	ensure
 	    peer_server.processing = false
 	end
+
+        class DumbManager
+            def self.local_object(obj)
+                if obj.kind_of?(DRbObject)
+                    raise ArgumentError, "trying to droby-unmarshal a DRbObject"
+                end
+                if obj.respond_to?(:proxy)
+                    obj.proxy(self)
+                else obj
+                end
+            end
+
+            def self.local_task_tag(*args)
+                Roby::TaskModelTag::DRoby.anon_tag_factory(*args)
+            end
+
+            def self.local_model(*args)
+                Distributed::DRobyModel.anon_model_factory(*args)
+            end
+        end
     end
 end
+

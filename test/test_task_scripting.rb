@@ -64,7 +64,7 @@ class TC_TaskScripting < Test::Unit::TestCase
         process_events
         process_events
         process_events
-        assert_equal 3, counter
+        assert_equal 4, counter
     end
 
     def test_poll_end_if
@@ -111,11 +111,11 @@ class TC_TaskScripting < Test::Unit::TestCase
             
             task.start!
             6.times { process_events }
-            assert_equal 6, counter
+            assert_equal 7, counter
 
             time += 3
             6.times { process_events }
-            assert_equal 7, counter
+            assert_equal 8, counter
         end
     end
 
@@ -434,6 +434,16 @@ class TC_TaskScripting < Test::Unit::TestCase
 
         task2.emit :do_it
         process_events
+    end
+
+    def test_script_is_prepared_with_the_new_task_after_a_replacement
+        model = Class.new(Roby::Task) { terminates }
+        old, new = prepare_plan :add => 2, :model => model
+        old.abstract = true
+        script = old.script { }
+        plan.replace_task(old, new)
+        flexmock(script).should_receive(:prepare).with(new).once
+        new.start!
     end
 
     def test_transaction_commits_new_script_on_pending_task
