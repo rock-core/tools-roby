@@ -75,7 +75,7 @@ module Roby
             # Clears all definitions saved in this model. This is to be used by the
             # reloading code
             def clear_model
-                super if defined? super
+                super
                 class_eval do
                     # Remove event models
                     events.each_key do |ev_symbol|

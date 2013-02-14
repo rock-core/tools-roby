@@ -28,6 +28,7 @@ module Roby
             include Arguments
 
             def clear_model
+                super
                 argument_set.clear
                 argument_defaults.clear
             end

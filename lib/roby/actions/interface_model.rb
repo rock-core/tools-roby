@@ -36,7 +36,7 @@ module Roby
 
             # Clears everything stored on this model
             def clear_model
-                super if defined? super
+                super
                 actions.clear
             end
 
