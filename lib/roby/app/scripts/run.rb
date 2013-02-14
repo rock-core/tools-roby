@@ -47,14 +47,16 @@ Roby.display_exception do
             end
         end
 
-	# Load the controller
-        controller_file = Roby.app.find_file("scripts", "controllers", "ROBOT.rb", :order => :specific_first) ||
-            Roby.app.find_file("controllers", "ROBOT.rb", :order => :specific_first)
-        if controller_file
-            Robot.info "loading controller file #{controller_file}"
-            load controller_file
-        else
-            Robot.info "found no controller file to load"
+        if run_controller
+            # Load the controller
+            controller_file = Roby.app.find_file("scripts", "controllers", "ROBOT.rb", :order => :specific_first) ||
+                Roby.app.find_file("controllers", "ROBOT.rb", :order => :specific_first)
+            if controller_file
+                Robot.info "loading controller file #{controller_file}"
+                load controller_file
+            else
+                Robot.info "found no controller file to load"
+            end
         end
         Robot.info "done initialization"
     end
