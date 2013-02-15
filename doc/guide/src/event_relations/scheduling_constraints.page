@@ -38,6 +38,6 @@ hard constraints
 Relationship to Scheduling
 --------------------------
 The scheduling relation has an influence on [the temporal
-scheduler](../scheduling).
+scheduler](../advanced_concepts/scheduling.html).
 
 
