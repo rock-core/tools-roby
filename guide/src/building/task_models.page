@@ -1,0 +1,94 @@
+---
+title: Creating Task Models
+sort_info: 10
+---
+
+As we [just explained](index.html), tasks are used to form
+higher-level _interfaces_ to either lower-level tasks / behaviours, or to other
+processes that are being controlled by Roby.
+
+In both cases, the task interface model contains:
+
+ - __arguments__, the set of parameters for the actual behaviour
+ - __events__ represent situations that are of interest by the users of this
+   task / behaviour. They also form the __command interface__ on the task.
+
+A task model is created by defining a subclass of Roby::Task or of another task
+class. When inheriting from each other, the events and arguments of the base
+class also apply on the subclass. By default, you should always add the
+"terminates" statement in the task definition (alternatives will be explained
+later in this document).
+
+~~~ ruby
+module MyApp
+  class MoveTo < Roby::Task
+    terminates
+    ...
+  end
+end
+~~~
+
+Task models are defined in files in the models/tasks/ subdirectory
+of the Roby application. The file name is usually (but not necessarily) the
+snake_case version of the task name. For instance, the MoveTo task would be
+defined in models/tasks/move_to.rb.
+
+If you need to overload the #initialize method, it __must__ accept a single
+optional argument of type Hash:
+
+~~~ ruby
+module MyApp
+  class MoveTo < Roby::Task
+    def initialize(options = Hash.new)
+      super
+      ...
+    end
+  end
+end
+~~~
+
+Arguments
+---------
+Arguments are defined using the _argument_ statement:
+
+~~~ ruby
+module MyApp
+  class MoveTo < Roby::Task
+    argument :target
+    ...
+  end
+end
+~~~
+
+Arguments can be given defaults:
+
+~~~ ruby
+module MyApp
+  class MoveTo < Roby::Task
+    argument :target, :default => nil
+    ...
+  end
+end
+~~~
+
+A task will only be allowed to start if all its arguments are set. Setting to
+nil counts as "set".
+
+Events
+------
+Events are defined using the 'event' statement:
+
+~~~ ruby
+module MyApp
+  class MoveTo < Roby::Task
+    event :reached_target
+    ...
+  end
+end
+~~~
+
+Summary
+-------
+This page described how to create task models, i.e. to define interfaces in a
+Roby plan. [The next page](tasks.page) will tell you how to add code to your tasks to
+actually "do" something.

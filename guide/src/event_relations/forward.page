@@ -32,7 +32,7 @@ There are two main use cases:
  * the "vertical" use case, where events are forwarded between tasks. This
    allows to create "interfaces" in the plan, where a given task accesses
    other tasks only when they are directly associated to it. See [this
-   page](../building_plans/patterns.html)
+   page](../building/patterns.html)
 
 It is created with #forward_to
 

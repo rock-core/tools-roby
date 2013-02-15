@@ -6,8 +6,10 @@ index.page:
     sort_info: 50
 /tutorial:
     sort_info: 100
-/building_plans:
+/building:
     sort_info: 150
+/interacting:
+    sort_info: 160
 /advanced_concepts:
     sort_info: 170
 /event_relations:
