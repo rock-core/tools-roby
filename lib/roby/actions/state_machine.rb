@@ -377,7 +377,9 @@ module Roby
                     end
                 end
                 root_task.execute do
-                    instanciate_state(model.starting_state)
+                    if model.starting_state
+                        instanciate_state(model.starting_state)
+                    end
                 end
 
                 @state_info = generate_state_info
