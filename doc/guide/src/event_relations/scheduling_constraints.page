@@ -18,7 +18,7 @@ temporal constraints on _a_ that are due to _b_.
 
 This is usually used to delay the startup of planning tasks until the actual
 task is needed. Let's imagine a simple [planning
-pattern](../building_plans/runtime.html#planning-pattern). A common case is to
+pattern](../building/runtime.html#planning-pattern). A common case is to
 require the planner to be called only when the task is actually needed. However,
 this cannot be specified by temporal constraints as the task itself requires the
 planning to be finished to start.

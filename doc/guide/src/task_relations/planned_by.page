@@ -27,9 +27,9 @@ planner_task.planned_task # => task. Would raise if there was more than one
 {coderay}
 
 This is commonly used to implement the [planning
-pattern](../building_plans/runtime.html#planning-pattern). In this case, the
+pattern](../building/runtime.html#planning-pattern). In this case, the
 planned task is [marked as
-abstract](../building_plans/patterns.html#abstract-tasks)
+abstract](../building/patterns.html#abstract-tasks)
 
 Error Conditions
 ----------------

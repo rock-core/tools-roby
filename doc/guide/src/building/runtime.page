@@ -14,31 +14,15 @@ two tasks:
  * an instance of Roby::Task or of one of its subclasses which is a placeholder
    for the final task
  * a planning task, i.e. a Roby task that is the child of the placeholder in
-   the planned_by relation. When using the standard Roby planning interface,
-   the task used is Roby::PlanningTask .
+   the planned_by relation. When using the standard Roby action interface,
+   the task used is Roby::Actions::Task.
 
 There is an example of that pattern in action [in the
 tutorial](../tutorial/relations_display.html#planning)
 
-To make the pattern more obvious, one would like to have the placeholder task to be
-of the right type, i.e. of the type that the method is going to return.
-
-This can be done in the method definition by adding the :returns option:
-
-{coderay:: ruby}
-method :move_to, :returns => MoveTo do
-  target = arguments[:target]
-  MoveTo.new(:target => target)
-end
-{coderay}
-
-Additionally, one can declare "some method" that users of a given planning
-class will have to define (i.e. define generic methods and let the user define
-the specific ones). This done by using Planner.method without a block:
-
-{coderay:: ruby}
-method :move_to, :returns => MoveTo
-{coderay}
+When using the action interface, the type declared as being the returned task
+type for the action is used as the placeholder. It allows to make it obvious
+what the system __intends__ to do.
 
 Failures in the planning methods
 --------------------------------
@@ -68,10 +52,9 @@ Delayed planning and task access
 --------------------------------
 When one calls another planner, the planning method is called right away. The
 returned task is, therefore, an actual plan (i.e. task with children and so
-on). However, interfaces with other plan-generation tools (such as the
-[rock-roby component-based
-tooling](http://rock-robotics.org/documentation/system/index.html)) might
-decide to always return a delayed planner by using the planning pattern.
+on). However, interfaces with other plan-generation tools (such as
+[syskit](http://rock-robotics.org/documentation/system/index.html)) might
+decide to always return a planner that will be executed when it is needed.
 
 In this case, you can obviously not access the children of the returned task directly.
 
@@ -89,7 +72,7 @@ Synchronizing on running tasks
 ------------------------------
 __Never__ assume a relation between a task's running state and its children /
 parent unless it is explicitely defined by some constraints. Startup of tasks
-is managed by the current scheduler, which can make any decision valid w.r.t.
+is managed by the a scheduler, which can make any decision valid w.r.t.
 the constraints encoded in the plan. Roby is very flexible in this respect, so
 -- unless you explicitely specify e.g. temporal constraints -- you should not
 assume that e.g. a task is running if its parent is. If you need

@@ -1,0 +1,66 @@
+---
+title: Shell
+sort_info: 100
+---
+
+The Roby shell is a command that allows you to command a Roby application from
+__outside__ it (i.e. remotely). The shell is started with
+
+~~~
+roby shell
+~~~
+
+if on another machine, one should add the --host option:
+
+~~~
+roby shell --host=robot[:port]
+~~~
+
+The main command is "help". It displays what other shell commands there is, as
+well as the list of available actions. To get more information about an action,
+do
+
+~~~
+describe action_name
+~~~
+
+For instance, in a controller where the actions [from
+before](../building/actions.html) are defined, help will give:
+
+
+Shell
+------------------------
+Planning methods can use other planning methods, in which case the return value
+is the task returned by the block:
+
+{coderay:: ruby}
+class MainPlanner < Roby::Planning::Planner
+  describe('follows a set of waypoints').
+    required_arg('waypoints',
+                 'an array of points as a list of [x, y] pairs')
+  method :follow_waypoints do
+    sequence = arguments[:waypoints].
+	map do |wp|
+	    move_to :target => wp
+	end
+    target = arguments[:waypoints].last
+    sequence.inject { |t0, t1| t0 + t1 }.
+	to_task(MoveTo.new(target)
+  end
+end
+{coderay}
+
+Moreover, the Robot object allows to use a planning method from any planner
+declared in Roby.app.planners (MainPlanner is automatically added there) to add
+a new mission to the robot's plan. It is used as the shell interface:
+
+{coderay:: ruby}
+Robot.move_to! :target => [10, 20]
+{coderay}
+
+The return value from Robot.move_to! is a __placeholder__ for the final task,
+which can be integrated in the current plan (i.e. used as parent, child, add
+event handlers, add event relations).  This is explained [on the next
+page](runtime.html)
+
+
