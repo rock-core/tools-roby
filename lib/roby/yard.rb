@@ -10,7 +10,6 @@ module Roby
                 name = statement.parameters[0].jump(:tstring_content, :ident).source
                 key_type, value_type = Utilrb::YARD::InheritedEnumerableHandler.
                     process(self, "#{name}_set", "#{name}_sets", true)
-                puts "#{name} #{key_type} #{value_type}"
 
                 push_state(:scope => :class) do
                     object = YARD::CodeObjects::MethodObject.new(namespace, "#{name}s", scope)
