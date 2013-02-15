@@ -42,5 +42,5 @@ transaction](../advanced_concepts/transactions.html).
 Relationship to Scheduling
 --------------------------
 The planned_by relation has no influence on [the basic and
-temporal schedulers](../advanced_concepts/scheduling).
+temporal schedulers](../advanced_concepts/scheduling.html).
 

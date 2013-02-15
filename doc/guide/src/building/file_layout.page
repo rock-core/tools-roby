@@ -48,7 +48,7 @@ lib/
 
 logs/
 : where the log files are going. See [this
-page](../tutorials/relations_display.html) for a description.
+page](../tutorial/relations_display.html) for a description.
 
 Loading sequence
 ----------------
