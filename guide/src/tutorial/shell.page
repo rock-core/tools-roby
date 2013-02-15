@@ -117,5 +117,5 @@ The value returned by the move! call can also be manipulated as if it was a task
 ~~~
 
 The action interface is described in details in the section about [Building Roby
-applications](../building). The shell in the section about [Interfacing with
-Roby applications](../interfacing).
+applications](../building). The shell in the section about [interacting with
+Roby applications](../interacting).

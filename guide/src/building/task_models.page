@@ -90,5 +90,5 @@ end
 Summary
 -------
 This page described how to create task models, i.e. to define interfaces in a
-Roby plan. [The next page](tasks.page) will tell you how to add code to your tasks to
+Roby plan. [The next page](tasks.html) will tell you how to add code to your tasks to
 actually "do" something.

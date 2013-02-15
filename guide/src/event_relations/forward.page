@@ -67,5 +67,5 @@ end
 Relationship to Scheduling
 --------------------------
 The forward relation has an influence on both [the basic and
-temporal schedulers](../scheduling).
+temporal schedulers](../advanced_concepts/scheduling.html).
 

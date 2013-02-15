@@ -72,6 +72,6 @@ The temporal constraint relation has two ways to report error:
 Relationship to Scheduling
 --------------------------
 The temporal constraint relation has an influence on [the temporal
-scheduler](../scheduling).
+scheduler](../advanced_concepts/scheduling.html).
 
 

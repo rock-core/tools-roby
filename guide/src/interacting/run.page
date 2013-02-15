@@ -10,7 +10,7 @@ roby run -c
 ~~~
 
 If a [specific robot configuration](../building/file_layout.html) needs to be
-picked up, the common -rROBOT[:ROBOT_TYPE] option can be given
+picked up, the common -rROBOT\[:ROBOT_TYPE] option can be given
 
 ~~~
 roby -rrobot -c

@@ -90,6 +90,6 @@ localhost:48902 > kill_job 1
 ~~~
 
 Additionally, the shell allows you to query the running plan using the
-[find_tasks query interface](../recognizing_patterns.html)
+[find_tasks query interface](../advanced_concepts/recognizing_patterns.html)
 
 Finally, execution errors happening in the controller are reported in the shell.
