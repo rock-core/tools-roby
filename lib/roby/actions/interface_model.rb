@@ -129,10 +129,13 @@ module Roby
                 end
 
                 begin
+                    register_action name, @current_description
+
                     root_m = @current_description.returned_type
                     arguments = @current_description.arguments.map(&:name)
                     machine_model = StateMachine.new_submodel(self, root_m, arguments)
                     machine_model.parse(&block)
+                    @current_description = nil
 
                     define_method(name) do |*arguments|
                         plan.add(root = root_m.new)
