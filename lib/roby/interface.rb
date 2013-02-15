@@ -375,25 +375,8 @@ module Roby
             nil
         end
 
-        # Displays details about the actions matching 'regex'
-        def describe(name, with_advanced = false)
-            name = Regexp.new(name)
-            m = @interface.actions.find_all { |p| name === p.name }
-
-            if !with_advanced
-                filtered = m.find_all { |m| !m.advanced? }
-                m = filtered if !filtered.empty?
-            end
-
-            if m.empty?
-                puts "no such method"
-            else
-                m.each do |desc|
-                    puts
-                    display_action_description(desc)
-                    puts
-                end
-            end
+        def describe(action)
+            pp action
             nil
         end
 
@@ -415,14 +398,13 @@ Shell Commands
 ==============
 Command         | Help
 ---------------------------------------------------------------------------------------------
-actions_summary(advanced = false) | displays the list of actions with a short documentation |
-actions(advanced = false)         | displays details for each available actions             |
-describe(regex)                   | displays details about the actions matching 'regex'     |
+help                              | this help message                                       |
+describe(action)                  | displays details about the given action                 |
 missions                          | displays the set of running missions with their status  |
 running_tasks                     | displays the set of running tasks with their status     |
 unmark(task)                      | remove permanent or mission mark on +task+              |
-                                  |                                                         |
-help                              | this help message                                       |
+jobs                              | the list of actions started with the associated job ID  |
+kill_job ID                       | stop job with the given ID                              |
 
             EOHELP
         end
