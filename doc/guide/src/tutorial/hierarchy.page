@@ -220,14 +220,17 @@ the planning method. For the first point, we will use the Roby::Pos::Vector3D cl
 that Roby provides (a simple x,y,z tuple). Edit scripts/controllers/goForward.rb and
 add:
 
-{coderay:: ruby}
+~~~ ruby
 State.pos = Roby::Pos::Vector3D.new
-{coderay}
+~~~
 
 Finally, edit models/planners/goForward/main.rb and add the following method:
 
-{coderay:: ruby}
-method(:planned_move) do
+~~~ ruby
+describe("a movement that is using a planner").
+    required_arg('x', 'the X part of the position').
+    required_arg('y', 'the Y part of the position')
+def planned_move(arguments)
  goal = Roby::Pos::Vector3D.new(*arguments.values_at(:x, :y))
  move    = MoveTo.new :goal => goal
  compute = ComputePath.new :goal => goal
@@ -240,14 +243,14 @@ method(:planned_move) do
  (compute + execute).to_task(move)
  move
 end
-{coderay}
+~~~
 
 Trying it out 
 -------------
 
 In one Unix shell, do
 
-    $ scripts/run goForward
+    $ roby run -rgoForward -c
     344919:32:59.172 (Roby) GC.enable does not accept an argument. GC will not be controlled by Roby
     344919:32:59.204 (goForward) loaded Roby 0.7.90 on ruby 1.8.7 (2008-08-11 patchlevel 72) [x86_64-linux]
     344919:32:59.272 (goForward) loading controller file /home/joyeux/dev/first_app/controllers/goForward.rb
@@ -255,12 +258,12 @@ In one Unix shell, do
 
 Then, **in another one**, start the Roby shell
 
-    $ scripts/shell
+    $ roby shell
     localhost:48902 >
 
 And do
 
-{coderay:: ruby}
+~~~ ruby
 localhost:48902 > planned_move! :x => 10, :y => 20
 => #<service Roby::Task:0x7f34d6dce5f8{}[]>
 localhost:48902 > 
@@ -269,5 +272,5 @@ localhost:48902 >
 [1] planned_move!: task MoveTo:0x7f34d6db7358{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[] started
 [1] planned_move!: task MoveTo:0x7f34d6db7358{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[] finished successfully
 [1] planned_move!: task MoveTo:0x7f34d6db7358{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[] has been removed
-{coderay}
+~~~
 
