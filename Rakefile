@@ -36,7 +36,6 @@ Roby.
     end
 
 rescue Exception => e
-    puts e.backtrace.join("\n  ")
     if e.message !~ /\.rubyforge/
         STDERR.puts "cannot load the Hoe gem, or Hoe fails. Distribution is disabled"
         STDERR.puts "error message is: #{e.message}"
