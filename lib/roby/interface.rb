@@ -45,26 +45,41 @@ module Roby
             @interfaces = Hash.new
         end
 
+        class DRobyManager < Distributed::DumbManager
+            def self.local_object(object)
+                if object.kind_of?(RemoteObjectProxy)
+                    object.remote_interface = @interface
+                    object
+                else
+                    super
+                end
+            end
+        end
+
 	def method_missing(m, *args) # :nodoc:
             if interfaces.has_key?(m)
                 return interfaces[m]
             end
-
-            dump = args.droby_dump(nil)
-	    result = @interface.send(m, *dump)
-            if result.kind_of?(ShellInterface)
-                interfaces[m] = RemoteShellInterface.new(result)
-	    elsif result.kind_of?(RemoteObjectProxy)
-		result.remote_interface = @interface
-                result
-            elsif result.respond_to?(:proxy)
-                result.proxy(Distributed::DumbManager)
-            else result
-	    end
+	    call_interface(m, *args)
 
 	rescue Exception => e
 	    raise e, e.message, e.backtrace
 	end
+
+        def call_interface(m, *args)
+            args = args.droby_dump(nil)
+            result = @interface.send(m, *args)
+
+            if result.kind_of?(ShellInterface)
+                interfaces[m] = RemoteShellInterface.new(result)
+            elsif result.kind_of?(RemoteObjectProxy)
+                result.remote_interface = @interface
+                result
+            elsif result.respond_to?(:proxy)
+                DRobyManager.local_object(result)
+            else result
+	    end
+        end
     end
 
     # Base class for synchronously calling methods on a running Roby plan
@@ -297,28 +312,6 @@ module Roby
             end
         end
 
-
-        # Displays a detailed description of available actions. If +advanced+ is
-        # true (false by default), advanced actions are displayed as well.
-        #
-        # Actions are planning methods defined on a registered Planner class.
-        # For instance:
-        #
-        #   class Main < Roby::Actions::Interface
-        #
-        #       describe("grasps the given object").
-        #           arg("object", "the object name ('GLASS' or 'PLATE')")
-        #       method :grasp do
-        #           Grasp.new(:object => arguments[:object])
-        #       end
-        #   end
-        def actions(with_advanced = false)
-            actions = @interface.send(:droby_call, :actions).proxy(Distributed::DumbManager)
-            actions.find_all do |m|
-                !m.advanced? || with_advanced
-            end
-        end
-
         # Standard way to display a set of tasks
 	def task_set_to_s(task_set) # :nodoc:
 	    if task_set.empty?
@@ -404,48 +397,12 @@ missions                          | displays the set of running missions with th
 running_tasks                     | displays the set of running tasks with their status     |
 unmark(task)                      | remove permanent or mission mark on +task+              |
 jobs                              | the list of actions started with the associated job ID  |
+job ID                            | returns the task object for job ID                      |
 kill_job ID                       | stop job with the given ID                              |
 
             EOHELP
         end
 
-        # Standard display of an action description. +m+ is a PlanningMethod
-        # object.
-        def display_action_description(m) # :nodoc:
-            args = m.arguments.
-                sort_by { |arg_desc| arg_desc.name }
-
-            first = true
-            args_summary = args.map do |arg_desc|
-                name        = arg_desc.name
-                is_required = arg_desc.required
-                format = if is_required then "%s"
-                         else "[%s]"
-                         end
-                text = format % ["#{", " if !first}:#{name} => #{name}"]
-                first = false
-                text
-            end
-
-            args_table = args.
-                map do |arg_desc|
-                    Hash['Argument' => arg_desc.name,
-                         'Description' => (arg_desc.doc || "(no description set)")]
-                end
-
-            method_doc = m.doc || [""]
-            puts "#{m.name}! #{args_summary.join("")}\n#{method_doc.join("\n")}"
-            if m.arguments.empty?
-                puts "No arguments"
-            else
-                ColumnFormatter.from_hashes(args_table, STDOUT,
-                                            :left_padding => "  ",
-                                            :header_delimiter => true,
-                                            :column_delimiter => "|",
-                                            :order => %w{Argument Description})
-            end
-        end
-    
         # Removes any permanent/mission mark on +task+, making it eligible for
         # GC
         def unmark(task)
@@ -455,10 +412,14 @@ kill_job ID                       | stop job with the given ID                  
 
         # Displays the set of running jobs
         def jobs
-            @interface.jobs.each do |srv|
-                puts "#{srv.id} #{srv.name}! #{srv.task}"
+            call_interface(:jobs).each do |srv|
+                puts "#{srv.id} #{srv.name}! #{srv.task.method_missing(:to_s)}"
             end
             nil
+        end
+
+        def job(id)
+            call_interface(:job, id)
         end
     end
 
@@ -616,7 +577,7 @@ kill_job ID                       | stop job with the given ID                  
 	    Roby.app.planners.
 		inject([]) do |list, p|
                     list.concat(p.each_action.to_a)
-                end.sort_by(&:name)
+                end.sort_by(&:name).droby_dump(nil)
 	end
 
         # Called every once in a while by RemoteInterface to read and clear the
@@ -721,13 +682,15 @@ kill_job ID                       | stop job with the given ID                  
         def jobs
             engine.execute do
                 @jobs.delete_if { |j| j.finished? }
-                @jobs.dup
+                @jobs.dup.map { |t| RemoteService.new(t) }
             end
         end
 
         def job(id)
             engine.execute do
-                @jobs.find { |j| j.id == id }
+                if t = @jobs.find { |j| j.id == id }
+                    RemoteService.new(t)
+                end
             end
         end
 
