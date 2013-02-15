@@ -340,7 +340,7 @@ module Roby
             extend StateMachineModel
 
             # The task that represents this state machine. It must fullfill
-            # {model}.task_model
+            # model.task_model
             # @return [Roby::Task]
             attr_reader :root_task
 

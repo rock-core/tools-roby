@@ -60,7 +60,7 @@ module Robot
     # This returns immediately, and the action is not yet deployed at that
     # point.
     #
-    # @returns task, planning_task
+    # @return task, planning_task
     def self.prepare_action(plan, name, arguments = Hash.new)
         if name.kind_of?(Class)
             planner_model, m = action_from_model(name)

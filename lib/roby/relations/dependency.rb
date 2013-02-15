@@ -521,7 +521,7 @@ module Roby::TaskStructure
     Hierarchy = Dependency
 
     module DependencyGraphClass::Extension::ClassExtension
-        # True if a fullfilled model has been explicitly set on {#self}
+        # True if a fullfilled model has been explicitly set on self
         # @return [Boolean]
         def explicit_fullfilled_model?; !!@fullfilled_model end
 
@@ -547,7 +547,7 @@ module Roby::TaskStructure
         
         # Enumerates the models that all instances of this task model fullfill
         #
-        # @yields [Model<Task>,Model<TaskService>]
+        # @yieldparam [Model<Task>,Model<TaskService>] model
         # @return [void]
         def each_fullfilled_model
             return enum_for(:each_fullfilled_model) if !block_given?

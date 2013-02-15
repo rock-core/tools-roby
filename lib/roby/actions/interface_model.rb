@@ -10,7 +10,7 @@ module Roby
 
             # The set of actions defined on this interface
             #
-            # @returns [Hash<String,ActionModel>]
+            # @return [Hash<String,ActionModel>]
             # @key_name action_name
             inherited_attribute(:registered_action, :actions, :map => true) { Hash.new }
 
@@ -102,7 +102,7 @@ module Roby
             # if there are none with that name
             #
             # @param [String] name
-            # @returns [ActionModel,nil]
+            # @return [ActionModel,nil]
             def find_action_by_name(name)
                 find_registered_action(name.to_s)
             end
@@ -110,8 +110,8 @@ module Roby
             # Returns all the action description for the actions that can
             # produce such a task
             #
-            # @param [Roby::Task,Roby::TaskService] name
-            # @returns [Array<ActionModel>]
+            # @param [Roby::Task,Roby::TaskService] type
+            # @return [Array<ActionModel>]
             def find_all_actions_by_type(type)
                 result = []
                 each_action do |description|
