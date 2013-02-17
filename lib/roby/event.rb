@@ -953,12 +953,19 @@ module Roby
 	    super
 	end
 
+        # Hook called when this object has been created inside a transaction and
+        # should be modified to now apply on the transaction's plan
+        def commit_transaction
+	    super if defined? super
+        end
+
         def added_child_object(child, relations, info) # :nodoc:
             super if defined? super
             if relations.include?(Roby::EventStructure::Precedence) && plan && plan.engine
                 plan.engine.event_ordering.clear
             end
         end
+
         def removed_child_object(child, relations) # :nodoc:
             super if defined? super
             if relations.include?(Roby::EventStructure::Precedence) && plan && plan.engine

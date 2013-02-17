@@ -653,33 +653,27 @@ module Roby
         # #added_tasks hooks are called for the objects that were not in
         # the plan.
 	def add(objects)
-	    event_seeds, tasks = partition_event_task(objects)
-	    event_seeds = (event_seeds || ValueSet.new).to_value_set
+	    events, tasks = partition_event_task(objects)
 
-	    if tasks
-		tasks = tasks.to_value_set
-		new_tasks = connected_task_component(nil, known_tasks.dup, tasks)
-		unless new_tasks.empty?
-		    old_task_events = task_events.dup
-		    new_tasks = add_task_set(new_tasks)
-		    event_seeds.merge(task_events - old_task_events)
+	    if tasks && !tasks.empty?
+                tasks = tasks.to_value_set
+		new_tasks = discover_new_objects(TaskStructure.relations, nil, known_tasks, tasks)
+		if !new_tasks.empty?
+		    add_task_set(new_tasks)
+                    events ||= ValueSet.new
+                    for t in new_tasks
+                        for ev in t.bound_events.values
+                            events << ev
+                        end
+                    end
 		end
 	    end
 
-	    if !event_seeds.empty?
-		events = event_seeds.dup
-
-		# now, we include the set of free events that are linked to
-		# +new_tasks+ in +events+
-		EventStructure.each_root_relation do |rel|
-		    components = rel.generated_subgraphs(event_seeds, false)
-		    components.concat rel.reverse.generated_subgraphs(event_seeds, false)
-		    for c in components
-			events.merge(c.to_value_set)
-		    end
-		end
-
-		add_event_set(events - task_events - free_events)
+	    if events && !events.empty?
+		events = events.to_value_set
+                new_events = discover_new_objects(EventStructure.relations, nil, free_events.dup, events)
+                new_events.delete_if { |ev| ev.respond_to?(:task) }
+		add_event_set(new_events)
 	    end
 
 	    self
@@ -690,17 +684,11 @@ module Roby
 	#
 	# This is for internal use, use #add instead
 	def add_event_set(events)
-	    events = events.difference(free_events)
-	    events.delete_if do |e|
-		if !e.root_object?
-		    true
-		else
-		    e.plan = self
-		    false
-		end
+	    events.each do |e|
+                e.plan = self
 	    end
 
-	    unless events.empty?
+	    if !events.empty?
 		free_events.merge(events)
 		added_events(events)
 	    end
@@ -713,12 +701,8 @@ module Roby
 	#
 	# This is for internal use, use #add instead
 	def add_task_set(tasks)
-	    tasks = tasks.difference(known_tasks)
 	    for t in tasks
 		t.plan = self
-                for ev in t.bound_events
-                    task_events << ev[1]
-                end
 		task_index.add t
 	    end
 	    known_tasks.merge tasks
@@ -727,7 +711,7 @@ module Roby
 	    for t in tasks
 		t.instantiate_model_event_relations
 	    end
-	    tasks
+	    nil
 	end
 
         def added_tasks(tasks)
@@ -782,10 +766,10 @@ module Roby
 
 	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
 	# Only the tasks that are in +complete_set+ are included.
-	def connected_task_component(complete_set, useful_set, seeds, explored_relations = Hash.new)
-	    old_useful_set = useful_set.dup
-            useful_set.merge(seeds.to_value_set)
-	    for rel in TaskStructure.relations
+	def discover_new_objects(relations, complete_set, useful_set, seeds, explored_relations = Hash.new)
+            new_objects = ValueSet.new
+            useful_set.merge(seeds)
+	    for rel in relations
 		next if !rel.root_relation?
 
                 explored_relations[rel] ||= [ValueSet.new, ValueSet.new]
@@ -793,25 +777,28 @@ module Roby
                 reverse_seeds = seeds - explored_relations[rel][0]
 		for subgraph in rel.reverse.generated_subgraphs(reverse_seeds, false)
                     explored_relations[rel][0].merge(subgraph)
-		    useful_set.merge(subgraph)
+		    new_objects.merge(subgraph)
 		end
 
                 direct_seeds = seeds - explored_relations[rel][1]
 		for subgraph in rel.generated_subgraphs(direct_seeds, false)
                     explored_relations[rel][1].merge(subgraph)
-		    useful_set.merge(subgraph)
+		    new_objects.merge(subgraph)
 		end
 	    end
 
 	    if complete_set
-		useful_set &= complete_set
+		new_objects.delete_if { |obj| !complete_set.include?(obj) }
 	    end
 
-	    if useful_set.size == old_useful_set.size || (complete_set && useful_set.size == complete_set.size)
-		useful_set
-	    else
-		connected_task_component(complete_set, useful_set, (useful_set - old_useful_set), explored_relations)
-	    end
+            new_objects.difference!(seeds)
+            new_objects.delete_if { |t| useful_set.include?(t) }
+            if new_objects.empty?
+                seeds
+            else
+                useful_set.merge(new_objects)
+                seeds.merge(discover_new_objects(relations, complete_set, useful_set, new_objects, explored_relations))
+            end
 	end
 
 	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.

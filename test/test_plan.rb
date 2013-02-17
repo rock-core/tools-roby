@@ -609,5 +609,48 @@ class TC_Plan < Test::Unit::TestCase
         assert_equal plan, root.plan
         assert_equal plan, t1.plan
     end
+
+    def test_discover_new_objects_single_object
+        t = Roby::Task.new
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = ValueSet.new), [t].to_value_set)
+        assert_equal [t], new.to_a
+        assert_equal [t], set.to_a
+    end
+
+    def test_discover_new_objects_with_child
+        t = Roby::Task.new
+        child = Roby::Task.new
+        t.depends_on child
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = ValueSet.new), [t].to_value_set)
+        assert_equal [t, child].to_value_set, new
+        assert_equal [t, child].to_value_set, set
+        plan.add([t, child])
+    end
+
+    def test_discover_new_objects_with_recursive
+        t = Roby::Task.new
+        child = Roby::Task.new
+        t.depends_on child
+        next_task = Roby::Task.new
+        child.planned_by next_task
+
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = ValueSet.new), [t].to_value_set)
+        assert_equal [t, child, next_task].to_value_set, new
+        assert_equal [t, child, next_task].to_value_set, set
+        plan.add([t, child, next_task])
+    end
+
+    def test_discover_new_objects_does_no_account_for_already_discovered_objects
+        t = Roby::Task.new
+        child = Roby::Task.new
+        t.depends_on child
+        next_task = Roby::Task.new
+        child.planned_by next_task
+
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = [child].to_value_set), [t].to_value_set)
+        assert_equal [t].to_value_set, new
+        assert_equal [t, child].to_value_set, set
+        plan.add([t, child, next_task])
+    end
 end
 
