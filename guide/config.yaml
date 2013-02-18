@@ -30,3 +30,8 @@ rdoclinks.base_module: Roby
 
 tag.coderay.line_numbers: false
 tag.coderay.lang: ruby
+
+contentprocessor.kramdown.options:
+    :entity_output: :symbolic
+    :coderay_line_numbers: ~
+
