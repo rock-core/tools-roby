@@ -785,8 +785,8 @@ module Roby
 		    end
 		end
                 event = generator.new(event_context, event_id, event_time)
+                generator.history << event
                 if generator.respond_to?(:task)
-                    generator.history << event
                     generator.task.update_task_status(event)
                 end
 		generator.plan.emitted_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]
