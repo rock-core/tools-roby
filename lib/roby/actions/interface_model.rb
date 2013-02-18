@@ -57,6 +57,7 @@ module Roby
             # interface. For instance, the start_all_devices action would create
             # a simple StartAllDevices task model.
             def register_action(name, action_model)
+                name = name.to_s
                 if action_model.returned_type == Roby::Task
                     task_model_name = name.camelcase(:upper)
                     if const_defined_here?(task_model_name)
