@@ -194,6 +194,10 @@ module Roby
             end
 
             def make(object, task_model = Roby::Task)
+                state(object, task_model)
+            end
+
+            def state(object, task_model = Roby::Task)
                 if object.kind_of?(State)
                     return object
                 elsif object.respond_to?(:to_action_state)
