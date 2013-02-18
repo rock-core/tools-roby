@@ -40,7 +40,8 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
 
     def test_it_starts_the_start_task_when_the_root_task_is_started
         action_m.state_machine 'test' do
-            start(start_task)
+            start = state start_task
+            start(start)
         end
 
         task = start_machine('test')
@@ -51,9 +52,9 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
 
     def test_it_can_transition_using_an_arbitrary_event
         action_m.state_machine 'test' do
-            monitor = depends_on monitoring_task
-            start_state = start_task
-            next_state  = next_task
+            depends_on(monitor = state(monitoring_task))
+            start_state = state start_task
+            next_state  = state next_task
             start(start_state)
             transition(start_state, monitor.success_event, next_state)
         end
@@ -67,9 +68,10 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
 
     def test_it_removes_during_transition_the_dependency_from_the_root_to_the_instanciated_tasks
         action_m.state_machine 'test' do
-            monitor = depends_on monitoring_task, :role => 'monitor'
-            start_state = start_task
-            next_state  = next_task
+            monitor = state(monitoring_task)
+            depends_on monitor, :role => 'monitor'
+            start_state = state start_task
+            next_state  = state next_task
             start(start_state)
             transition(start_state, monitor.start_event, next_state)
         end
@@ -81,9 +83,10 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
 
     def test_it_applies_a_transition_only_for_the_state_it_is_defined_in
         action_m.state_machine 'test' do
-            monitor = depends_on monitoring_task, :role => 'monitor'
-            start_state = start_task
-            next_state  = next_task
+            monitor = state monitoring_task
+            depends_on monitor, :role => 'monitor'
+            start_state = state start_task
+            next_state  = state next_task
             start(start_state)
             transition(next_state, monitor.start_event, start_state)
             transition(start_state, monitor.success_event, next_state)
@@ -103,8 +106,8 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
     def test_it_can_forward_events_from_child_to_parent
         task_m.event :next_is_done
         action_m.state_machine 'test' do
-            start_state = start_task
-            next_state  = next_task
+            start_state = state start_task
+            next_state  = state next_task
             start(start_state)
             transition(start_state.success_event, next_state)
             forward next_state.stop_event, next_is_done_event
@@ -121,7 +124,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
 
     def test_it_sets_up_dependencies_based_on_known_transitions
         action_m.state_machine 'test' do
-            start(start_task)
+            start(state(start_task))
         end
 
         task = start_machine('test')
@@ -135,7 +138,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
     def test_it_passes_given_arguments_to_the_state_machine_block
         description.required_arg(:task_id, "the task ID")
         action_m.state_machine 'test' do
-            start(start_task(:id => task_id))
+            start(state(start_task(:id => task_id)))
         end
 
         task = start_machine('test', :task_id => 10)
@@ -145,12 +148,12 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
     def test_it_raises_if_an_unknown_argument_is_accessed
         assert_raises(NameError) do
             action_m.state_machine 'test' do
-                start(start_task(:id => task_id))
+                start(state(start_task(:id => task_id)))
             end
         end
     end
 
-    def test_arbitrary_objects_must_be_converted_using_make_state_first
+    def test_arbitrary_objects_must_be_converted_using_state_first
         obj = flexmock
         obj.should_receive(:to_action_state)
         task_m = self.task_m
@@ -176,7 +179,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
                     required_arg(:first_state, 'the first state').
                     returns(task_m)
                 state_machine('test') do
-                    state = make(obj)
+                    state = state(obj)
                     start(state)
                 end
             end
@@ -188,7 +191,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
 
         description.required_arg(:first_task, 'the first state')
         action_m.state_machine('test') do
-            first_state = make(first_task)
+            first_state = state(first_task)
             start(first_state)
         end
 
@@ -206,7 +209,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
             should_receive(:run).once.
             with(child_m, any).pass_thru
         action_m.state_machine('test') do
-            start(start_task)
+            start(state(start_task))
         end
 
         task = child_m.find_action_by_name('test').instanciate(plan)

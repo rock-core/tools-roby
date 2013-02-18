@@ -1,7 +1,8 @@
 module Roby
     module Tools
         module Calculus
-            UNARY_OPS = [:-@, :+, :-, :*, :/, :**]
+            UNARY_OPS = [:-@, :+@]
+            BINARY_OPS = [:+, :-, :*, :/, :**]
             module Build
                 def method_missing(m, *args, &block)
                     if UNARY_OPS.include?(m)
