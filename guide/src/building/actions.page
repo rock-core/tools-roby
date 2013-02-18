@@ -117,11 +117,11 @@ with transition(event, next_state).
 ~~~ ruby
 state_machine 'move' do
   # Call other actions to get our states
-  path_planning  = state(self.path_planning(:target => [10, 10, 0]))
-  path_execution = state(self.path_execution)
+  planning  = state path_planning(:target => [10, 10, 0])
+  execution = state path_execution
 
-  start(path_planning)
-  transition(path_planning.success_event, path_execution)
+  start(planning)
+  transition(planning.success_event, execution)
 end
 ~~~
 
@@ -137,11 +137,11 @@ If the action has arguments, they can be referred to as local variables:
 describe("move to a given target point").
   required_arg('target', 'the speed it should move at in m/s')
 state_machine 'move' do
-  path_planning  = self.path_planning :target => target
-  path_execution = self.path_execution
+  planning  = state path_planning(:target => target)
+  execution = state path_execution
 
-  start(path_planning)
-  transition(path_planning.success_event, path_execution)
+  start(planning)
+  transition(planning.success_event, execution)
 end
 ~~~
 
@@ -153,8 +153,8 @@ state event to a terminal event on the toplevel task:
 describe("move to a given target point").
   required_arg('target', 'the speed it should move at in m/s')
 state_machine 'move_to' do
-  path_planning  = self.path_planning :target => target
-  path_execution = self.path_execution
+  planning  = state path_planning(:target => target)
+  execution = state path_execution
 
   start(path_planning)
   transition(path_planning.success_event, path_execution)
@@ -166,7 +166,7 @@ As an example, a wait-until-it-works action can be specified with:
 
 ~~~ ruby
 state_machine 'wait_until_it_works' do
-  act = my_action
+  act = state my_action
   start(act)
   transition(act.failed_event, act)
   forward act.success_event, success_event
