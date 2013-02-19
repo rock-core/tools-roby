@@ -1,5 +1,6 @@
 #! /usr/bin/env ruby
 
+begin
 require 'roby'
 require 'roby/log'
 require 'roby/log/server'
@@ -117,4 +118,8 @@ FileUtils.mkdir_p(File.dirname(config))
 File.open(config, 'w') do |io|
     YAML.dump(display.save_options, io)
 end
-
+rescue Interrupt
+    if defined? Roby::Log::Server
+        Roby::Log::Server.info "log server interrupted"
+    end
+end
