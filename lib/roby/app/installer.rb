@@ -2,55 +2,38 @@ require 'find'
 module Roby
     class Installer
 	# The directory in which we are installing
-	attr_reader :app_dir
+	attr_reader :app
 
-	# The configuration hash saved in config/roby.yml
-	attr_reader :config
-
-	def config_path; File.join(app_dir, 'config', 'roby.yml') end
-	def installed_plugins; config['plugins'] || [] end
-
-	def check_plugins(plugins)
-	    if name = plugins.find { |name| !Roby.app.defined_plugin?(name) }
-		known_plugins = Roby.app.available_plugins.map { |name, _| name }
-		raise ArgumentError, "unknown plugin #{name}. Available plugins are #{known_plugins.join(", ")}"
-	    end
+	def initialize(app)
+	    @app = app
+            init = File.join(app.app_dir, "config", "init.rb")
+            if File.file?(init)
+                require init
+            end
 	end
 
-	def initialize(app_dir)
-	    @app_dir = File.expand_path(app_dir)
-
-	    # Read the application configuration from config/roby.yml if the file exists,
-	    @config = if File.file?(config_path)
-			  YAML.load_file(config_path)
-		      else
-			  Hash['plugins', []]
-		      end
-	    check_plugins(config['plugins'])
-	end
-
-	def save_config
-	    File.open(config_path, 'w') do |io|
-		io << YAML.dump(config)
-	    end
-	end
+        def plugin_dirs
+            app.plugins.map do |plugin_name, _|
+                _, dir, _ = app.plugin_definition(plugin_name)
+                if File.file?(dir)
+                    File.dirname(dir)
+                else dir
+                end
+            end
+        end
 
 	# Install the template files for a core Roby application and the provided
 	# plugins
-	def install(plugins)
-	    check_plugins(plugins)
-	    install_dir(plugins) do |file|
+	def install
+	    install_dir(plugin_dirs) do |file|
 		next if file =~ /ROBOT/
 		file
 	    end
-
-	    config['plugins'] |= plugins
-	    save_config
 	end
 
 	# Installs the template files for a new robot named +name+
 	def robot(name)
-	    install_dir(installed_plugins) do |file|
+	    install_dir(plugin_dirs) do |file|
 		next if file !~ /ROBOT/
 		file.gsub /ROBOT/, name
 	    end
@@ -59,14 +42,12 @@ module Roby
 	# Copies the template files into the application directory, without erasing
 	# already existing files. +plugins+ is the list of plugins we should copy
 	# files from
-	def install_dir(plugins = [], &filter)
-	    Installer.copy_tree(File.join(Roby::ROBY_ROOT_DIR, 'app'), app_dir, &filter)
-	    plugins.each do |enabled_name|
-		plugin_desc = Roby.app.available_plugins.find { |name, dir, _, _| enabled_name == name }
-
-		plugin_app_dir = File.join(plugin_desc[1], 'app')
+	def install_dir(plugin_dirs = [], &filter)
+	    Installer.copy_tree(File.join(Roby::ROBY_ROOT_DIR, 'app'), app.app_dir, &filter)
+	    plugin_dirs.each do |dir|
+		plugin_app_dir = File.join(dir, 'app')
 		next unless File.directory?(plugin_app_dir)
-		Installer.copy_tree(plugin_app_dir, app_dir, &filter)
+		Installer.copy_tree(plugin_app_dir, app.app_dir, &filter)
 	    end
 	end
 

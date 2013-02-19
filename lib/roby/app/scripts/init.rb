@@ -1,5 +1,6 @@
 require 'roby/app/installer'
 
-installer = Roby::Installer.new(Roby.app.app_dir || Dir.pwd)
-installer.install([])
+Roby.app.app_dir = Roby.app.guess_app_dir || Dir.pwd
+installer = Roby::Installer.new(Roby.app)
+installer.install
 
