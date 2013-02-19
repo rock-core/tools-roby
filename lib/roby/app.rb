@@ -844,7 +844,9 @@ module Roby
             if !Roby.control
                 Roby.control = DecisionControl.new
             end
-            plan.engine = ExecutionEngine.new(plan, Roby.control)
+            if !plan.engine || (plan.engine.plan != plan)
+                plan.engine = ExecutionEngine.new(plan, Roby.control)
+            end
             if Roby.scheduler
                 plan.engine.scheduler = Roby.scheduler
             end
