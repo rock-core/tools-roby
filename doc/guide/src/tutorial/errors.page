@@ -150,7 +150,7 @@ The MoveTo is started, and therefore the event handler is called. Note that the
 event is still propagated as it __already happened__. Because of the failure,
 the task is killed by the garbage collection mechanism and the children are
 stopped as well since they are not useful anymore
-{: .figurecaption}
+{: .caption}
 
 For event commands, all depends on where the exception actually appears. If
 'emit' has already been called, then the event will be emitted and propagated.
@@ -359,19 +359,19 @@ ErrorHandling relation as well).
 {: .fullfigure}
 
 **Nominal execution**: the plan repair (in blue) is not executed yet and the ExecutePath is running
-{.figurecaption}
+{: .caption}
 
 ![](log_replay/plan_repair_2.png)
 {: .fullfigure}
 
 **ExecutePath fails**: the plan repair is queued for starting, and will actually start in the next cycle
-{.figurecaption}
+{: .caption}
 
 ![](log_replay/plan_repair_3.png)
 {: .fullfigure}
 
 **Repair started**
-{.figurecaption}
+{: .caption}
 
 ![](log_replay/plan_repair_4.png)
 {: .fullfigure}

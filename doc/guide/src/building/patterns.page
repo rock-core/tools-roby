@@ -27,7 +27,7 @@ __Using forwarding to create high-level events from low-level ones__. This
 allows the rest of the plan to only synchronize on the high-level "leak_found"
 event instead of explicitely looking at the children. If the PipelineRepair is
 implemented in a different way, the rest of the behaviour will stay unchanged.
-{: .caption}
+{: .figurecaption}
 
 This pattern is commonly used to forward failure and/or success up in the
 dependency hierarchy: the success event of one child task is forwarded to the
