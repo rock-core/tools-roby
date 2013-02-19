@@ -33,7 +33,7 @@ module Roby
         #
         # It is always the same as Roby.app.plan
         #
-        # @returns [Plan]
+        # @return [Plan]
         def plan; app.plan end
 
         # The main execution engine
@@ -42,7 +42,7 @@ module Roby
         #
         # Note that it is nil until the Roby application is configured
         #
-        # @returns [ExecutionEngine]
+        # @return [ExecutionEngine]
         def engine; app.plan.engine end
     end
     

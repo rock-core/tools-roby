@@ -46,18 +46,14 @@ to other tasks. The general guidelines here are:
  * use events for synchronization
  * use attributes for data transfer
 
-Embed protocols in task code, embed plan building in planning methods
----------------------------------------------------------------------
+Embed protocols in task code, embed plan building in actions
+------------------------------------------------------------
 What tasks do with each other form __protocols__. I.e., any given task assumes
 that other task will emit events A, B, C and have attributes filled in with data
 when e.g. these events are emitted.
 
 However, to be reusable, a task should not __by itself__ build the plan, i.e.
-add the relevant tasks. This should be left to planning methods.
-
-Of course, for reusability, one might offer class methods in tasks that build
-"patterns", and that are called from within planning methods. But that is
-different from having __instance methods__ in tasks that build plans.
+add the relevant tasks. This should be left to actions.
 
 Embedding placeholders in the plan {#abstract-tasks}
 ----------------------------------

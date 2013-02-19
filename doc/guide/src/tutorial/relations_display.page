@@ -14,10 +14,11 @@ Getting a log file
 Using logging is the most common case, so it is enabled by default. However, it
 is can be expensive from a CPU point of view. To disable, edit config/app.yml
 and comment "events: false" around line 23. 
+{: .block}
 
 Run the controller again
 
-    # roby run goForward
+    # roby run -rgoForward -c
 
 and in the shell, do
 
@@ -55,7 +56,8 @@ from data in the first one. It is simply used to speed up operations.
 
 The data in the event log can be used to display the plan operations in a GUI.
 For that, you need to have installed [Ruby/Qt4](http://korundum.rubyforge.org), as
-the GUI is written using Qt and Ruby.
+the GUI is written using Qt and Ruby. This can be done by installing the
+qtbindings rubygem.
 
 To start it, simply do the following in the directory of the log files:
 

@@ -1,0 +1,95 @@
+---
+title: Shell
+sort_info: 100
+---
+
+The Roby shell is a command that allows you to command a Roby application from
+__outside__ it (i.e. remotely). The shell is started with
+
+~~~
+roby shell
+~~~
+
+if on another machine, one should add the --host option:
+
+~~~
+roby shell --host=robot[:port]
+~~~
+
+__Note__ while the first connection requires a running controller, the shell
+does not need to be restarted when the Roby application is. It will reconnect
+automatically.
+{: .block}
+
+The main command is "help". It displays what other shell commands there is, as
+well as the list of available actions. To get more information about an action,
+do
+
+~~~
+localhost:48902 > describe action_name
+~~~
+
+For instance, in a controller where the actions [from
+before](../building/actions.html) are defined, the beginning of the help message
+would be:
+
+~~~
+Available Actions
+=================
+
+Name                 | Description                 
+---------------------------------------------------
+move!                | move                        
+move_to!             | move to a given target point
+wait_until_it_works! | waits until my_action passes
+~~~
+
+Then, to get the details about the move_to action in particular, one would do:
+
+~~~
+localhost:48902 > describe move_to
+Action move_to defined on Main
+  Returns Main::MoveTo
+  Arguments:
+    target: the speed it should move at in m/s (required)
+~~~
+
+Managing actions
+----------------
+Any action can be started from the shell using the action_name! syntax.
+Arguments are passed as a hash.
+
+~~~
+localhost:48902 > move_to! :target => [10, 10, 0]
+[1] move_to! started to plan
+[1] move_to!: Main::MoveTo:0x3c5b4c8{}[] has been replaced by Main::MoveTo:0x3fde0c8{}[]
+[1] move_to!: task Main::MoveTo:0x3fde0c8{}[] started
+~~~
+
+What you get here is a notification that job 1 has been first inserted in an
+abstract way ("started to plan"), then replaced by the actual task ("replaced
+by") and then started.
+
+The job can be inspected later on
+
+~~~
+localhost:48902 > jobs
+1 move_to! Main::MoveTo:0x3c5b4c8{}[]
+~~~
+
+And killed ...
+
+~~~
+localhost:48902 > kill_job 1
+[1] move_to!: task Main::MoveTo:0x3c5b4c8{}[] failed
+= fatal exception 1: mission failed: Main::MoveTo:0x26c67e8{}[]
+| [17:52:56.275 @2] Main::MoveTo:0x3c5b4c8{}[]/failed
+| The following tasks have been killed:
+| Main::MoveTo:0x3c5b4c8
+[1] move_to!: task Main::MoveTo:0x3c5b4c8{}[] has been removed
+~~~
+
+Additionally, the shell allows you to query the running plan using the
+[find_tasks query interface](../advanced_concepts/recognizing_patterns.html)
+
+Finally, execution errors happening in the controller are reported in the shell.

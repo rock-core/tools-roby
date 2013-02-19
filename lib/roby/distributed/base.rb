@@ -464,9 +464,6 @@ module Roby
 
         class DumbManager
             def self.local_object(obj)
-                if obj.kind_of?(DRbObject)
-                    raise ArgumentError, "trying to droby-unmarshal a DRbObject"
-                end
                 if obj.respond_to?(:proxy)
                     obj.proxy(self)
                 else obj

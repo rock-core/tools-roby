@@ -9,34 +9,35 @@ non-interruption of that event loop. Therefore, in a Roby application, the user
 runs a remote shell that is used to send specific commands to the Roby
 application itself.
 
-Planners
+Actions
 --------
 Right now, we saw two different places where code is stored:
 
 1. the models/tasks/ files, where task models are defined
 2. the scripts/controllers/ files, which is the startup code for the application
 
-What we will see in this section is a third component: the **planners**. These
-planners define the aggregate actions that the robot knows about. As we will see
-later, they also are the user interface of the robot.
+What we will see in this section is a third component: the **action
+interfaces**. They define what the robot can do, i.e. the overall actions that
+it is able to realize. What we will see here is that they also are the user
+interface of the robot.
 
 Exporting actions to the user's shell
 -------------------------------------
 
-Edit models/planners/goForward/main.rb and edit so that it looks like this:
+Edit models/actions/goForward/main.rb and edit so that it looks like this:
 
-{coderay:: ruby}
-require 'models/planners/main'
-class MainPlanner
+~~~ ruby
+require 'models/actions/main'
+class Main
   describe('moves the robot in a forward direction').
     required_arg('speed', 'the speed in m/s at which the robot should move')
-  method(:move) do
+  def move(arguments)
     GoForward.new :speed => arguments[:speed]
   end
 end
-{coderay}
+~~~
 
-That exports a very simple action to the user's shell. Now, we can try out the
+That defines a very simple 'move' action. Now, we can try it out in the
 Roby shell. First, remove the last three lines in scripts/controllers/goForward.rb so
 that it looks like this:
 
@@ -50,9 +51,9 @@ Roby.every(1) do
 end
 {coderay}
 
-Now, start the roby application in one console:
+Start the roby application in one console:
 
-    $ roby run goForward
+    $ roby run -rgoForward -c
     44848:44:51.498 (Roby) GC.enable does not accept an argument. GC will not be controlled by Roby
     344848:44:51.581 (goForward) loaded Roby 0.7.90 on ruby 1.8.7 (2008-08-11 patchlevel 72) [powerpc-linux]
     344848:44:51.603 (goForward) loading controller file /home/doudou/dev/roby-tutorials/controllers/goForward.rb
@@ -66,46 +67,43 @@ Finally, start the shell in another console:
     localhost:48902 >
 
 Note that the shell does not have to be executed on the same machine than the controller.
-You can connect remotely with the --host option
+You can connect remotely with the --host option. Moreover, even though it
+requires a controller to be running when it starts, it will reconnect
+automatically afterwards.
 {: .note}
 
 The new prompt you get is a Ruby prompt (i.e. you should type Ruby code in it).
 Some special commands are available to interact with the Roby controller. For
 instance:
 
-{coderay:: ruby}
-> actions
-move! :speed => speed
-moves the robot in a forward direction
-  Argument | Description                                    
-  ----------------------------------------------------------
-  speed    | the speed in m/s at which the robot should move
-{coderay}
+~~~ ruby
+localhost:48902 > describe move
+~~~
 
-The 'action' command lists the available planning methods that are exported
-through the MainPlanner class. Let's try it (**notice the '!' at the end of
+The 'help' command lists the available actions that are exported
+through the Main class. Let's try it (**notice the '!' at the end of
 move!**):
 
-{coderay:: ruby}
-> move! :speed => 1
+~~~ ruby
+localhost:48902 > move! :speed => 1
 => #<service Roby::Task:0x7f06da2ab308{}[]>
 localhost:48902 >
 [1] move! started to plan
 [1] move!: Roby::Task:0x7f06da2ab308{}[] has been replaced by GoForward:0x7f06da28f298{speed => 1}[]
 [1] move!: task GoForward:0x7f06da28f298{speed => 1}[] started
+> kill_job 1
 [1] move!: task GoForward:0x7f06da28f298{speed => 1}[] failed
 [1] move!: task GoForward:0x7f06da28f298{speed => 1}[] has been removed
-> kill_job 1
-{coderay}
+~~~
 
 The __intent__ to run the move is first added to the plan. Then, it gets
-developped by calling the planning method (the "started to plan" stanza), and
+developped by calling the action interface (the "started to plan" stanza), and
 the result replaces the placeholder task ("has been replaced by ..."). It then
 becomes eligible for [scheduling](../concepts/execution.html#scheduling) and is started.
 
 The value returned by the move! call can also be manipulated as if it was a task itself. For instance:
 
-{coderay:: ruby}
+~~~ ruby
 > t = move! :speed => 1
 => #<service Roby::Task:0x7f06da2ab308{}[]>
 [1] move! started to plan                                                                                                                                        
@@ -116,5 +114,8 @@ The value returned by the move! call can also be manipulated as if it was a task
 > t.stop!
 [3] move!: task GoForward:0x7f06da215e20{speed => 1}[] failed
 [3] move!: task GoForward:0x7f06da215e20{speed => 1}[] has been removed
-{coderay}
+~~~
 
+The action interface is described in details in the section about [Building Roby
+applications](../building). The shell in the section about [interacting with
+Roby applications](../interacting).

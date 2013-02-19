@@ -1,0 +1,33 @@
+---
+title: Running a Roby application
+sort_info: 50
+---
+
+A Roby application gets started with
+
+~~~
+roby run -c
+~~~
+
+If a [specific robot configuration](../building/file_layout.html) needs to be
+picked up, the common -rROBOT\[:ROBOT_TYPE] option can be given
+
+~~~
+roby -rrobot -c
+~~~
+
+The -c option tells Roby to load a _controller file_. This file has to be named
+as the robot (therefore -c is meaningless without a robot name) and stored in
+scripts/controllers/ (e.g. scripts/controllers/myrobot.rb). The controller file
+is meant as a way to define a "full application", i.e. a predefined startup and
+reaction system that is "the" overall behaviour of the robot. Running the
+application without -c is usually meant for debugging.
+
+Additionally, actions can be specified on the command line (as they would be
+given on Roby shell's command line, see the next page). They get started
+automatically. You probably will have to quote the actions, as the exclamation
+mark is often a reserved character.
+
+~~~
+roby run -rmyrobot 'move!(:target => [10, 0, 0])'
+~~~

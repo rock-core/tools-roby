@@ -21,8 +21,8 @@ That directory will become your first Roby application by running "roby init":
     creating models/
     creating models/tasks/
     creating models/tasks/.gitattributes
-    creating models/planners/
-    creating models/planners/main.rb
+    creating models/actions/
+    creating models/actions/main.rb
     creating scripts/
     creating scripts/controllers/
     creating scripts/controllers/.gitattributes
@@ -30,7 +30,6 @@ That directory will become your first Roby application by running "roby init":
     creating config/
     creating config/init.rb
     creating config/app.yml
-    creating config/roby.yml
     creating data/
     creating data/.gitattributes
 
@@ -52,8 +51,8 @@ First, let's create the files specific to this robot
     $ roby add-robot goForward
     creating models/tasks/goForward/
     creating models/tasks/goForward/.gitattributes
-    creating models/planners/goForward/
-    creating models/planners/goForward/main.rb
+    creating models/actions/goForward/
+    creating models/actions/goForward/main.rb
     creating scripts/controllers/goForward.rb
     creating config/goForward.rb
 
@@ -95,7 +94,7 @@ go.start!
 
 You can then start the robot controller, and then stop it with CTRL+C.
 
-    $ roby run goForward
+    $ roby run -rgoForward -c
     335705:25:08.324 (goForward) loading controller file /home/doudou/dev/goForward/scripts/controllers/goForward.rb
     Going forward at speed 0.1
     335705:25:08.356 (goForward) done initialization
@@ -108,10 +107,10 @@ You can then start the robot controller, and then stop it with CTRL+C.
 
 Broken down explanation
 -----------------------
-* the Roby::State object holds all the state data that
+* the State object holds all the state data that
   represents the robot's state. In our case, we initialize the robot's position
   in the controller file, and then update it when the robot moves. An equivalent
-  singleton exists for configuration, Roby::Conf
+  singleton exists for configuration, Conf
 
 * the poll statement adds a block that should be executed during each execution
   cycle **if the task is running** (see the [concepts](../concepts/execution.html))

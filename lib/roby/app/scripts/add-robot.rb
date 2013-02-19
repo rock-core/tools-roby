@@ -1,5 +1,6 @@
 require 'roby/app/installer'
 
+Roby.app.require_app_dir
 unless robotname = ARGV.shift
     STDERR.puts "No robot name given on command line"
     STDERR.puts parser

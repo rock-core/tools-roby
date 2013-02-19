@@ -29,8 +29,8 @@ module Roby
         StateMachineVariable = Struct.new :name do
             include Tools::Calculus::Build
             def evaluate(variables)
-                if variables.has_key?(value.name)
-                    variables[value.name]
+                if variables.has_key?(name)
+                    variables[name]
                 else
                     raise ArgumentError, "expected a value for #{arg}, got none"
                 end
@@ -193,9 +193,12 @@ module Roby
                 submodel
             end
 
-            def make(object, task_model = Roby::Task)
-                if object.kind_of?(State)
-                    return object
+            # Creates a state from an object
+            def state(object, task_model = Roby::Task)
+                if object.kind_of?(Action)
+                    state = StateFromAction.new(object)
+                    states << state
+                    state
                 elsif object.respond_to?(:to_action_state)
                     state = object.to_action_state
                     states << state
@@ -214,7 +217,7 @@ module Roby
 
             def self.validate_state(object)
                 if !object.kind_of?(State)
-                    raise ArgumentError, "expected a state object, got #{object}. Did you forget to define it by calling #make first ?"
+                    raise ArgumentError, "expected a state object, got #{object}. Did you forget to define it by calling #state first ?"
                 end
                 object
             end
@@ -321,9 +324,7 @@ module Roby
                     end
                     StateMachineVariable.new(m)
                 elsif action = action_interface.find_action_by_name(m.to_s)
-                    s = StateFromAction.new(action_interface.send(m, *args, &block))
-                    states << s
-                    s
+                    action_interface.send(m, *args, &block)
                 elsif m.to_s =~ /(.*)_event$/
                     find_event($1)
                 else return super
@@ -340,7 +341,7 @@ module Roby
             extend StateMachineModel
 
             # The task that represents this state machine. It must fullfill
-            # {model}.task_model
+            # model.task_model
             # @return [Roby::Task]
             attr_reader :root_task
 
@@ -377,7 +378,9 @@ module Roby
                     end
                 end
                 root_task.execute do
-                    instanciate_state(model.starting_state)
+                    if model.starting_state
+                        instanciate_state(model.starting_state)
+                    end
                 end
 
                 @state_info = generate_state_info

@@ -10,7 +10,7 @@ module Roby
 
             # The set of actions defined on this interface
             #
-            # @returns [Hash<String,ActionModel>]
+            # @return [Hash<String,ActionModel>]
             # @key_name action_name
             inherited_attribute(:registered_action, :actions, :map => true) { Hash.new }
 
@@ -57,6 +57,7 @@ module Roby
             # interface. For instance, the start_all_devices action would create
             # a simple StartAllDevices task model.
             def register_action(name, action_model)
+                name = name.to_s
                 if action_model.returned_type == Roby::Task
                     task_model_name = name.camelcase(:upper)
                     if const_defined_here?(task_model_name)
@@ -102,7 +103,7 @@ module Roby
             # if there are none with that name
             #
             # @param [String] name
-            # @returns [ActionModel,nil]
+            # @return [ActionModel,nil]
             def find_action_by_name(name)
                 find_registered_action(name.to_s)
             end
@@ -110,8 +111,8 @@ module Roby
             # Returns all the action description for the actions that can
             # produce such a task
             #
-            # @param [Roby::Task,Roby::TaskService] name
-            # @returns [Array<ActionModel>]
+            # @param [Roby::Task,Roby::TaskService] type
+            # @return [Array<ActionModel>]
             def find_all_actions_by_type(type)
                 result = []
                 each_action do |description|
@@ -129,10 +130,13 @@ module Roby
                 end
 
                 begin
+                    register_action name, @current_description
+
                     root_m = @current_description.returned_type
                     arguments = @current_description.arguments.map(&:name)
                     machine_model = StateMachine.new_submodel(self, root_m, arguments)
                     machine_model.parse(&block)
+                    @current_description = nil
 
                     define_method(name) do |*arguments|
                         plan.add(root = root_m.new)
