@@ -47,7 +47,14 @@ module Robot
         end
 
         if candidates.empty?
-            raise ArgumentError, "cannot find an action named #{name}"
+            available_actions = Roby.app.planners.map do |planner_model|
+                planner_model.each_action.map(&:name)
+            end.flatten
+            if available_actions.empty?
+                raise ArgumentError, "cannot find an action named #{name}, there are no actions defined"
+            else
+                raise ArgumentError, "cannot find an action named #{name}, available actions are: #{available_actions.sort.join(", ")}"
+            end
         elsif candidates.size > 1
             raise ArgumentError, "more than one action interface provide the #{name} action: #{candidates.map { |pl, m| "#{pl}" }.sort.join(", ")}"
         else candidates.first
