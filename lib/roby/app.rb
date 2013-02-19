@@ -474,7 +474,7 @@ module Roby
                 plugin_path.split(':').each do |plugin|
                     if File.directory?(plugin)
                         load_plugins_from_prefix plugin
-                    else
+                    elsif File.file?(plugin)
                         load_plugin_file plugin
                     end
                 end
