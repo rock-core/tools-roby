@@ -1,6 +1,7 @@
 module Roby
     module TaskStructure
         class << Roby::Task
+            extend MetaRuby::Attributes
             inherited_attribute(:conflicting_model, :conflicting_models) { ValueSet.new }
         end
 	module ModelConflicts
