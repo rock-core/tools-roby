@@ -13,6 +13,11 @@ module Roby
                 @model, @arguments = model, arguments
             end
 
+            # The task model returned by this action
+            def returned_type
+                model.returned_type
+            end
+
             # Returns a plan pattern that would deploy this action in the plan
             # @return [Roby::Task] the task, with a planning task of type
             #   {Actions::Task}
