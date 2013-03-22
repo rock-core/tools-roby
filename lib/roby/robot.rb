@@ -23,6 +23,7 @@ module Robot
                 candidates << [planner_model, action]
             end
         end
+        candidates = candidates.uniq
             
         if candidates.empty?
             raise ArgumentError, "cannot find an action to produce #{model}"
@@ -45,6 +46,7 @@ module Robot
                 candidates << [planner_model, m]
             end
         end
+        candidates = candidates.uniq
 
         if candidates.empty?
             available_actions = Roby.app.planners.map do |planner_model|
