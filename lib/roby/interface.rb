@@ -673,14 +673,14 @@ kill_job ID                       | stop job with the given ID                  
                 shell.pending_messages << [:info, "[#{service.id}] #{name}! started to plan"]
 
                 plan.add_mission(task)
-                service = RemoteService.new(service)
                 @jobs << service
-                service
+                RemoteService.new(service)
             end
 	end
 
         def jobs
             engine.execute do
+                @jobs.delete_if { |j| !j.task.plan }
                 @jobs.delete_if { |j| j.finished? }
                 @jobs.dup.map { |t| RemoteService.new(t) }
             end
@@ -724,5 +724,4 @@ kill_job ID                       | stop job with the given ID                  
         end
     end
 end
-
 
