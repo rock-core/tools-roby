@@ -272,6 +272,10 @@ module Roby
 	# True if all logs should be kept after testing
 	attr_predicate :testing_overwrites_logs?, true
 
+        # True if plugins should be discovered, registered and loaded (true by
+        # default)
+        attr_predicate :plugins_enabled?, true
+
         # Defines common configuration options valid for all Roby-oriented
         # scripts
         def self.common_optparse_setup(parser)
@@ -350,6 +354,7 @@ module Roby
 
 	def initialize
 	    @plugins = Array.new
+            @plugins_enabled = true
             @plan = Plan.new
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
@@ -468,6 +473,10 @@ module Roby
         end
         
         def register_plugins
+            if !plugins_enabled?
+                return
+            end
+
             # Load the plugins 'main' files
             load_plugins_from_prefix File.join(ROBY_ROOT_DIR, 'plugins')
             if plugin_path = ENV['ROBY_PLUGIN_PATH']
