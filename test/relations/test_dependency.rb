@@ -412,7 +412,7 @@ class TC_Dependency < Test::Unit::TestCase
         child_model = intermediate.new_submodel
         child = child_model.new(:id => 'child')
 
-        options = { :role => 'child1', :model => Task, :success => [], :failure => [] }.
+        options = { :role => 'child1', :model => Task, :failure => :start.never }.
             merge(special_options)
         parent.depends_on child, options
 
@@ -420,8 +420,7 @@ class TC_Dependency < Test::Unit::TestCase
             :remove_when_done=>true,
             :model => [[Roby::Task], {}],
             :roles => ['child1'].to_set,
-            :success => nil,
-            :failure => :start.never }.merge(special_options)
+            :success => :success.to_unbound_task_predicate, :failure => :start.never }.merge(special_options)
         assert_equal expected_info, parent[child, Dependency]
 
         return parent, child, expected_info, child_model, tag
@@ -638,6 +637,18 @@ class TC_Dependency < Test::Unit::TestCase
         submodel.fullfilled_model = [model, tag]
         plan.add(task = submodel.new)
         assert_equal [[model, tag], Hash.new], task.fullfilled_model
+    end
+
+    def test_merging_dependency_options_should_not_add_success_if_none_is_given
+        options = Roby::TaskStructure::DependencyGraphClass.validate_options(Hash.new)
+        result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(options, options)
+        assert !result.has_key?(:success)
+    end
+
+    def test_merging_dependency_options_should_not_add_failure_if_none_is_given
+        options = Roby::TaskStructure::DependencyGraphClass.validate_options(Hash.new)
+        result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(options, options)
+        assert !result.has_key?(:failure)
     end
 end
 

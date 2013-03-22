@@ -625,19 +625,23 @@ module Roby::TaskStructure
 
             result = { :remove_when_done => opt1[:remove_when_done], :consider_in_pending => opt1[:consider_in_pending] }
 
-            result[:success] =
-                if !opt1[:success] then opt2[:success]
-                elsif !opt2[:success] then opt1[:success]
-                else
-                    opt1[:success].and(opt2[:success])
-                end
+            if opt1[:success] || opt2[:success]
+                result[:success] =
+                    if !opt1[:success] then opt2[:success]
+                    elsif !opt2[:success] then opt1[:success]
+                    else
+                        opt1[:success].and(opt2[:success])
+                    end
+            end
 
-            result[:failure] =
-                if !opt1[:failure] then opt2[:failure]
-                elsif !opt2[:failure] then opt1[:failure]
-                else
-                    opt1[:failure].or(opt2[:failure])
-                end
+            if opt1[:failure] || opt2[:failure]
+                result[:failure] =
+                    if !opt1[:failure] then opt2[:failure]
+                    elsif !opt2[:failure] then opt1[:failure]
+                    else
+                        opt1[:failure].or(opt2[:failure])
+                    end
+            end
 
             # Check model compatibility
             models1, arguments1 = opt1[:model]
