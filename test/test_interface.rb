@@ -56,7 +56,7 @@ class TC_Interface < Test::Unit::TestCase
         Roby.app.planners.clear
         Roby.app.planners.concat([planner, actions])
         iface = Interface.new(engine)
-        iface_actions = iface.actions
+        iface_actions = Distributed::DumbManager.local_object(iface.actions)
         assert_equal 2, iface_actions.size
         actions.test_action
         assert_equal actions.test_action.model, iface_actions.find { |act| act.name == 'test_action' }
