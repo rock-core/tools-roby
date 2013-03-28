@@ -167,10 +167,12 @@ module Roby
                     trsc.discard_transaction!
                 end
 
-                if plan.engine.scheduler
-                    plan.engine.scheduler.enabled = false
+                if plan.engine
+                    if plan.engine.scheduler
+                        plan.engine.scheduler.enabled = false
+                    end
+                    plan.engine.quit
                 end
-                plan.engine.quit
                 # Pre-run garbage collection. The standard runtime behaviour of
                 # process events is to run GC last (would not make sense
                 # otherwise). This teardown procedure is a bit special in this respect
