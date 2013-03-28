@@ -167,9 +167,8 @@ module Roby
                     trsc.discard_transaction!
                 end
 
-                # Mark all readily-removable tasks as non-executable
-                if Roby.scheduler
-                    Roby.scheduler.enabled = false
+                if plan.engine.scheduler
+                    plan.engine.scheduler.enabled = false
                 end
                 process_events
 
