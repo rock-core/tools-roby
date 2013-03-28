@@ -1899,7 +1899,7 @@ module Roby
 	    return_value = nil
 	    Roby.synchronize do
 		if !running?
-		    raise "control thread not running"
+		    raise ExecutionQuitError, "control thread not running"
 		end
 
 		caller_thread = Thread.current
