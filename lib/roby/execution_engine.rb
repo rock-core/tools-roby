@@ -1279,6 +1279,9 @@ module Roby
 	    events_errors = nil
             next_steps = gather_propagation do
 	        events_errors = gather_errors do
+                    if quitting?
+                        garbage_collect([])
+                    end
                     gather_external_events
                     call_propagation_handlers
 	        end
