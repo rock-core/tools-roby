@@ -90,7 +90,9 @@ module Roby
             Roby.app.reload_config
 
             @timings = Hash.new
-            @plan = Roby.plan
+            if !@plan
+                @plan = Roby.plan
+            end
 
             super if defined? super
 
