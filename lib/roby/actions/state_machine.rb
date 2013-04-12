@@ -204,7 +204,7 @@ module Roby
                     states << state
                     state
                 elsif object.respond_to?(:instanciate)
-                    state = State.new(object, task_model)
+                    state = StateFromInstanciationObject.new(object, task_model)
                     states << state
                     state
                 elsif object.kind_of?(StateMachineVariable)
