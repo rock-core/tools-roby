@@ -629,7 +629,7 @@ kill_job ID                       | stop job with the given ID                  
 		name = $`.to_sym
             elsif Robot.respond_to?(name)
                 return Robot.send(name, *args)
-            elsif action = Robot.action_from_name(name.to_s)
+            elsif action = Robot.find_action_from_name(name.to_s)
                 return action.last.droby_dump(nil)
             else
 		super

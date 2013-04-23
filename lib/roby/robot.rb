@@ -39,7 +39,7 @@ module Robot
     #
     # @raise [ArgumentError] if no actions with that name exists, or if more
     #   than one action interface provide one
-    def self.action_from_name(name)
+    def self.find_action_from_name(name)
         candidates = []
         Roby.app.planners.each do |planner_model|
             if m = planner_model.find_action_by_name(name)
@@ -48,7 +48,15 @@ module Robot
         end
         candidates = candidates.uniq
 
-        if candidates.empty?
+        if candidates.size > 1
+            raise ArgumentError, "more than one action interface provide the #{name} action: #{candidates.map { |pl, m| "#{pl}" }.sort.join(", ")}"
+        else candidates.first
+        end
+    end
+
+    def self.action_from_name(name)
+        action = find_action_from_name(name)
+        if !action
             available_actions = Roby.app.planners.map do |planner_model|
                 planner_model.each_action.map(&:name)
             end.flatten
@@ -57,10 +65,8 @@ module Robot
             else
                 raise ArgumentError, "cannot find an action named #{name}, available actions are: #{available_actions.sort.join(", ")}"
             end
-        elsif candidates.size > 1
-            raise ArgumentError, "more than one action interface provide the #{name} action: #{candidates.map { |pl, m| "#{pl}" }.sort.join(", ")}"
-        else candidates.first
         end
+        action
     end
 
     # Generate the plan pattern that will call the required action on the
