@@ -3,14 +3,16 @@ require 'state_machine/machine'
 module Roby
     # Helper to get a more roby-like feeling to the state machine definitions
     class StateMachineDefinitionContext
+        attr_reader :task_model
         attr_reader :state_machine
 
-        def initialize(state_machine)
+        def initialize(task_model, state_machine)
+            @task_model = task_model
             @state_machine = state_machine
         end
 
         def script_in_state(state, &block)
-            script_engine = Roby::TaskScripting::ScriptEngine.new
+            script_engine = Roby::TaskScripting::ScriptEngine.new(task_model)
             script_engine.load(&block)
 
             state_machine.before_transition state_machine.any => state, :do => lambda { |proxy|
@@ -272,7 +274,7 @@ module Roby
                 machine = StateMachine::Machine.find_or_create(proxy_model, :status, :initial => :running)
             end
 
-            machine_loader = StateMachineDefinitionContext.new(machine)
+            machine_loader = StateMachineDefinitionContext.new(self, machine)
             machine_loader.instance_eval(&block)
             @state_machine = machine
 

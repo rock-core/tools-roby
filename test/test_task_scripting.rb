@@ -170,42 +170,26 @@ class TC_TaskScripting < Test::Unit::TestCase
         end
         parent, (child, planning_task) = prepare_plan :missions => 1, :add => 2, :model => model
         parent.depends_on(child, :role => 'subtask')
-        child.abstract = true
-        child.planned_by(planning_task)
-        planning_task.on :start do |event|
-            child.depends_on(model.new, :role => 'subsubtask')
-            child.abstract = false
-            planning_task.emit :success
-        end
 
-        planning_task.executable = false
-
-        counter = 0
+        recorder = flexmock
+        recorder.should_receive(:first_execute).once.ordered
+        recorder.should_receive(:second_execute).once.ordered
         parent.script do
             wait intermediate_event
-            execute { counter += 1 }
+            execute do
+                recorder.first_execute
+                child.depends_on(model.new, :role => 'subsubtask')
+            end
             wait subtask_child.subsubtask_child.intermediate_event
-            execute { counter += 1 }
+            execute do
+                recorder.second_execute
+            end
         end
         parent.start!
 
-        3.times { process_events }
-        assert_equal 0, counter
         parent.emit :intermediate
-        3.times { process_events }
-
-        assert(planning_task.pending?)
-        assert(child.pending?)
-        assert_equal 1, counter
-
-        planning_task.executable = true
-        planning_task.start!
-        3.times { process_events }
-        assert_equal 1, counter
-
+        process_events
         child.subsubtask_child.emit :intermediate
-        3.times { process_events }
-        assert_equal 2, counter
     end
 
     def test_wait_for_duration

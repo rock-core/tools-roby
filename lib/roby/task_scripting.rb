@@ -15,13 +15,16 @@ module Roby
             attr_reader :logger
             # Set of Script objects bound to this engine
             attr_reader :scripts
+            # The task model this script engine is being executed on
+            attr_reader :task_model
 
             # The task that holds this scripting engine 
             def __task__
                 @task
             end
 
-            def initialize
+            def initialize(task_model)
+                @task_model = task_model
                 @elements = []
                 @logger = Roby::TaskScripting
                 @scripts = []
@@ -48,6 +51,9 @@ module Roby
             # by execution blocks to resolve some of the necessary information
             # (children, ...)
             def prepare(task)
+                if !task.kind_of?(task_model)
+                    raise ArgumentError, "attempting to bind #{self} on #{task}, was expecting a task of model #{task_model}"
+                end
                 @task = task
                 super if defined? super
 
@@ -57,22 +63,6 @@ module Roby
             end
 
             attr_accessor :time_barrier
-
-            def validate_event_request(event_spec)
-                if event_spec.respond_to?(:resolve)
-                    event_spec.bind(@task)
-                else
-                    @task.event(event_spec)
-                end
-            end
-
-            def resolve_event_request(event_spec)
-                if event_spec.respond_to?(:resolve)
-                    event_spec.resolve(@task)
-                else
-                    @task.event(event_spec)
-                end
-            end
 
             def execute
                 while !@elements.empty?
@@ -96,7 +86,7 @@ module Roby
             end
 
             def load(&block)
-                loader = Script.new(self)
+                loader = Script.new(task_model, self)
                 @scripts << loader
                 loader.load(&block)
             end
@@ -110,84 +100,14 @@ module Roby
             end
 
             def method_missing(m, *args, &block)
-                if !@task
+                if !__task__
                     return super 
                 end
 
                 catch(:no_match) do
                     return script_extensions(m, *args, &block)
                 end
-                @task.send(m, *args, &block)
-            end
-        end
-
-        # Proxy object returned by the *_event methods to allow access to child
-        # events
-        class Event
-            def initialize(child, event_name)
-                @child, @event_name = child, event_name
-            end
-
-            def bind(task)
-                @child.bind(task)
-            end
-
-            # Returns the specified event when applied on +task+
-            def resolve(task)
-                child_task = @child.resolve(task)
-                child_task.event(@event_name)
-            end
-
-            def to_s
-                @child.to_s + ".#{@event_name}_event"
-            end
-        end
-
-        # Proxy object returned by the *_child methods to allow access to task
-        # children
-        class Child
-            def initialize(chain)
-                @chain = chain
-            end
-
-            def bind(task)
-                @task = task
-            end
-
-            def method_missing(m, *args, &block)
-                if args.empty? && !block
-                    case m.to_s
-                    when /^(\w+)_child$/
-                        return Child.new(@chain.dup << $1)
-                    when /^(\w+)_event$/
-                        return Event.new(self, $1)
-                    end
-                end
-
-                if @task
-                    catch(:retry_block) do
-                        return resolve(@task).send(m, *args, &block)
-                    end
-                    raise NoMethodError, "child #{@chain.join(".")} does not yet exist on #{@task}"
-                else
-                    raise NoMethodError, "you cannot use this object outside scripting, you probably forgot to put code in an execute { } or poll { } block."
-                end
-            end
-
-            # Returns the specified child when applied on +task+
-            def resolve(task)
-                @chain.inject(task) do |child, role|
-                    if !(next_child = child.find_child_from_role(role))
-                        if child.abstract? && child.planning_task && !child.planning_task.finished?
-                            throw :retry_block
-                        end
-                    end
-                    next_child
-                end
-            end
-
-            def to_s
-                @chain.map { |name| "#{name}_child" }.join(".")
+                __task__.send(m, *args, &block)
             end
         end
 
@@ -227,14 +147,25 @@ module Roby
         #     root_task.depends_on(localization_task, :role => 'localization')
         #
         class Script
+            include Actions::ExecutionContextModel
+
             # The ScriptEngine instance that is going to execute this script
             attr_reader :script_engine
-
             # The block that has been used to define this script
             attr_reader :definition_block
 
-            def initialize(script_engine)
+            def initialize(model, script_engine)
                 @script_engine = script_engine
+                @root = Actions::ExecutionContextModel::Root.new(model)
+            end
+
+            def normalize_event_spec(event_spec)
+                if !event_spec.respond_to?(:bind)
+                    if !(event_spec = find_event(event_spec.to_sym))
+                        raise ArgumentError, "no event #{event_spec} on #{task_model}"
+                    end
+                end
+                event_spec
             end
 
             def rebind(script_engine)
@@ -245,6 +176,8 @@ module Roby
                 @definition_block = block
                 instance_eval(&block)
             end
+
+            def has_argument?(name); false end
 
             # Use +logger+ as the script logger object. It can be any object
             # that responds to the normal debug methods #debug, #info, #warn and #fatal
@@ -309,7 +242,7 @@ module Roby
             def timeout(duration, options = Hash.new, &block)
                 options = Kernel.validate_options options, :emit => nil
 
-                subscript = ScriptEngine.new
+                subscript = ScriptEngine.new(task_model)
                 subscript.load(&block)
 
                 start_time = nil
@@ -343,10 +276,10 @@ module Roby
                 with_description "PollUntil(#{event_spec}): #{caller(1).first}" do
                     done = false
                     prepare do
-                        validate_event_request(event_spec)
+                        event_spec.bind(__task__)
                     end
                     execute do
-                        event = resolve_event_request(event_spec)
+                        event = event_spec.resolve
                         if !options.has_key?(:after)
                             options[:after] = self.time_barrier
                         end
@@ -372,12 +305,13 @@ module Roby
             #
             # Use #wait to wait for a new emission
             def wait_any(event_spec)
+                event_spec = normalize_event_spec(event_spec)
                 with_description "WaitAny(#{event_spec}): #{caller(1).first}" do
                     prepare do
-                        validate_event_request(event_spec)
+                        event_spec.bind(__task__)
                     end
                     poll do
-                        event = resolve_event_request(event_spec)
+                        event = event_spec.resolve
                         if event.happened?
                             self.time_barrier = event.last.time
                             transition!
@@ -398,8 +332,9 @@ module Roby
                     Roby.warn_deprecated "wait(time_in_seconds) is deprecated in task scripting. Use sleep(time_in_seconds) instead"
                     sleep(event_spec_or_time)
                 else
-                    with_description "Wait(#{event_spec_or_time}): #{caller(1).first}" do
-                        poll_until(event_spec_or_time, options) { }
+                    event_spec = normalize_event_spec(event_spec_or_time)
+                    with_description "Wait(#{event_spec}): #{caller(1).first}" do
+                        poll_until(event_spec, options) { }
                     end
                 end
             end
@@ -419,12 +354,13 @@ module Roby
 
             # Emit the specified event
             def emit(event_spec)
+                event_spec = normalize_event_spec(event_spec)
                 with_description "Emit(#{event_spec}): #{caller(1).first}" do
                     prepare do
-                        validate_event_request(event_spec)
+                        event_spec.bind(__task__)
                     end
                     execute do
-                        event = resolve_event_request(event_spec)
+                        event = event_spec.resolve
                         event.emit
                     end
                 end
@@ -463,34 +399,15 @@ module Roby
 
                 trigger_event = nil
                 prepare do
-                    if child.respond_to?(:to_sym) || child.respond_to?(:to_str)
-                        child, _ = Robot.prepare_action(nil, child, planning_args)
-                    end
-
                     child = depends_on(child, options)
-
                     trigger_event = Roby::EventGenerator.new(true)
                     child.should_start_after trigger_event
                 end
 
-                child_proxy = Child.new([role_id])
+                child_proxy = Child.new(root, role_id, child)
                 execute { trigger_event.emit }
-                wait(Event.new(child_proxy, :start))
+                wait(child_proxy.start_event)
                 child_proxy
-            end
-
-            # Implementation of the *_child and *_event handlers
-            def method_missing(m, *args, &block)
-                if args.empty? && !block
-                    case m.to_s
-                    when /^(\w+)_child$/
-                        child_name = $1
-                        return Child.new([child_name])
-                    when /^(\w+)_event$/
-                        return $1
-                    end
-                end
-                super
             end
         end
         
@@ -642,7 +559,7 @@ module Roby
         # Adds a script that is going to be executed for every instance of this
         # task model
         def self.script(&block)
-            script = TaskScripting::ScriptEngine.new
+            script = TaskScripting::ScriptEngine.new(self)
             script.load(&block)
             scripts << script
         end
@@ -670,7 +587,7 @@ module Roby
         # Adds a task script that is going to be executed while this task
         # instance runs.
         def script(options = Hash.new, &block)
-            script = TaskScripting::ScriptEngine.new
+            script = TaskScripting::ScriptEngine.new(self.model)
             script.load(&block)
             execute(options) do |task|
                 script.prepare(task)

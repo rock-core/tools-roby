@@ -7,16 +7,30 @@ module Roby
             # A representation of an event on the execution context's task
             class Event
                 # @return [ExecutionContext,Task] The task this event is defined on
-                attr_reader :task
+                attr_reader :task_model
                 # @return [Symbol] the event's symbol
                 attr_reader :symbol
 
-                def initialize(task, symbol)
-                    @task, @symbol = task, symbol.to_sym
+                def initialize(task_model, symbol)
+                    @task_model, @symbol = task_model, symbol.to_sym
                 end
 
                 def bind(task)
-                    task.bind(task).event(symbol)
+                    @task = task
+                    task_model.bind(task)
+                end
+
+                def resolve
+                    task_model.resolve.event(symbol)
+                end
+
+                def method_missing(m, *args, &block)
+                    if @task # we are bound to something
+                        resolve.send(m, *args, &block)
+                    elsif task_model.method_defined?(m)
+                        raise NoMethodError, "#{self} is not yet bound to any actual task. You will be able to call ##{m} only when the underlying task is started"
+                    else super
+                    end
                 end
             end
 
@@ -27,6 +41,10 @@ module Roby
 
                 def initialize(model)
                     @model = model
+                end
+
+                def bind(task)
+                    @task = task
                 end
 
                 def find_event(event_name)
@@ -55,6 +73,7 @@ module Roby
                     when /^(.*)_event$/
                         event_name = $1
                         if event = find_event(event_name)
+                            event.bind(@task) if @task
                             return event
                         else
                             raise ArgumentError, "#{model.name} has no event called #{event_name}"
@@ -62,11 +81,18 @@ module Roby
                     when /^(.*)_child$/
                         role = $1
                         if child = find_child(role)
-                            return role
+                            child.bind(@task) if @task
+                            return child
                         else
                             raise ArgumentError, "#{model.name} has no child with the role #{role}"
                         end
-                    else return super
+                    else
+                        if @task # we are bound to something
+                            resolve.send(m, *args, &block)
+                        elsif task_model.method_defined?(m)
+                            raise NoMethodError, "#{self} is not yet bound to any actual task. You will be able to call ##{m} only when the underlying task is started"
+                        else super
+                        end
                     end
                 end
             end
@@ -75,9 +101,13 @@ module Roby
             class Root < Task
                 def bind(task)
                     if !task.kind_of?(model)
-                        raise ArgumentError, "cannot bind #{self} to #{task}: was expecting #{model} but got #{task.model}"
+                        raise ArgumentError, "cannot bind #{self} to #{task}: was expecting an object of type #{model}"
                     end
-                    task
+                    super
+                end
+
+                def resolve
+                    @task
                 end
             end
 
@@ -93,11 +123,15 @@ module Roby
                 def initialize(parent, role, model)
                     @parent, @role, @model = parent, role, model
                 end
-                
-                def bind(task)
-                    parent.bind(task).child_from_role(role)
-                end
 
+                def bind(task)
+                    parent.bind(task)
+                    super
+                end
+                
+                def resolve
+                    parent.resolve.child_from_role(role)
+                end
             end
 
             # Placeholder, in the execution contexts, for variables. It is
