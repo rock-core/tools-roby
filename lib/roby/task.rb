@@ -189,9 +189,9 @@ module Roby
             # Plan#discover when this task is included in a plan, thus avoiding
             # filling up the relation graphs with unused relations.
 	    initialize_events
-	    
-            if machine = ::Roby::TaskStateMachine.from_model(self.class)
-                instance_variable_set(:@state_machine, machine)
+
+            if self.model.state_machine
+                @state_machine = TaskStateMachine.new(self.model.state_machine)
             end
 	end
         
@@ -1050,8 +1050,8 @@ module Roby
                     poll_handler
                 end
 	        
-                if respond_to?(:state_machine)
-                   state_machine.do_poll(self)
+                if machine = state_machine
+                   machine.do_poll(self)
                 end
 
                 @poll_handlers.each do |poll_block|

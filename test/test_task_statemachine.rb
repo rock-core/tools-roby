@@ -84,8 +84,8 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         assert( @testTask.state_machine.status == 'running')
     end
 
-    def test_has_all_states
-        all_states = @testTask.state_machine.all_states
+    def test_has_states
+        all_states = @testTask.state_machine.states
         check_states = [ :zero, :one, :two, :three ]
         check_states.each do |state|
             assert( all_states.index(state) >= 0 )

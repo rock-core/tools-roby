@@ -307,22 +307,8 @@ module Roby
 
                 if options.has_key?(:controlable)
                     options[:command] = options[:controlable]
-                end
-
-                if !options.has_key?(:command)
-                    if block
-                        check_arity(block, 1)
-                        define_method("event_command_#{ev_s}", &block)
-                        method = instance_method("event_command_#{ev_s}")
-                        options[:command] = lambda do |dst_task, *event_context| 
-                            begin
-                                dst_task.calling_event = dst_task.event(event_name)
-                                method.bind(dst_task).call(*event_context) 
-                            ensure
-                                dst_task.calling_event = nil
-                            end
-                        end
-                    end
+                elsif !options.has_key?(:command) && block
+                    options[:command] = define_command_method(ev_s, block)
                 end
                 validate_event_definition_request(event_name, options)
 
@@ -344,19 +330,38 @@ module Roby
                 end
                 const_set(ev_s.camelcase(:upper), new_event)
 
+                define_event_methods(ev_s)
+                new_event
+            end
+
+            def define_command_method(event_name, block)
+                check_arity(block, 1)
+                define_method("event_command_#{event_name}", &block)
+                method = instance_method("event_command_#{event_name}")
+                lambda do |dst_task, *event_context| 
+                    begin
+                        dst_task.calling_event = dst_task.event(event_name)
+                        method.bind(dst_task).call(*event_context) 
+                    ensure
+                        dst_task.calling_event = nil
+                    end
+                end
+            end
+
+            def define_event_methods(ev_s)
                 if !method_defined?("#{ev_s}_event")
                     define_method("#{ev_s}_event") do
-                        event(event_name)
+                        event(ev_s)
                     end
                 end
                 if !method_defined?("#{ev_s}?")
                     define_method("#{ev_s}?") do
-                        event(event_name).happened?
+                        event(ev_s).happened?
                     end
                 end
                 if !method_defined?("#{ev_s}!")
                     define_method("#{ev_s}!") do |*context| 
-                        generator = event(event_name)
+                        generator = event(ev_s)
                         generator.call(*context) 
                     end
                 end
@@ -367,8 +372,6 @@ module Roby
                         end
                     end
                 end
-
-                new_event
             end
 
             def validate_event_definition_request(event_name, options) #:nodoc:
