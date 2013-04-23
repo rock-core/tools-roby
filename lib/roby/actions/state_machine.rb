@@ -1,42 +1,5 @@
-require 'roby/actions/calculus'
 module Roby
     module Actions
-        # A representation of an event on a state
-        class StateEvent
-            attr_reader :state
-            attr_reader :symbol
-            def initialize(state, symbol)
-                @state, @symbol = state, symbol
-            end
-        end
-
-        # A representation of an event on the toplevel state machine
-        class StateMachineEvent
-            # The state machine model this event is defined on
-            # @return [Model<StateMachine>]
-            attr_reader :state_machine
-            # The event symbol
-            # @return [Symbol]
-            attr_reader :symbol
-            def initialize(state_machine, symbol)
-                @state_machine, @symbol = state_machine, symbol
-            end
-        end
-
-        # Placeholder, in the state machine definition, for variables. It is
-        # used for instance to hold the arguments to the state machine during
-        # modelling, replaced by their values during instanciation
-        StateMachineVariable = Struct.new :name do
-            include Tools::Calculus::Build
-            def evaluate(variables)
-                if variables.has_key?(name)
-                    variables[name]
-                else
-                    raise ArgumentError, "expected a value for #{arg}, got none"
-                end
-            end
-        end
-
         # Generic representation of a state in a StateMachine
         #
         # It requires to be given a task model, which is the model of the task
@@ -47,41 +10,18 @@ module Roby
         #
         # In a given StateMachineModel, a state is represented by an unique
         # instance of State or of one of its subclasses
-        class State
-            attr_reader :task_model
+        class State < ExecutionContextModel::Task
             attr_reader :dependencies
 
-            def initialize(task_model)
-                @task_model = task_model
+            def initialize(model)
+                super(model)
                 @dependencies = Set.new
-            end
-
-            # Returns the state event for the given event on this state
-            def find_event(name)
-                if ev = task_model.find_event(name.to_sym)
-                    StateEvent.new(self, ev.symbol)
-                end
             end
 
             def depends_on(action, options = Hash.new)
                 options = Kernel.validate_options options, :role
                 StateMachineModel.validate_state(action)
                 dependencies << [action, options[:role]]
-            end
-
-            def method_missing(m, *args, &block)
-                if m.to_s =~ /(\w+)_event$/
-                    ev_name = $1
-                    if !args.empty?
-                        raise ArgumentError, "expected zero arguments, got #{args.size}"
-                    end
-                    ev = find_event(ev_name)
-                    if !ev
-                        raise NoMethodError, "#{ev_name} is not an event of #{self}"
-                    end
-                    return ev
-                else return super
-                end
             end
         end
 
@@ -148,11 +88,8 @@ module Roby
 
         # Definition of model-level functionality for StateMachine models
         module StateMachineModel
-            include MetaRuby::ModelAsClass
+            include ExecutionContextModel
 
-            # The action model for this state machine
-            # @return [Model<Roby::Task>] a subclass of Roby::Task
-            attr_accessor :task_model
             # The action interface model this state machine model is defined on
             # @return [InterfaceModel]
             attr_accessor :action_interface
@@ -169,9 +106,6 @@ module Roby
             # The set of defined forwards, as (State,EventName)=>EventName
             # @return [Array<(StateEvent,TaskEvent)>]
             inherited_attribute(:forward, :forwards) { Array.new }
-            # The set of arguments available on this state machine
-            # @return [Array<Symbol>]
-            inherited_attribute(:argument, :arguments) { Array.new }
             # A set of actions that should always be active when this state
             # machine is running
             # @return [Set<State>]
@@ -186,9 +120,7 @@ module Roby
             #   state machine
             # @return [Model<StateMachine>] a subclass of StateMachine
             def new_submodel(action_interface, task_model = Roby::Task, arguments = Array.new)
-                submodel = Class.new(self)
-                submodel.task_model = task_model
-                submodel.arguments.concat(arguments.map(&:to_sym).to_a)
+                submodel = super(task_model, arguments)
                 submodel.action_interface = action_interface
                 submodel
             end
@@ -207,7 +139,7 @@ module Roby
                     state = StateFromInstanciationObject.new(object, task_model)
                     states << state
                     state
-                elsif object.kind_of?(StateMachineVariable)
+                elsif object.kind_of?(ExecutionContextModel::Variable)
                     state = StateFromVariable.new(object.name, task_model)
                     states << state
                     state
@@ -240,7 +172,7 @@ module Roby
             def transition(*spec)
                 if spec.size == 2
                     state_event, new_state = *spec
-                    transition(state_event.state, state_event, StateMachineModel.validate_state(new_state))
+                    transition(state_event.task, state_event, StateMachineModel.validate_state(new_state))
                 elsif spec.size != 3
                     raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
                 else
@@ -262,7 +194,7 @@ module Roby
             def forward(*spec)
                 if spec.size == 2
                     state_event, target_event = *spec
-                    forward(state_event.state, state_event, target_event)
+                    forward(state_event.task, state_event, target_event)
                 elsif spec.size != 3
                     raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
                 else
@@ -303,30 +235,9 @@ module Roby
                 instance_eval(&block)
             end
 
-            # Returns an object that can be used to refer to an event of the
-            # toplevel task on which this state machine model applies
-            def find_event(event_name)
-                if event = task_model.find_event(event_name.to_sym)
-                    StateMachineEvent.new(self, event.symbol)
-                end
-            end
-
-            # Returns true if this is the name of an argument for this state
-            # machine model
-            def has_argument?(name)
-                each_argument.any? { |n| n == name }
-            end
-
             def method_missing(m, *args, &block)
-                if has_argument?(m)
-                    if args.size != 0
-                        raise ArgumentError, "expected zero arguments to #{m}, got #{args.size}"
-                    end
-                    StateMachineVariable.new(m)
-                elsif action = action_interface.find_action_by_name(m.to_s)
+                if action = action_interface.find_action_by_name(m.to_s)
                     action_interface.send(m, *args, &block)
-                elsif m.to_s =~ /(.*)_event$/
-                    find_event($1)
                 else return super
                 end
             end
@@ -337,27 +248,11 @@ module Roby
         # In such state machine, each state is represented by the task returned
         # by the corresponding action, and the transitions are events on these
         # tasks
-        class StateMachine
+        class StateMachine < ExecutionContext
             extend StateMachineModel
-
-            # The task that represents this state machine. It must fullfill
-            # model.task_model
-            # @return [Roby::Task]
-            attr_reader :root_task
-
-            # The set of arguments given to this state machine model
-            # @return [Hash]
-            attr_reader :arguments
 
             # The action interface model that is supporting this state machine
             attr_reader :action_interface_model
-
-            # The state machine model
-            # @return [Model<StateMachine>] a subclass of StateMachine
-            # @see StateMachineModel
-            def model
-                self.class
-            end
 
             # The current state
             attr_reader :current_state
@@ -369,14 +264,9 @@ module Roby
             attr_reader :state_info
 
             def initialize(action_interface_model, root_task, arguments = Hash.new)
+                super(root_task, arguments)
+
                 @action_interface_model = action_interface_model
-                @root_task = root_task
-                @arguments = Kernel.normalize_options arguments
-                model.arguments.each do |key|
-                    if !@arguments.has_key?(key)
-                        raise ArgumentError, "expected an argument named #{key} but got none"
-                    end
-                end
                 root_task.execute do
                     if model.starting_state
                         instanciate_state(model.starting_state)
@@ -394,16 +284,16 @@ module Roby
                     forwards = Hash.new
                     model.each_transition do |in_state, event, new_state|
                         if in_state == state
-                            actions[event.state] ||= Set.new
-                            transitions[event.state] ||= Set.new
-                            transitions[event.state] << [event.symbol, new_state]
+                            actions[event.task] ||= Set.new
+                            transitions[event.task] ||= Set.new
+                            transitions[event.task] << [event.symbol, new_state]
                         end
                     end
                     model.each_forward do |in_state, event, target_symbol|
                         if in_state == state
-                            actions[event.state] ||= Set.new
-                            forwards[event.state] ||= Set.new
-                            forwards[event.state] << [event.symbol, target_symbol]
+                            actions[event.task] ||= Set.new
+                            forwards[event.task] ||= Set.new
+                            forwards[event.task] << [event.symbol, target_symbol]
                         end
                     end
                     actions.each_key do |a|
