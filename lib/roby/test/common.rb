@@ -84,6 +84,7 @@ module Roby
                     end
 		end
 	    end
+            original_collections.clear
 	end
 
 	def setup
@@ -193,6 +194,10 @@ module Roby
                 STDERR.puts "failed to teardown: plan has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
             end
 	    plan.clear
+            if plan.engine
+                plan.engine.clear
+                plan.engine.emitted_events.clear
+            end
 
 	ensure
 	    Roby.logger.level = old_gc_roby_logger_level

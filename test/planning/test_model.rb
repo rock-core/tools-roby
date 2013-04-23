@@ -77,7 +77,7 @@ class TC_Planner < Test::Unit::TestCase
     def test_find_methods_by_return_value
         task_t = Roby::Task.new_submodel
         other_task_t = Roby::Task.new_submodel
-        subtask_t = Class.new(task_t)
+        subtask_t = task_t.new_submodel
 
         method_model = nil
         m = []
@@ -108,7 +108,7 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_reuse
 	task_model = Task.new_submodel
-	derived_model = Class.new(task_model)
+	derived_model = task_model.new_submodel
 	planner_model = Class.new(Planner) do
 	    method(:reusable, :returns => task_model)
 	    method(:not_reusable, :returns => task_model, :reuse => false)
@@ -247,7 +247,7 @@ class TC_Planner < Test::Unit::TestCase
     def test_method_model
 	# Some task models
         tm_a = Roby::Task.new_submodel
-        tm_a_a = Class.new(tm_a)
+        tm_a_a = tm_a.new_submodel
         tm_b = Roby::Task.new_submodel
         foo_klass = Class.new
 
@@ -280,8 +280,8 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_model_of
         tm1 = Roby::Task.new_submodel
-	tm2 = Class.new(tm1)
-	tm3 = Class.new(tm2)
+	tm2 = tm1.new_submodel
+	tm3 = tm2.new_submodel
 	base = Class.new(Planner) do
 	    method(:root, :returns => tm1)
 	    method(:root, :id => 'nil') { }
@@ -318,7 +318,7 @@ class TC_Planner < Test::Unit::TestCase
     def test_returns_inheritance
 	# Some task models
         tm_a = Roby::Task.new_submodel
-        tm_a_a = Class.new(tm_a)
+        tm_a_a = tm_a.new_submodel
         tm_b = Roby::Task.new_submodel
         foo_klass = Class.new
 
@@ -371,9 +371,9 @@ class TC_Planner < Test::Unit::TestCase
 	# Define a few task models
         tm_a	    = Roby::Task.new_submodel
         tm_b	    = Roby::Task.new_submodel
-        tm_a_a	    = Class.new(tm_a)
-        tm_a_a_a    = Class.new(tm_a_a)
-        tm_b_a	    = Class.new(tm_a)
+        tm_a_a	    = tm_a.new_submodel
+        tm_a_a_a    = tm_a_a.new_submodel
+        tm_b_a	    = tm_a.new_submodel
 
         base = Class.new(Planner) do
             method(:root, :returns => tm_a)

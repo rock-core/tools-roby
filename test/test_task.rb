@@ -244,7 +244,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def do_test_instantiate_model_relations(method, relation, additional_links = Hash.new)
-	klass = Class.new(Roby::Tasks::Simple) do
+	klass = Roby::Tasks::Simple.new_submodel do
             4.times { |i| event "e#{i + 1}", :command => true }
             send(method, :e1 => [:e2, :e3], :e4 => :stop)
 	end
@@ -1610,7 +1610,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_dup
-        model = Class.new(Roby::Tasks::Simple) do
+        model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
         end
 	plan.add(task = model.new)

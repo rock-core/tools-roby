@@ -1079,6 +1079,7 @@ module Roby
             clear_models
             stop_log_server
             stop_drb_service
+            planners.clear
             call_plugins(:cleanup, self)
         end
 
@@ -1492,6 +1493,8 @@ module Roby
                         m.clear_model
                     end
                     next if m.permanent_model?
+
+                    Roby::Transaction::Proxying.proxying_modules.delete(m)
 
                     # Deregister non-permanent models that are registered in the
                     # constant hierarchy

@@ -63,10 +63,11 @@ module Roby
                     if const_defined_here?(task_model_name)
                         action_model.returns(const_get(task_model_name))
                     else
-                        task_model = Class.new(Roby::Task) do
+                        task_model = Roby::Task.new_submodel do
                             terminates
                         end
                         const_set task_model_name, task_model
+                        task_model.permanent_model = self.permanent_model?
                         action_model.returns(task_model)
                     end
                 end

@@ -26,6 +26,10 @@ module Roby
 
 	def to_s; "tProxy(#{__getobj__.to_s})" end
 
+        def self.proxying_modules
+            @@proxying_modules
+        end
+
         def self.define_proxying_module(proxying_module, mod)
             @@proxying_modules[mod] = [proxying_module, false]
             nil
