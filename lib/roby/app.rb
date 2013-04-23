@@ -747,6 +747,8 @@ module Roby
                 rescue LoadError
                     Kernel.require absolute_path
                 end
+            rescue Interrupt
+                raise
             rescue ::Exception => e
                 register_exception(e, "ignored file #{file}")
                 if ignore_all_load_errors?
