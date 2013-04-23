@@ -1663,6 +1663,7 @@ module Roby
 			trsc.discard_transaction if trsc.self_owned?
 		    end
 		    plan.clear
+                    emitted_events.clear
 		    return
 		end
 
@@ -1756,7 +1757,6 @@ module Roby
 		    stats[:cycle_index] = cycle_index
 
                     Roby.synchronize do
-                        @emitted_events.clear
                         process_events(stats) 
                     end
 

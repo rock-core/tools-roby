@@ -3,6 +3,8 @@ require 'roby/test/common'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 require 'roby/tasks/simple'
+require 'roby/tasks/group'
+require 'roby/tasks/virtual'
 require 'flexmock/test_unit'
 
 class TC_Task < Test::Unit::TestCase 
@@ -1347,7 +1349,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_task_group
 	t1, t2 = Tasks::Simple.new, Tasks::Simple.new
-	plan.add(g = Group.new(t1, t2))
+	plan.add(g = Tasks::Group.new(t1, t2))
 
 	g.start!
 	assert(t1.running?)

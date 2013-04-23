@@ -1483,9 +1483,7 @@ module Roby
         end
 
         def clear_models
-            # Clear all Task and TaskService submodels that have been defined in
-            # this app
-            [Task, TaskService, Actions::Interface, Actions::Library].each do |root_model|
+            [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library, Actions::StateMachine].each do |root_model|
                 submodels = root_model.each_submodel.to_a.dup
                 submodels.each do |m|
                     if model_defined_in_app?(m) || !m.permanent_model?

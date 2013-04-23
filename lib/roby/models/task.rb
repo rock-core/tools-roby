@@ -298,10 +298,12 @@ module Roby
             # Roby::TaskEvent, but it is possible to override that by using the +model+
             # option.
             def event(event_name, options = Hash.new, &block)
-                options = validate_options(options, :controlable => nil, :command => nil, :terminal => nil, :model => TaskEvent)
-
                 ev_s = event_name.to_s
                 event_name = event_name.to_sym
+
+                options = validate_options options,
+                    :controlable => nil, :command => nil, :terminal => nil,
+                    :model => find_event_model(event_name) || Roby::TaskEvent
 
                 if options.has_key?(:controlable)
                     options[:command] = options[:controlable]
@@ -309,12 +311,9 @@ module Roby
 
                 if !options.has_key?(:command)
                     if block
+                        check_arity(block, 1)
                         define_method("event_command_#{ev_s}", &block)
                         method = instance_method("event_command_#{ev_s}")
-                    end
-
-                    if method
-                        check_arity(method, 1)
                         options[:command] = lambda do |dst_task, *event_context| 
                             begin
                                 dst_task.calling_event = dst_task.event(event_name)
@@ -327,22 +326,11 @@ module Roby
                 end
                 validate_event_definition_request(event_name, options)
 
-                command_handler = options[:command] if options[:command].respond_to?(:call)
-                
                 # Define the event class
-                task_klass = self
-                new_event = Class.new(options[:model]) do
-                    @terminal = options[:terminal]
-                    @symbol   = event_name
-                    @command_handler = command_handler
-                    
-                    define_method(:name) { "#{task.name}::#{ev_s.camelcase(:upper)}" }
-                    singleton_class.class_eval do
-                        attr_reader :command_handler
-                        define_method(:name) { "#{task_klass.name}::#{ev_s.camelcase(:upper)}" }
-                        def to_s; name end
-                    end
-                end
+                new_event = options[:model].new_submodel :task_model => self,
+                    :terminal => options[:terminal],
+                    :symbol => event_name, :command => options[:command]
+                new_event.permanent_model = self.permanent_model?
 
                 setup_terminal_handler = false
                 old_model = find_event_model(event_name)
@@ -356,28 +344,6 @@ module Roby
                 end
                 const_set(ev_s.camelcase(:upper), new_event)
 
-                if options[:command]
-                    # check that the supplied command handler can take two arguments
-                    check_arity(command_handler, 2) if command_handler
-
-                    # define #call on the event model
-                    new_event.singleton_class.class_eval do
-                        if command_handler
-                            define_method(:call, &command_handler)
-                        else
-                            def call(task, context) # :nodoc:
-                                task.emit(symbol, *context)
-                            end
-                        end
-                    end
-
-                    # define an instance method which calls the event command
-                    define_method("#{ev_s}!") do |*context| 
-                            generator = event(event_name)
-                            generator.call(*context) 
-                    end
-                end
-
                 if !method_defined?("#{ev_s}_event")
                     define_method("#{ev_s}_event") do
                         event(event_name)
@@ -386,6 +352,12 @@ module Roby
                 if !method_defined?("#{ev_s}?")
                     define_method("#{ev_s}?") do
                         event(event_name).happened?
+                    end
+                end
+                if !method_defined?("#{ev_s}!")
+                    define_method("#{ev_s}!") do |*context| 
+                        generator = event(event_name)
+                        generator.call(*context) 
                     end
                 end
                 if !respond_to?("#{ev_s}_event")
@@ -457,7 +429,7 @@ module Roby
                         all_events = enum_events.map { |name, _| name }
                         raise ArgumentError, "#{model_def} is not an event of #{name}: #{all_events}" unless ev_model
                     end
-                elsif model_def.respond_to?(:has_ancestor?) && model_def.has_ancestor?(TaskEvent)
+                elsif model_def.respond_to?(:has_ancestor?) && model_def.has_ancestor?(Roby::TaskEvent)
                     # Check that model_def is an event class for us
                     ev_model = find_event_model(model_def.symbol)
                     if !ev_model

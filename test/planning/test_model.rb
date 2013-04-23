@@ -4,12 +4,13 @@ require 'roby/planning'
 
 require 'flexmock/test_unit'
 require 'roby/tasks/simple'
+require 'roby/tasks/null'
 
 class TC_Planner < Test::Unit::TestCase
     include Roby::Planning
     include Roby::SelfTest
 
-    NullTask = Roby::NullTask
+    NullTask = Roby::Tasks::Null
 
     def test_id_validation
 	assert_equal(15, Planner.validate_method_id("15"))
