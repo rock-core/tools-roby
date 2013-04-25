@@ -138,6 +138,10 @@ module Roby
                 @returned_type = returned_type.proxy(peer)
             end
 
+            def to_s
+                "#{action_interface_model.name}.#{name}"
+            end
+
             def pretty_print(pp)
                 pp.text "Action #{name} defined on #{action_interface_model.name}"
                 pp.nest(2) do

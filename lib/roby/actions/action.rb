@@ -35,6 +35,10 @@ module Roby
             def instanciate(plan, arguments = Hash.new)
                 model.instanciate(plan, self.arguments.merge(arguments))
             end
+
+            def to_s
+                "#{model}(#{arguments.map { |k,v| "#{k} => #{v}" }.sort.join(", ")})"
+            end
         end
     end
 end

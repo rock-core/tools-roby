@@ -146,6 +146,10 @@ module Roby
                         raise ArgumentError, "expected a value for #{arg}, got none"
                     end
                 end
+
+                def to_s
+                    "var:#{name}"
+                end
             end
 
             # @return [Root] the root task model, i.e. a representation of the
