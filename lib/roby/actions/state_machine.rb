@@ -149,7 +149,7 @@ module Roby
 
             def self.validate_state(object)
                 if !object.kind_of?(State)
-                    raise ArgumentError, "expected a state object, got #{object}. Did you forget to define it by calling #state first ?"
+                    raise ArgumentError, "expected a state object, got #{object}. States need to be created from e.g. actions by calling #state before they can be used in the state machine"
                 end
                 object
             end
