@@ -172,7 +172,7 @@ module Roby
             def transition(*spec)
                 if spec.size == 2
                     state_event, new_state = *spec
-                    transition(state_event.task, state_event, StateMachineModel.validate_state(new_state))
+                    transition(state_event.task_model, state_event, StateMachineModel.validate_state(new_state))
                 elsif spec.size != 3
                     raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
                 else
@@ -194,7 +194,7 @@ module Roby
             def forward(*spec)
                 if spec.size == 2
                     state_event, target_event = *spec
-                    forward(state_event.task, state_event, target_event)
+                    forward(state_event.task_model, state_event, target_event)
                 elsif spec.size != 3
                     raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
                 else
@@ -284,16 +284,16 @@ module Roby
                     forwards = Hash.new
                     model.each_transition do |in_state, event, new_state|
                         if in_state == state
-                            actions[event.task] ||= Set.new
-                            transitions[event.task] ||= Set.new
-                            transitions[event.task] << [event.symbol, new_state]
+                            actions[event.task_model] ||= Set.new
+                            transitions[event.task_model] ||= Set.new
+                            transitions[event.task_model] << [event.symbol, new_state]
                         end
                     end
                     model.each_forward do |in_state, event, target_symbol|
                         if in_state == state
-                            actions[event.task] ||= Set.new
-                            forwards[event.task] ||= Set.new
-                            forwards[event.task] << [event.symbol, target_symbol]
+                            actions[event.task_model] ||= Set.new
+                            forwards[event.task_model] ||= Set.new
+                            forwards[event.task_model] << [event.symbol, target_symbol]
                         end
                     end
                     actions.each_key do |a|

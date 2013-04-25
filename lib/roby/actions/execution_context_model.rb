@@ -27,7 +27,7 @@ module Roby
                 def method_missing(m, *args, &block)
                     if @task # we are bound to something
                         resolve.send(m, *args, &block)
-                    elsif task_model.method_defined?(m)
+                    elsif task_model.respond_to?(:method_defined?) && task_model.method_defined?(m)
                         raise NoMethodError, "#{self} is not yet bound to any actual task. You will be able to call ##{m} only when the underlying task is started"
                     else super
                     end
@@ -89,7 +89,7 @@ module Roby
                     else
                         if @task # we are bound to something
                             resolve.send(m, *args, &block)
-                        elsif task_model.method_defined?(m)
+                        elsif task_model.respond_to?(:method_defined?) && task_model.method_defined?(m)
                             raise NoMethodError, "#{self} is not yet bound to any actual task. You will be able to call ##{m} only when the underlying task is started"
                         else super
                         end
