@@ -138,7 +138,7 @@ module Roby
             # of TaskEvent. Therefore, the model-level mappings are stored between
             # these subclasses.
             #
-            # @return [Hash<subclass of TaskEvent, ValueSet<subclass of TaskEvent>>]
+            # @return [Hash<Model<TaskEvent>, ValueSet<Model<TaskEvent>>>]
             # @key_name source_generator
             model_attribute_list('signal')
             # The set of forwardings that are registered on this task model
@@ -420,11 +420,16 @@ module Roby
                 nil
             end
 
-            # Checks that all events in +events+ are valid events for this task.
-            # The requested events can be either an event name (symbol or string)
-            # or an event class
+            # Accesses an event model
             #
-            # Returns the corresponding array of event classes
+            # This method gives access to this task's event models. If given a
+            # name, it returns the corresponding event model. If given an event
+            # model, it verifies that the model is part of the events of self
+            # and returns it.
+            #
+            # @return [Model<TaskEvent>] a subclass of Roby::TaskEvent
+            # @raise [ArgumentError] if the provided event name or model does not
+            #   exist on self
             def event_model(model_def) #:nodoc:
                 if model_def.respond_to?(:to_sym)
                     ev_model = find_event_model(model_def.to_sym)
@@ -521,14 +526,20 @@ module Roby
                 update_terminal_flag
             end
 
-            # call-seq:
-            #   forward :from => :to
-            #
             # Defines a forwarding relation between two events of the same task
-            # instance. See EventStructure::Forward for a description of the
-            # forwarding relation.
+            # instance.
             #
-            # See also Task#forward and EventGenerator#forward.
+            # @param [{Symbol=>Symbol}] mapping of event names, where the keys
+            #   are forwarded to the values
+            # @example
+            #   # A task that is stopped as soon as it is started
+            #   class MyTask < Roby::Task
+            #     forward :start => :stop
+            #   end
+            #
+            # @see Task#forward
+            # @see EventGenerator#forward.
+            # @see Roby::EventStructure::Forward the forwarding relation.
             def forward(mappings)
                 mappings.each do |from, to|
                     from    = event_model(from).symbol

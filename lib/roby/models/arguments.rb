@@ -7,6 +7,8 @@ module Roby
             inherited_attribute("argument_set", "argument_set") { ValueSet.new }
             inherited_attribute("argument_default", "argument_defaults", :map => true) { Hash.new }
 
+            # @return [Boolean] returns if the given name is a known argument of
+            #   this task
             def has_argument?(name)
                 each_argument_set do |arg_name|
                     if arg_name == name
@@ -16,7 +18,7 @@ module Roby
                 nil
             end
 
-            # Returns the list of static arguments required by this task model
+            # @return [Array<String>] the list of arguments required by this task model
             def arguments(*new_arguments)
                 if new_arguments.empty?
                     return(@argument_enumerator ||= enum_for(:each_argument_set))
@@ -28,7 +30,19 @@ module Roby
                 end
             end
 
-            # Declare one argument
+            # @!method argument(argument_name, options)
+            #   @param [String] argument_name the name of the new argument
+            #   @param [Hash] options
+            #   @option options default the default value for this argument. It
+            #     can either be a plain value (e.g. a number) or one of the
+            #     delayed arguments (see examples below)
+            #
+            # @example getting an argument at runtime from another object
+            #   argument :target_point, :default => from(:planned_task).target_point
+            # @example getting an argument at runtime from the global configuration
+            #   argument :target_point, :default => from_conf.target_position
+            # @example defining 'nil' as a default value
+            #   argument :main_direction, :default => nil
             def argument(*new_arguments)
                 if new_arguments.last.kind_of?(Hash)
                     options = new_arguments.pop
@@ -58,8 +72,12 @@ module Roby
                 end
             end
 
-            # Returns whether there is a default value for this argument, and
-            # the actual default value
+            # Access an argument's default value
+            #
+            # @param [String] argname the argument name
+            # @return [(Boolean,Object)] the first returned value determines
+            #   whether there is a default defined for the requested argument and
+            #   the second is that value. Note that the default value can be nil.
             def default_argument(argname)
                 each_argument_default(argname.to_sym) do |value|
                     return true, value
