@@ -138,7 +138,11 @@ module Roby::Log
         def self.process_options_hash(options_hash)
             if options_hash[:plugins]
                 options_hash[:plugins].each do |plugin_name|
-                    Roby.app.using plugin_name
+                    begin
+                        Roby.app.using plugin_name
+                    rescue ArgumentError => e
+                        Roby.warn "the log file mentions the #{plugin_name} plugin, but it is not available on this system. Some information might not be displayed"
+                    end
                 end
             end
         end
