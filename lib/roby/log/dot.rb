@@ -107,10 +107,8 @@ module Roby
 
                 if rect = bounding_rects[dot_id]
                     item = display[self]
-                    rect[2] *= 1.2
-                    rect[3] *= 1.2
                     item.z_value = PLAN_LAYER + depth - max_depth
-                    item.set_rect(*rect)
+                    item.rect = rect
                 else
                     Roby::Log.warn "no bounding rectangle for #{self} (#{dot_id})"
                 end
@@ -118,7 +116,7 @@ module Roby
 
                 (known_tasks | finalized_tasks | free_events | finalized_events).
                     each do |obj|
-                        obj.apply_layout(positions, display)
+                        obj.apply_layout(bounding_rects, positions, display)
                     end
 
                 transactions.each do |trsc|
@@ -137,15 +135,24 @@ module Roby
             def to_dot(display, io)
                 return unless display.displayed?(self)
                 @dot_id ||= "plan_object_#{io.layout_id(self)}"
-                io << "  #{dot_id}[label=\"#{dot_label(display).split("\n").join('\n')}\"];\n"
+                graphics = display.graphics[self]
+                bounding_rect = graphics.bounding_rect
+                if graphics.respond_to?(:text)
+                    bounding_rect |= graphics.text.bounding_rect
+                end
+
+                io << "  #{dot_id}[label=\"#{dot_label(display).split("\n").join('\n')}\",width=#{bounding_rect.width},height=#{bounding_rect.height},fixedsize=true];\n"
             end
 
             # Applys the layout in +positions+ to this particular object
-            def apply_layout(positions, display)
+            def apply_layout(bounding_rects, positions, display)
                 return unless display.displayed?(self)
                 if p = positions[dot_id]
                     raise "no graphics for #{self}" unless graphics_item = display[self]
                     graphics_item.pos = p
+                elsif b = bounding_rects[dot_id]
+                    raise "no graphics for #{self}" unless graphics_item = display[self]
+                    graphics_item.rect = b
                 else
                     STDERR.puts "WARN: #{self} has not been layouted (#{dot_id.inspect})"
                 end
@@ -155,11 +162,36 @@ module Roby
         module GraphvizTaskEventGenerator
             include GraphvizPlanObject
             def dot_label(display); symbol.to_s end
-            def dot_id; task.dot_id end
         end
 
         module GraphvizTask
             include GraphvizPlanObject
+            def to_dot_events(display, io)
+                return unless display.displayed?(self)
+                @dot_id ||= "task_#{io.layout_id(self)}"
+                io << "subgraph cluster_#{dot_id} {\n"
+                graphics = display.graphics[self]
+                text_bb = graphics.text.bounding_rect
+                has_event = false
+                each_event do |ev|
+                    if display.displayed?(ev)
+                        ev.to_dot(display, io)
+                        has_event = true
+                    end
+                end
+                task_height = if !has_event then DEFAULT_TASK_HEIGHT + text_bb.height
+                              else text_bb.height
+                              end
+
+                io << "  #{dot_id}[width=#{[DEFAULT_TASK_WIDTH, text_bb.width].max},height=#{task_height},fixedsize=true];\n"
+                each_event do |ev|
+                    if display.displayed?(ev)
+                        io << " #{ev.dot_id} -> #{dot_id};\n"
+                    end
+                end
+                io << "}\n"
+            end
+
             def dot_label(display)
                 event_names = each_event.find_all { |ev| display.displayed?(ev) }.
                     map { |ev| ev.dot_label(display) }.
@@ -169,6 +201,45 @@ module Roby
                 if own.size > event_names.size then own
                 else event_names
                 end
+            end
+
+            def apply_layout(bounding_rects, positions, display)
+                if !(task = positions[dot_id])
+                    puts "No layout for #{self}"
+                    return
+                end
+                each_event do |ev|
+                    next if !display.displayed?(ev)
+                    positions[ev.dot_id] += task
+                end
+                # Apply the layout on the events
+                each_event do |ev|
+                    ev.apply_layout(bounding_rects, positions, display)
+                end
+                # And recalculate the bounding box
+                bounding_rect = Qt::RectF.new
+                each_event.map do |ev|
+                    next if !display.displayed?(ev)
+                    graphics = display[ev]
+                    bounding_rect |= graphics.map_rect_to_scene(graphics.bounding_rect)
+                    bounding_rect |= graphics.text.map_rect_to_scene(graphics.text.bounding_rect)
+                end
+                if !graphics_item = display[self]
+                    raise "no graphics for #{self}" unless graphics_item = display[self]
+                end
+                if bounding_rect.null? # no events, we need to take the bounding box from the fake task node
+                    bounding_rect = Qt::RectF.new(
+                        task.x - DEFAULT_TASK_WIDTH / 2,
+                        task.y - DEFAULT_TASK_HEIGHT / 2, DEFAULT_TASK_WIDTH, DEFAULT_TASK_HEIGHT)
+                else
+                    bounding_rect.y -= 5
+                end
+                graphics_item.rect = bounding_rect
+
+                text_pos = Qt::PointF.new(
+                    bounding_rect.x + bounding_rect.width / 2 - graphics_item.text.bounding_rect.width / 2,
+                    bounding_rect.y + bounding_rect.height)
+                graphics_item.text.pos = text_pos
             end
         end
 
@@ -196,7 +267,14 @@ module Roby
             # Add a string to the resulting Dot input file
 	    def <<(string); dot_input << string end
 
-            def self.parse_dot_layout(dot_layout)
+            FLOAT_VALUE = "\\d+(?:\\.\\d+)?(?:e[+-]\\d+)?"
+            DOT_TO_QT_SCALE_FACTOR = 1.0 / 55
+
+            def self.parse_dot_layout(dot_layout, options = Hash.new)
+                options = Kernel.validate_options options, :scale_x => DOT_TO_QT_SCALE_FACTOR, :scale_y => DOT_TO_QT_SCALE_FACTOR
+                scale_x = options[:scale_x]
+                scale_y = options[:scale_y]
+
 		current_graph_id = nil
 		bounding_rects = Hash.new
 		object_pos     = Hash.new
@@ -210,15 +288,17 @@ module Roby
 		    end
 
 		    case full_line
-		    when /(\w+) \[.*pos="([\d\.]+),([\d\.]+)"/
-			object_pos[$1] = Qt::PointF.new(Float($2), Float($3))
+		    when /(\w+) \[.*pos="(#{FLOAT_VALUE}),(#{FLOAT_VALUE})"/
+			object_pos[$1] = Qt::PointF.new(Float($2) * scale_x, Float($3) * scale_y)
 		    when /subgraph cluster_(\w+)/
 			current_graph_id = $1
-		    when /graph \[bb="([\.\d]+),([\d\.]+),([\d\.]+),([\d\.]+)"\]/
-			bb = [$1, $2, $3, $4].map do |c|
-			    c = Float(c)
-			end
-			bounding_rects[current_graph_id] = [bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]]
+		    when /bb="(#{FLOAT_VALUE}),(#{FLOAT_VALUE}),(#{FLOAT_VALUE}),(#{FLOAT_VALUE})"/
+			bb = [$1, $2, $3, $4].map { |c| Float(c) }
+                        bb[0] *= scale_x
+                        bb[2] *= scale_x
+                        bb[1] *= scale_x
+                        bb[3] *= scale_x
+			bounding_rects[current_graph_id] = Qt::RectF.new(bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1])
 		    end
 		    full_line = ""
 		end
@@ -227,22 +307,19 @@ module Roby
                 if !graph_bb
                     raise "Graphviz failed to generate a layout for this plan"
                 end
-		bounding_rects.each_value do |coords|
-		    coords[0] -= graph_bb[0]
-		    coords[1] = graph_bb[1] - coords[1] - coords[3]
+		bounding_rects.each_value do |bb|
+                    bb.x -= graph_bb.x
+                    bb.y  = graph_bb.y - bb.y - bb.height
 		end
 		object_pos.each do |id, pos|
-		    pos.x -= graph_bb[0]
-		    pos.y = graph_bb[1] - pos.y
+		    pos.x -= graph_bb.x
+		    pos.y = graph_bb.y - pos.y
 		end
 
                 return bounding_rects, object_pos
             end
 
-            # Generates a layout for +plan+ to be displayed on +display+.
-            #
-            # +display+ should be a 
-	    def layout(display, plan)
+            def run_dot(options = Hash.new)
 		@@index ||= 0
 		@@index += 1
 
@@ -251,53 +328,98 @@ module Roby
 		# Dot output file
 		dot_output = Tempfile.new("roby_layout")
 
-		dot_input << "digraph relations {\n"
-		display.layout_options.each do |k, v|
-		    dot_input << "  #{k}=#{v};\n"
-		end
-		plan.to_dot(display, self, 0)
+                dot_input << "digraph relations {\n"
+                yield(dot_input)
+                dot_input << "}\n"
 
-		# Take the signalling into account for the layout
-		display.plans.each do |p|
-                    p.propagated_events.each do |_, sources, to, _|
-                        sources.each do |from|
-                            from_id, to_id = from.dot_id, to.dot_id
-                            if from_id && to_id
-                                dot_input << "  #{from.dot_id} -> #{to.dot_id}\n"
+		dot_input.flush
+
+		# Make sure the GUI keeps being updated while dot is processing
+                puts "writing dot session #{@@index}"
+		FileUtils.cp dot_input.path, "/tmp/dot-input-#{@@index}.dot"
+		system("#{display.layout_method} #{dot_input.path} > #{dot_output.path}")
+		FileUtils.cp dot_output.path, "/tmp/dot-output-#{@@index}.dot"
+
+		# Load only task bounding boxes from dot, update arrows later
+		lines = File.open(dot_output.path) { |io| io.readlines  }
+                Layout.parse_dot_layout(lines, options)
+            end
+
+            # Generates a layout internal for each task, allowing to place the
+            # events according to the propagations
+            def layout(display, plan)
+		@display         = display
+
+                # We first layout only the tasks separately. This allows to find
+                # how to layout the events within the task, and know the overall
+                # task sizes
+                all_tasks = ValueSet.new
+                bounding_boxes, positions = run_dot do
+                    display.plans.each do |p|
+                        p_tasks = p.known_tasks | p.finalized_tasks
+                        p_tasks.each do |task|
+                            task.to_dot_events(display, self)
+                        end
+                        all_tasks.merge(p_tasks)
+                        p.propagated_events.each do |_, sources, to, _|
+                            sources.each do |from|
+                                if from.respond_to?(:task) && to.respond_to?(:task) && from.task == to.task
+                                    from_id, to_id = from.dot_id, to.dot_id
+                                    if from_id && to_id
+                                        self << "  #{from.dot_id} -> #{to.dot_id}\n"
+                                    end
+                                end
                             end
                         end
                     end
                 end
 
-		dot_input << "\n};"
-		dot_input.flush
+                # Make the event positions relative to the task's position, and
+                # update the task's graphics with the computed bounding boxes
+                event_positions = Hash.new
+                all_tasks.each do |t|
+                    next if !display.displayed?(t)
+                    t_bb = bounding_boxes[t.dot_id]
+                    t.each_event do |ev|
+                        next if !display.displayed?(ev)
+                        event_positions[ev.dot_id] = positions[ev.dot_id] - t_bb.topLeft
+                    end
+                    graphics = display.graphics[t]
+                    graphics.rect = Qt::RectF.new(0, 0, t_bb.width, t_bb.height)
+                end
+                
+                @bounding_rects, @object_pos = run_dot(:scale_x => DOT_TO_QT_SCALE_FACTOR, :scale_y => DOT_TO_QT_SCALE_FACTOR * 0.5) do
+                    # Finally, generate the whole plan
+                    plan.to_dot(display, self, 0)
 
-		# Make sure the GUI keeps being updated while dot is processing
-		FileUtils.cp dot_input.path, "/tmp/dot-input-#{@@index}.dot"
-		system("#{display.layout_method} #{dot_input.path} > #{dot_output.path}")
-		#pid = fork do
-		#    exec("#{display.layout_method} #{dot_input.path} > #{dot_output.path}")
-		#end
-		#while !Process.waitpid(pid, Process::WNOHANG)
-		#    if Qt::Application.has_pending_events
-		#	Qt::Application.process_events
-		#    else
-		#	sleep(0.05)
-		#    end
-		#end
-		FileUtils.cp dot_output.path, "/tmp/dot-output-#{@@index}.dot"
+                    # Take the signalling into account for the layout. At this stage,
+                    # task events are represented by their tasks
+                    display.plans.each do |p|
+                        p.propagated_events.each do |_, sources, to, _|
+                            to_id =
+                                if to.respond_to?(:task) then to.task.dot_id
+                                else to.dot_id
+                                end
 
-		# Load only task bounding boxes from dot, update arrows later
-		lines = File.open(dot_output.path) { |io| io.readlines  }
-                @bounding_rects, @object_pos = Layout.parse_dot_layout(lines)
+                            sources.each do |from|
+                                from_id =
+                                    if from.respond_to?(:task)
+                                        from.task.dot_id
+                                    else
+                                        from.dot_id
+                                    end
 
-		@display         = display
+                                if from_id && to_id
+                                    self << "  #{from.dot_id} -> #{to.dot_id}\n"
+                                end
+                            end
+                        end
+                    end
+                end
+                object_pos.merge!(event_positions)
+
 		@plan            = plan
-
-	    ensure
-		dot_input.close!  if dot_input
-		dot_output.close! if dot_output
-	    end
+            end
 
 	    attr_reader :bounding_rects, :object_pos, :display, :plan
 	    def apply
