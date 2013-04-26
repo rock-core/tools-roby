@@ -13,7 +13,7 @@ module Roby
             # The set of objects (tasks and events) that got garbage collected.
             # For display purposes, they only get removed from the plan at the
             # next cycle.
-            attribute(:garbage) { ValueSet.new }
+            attribute(:garbaged_objects) { ValueSet.new }
             # The set of events emitted since the last call to
             # #clear_integrated
             attribute(:emitted_events)   { Array.new }
@@ -67,13 +67,13 @@ module Roby
                 failed_emissions.clear
                 failed_to_start.clear
 
-                garbage.each do |object|
+                garbaged_objects.each do |object|
                     # Do remove the GCed object. We use object.finalization_time
                     # to store the actual finalization time. Pass it again to
                     # #remove_object so that it does not get reset to Time.now
                     object.plan.remove_object(object, object.finalization_time)
                 end
-                garbage.clear
+                garbaged_objects.clear
             end
         end
 
@@ -453,7 +453,7 @@ module Roby
 
 	    def clear_integrated
                 clear_changes
-                if plans.any? { |p| !p.garbage.empty? }
+                if plans.any? { |p| !p.garbaged_objects.empty? }
                     announce_structure_update
                     announce_state_update
                 end
@@ -511,13 +511,13 @@ module Roby
 	    def garbage(time, plan, object)
                 plan = local_object(plan)
                 object = local_object(object)
-                plan.garbage << object
+                plan.garbaged_objects << object
 	    end
 	    def finalized_event(time, plan, event_id)
 		event = local_object(event_id)
 		plan  = local_object(plan)
                 event.finalization_time = time
-                if !plan.garbage.include?(event) && event.root_object?
+                if !plan.garbaged_objects.include?(event) && event.root_object?
                     plan.finalized_events << event
                     plan.remove_object(event)
                     announce_structure_update
@@ -528,7 +528,7 @@ module Roby
 		task = local_object(task_id)
 		plan = local_object(plan)
                 task.finalization_time = time
-                if !plan.garbage.include?(task)
+                if !plan.garbaged_objects.include?(task)
                     plan.finalized_tasks << task
                     plan.remove_object(task)
                     announce_structure_update
@@ -579,7 +579,7 @@ module Roby
 		child  = local_object(child)
 		rel    = rel.first if rel.kind_of?(Array)
 		rel    = local_object(rel)
-                if !plan.garbage.include?(parent) && !plan.garbage.include?(child)
+                if !plan.garbaged_objects.include?(parent) && !plan.garbaged_objects.include?(child)
                     parent.remove_child_object(child, rel)
                     announce_structure_update
                 end
@@ -611,7 +611,7 @@ module Roby
 		parent = local_object(parent)
 		child  = local_object(child)
                 rel    = local_object(rel)
-                if !plan.garbage.include?(parent) && !plan.garbage.include?(child)
+                if !plan.garbaged_objects.include?(parent) && !plan.garbaged_objects.include?(child)
                     parent.remove_child_object(child, rel.first)
                 end
 	    end
