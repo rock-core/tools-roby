@@ -2,6 +2,8 @@ require 'utilrb/module/attr_predicate'
 require 'roby/distributed/protocol'
 
 require 'roby/log/dot'
+require 'roby/log/gui/styles'
+require 'roby/log/plan_rebuilder'
 require 'roby/log/gui/relations_view/relations_view'
 
 module Roby
@@ -105,6 +107,8 @@ module Roby
         end
 
         module DisplayTask
+            # NOTE: we must NOT include ReplayTask here, as ReplayTask overloads
+            # some methods from Task and it would break this overloading
             include DisplayPlanObject
             def layout_events(display)
                 graphics_item = display[self]
@@ -204,7 +208,50 @@ module Roby
             def display(display, graphics_item)
                 update_graphics(display, graphics_item)
                 super
-                layout_events(display)
+            end
+
+            def self.to_svg(task, path)
+                if !task.plan
+                    plan = Roby::Plan.new
+                    plan.extend DisplayPlan
+                    plan.extend ReplayPlan
+                    plan.add(task)
+                end
+                task.extend DisplayTask
+                task.extend ReplayTask
+                plan = task.plan
+
+                display = RelationsCanvas.new([plan])
+                display.display_plan_bounding_boxes = false
+                task.each_event do |ev|
+                    if ev.controlable?
+                        plan.emitted_events << [EVENT_CALLED_AND_EMITTED, ev]
+                    else
+                        plan.emitted_events << [EVENT_EMITTED, ev]
+                    end
+                end
+                task.model.all_forwardings.each do |source_name, targets|
+                    source = task.event(source_name)
+                    targets.each do |target_name|
+                        plan.propagated_events << [PROPAG_FORWARD, [source], task.event(target_name)]
+                    end
+                end
+                task.model.all_signals.each do |source_name, targets|
+                    source = task.event(source_name)
+                    targets.each do |target_name|
+                        plan.propagated_events << [PROPAG_SIGNAL, [source], task.event(target_name)]
+                    end
+                end
+                display.update
+                scene = display.scene
+
+		svg = Qt::SvgGenerator.new
+		svg.file_name = path
+		svg.size = Qt::Size.new(Integer(scene.width * 0.8), Integer(scene.height * 0.8))
+		painter = Qt::Painter.new
+		painter.begin(svg)
+		scene.render(painter)
+		painter.end
             end
         end
 
@@ -232,6 +279,9 @@ module Roby
         end
 
         module DisplayPlan
+            # NOTE: we must NOT include ReplayPlan here, as ReplayTask overloads
+            # some methods from Task and it would break this overloading
+
             PLAN_STROKE_WIDTH = 5
             # The plan depth, i.e. its distance from the root plan
             attr_reader :depth
@@ -396,11 +446,16 @@ module Roby
 	    # True if the finalized tasks should not be displayed
 	    attr_accessor :hide_finalized
 
+            # @return [Boolean] true if the plan's bounding boxes should be
+            #   displayed or not (true)
+            attr_predicate :display_plan_bounding_boxes?, true
+
 	    def initialize(plans)
 		@scene  = Qt::GraphicsScene.new
 		super()
 
                 @plans  = plans.dup
+                @display_plan_bounding_boxes = true
 
                 @display_policy    = :explicit
 		@graphics          = Hash.new
@@ -887,7 +942,7 @@ module Roby
 		    end
 		end
                 all_events.each { |ev| create_or_get_item(ev, true) }
-                plans.each { |p| create_or_get_item(p, true) }
+                plans.each { |p| create_or_get_item(p, display_plan_bounding_boxes?) }
 
                 update_visible_objects
 

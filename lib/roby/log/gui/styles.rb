@@ -1,3 +1,4 @@
+require 'roby/log/plan_rebuilder'
 module Roby
     module LogReplay
         EVENT_CONTINGENT  = PlanRebuilder::EVENT_CONTINGENT
