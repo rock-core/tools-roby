@@ -351,6 +351,8 @@ module Roby
 	    # The set of objects that have been removed locally, but for which
 	    # there are still references on our peers
 	    attr_reader :removed_objects
+
+            def remote_name; "local" end
 	end
 
 	@cycles_rx             = Queue.new
