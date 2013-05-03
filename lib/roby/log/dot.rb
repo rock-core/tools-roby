@@ -184,11 +184,6 @@ module Roby
                               end
 
                 io << "  #{dot_id}[width=#{[DEFAULT_TASK_WIDTH, text_bb.width].max},height=#{task_height},fixedsize=true];\n"
-                each_event do |ev|
-                    if display.displayed?(ev)
-                        io << " #{ev.dot_id} -> #{dot_id};\n"
-                    end
-                end
                 io << "}\n"
             end
 
@@ -268,10 +263,13 @@ module Roby
 	    def <<(string); dot_input << string end
 
             FLOAT_VALUE = "\\d+(?:\\.\\d+)?(?:e[+-]\\d+)?"
-            DOT_TO_QT_SCALE_FACTOR = 1.0 / 55
+            DOT_TO_QT_SCALE_FACTOR_X = 1.0 / 55
+            DOT_TO_QT_SCALE_FACTOR_Y = 1.0 / 55
 
             def self.parse_dot_layout(dot_layout, options = Hash.new)
-                options = Kernel.validate_options options, :scale_x => DOT_TO_QT_SCALE_FACTOR, :scale_y => DOT_TO_QT_SCALE_FACTOR
+                options = Kernel.validate_options options,
+                    :scale_x => DOT_TO_QT_SCALE_FACTOR_X,
+                    :scale_y => DOT_TO_QT_SCALE_FACTOR_Y
                 scale_x = options[:scale_x]
                 scale_y = options[:scale_y]
 
@@ -320,6 +318,9 @@ module Roby
             end
 
             def run_dot(options = Hash.new)
+                options, parsing_options = Kernel.filter_options options,
+                    :graph_type => 'digraph', :layout_method => display.layout_method
+
 		@@index ||= 0
 		@@index += 1
 
@@ -328,33 +329,34 @@ module Roby
 		# Dot output file
 		dot_output = Tempfile.new("roby_layout")
 
-                dot_input << "digraph relations {\n"
+                dot_input << "#{options[:graph_type]} relations {\n"
                 yield(dot_input)
                 dot_input << "}\n"
 
 		dot_input.flush
 
 		# Make sure the GUI keeps being updated while dot is processing
-                puts "writing dot session #{@@index}"
 		FileUtils.cp dot_input.path, "/tmp/dot-input-#{@@index}.dot"
-		system("#{display.layout_method} #{dot_input.path} > #{dot_output.path}")
+		system("#{options[:layout_method]} #{dot_input.path} > #{dot_output.path}")
 		FileUtils.cp dot_output.path, "/tmp/dot-output-#{@@index}.dot"
 
 		# Load only task bounding boxes from dot, update arrows later
 		lines = File.open(dot_output.path) { |io| io.readlines  }
-                Layout.parse_dot_layout(lines, options)
+                Layout.parse_dot_layout(lines, parsing_options)
             end
 
             # Generates a layout internal for each task, allowing to place the
             # events according to the propagations
-            def layout(display, plan)
+            def layout(display, plan, options = Hash.new)
 		@display         = display
+                options = Kernel.validate_options options,
+                    :scale_x => DOT_TO_QT_SCALE_FACTOR_X, :scale_y => DOT_TO_QT_SCALE_FACTOR_Y
 
                 # We first layout only the tasks separately. This allows to find
                 # how to layout the events within the task, and know the overall
                 # task sizes
                 all_tasks = ValueSet.new
-                bounding_boxes, positions = run_dot do
+                bounding_boxes, positions = run_dot(:graph_type => 'graph', :layout_method => 'fdp', :scale_x => 1.0 / 100, :scale_y => 1.0 / 100) do
                     display.plans.each do |p|
                         p_tasks = p.known_tasks | p.finalized_tasks
                         p_tasks.each do |task|
@@ -366,7 +368,7 @@ module Roby
                                 if from.respond_to?(:task) && to.respond_to?(:task) && from.task == to.task
                                     from_id, to_id = from.dot_id, to.dot_id
                                     if from_id && to_id
-                                        self << "  #{from.dot_id} -> #{to.dot_id}\n"
+                                        self << "  #{from.dot_id} -- #{to.dot_id}\n"
                                     end
                                 end
                             end
@@ -374,21 +376,29 @@ module Roby
                     end
                 end
 
-                # Make the event positions relative to the task's position, and
-                # update the task's graphics with the computed bounding boxes
+                # Ignore graphviz-generated BBs, recompute from the event
+                # positions and then make their positions relative
                 event_positions = Hash.new
                 all_tasks.each do |t|
                     next if !display.displayed?(t)
-                    t_bb = bounding_boxes[t.dot_id]
+                    bb = Qt::RectF.new
+                    if p = positions[t.dot_id]
+                        bb |= Qt::RectF.new(p, p)
+                    end
                     t.each_event do |ev|
                         next if !display.displayed?(ev)
-                        event_positions[ev.dot_id] = positions[ev.dot_id] - t_bb.topLeft
+                        p = positions[ev.dot_id]
+                        bb |= Qt::RectF.new(p, p)
+                    end
+                    t.each_event do |ev|
+                        next if !display.displayed?(ev)
+                        event_positions[ev.dot_id] = positions[ev.dot_id] - bb.topLeft
                     end
                     graphics = display.graphics[t]
-                    graphics.rect = Qt::RectF.new(0, 0, t_bb.width, t_bb.height)
+                    graphics.rect = Qt::RectF.new(0, 0, bb.width, bb.height)
                 end
                 
-                @bounding_rects, @object_pos = run_dot(:scale_x => DOT_TO_QT_SCALE_FACTOR, :scale_y => DOT_TO_QT_SCALE_FACTOR * 0.5) do
+                @bounding_rects, @object_pos = run_dot(:scale_x => 1.0 / 50, :scale_y => 1.0 / 15) do
                     # Finally, generate the whole plan
                     plan.to_dot(display, self, 0)
 

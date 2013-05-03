@@ -210,7 +210,23 @@ module Roby
                 super
             end
 
-            def self.to_svg(task, path)
+            # Generates a SVG representation of a given task model, using the
+            # task as proxy for the model
+            #
+            # @param [Roby::Task] the Roby task
+            # @options options [String] path a file path to which the SVG should
+            #   be saved
+            # @options options [Float] scale_x (Layout::DOT_TO_QT_SCALE_FACTOR_X)
+            # @options options [Float] scale_y (Layout::DOT_TO_QT_SCALE_FACTOR_Y)
+            #
+            # @return [String,nil] if the file path is not set, the SVG content.
+            #   Otherwise, nil.
+            def self.to_svg(task, options = Hash.new)
+                options = Kernel.validate_options options,
+                    :path => nil,
+                    :scale_x => Layout::DOT_TO_QT_SCALE_FACTOR_X,
+                    :scale_y => Layout::DOT_TO_QT_SCALE_FACTOR_Y
+
                 if !task.plan
                     plan = Roby::Plan.new
                     plan.extend DisplayPlan
@@ -223,6 +239,7 @@ module Roby
 
                 display = RelationsCanvas.new([plan])
                 display.display_plan_bounding_boxes = false
+                display.layout_options.merge!(options.slice(:scale_x, :scale_y))
                 task.each_event do |ev|
                     if ev.controlable?
                         plan.emitted_events << [EVENT_CALLED_AND_EMITTED, ev]
@@ -246,12 +263,19 @@ module Roby
                 scene = display.scene
 
 		svg = Qt::SvgGenerator.new
-		svg.file_name = path
-		svg.size = Qt::Size.new(Integer(scene.width * 0.8), Integer(scene.height * 0.8))
+                if path = options[:path]
+                    svg.file_name = path
+                else
+                    buffer = svg.output_device = Qt::Buffer.new
+                end
+		svg.size = Qt::Size.new(Integer(scene.width), Integer(scene.height))
 		painter = Qt::Painter.new
 		painter.begin(svg)
 		scene.render(painter)
 		painter.end
+                if !path
+                    buffer.data
+                end
             end
         end
 
@@ -450,12 +474,16 @@ module Roby
             #   displayed or not (true)
             attr_predicate :display_plan_bounding_boxes?, true
 
+            # @return [Hash] set of options that should be passed to
+            #   Graphviz#layout
+            attr_reader :layout_options
+
 	    def initialize(plans)
 		@scene  = Qt::GraphicsScene.new
 		super()
 
                 @plans  = plans.dup
-                @display_plan_bounding_boxes = true
+                @display_plan_bounding_boxes = false
 
                 @display_policy    = :explicit
 		@graphics          = Hash.new
@@ -473,6 +501,7 @@ module Roby
 
 		@signal_arrows     = []
 		@hide_finalized	   = true
+                @layout_options    = Hash.new
 
 		default_colors = {
 		    Roby::TaskStructure::Hierarchy => 'grey',
@@ -822,6 +851,9 @@ module Roby
                 # NOTE: we unconditionally add events that are propagated, as
                 # #displayed?(obj) will filter out the ones whose task is hidden
                 plans.each do |p|
+                    if display_plan_bounding_boxes?
+                        visible_objects << p
+                    end
                     p.emitted_events.each do |flags, object|
                         visible_objects << object
                     end
@@ -931,8 +963,6 @@ module Roby
 		    clear_arrows(obj)
 		end
 
-		selected_objects.merge(plans.to_value_set)
-
 		# Create graphics items for all objects that may get displayed
                 # on the canvas
                 all_tasks.each do |object|
@@ -1000,7 +1030,7 @@ module Roby
 		layouts = plans.find_all { |p| p.root_plan? }.
 		    map do |p| 
 			dot = Layout.new
-			dot.layout(self, p)
+			dot.layout(self, p, layout_options)
 			dot
 		    end
 		layouts.each { |dot| dot.apply }

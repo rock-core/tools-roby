@@ -23,8 +23,7 @@ module Roby
                 TEMPLATE = ERB.new(File.read(TEMPLATE_PATH))
                 def render(task_model)
                     html = TEMPLATE.result(binding)
-                    svg  = Roby::LogReplay::RelationsDisplay::DisplayTask.to_svg(
-                        task_model.new, "test.svg")
+                    svg  = Roby::LogReplay::RelationsDisplay::DisplayTask.to_svg(task_model.new)
                     page.push('Roby Task Model', TEMPLATE.result(binding))
                 end
             end
