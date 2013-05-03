@@ -1,6 +1,18 @@
 require 'tempfile'
 require 'fileutils'
 
+class Object
+    def dot_id
+        id = object_id
+        id = if id < 0
+                 (0xFFFFFFFFFFFFFFFF + id).to_s
+             else
+                 id.to_s
+             end
+        "object_#{id}"
+    end
+end
+
 module Roby
     module LogReplay
     module RelationsDisplay
@@ -16,11 +28,8 @@ module Roby
                 end
             end
 
-            attr_reader :dot_id
             def to_dot(display, io, level)
                 @layout_level = level
-                id = io.layout_id(self)
-                @dot_id = "plan_#{id}"
                 io << "subgraph cluster_#{dot_id} {\n"
                 (known_tasks | finalized_tasks | free_events | finalized_events).
                     each do |obj|
@@ -127,14 +136,11 @@ module Roby
         end
 
         module GraphvizPlanObject
-            attr_reader :dot_id
-
             def dot_label(display); display_name(display) end
 
             # Adds the dot definition for this object in +io+
             def to_dot(display, io)
                 return unless display.displayed?(self)
-                @dot_id ||= "plan_object_#{io.layout_id(self)}"
                 graphics = display.graphics[self]
                 bounding_rect = graphics.bounding_rect
                 if graphics.respond_to?(:text)
@@ -168,7 +174,6 @@ module Roby
             include GraphvizPlanObject
             def to_dot_events(display, io)
                 return unless display.displayed?(self)
-                @dot_id ||= "task_#{io.layout_id(self)}"
                 io << "subgraph cluster_#{dot_id} {\n"
                 graphics = display.graphics[self]
                 text_bb = graphics.text.bounding_rect
@@ -247,13 +252,6 @@ module Roby
         # This class uses Graphviz (i.e. the "dot" tool) to compute a layout for
         # a given plan
 	class Layout
-            # Returns the dot ID for the given object
-	    def layout_id(object)
-		id = Object.address_from_id(object.object_id).to_s
-		object_ids[id] = object
-		id
-	    end
-
             # The set of IDs for the objects in the plan
 	    attribute(:object_ids) { Hash.new }
 
