@@ -52,6 +52,10 @@ module Roby
 
                 Qt::Object.connect(history_widget, SIGNAL('sourceChanged()'),
                                    self, SLOT('updateWindowTitle()'))
+                Qt::Object.connect(history_widget, SIGNAL('info(QString)'),
+                                   self, SLOT('info(QString)'))
+                Qt::Object.connect(history_widget, SIGNAL('warn(QString)'),
+                                   self, SLOT('warn(QString)'))
 
                 btn_create_display.text = "New Display"
                 @menu_displays = Qt::Menu.new(@btn_create_display)
