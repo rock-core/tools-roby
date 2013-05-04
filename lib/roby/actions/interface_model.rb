@@ -158,7 +158,7 @@ module Roby
                     if args.size > 1
                         raise ArgumentError, "expected zero or one argument, got #{args.size}"
                     end
-                    return Action.new(model, *args)
+                    return model.new(*args)
                 end
                 super
             end

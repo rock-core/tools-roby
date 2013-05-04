@@ -32,6 +32,12 @@ module Roby
             # @return [Model<Roby::Task>,Model<Roby::TaskService>]
             attr_reader :returned_type
 
+            # @return [Action] an action using this action model and the given
+            #   arguments
+            def new(arguments = Hash.new)
+                Action.new(self, arguments)
+            end
+
             # Task model that can be used to represent this action in a plan
             def returned_task_type
                 if @returned_task_type
