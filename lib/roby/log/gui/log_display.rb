@@ -105,6 +105,8 @@ module Roby
 
                 Qt::Object.connect(history_widget, SIGNAL('currentTimeChanged(QDateTime)'),
                                    view, SLOT('setCurrentTime(QDateTime)'))
+                Qt::Object.connect(history_widget, SIGNAL('received_new_data(QDateTime)'),
+                                   view, SLOT('live_update(QDateTime)'))
                 Qt::Object.connect(history_widget, SIGNAL('sourceChanged()'),
                                    view, SLOT('updateWindowTitle()'))
                 view.show

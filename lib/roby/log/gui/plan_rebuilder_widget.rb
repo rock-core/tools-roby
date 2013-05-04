@@ -120,7 +120,10 @@ module Roby
                     append_to_history(plan_rebuilder.history.last)
                 end
                 @last_cycle = cycle
+                time = Time.at(*plan_rebuilder.stats[:start]) + plan_rebuilder.stats[:real_start]
+                emit received_new_data(Qt::DateTime.new(time))
             end
+            signals 'received_new_data(QDateTime)'
 
             # Opens +filename+ and reads the data from there
             def open(filename)

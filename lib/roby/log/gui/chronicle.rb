@@ -15,8 +15,11 @@ module Roby
         #   * double-click: task info view
         #
         class ChronicleWidget < Qt::AbstractScrollArea
+            attr_predicate :live?, true
             # The PlanRebuilderWidget instance that is managing the history
             attr_reader :history_widget
+            # True if the time scroll bar is currently pressed
+            attr_predicate :horizontal_scroll_bar_down?, true
             # Internal representation of the desired time scale. Don't use it
             # directly, but use #time_to_pixel or #pixel_to_time
             attr_reader :time_scale
@@ -124,6 +127,8 @@ module Roby
                 @sort_mode = :start_time
                 @show_mode = :all
                 @show_future_events = true
+                @live = true
+                @horizontal_scroll_bar_down = false
 
                 viewport = Qt::Widget.new
                 pal = Qt::Palette.new(viewport.palette)
@@ -135,10 +140,19 @@ module Roby
                 updateWindowTitle
                 horizontal_scroll_bar.connect(SIGNAL('sliderMoved(int)')) do
                     value = horizontal_scroll_bar.value
+                    self.live = (value == horizontal_scroll_bar.maximum)
                     time = base_time + Float(value) * pixel_to_time
                     update_current_time(time)
                     emit timeChanged(time - base_time)
                     update
+                end
+                horizontal_scroll_bar.connect(SIGNAL('sliderPressed()')) do
+                    self.horizontal_scroll_bar_down = true
+                end
+                horizontal_scroll_bar.connect(SIGNAL('sliderReleased()')) do
+                    self.live = (horizontal_scroll_bar.value == horizontal_scroll_bar.maximum)
+                    self.horizontal_scroll_bar_down = false
+                    update_scroll_ranges
                 end
                 vertical_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
                     value = vertical_scroll_bar.value
@@ -256,10 +270,23 @@ module Roby
                 end
                 return if !time
                 update_current_time(time)
-                update_scroll_ranges
-                horizontal_scroll_bar.value = time_to_pixel * (time - base_time)
+                if !horizontal_scroll_bar_down?
+                    update_scroll_ranges
+                    horizontal_scroll_bar.value = time_to_pixel * (current_time - base_time)
+                end
+                update
             end
             slots 'setCurrentTime(QDateTime)'
+
+            def live_update(time = nil)
+                if live?
+                    setCurrentTime(time)
+                elsif !horizontal_scroll_bar_down?
+                    update_scroll_ranges
+                end
+                update
+            end
+            slots 'live_update(QDateTime)'
 
             def paintEvent(event)
                 if !current_time
@@ -617,8 +644,13 @@ module Roby
 
             def setCurrentTime(time)
                 @chronicle.setCurrentTime(time)
-            slots 'setCurrentTime(QDateTime)'
             end
+            slots 'setCurrentTime(QDateTime)'
+
+            def live_update(time)
+                @chronicle.live_update(time)
+            end
+            slots 'live_update(QDateTime)'
 
             # Save view configuration
             def save_options
