@@ -276,6 +276,11 @@ module Roby
         # default)
         attr_predicate :plugins_enabled?, true
 
+        # @return [Array<String>] list of paths to files not in models/ that
+        #   contain some models. This is mainly used by the command-line tools
+        #   so that the user can load separate "model-based scripts" files.
+        attr_reader :additional_model_files
+
         # Defines common configuration options valid for all Roby-oriented
         # scripts
         def self.common_optparse_setup(parser)
@@ -359,6 +364,7 @@ module Roby
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
             @created_log_dirs = []
+            @additional_model_files = []
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
@@ -774,6 +780,10 @@ module Roby
 	    call_plugins(:require_models, self)
 
             require_planners
+
+            additional_model_files.each do |path|
+                require path
+            end
 	end
 
         # Loads the planner models
@@ -1520,6 +1530,9 @@ module Roby
         def reload_models
             clear_models
             unload_features("models", ".*\.rb$")
+            additional_model_files.each do |path|
+                unload_features(path)
+            end
             require_models
         end
 
