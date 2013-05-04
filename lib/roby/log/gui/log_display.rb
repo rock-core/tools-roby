@@ -104,7 +104,12 @@ module Roby
                     raise ArgumentError, "there is already a view of type #{name} with ID #{id}"
                 end
 
-                klass = eval(name)
+                klass = begin constant(name)
+                        rescue NameError => e
+                            Roby.warn "cannot create display of class #{name}: #{e}"
+                            return
+                        end
+
                 view = klass.new(@history_widget)
 
                 Qt::Object.connect(history_widget, SIGNAL('currentTimeChanged(QDateTime)'),
@@ -163,6 +168,7 @@ module Roby
                 options = Hash.new
                 options['plan_rebuilder'] = plan_rebuilder.save_options
                 options['main'] = Hash.new
+                options['plugins'] = Roby.app.plugins.map(&:first)
                 save_widget_state(options['main'], self)
                 options['views'] = Array.new
                 displays.each do |klass_name, views|
@@ -195,6 +201,14 @@ module Roby
             end
 
             def apply_options(options)
+                (options['plugins'] || Array.new).each do |plugin_name|
+                    begin
+                        Roby.app.using plugin_name
+                    rescue ArgumentError => e
+                        Roby.warn "the display configuration file mentions the #{plugin_name} plugin, but it is not available on this system. Some information might not be displayed"
+                    end
+                end
+
                 filters = options['plan_rebuilder'] || Hash.new
                 plan_rebuilder.apply_options(filters)
                 apply_widget_state(options['main'] || Hash.new, self)
@@ -206,7 +220,9 @@ module Roby
                             next
                         end
                     else
-                        w = create_display(klass_name, id)
+                        if !(w = create_display(klass_name, id))
+                            next
+                        end
                     end
                     apply_widget_state(view_options, w)
                     if w.respond_to?(:apply_options)
