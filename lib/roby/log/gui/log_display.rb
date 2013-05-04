@@ -111,6 +111,7 @@ module Roby
                         end
 
                 view = klass.new(@history_widget)
+                view.setAttribute(Qt::WA_QuitOnClose, false)
 
                 Qt::Object.connect(history_widget, SIGNAL('currentTimeChanged(QDateTime)'),
                                    view, SLOT('setCurrentTime(QDateTime)'))
