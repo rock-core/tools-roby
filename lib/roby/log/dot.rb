@@ -125,6 +125,7 @@ module Roby
 
                 (known_tasks | finalized_tasks | free_events | finalized_events).
                     each do |obj|
+                        next if !display.displayed?(obj)
                         obj.apply_layout(bounding_rects, positions, display)
                     end
 
