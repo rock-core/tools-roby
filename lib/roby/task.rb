@@ -1150,12 +1150,12 @@ module Roby
                 return false
             end
 
-	    target_model = target.fullfilled_model
-	    if !fullfills?(target_model.first)
+	    target_model = target.model
+	    if !fullfills?(target_model)
 		return false
 	    end
 
-	    target_model.last.each do |key, val|
+            target.arguments.each_static do |key, val|
 		if arguments.set?(key) && arguments[key] != val
 		    return false
 		end
