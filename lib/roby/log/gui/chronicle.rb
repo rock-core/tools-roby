@@ -24,7 +24,7 @@ module Roby
             def time_scale=(new_value)
                 @time_scale = new_value
                 update_scroll_ranges
-                viewport.repaint
+                viewport.update
             end
             # The time that is currently at the middle of the view
             attr_accessor :current_time
@@ -89,8 +89,8 @@ module Roby
             # Sets the filter regular expression. See #filter
             def filter=(value)
                 @filter = value
+                setCurrentTime
                 update
-                repaint
             end
 
             # Exclusion filter on task names
@@ -102,8 +102,8 @@ module Roby
             # Sets the filter_out regular expression. See #filter_out
             def filter_out=(value)
                 @filter_out = value
+                setCurrentTime
                 update
-                repaint
             end
 
             # Display the events "in the future", or stop at the current time.
@@ -138,12 +138,12 @@ module Roby
                     time = base_time + Float(value) * pixel_to_time
                     update_current_time(time)
                     emit timeChanged(time - base_time)
-                    repaint
+                    update
                 end
                 vertical_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
                     value = vertical_scroll_bar.value
                     self.start_line = value
-                    repaint
+                    update
                 end
             end
 
@@ -247,7 +247,7 @@ module Roby
                 end
             end
 
-            def update(time = nil)
+            def setCurrentTime(time = nil)
                 # Convert from QDateTime to allow update() to be a slot
                 if time.kind_of?(Qt::DateTime)
                     time = Time.at(Float(time.toMSecsSinceEpoch) / 1000)
@@ -259,7 +259,7 @@ module Roby
                 update_scroll_ranges
                 horizontal_scroll_bar.value = time_to_pixel * (time - base_time)
             end
-            slots 'update(QDateTime)'
+            slots 'setCurrentTime(QDateTime)'
 
             def paintEvent(event)
                 if !current_time
@@ -569,7 +569,7 @@ module Roby
                         act.connect(SIGNAL('toggled(bool)')) do |onoff|
                             if onoff
                                 @chronicle.show_mode = value
-                                @chronicle.update
+                                @chronicle.setCurrentTime
                             end
                         end
                         @actgrp_show.add_action(act)
@@ -599,7 +599,7 @@ module Roby
                 if new_time >= chronicle.history_widget.current_time
                     new_time = chronicle.history_widget.current_time
                 end
-                chronicle.update(new_time)
+                chronicle.setCurrentTime(new_time)
             end
             slots 'step()'
 
@@ -615,10 +615,10 @@ module Roby
             end
             slots 'updateWindowTitle()'
 
-            def update(time)
-                @chronicle.update(time)
+            def setCurrentTime(time)
+                @chronicle.setCurrentTime(time)
+            slots 'setCurrentTime(QDateTime)'
             end
-            slots 'update(QDateTime)'
 
             # Save view configuration
             def save_options

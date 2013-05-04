@@ -103,8 +103,8 @@ module Roby
                 klass = eval(name)
                 view = klass.new(@history_widget)
 
-                Qt::Object.connect(history_widget, SIGNAL('update(QDateTime)'),
-                                   view, SLOT('update(QDateTime)'))
+                Qt::Object.connect(history_widget, SIGNAL('currentTimeChanged(QDateTime)'),
+                                   view, SLOT('setCurrentTime(QDateTime)'))
                 Qt::Object.connect(history_widget, SIGNAL('sourceChanged()'),
                                    view, SLOT('updateWindowTitle()'))
                 view.show

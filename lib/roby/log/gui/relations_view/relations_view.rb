@@ -40,10 +40,10 @@ module Roby
             end
             slots 'updateWindowTitle()'
 
-            def update(time)
+            def setCurrentTime(time)
                 view.update(time)
             end
-            slots 'update(QDateTime)'
+            slots 'setCurrentTime(QDateTime)'
 
             def save_options
                 view.save_options

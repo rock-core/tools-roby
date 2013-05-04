@@ -20,7 +20,7 @@ module Roby
             signals 'warn(QString)'
             # Signal emitted when the currently displayed cycle changed, i.e.
             # when displays are supposed to be updated
-            signals 'update(QDateTime)'
+            signals 'currentTimeChanged(QDateTime)'
 
             def initialize(parent, plan_rebuilder = nil)
                 super(parent)
@@ -84,7 +84,7 @@ module Roby
                     @current_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
                     snapshot.apply(@current_plan)
                 end
-                emit update(Qt::DateTime.new(@current_time))
+                emit currentTimeChanged(Qt::DateTime.new(@current_time))
             end
 
             def seek(time)
