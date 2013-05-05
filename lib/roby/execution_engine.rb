@@ -151,7 +151,6 @@ module Roby
             @propagation_exceptions = nil
             @application_exceptions = nil
             @delayed_events = []
-            @process_once = Queue.new
             @event_ordering = Array.new
             @event_priorities = Hash.new
             @propagation_handlers = []
@@ -196,19 +195,22 @@ module Roby
             attr_reader :handler
             attr_reader :on_error
             attr_predicate :late?, true
+            attr_predicate :once?, true
+            attr_predicate :disabled?, true
 
             def id; handler.object_id end
 
             def initialize(description, handler, options)
                 options = Kernel.validate_options options,
-                    :on_error => :raise, :late => false
+                    :on_error => :raise, :late => false, :once => false
 
                 if !PollBlockDefinition::ON_ERROR.include?(options[:on_error].to_sym)
                     raise ArgumentError, "invalid value '#{options[:on_error]} for the :on_error option. Accepted values are #{ON_ERROR.map(&:to_s).join(", ")}"
                 end
 
-                @description, @handler, @on_error, @late =
-                    description, handler, options[:on_error], options[:late]
+                @description, @handler, @on_error, @late, @once =
+                    description, handler, options[:on_error], options[:late], options[:once]
+                @disabled = false
             end
         
             def to_s; "#<PollBlockDefinition: #{description} #{handler} on_error:#{on_error}>" end
@@ -240,27 +242,31 @@ module Roby
             # internal propagation mechanism
             attr_reader :propagation_handlers
 
-            # call-seq:
-            #   ExecutionEngine.add_propagation_handler { |plan| ... }
+            # The propagation handlers are blocks that should be called at
+            # various places during propagation for all plans. These objects
+            # are called in propagation context, which means that the events
+            # they would call or emit are injected in the propagation process
+            # itself.
             #
-            # The propagation handlers are a set of block objects that have to be
-            # called at the beginning of every propagation phase for all plans.
-            # These objects are called in propagation context, which means that the
-            # events they would call or emit are injected in the propagation
-            # process itself.
+            # See also ExecutionEngine#remove_propagation_handler
             #
-            # This method adds a new propagation handler. In its first form, the
-            # argument is the proc object to be added. In the second form, the
-            # block is taken the handler. In both cases, the method returns a value
-            # which can be used to remove the propagation handler later. In both
-            # cases, the block or proc is called with the plan to propagate on
-            # as argument.
-            #
-            # This method sets up global propagation handlers (i.e. to be used for
-            # all propagation on all plans). For per-plan propagation handlers, see
-            # ExecutionEngine#add_propagation_handler.
-            #
-            # See also ExecutionEngine.remove_propagation_handler
+            # @options options [:external_events,:propagation] type defines when
+            #   this block should be called. If :external_events, it is called
+            #   only once at the beginning of each execution cycle. If
+            #   :propagation, it is called once at the beginning of each cycle,
+            #   as well as after each propagation step. The :late option also
+            #   gives some control over when the handler is called when in
+            #   propagation mode
+            # @options options [Boolean] once (false) if true, this handler will
+            #   be removed just after its first execution
+            # @options options [Boolean] late (false) if true, the handler is
+            #   called only when there are no events to propagate anymore.
+            # @options options [:raise,:ignore,:disable] on_error (:raise)
+            #   controls what happens when the block raises an exception. If
+            #   :raise, the error is registered as a framework error. If
+            #   :ignore, it is completely ignored. If :disable, the handler
+            #   will be disabled, i.e. not called anymore until #disabled?
+            #   is set to false.
             def add_propagation_handler(options = Hash.new, &block)
                 if options.respond_to?(:call) # for backward compatibility
                     block, options = options, Hash.new
@@ -291,6 +297,7 @@ module Roby
             def remove_propagation_handler(id)
                 propagation_handlers.delete_if { |p| p.id == id }
                 external_events_handlers.delete_if { |p| p.id == id }
+                disabled_handlers.delete_if { |p| p.id == id }
                 nil
             end
         end
@@ -631,23 +638,19 @@ module Roby
             end
         end
 
-        # The set of handlers that have been disabled because they raised an
-        # exception
-        attr_reader :disabled_handlers
-
         # Helper that calls the propagation handlers in +propagation_handlers+
         # (which are expected to be instances of PollBlockDefinition) and
         # handles the errors according of each handler's policy
         def call_poll_blocks(blocks, late = false)
-            for handler in blocks
-                if handler.late? ^ late
+            blocks.delete_if do |handler|
+                if handler.disabled? || (handler.late? ^ late)
                     next
                 end
 
-                next if disabled_handlers.include?(handler)
                 if !handler.call(self)
-                    disabled_handlers << handler
+                    handler.disabled = true
                 end
+                handler.once?
             end
         end
 
@@ -655,10 +658,6 @@ module Roby
         def gather_external_events
             gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
             gather_framework_errors('delayed events')     { execute_delayed_events }
-            while !process_once.empty?
-                p = process_once.pop
-                gather_framework_errors("'once' block #{p}") { p.call }
-            end
             call_poll_blocks(self.class.external_events_handlers)
             call_poll_blocks(self.external_events_handlers)
         end
@@ -1142,14 +1141,10 @@ module Roby
                 reject { |e| plan.handle_exception(e) }
         end
 
-        # A set of proc objects which should be executed at the beginning of the
-        # next execution cycle.
-        attr_reader :process_once
-
         # Schedules +block+ to be called at the beginning of the next execution
         # cycle, in propagation context.
-        def once(&block)
-            process_once.push block
+        def once(options = Hash.new, &block)
+            add_propagation_handler(Hash[:type => :external_events, :once => true].merge(options), &block)
         end
 
         # The set of errors which have been generated outside of the plan's

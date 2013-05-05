@@ -527,12 +527,14 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	assert_equal(size, samples.size)
     end
 
-    def test_once
+    def test_once_blocks_are_called_by_proces_events
 	FlexMock.use do |mock|
 	    engine.once { mock.called }
 	    mock.should_receive(:called).once
 	    process_events
 	end
+    end
+    def test_once_blocks_are_called_only_once
 	FlexMock.use do |mock|
 	    engine.once { mock.called }
 	    mock.should_receive(:called).once
