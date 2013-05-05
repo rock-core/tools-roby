@@ -869,6 +869,7 @@ module Roby
                 require initfile
             end
             call_plugins(:load, self, options)
+            call_plugins(:load_base_config, self, options)
 
 	    setup_dirs
 	    setup_loggers
