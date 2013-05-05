@@ -21,12 +21,17 @@ scripts/controllers/ and/or some explicitly given actions
         exit 1
     end
 end
-actions = options.parse(ARGV)
+remaining_arguments = options.parse(ARGV)
 
 app = Roby.app
 app.require_app_dir
 app.public_shell_interface = true
 app.public_logs = true
+
+direct_files, actions = remaining_arguments.partition do |arg|
+    File.file?(arg)
+end
+Roby.app.additional_model_files.concat(direct_files)
 
 Roby.display_exception do
     app.setup
