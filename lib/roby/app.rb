@@ -561,11 +561,6 @@ module Roby
 	    end
 	end
 
-	def reset
-            plan.clear
-	    call_plugins(:reset, self)
-	end
-
         # The robot name
 	attr_reader :robot_name
         # The robot type
@@ -882,7 +877,6 @@ module Roby
         def base_setup
 	    STDOUT.sync = true
 
-	    reset
             require 'roby/planning'
             require 'roby/interface'
 	    load_base_config
@@ -1115,7 +1109,9 @@ module Roby
             stop_log_server
             stop_drb_service
             planners.clear
+            plan.clear
             call_plugins(:cleanup, self)
+            call_plugins(:reset, self)
         end
 
 	def stop; call_plugins(:stop, self) end
