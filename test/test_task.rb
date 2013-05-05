@@ -1400,6 +1400,36 @@ class TC_Task < Test::Unit::TestCase
         process_events
     end
 
+    def test_poll_is_called_in_the_same_cycle_as_the_start_event
+        mock = flexmock
+
+        poll_cycles = []
+        model = Tasks::Simple.new_submodel do
+            poll { poll_cycles << plan.engine.propagation_id }
+        end
+        t = prepare_plan :permanent => 1, :model => model
+        t.poll { |task| poll_cycles << task.plan.engine.propagation_id }
+        t.start!
+        expected = t.start_event.history.first.propagation_id
+        assert_equal [expected, expected], poll_cycles
+    end
+
+    def test_poll_is_called_after_the_start_handlers
+        mock = flexmock
+
+        poll_cycles = []
+        model = Tasks::Simple.new_submodel do
+            on(:start) { |ev| mock.start_handler }
+            poll { mock.poll_handler }
+        end
+        t = prepare_plan :permanent => 1, :model => model
+        t.on(:start) { |ev| mock.start_handler }
+        t.poll { |task| mock.poll_handler }
+        mock.should_receive(:start_handler).ordered
+        mock.should_receive(:poll_handler).ordered
+        t.start!
+    end
+
     def test_poll_on_pending_tasks
         mock = flexmock
 
@@ -1435,7 +1465,7 @@ class TC_Task < Test::Unit::TestCase
                 mock.polled_from_model(running?, self)
             end
         end
-        t = prepare_plan :permanent => 1, :model => model
+        t = prepare_plan :add => 1, :model => model
         t.poll do |task|
             mock.polled_from_instance(t.running?, task)
         end
