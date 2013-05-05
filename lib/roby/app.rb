@@ -54,6 +54,31 @@ module Roby
     # == Testing mode (<tt>scripts/test</tt>)
     # This mode is used to run test suites in the +test+ directory. See
     # Roby::Test::TestCase for a description of Roby-specific tests.
+    #
+    # == Plugin Integration
+    # Plugins are integrated by providing methods that get called during setup
+    # and teardown of the application. It is therefore important to understand
+    # the order in which methods get called, and where the plugins can
+    # 'plug-in' this process.
+    #
+    # On setup, the following methods are called:
+    # - load base configuration files. app.yml and init.rb
+    # - load_base_config hook
+    # - set up directories (log dir, ...) and loggers
+    # - set up singletons
+    # - base_setup hook
+    # - setup hook. The difference is that the setup hook is called only if
+    #   #setup is called. base_setup is always called.
+    # - load models in models/tasks
+    # - require_models hook
+    # - load models in models/planners and models/actions
+    # - require_planners hook
+    # - load additional model files
+    # - load config file config/ROBOT.rb
+    # - require_config hook
+    # - setup main planner
+    # - setup testing if in testing mode
+    # - setup shell interface
     class Application
         extend Logger::Hierarchy
         extend Logger::Forward
@@ -927,7 +952,7 @@ module Roby
         # init.rb and app.yml are loadedd "early" in #setup by calling
         # #load_base_config
         #
-        # It calls the require_models method on loaded plugins as well
+        # It calls the corresponding hook on enabled plugins
         def require_config
             if file = find_file('config', "ROBOT.rb", :order => :specific_first)
                 require file
