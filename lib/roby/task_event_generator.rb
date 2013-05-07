@@ -61,6 +61,13 @@ module Roby
             end
         end
 
+        def fire(event)
+            super
+            if event.symbol == :start
+                task.do_poll(plan)
+            end
+        end
+
         # Actually emits the event. This should not be used directly.
         #
         # It forwards the call to Task#fire

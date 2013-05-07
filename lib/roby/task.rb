@@ -655,9 +655,6 @@ module Roby
         def fired_event(event)
 	    update_task_status(event)
 	    super if defined? super
-            if event.symbol == :start
-                do_poll(plan)
-            end
         end
     
         # The most specialized event that caused this task to end
