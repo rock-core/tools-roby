@@ -135,8 +135,8 @@ __or__ ev2 have been emitted.
  >> plan.add(ev2 = EventGenerator.new)
  >> and_ev = ev1 & ev2
  >> or_ev  = ev1 | ev2
- >> and_ev.on { puts "AND" }
- >> or_ev.on { puts "OR" }
+ >> and_ev.on { |ev| puts "AND" }
+ >> or_ev.on { |ev| puts "OR" }
  >> ev1.emit
  OR
  >> ev2.emit
@@ -152,8 +152,8 @@ emitted every time one of its sources are, you would do:
 
 {coderay:: ruby}
  >> or_ev = ev1 | ev2
- >> or_ev.on { puts "OR" }
- >> or_ev.on { or_ev.reset }
+ >> or_ev.on { |ev| puts "OR" }
+ >> or_ev.on { |ev| or_ev.reset }
  >> ev2.emit
  OR
  >> ev2.emit

@@ -106,24 +106,24 @@ my\_task.rb file.
 
 {coderay:: ruby}
 class MyTask < Roby::Task
-   event :start do
+   event :start do |context|
       puts "start event called"
       emit :start
    end
-   event :controlable do
+   event :controlable do |context|
       puts "controlable event called"
       emit :controlable
    end
    event :contingent
 
-   on(:start) { puts "start event emitted" }
-   on(:controlable) { puts "controlable event emitted" }
-   on(:contingent) { puts "contingent event emitted" }
-   on(:failed) { puts "failed event emitted" }
-   on(:stop) { puts "stop event emitted" }
+   on(:start) { |event| puts "start event emitted" }
+   on(:controlable) { |event| puts "controlable event emitted" }
+   on(:contingent) { |event| puts "contingent event emitted" }
+   on(:failed) { |event| puts "failed event emitted" }
+   on(:stop) { |event| puts "stop event emitted" }
 
    event :finished, :terminal => true
-   on(:finished) { puts "finished event emitted" }
+   on(:finished) { |event| puts "finished event emitted" }
 end
 {coderay}
 
@@ -163,8 +163,8 @@ Instead of calling #on, #signal, #emit and #call on the event object, one can us
 shortcuts that are defined on {rdoc_class: Task}:
 
 {coderay:: ruby}
-# Same as task.event(:contingent).on { ... }
->> task.on(:contingent) { puts "contingent event emitted" } 
+# Same as task.event(:contingent).on { |ev| ... }
+>> task.on(:contingent) { |ev| puts "contingent event emitted" } 
 # Same as task.event(:contingent).emit
 >> task.emit(:contingent)
 # There's two handlers now, so we should have two lines displayed
@@ -206,7 +206,7 @@ relation between events, which can be added as follows:
 {coderay:: ruby}
 >> class MyTask < Roby::Task
 ?>     event :wheel_blocked
-?>     on(:wheel_blocked) { puts "wheel_blocked emitted" }
+?>     on(:wheel_blocked) { |ev| puts "wheel_blocked emitted" }
 ?> end
 >> plan.add(task = MyTask.new)
 >> task.start!
