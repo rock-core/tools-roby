@@ -123,7 +123,7 @@ Let's try one code error. Add the following event handler in the definition of
 MoveTo in models/tasks/move\_to.rb
 
 {coderay:: ruby}
-on :start do
+on :start do |event|
   raise "the start handler failed !"
 end
 {coderay}
@@ -200,7 +200,7 @@ possible to actually restart the failing child directly in the event handler of
 _failed_ and replace the failed task through this new one. This is as simple as:
 
 {coderay:: ruby}
-on(:failed) do
+on(:failed) do |event|
     plan.respawn(self)
 end
 {coderay}
@@ -210,14 +210,14 @@ error:
 
 {coderay:: ruby}
 attr_accessor :should_pass
-event :start do
+event :start do |context|
   if !should_pass
     forward :start, self, :failed, :delay => 0.2
   end
   emit :start
 end
 
-on :failed do
+on :failed do |event|
   if !should_pass
     Robot.info "respawning ..."
     new_task = plan.respawn(self)
@@ -286,13 +286,13 @@ following:
 class RepairTask < Roby::Task
   terminates
 
-  event :start do
+  event :start do |context|
     Robot.info "repair will succeed in 2 seconds"
     forward_to :start, self, :success, :delay => 2
     emit :start
   end
 
-  on :success do
+  on :success do |event|
     current   = failed_task.current_waypoint
     execute   = plan.respawn(failed_task)
     repair    = plan.recreate(self)

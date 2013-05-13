@@ -16,24 +16,24 @@ MyTask task model that way:
 
 {coderay:: ruby}
 class MyTask < Roby::Task
-  event :start do
+  event :start do |context|
      puts "start event called"
      emit :start
   end
-  event :controlable do
+  event :controlable do |context|
      puts "controlable event called"
      emit :controlable
   end
   event :contingent
 
-  on(:start) { puts "start event emitted" }
-  on(:controlable) { puts "controlable event emitted" }
-  on(:contingent) { puts "contingent event emitted" }
-  on(:failed) { puts "failed event emitted" }
-  on(:stop) { puts "stop event emitted" }
+  on(:start) { |event| puts "start event emitted" }
+  on(:controlable) { |event| puts "controlable event emitted" }
+  on(:contingent) { |event| puts "contingent event emitted" }
+  on(:failed) { |event| puts "failed event emitted" }
+  on(:stop) { |event| puts "stop event emitted" }
 
   event :finished, :terminal => true
-  on(:finished) { puts "finished event emitted" }
+  on(:finished) { |event| puts "finished event emitted" }
 end
 {coderay}
 
@@ -41,18 +41,18 @@ Full of repetitions ... Now, one could have written, instead:
 
 {coderay:: ruby}
 class MyTask < Roby::Task
-  event :start do
+  event :start do |context|
      puts "start event called"
      emit :start
   end
-  event :controlable do
+  event :controlable do |context|
      puts "controlable event called"
      emit :controlable
   end
   event :finished, :terminal => true
 
   each_event do |ev|
-    on(ev.symbol) { puts "#{ev.symbol} event emitted" }
+    on(ev.symbol) { |event| puts "#{ev.symbol} event emitted" }
   end
 end
 {coderay}
