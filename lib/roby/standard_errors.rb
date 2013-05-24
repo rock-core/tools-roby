@@ -79,6 +79,23 @@ module Roby
                  obj == failed_generator ||
                  obj == failed_task)
         end
+
+        # Intermediate representation used to marshal/unmarshal a LocalizedError
+        class DRoby
+            attr_reader :model, :failure_point, :message
+            def initialize(model, failure_point, message); @model, @failure_point, @message = model, failure_point, message end
+
+            def proxy(peer)
+                failure_point = peer.local_object(self.failure_point)
+                error = LocalizedError.new(failure_point)
+                error.exception(message)
+                error
+            end
+        end
+
+        # Returns an intermediate representation of +self+ suitable to be sent to
+        # the +dest+ peer.
+        def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), Distributed.format(failure_point, dest), message) end
     end
 
     class RelationFailedError < LocalizedError
