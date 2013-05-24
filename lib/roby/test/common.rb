@@ -1,16 +1,29 @@
-require 'test/unit'
-require 'utilrb/time/to_hms'
-require 'roby'
-require 'utilrb/module/attr_predicate'
-
-if !defined?(Test::Unit::AssertionFailedError)
-Test::Unit::AssertionFailedError = MiniTest::Assertion
+# simplecov must be loaded FIRST. Only the files required after it gets loaded
+# will be profiled !!!
+if ENV['TEST_ENABLE_COVERAGE'] == '1'
+    begin
+        require 'simplecov'
+        SimpleCov.start
+    rescue LoadError
+        require 'roby'
+        Roby.warn "coverage is disabled because the 'simplecov' gem cannot be loaded"
+    rescue Exception => e
+        require 'roby'
+        Roby.warn "coverage is disabled: #{e.message}"
+    end
 end
 
-begin
-    require 'pry'
-rescue LoadError
-    Roby.warn "pry gem is not present, not enabled"
+require 'roby'
+require 'test/unit'
+require 'minitest/spec'
+require 'flexmock/test_unit'
+
+if ENV['TEST_ENABLE_PRY'] != '0'
+    begin
+        require 'pry'
+    rescue Exception
+        Roby.warn "debugging is disabled because the 'pry' gem cannot be loaded"
+    end
 end
 
 module Roby
@@ -865,6 +878,10 @@ module Roby
     # @see Test
     module SelfTest
         include Test
+        if defined? FlexMock
+            include FlexMock::ArgumentTypes
+            include FlexMock::MockContainer
+        end
 
         def setup
             Roby.app.log['server'] = false

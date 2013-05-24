@@ -13,3 +13,5 @@ doc/cache
 pkg/
 logs/
 .yardoc
+
+coverage/
