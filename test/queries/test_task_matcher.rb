@@ -24,7 +24,7 @@ class TC_Query < Test::Unit::TestCase
 	result = TaskMatcher.which_fullfills(task_model, :value => 1).enum_for(:each, plan).to_set
 	assert_equal([t1].to_set, result)
 
-	assert_marshallable(TaskMatcher.new.which_fullfills(task_model, :value => 2))
+	verify_is_droby_marshallable_object(TaskMatcher.new.which_fullfills(task_model, :value => 2))
     end
 
     def test_match_task_fullfills

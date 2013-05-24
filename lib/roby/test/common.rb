@@ -530,12 +530,11 @@ module Roby
 	    end
 	end
 
-	def assert_marshallable(object)
-	    begin
-		Marshal.dump(object)
-		true
-	    rescue TypeError
-	    end
+	def verify_is_droby_marshallable_object(object)
+            droby = object.droby_dump(nil)
+	    marshalled = Marshal.dump(droby)
+            droby = Marshal.load(marshalled)
+            droby.proxy(Roby::Distributed::DumbManager)
 	end
 
 	# The console logger object. See #console_logger=
