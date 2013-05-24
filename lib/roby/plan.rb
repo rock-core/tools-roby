@@ -154,7 +154,7 @@ module Roby
                 map { |r| r.method(:check_structure) if r.respond_to?(:check_structure) }.
                 compact
 
-	    @task_index  = Roby::TaskIndex.new
+	    @task_index  = Roby::Queries::Index.new
 
 	    super() if defined? super
 	end
@@ -809,7 +809,7 @@ module Roby
 
 	# Returns the set of useful tasks in this plan
 	def locally_useful_tasks
-            to_unmark = task_index.by_state[:finished?] | task_index.by_state[:failed?]
+            to_unmark = task_index.by_predicate[:finished?] | task_index.by_predicate[:failed?]
 
 	    # Remove all missions that are finished
 	    for finished_mission in (@missions & to_unmark)
@@ -1334,6 +1334,86 @@ module Roby
         def same_plan?(other_plan, mappings)
             !find_plan_difference(other_plan, mappings)
         end
+
+        # Returns a Query object that applies on this plan.
+        #
+        # This is equivalent to
+        #
+        #   Roby::Query.new(self)
+        #
+        # Additionally, the +model+ and +args+ options are passed to
+        # Query#which_fullfills. For example:
+        #
+        #   plan.find_tasks(Tasks::SimpleTask, :id => 20)
+        #
+        # is equivalent to
+        #
+        #   Roby::Query.new(self).which_fullfills(Tasks::SimpleTask, :id => 20)
+        #
+        # The returned query is applied on the global scope by default. This
+        # means that, if it is applied on a transaction, it will match tasks
+        # that are in the underlying plans but not yet in the transaction,
+        # import the matches in the transaction and return the new proxies.
+        #
+        # See #find_local_tasks for a local query.
+	def find_tasks(model = nil, args = nil)
+	    q = Queries::Query.new(self)
+	    if model || args
+		q.which_fullfills(model, args)
+	    end
+	    q
+	end
+
+        # Starts a local query on this plan.
+        #
+        # Unlike #find_tasks, when applied on a transaction, it will only match
+        # tasks that are already in the transaction.
+        #
+        # See #find_global_tasks for a local query.
+        def find_local_tasks(*args, &block)
+            query = find_tasks(*args, &block)
+            query.local_scope
+            query
+        end
+
+	# Called by TaskMatcher#result_set and Query#result_set to get the set
+	# of tasks matching +matcher+
+	def query_result_set(matcher) # :nodoc:
+            filtered = matcher.filter(known_tasks.dup, task_index)
+
+            if matcher.indexed_query?
+                filtered
+            else
+                result = ValueSet.new
+                for task in filtered
+                    result << task if matcher === task
+                end
+                result
+            end
+	end
+
+	# Called by TaskMatcher#each and Query#each to return the result of
+	# this query on +self+
+	def query_each(result_set, &block) # :nodoc:
+	    for task in result_set
+		yield(task)
+	    end
+	end
+
+	# Given the result set of +query+, returns the subset of tasks which
+	# have no parent in +query+
+	def query_roots(result_set, relation) # :nodoc:
+	    children = ValueSet.new
+	    found    = ValueSet.new
+	    for task in result_set
+		next if children.include?(task)
+		task_children = task.generated_subgraph(relation)
+		found -= task_children
+		children.merge(task_children)
+		found << task
+	    end
+	    found
+	end
     end
 end
 

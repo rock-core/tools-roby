@@ -1,0 +1,340 @@
+module Roby
+    module Queries
+    # Predicate that matches characteristics on a plan object
+    class PlanObjectMatcher < MatcherBase
+        # A set of models that should be provided by the object
+        #
+        # @return [Array<Class>]
+	attr_reader :model
+
+        # Set of predicates that should be true for the object
+        # @return [Array<Symbol>]
+	attr_reader :predicates
+        
+        # Set of predicats that should be false for the object
+        #
+        # The predicates are predicate method names (e.g. 'executable' for #executable?)
+        #
+        # @return [Array<Symbol>]
+        attr_reader :neg_predicates
+        
+        # Set of owners that the object should have
+        #
+        # The predicates are predicate method names (e.g. 'executable' for #executable?)
+        #
+        # @return [Array<Peer>]
+        attr_reader :owners
+
+        # Set of predicates that should be true on the object, and for which
+        # the index maintains a set of objects for which it is true
+        #
+        # @return [Array<Symbol>]
+        attr_reader :indexed_predicates
+       
+        # Set of predicates that should be false on the object, and for which
+        # the index maintains a set of objects for which it is true
+        #
+        # @return [Array<Symbol>]
+        attr_reader :indexed_neg_predicates
+
+        # Initializes an empty TaskMatcher object
+	def initialize
+            @model                = Array.new
+	    @predicates           = ValueSet.new
+	    @neg_predicates       = ValueSet.new
+	    @indexed_predicates     = ValueSet.new
+	    @indexed_neg_predicates = ValueSet.new
+	    @owners               = Array.new
+            @parents              = Hash.new { |h, k| h[k] = Array.new }
+            @children             = Hash.new { |h, k| h[k] = Array.new }
+	end
+
+        # Filters on ownership
+        #
+        # Matches if the object is owned by the listed peers.
+        #
+        # Use #self_owned to match if it is owned by the local plan manager.
+	def owned_by(*ids)
+	    @owners |= ids
+	    self
+	end
+
+        # Filters locally-owned tasks
+        #
+        # Matches if the object is owned by the local plan manager.
+	def self_owned
+	    owned_by(Roby::Distributed)
+	    self
+	end
+
+	# Filters on the task model
+        #
+        # Will match if the task is an instance of +model+ or one of its
+        # subclasses.
+	def with_model(model)
+	    @model = Array(model)
+	    self
+	end
+
+	class << self
+	    def declare_class_methods(*names) # :nodoc:
+		names.each do |name|
+		    raise "no instance method #{name} on #{self}" unless method_defined?(name)
+		    singleton_class.send(:define_method, name) do |*args|
+			self.new.send(name, *args)
+		    end
+		end
+	    end
+
+            def match_predicate(name, positive_index = nil, negative_index = nil)
+                if Index::PREDICATES.include?(:"#{name}?")
+                    positive_index ||= [[":#{name}?"], []]
+                    negative_index ||= [[], [":#{name}?"]]
+                end
+                positive_index ||= [[], []]
+                negative_index ||= [[], []]
+                class_eval <<-EOD, __FILE__, __LINE__+1
+                def #{name}
+                    if neg_predicates.include?(:#{name}?)
+                        raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+                    end
+                    predicates << :#{name}?
+                    #{if !positive_index[0].empty? then ["indexed_predicates", *positive_index[0]].join(" << ") end}
+                    #{if !positive_index[1].empty? then ["indexed_neg_predicates", *positive_index[1]].join(" << ") end}
+                    self
+                end
+                def not_#{name}
+                    if predicates.include?(:#{name}?)
+                        raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+                    end
+                    neg_predicates << :#{name}?
+                    #{if !negative_index[0].empty? then ["indexed_predicates", *negative_index[0]].join(" << ") end}
+                    #{if !negative_index[1].empty? then ["indexed_neg_predicates", *negative_index[1]].join(" << ") end}
+                    self
+                end
+                EOD
+                declare_class_methods(name, "not_#{name}")
+            end
+
+            # For each name in +names+, define a #name and a #not_name method.
+            # If the first is called, the matcher will match only tasks whose
+            # #name? method returns true.  If the second is called, the
+            # opposite will be done.
+	    def match_predicates(*names)
+		names.each do |name|
+                    match_predicate(name)
+		end
+	    end
+	end
+
+        ##
+        # :method: executable
+        #
+        # Matches if the object is executable
+        #
+        # See also #not_executable, PlanObject#executable?
+
+        ##
+        # :method: not_executable
+        #
+        # Matches if the object is not executable
+        #
+        # See also #executable, PlanObject#executable?
+
+	match_predicates :executable
+
+        declare_class_methods :with_model, :owned_by, :self_owned
+
+        # Helper method for #with_child and #with_parent
+        def handle_parent_child_arguments(other_query, relation, relation_options) # :nodoc:
+            return relation, [other_query, relation_options]
+        end
+
+        # Filters based on the object's children
+        #
+        # Matches if this object has at least one child which matches +query+.
+        #
+        # If +relation+ is given, then only the children in this relation are
+        # considered. Moreover, relation options can be used to restrict the
+        # search even more.
+        #
+        # Examples:
+        #
+        #   parent.depends_on(child)
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending) === parent # => true
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending, Roby::TaskStructure::Dependency) === parent # => true
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending, Roby::TaskStructure::PlannedBy) === parent # => false
+        #
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending,
+        #                  Roby::TaskStructure::Dependency,
+        #                  :roles => ["trajectory_following"]) === parent # => false
+        #   parent.depends_on child, :role => "trajectory_following"
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending,
+        #                  Roby::TaskStructure::Dependency,
+        #                  :roles => ["trajectory_following"]) === parent # => true
+        #
+        def with_child(other_query, relation = nil, relation_options = nil)
+            relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
+            @children[relation] << spec
+            self
+        end
+
+        # Filters based on the object's parents
+        #
+        # Matches if this object has at least one parent which matches +query+.
+        #
+        # If +relation+ is given, then only the parents in this relation are
+        # considered. Moreover, relation options can be used to restrict the
+        # search even more.
+        #
+        # See examples for #with_child
+        def with_parent(other_query, relation = nil, relation_options = nil)
+            relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
+            @parents[relation] << spec
+            self
+        end
+
+        # Helper method for handling parent/child matches in #===
+        def handle_parent_child_match(object, match_spec) # :nodoc:
+            relation, matchers = *match_spec
+            return false if !relation && object.relations.empty?
+            for match_spec in matchers
+                m, relation_options = *match_spec
+                if relation
+                    if !yield(relation, m, relation_options)
+                        return false 
+                    end
+                else
+                    result = object.relations.any? do |rel|
+                        yield(rel, m, relation_options)
+                    end
+                    return false if !result
+                end
+            end
+            true
+        end
+
+        # Returns true if filtering with this TaskMatcher using #=== is
+        # equivalent to calling #filter() using a Index. This is used to
+        # avoid an explicit O(N) filtering step after filter() has been called
+        def indexed_query?
+            @children.empty? && @parents.empty? &&
+                Index::PREDICATES.include_all?(predicates) &&
+                Index::PREDICATES.include_all?(neg_predicates)
+        end
+
+
+        # Tests whether the given object matches this predicate
+        #
+        # @param [PlanObject] object the object to match
+        # @return [Boolean]
+        def ===(object)
+	    if !model.empty?
+		return unless object.fullfills?(model)
+	    end
+
+            for parent_spec in @parents
+                result = handle_parent_child_match(object, parent_spec) do |relation, m, relation_options|
+                    object.enum_parent_objects(relation).
+                        any? { |parent| m === parent && (!relation_options || relation_options === parent[object, relation]) }
+                end
+                return false if !result
+            end
+
+            for child_spec in @children
+                result = handle_parent_child_match(object, child_spec) do |relation, m, relation_options|
+                    object.enum_child_objects(relation).
+                        any? { |child| m === child && (!relation_options || relation_options === object[child, relation]) }
+                end
+                return false if !result
+            end
+
+	    for pred in predicates
+		return false if !object.send(pred)
+	    end
+	    for pred in neg_predicates
+		return false if object.send(pred)
+	    end
+
+	    return false if !owners.empty? && !(object.owners - owners).empty?
+            true
+        end
+
+        # Filters the tasks in +initial_set+ by using the information in
+        # +index+, and returns the result. The resulting set must
+        # include all tasks in +initial_set+ which match with #===, but can
+        # include tasks which do not match #===
+        #
+        # @param [ValueSet] initial_set
+        # @param [Index] index
+        # @return [ValueSet]
+	def filter(initial_set, index)
+            for m in model
+                initial_set.intersection!(index.by_model[m])
+            end
+
+            for o in owners
+                if candidates = index.by_owner[o]
+                    initial_set.intersection!(candidates)
+                else
+                    return ValueSet.new
+                end
+            end
+
+	    for pred in indexed_predicates
+		initial_set.intersection!(index.by_predicate[pred])
+	    end
+
+	    for pred in indexed_neg_predicates
+		initial_set.difference!(index.by_predicate[pred])
+	    end
+
+	    initial_set
+	end
+
+        # An intermediate representation of TaskMatcher objects suitable to be
+        # sent to our peers.
+	class DRoby
+            # The exact match class that has been marshalled using this object
+	    attr_reader :model
+	    attr_reader :predicates
+	    attr_reader :neg_predicates
+	    attr_reader :owners
+
+	    def initialize(model, predicates, neg_predicates, owners)
+                @model, @predicates, @neg_predicates, @owners =
+                    model, predicates, neg_predicates, owners
+            end
+
+            # Common initialization of a TaskMatcher object from the given
+            # argument set. This is to be used by DRoby-dumped versions of
+            # subclasses of TaskMatcher.
+	    def proxy(peer, matcher = PlanObjectMatcher.new)
+		model  = self.model.proxy(peer)
+		owners = self.owners.proxy(peer)
+
+		matcher.with_model(model)
+		matcher.predicates.merge(predicates)
+		matcher.owners.concat(owners)
+		matcher
+	    end
+	end
+
+        # Returns an intermediate representation of +self+ suitable to be sent
+        # to the +dest+ peer. +klass+ is the actual class of the intermediate
+        # representation. It is used for code reuse by subclasses of
+        # TaskMatcher.
+	def droby_dump(dest)
+            self.class::DRoby.new(model.droby_dump(dest),
+                      predicates, neg_predicates,
+                      owners.droby_dump(dest))
+	end
+    end
+    end
+end
+

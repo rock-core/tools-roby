@@ -627,6 +627,17 @@ module Roby
                 end
                 @simulation_model ||= model
             end
+
+            # Returns a TaskMatcher object that matches this task model
+            def match(*args)
+                matcher = Queries::TaskMatcher.new
+                if args.empty? && self != Task
+                    matcher.which_fullfills(self)
+                else
+                    matcher.which_fullfills(*args)
+                end
+                matcher
+            end
         end
     end
 end

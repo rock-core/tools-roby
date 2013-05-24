@@ -248,8 +248,6 @@ module Roby
 	    @bound_events = bound_events
         end
 
-	attr_reader :model
-
 	# Returns for how many seconds this task is running.  Returns nil if
 	# the task is not running.
 	def lifetime

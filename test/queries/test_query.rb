@@ -1,29 +1,14 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/tasks/simple'
 require 'roby/state/information'
 require 'flexmock'
 
-class TC_Query < Test::Unit::TestCase
+class TC_Queries_Query < Test::Unit::TestCase
     include Roby::SelfTest
 
+    TaskMatcher = Queries::TaskMatcher
+
     def check_matches_fullfill(task_model, plan, t0, t1, t2)
-	result = TaskMatcher.new.enum_for(:each, plan).to_set
-	assert_equal([t1, t2, t0].to_set, result)
-	result = TaskMatcher.new.with_model(Roby::Task).enum_for(:each, plan).to_set
-	assert_equal([t1, t2, t0].to_set, result, plan.task_index.by_model)
-
-	result = TaskMatcher.which_fullfills(task_model).enum_for(:each, plan).to_set
-	assert_equal([t1, t2].to_set, result)
-
-	result = TaskMatcher.with_model(task_model).enum_for(:each, plan).to_set
-	assert_equal([t1, t2].to_set, result)
-	result = TaskMatcher.with_arguments(:value => 1).enum_for(:each, plan).to_set
-	assert_equal([t0, t1].to_set, result)
-
-	result = TaskMatcher.which_fullfills(task_model, :value => 1).enum_for(:each, plan).to_set
-	assert_equal([t1].to_set, result)
-
 	result = plan.find_tasks.which_fullfills(task_model, :value => 2).to_set
 	assert_equal([t2].to_set, result)
 	# Try the shortcut of find_tasks(model, args) for find_tasks.which_fullfills(model, args)
@@ -31,8 +16,6 @@ class TC_Query < Test::Unit::TestCase
 	assert_equal([t2].to_set, result)
 	result = plan.find_tasks(task_model).to_set
 	assert_equal([t1, t2].to_set, result)
-
-	assert_marshallable(TaskMatcher.new.which_fullfills(task_model, :value => 2))
     end
 
     def test_match_task_fullfills
@@ -49,23 +32,6 @@ class TC_Query < Test::Unit::TestCase
 	plan.add_mission(t2)
 
 	check_matches_fullfill(task_model, plan, t0, t1, t2)
-    end
-
-    def test_match_tag
-        tag = TaskService.new_submodel
-        tag.argument :id
-	task_model = Tasks::Simple.new_submodel
-        task_model.provides tag
-
-        plan.add(task = task_model.new(:id => 3))
-        assert(Task.match(tag)              === task)
-        assert(Task.match(tag, :id => 3)    === task)
-        assert(! (Task.match(tag, :id => 2) === task))
-
-        plan.add(task = Tasks::Simple.new)
-        assert(! (Task.match(tag)           === task))
-        assert(! (Task.match(tag, :id => 3) === task))
-        assert(! (Task.match(tag, :id => 2) === task))
     end
 
     def test_match_proxy_fullfills
@@ -90,49 +56,6 @@ class TC_Query < Test::Unit::TestCase
 	assert_equal(task_set.to_set, yield.enum_for(:each).to_set)
     end
 
-    def assert_finds_tasks(task_set, msg = "")
-	assert_equal(task_set.to_set, yield.enum_for(:each, plan).to_set, msg)
-    end
-
-    def test_query_predicates
-	t1 = Tasks::Simple.new_submodel { argument :fake }.new
-	t2 = Roby::Task.new
-	plan.add [t1, t2]
-
-	assert_finds_tasks([]) { TaskMatcher.executable }
-	assert_finds_tasks([t1,t2]) { TaskMatcher.not_executable }
-	assert_finds_tasks([t2]) { TaskMatcher.abstract }
-	assert_finds_tasks([t1]) { TaskMatcher.partially_instanciated }
-	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated }
-	t1.arguments[:fake] = 2
-	assert_finds_tasks([t1, t2]) { TaskMatcher.fully_instanciated }
-	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated.abstract }
-
-	assert_finds_tasks([t1, t2]) { TaskMatcher.pending }
-	t1.start!
-	assert_finds_tasks([t2]) { TaskMatcher.pending }
-	assert_finds_tasks([t1, t2]) { TaskMatcher.not_failed }
-	assert_finds_tasks([t1, t2]) { TaskMatcher.not_success }
-	assert_finds_tasks([t1, t2]) { TaskMatcher.not_finished }
-
-	assert_finds_tasks([t1]) { TaskMatcher.running }
-	t1.success!
-	assert_finds_tasks([t1], plan.task_index.by_state) { TaskMatcher.success }
-	assert_finds_tasks([t1]) { TaskMatcher.finished }
-	assert_finds_tasks([t1, t2]) { TaskMatcher.not_failed }
-	assert_finds_tasks([t2]) { TaskMatcher.not_finished }
-
-	plan.remove_object(t1)
-
-	t1 = Tasks::Simple.new
-	plan.add(t1)
-	t1.start!
-	t1.failed!
-	assert_finds_tasks([t1]) { TaskMatcher.failed }
-	assert_finds_tasks([t1]) { TaskMatcher.finished }
-	assert_finds_tasks([t1]) { TaskMatcher.finished.not_success }
-    end
-
     def test_query_plan_predicates
 	t1, t2, t3 = prepare_plan :missions => 1, :add => 1, :tasks => 1
 	plan.add_permanent(t3)
@@ -140,70 +63,6 @@ class TC_Query < Test::Unit::TestCase
 	assert_query_finds_tasks([t2, t3]) { plan.find_tasks.not_mission }
 	assert_query_finds_tasks([t3]) { plan.find_tasks.permanent }
 	assert_query_finds_tasks([t1, t2]) { plan.find_tasks.not_permanent }
-    end
-
-    def test_negate
-	t1 = Tasks::Simple.new_submodel { argument :id }.new(:id => 1)
-	t2 = Tasks::Simple.new_submodel { argument :id }.new(:id => 2)
-	t3 = Roby::Task.new
-	plan.add [t1, t2, t3]
-
-	assert_finds_tasks([t3]) { (TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2)).negate }
-    end
-
-    def test_or
-	t1 = Tasks::Simple.new_submodel { argument :id }.new(:id => 1)
-	t2 = Tasks::Simple.new_submodel { argument :id }.new(:id => 2)
-	t3 = Roby::Task.new
-	plan.add [t1, t2, t3]
-
-	assert_finds_tasks([t1, t2]) { TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2) }
-    end
-
-    def test_and
-	t1 = Tasks::Simple.new_submodel { argument :id }.new(:id => 1)
-	t2 = Tasks::Simple.new_submodel { argument :id }.new(:id => 2)
-	t3 = Roby::Task.new
-	plan.add [t1, t2, t3]
-
-	assert_finds_tasks([t1, t2]) { TaskMatcher.fully_instanciated & TaskMatcher.executable }
-	assert_finds_tasks([t1]) { (TaskMatcher.fully_instanciated & TaskMatcher.executable).with_arguments(:id => 1) }
-	assert_finds_tasks([t3]) { TaskMatcher.fully_instanciated & TaskMatcher.abstract }
-    end
-
-    def test_merged_generated_subgraphs
-	(d1, d2, d3, d4, d5, d6), t1 = prepare_plan :add => 6, :tasks => 1
-
-        plan.in_transaction do |trsc|
-            d1.depends_on d2
-            d2.depends_on d3
-            d4.depends_on d5
-            d5.depends_on d6
-
-            # Add a new relation which connects two components. Beware that
-            # modifying trsc[d3] and trsc[d4] makes d2 and d5 proxies to be
-            # discovered
-            trsc[d3].depends_on t1
-            t1.depends_on trsc[d4]
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
-            assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
-            assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
-            
-            # Remove the relation and check the result
-            trsc[d3].remove_child t1
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
-            assert_equal([d1, d2].to_value_set, plan_set)
-            assert_equal([trsc[d3]].to_value_set, trsc_set)
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [], [t1])
-            assert_equal([d5, d6].to_value_set, plan_set)
-            assert_equal([t1, trsc[d4]].to_value_set, trsc_set)
-
-            # Remove a plan relation inside the transaction, and check it is taken into account
-            trsc[d2].remove_child trsc[d3]
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
-            assert_equal([d1].to_value_set, plan_set)
-            assert_equal([trsc[d2]].to_value_set, trsc_set)
-        end
     end
 
     def test_roots
@@ -397,6 +256,38 @@ class TC_Query < Test::Unit::TestCase
             result = plan.find_tasks.which_fullfills(model, :id => 3).to_a
             assert_equal([t3], result)
         end
+    end
+
+    def test_it_does_not_match_if_a_plan_predicate_returns_false
+        flexmock(plan).should_receive(:mypred).and_return(false).once
+        query = plan.find_tasks
+        query.plan_predicates << :mypred
+        assert !(query === Tasks::Simple.new)
+    end
+
+    def test_it_does_match_if_a_plan_predicate_returns_true
+        flexmock(plan).should_receive(:mypred).and_return(true).once
+        query = plan.find_tasks
+        query.plan_predicates << :mypred
+        assert (query === Tasks::Simple.new)
+    end
+
+    def test_it_does_match_if_a_neg_plan_predicate_returns_false
+        flexmock(plan).should_receive(:mypred).and_return(false).once
+        query = plan.find_tasks
+        query.neg_plan_predicates << :mypred
+        assert (query === Tasks::Simple.new)
+    end
+
+    def test_it_does_not_match_if_neg_a_plan_predicate_returns_true
+        flexmock(plan).should_receive(:mypred).and_return(true).once
+        query = plan.find_tasks
+        query.neg_plan_predicates << :mypred
+        assert !(query === Tasks::Simple.new)
+    end
+
+    def test_it_can_be_droby_dumped_and_loaded
+        verify_is_droby_marshallable_object(plan.find_tasks.mission.which_fullfills(Roby::Task))
     end
 end
 

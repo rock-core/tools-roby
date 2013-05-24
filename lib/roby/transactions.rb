@@ -668,6 +668,126 @@ module Roby
 		control.removing_plan_relation(self, parent, child, relations)
 	    end
 	end
+
+	# Returns two sets of tasks, [plan, transaction]. The union of the two
+	# is the component that would be returned by
+	# +relation.generated_subgraphs(*seeds)+ if the transaction was
+	# committed
+        #
+        # This is an internal method used by queries
+	def merged_generated_subgraphs(relation, plan_seeds, transaction_seeds)
+	    plan_set        = ValueSet.new
+	    transaction_set = ValueSet.new
+	    plan_seeds	      = plan_seeds.to_value_set
+	    transaction_seeds = transaction_seeds.to_value_set
+
+	    loop do
+		old_transaction_set = transaction_set.dup
+		transaction_set.merge(transaction_seeds)
+		for new_set in relation.generated_subgraphs(transaction_seeds, false)
+		    transaction_set.merge(new_set)
+		end
+
+		if old_transaction_set.size != transaction_set.size
+		    for o in (transaction_set - old_transaction_set)
+			if o.respond_to?(:__getobj__)
+			    o.__getobj__.each_child_object(relation) do |child|
+				plan_seeds << child unless self[child, false]
+			    end
+			end
+		    end
+		end
+		transaction_seeds.clear
+
+		plan_set.merge(plan_seeds)
+		plan_seeds.each do |seed|
+		    relation.each_dfs(seed, BGL::Graph::TREE) do |_, dest, _, kind|
+			next if plan_set.include?(dest)
+			if self[dest, false]
+			    proxy = wrap(dest, false)
+			    unless transaction_set.include?(proxy)
+				transaction_seeds << proxy
+			    end
+			    relation.prune # transaction branches must be developed inside the transaction
+			else
+			    plan_set << dest
+			end
+		    end
+		end
+		break if transaction_seeds.empty?
+
+		plan_seeds.clear
+	    end
+
+	    [plan_set, transaction_set]
+	end
+	
+	# Returns [plan_set, transaction_set], where the first is the set of
+	# plan tasks matching +matcher+ and the second the set of transaction
+	# tasks matching it. The two sets are disjoint.
+        #
+        # This will be stored by the Query object as the query result. Note
+        # that, at this point, the transaction has not been modified even though
+        # it applies on the global scope. New proxies will only be created when
+        # Query#each is called.
+	def query_result_set(matcher) # :nodoc:
+	    plan_set = ValueSet.new
+            if matcher.scope == :global
+                plan_result_set = plan.query_result_set(matcher)
+                plan.query_each(plan_result_set) do |task|
+                    plan_set << task unless self[task, false]
+                end
+            end
+	    
+	    transaction_set = super
+	    [plan_set, transaction_set]
+	end
+
+	# Yields tasks in the result set of +query+. Unlike Query#result_set,
+	# all the tasks are included in the transaction
+        #
+        # +result_set+ is the value returned by #query_result_set.
+	def query_each(result_set) # :nodoc:
+	    plan_set, trsc_set = result_set
+	    plan_set.each { |task| yield(self[task]) }
+	    trsc_set.each { |task| yield(task) }
+	end
+
+	# Given the result set of +query+, returns the subset of tasks which
+	# have no parent in +query+
+	def query_roots(result_set, relation) # :nodoc:
+	    plan_set      , trsc_set      = *result_set
+	    plan_result   , trsc_result   = ValueSet.new     , ValueSet.new
+	    plan_children , trsc_children = ValueSet.new     , ValueSet.new
+
+	    for task in plan_set
+		next if plan_children.include?(task)
+		task_plan_children, task_trsc_children = 
+		    merged_generated_subgraphs(relation, [task], [])
+
+		plan_result -= task_plan_children
+		trsc_result -= task_trsc_children
+		plan_children.merge(task_plan_children)
+		trsc_children.merge(task_trsc_children)
+
+		plan_result << task
+	    end
+
+	    for task in trsc_set
+		next if trsc_children.include?(task)
+		task_plan_children, task_trsc_children = 
+		    merged_generated_subgraphs(relation, [], [task])
+
+		plan_result -= task_plan_children
+		trsc_result -= task_trsc_children
+		plan_children.merge(task_plan_children)
+		trsc_children.merge(task_trsc_children)
+
+		trsc_result << task
+	    end
+
+	    [plan_result, trsc_result]
+	end
     end
 end
 

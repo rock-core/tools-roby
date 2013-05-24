@@ -1,6 +1,11 @@
 module Roby
     # Base class for all objects which are included in a plan.
     class PlanObject < BasicObject
+        # This object's model
+        #
+        # This is usually self.class
+	attr_reader :model
+
         class InstanceHandler
             # The poll Proc object
             attr_reader :block
@@ -61,6 +66,7 @@ module Roby
             @removed_at = nil
             @executable = nil
             @finalization_handlers = Array.new
+            @model = self.class
         end
 
         def initialize_copy(other)
@@ -567,6 +573,13 @@ module Roby
         # The time at which this plan object has been finalized (i.e. removed
         # from plan), or nil if it has not been (yet)
         attr_accessor :finalization_time
+
+        # @return [Boolean] true if this object provides all the given models
+        def fullfills?(models)
+            Array(models).all? do |m|
+                self.model <= m
+            end
+        end
     end
 end
 

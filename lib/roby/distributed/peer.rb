@@ -493,7 +493,7 @@ module Roby::Distributed
         # during the enumeration, the local plan GC will not remove those
         # tasks.
 	def find_tasks
-	    Roby::Query.new(self)
+	    Roby::Queries::Query.new(self)
 	end
 
         def removed_sibling(remote_object)
