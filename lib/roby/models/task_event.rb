@@ -20,7 +20,7 @@ module Roby
             attr_accessor :symbol
 
             # Creates a new task event model
-            def new_submodel(options)
+            def new_submodel(options = Hash.new)
                 options = Kernel.validate_options options,
                     :task_model, :symbol, :command, :terminal
 
