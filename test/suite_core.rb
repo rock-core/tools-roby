@@ -32,6 +32,8 @@ require 'test_testcase'
 require 'suite_planning'
 require 'suite_actions'
 require 'suite_relations'
+require 'suite_queries'
+require 'suite_state'
 
 require 'test_interface'
 require 'test_log'
