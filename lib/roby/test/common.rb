@@ -13,18 +13,19 @@ if ENV['TEST_ENABLE_COVERAGE'] == '1'
     end
 end
 
-require 'roby'
-require 'test/unit'
-require 'minitest/spec'
-require 'flexmock/test_unit'
-
 if ENV['TEST_ENABLE_PRY'] != '0'
     begin
         require 'pry'
     rescue Exception
+        require 'roby'
         Roby.warn "debugging is disabled because the 'pry' gem cannot be loaded"
     end
 end
+
+require 'roby'
+require 'test/unit'
+require 'minitest/spec'
+require 'flexmock/test_unit'
 
 module Roby
     # This module is defining common support for tests that need the Roby
