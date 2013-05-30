@@ -6,17 +6,6 @@ module Roby
         #
         # @return [Array<Class>]
 	attr_reader :model
-
-        # Set of predicates that should be true for the object
-        # @return [Array<Symbol>]
-	attr_reader :predicates
-        
-        # Set of predicats that should be false for the object
-        #
-        # The predicates are predicate method names (e.g. 'executable' for #executable?)
-        #
-        # @return [Array<Symbol>]
-        attr_reader :neg_predicates
         
         # Set of owners that the object should have
         #
@@ -77,37 +66,28 @@ module Roby
 	end
 
 	class << self
-	    def declare_class_methods(*names) # :nodoc:
-		names.each do |name|
-		    raise "no instance method #{name} on #{self}" unless method_defined?(name)
-		    singleton_class.send(:define_method, name) do |*args|
-			self.new.send(name, *args)
-		    end
-		end
-	    end
-
             def match_predicate(name, positive_index = nil, negative_index = nil)
-                if Index::PREDICATES.include?(:"#{name}?")
-                    positive_index ||= [[":#{name}?"], []]
-                    negative_index ||= [[], [":#{name}?"]]
+                if Index::PREDICATES.include?(name)
+                    positive_index ||= [["#{name}"], []]
+                    negative_index ||= [[], ["#{name}"]]
                 end
                 positive_index ||= [[], []]
                 negative_index ||= [[], []]
                 class_eval <<-EOD, __FILE__, __LINE__+1
                 def #{name}
-                    if neg_predicates.include?(:#{name}?)
-                        raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+                    if neg_predicates.include?(:#{name})
+                        raise ArgumentError, "trying to match (#{name} & !#{name})"
                     end
-                    predicates << :#{name}?
+                    predicates << :#{name}
                     #{if !positive_index[0].empty? then ["indexed_predicates", *positive_index[0]].join(" << ") end}
                     #{if !positive_index[1].empty? then ["indexed_neg_predicates", *positive_index[1]].join(" << ") end}
                     self
                 end
                 def not_#{name}
-                    if predicates.include?(:#{name}?)
-                        raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+                    if predicates.include?(:#{name})
+                        raise ArgumentError, "trying to match (#{name} & !#{name})"
                     end
-                    neg_predicates << :#{name}?
+                    neg_predicates << :#{name}
                     #{if !negative_index[0].empty? then ["indexed_predicates", *negative_index[0]].join(" << ") end}
                     #{if !negative_index[1].empty? then ["indexed_neg_predicates", *negative_index[1]].join(" << ") end}
                     self
@@ -115,16 +95,6 @@ module Roby
                 EOD
                 declare_class_methods(name, "not_#{name}")
             end
-
-            # For each name in +names+, define a #name and a #not_name method.
-            # If the first is called, the matcher will match only tasks whose
-            # #name? method returns true.  If the second is called, the
-            # opposite will be done.
-	    def match_predicates(*names)
-		names.each do |name|
-                    match_predicate(name)
-		end
-	    end
 	end
 
         ##
@@ -141,7 +111,7 @@ module Roby
         #
         # See also #executable, PlanObject#executable?
 
-	match_predicates :executable
+	match_predicates :executable?
 
         declare_class_methods :with_model, :owned_by, :self_owned
 
