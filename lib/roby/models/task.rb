@@ -601,11 +601,12 @@ module Roby
             #	end
             #       do_handle
             #   end
-            def on_exception(*matchers, &handler)
+            def on_exception(matcher, &handler)
                 check_arity(handler, 1)
+                matcher = matcher.to_execution_exception_matcher
                 id = (@@exception_handler_id += 1)
                 define_method("exception_handler_#{id}", &handler)
-                exception_handlers.unshift [matchers, instance_method("exception_handler_#{id}")]
+                exception_handlers.unshift [matcher, instance_method("exception_handler_#{id}")]
             end
 
             @@exception_handler_id = 0

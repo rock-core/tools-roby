@@ -166,8 +166,8 @@ module Roby
 	# Calls the exception handlers defined in this task for +exception_object.exception+
 	# Returns true if the exception has been handled, false otherwise
 	def handle_exception(exception_object)
-	    each_exception_handler do |matchers, handler|
-		if matchers.find { |m| m === exception_object.exception }
+	    each_exception_handler do |matcher, handler|
+                if matcher === exception_object
 		    catch(:next_exception_handler) do 
 			begin
 			    handler.call(self, exception_object)

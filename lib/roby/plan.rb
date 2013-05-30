@@ -1289,9 +1289,9 @@ module Roby
 
         attr_reader :exception_handlers
         def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
-        def on_exception(*matchers, &handler)
+        def on_exception(matcher, &handler)
             check_arity(handler, 2)
-            exception_handlers.unshift [matchers, handler]
+            exception_handlers.unshift [matcher, handler]
         end
 
         # Finds a single difference between this plan and the other plan, using
