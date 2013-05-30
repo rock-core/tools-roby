@@ -155,14 +155,15 @@ module Roby
         # True if +task+ matches the query. Call #result_set to have the set of
         # tasks which match in the given plan.
 	def ===(task)
-	    return unless super
-
 	    for pred in plan_predicates
 		return unless plan.send(pred, task)
 	    end
 	    for neg_pred in neg_plan_predicates
 		return if plan.send(neg_pred, task)
 	    end
+
+	    return unless super
+
 	    true
 	end
 
