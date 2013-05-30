@@ -59,6 +59,7 @@ end
 require 'roby/graph.rb'
 require 'roby/relations.rb'
 
+require 'roby/queries.rb'
 require 'roby/plan-object.rb'
 require 'roby/event.rb'
 require 'roby/models/arguments'
@@ -86,7 +87,6 @@ require 'roby/relations/influence.rb'
 require 'roby/relations/planned_by.rb'
 require 'roby/relations/temporal_constraints'
 
-require 'roby/queries.rb'
 require 'roby/plan.rb'
 require 'roby/transactions/proxy.rb'
 require 'roby/transactions.rb'

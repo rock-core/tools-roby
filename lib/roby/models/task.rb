@@ -638,6 +638,12 @@ module Roby
                 end
                 matcher
             end
+
+            # @return [Queries::ExecutionExceptionMatcher] an exception match
+            #   object that matches exceptions originating from this task
+            def to_execution_exception_matcher
+                Queries::ExecutionExceptionMatcher.new.with_origin(self)
+            end
         end
     end
 end

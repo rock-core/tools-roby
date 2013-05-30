@@ -84,6 +84,15 @@ module Roby
                     end
                 end
             end
+
+            # The {#match} method is used to convert any object to the
+            # corresponding Query object. For instance, Models::TaskEvent#match
+            # returns the corresponding TaskEventGeneratorMatcher.
+            #
+            # For matchers, it returns self
+            def match
+                self
+            end
         end
     end
 end

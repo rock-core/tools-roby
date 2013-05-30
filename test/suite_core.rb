@@ -11,6 +11,7 @@ require 'state/test_state_model'
 require 'state/test_state_space'
 require 'state/test_task'
 require 'test_event_constraints'
+require 'suite_models'
 
 require 'test_execution_engine'
 require 'test_exceptions'

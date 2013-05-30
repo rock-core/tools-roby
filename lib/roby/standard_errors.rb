@@ -96,6 +96,11 @@ module Roby
         # Returns an intermediate representation of +self+ suitable to be sent to
         # the +dest+ peer.
         def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), Distributed.format(failure_point, dest), message) end
+
+        # @return [Queries::ExecutionExceptionMatcher]
+        def self.to_execution_exception_matcher
+            Roby::Queries::ExecutionExceptionMatcher.new.with_model(self)
+        end
         # @return [Queries::LocalizedErrorMatcher]
         def self.match
             Roby::Queries::LocalizedErrorMatcher.new.with_model(self)
