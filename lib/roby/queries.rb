@@ -14,3 +14,5 @@ require 'roby/queries/query'
 require 'roby/queries/and_matcher'
 require 'roby/queries/not_matcher'
 require 'roby/queries/or_matcher'
+
+require 'roby/queries/localized_error_matcher'
