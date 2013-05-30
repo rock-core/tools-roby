@@ -55,15 +55,16 @@ module Roby
                 end
 
                 def match_predicate(name)
+                    method_name = name.to_s.gsub(/\?$/, '')
                     class_eval <<-EOD, __FILE__, __LINE__+1
-                    def #{name}
+                    def #{method_name}
                         if neg_predicates.include?(:#{name})
                             raise ArgumentError, "trying to match (#{name} & !#{name})"
                         end
                         predicates << :#{name}
                         self
                     end
-                    def not_#{name}
+                    def not_#{method_name}
                         if predicates.include?(:#{name})
                             raise ArgumentError, "trying to match (#{name} & !#{name})"
                         end
@@ -71,7 +72,7 @@ module Roby
                         self
                     end
                     EOD
-                    declare_class_methods(name, "not_#{name}")
+                    declare_class_methods(method_name, "not_#{method_name}")
                 end
 
                 # For each name in +names+, define a #name and a #not_name method.

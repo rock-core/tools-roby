@@ -67,6 +67,7 @@ module Roby
 
 	class << self
             def match_predicate(name, positive_index = nil, negative_index = nil)
+                method_name = name.to_s.gsub(/\?$/, '')
                 if Index::PREDICATES.include?(name)
                     positive_index ||= [["#{name}"], []]
                     negative_index ||= [[], ["#{name}"]]
@@ -74,26 +75,26 @@ module Roby
                 positive_index ||= [[], []]
                 negative_index ||= [[], []]
                 class_eval <<-EOD, __FILE__, __LINE__+1
-                def #{name}
+                def #{method_name}
                     if neg_predicates.include?(:#{name})
                         raise ArgumentError, "trying to match (#{name} & !#{name})"
                     end
                     predicates << :#{name}
-                    #{if !positive_index[0].empty? then ["indexed_predicates", *positive_index[0]].join(" << ") end}
-                    #{if !positive_index[1].empty? then ["indexed_neg_predicates", *positive_index[1]].join(" << ") end}
+                    #{if !positive_index[0].empty? then ["indexed_predicates", *positive_index[0]].join(" << :") end}
+                    #{if !positive_index[1].empty? then ["indexed_neg_predicates", *positive_index[1]].join(" << :") end}
                     self
                 end
-                def not_#{name}
+                def not_#{method_name}
                     if predicates.include?(:#{name})
                         raise ArgumentError, "trying to match (#{name} & !#{name})"
                     end
                     neg_predicates << :#{name}
-                    #{if !negative_index[0].empty? then ["indexed_predicates", *negative_index[0]].join(" << ") end}
-                    #{if !negative_index[1].empty? then ["indexed_neg_predicates", *negative_index[1]].join(" << ") end}
+                    #{if !negative_index[0].empty? then ["indexed_predicates", *negative_index[0]].join(" << :") end}
+                    #{if !negative_index[1].empty? then ["indexed_neg_predicates", *negative_index[1]].join(" << :") end}
                     self
                 end
                 EOD
-                declare_class_methods(name, "not_#{name}")
+                declare_class_methods(method_name, "not_#{method_name}")
             end
 	end
 
