@@ -1291,7 +1291,7 @@ module Roby
         def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
         def on_exception(matcher, &handler)
             check_arity(handler, 2)
-            exception_handlers.unshift [matcher, handler]
+            exception_handlers.unshift [matcher.to_execution_exception_matcher, handler]
         end
 
         # Finds a single difference between this plan and the other plan, using

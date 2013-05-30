@@ -15,6 +15,12 @@ module Roby
                 @involved_tasks_matchers = Array.new
             end
 
+            # Sets the exception matcher object
+            def with_exception(exception_matcher)
+                @exception_matcher = exception_matcher
+                self
+            end
+
             # (see LocalizedErrorMatcher#with_model)
             def with_model(exception_model)
                 exception_matcher.with_model(exception_model)
@@ -45,11 +51,9 @@ module Roby
             # @return [Boolean] true if the given execution exception object
             #   matches self, false otherwise
             def ===(exception)
-                exception.exception === exception_matcher &&
-                    exception.trace.any? { |t| involved_task_matchers.any? { |m| m === t } }
+                exception_matcher === exception.exception &&
+                    involved_tasks_matchers.all? { |m| exception.trace.any? { |t| m === t } }
             end
         end
     end
 end
-
-

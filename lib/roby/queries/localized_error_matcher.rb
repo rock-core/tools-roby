@@ -59,6 +59,10 @@ module Roby
             end
 
             match_predicate :fatal?
+            
+            def to_execution_exception_matcher
+                Roby::Queries::ExecutionExceptionMatcher.new.with_exception(self)
+            end
         end
     end
 end

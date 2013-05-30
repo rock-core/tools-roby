@@ -317,7 +317,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    root = Task.new_submodel do
 		include Test::Unit::Assertions
-		on_exception(RuntimeError) do |exception|
+		on_exception(LocalizedError) do |exception|
 		    assert_equal([t11, t12, t13].to_set, exception.task.to_set)
 		    mock.caught(exception.task)
 		end

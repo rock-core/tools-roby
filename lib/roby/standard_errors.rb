@@ -220,6 +220,20 @@ module Roby
             pp.text "#{self.class.name}: user code raised an exception "
             failure_point.pretty_print(pp)
         end
+
+        def self.match
+            Roby::Queries::CodeErrorMatcher.new.with_model(self)
+        end
+    end
+
+    class ::Exception
+        def self.match
+            Roby::CodeError.match.with_ruby_exception(self)
+        end
+
+        def self.to_execution_exception_matcher
+            match.to_execution_exception_matcher
+        end
     end
 
     # Raised if a command block has raised an exception

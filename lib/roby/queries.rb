@@ -16,5 +16,6 @@ require 'roby/queries/not_matcher'
 require 'roby/queries/or_matcher'
 
 require 'roby/queries/localized_error_matcher'
+require 'roby/queries/code_error_matcher'
 require 'roby/queries/execution_exception_matcher'
 
