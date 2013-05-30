@@ -10,11 +10,24 @@ module Roby
             # @return [TaskMatcher] the task matcher that describes this event's
             #   task
             attr_reader :task_matcher
+            # @return [Boolean] if true, self will match the specified generator
+            #   as well as any other generator that is forwarded to it. If false
+            #   (the default) only the specified generator will match
+            attr_predicate :generalized?
 
             def initialize(task_matcher = Roby::Task.match, symbol = Queries.any)
                 @symbol = symbol
                 @task_matcher = task_matcher
+                @generalized = false
                 super()
+            end
+
+            # Makes this matcher a generalized matcher
+            # @see #generalized?
+            # @return self
+            def generalized
+                @generalized = true
+                self
             end
 
             # Adds a matching object for the event's name
@@ -36,15 +49,26 @@ module Roby
                 raise NotImplementedError
             end
 
+            alias plan_object_match :===
+
             # Tests whether the given task event generator matches self
             #
             # @param [TaskEventGenerator] object
             # @return [Boolean]
             def ===(object)
-                if !(symbol === object.symbol.to_s)
-                    return false
+                if match_not_generalized(object)
+                    true
+                elsif generalized?
+                    Roby::EventStructure::Forwarding.each_dfs(object, BGL::Graph::TREE) do |_, generator, _, _|
+                        return true if match_not_generalized(generator)
+                    end
+                    false
                 end
-                return super && (task_matcher === object.task)
+            end
+
+            def match_not_generalized(object)
+                (symbol === object.symbol.to_s) &&
+                    plan_object_match(object) && (task_matcher === object.task)
             end
         end
     end
