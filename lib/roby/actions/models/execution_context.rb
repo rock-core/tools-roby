@@ -1,7 +1,8 @@
 module Roby
     module Actions
+        module Models
         # Model part of ExecutionContext
-        module ExecutionContextModel
+        module ExecutionContext
             include MetaRuby::ModelAsClass
 
             # A representation of an event on the execution context's task
@@ -215,6 +216,7 @@ module Roby
                 else return super
                 end
             end
+        end
         end
     end
 end

@@ -1,6 +1,10 @@
 module Roby
     module Actions
-        module InterfaceModel
+        module Models
+        module Interface
+            # IMPORTANT: ModelAsClass / ModelAsModule must NOT be included here.
+            # This interface model is used by both Interface (which is a
+            # ModelAsClass) and Library (which is a ModelAsModule)
 	    include Distributed::DRobyModel::Dump
             extend MetaRuby::Attributes
 
@@ -10,7 +14,7 @@ module Roby
 
             # The set of actions defined on this interface
             #
-            # @return [Hash<String,ActionModel>]
+            # @return [Hash<String,Models::Action>]
             # @key_name action_name
             inherited_attribute(:registered_action, :actions, :map => true) { Hash.new }
 
@@ -26,7 +30,7 @@ module Roby
 
             # Enumerates the actions registered on this interface
             #
-            # @yieldparam [ActionModel] action
+            # @yieldparam [Models::Action] action
             def each_action
                 return enum_for(:each_action) if !block_given?
                 each_registered_action do |_, description|
@@ -47,7 +51,7 @@ module Roby
                 if @current_description
                     Interface.warn "#{@current_description} started but never used. Did you forget to add a method to your action interface ?"
                 end
-                @current_description = ActionModel.new(self, doc)
+                @current_description = Models::Action.new(self, doc)
             end
 
             # Registers a new action on this model
@@ -104,7 +108,7 @@ module Roby
             # if there are none with that name
             #
             # @param [String] name
-            # @return [ActionModel,nil]
+            # @return [Models::Action,nil]
             def find_action_by_name(name)
                 find_registered_action(name.to_s)
             end
@@ -113,7 +117,7 @@ module Roby
             # produce such a task
             #
             # @param [Roby::Task,Roby::TaskService] type
-            # @return [Array<ActionModel>]
+            # @return [Array<Models::Action>]
             def find_all_actions_by_type(type)
                 result = []
                 each_action do |description|
@@ -135,7 +139,7 @@ module Roby
 
                     root_m = @current_description.returned_type
                     arguments = @current_description.arguments.map(&:name)
-                    machine_model = StateMachine.new_submodel(self, root_m, arguments)
+                    machine_model = Actions::StateMachine.new_submodel(self, root_m, arguments)
                     machine_model.parse(&block)
                     @current_description = nil
 
@@ -162,6 +166,7 @@ module Roby
                 end
                 super
             end
+        end
         end
     end
 end

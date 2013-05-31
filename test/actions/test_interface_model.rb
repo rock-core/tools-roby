@@ -11,7 +11,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     def test_it_allows_to_create_description_objects
         doc = 'this is an action'
         m = Actions::Interface.new_submodel
-        flexmock(Actions::ActionModel).should_receive(:new).once.
+        flexmock(Actions::Models::Action).should_receive(:new).once.
             with(m, doc).and_return(stub = Object.new)
 
         assert_same stub, m.describe(doc)
@@ -78,7 +78,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     end
 
     def test_it_raises_if_an_action_model_specifies_arguments_but_the_method_does_not_accept_one
-        assert_raises(Actions::InterfaceModel::ArgumentCountMismatch) do
+        assert_raises(Actions::Models::Interface::ArgumentCountMismatch) do
             Actions::Interface.new_submodel do
                 m = describe('an action').
                     required_arg('test')
@@ -88,7 +88,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     end
 
     def test_it_raises_if_an_action_model_specifies_no_arguments_but_the_method_expects_one
-        assert_raises(Actions::InterfaceModel::ArgumentCountMismatch) do
+        assert_raises(Actions::Models::Interface::ArgumentCountMismatch) do
             Actions::Interface.new_submodel do
                 m = describe('an action')
                 def an_action(argument); end

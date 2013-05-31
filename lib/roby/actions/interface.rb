@@ -15,7 +15,7 @@ module Roby
         #         end
         #     end
         class Interface
-            extend InterfaceModel
+            extend Models::Interface
             extend MetaRuby::ModelAsClass
             extend Logger::Hierarchy
 

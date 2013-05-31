@@ -205,7 +205,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         task_m = self.task_m
 
         child_m = action_m.new_submodel
-        flexmock(Actions::ActionModel).new_instances.
+        flexmock(Actions::Models::Action).new_instances.
             should_receive(:run).once.
             with(child_m, any).pass_thru
         action_m.state_machine('test') do

@@ -3,7 +3,7 @@ module Roby
         # The representation of an action, as a model and arguments
         class Action
             # The action model
-            # @return [ActionModel]
+            # @return [Models::Action]
             attr_accessor :model
             # The action arguments
             # @return [Hash]

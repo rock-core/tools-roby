@@ -147,7 +147,7 @@ module Roby
         #     root_task.depends_on(localization_task, :role => 'localization')
         #
         class Script
-            include Actions::ExecutionContextModel
+            include Actions::Models::ExecutionContext
 
             # The ScriptEngine instance that is going to execute this script
             attr_reader :script_engine
@@ -156,7 +156,7 @@ module Roby
 
             def initialize(model, script_engine)
                 @script_engine = script_engine
-                @root = Actions::ExecutionContextModel::Root.new(model)
+                @root = Actions::Models::ExecutionContext::Root.new(model)
             end
 
             def normalize_event_spec(event_spec)

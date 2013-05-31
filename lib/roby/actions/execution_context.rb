@@ -3,7 +3,7 @@ module Roby
         # Context for all the execution objects that can be attached to the
         # action interface and/or tasks, such as state machines and scripts
         class ExecutionContext
-            extend ExecutionContextModel
+            extend Models::ExecutionContext
 
             # The task on which this execution context is being executed. It
             # must fullfill model.task_model
