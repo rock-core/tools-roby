@@ -1,184 +1,70 @@
 module Roby
     module Actions
-        # Generic representation of a state in a StateMachine
-        #
-        # It requires to be given a task model, which is the model of the task
-        # that is going to represent the state at runtime, and an
-        # instanciation object. The latter is simply an object on which
-        # #instanciate(plan) is going to be called when the state is entered and
-        # should return the task that is executing the state
-        #
-        # In a given StateMachineModel, a state is represented by an unique
-        # instance of State or of one of its subclasses
-        class State < Models::ExecutionContext::Task
-            attr_reader :dependencies
-
-            def initialize(model)
-                super(model)
-                @dependencies = Set.new
-            end
-
-            def depends_on(action, options = Hash.new)
-                options = Kernel.validate_options options, :role
-                Models::StateMachine.validate_state(action)
-                dependencies << [action, options[:role]]
-            end
-        end
-
-        class StateFromInstanciationObject < State
-            attr_reader :instanciation_object
-
-            def initialize(instanciation_object, task_model)
-                super(task_model)
-                @instanciation_object = instanciation_object
-            end
-
-            def instanciate(action_interface_model, plan, variables)
-                instanciation_object.instanciate(plan)
-            end
-
-            def to_s; "#{instanciation_object}[#{task_model}]" end
-        end
-
-        # A representation of a state based on an action
-        class StateFromAction < State
-            # The associated action
-            # @return [Roby::Actions::Action]
-            attr_reader :action
-
-            def initialize(action)
-                @action = action
-                super(action.model.returned_type)
-            end
-
-            # Generates a task for this state in the given plan and returns
-            # it
-            def instanciate(action_interface_model, plan, variables)
-                arguments = action.arguments.map_value do |key, value|
-                    if value.respond_to?(:evaluate)
-                        value.evaluate(variables)
-                    else value
-                    end
-                end
-                action.rebind(action_interface_model).instanciate(plan, arguments)
-            end
-
-            def to_s; "action(#{action})[#{task_model}]" end
-        end
-
-        # State whose instanciation object is provided through a state machine
-        # variable
-        class StateFromVariable < State
-            attr_reader :variable_name
-            def initialize(variable_name, task_model)
-                @variable_name = variable_name
-                super(task_model)
-            end
-
-            def instanciate(action_interface_model, plan, variables)
-                obj = variables[variable_name]
-                if !obj.respond_to?(:instanciate)
-                    raise ArgumentError, "expected variable #{variable_name} to contain an object that can generate tasks, found #{obj}"
-                end
-                obj.instanciate(plan)
-            end
-
-            def to_s; "var(#{variable_name})[#{task_model}]" end
-        end
-
         # A state machine defined on action interfaces
         #
         # In such state machine, each state is represented by the task returned
         # by the corresponding action, and the transitions are events on these
         # tasks
-        class StateMachine < ExecutionContext
+        class StateMachine < ActionCoordination
             extend Models::StateMachine
-
-            # The action interface model that is supporting this state machine
-            attr_reader :action_interface_model
 
             # The current state
             attr_reader :current_state
 
-            # Resolved form of the state machine model
-            #
-            # It is a mapping from a state to the information required to
-            # instanciate this state
-            attr_reader :state_info
+            StateInfo = Struct.new :required_tasks, :forwards, :transitions
 
             def initialize(action_interface_model, root_task, arguments = Hash.new)
-                super(root_task, arguments)
-
-                @action_interface_model = action_interface_model
+                super(action_interface_model, root_task, arguments)
+                @task_info = resolve_state_info
                 root_task.execute do
                     if model.starting_state
-                        instanciate_state(model.starting_state)
+                        instanciate_state(instance_for(model.starting_state))
                     end
                 end
-
-                @state_info = generate_state_info
             end
 
-            def generate_state_info
-                result = Hash.new
-                model.each_state do |state|
-                    actions = model.required_actions_in_state(state)
-                    transitions = Hash.new
-                    forwards = Hash.new
+            def resolve_state_info
+                task_info.map_value do |task, task_info|
+                    task_info = StateInfo.new(task_info.required_tasks, task_info.forwards, Set.new)
                     model.each_transition do |in_state, event, new_state|
-                        if in_state == state
-                            actions[event.task_model] ||= Set.new
-                            transitions[event.task_model] ||= Set.new
-                            transitions[event.task_model] << [event.symbol, new_state]
+                        in_state = instance_for(in_state)
+                        if in_state == task
+                            task_info.transitions << [instance_for(event), instance_for(new_state)]
                         end
                     end
-                    model.each_forward do |in_state, event, target_symbol|
-                        if in_state == state
-                            actions[event.task_model] ||= Set.new
-                            forwards[event.task_model] ||= Set.new
-                            forwards[event.task_model] << [event.symbol, target_symbol]
-                        end
-                    end
-                    actions.each_key do |a|
-                        forwards[a] ||= Array.new
-                        transitions[a] ||= Array.new
-                    end
-                    result[state] = [actions, transitions, forwards]
+                    task_info
                 end
-                result
+            end
+
+            def dependency_options_for(toplevel, task, roles)
+                options = super
+                options[:success] = task_info[toplevel].transitions.map do |source, _|
+                    source.symbol if source.task == task
+                end.compact
+                options
             end
 
             def instanciate_state(state)
-                actions, known_transitions, forwards = state_info[state]
-                actions.each do |action, roles|
-                    root_task.depends_on(task = action.instanciate(action_interface_model, root_task.plan, arguments),
-                                :roles => roles,
-                                :failure => :stop,
-                                :success => known_transitions[action].map(&:first),
-                                :remove_when_done => true)
-
-                    known_transitions[action].each do |src_symbol, dst_state|
-                        task.on(src_symbol) do |event|
-                            instanciate_state_transition(event.task, dst_state)
+                instanciate_task(state)
+                state_info = task_info[state]
+                tasks, known_transitions = state_info.required_tasks, state_info.transitions
+                tasks.each do |task, roles|
+                    known_transitions.each do |source_event, new_state|
+                        source_event.resolve.on do |event|
+                            instanciate_state_transition(event.task, new_state)
                         end
                     end
-                    forwards[action].each do |src_event, dst_event|
-                        task.event(src_event).forward_to root_task.event(dst_event)
-                    end
                 end
-                @current_state = state
-                root_task.current_state_child
             end
 
             def instanciate_state_transition(task, new_state)
-                current_state_child = root_task.find_child_from_role('current_state')
-                state_info[current_state].first.each do |_, roles|
+                current_task_child = root_task.find_child_from_role('current_task')
+                task_info[current_task].required_tasks.each do |_, roles|
                     if child_task = root_task.find_child_from_role(roles.first)
                         root_task.remove_dependency(child_task)
                     end
                 end
-                new_task = instanciate_state(new_state)
-                new_task
+                instanciate_state(new_state)
             end
         end
     end

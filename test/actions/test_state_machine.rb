@@ -45,7 +45,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         end
 
         task = start_machine('test')
-        start = task.current_state_child
+        start = task.current_task_child
         assert_kind_of task_m, start
         assert_equal Hash[:id => :start], start.arguments
     end
@@ -63,7 +63,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         monitor = plan.find_tasks.with_arguments(:id => 'monitoring').first
         monitor.start!
         monitor.emit :success
-        assert_equal Hash[:id => :next], task.current_state_child.arguments
+        assert_equal Hash[:id => :next], task.current_task_child.arguments
     end
 
     def test_it_removes_during_transition_the_dependency_from_the_root_to_the_instanciated_tasks
@@ -76,9 +76,9 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
             transition(start_state, monitor.start_event, next_state)
         end
         task = start_machine('test')
-        assert_equal Hash[:id => :start], task.current_state_child.arguments
+        assert_equal Hash[:id => :start], task.current_task_child.arguments
         assert_equal 2, task.children.to_a.size
-        assert_equal([task.current_state_child, task.monitor_child].to_set, task.children.to_set)
+        assert_equal([task.current_task_child, task.monitor_child].to_set, task.children.to_set)
     end
 
     def test_it_applies_a_transition_only_for_the_state_it_is_defined_in
@@ -93,13 +93,13 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         end
 
         task = start_machine('test')
-        assert_equal Hash[:id => :start], task.current_state_child.arguments
+        assert_equal Hash[:id => :start], task.current_task_child.arguments
         task.monitor_child.start!
-        assert_equal Hash[:id => :start], task.current_state_child.arguments
+        assert_equal Hash[:id => :start], task.current_task_child.arguments
         task.monitor_child.emit :success
-        assert_equal Hash[:id => :next], task.current_state_child.arguments
+        assert_equal Hash[:id => :next], task.current_task_child.arguments
         task.monitor_child.start!
-        assert_equal Hash[:id => :start], task.current_state_child.arguments
+        assert_equal Hash[:id => :start], task.current_task_child.arguments
     end
 
 
@@ -128,9 +128,9 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         end
 
         task = start_machine('test')
-        task.current_state_child.start!
+        task.current_task_child.start!
         inhibit_fatal_messages do
-            assert_raises(ChildFailedError) { task.current_state_child.emit :success }
+            assert_raises(ChildFailedError) { task.current_task_child.emit :success }
         end
         plan.remove_object(task.children.first)
     end
@@ -142,7 +142,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         end
 
         task = start_machine('test', :task_id => 10)
-        assert_equal 10, task.current_state_child.arguments[:id]
+        assert_equal 10, task.current_task_child.arguments[:id]
     end
 
     def test_it_raises_if_an_unknown_argument_is_accessed
@@ -198,7 +198,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
         obj = flexmock
         obj.should_receive(:instanciate).and_return(first_task = Roby::Task.new)
         task = start_machine('test', :first_task => obj)
-        assert_equal first_task, task.current_state_child
+        assert_equal first_task, task.current_task_child
     end
 
     def test_it_rebinds_the_action_states_to_the_actual_interface_model
@@ -214,7 +214,7 @@ class TC_Actions_StateMachine < Test::Unit::TestCase
 
         task = child_m.find_action_by_name('test').instanciate(plan)
         task.start!
-        assert task.current_state_child
+        assert task.current_task_child
     end
 end
 

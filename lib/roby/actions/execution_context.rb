@@ -14,6 +14,12 @@ module Roby
             # @return [Hash]
             attr_reader :arguments
 
+            # A mapping from the model-level description of the context to the
+            # instance-level description
+            #
+            # @see instanciate
+            attr_reader :instances
+
             # The execution context model
             # @return [Model<ExecutionContext>] a subclass of ExecutionContext
             def model
@@ -28,6 +34,12 @@ module Roby
                         raise ArgumentError, "expected an argument named #{key} but got none"
                     end
                 end
+                @instances = Hash.new
+                instance_for(model.root).bind(root_task)
+            end
+
+            def instance_for(object)
+                instances[object] ||= object.new(self)
             end
         end
     end
