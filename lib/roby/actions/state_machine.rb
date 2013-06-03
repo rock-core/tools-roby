@@ -58,12 +58,7 @@ module Roby
             end
 
             def instanciate_state_transition(task, new_state)
-                current_task_child = root_task.find_child_from_role('current_task')
-                task_info[current_task].required_tasks.each do |_, roles|
-                    if child_task = root_task.find_child_from_role(roles.first)
-                        root_task.remove_dependency(child_task)
-                    end
-                end
+                remove_current_task
                 instanciate_state(new_state)
             end
         end

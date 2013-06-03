@@ -61,6 +61,15 @@ module Roby
                     source.resolve.forward_to target.resolve
                 end
             end
+
+            def remove_current_task
+                current_task_child = root_task.find_child_from_role('current_task')
+                task_info[current_task].required_tasks.each do |_, roles|
+                    if child_task = root_task.find_child_from_role(roles.first)
+                        root_task.remove_dependency(child_task)
+                    end
+                end
+            end
         end
     end
 end
