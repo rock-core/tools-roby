@@ -43,6 +43,13 @@ module Roby
                 object
             end
 
+            def validate_event(object)
+                if !object.kind_of?(ExecutionContext::Event)
+                    raise ArgumentError, "expected an action-event object, got #{object}. Acceptable events need to be created from e.g. actions by calling #task(action).my_event"
+                end
+                object
+            end
+
             # Declares that the given event on the root task of the state should
             # be forwarded to an event on this task
             #

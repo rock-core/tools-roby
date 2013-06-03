@@ -154,6 +154,33 @@ module Roby
                 end
             end
 
+            # Creates a script of actions
+            def action_script(name, &block)
+                if !@current_description
+                    raise ArgumentError, "you must describe the action with #describe before calling #action_script"
+                end
+
+                begin
+                    register_action name, @current_description
+
+                    root_m = @current_description.returned_type
+                    arguments = @current_description.arguments.map(&:name)
+                    script_model = Actions::Script.new_submodel(self, root_m, arguments)
+                    script_model.parse(&block)
+                    @current_description = nil
+
+                    define_method(name) do |*arguments|
+                        plan.add(root = root_m.new)
+                        script_model.new(self.model, root, *arguments) 
+                        root
+                    end
+                    script_model
+                rescue Exception => e
+                    @current_description = nil
+                    raise
+                end
+            end
+
             # Returns an action description if 'm' is the name of a known action
             #
             # @return [Action]
