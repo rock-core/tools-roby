@@ -40,10 +40,9 @@ module Roby
                 result
             end
 
-            def dependency_options_for(task, action, roles)
+            def dependency_options_for(toplevel, task, roles)
                 Hash[:roles => roles,
-                    :failure => :stop,
-                    :success => :start.never,
+                    :failure => :stop.or(:start.never),
                     :remove_when_done => true]
             end
 
