@@ -17,6 +17,8 @@ module Roby
                 def new(execution_context)
                     Actions::ExecutionContext::Event.new(execution_context, self)
                 end
+
+                def to_s; "#{task_model}.#{symbol}_event" end
             end
         end
         end

@@ -22,6 +22,8 @@ module Roby
                 def resolve
                     task.resolve.event(model.symbol)
                 end
+
+                def to_s; "#{task}.#{symbol}_event" end
             end
         end
     end

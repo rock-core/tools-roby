@@ -19,6 +19,8 @@ module Roby
                 def new(execution_context)
                     Actions::ExecutionContext::Child.new(execution_context, self)
                 end
+
+                def to_s; "#{task_model}.#{role}_child[#{model.name}]" end
             end
         end
         end
