@@ -647,6 +647,8 @@ module Roby
 	    all_handlers.each do |h| 
 		begin
 		    h.block.call(event)
+                rescue LocalizedError => e
+                    plan.engine.add_error( e )
 		rescue Exception => e
 		    plan.engine.add_error( EventHandlerError.new(e, event) )
 		end
