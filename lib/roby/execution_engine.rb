@@ -998,6 +998,7 @@ module Roby
         # Performs exception propagation for the given ExecutionException objects
         # Returns all exceptions which have found no handlers in the task hierarchy
         def propagate_exceptions(exceptions)
+            exceptions = exceptions.dup
             fatal   = [] # the list of exceptions for which no handler has been found
 
             # Remove finished repairs. Those are still considered during this cycle,
@@ -1241,21 +1242,40 @@ module Roby
         # to Roby's error handling mechanisms), the method will raise
         # SynchronousEventProcessingMultipleErrors to wrap all the exceptions
         # into one.
-        def process_events_synchronous(seeds)
+        def process_events_synchronous(seeds = Hash.new)
             gather_framework_errors("process_events_simple") do
                 stats = Hash[:start => Time.now]
-                errors = event_propagation_phase(seeds)
-                kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
-
-                if fatal_errors
-                    fatal_errors.each do |e, _|
-                        Roby.display_exception(Roby.logger.io(:warn), e.exception)
+                next_steps = seeds.dup
+                errors = []
+                if block_given?
+                    if !seeds.empty?
+                        raise ArgumentError, "cannot give both seeds and block"
                     end
-                    if fatal_errors.size == 1
-                        e = fatal_errors.find { true }.first.exception
-                        raise e.dup, e.message, e.backtrace
-                    elsif !fatal_errors.empty?
-                        raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
+
+                    next_steps = gather_propagation do
+                        errors = gather_errors do
+                            proc.call
+                        end
+                    end
+                end
+
+                while !next_steps.empty? || !errors.empty?
+                    errors.concat(event_propagation_phase(next_steps))
+                    next_steps = gather_propagation do
+                        kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
+                        errors.clear
+
+                        if fatal_errors
+                            fatal_errors.each do |e, _|
+                                Roby.display_exception(Roby.logger.io(:warn), e.exception)
+                            end
+                            if fatal_errors.size == 1
+                                e = fatal_errors.find { true }.first.exception
+                                raise e.dup, e.message, e.backtrace
+                            elsif !fatal_errors.empty?
+                                raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
+                            end
+                        end
                     end
                 end
             end

@@ -1019,33 +1019,33 @@ module Roby
 	    unreachable_handlers.clear
         end
 
-	# Called internally when the event becomes unreachable
-	def unreachable!(reason = nil, plan = self.plan)
+        def unreachable_without_propagation(reason = nil, plan = self.plan)
 	    return if @unreachable
 	    @unreachable = true
             @unreachability_reason = reason
 
             EventGenerator.event_gathering.delete(self)
-            engine =
-                if plan
-                    plan.engine
-                end
-
-            if engine
-                # Announce that the event became unreachable to the engine
+            if plan && (engine = plan.engine)
                 engine.unreachable_event(self)
+            end
+            call_unreachable_handlers(reason)
+        end
 
-                # If we are not in a propagation phase. Just queue the handlers
-                # for the next cycle
-                if !engine.allow_propagation?
-                    engine.once do
-                        call_unreachable_handlers(reason)
-                    end
-                else
-                    call_unreachable_handlers(reason)
-                end
+	# Called internally when the event becomes unreachable
+	def unreachable!(reason = nil, plan = self.plan)
+            if !plan || !plan.engine
+                unreachable_without_propagation(reason)
+            elsif engine.gathering?
+                unreachable_without_propagation(reason, plan)
             else
-                call_unreachable_handlers(reason)
+		Roby.synchronize do
+		    engine.process_events_synchronous do
+                        unreachable_without_propagation(reason, plan)
+                    end
+                    if unreachability_reason.kind_of?(Exception)
+                        raise unreachability_reason
+                    end
+		end
             end
 	end
 
