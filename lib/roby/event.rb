@@ -643,7 +643,8 @@ module Roby
 	    # Since we are in a gathering context, call
 	    # to other objects are not done, but gathered in the 
 	    # :propagation TLS
-	    each_handler do |h| 
+            all_handlers = enum_for(:each_handler).to_a
+	    all_handlers.each do |h| 
 		begin
 		    h.block.call(event)
 		rescue Exception => e

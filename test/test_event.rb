@@ -1273,6 +1273,16 @@ class TC_Event < Test::Unit::TestCase
         assert_equal [root.last].to_value_set, event.root_sources.to_value_set
     end
 
+    def test_adding_a_handler_from_within_a_handler_does_not_call_the_new_handler
+        plan.add(event = Roby::EventGenerator.new)
+        called = false
+        event.on do |context|
+            event.on { |context| called = true }
+        end
+        event.emit
+        assert !called
+    end
+
     def test_calling_unreachable_outside_propagation_raises_the_unreachability_reason
         plan.add(event = Roby::EventGenerator.new)
         exception = Class.new(Exception).new
