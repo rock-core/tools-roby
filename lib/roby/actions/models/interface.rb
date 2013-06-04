@@ -18,6 +18,10 @@ module Roby
             # @key_name action_name
             inherited_attribute(:registered_action, :actions, :map => true) { Hash.new }
 
+            # The set of fault response tables added to this action interface
+            # @return [Array<Model<FaultResponseTable>>]
+            inherited_attribute(:fault_response_table, :fault_response_tables) { Array.new }
+
             # Exception raised when an action is defined with the wrong count of
             # argument (zero if no arguments are specified and one if arguments
             # are specified)
@@ -128,57 +132,57 @@ module Roby
                 result
             end
 
-            # Creates a state machine of actions
-            def state_machine(name, &block)
+            def action_coordination(name, model, &block)
                 if !@current_description
-                    raise ArgumentError, "you must describe the action with #describe before calling #state_machine"
+                    raise ArgumentError, "you must describe the action with #describe before calling #action_coordination"
                 end
 
                 begin
-                    register_action name, @current_description
+                    action_model, @current_description = @current_description, nil
+                    if name
+                        # NOTE: this modifies #action_model to sane defaults
+                        #       using the action name
+                        register_action name, action_model
+                    end
 
                     root_m = @current_description.returned_type
                     arguments = @current_description.arguments.map(&:name)
-                    machine_model = Actions::StateMachine.new_submodel(self, root_m, arguments)
-                    machine_model.parse(&block)
-                    @current_description = nil
+                    coordination_model = model.new_submodel(self, root_m, arguments)
+                    coordination_model.parse(&block)
 
-                    define_method(name) do |*arguments|
-                        plan.add(root = root_m.new)
-                        machine_model.new(self.model, root, *arguments) 
-                        root
+                    if name
+                        define_method(name) do |*arguments|
+                            plan.add(root = root_m.new)
+                            coordination_model.new(self.model, root, *arguments) 
+                            root
+                        end
                     end
-                rescue Exception => e
+                    return action_model, coordination_model
+                ensure
                     @current_description = nil
-                    raise
                 end
             end
 
+            # Creates a state machine of actions
+            def action_state_machine(name, &block)
+                if !@current_description
+                    raise ArgumentError, "you must describe the action with #describe before calling #action_state_machine"
+                end
+                action_coordination(name, Actions::StateMachine, &block)
+            end
+
+            # @deprecated
+            # @see action_state_machine
+            def state_machine(name, &block)
+                action_state_machine(name, &block)
+            end
+
             # Creates a script of actions
-            def action_script(name, &block)
+            def action_script(name, options = Hash.new, &block)
                 if !@current_description
                     raise ArgumentError, "you must describe the action with #describe before calling #action_script"
                 end
-
-                begin
-                    register_action name, @current_description
-
-                    root_m = @current_description.returned_type
-                    arguments = @current_description.arguments.map(&:name)
-                    script_model = Actions::Script.new_submodel(self, root_m, arguments)
-                    script_model.parse(&block)
-                    @current_description = nil
-
-                    define_method(name) do |*arguments|
-                        plan.add(root = root_m.new)
-                        script_model.new(self.model, root, *arguments) 
-                        root
-                    end
-                    script_model
-                rescue Exception => e
-                    @current_description = nil
-                    raise
-                end
+                action_coordination(name, Actions::Script, &block)
             end
 
             # Returns an action description if 'm' is the name of a known action
@@ -192,6 +196,10 @@ module Roby
                     return model.new(*args)
                 end
                 super
+            end
+
+            def use_fault_response_table(table_model)
+                fault_response_tables << table_model
             end
         end
         end

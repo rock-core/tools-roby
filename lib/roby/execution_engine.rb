@@ -1280,6 +1280,20 @@ module Roby
                 end
             end
         end
+
+        def garbage_collect_synchronous
+            known_tasks_size = nil
+            while plan.known_tasks.size != known_tasks_size
+                if !known_tasks_size
+                    known_tasks_size = true
+                else
+                    known_tasks_size = plan.known_tasks.size
+                end
+                process_events_synchronous do
+                    garbage_collect([])
+                end
+            end
+        end
         
         # Process the pending events. The time at each event loop step
         # is saved into +stats+.

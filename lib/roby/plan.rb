@@ -110,13 +110,14 @@ module Roby
 
         # The set of relations available for this plan
         attr_reader :relations
-
         # The propagation engine for this object. It is either nil (if no
         # propagation engine is available) or self.
         attr_reader :propagation_engine
-
         # The set of PlanService instances that are defined on this plan
         attr_reader :plan_services
+        # The list of fault response tables that are currently globally active
+        # on this plan
+        attr_reader :active_fault_response_tables
 
 	def initialize
 	    @missions	 = ValueSet.new
@@ -130,6 +131,8 @@ module Roby
 	    @transactions = ValueSet.new
 	    @repairs     = Hash.new
             @exception_handlers = Array.new
+            @fault_response_tables = Array.new
+            @active_fault_response_tables = Array.new
 
             on_exception LocalizedError do |plan, error|
                 error.each_involved_task.
@@ -146,6 +149,17 @@ module Roby
 
                 pass_exception
             end
+            on_exception LocalizedError do |plan, error|
+                matching_handlers = active_fault_response_tables.inject([]) do |handlers, table|
+                    handlers.concat(table.find_all_matching_handlers(error))
+                end
+                handlers = matching_handlers.sort_by(&:priority)
+                if h = handlers.first
+                    h.activate(error)
+                else
+                    pass_exception
+                end
+            end
 
             @plan_services = Hash.new
 
@@ -158,6 +172,21 @@ module Roby
 
 	    super() if defined? super
 	end
+
+        def use_fault_response_table(table_model)
+            table = table_model.new(self)
+            fault_response_tables << table
+            table
+        end
+
+        def remove_fault_response_table(table_model)
+            fault_response_tables.delete_if do |t|
+                if (table_model.kind_of?(Class) && t.kind_of?(table_model)) || t == table_model
+                    active_fault_response_tables.delete(t)
+                    true
+                end
+            end
+        end
 
         def dup
             new_plan = Plan.new
