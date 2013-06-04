@@ -36,7 +36,10 @@ module Roby
                 
 
             def to_s
-                "#{super}[#{action_interface_model}:#{action_model}](#{action_arguments}) -> #{action_model.returned_type}"
+                if action_model
+                    "#{super}[#{action_interface_model}:#{action_model}](#{action_arguments}) -> #{action_model.returned_type}"
+                else "#{super}"
+                end
             end
 
             def planned_task
