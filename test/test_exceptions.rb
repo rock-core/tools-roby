@@ -405,14 +405,12 @@ class TC_Exceptions < Test::Unit::TestCase
 	parent, (child, *repair_tasks) = prepare_plan :permanent => 1, :add => 3, :model => task_model
 	parent.depends_on child
 	child.event(:failed).handle_with repair_tasks[0]
-	child.event(:failed).handle_with repair_tasks[1]
 
 	parent.start!
 	child.start!
 	child.emit error_event
 
 	exceptions = plan.check_structure
-
 	assert_equal([], engine.propagate_exceptions(exceptions))
 
         repairs = plan.repairs_for(child.terminal_event)
@@ -427,8 +425,11 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	# Make the "repair task" finish, but do not repair the plan.
 	# propagate_exceptions must not add a new repair
-	repair_task.success!
-	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
+        inhibit_fatal_messages do
+            assert_raises(ChildFailedError) do
+                repair_task.success!
+            end
+        end
 
     ensure
 	parent.remove_child child if child
