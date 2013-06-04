@@ -1137,9 +1137,7 @@ module Roby
             end
             # Call global exception handlers for exceptions in +fatal+. Return the
             # set of still unhandled exceptions
-            fatal.
-                find_all { |e| !e.handled? }.
-                reject { |e| plan.handle_exception(e) }
+            fatal.find_all { |e| !e.handled? && !plan.handle_exception(e) }
         end
 
         # Schedules +block+ to be called at the beginning of the next execution
