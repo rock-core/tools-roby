@@ -7,6 +7,6 @@ unless robotname = ARGV.shift
     exit(1)
 end
 
-installer = Roby::Installer.new(Roby.app.app_dir)
+installer = Roby::Installer.new(Roby.app)
 installer.robot(robotname)
 
