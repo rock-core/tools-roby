@@ -1870,6 +1870,14 @@ module Roby
 	    end
 	end
 
+        # Set the cycle_start attribute and increment cycle_index
+        #
+        # This is only used for testing purposes
+        def start_new_cycle(time = Time.now)
+            @cycle_start = time
+            @cycle_index += 1
+        end
+
         # A set of proc objects which are to be called when the execution engine
         # quits.
         attr_reader :finalizers
