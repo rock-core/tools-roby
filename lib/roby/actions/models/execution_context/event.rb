@@ -5,12 +5,15 @@ module Roby
             # A representation of an event on the execution context's task
             class Event
                 # @return [ExecutionContext::Task] The task this event is defined on
-                attr_reader :task_model
+                attr_reader :task
                 # @return [Symbol] the event's symbol
                 attr_reader :symbol
 
-                def initialize(task_model, symbol)
-                    @task_model, @symbol = task_model, symbol.to_sym
+                # @deprecated
+                def task_model; task end
+
+                def initialize(task, symbol)
+                    @task, @symbol = task, symbol.to_sym
                 end
 
                 # @return [Actions::ExecutionContext::Event]
@@ -24,5 +27,4 @@ module Roby
         end
     end
 end
-
 

@@ -3,6 +3,7 @@ module Roby
         module Models
             # Definition of a single fault handler in a FaultResponseTable
             module FaultHandler
+                include ActionCoordination
                 include Script
 
                 # @return [FaultResponseTable] the table this handler is part of

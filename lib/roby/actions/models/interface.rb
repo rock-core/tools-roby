@@ -137,30 +137,26 @@ module Roby
                     raise ArgumentError, "you must describe the action with #describe before calling #action_coordination"
                 end
 
-                begin
-                    action_model, @current_description = @current_description, nil
-                    if name
-                        # NOTE: this modifies #action_model to sane defaults
-                        #       using the action name
-                        register_action name, action_model
-                    end
-
-                    root_m = @current_description.returned_type
-                    arguments = @current_description.arguments.map(&:name)
-                    coordination_model = model.new_submodel(self, root_m, arguments)
-                    coordination_model.parse(&block)
-
-                    if name
-                        define_method(name) do |*arguments|
-                            plan.add(root = root_m.new)
-                            coordination_model.new(self.model, root, *arguments) 
-                            root
-                        end
-                    end
-                    return action_model, coordination_model
-                ensure
-                    @current_description = nil
+                action_model, @current_description = @current_description, nil
+                if name
+                    # NOTE: this modifies #action_model to sane defaults
+                    #       using the action name
+                    register_action name, action_model
                 end
+
+                root_m = action_model.returned_type
+                arguments = action_model.arguments.map(&:name)
+                coordination_model = model.new_submodel(self, root_m, arguments)
+                coordination_model.parse(&block)
+
+                if name
+                    define_method(name) do |*arguments|
+                        plan.add(root = root_m.new)
+                        coordination_model.new(self.model, root, *arguments) 
+                        root
+                    end
+                end
+                return action_model, coordination_model
             end
 
             # Creates a state machine of actions

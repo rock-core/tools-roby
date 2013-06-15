@@ -2,7 +2,7 @@ module Roby
     module Actions
         class ExecutionContext
             # Representation of the context's root task
-            class Child < Task
+            class Child < TaskBase
                 # @return [ExecutionContext::Task] this child's parent
                 attr_reader :parent
 
@@ -12,7 +12,10 @@ module Roby
                 end
 
                 def resolve
-                    parent.resolve.find_child_from_role(model.role)
+                    if result = parent.resolve.find_child_from_role(model.role)
+                        result
+                    else raise ResolvingUnboundObject, "#{parent.resolve}, resolved from #{parent} has not child named #{model.role}"
+                    end
                 end
             end
         end

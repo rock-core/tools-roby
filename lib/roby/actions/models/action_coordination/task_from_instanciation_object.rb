@@ -25,7 +25,7 @@ module Roby
                 instanciation_object.instanciate(plan)
             end
 
-            def to_s; "#{instanciation_object}[#{task_model}]" end
+            def to_s; "#{instanciation_object}[#{model}]" end
         end
         end
         end

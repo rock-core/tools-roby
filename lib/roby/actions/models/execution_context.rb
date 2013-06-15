@@ -20,6 +20,10 @@ module Roby
             #   is attached to
             def task_model; root.model end
 
+            # The set of defined tasks
+            # @return [Array<Task>]
+            inherited_attribute(:task, :tasks) { Array.new }
+
             # The set of arguments available to this execution context
             # @return [Array<Symbol>]
             inherited_attribute(:argument, :arguments) { Array.new }
@@ -45,14 +49,28 @@ module Roby
 
             # Returns an object that can be used to refer to the children of
             # this task from within the execution context
-            def find_child(child_name)
-                root.find_child(child_name)
+            def find_child(child_name, child_model = nil)
+                root.find_child(child_name, child_model)
             end
 
             # Returns true if this is the name of an argument for this state
             # machine model
             def has_argument?(name)
                 each_argument.any? { |n| n == name }
+            end
+
+            # Creates a state from an object
+            def task(object, task_model = Roby::Task)
+                if object.respond_to?(:to_coordination_task)
+                    task = object.to_coordination_task(task_model)
+                    tasks << task
+                    task
+                elsif object.respond_to?(:as_plan)
+                    task = ActionCoordination::TaskFromAsPlan.new(object, task_model)
+                    tasks << task
+                    task
+                else raise ArgumentError, "cannot create a task from #{object}"
+                end
             end
 
             def method_missing(m, *args, &block)
@@ -68,6 +86,21 @@ module Roby
                 else return super
                 end
             end
+
+            def validate_task(object)
+                if !object.kind_of?(ExecutionContext::Task)
+                    raise ArgumentError, "expected a state object, got #{object}. States need to be created from e.g. actions by calling #state before they can be used in the state machine"
+                end
+                object
+            end
+
+            def validate_event(object)
+                if !object.kind_of?(ExecutionContext::Event)
+                    raise ArgumentError, "expected an action-event object, got #{object}. Acceptable events need to be created from e.g. actions by calling #task(action).my_event"
+                end
+                object
+            end
+
         end
         end
     end

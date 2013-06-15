@@ -46,7 +46,7 @@ module Roby
                     :remove_when_done => true]
             end
 
-            def instanciate_task(toplevel)
+            def start_task(toplevel)
                 task_info = self.task_info[toplevel]
                 tasks, forwards = task_info.required_tasks, task_info.forwards
                 tasks.each do |task, roles|

@@ -39,6 +39,10 @@ module Roby
             def to_s
                 "#{model}(#{arguments.map { |k,v| "#{k} => #{v}" }.sort.join(", ")})"
             end
+
+            def to_coordination_task(task_model = Roby::Task)
+                Models::ActionCoordination::TaskFromAction.new(self)
+            end
         end
     end
 end

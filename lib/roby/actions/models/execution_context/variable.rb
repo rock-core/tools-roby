@@ -18,6 +18,10 @@ module Roby
                 def to_s
                     "var:#{name}"
                 end
+
+                def to_coordination_task(task_model = Roby::Task)
+                    ActionCoordination::TaskFromVariable.new(name, task_model)
+                end
             end
 
         end

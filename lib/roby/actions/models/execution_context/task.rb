@@ -27,7 +27,7 @@ module Roby
                     end
                 end
 
-                def find_child(role)
+                def find_child(role, child_model = nil)
                     if model && model.respond_to?(:find_child)
                         if child_model = model.find_child(role)
                             return Child.new(self, role, child_model)
@@ -57,6 +57,10 @@ module Roby
                     else
                         super
                     end
+                end
+
+                def to_coordination_task(task_model = Roby::Task)
+                    self
                 end
             end
         end

@@ -1,10 +1,9 @@
+require 'roby/tasks/timeout'
 module Roby
     module Actions
         module Models
             # The metamodel for Actions::Script
             module Script
-                include ActionCoordination
-
                 class DeadInstruction < Roby::LocalizedError; end
 
                 # Script element that implements {Script#start}
@@ -22,7 +21,7 @@ module Roby
                     end
 
                     def execute(script)
-                        script.instanciate_task(task)
+                        script.start_task(task)
                         true
                     end
 
@@ -33,18 +32,38 @@ module Roby
                 class Wait
                     attr_reader :event
 
-                    attr_accessor :timeout
+                    # @return [Time,nil] time after which an emission is valid.
+                    #   'nil' means that only emissions that have happened after
+                    #   the script reached this instruction are considered
+                    attr_reader :time_barrier
 
-                    def initialize(event)
+                    # @return [Float] number of seconds after which the wait
+                    #   instruction should generate an error
+                    attr_reader :timeout
+
+                    # @option options [Float] :timeout (nil) value for {#timeout}
+                    # @option options [Time] :after (nil) value for
+                    #   {#time_barrier}
+                    def initialize(event, options = Hash.new)
+                        options = Kernel.validate_options options, :timeout => nil, :after => nil
                         @event = event
+                        @time_barrier = options[:after]
+                        @timeout = options[:timeout]
                     end
 
                     def new(script)
-                        Wait.new(script.instance_for(event))
+                        Wait.new(script.instance_for(event), :timeout => timeout, :after => time_barrier)
                     end
 
                     def execute(script)
                         event = self.event.resolve
+
+                        if time_barrier
+                            if event.history.find { |ev| ev.time > time_barrier }
+                                return true
+                            end
+                        end
+
                         if event.unreachable?
                             raise DeadInstruction.new(script.root_task), "#{self} is locked: #{event.unreachability_reason}"
                         end
@@ -120,7 +139,7 @@ module Roby
                 #
                 # @param [Float] time the amount of time to wait, in seconds
                 def sleep(time)
-                    task = self.task(Timeout, :delay => time)
+                    task = self.task(ActionCoordination::TaskFromAsPlan.new(Tasks::Timeout.with_arguments(:delay => time), Tasks::Timeout))
                     start task
                     wait task.stop_event
                 end
@@ -135,11 +154,9 @@ module Roby
                 # @option options [Float] timeout a timeout
                 def wait(event, options = Hash.new)
                     validate_event event
-                    options = Kernel.validate_options options, :timeout => nil
 
-                    wait = Wait.new(event)
+                    wait = Wait.new(event, options)
                     instructions << wait
-                    wait.timeout = options[:timeout]
                     wait
                 end
 

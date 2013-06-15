@@ -9,10 +9,6 @@ module Roby
             # @return [Model<Interface>,Model<Library>]
             attr_accessor :action_interface
 
-            # The set of defined tasks
-            # @return [Array<Task>]
-            inherited_attribute(:task, :tasks) { Array.new }
-
             # The set of defined forwards, as (Task,EventName)=>EventName
             # @return [Array<(StateEvent,TaskEvent)>]
             inherited_attribute(:forward, :forwards) { Array.new }
@@ -34,20 +30,6 @@ module Roby
                 submodel = super(task_model, arguments)
                 submodel.action_interface = action_interface
                 submodel
-            end
-
-            def validate_task(object)
-                if !object.kind_of?(ExecutionContext::Task)
-                    raise ArgumentError, "expected a state object, got #{object}. States need to be created from e.g. actions by calling #state before they can be used in the state machine"
-                end
-                object
-            end
-
-            def validate_event(object)
-                if !object.kind_of?(ExecutionContext::Event)
-                    raise ArgumentError, "expected an action-event object, got #{object}. Acceptable events need to be created from e.g. actions by calling #task(action).my_event"
-                end
-                object
             end
 
             # Declares that the given event on the root task of the state should
@@ -111,27 +93,6 @@ module Roby
                 end
             end
 
-            # Creates a state from an object
-            def task(object, task_model = Roby::Task)
-                if object.kind_of?(Actions::Action)
-                    task = TaskFromAction.new(object)
-                    tasks << task
-                    task
-                elsif object.respond_to?(:to_action_task)
-                    task = object.to_action_task
-                    tasks << task
-                    task
-                elsif object.respond_to?(:instanciate)
-                    task = TaskFromInstanciationObject.new(object, task_model)
-                    tasks << task
-                    task
-                elsif object.kind_of?(Models::ExecutionContext::Variable)
-                    task = TaskFromVariable.new(object.name, task_model)
-                    tasks << task
-                    task
-                else raise ArgumentError, "cannot create a task from #{object}"
-                end
-            end
         end
         end
     end

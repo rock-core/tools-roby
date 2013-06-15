@@ -38,7 +38,7 @@ class TC_TaskScripting < Test::Unit::TestCase
             execute do
                 counter += 1
             end
-            emit :success
+            emit success_event
         end
         task.start!
 
@@ -65,61 +65,11 @@ class TC_TaskScripting < Test::Unit::TestCase
         process_events
         process_events
         assert_equal 4, counter
+        # Make the poll block transition
+        task.emit :poll_transition
     end
 
-    def test_poll_end_if
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
-        counter = 0
-        FlexMock.use do |mock|
-            task.script do
-                poll do
-                    counter += 1
-
-                    end_if do
-                        mock.test_called
-                        counter > 2
-                    end
-                end
-                emit :success
-            end
-            mock.should_receive(:test_called).times(3)
-            task.start!
-
-            6.times { process_events }
-            assert_equal 3, counter
-        end
-    end
-
-    def test_poll_delayed_end_condition
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
-        counter = 0
-        task.script do
-            poll do
-                counter += 1
-                end_if do
-                    if counter > 2
-                        wait(2)
-                    end
-                end
-            end
-            emit :success
-        end
-
-        FlexMock.use(Time) do |mock|
-            time = Time.now
-            mock.should_receive(:now).and_return { time }
-            
-            task.start!
-            6.times { process_events }
-            assert_equal 7, counter
-
-            time += 3
-            6.times { process_events }
-            assert_equal 8, counter
-        end
-    end
-
-    def test_wait
+    def test_wait_for_event
         model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
         end
@@ -136,6 +86,17 @@ class TC_TaskScripting < Test::Unit::TestCase
         task.emit :intermediate
         3.times { process_events }
         assert_equal 1, counter
+    end
+
+    def test_child_of_real_task_is_modelled_using_the_actual_tasks_model
+        model = Roby::Tasks::Simple.new_submodel do
+            event :intermediate
+        end
+        parent, child = prepare_plan :missions => 1, :add => 1, :model => model
+        parent.depends_on(child, :role => 'subtask')
+
+        script_child = parent.script.subtask_child
+        assert_equal model, script_child.model.model
     end
 
     def test_wait_for_child_event
@@ -192,7 +153,7 @@ class TC_TaskScripting < Test::Unit::TestCase
         child.subsubtask_child.emit :intermediate
     end
 
-    def test_wait_for_duration
+    def test_sleep
         task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
 
         FlexMock.use(Time) do |mock|
@@ -217,17 +178,6 @@ class TC_TaskScripting < Test::Unit::TestCase
 
     def test_wait_after
         task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
-
-        task.start!
-        assert task.running?
-        task.script do
-            wait start_event
-            emit :success
-        end
-        process_events
-        assert task.running?
-
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
         time = Time.now
         task.start!
         task.script do
@@ -235,7 +185,7 @@ class TC_TaskScripting < Test::Unit::TestCase
             emit :success
         end
         process_events
-        assert !task.running?
+        assert task.success?
     end
 
     def test_wait_barrier
@@ -347,7 +297,9 @@ class TC_TaskScripting < Test::Unit::TestCase
         assert task.done_script1?
         assert !task.done_script2?
         plan.unmark_permanent(task)
-        task.stop!
+        inhibit_fatal_messages do
+            assert_raises(Roby::Actions::Script::DeadInstruction) { task.stop! }
+        end
         assert task.done_script1?
         assert !task.done_script2?
     end
@@ -361,28 +313,24 @@ class TC_TaskScripting < Test::Unit::TestCase
         end
         child_model = Roby::Tasks::Simple.new_submodel
 
-        engine.run
-
         task = nil
-        execute do
-            task = prepare_plan :permanent => 1, :model => model
-            task.script do
-                wait start_child_event
-                child_task = start(child_model, :role => "subtask")
-                execute do
-                    mock.child_started(child_task.running?)
-                end
+        task = prepare_plan :permanent => 1, :model => model
+        task.script do
+            wait start_child_event
+            child_task = start(child_model, :role => "subtask")
+            execute do
+                mock.child_started(child_task.resolve.running?)
             end
-            task.start!
         end
+        task.start!
 
         child = task.subtask_child
         assert_kind_of(child_model, child)
         assert(!child.running?)
 
-        assert_event_emission(child.start_event) do
-            task.emit :start_child
-        end
+        task.emit :start_child
+        process_events
+        assert task.subtask_child.running?
     end
 
     def test_model_level_script
@@ -424,10 +372,12 @@ class TC_TaskScripting < Test::Unit::TestCase
         model = Roby::Task.new_submodel { terminates }
         old, new = prepare_plan :add => 2, :model => model
         old.abstract = true
-        script = old.script { }
+        script = old.script do
+            emit success_event
+        end
         plan.replace_task(old, new)
-        flexmock(script).should_receive(:prepare).with(new).once
         new.start!
+        assert new.success?
     end
 
     def test_transaction_commits_new_script_on_pending_task

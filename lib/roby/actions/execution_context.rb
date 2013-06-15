@@ -26,7 +26,7 @@ module Roby
                 self.class
             end
 
-            def initialize(root_task, arguments = Hash.new)
+            def initialize(root_task = nil, arguments = Hash.new)
                 @root_task = root_task
                 @arguments = Kernel.normalize_options arguments
                 model.arguments.each do |key|
@@ -35,7 +35,9 @@ module Roby
                     end
                 end
                 @instances = Hash.new
-                instance_for(model.root).bind(root_task)
+                if root_task
+                    instance_for(model.root).bind(root_task)
+                end
             end
 
             def instance_for(object)

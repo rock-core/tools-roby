@@ -45,7 +45,7 @@ module Roby
             end
 
             def instanciate_state(state)
-                instanciate_task(state)
+                start_task(state)
                 state_info = task_info[state]
                 tasks, known_transitions = state_info.required_tasks, state_info.transitions
                 tasks.each do |task, roles|
