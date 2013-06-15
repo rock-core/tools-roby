@@ -20,7 +20,8 @@ module Roby
             end
 
             def execute(script)
-                block.call
+                script.root_task.instance_eval(&block)
+                true
             end
         end
 
@@ -83,8 +84,7 @@ module Roby
             end
 
             def resolve_instructions
-                instructions = super
-
+                super
                 model.each_task do |model_task|
                     script_task = instance_for(model_task)
                     if script_task.respond_to?(:task) && !script_task.task # Not bound ? Check if the model can be instanciated
@@ -107,8 +107,6 @@ module Roby
                         root_task.depends_on task, ins.dependency_options
                     end
                 end
-
-                instructions
             end
 
             def resolve_task(task)
@@ -192,6 +190,24 @@ module Roby
 
             def transition!
                 root_task.poll_transition_event.emit
+            end
+
+            def timeout(seconds, options = Hash.new, &block)
+                timeout = timeout_start(seconds, options)
+                parse(&block)
+                timeout_stop(timeout)
+            end
+
+            def timeout_start(seconds, options = Hash.new)
+                options, timeout_options  = Kernel.filter_options options, :emit => nil
+                if event = options[:emit]
+                    script_event, model_event = resolve_event(event)
+                end
+                model.timeout_start(seconds, timeout_options.merge(:emit => model_event))
+            end
+
+            def timeout_stop(timeout)
+                model.timeout_stop(timeout)
             end
 
             def start_task(task)

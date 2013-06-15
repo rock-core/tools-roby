@@ -7,7 +7,7 @@ module Roby
                 class DeadInstruction < Roby::LocalizedError; end
 
                 # Script element that implements {Script#start}
-                class Start
+                class Start < Actions::ScriptInstruction
                     attr_reader :task
                     attr_reader :dependency_options
 
@@ -29,7 +29,7 @@ module Roby
                 end
 
                 # Script element that implements {Script#wait}
-                class Wait
+                class Wait < Actions::ScriptInstruction
                     attr_reader :event
 
                     # @return [Time,nil] time after which an emission is valid.
@@ -45,14 +45,13 @@ module Roby
                     # @option options [Time] :after (nil) value for
                     #   {#time_barrier}
                     def initialize(event, options = Hash.new)
-                        options = Kernel.validate_options options, :timeout => nil, :after => nil
+                        options = Kernel.validate_options options, :after => nil
                         @event = event
                         @time_barrier = options[:after]
-                        @timeout = options[:timeout]
                     end
 
                     def new(script)
-                        Wait.new(script.instance_for(event), :timeout => timeout, :after => time_barrier)
+                        Wait.new(script.instance_for(event), :after => time_barrier)
                     end
 
                     def execute(script)
@@ -63,30 +62,28 @@ module Roby
                                 return true
                             end
                         end
-
                         if event.unreachable?
                             raise DeadInstruction.new(script.root_task), "#{self} is locked: #{event.unreachability_reason}"
                         end
+
                         event.when_unreachable(true) do |reason, generator|
-                            raise DeadInstruction.new(script.root_task), "#{self} is locked: #{reason}"
-                        end
-                        event.on do |context|
-                            script.step
-                        end
-                        if timeout
-                            event.delay(timeout).on do
-                                raise DeadInstruction.new(script.root_task), "#{self} timed out"
+                            if !disabled?
+                                raise DeadInstruction.new(script.root_task), "#{self} is locked: #{reason}"
                             end
                         end
-
+                        event.on do |context|
+                            if !disabled?
+                                script.step
+                            end
+                        end
                         false
                     end
 
-                    def to_s; "wait(#{event}, :timeout => #{timeout})" end
+                    def to_s; "wait(#{event})" end
                 end
 
                 # Script element that implements {Script#emit}
-                class Emit
+                class Emit < Actions::ScriptInstruction
                     # @return [ExecutionContext::Event] the event that should be
                     # emitted
                     attr_reader :event
@@ -105,6 +102,37 @@ module Roby
                     end
 
                     def to_s; "emit(#{event})" end
+                end
+
+                class TimeoutStart
+                    attr_reader :seconds
+                    attr_reader :event
+
+                    def initialize(seconds, options = Hash.new)
+                        @seconds = seconds
+                        options = Kernel.validate_options options, :emit => nil
+                        @event = options[:emit]
+                    end
+
+                    def new(script)
+                        event = if self.event
+                                    script.instance_for(self.event)
+                                end
+
+                        Roby::Actions::Script::TimeoutStart.new(self, event)
+                    end
+                end
+
+                class TimeoutStop
+                    attr_reader :timeout_start
+
+                    def initialize(timeout_start)
+                        @timeout_start = timeout_start
+                    end
+
+                    def new(script)
+                        Roby::Actions::Script::TimeoutStop.new(script.instance_for(timeout_start))
+                    end
                 end
 
                 # The list of instructions in this script
@@ -151,12 +179,22 @@ module Roby
                 #
                 # @param [ExecutionContext::Event] event the event to wait for
                 # @param [Hash] options
-                # @option options [Float] timeout a timeout
+                # @option options [Float] timeout a timeout (for backward
+                #   compatibility, use timeout(seconds) do ... end instead)
                 def wait(event, options = Hash.new)
                     validate_event event
 
-                    wait = Wait.new(event, options)
-                    instructions << wait
+                    # For backward compatibility only
+                    options, wait_options = Kernel.filter_options(options, :timeout => nil)
+
+                    wait = Wait.new(event, wait_options)
+                    if options[:timeout]
+                        timeout(options[:timeout]) do
+                            instructions << wait
+                        end
+                    else
+                        instructions << wait
+                    end
                     wait
                 end
 
@@ -171,6 +209,18 @@ module Roby
                 # Execute another script at this point in the execution
                 def call(script)
                     instructions.concat(script.instructions)
+                end
+
+                def timeout_start(delay, options = Hash.new)
+                    ins = TimeoutStart.new(delay, options)
+                    instructions << ins
+                    ins
+                end
+
+                def timeout_stop(timeout_start)
+                    ins = TimeoutStop.new(timeout_start)
+                    instructions << ins
+                    ins
                 end
             end
         end

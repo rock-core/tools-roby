@@ -9,13 +9,14 @@ module Roby
             attr_reader :instructions
 
             def prepare
-                @instructions = resolve_instructions
+                @instructions = Array.new
+                resolve_instructions
                 @current_instruction = nil
             end
 
             def resolve_instructions
-                model.instructions.map do |ins|
-                    ins.new(self)
+                model.instructions.each do |ins|
+                    instructions << instance_for(ins)
                 end
             end
 
@@ -37,6 +38,21 @@ module Roby
                 raise e
             rescue Exception => e
                 raise CodeError.new(e, root_task), e.message, e.backtrace
+            end
+
+            def jump_to(target)
+                # Verify that the jump is valid
+                if current_instruction != target && !instructions.find { |ins| ins == target }
+                    raise ArgumentError, "#{target} is not an instruction in #{self}"
+                end
+
+                if current_instruction != target
+                    current_instruction.cancel
+                end
+                while instructions.first != target
+                    instructions.shift
+                end
+                step
             end
 
             def finished?

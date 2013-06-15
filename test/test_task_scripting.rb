@@ -251,25 +251,24 @@ class TC_TaskScripting < Test::Unit::TestCase
         end
         task = prepare_plan :missions => 1, :model => model
 
-        FlexMock.use(Time) do |mock|
-            time = Time.now
-            mock.should_receive(:now).and_return { time }
+        mock = flexmock(Time)
+        time = Time.now
+        mock.should_receive(:now).and_return { time }
 
-            plan.add(task)
-            task.script do
-                timeout 5, :emit => :timeout do
-                    wait intermediate_event
-                end
-                emit :success
+        task.script do
+            timeout 5, :emit => :timeout do
+                wait intermediate_event
             end
-            task.start!
-
-            process_events
-            assert task.running?
-            time += 6
-            process_events
-            assert task.timeout?
+            emit :success
         end
+        task.start!
+        process_events
+
+        assert task.running?
+        time += 6
+        process_events
+        assert task.timeout?
+        assert task.success?
     end
 
     def test_parallel_scripts
@@ -333,9 +332,36 @@ class TC_TaskScripting < Test::Unit::TestCase
         assert task.subtask_child.running?
     end
 
+    def test_execute_always_goes_on_regardless_of_the_output_of_the_block
+        task = prepare_plan :permanent => 1, :model => Tasks::Simple
+        task.script do
+            execute { true }
+            emit :success
+        end
+        task.start!
+        assert task.success?
+
+        task = prepare_plan :permanent => 1, :model => Tasks::Simple
+        task.script do
+            execute { false }
+            emit :success
+        end
+        task.start!
+        assert task.success?
+    end
+
+    def test_execute_block_is_evaluated_in_the_context_of_the_root_task
+        context = nil
+        task = prepare_plan :permanent => 1, :model => Tasks::Simple
+        task.script do
+            execute { context = self }
+        end
+        task.start!
+        assert_equal task, context
+    end
+
     def test_model_level_script
         engine.scheduler = nil
-
         mock = flexmock
         model = Roby::Tasks::Simple.new_submodel do
             event :do_it
@@ -362,10 +388,7 @@ class TC_TaskScripting < Test::Unit::TestCase
         task1.start!
         task2.start!
         task1.emit :do_it
-        process_events
-
         task2.emit :do_it
-        process_events
     end
 
     def test_script_is_prepared_with_the_new_task_after_a_replacement
