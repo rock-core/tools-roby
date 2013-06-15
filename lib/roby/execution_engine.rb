@@ -1146,6 +1146,16 @@ module Roby
             add_propagation_handler(Hash[:type => :external_events, :once => true].merge(options), &block)
         end
 
+        # Schedules +block+ to be called once after +delay+ seconds passed, in
+        # the propagation context
+        def delayed(delay, options = Hash.new, &block)
+            handler = PollBlockDefinition.new("delayed block #{block}", block, Hash[:once => true].merge(options))
+            once do
+                process_every << [handler, cycle_start, delay]
+            end
+            handler.id
+        end
+
         # The set of errors which have been generated outside of the plan's
         # control. For now, those errors cause the whole controller to shut
         # down.
