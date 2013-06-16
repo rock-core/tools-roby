@@ -21,7 +21,7 @@ module Roby
                     end
                 end
 
-                def to_s; "#<EE::Task model=#{model}" end
+                def to_s; "Task[#{model.model}]" end
             end
     end
 end

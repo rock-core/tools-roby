@@ -16,6 +16,8 @@ module Roby
                     else raise ResolvingUnboundObject, "#{parent.resolve}, resolved from #{parent} has not child named #{model.role}"
                     end
                 end
+
+                def to_s; "#{parent}.#{model.role}_child[#{model.model}]" end
             end
     end
 end

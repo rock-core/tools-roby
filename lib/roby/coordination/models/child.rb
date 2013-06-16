@@ -19,7 +19,7 @@ module Roby
                     Coordination::Child.new(execution_context, self)
                 end
 
-                def to_s; "#{task_model}.#{role}_child[#{model.name}]" end
+                def to_s; "#{parent}.#{role}_child[#{model}]" end
             end
         end
     end
