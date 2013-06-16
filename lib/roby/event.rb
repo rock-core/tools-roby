@@ -1040,7 +1040,7 @@ module Roby
                 unreachable_without_propagation(reason)
             elsif engine.gathering?
                 unreachable_without_propagation(reason, plan)
-            else
+            elsif !@unreachable
 		Roby.synchronize do
 		    engine.process_events_synchronous do
                         unreachable_without_propagation(reason, plan)
