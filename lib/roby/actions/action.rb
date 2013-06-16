@@ -41,7 +41,7 @@ module Roby
             end
 
             def to_coordination_task(task_model = Roby::Task)
-                Models::ActionCoordination::TaskFromAction.new(self)
+                Coordination::Models::TaskFromAction.new(self)
             end
         end
     end

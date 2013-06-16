@@ -1518,7 +1518,8 @@ module Roby
         end
 
         def clear_models
-            [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library, Actions::StateMachine].each do |root_model|
+            [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
+             Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript].each do |root_model|
                 submodels = root_model.each_submodel.to_a.dup
                 submodels.each do |m|
                     if model_defined_in_app?(m) || !m.permanent_model?

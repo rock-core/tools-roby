@@ -164,7 +164,7 @@ module Roby
                 if !@current_description
                     raise ArgumentError, "you must describe the action with #describe before calling #action_state_machine"
                 end
-                action_coordination(name, Actions::StateMachine, &block)
+                action_coordination(name, Coordination::ActionStateMachine, &block)
             end
 
             # @deprecated
@@ -178,7 +178,7 @@ module Roby
                 if !@current_description
                     raise ArgumentError, "you must describe the action with #describe before calling #action_script"
                 end
-                action_coordination(name, Actions::Script, &block)
+                action_coordination(name, Coordination::ActionScript, &block)
             end
 
             # Returns an action description if 'm' is the name of a known action

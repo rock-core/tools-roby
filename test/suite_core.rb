@@ -33,10 +33,8 @@ require 'suite_actions'
 require 'suite_relations'
 require 'suite_queries'
 require 'suite_state'
+require 'suite_coordination'
 
 require 'test_interface'
 require 'test_log'
-
-require 'test_task_scripting'
-require 'test_task_statemachine'
 
