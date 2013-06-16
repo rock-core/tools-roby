@@ -13,6 +13,7 @@ describe Roby::Coordination::TaskBase do
         @base = flexmock
         base.should_receive(:instance_for).by_default
         @model_task = flexmock
+        model_task.should_receive(:find_child_model).by_default
         model_task.should_receive(:find_child).by_default
         @task = Roby::Coordination::TaskBase.new(base, model_task)
         flexmock(task).should_receive(:resolve).and_raise(Roby::Coordination::ResolvingUnboundObject).by_default
@@ -24,11 +25,21 @@ describe Roby::Coordination::TaskBase do
             base.should_receive(:instance_for).with(model_child).and_return(instance = flexmock)
             assert_equal instance, task.find_child('name')
         end
-        it "resolves the child model from the task instance if already bound" do
+        it "resolves the child model from the task instance if already bound and if the model does not provide this information" do
             roby_task, roby_child = prepare_plan :add => 2, :model => Roby::Tasks::Simple
             roby_task.depends_on roby_child, :role => 'name'
+            model_task.should_receive(:find_child_model).and_return(nil)
             model_task.should_receive(:find_child).once.
                 with('name', Roby::Tasks::Simple)
+            flexmock(task).should_receive(:resolve).and_return(roby_task)
+            task.find_child('name')
+        end
+        it "does not resolve the child model from the task instance if already bound and if the model already provides this information" do
+            roby_task, roby_child = prepare_plan :add => 2, :model => Roby::Tasks::Simple
+            roby_task.depends_on roby_child, :role => 'name'
+            model_task.should_receive(:find_child_model).with('name').and_return(child_model = flexmock)
+            model_task.should_receive(:find_child).once.
+                with('name', child_model)
             flexmock(task).should_receive(:resolve).and_return(roby_task)
             task.find_child('name')
         end

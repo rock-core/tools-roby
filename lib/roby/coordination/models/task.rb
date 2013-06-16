@@ -15,22 +15,35 @@ module Roby
                     Coordination::Task.new(execution_context, self)
                 end
 
-                def find_event(event_name)
+                def has_event?(event_name)
                     if model && model.respond_to?(:find_event)
-                        if event_model = model.find_event(event_name.to_sym)
-                            return Event.new(self, event_name)
-                        end
-                    else return Event.new(self, event_name)
+                        model.find_event(event_name.to_sym)
+                    else true
+                    end
+                end
+
+                def find_event(event_name)
+                    if has_event?(event_name)
+                        return Event.new(self, event_name)
+                    end
+                end
+
+                def has_child?(role)
+                    if model && model.respond_to?(:find_child)
+                        model.find_child(role)
+                    else true
+                    end
+                end
+
+                def find_child_model(role)
+                    if model && model.respond_to?(:find_child)
+                        model.find_child(role)
                     end
                 end
 
                 def find_child(role, child_model = nil)
-                    if model && model.respond_to?(:find_child)
-                        model_child = model.find_child(role)
-                        if model_child
-                            return Child.new(self, role, child_model || model_child)
-                        end
-                    else return Child.new(self, role, child_model)
+                    if has_child?(role)
+                        return Child.new(self, role, child_model || find_child_model(role))
                     end
                 end
 

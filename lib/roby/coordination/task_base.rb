@@ -16,6 +16,7 @@ module Roby
                 end
 
                 def find_child(role, child_model = nil)
+                    child_model ||= model.find_child_model(role)
                     if !child_model
                         begin
                             task = self.resolve
