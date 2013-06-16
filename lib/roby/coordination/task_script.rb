@@ -191,7 +191,9 @@ module Roby
         # Adds a script that is going to be executed for every instance of this
         # task model
         def self.script(&block)
-            scripts << create_script(&block)
+            s = create_script(&block)
+            scripts << s
+            s
         end
 
         on :start do |event|
