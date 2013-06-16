@@ -19,7 +19,6 @@ module Roby
                     if model && model.respond_to?(:find_event)
                         if event_model = model.find_event(event_name.to_sym)
                             return Event.new(self, event_name)
-                        else
                         end
                     else return Event.new(self, event_name)
                     end
@@ -27,10 +26,9 @@ module Roby
 
                 def find_child(role, child_model = nil)
                     if model && model.respond_to?(:find_child)
-                        if child_model = model.find_child(role)
-                            return Child.new(self, role, child_model)
-                        else
-                            raise ArgumentError, "#{model.name} has no child called #{role}"
+                        model_child = model.find_child(role)
+                        if model_child
+                            return Child.new(self, role, child_model || model_child)
                         end
                     else return Child.new(self, role, child_model)
                     end
@@ -39,18 +37,26 @@ module Roby
                 def method_missing(m, *args, &block)
                     case m.to_s
                     when /^(.*)_event$/
+                        if !args.empty?
+                            raise ArgumentError, "#{m} takes no arguments, #{args.size} given"
+                        end
+
                         event_name = $1
                         if event = find_event(event_name)
                             return event
                         else
-                            raise ArgumentError, "#{model.name} has no event called #{event_name}"
+                            raise NoMethodError.new("#{model.name} has no event called #{event_name}", m)
                         end
                     when /^(.*)_child$/
+                        if !args.empty?
+                            raise ArgumentError, "#{m} takes no arguments, #{args.size} given"
+                        end
+
                         role = $1
                         if child = find_child(role)
                             return child
                         else
-                            raise ArgumentError, "#{model.name} has no child with the role #{role}"
+                            raise NoMethodError.new("#{model.name} has no child with the role #{role}", m)
                         end
                     else
                         super

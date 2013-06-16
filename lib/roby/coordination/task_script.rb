@@ -164,10 +164,8 @@ module Roby
 
             def method_missing(m, *args, &block)
                 case m.to_s
-                when /(.*)_event$/
-                    instance_for(model.root).find_event($1)
-                when /(.*)_child$/
-                    instance_for(model.root).find_child($1)
+                when /(.*)_(event|child)$/
+                    instance_for(model.root).send(m, *args, &block)
                 else super
                 end
             end

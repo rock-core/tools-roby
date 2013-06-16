@@ -41,18 +41,6 @@ module Roby
                 submodel
             end
 
-            # Returns an object that can be used to refer to an event of the
-            # toplevel task on which this state machine model applies
-            def find_event(event_name)
-                root.find_event(event_name)
-            end
-
-            # Returns an object that can be used to refer to the children of
-            # this task from within the execution context
-            def find_child(child_name, child_model = nil)
-                root.find_child(child_name, child_model)
-            end
-
             # Returns true if this is the name of an argument for this state
             # machine model
             def has_argument?(name)
@@ -79,10 +67,8 @@ module Roby
                         raise ArgumentError, "expected zero arguments to #{m}, got #{args.size}"
                     end
                     Variable.new(m)
-                elsif m.to_s =~ /(.*)_event$/
-                    find_event($1)
-                elsif m.to_s =~ /(.*)_child$/
-                    find_child($1)
+                elsif m.to_s =~ /(.*)_event$/ || m.to_s =~ /(.*)_child/
+                    return root.send(m, *args, &block)
                 else return super
                 end
             end

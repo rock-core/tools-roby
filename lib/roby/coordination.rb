@@ -39,6 +39,7 @@ require 'roby/coordination/models/fault_handler'
 require 'roby/coordination/models/fault_response_table'
 
 require 'roby/coordination/base'
+require 'roby/coordination/task_base'
 require 'roby/coordination/task'
 require 'roby/coordination/event'
 require 'roby/coordination/child'
