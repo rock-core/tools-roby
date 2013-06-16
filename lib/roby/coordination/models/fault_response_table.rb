@@ -11,19 +11,17 @@ module Roby
                 inherited_attribute('fault_handler', 'fault_handlers') { Array.new }
 
                 def find_all_matching_handlers(exception)
-                    each_fault_handler do |h|
+                    each_fault_handler.find_all do |h|
                         h.execution_exception_matcher === exception
                     end
                 end
 
                 def on_fault(exception_matcher, &block)
                     exception_matcher = exception_matcher.to_execution_exception_matcher
-                    @current_description = FaultHandlingAction.new
+                    @current_description = Roby::Actions::Models::Action.new
                     action_model, handler =
                         action_coordination(nil, Coordination::FaultHandler, &block)
-                    action_model.fault_handler_model = handler
-                    handler.execution_exception_matcher = exception_matcher
-                    handler.action = action_model
+                    handler.execution_exception_matcher(exception_matcher)
                     fault_handlers << handler
                     handler
                 end

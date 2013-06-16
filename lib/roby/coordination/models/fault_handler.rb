@@ -66,11 +66,14 @@ module Roby
                     result
                 end
 
-                def activate(origin)
+                def activate(origin, failure_event = nil)
                     locations = find_response_locations(origin)
+                    plan = origin.plan
+
                     # Create the response task
-                    origin.plan.add(response_task = FaultHandlingTask.new)
-                    new(action_interface.new(origin.plan), response_task)
+                    plan.add(response_task = FaultHandlingTask.new)
+                    response_task.fault_handler = self
+                    new(action_interface.new(plan), response_task)
                     locations.each do |task|
                         # Mark :stop as handled by the response task and kill
                         # the task
@@ -78,6 +81,12 @@ module Roby
                         # In addition, if origin == task, we need to handle the
                         # error events as well
                         task.stop_event.handle_with(response_task)
+                        if task == origin && failure_event
+                            # Add a error handling relation, explaining what the
+                            # response task does
+                            failure_event.generator.handle_with(response_task)
+                            plan.add_repair(failure_event, response_task)
+                        end
                     end
                     locations.each do |task|
                         # This should not be needed. However, the current GC
@@ -85,7 +94,7 @@ module Roby
                         # finished tasks, and therefore would not GC the
                         # underlying tasks
                         task.remove_children(Roby::TaskStructure::Dependency)
-                        task.stop!
+                        task.stop! if task.running?
                     end
                 end
             end
