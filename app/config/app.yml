@@ -1,12 +1,12 @@
-# Control configuration
-engine:
-  # The length of a cycle (in seconds). It defaults to 100ms.
-  # cycle: 0.1
-
 # Logging configuration
 log:
   # Where log files go
-  # dir: log/
+  # dir: logs/
+  
+  # Whether backtraces should be filtered (i.e. call sites from the framework
+  # are hidden)
+  # The default is true
+  # filter_backtraces: false
   
   # Log system events. It can be either true, false or stats. If true, all
   # plan-level events are logged, allowing to use the roby-log GUI to replay
@@ -20,21 +20,7 @@ log:
   #
   # The default is stats
   #
-  # events: true
-  
-  # Set to false to disables the log server and true to enable it (it is enabled by
-  # default). The log server allows to display the controller state remotely by using the
-  # <tt>roby-log</tt> tool. Note that it is completely separated from the Roby remote
-  # shell, which is always enabled.
-  #
-  # server: false
-  #
-  # ... or configure it
-  # server:
-  #     # The port to listen on (for service discovery)
-  #     port: 48933
-  #     # The discovery period
-  #     period: 10
+  events: true
 
   # Logging levels.
   #
@@ -62,6 +48,25 @@ log:
   #
   # Log files are saved in the log directory (controlled by the 'dir' option above, it is
   # 'log' by default).
+  
+  # Set to false to disables the log server and true to enable it (it is enabled by
+  # default). The log server allows to display the controller state remotely by using the
+  # <tt>roby-log</tt> tool. Note that it is completely separated from the Roby remote
+  # shell, which is always enabled.
+  #
+  # server: false
+  #
+  # ... or configure it
+  # server:
+  #     # The port to listen on (for service discovery)
+  #     port: 48933
+  #     # The discovery period
+  #     period: 10
+
+# Control configuration
+engine:
+  # The length of a cycle (in seconds). It defaults to 100ms.
+  # cycle: 0.1
 
 # dRoby neighbour discovery
 discovery:
