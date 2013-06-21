@@ -74,6 +74,7 @@ module Roby
     # - load models in models/planners and models/actions
     # - require_planners hook
     # - load additional model files
+    # - finalize_model_loading hook
     # - load config file config/ROBOT.rb
     # - require_config hook
     # - setup main planner
@@ -804,6 +805,9 @@ module Roby
             additional_model_files.each do |path|
                 require path
             end
+
+	    # Set up the loaded plugins
+	    call_plugins(:finalize_model_loading, self)
 	end
 
         # Loads the planner models
