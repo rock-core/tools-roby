@@ -757,10 +757,10 @@ module Roby::TaskStructure
                         end
                     elsif has_failure
                         explanation = failure.explain_true(child)
-                        error = Roby::ChildFailedError.new(parent, child, explanation)
+                        error = Roby::ChildFailedError.new(parent, child, explanation, :failed_event)
                     elsif success && success.static?(child)
                         explanation = success.explain_static(child)
-                        error = Roby::ChildFailedError.new(parent, child, explanation)
+                        error = Roby::ChildFailedError.new(parent, child, explanation, :unreachable_success)
                     end
 
                     if error
@@ -793,12 +793,16 @@ module Roby
 	attr_reader :relation
         # The Explanation object that describes why the relation failed
         attr_reader :explanation
+        # @return [Symbol] the fault mode. It can either be :failed_event or
+        #   :unreachable_success
+        attr_reader :mode
 
 	# The event which is the cause of this error. This is either the task
 	# source of a failure event, or the reason why a positive event has
 	# become unreachable (if there is one)
-	def initialize(parent, child, explanation)
+	def initialize(parent, child, explanation, mode)
             @explanation = explanation
+            @mode = mode
 
             events, generators, others = [], [], []
             explanation.elements.each do |e|
@@ -843,7 +847,15 @@ module Roby
 	end
 
 	def pretty_print(pp) # :nodoc:
-            pp.text "#{self.class.name}: "
+            pp.text "#{child}"
+            pp.breakable
+            pp.text "child #{relation[:roles].to_a.join(", ")} of #{parent}"
+            pp.breakable
+            if mode == :failed_event
+                pp.text "triggered the failure predicate '#{relation[:failure]}': "
+            elsif mode == :unreachable_success
+                pp.text "cannot reach the success condition '#{relation[:success]}': "
+            end
             explanation.pretty_print(pp)
 
             pp.breakable

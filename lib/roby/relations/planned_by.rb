@@ -68,9 +68,9 @@ module Roby
             pp.text "failed to plan "
             planned_task.pretty_print(pp)
             pp.breakable
-            pp.breakable
 
             failed_task.pretty_print(pp)
+            pp.breakable
             pp.text " failed with "
             pp_failure_reason(pp, failed_task.failure_reason)
         end

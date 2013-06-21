@@ -52,24 +52,26 @@ module Roby
         end
 
         def pp_failure_reason(pp, reason)
-            reason.pretty_print(pp)
             if reason.respond_to?(:context) && reason.context
+                pp.text " emission of the #{reason.symbol} event at [#{Roby.format_time(reason.time)} @#{reason.propagation_id}]"
                 reason.context.each do |c|
                     if c.kind_of?(Exception)
+                        pp.breakable
                         pp_exception(pp, c)
                     end
                 end
+            else
+                reason.pretty_print(pp)
             end
         end
 
-        def pp_exception(pp, e)
+        def pp_exception(pp, e, backtrace_filter_options = Hash.new)
             if e.respond_to?(:pretty_print)
                 e.pretty_print(pp)
             else
                 pp.text e.message
             end
-            pp.breakable
-            Roby.pretty_print_backtrace(pp, e.backtrace)
+            Roby.pretty_print_backtrace(pp, e.backtrace, backtrace_filter_options)
         end
 
         # True if +obj+ is involved in this error
@@ -184,7 +186,7 @@ module Roby
 	    if error
                 pp_failure_point(pp)
                 pp.breakable
-                pp_exception(pp, error)
+                pp_exception(pp, error, :display_full_framework_backtraces => true)
 	    else
 		super
 	    end

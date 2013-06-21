@@ -292,15 +292,17 @@ end
             end
 
             def pretty_print(pp)
-                predicate.pretty_print(pp)
                 if value == false
+                    predicate.pretty_print(pp)
                     pp.text " is false"
                 elsif value == true
+                    predicate.pretty_print(pp)
                     pp.text " is true"
                 elsif value == nil
-                    pp.text " is static"
+                    pp.text "the value of "
+                    predicate.pretty_print(pp)
+                    pp.text " will not change anymore"
                 end
-                pp.breakable
 
                 pp.nest(2) do
                     elements.each do |explanation|
@@ -324,9 +326,10 @@ end
                             if value == nil
                                 if explanation.unreachability_reason
                                     pp.text " is unreachable because of"
-                                    pp.breakable
-                                    pp.text "  "
-                                    explanation.unreachability_reason.pretty_print(pp)
+                                    pp.nest(2) do
+                                        pp.breakable
+                                        explanation.unreachability_reason.pretty_print(pp)
+                                    end
                                 else
                                     pp.text " is unreachable"
                                 end

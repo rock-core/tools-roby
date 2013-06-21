@@ -187,13 +187,14 @@ module Roby
     end
 
     def self.filter_backtrace(original_backtrace = nil, options = Hash.new)
+        options = Kernel.validate_options options, :force => false, :display_full_framework_backtraces => false
         filter_out = Roby.app.filter_out_patterns
 
         if !original_backtrace && block_given?
             begin
                 return yield
             rescue Exception => e
-                raise e, e.message, filter_backtrace(e.backtrace)
+                raise e, e.message, filter_backtrace(e.backtrace, options)
             end
         end
 
@@ -252,14 +253,21 @@ module Roby
                 end
             end
             backtrace.concat backtrace_bottom
+            if original_backtrace.size == backtrace.size && !options[:display_full_framework_backtraces]
+                # The backtrace is only within the framework, make it empty
+                backtrace = []
+            end
 	end
 	backtrace || original_backtrace || []
     end
 
-    def self.pretty_print_backtrace(pp, backtrace)
+    def self.pretty_print_backtrace(pp, backtrace, options = Hash.new)
         if backtrace && !backtrace.empty?
-            pp.group(2) do
-                pp.seplist(filter_backtrace(backtrace)) { |line| pp.text line }
+            pp.nest(2) do
+                filter_backtrace(backtrace, options).each do |line|
+                    pp.breakable
+                    pp.text line
+                end
             end
         end
     end

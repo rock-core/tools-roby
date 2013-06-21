@@ -664,9 +664,9 @@ module Roby
 	    end
 
 	    failure_message =
-                if message then "failed to emit #{self}: #{message}"
-                elsif error.respond_to?(:message) then "failed to emit #{self}: #{error.message}"
-                else "failed to emit #{self}: #{message}"
+                if message then message
+                elsif error.respond_to?(:message) then error.message
+                else "failed to emit #{self}"
                 end
 
             if Class === error 
