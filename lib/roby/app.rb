@@ -769,9 +769,13 @@ module Roby
             file = make_path_relative(absolute_path)
             Roby::Application.info "loading #{file} (#{absolute_path})"
             begin
-                begin
-                    Kernel.require(File.join(".", file))
-                rescue LoadError
+                if file != absolute_path
+                    begin
+                        Kernel.require(File.join(".", file))
+                    rescue LoadError
+                        Kernel.require absolute_path
+                    end
+                else
                     Kernel.require absolute_path
                 end
             rescue Interrupt
