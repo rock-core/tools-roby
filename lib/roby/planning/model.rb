@@ -638,7 +638,7 @@ module Roby
 		if body.arity > 0
 		    raise ArgumentError, "method body must accept zero arguments calls"
 		end
-		temp_method_name = "m#{@@temp_method_id += 1}"
+		temp_method_name = "planning_method_#{@@temp_method_id += 1}"
 		define_method(temp_method_name, &body)
                 mdef = MethodDefinition.new(self, name, options, instance_method(temp_method_name))
 		send("#{name}_methods")[method_id] = mdef
