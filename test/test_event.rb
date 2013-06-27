@@ -190,7 +190,6 @@ class TC_Event < Test::Unit::TestCase
 	exception = klass.new(nil, event)
 	assert_event_fails(event, klass) { event.emit_failed(exception, "test") }
         assert_equal(event, event.unreachability_reason.failed_generator)
-        assert( event.unreachability_reason.message =~ /: test$/ )
     end
 
     def test_pending_includes_queued_events

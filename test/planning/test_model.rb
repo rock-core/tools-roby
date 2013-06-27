@@ -106,62 +106,6 @@ class TC_Planner < Test::Unit::TestCase
         assert_equal task_model, planner_model.find_methods(:m).first.returned_type
     end
 
-    def test_reuse
-	task_model = Task.new_submodel
-	derived_model = task_model.new_submodel
-	planner_model = Class.new(Planner) do
-	    method(:reusable, :returns => task_model)
-	    method(:not_reusable, :returns => task_model, :reuse => false)
-	end
-	assert_raise(ArgumentError) { planner_model.method(:not_reusable, :reuse => true) }
-	assert_nothing_raised { planner_model.method(:not_reusable, :reuse => false) }
-	assert_nothing_raised { planner_model.method(:reusable, :reuse => true) }
-
-	planner_model.class_eval do
-	    method(:reusable, :id => 'base')	    { task_model.new }
-	    method(:reusable, :id => 'derived', :returns => derived_model) { derived_model.new }
-	    method(:not_reusable)   { task_model.new }
-
-	    # This one should build two tasks
-	    method(:check_not_reusable, :id => 1) do
-		[reusable(:id => 'base'), not_reusable]
-	    end
-	    
-	    # This one should build two tasks
-	    method(:check_not_reusable, :id => 2) do
-		[not_reusable, not_reusable]
-	    end
-
-	    # This one should build one task
-	    method(:check_reusable, :id => 1) do
-		[not_reusable, reusable(:id => 'base')]
-	    end
-
-	    # This one should build only one task
-	    method(:check_reusable, :id => 2) do
-		[reusable(:id => 'base'), reusable(:id => 'base')]
-	    end
-
-	    # This one whouls build two tasks
-	    method(:check_reusable, :id => 3) do
-		[reusable(:id => 'base'), reusable(:id => 'derived')]
-	    end
-	    
-	    # This one whouls build one task
-	    method(:check_reusable, :id => 4) do
-		[reusable(:id => 'derived'), reusable(:id => 'base')]
-	    end
-	end
-
-	assert_result_plan_size(1, planner_model, :check_reusable, :id => 1)
-	assert_result_plan_size(1, planner_model, :check_reusable, :id => 2)
-	assert_result_plan_size(2, planner_model, :check_reusable, :id => 3)
-	assert_result_plan_size(1, planner_model, :check_reusable, :id => 4)
-
-	assert_result_plan_size(2, planner_model, :check_not_reusable, :id => 1)
-	assert_result_plan_size(2, planner_model, :check_not_reusable, :id => 2)
-    end
-
     def test_empty_method_set
 	task_model = Roby::Task.new_submodel
 	model = Class.new(Roby::Planning::Planner) do

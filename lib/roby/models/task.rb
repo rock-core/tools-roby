@@ -645,6 +645,29 @@ module Roby
             def to_execution_exception_matcher
                 Queries::ExecutionExceptionMatcher.new.with_origin(self)
             end
+
+            def fullfills?(models)
+                models = Array(models)
+                models = models.inject([]) do |models, m|
+                    if m.respond_to?(:each_fullfilled_model)
+                        models.concat(m.each_fullfilled_model.to_a)
+                    else
+                        models << m
+                    end
+                end
+
+                # Check the arguments that are required by the model
+                for tag in models
+                    if !has_ancestor?(tag)
+                        return false
+                    end
+                end
+                return true
+            end
+
+            def can_merge?(target_model)
+                fullfills?(target_model)
+            end
         end
     end
 end

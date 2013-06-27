@@ -12,9 +12,9 @@
   <depend package="utilmm" />
   <depend package="utilrb" />
   <depend package="facets" />
-  <depend package="qtruby" />
+  <depend package="qtruby" optional='1' />
   <depend package="boost" />
-  <depend package="graphviz" />
+  <depend package="graphviz" optional='1' />
   <depend package="state_machine" />
   <depend package="tools/metaruby" />
 </package>

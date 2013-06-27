@@ -2286,7 +2286,6 @@ class TC_Task < Test::Unit::TestCase
         end
         plan.add(task = task_model.new)
         assert(task.event(:terminal).terminal?)
-        puts task.event(:terminal).terminal_flag
     end
 end
 

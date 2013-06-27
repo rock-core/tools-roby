@@ -1089,31 +1089,13 @@ module Roby
 	#   * the task 
 	#   * +args+ is included in the task arguments
 	def fullfills?(models, args = nil)
-            if !models.respond_to?(:each)
-                models = [models]
+            if models.kind_of?(Roby::Task)
+                args ||= models.meaningful_arguments
+                models = models.model
             end
-
-            models = models.inject([]) do |models, m|
-                if !args && m.kind_of?(Task)
-                    args = m.meaningful_arguments
-                end
-
-                if m.respond_to?(:each_fullfilled_model)
-                    models.concat(m.each_fullfilled_model.to_a)
-                else
-                    models << m
-                end
+            if !model.fullfills?(models)
+                return false
             end
-
-	    self_model = self.model
-	    self_args  = self.arguments
-
-	    # Check the arguments that are required by the model
-	    for tag in models
-		if !self_model.has_ancestor?(tag)
-		    return false
-		end
-	    end
 
             if args
                 args.each do |key, name|
@@ -1146,10 +1128,9 @@ module Roby
                 return false
             end
 
-	    target_model = target.model
-	    if !fullfills?(target_model)
-		return false
-	    end
+            if !model.can_merge?(target.model)
+                return false
+            end
 
             target.arguments.each_static do |key, val|
 		if arguments.set?(key) && arguments[key] != val

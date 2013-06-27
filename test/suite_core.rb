@@ -26,7 +26,7 @@ require 'tasks/test_external_process'
 require 'schedulers/test_basic'
 require 'schedulers/test_temporal'
 
-require 'test_testcase'
+# require 'test_testcase'
 
 require 'suite_planning'
 require 'suite_actions'

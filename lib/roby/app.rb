@@ -74,6 +74,7 @@ module Roby
     # - load models in models/planners and models/actions
     # - require_planners hook
     # - load additional model files
+    # - finalize_model_loading hook
     # - load config file config/ROBOT.rb
     # - require_config hook
     # - setup main planner
@@ -768,9 +769,13 @@ module Roby
             file = make_path_relative(absolute_path)
             Roby::Application.info "loading #{file} (#{absolute_path})"
             begin
-                begin
-                    Kernel.require(File.join(".", file))
-                rescue LoadError
+                if file != absolute_path
+                    begin
+                        Kernel.require(File.join(".", file))
+                    rescue LoadError
+                        Kernel.require absolute_path
+                    end
+                else
                     Kernel.require absolute_path
                 end
             rescue Interrupt
@@ -804,6 +809,9 @@ module Roby
             additional_model_files.each do |path|
                 require path
             end
+
+	    # Set up the loaded plugins
+	    call_plugins(:finalize_model_loading, self)
 	end
 
         # Loads the planner models
@@ -854,12 +862,6 @@ module Roby
         #
         # It also calls the plugin's 'load' method
         def load_base_config
-            search_path.reverse.each do |app_dir|
-                $LOAD_PATH.unshift(app_dir) if !$LOAD_PATH.include?(app_dir)
-                libdir = File.join(app_dir, 'lib')
-                $LOAD_PATH.unshift(libdir) if !$LOAD_PATH.include?(libdir)
-            end
-
             load_config_yaml
 
 	    # Get the application-wide configuration
@@ -868,6 +870,13 @@ module Roby
                 Application.info "loading init file #{initfile}"
                 require initfile
             end
+
+            search_path.reverse.each do |app_dir|
+                $LOAD_PATH.unshift(app_dir) if !$LOAD_PATH.include?(app_dir)
+                libdir = File.join(app_dir, 'lib')
+                $LOAD_PATH.unshift(libdir) if !$LOAD_PATH.include?(libdir)
+            end
+
             call_plugins(:load, self, options)
             call_plugins(:load_base_config, self, options)
 
