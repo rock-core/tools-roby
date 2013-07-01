@@ -2287,5 +2287,15 @@ class TC_Task < Test::Unit::TestCase
         plan.add(task = task_model.new)
         assert(task.event(:terminal).terminal?)
     end
+
+    def test_add_error_raises_if_called_outside_propagation_context
+        error_m = Class.new(LocalizedError)
+        error = error_m.new(Roby::Task.new)
+        assert_raises(error_m) do
+            inhibit_fatal_messages do
+                plan.engine.add_error(error)
+            end
+        end
+    end
 end
 

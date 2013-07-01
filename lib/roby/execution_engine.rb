@@ -531,10 +531,7 @@ module Roby
             elsif @propagation_exceptions
                 @propagation_exceptions << plan_exception
             else
-                gather_framework_errors("") do
-                    stats = Hash[:start => Time.now]
-                    error_handling_phase(stats, [plan_exception])
-                end
+                process_events_synchronous([], [plan_exception])
             end
         end
 
@@ -1193,6 +1190,9 @@ module Roby
             structure_errors = plan.check_structure
             add_timepoint(stats, :structure_check)
 
+            if @additional_errors
+                raise InternalError, "recursive call to #compute_fatal_errors"
+            end
             @additional_errors = Array.new
 
             # Propagate the errors. Note that the plan repairs are taken into
@@ -1255,20 +1255,21 @@ module Roby
         # to Roby's error handling mechanisms), the method will raise
         # SynchronousEventProcessingMultipleErrors to wrap all the exceptions
         # into one.
-        def process_events_synchronous(seeds = Hash.new)
+        def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new)
             gather_framework_errors("process_events_simple") do
                 stats = Hash[:start => Time.now]
                 next_steps = seeds.dup
-                errors = []
+                errors = initial_errors.dup
                 if block_given?
                     if !seeds.empty?
                         raise ArgumentError, "cannot give both seeds and block"
                     end
 
                     next_steps = gather_propagation do
-                        errors = gather_errors do
+                        new_errors = gather_errors do
                             proc.call
                         end
+                        errors.concat(new_errors)
                     end
                 end
 
