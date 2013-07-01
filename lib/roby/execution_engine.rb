@@ -160,7 +160,7 @@ module Roby
             @waiting_threads = Array.new
             @emitted_events  = Array.new
             @disabled_handlers = ValueSet.new
-            @additional_errors = Array.new
+            @additional_errors = nil
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -524,7 +524,11 @@ module Roby
         # #add_framework_error
         def add_error(e)
             plan_exception = ExecutionEngine.to_execution_exception(e)
-            if @propagation_exceptions
+            if @additional_errors
+                # We are currently propagating exceptions. Gather new ones in
+                # @additional_errors
+                @additional_errors << e
+            elsif @propagation_exceptions
                 @propagation_exceptions << plan_exception
             else
                 gather_framework_errors("") do
@@ -1206,6 +1210,7 @@ module Roby
                 errors, @additional_errors = additional_errors, Array.new
                 unhandled_additional_errors.concat(propagate_exceptions(plan.format_exception_set(Hash.new, errors)).to_a)
             end
+            @additional_errors = nil
 
             add_timepoint(stats, :exception_propagation)
 

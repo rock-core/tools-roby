@@ -160,7 +160,7 @@ module Roby
 	end
 
         def add_error(error)
-            engine.additional_errors << error
+            engine.add_error(error)
         end
 
 	# Calls the exception handlers defined in this task for +exception_object.exception+
