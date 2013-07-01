@@ -40,7 +40,6 @@ describe Roby::Queries::LocalizedErrorMatcher do
             origin_match = flexmock
             origin_match.should_receive(:task_matcher).and_return(origin_match)
             origin_match.should_receive(:match).and_return(origin_match)
-            origin_match.should_receive(:===).with(task.success_event).and_return(true).once
             assert !(Roby::LocalizedError.match.with_origin(origin_match) === error)
         end
         it "should match the task origin if the origin matcher responds to task_matcher" do
@@ -49,6 +48,16 @@ describe Roby::Queries::LocalizedErrorMatcher do
             origin_match.should_receive(:match).and_return(origin_match)
             origin_match.should_receive(:===).with(task).and_return(true).once
             assert (Roby::LocalizedError.match.with_origin(origin_match) === error)
+        end
+        it "should make event generator matchers generalized by default" do
+            origin = Roby::Task.success_event
+            matcher = Roby::LocalizedError.match.with_origin(origin)
+            assert matcher.failure_point_matcher.generalized?
+        end
+        it "should allow event generator origin matchers to be explicitly set to be restrictive in matching" do
+            origin = Roby::Task.success_event.match
+            matcher = Roby::LocalizedError.match.with_origin(origin)
+            assert !matcher.failure_point_matcher.generalized?
         end
     end
 end

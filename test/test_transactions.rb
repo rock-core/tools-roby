@@ -888,22 +888,22 @@ module TC_TransactionBehaviour
             # discovered
             trsc[d3].depends_on t1
             t1.depends_on trsc[d4]
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Hierarchy, [d1], [])
             assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
             assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
             
             # Remove the relation and check the result
             trsc[d3].remove_child t1
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Hierarchy, [d1], [])
             assert_equal([d1, d2].to_value_set, plan_set)
             assert_equal([trsc[d3]].to_value_set, trsc_set)
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [], [t1])
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Hierarchy, [], [t1])
             assert_equal([d5, d6].to_value_set, plan_set)
             assert_equal([t1, trsc[d4]].to_value_set, trsc_set)
 
             # Remove a plan relation inside the transaction, and check it is taken into account
             trsc[d2].remove_child trsc[d3]
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Hierarchy, [d1], [])
             assert_equal([d1].to_value_set, plan_set)
             assert_equal([trsc[d2]].to_value_set, trsc_set)
         end
@@ -1157,9 +1157,9 @@ class TC_Transactions < Test::Unit::TestCase
         t3.start!
         t3.stop!
 	transaction_commit(plan, t1, t2, t3) do |trsc, p1, p2, p3|
-            assert(trsc.task_index.by_state[:pending?].include?(p1))
-            assert(trsc.task_index.by_state[:running?].include?(p2))
-            assert(trsc.task_index.by_state[:finished?].include?(p3))
+            assert(trsc.task_index.by_predicate[:pending?].include?(p1))
+            assert(trsc.task_index.by_predicate[:running?].include?(p2))
+            assert(trsc.task_index.by_predicate[:finished?].include?(p3))
 	end
     end
 

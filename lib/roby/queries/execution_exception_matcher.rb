@@ -54,6 +54,10 @@ module Roby
                 exception_matcher === exception.exception &&
                     involved_tasks_matchers.all? { |m| exception.trace.any? { |t| m === t } }
             end
+
+            def to_execution_exception_matcher
+                self
+            end
         end
     end
 end

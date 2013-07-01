@@ -33,6 +33,9 @@ module Roby
             # @return self
             def with_origin(plan_object_matcher)
                 @failure_point_matcher = plan_object_matcher.match
+                if failure_point_matcher.respond_to?(:generalized?) && !plan_object_matcher.respond_to?(:generalized?)
+                    failure_point_matcher.generalized
+                end
                 self
             end
 

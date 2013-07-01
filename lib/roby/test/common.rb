@@ -337,6 +337,9 @@ module Roby
 	# Process pending events
 	def process_events
 	    Roby.synchronize do
+                if !engine.running?
+                    engine.start_new_cycle
+                end
 		engine.process_events
 	    end
 	end

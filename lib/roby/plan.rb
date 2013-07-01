@@ -135,30 +135,7 @@ module Roby
             @active_fault_response_tables = Array.new
 
             on_exception LocalizedError do |plan, error|
-                error.each_involved_task.
-                    find_all { |t| plan.mission?(t) && t != error.origin }.
-                    each do |m|
-                        plan.add_error(MissionFailedError.new(m, error.exception))
-                    end
-
-                error.each_involved_task.
-                    find_all { |t| plan.permanent?(t) && t != error.origin }.
-                    each do |m|
-                        plan.add_error(PermanentTaskError.new(m, error.exception))
-                    end
-
-                pass_exception
-            end
-            on_exception LocalizedError do |plan, error|
-                matching_handlers = active_fault_response_tables.inject([]) do |handlers, table|
-                    handlers.concat(table.find_all_matching_handlers(error))
-                end
-                handlers = matching_handlers.sort_by(&:priority)
-                if h = handlers.first
-                    h.activate(error)
-                else
-                    pass_exception
-                end
+                plan.default_localized_error_handling(error)
             end
 
             @plan_services = Hash.new
@@ -173,16 +150,39 @@ module Roby
 	    super() if defined? super
 	end
 
+        def default_localized_error_handling(error)
+            matching_handlers = active_fault_response_tables.inject([]) do |handlers, table|
+                handlers.concat(table.find_all_matching_handlers(error))
+            end
+            handlers = matching_handlers.sort_by(&:priority)
+            if h = handlers.first
+                h.activate(error.origin, error.exception.failed_event)
+            else
+                error.each_involved_task.
+                    find_all { |t| mission?(t) && t != error.origin }.
+                    each do |m|
+                        add_error(MissionFailedError.new(m, error.exception))
+                    end
+
+                error.each_involved_task.
+                    find_all { |t| permanent?(t) && t != error.origin }.
+                    each do |m|
+                        add_error(PermanentTaskError.new(m, error.exception))
+                    end
+
+                pass_exception
+            end
+        end
+
         def use_fault_response_table(table_model)
             table = table_model.new(self)
-            fault_response_tables << table
+            active_fault_response_tables << table
             table
         end
 
         def remove_fault_response_table(table_model)
-            fault_response_tables.delete_if do |t|
+            active_fault_response_tables.delete_if do |t|
                 if (table_model.kind_of?(Class) && t.kind_of?(table_model)) || t == table_model
-                    active_fault_response_tables.delete(t)
                     true
                 end
             end
@@ -996,6 +996,8 @@ module Roby
 	end
 
 	# Return all repairs which apply on +event+
+        #
+        # @return [Hash<Event
 	def repairs_for(event)
 	    result = Hash.new
 

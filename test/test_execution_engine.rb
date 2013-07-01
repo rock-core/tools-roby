@@ -1201,5 +1201,20 @@ class TC_ExecutionEngine < Test::Unit::TestCase
             target.stop!
         end
     end
+
+    def test_delayed_block
+        time_mock = flexmock(Time)
+        time = Time.now
+        time_mock.should_receive(:now).and_return { time }
+
+        recorder = flexmock
+        recorder.should_receive(:triggered).once.with(time + 6)
+        engine.delayed(5) { recorder.triggered(Time.now) }
+        process_events
+        time = time + 2
+        process_events
+        time = time + 4
+        process_events
+    end
 end
 

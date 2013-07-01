@@ -636,13 +636,13 @@ module Roby
 
             if finished? && !event.terminal?
                 raise EmissionFailed.new(nil, event),
-		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
+		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
             elsif pending? && event.symbol != :start
                 raise EmissionFailed.new(nil, event),
-		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
+		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
             elsif running? && event.symbol == :start
                 raise EmissionFailed.new(nil, event),
-		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
+		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
             end
 
 	    super if defined? super
@@ -728,13 +728,18 @@ module Roby
             self
         end
 
+        def find_event(symbol)
+            event(symbol)
+        rescue ArgumentError
+        end
+
         # Returns the TaskEventGenerator which describes the required event
         # model. +event_model+ can either be an event name or an Event class.
         def event(event_model)
 	    unless event = bound_events[event_model]
 		event_model = self.event_model(event_model)
 		unless event = bound_events[event_model.symbol]
-		    raise "cannot find #{event_model.symbol.inspect} in the set of bound events in #{self}. Known events are #{bound_events}."
+		    raise ArgumentError, "cannot find #{event_model.symbol.inspect} in the set of bound events in #{self}. Known events are #{bound_events}."
 		end
 	    end
 	    event
@@ -1020,8 +1025,13 @@ module Roby
             options = InstanceHandler.validate_options(options, :on_replace => default_on_replace)
             
             check_arity(block, 1)
-            @poll_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
+            @poll_handlers << (handler = InstanceHandler.new(block, (options[:on_replace] == :copy)))
             ensure_poll_handler_called
+            handler
+        end
+
+        def remove_poll_handler(handler)
+            @poll_handlers.delete(handler)
         end
 
         def ensure_poll_handler_called
