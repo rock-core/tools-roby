@@ -51,7 +51,7 @@ module Roby
                 tasks, forwards = task_info.required_tasks, task_info.forwards
                 tasks.each do |task, roles|
                     root_task.depends_on(
-                        action_task = task.model.instanciate(action_interface_model, root_task.plan, arguments),
+                        action_task = task.model.instanciate(root_task.plan, arguments),
                         dependency_options_for(toplevel, task, roles))
                     task.bind(action_task)
                 end

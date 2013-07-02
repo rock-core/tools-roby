@@ -11,7 +11,7 @@ module Roby
                 super(task_model)
             end
 
-            def instanciate(action_interface_model, plan, variables)
+            def instanciate(plan, variables = Hash.new)
                 obj = variables[variable_name]
                 if !obj.respond_to?(:instanciate)
                     raise ArgumentError, "expected variable #{variable_name} to contain an object that can generate tasks, found #{obj}"

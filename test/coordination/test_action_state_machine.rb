@@ -11,7 +11,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
     attr_reader :task_m, :action_m, :description
     def setup
         super
-        task_m = @task_m = Roby::Task.new_submodel do
+        task_m = @task_m = Roby::Task.new_submodel(:name => 'TaskModel') do
             terminates
         end
         description = nil
@@ -203,11 +203,13 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
 
     def test_it_rebinds_the_action_states_to_the_actual_interface_model
         task_m = self.task_m
+        child_task_m = task_m.new_submodel(:name => "TaskChildModel")
 
-        child_m = action_m.new_submodel
-        flexmock(Actions::Models::Action).new_instances.
-            should_receive(:run).once.
-            with(child_m, any).pass_thru
+        child_m = action_m.new_submodel do
+            define_method(:start_task) do |arg|
+                child_task_m.new(:id => (arg[:id] || :start))
+            end
+        end
         action_m.state_machine('test') do
             start(state(start_task))
         end
@@ -215,6 +217,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         task = child_m.find_action_by_name('test').instanciate(plan)
         task.start!
         assert task.current_task_child
+        assert_kind_of child_task_m, task.current_task_child
     end
 end
 

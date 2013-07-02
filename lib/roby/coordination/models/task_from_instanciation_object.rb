@@ -20,7 +20,7 @@ module Roby
 
             # Called by the state machine implementation to create a Roby::Task
             # instance that will perform the state's actions
-            def instanciate(action_interface_model, plan, variables)
+            def instanciate(plan, variables = Hash.new)
                 instanciation_object.instanciate(plan)
             end
 

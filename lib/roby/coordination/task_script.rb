@@ -36,7 +36,7 @@ module Roby
                 model.each_task do |model_task|
                     script_task = instance_for(model_task)
                     if script_task.respond_to?(:task) && !script_task.task # Not bound ? Check if the model can be instanciated
-                        task = model_task.instanciate(nil, root_task.plan, Hash.new)
+                        task = model_task.instanciate(root_task.plan)
                         script_task.bind(task)
 
                         # Protect from scheduling until the start is executed

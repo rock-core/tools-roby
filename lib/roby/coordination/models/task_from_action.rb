@@ -13,16 +13,24 @@ module Roby
                 super(action.model.returned_type)
             end
 
+            def new(coordination_model)
+                if coordination_model.action_interface_model != action.model.action_interface_model
+                    TaskFromAction.new(action.rebind(coordination_model.action_interface_model)).new(coordination_model)
+                else
+                    return super
+                end
+            end
+
             # Generates a task for this state in the given plan and returns
             # it
-            def instanciate(action_interface_model, plan, variables)
+            def instanciate(plan, variables = Hash.new)
                 arguments = action.arguments.map_value do |key, value|
                     if value.respond_to?(:evaluate)
                         value.evaluate(variables)
                     else value
                     end
                 end
-                action.rebind(action_interface_model).instanciate(plan, arguments)
+                action.instanciate(plan, arguments)
             end
 
             def to_s; "action(#{action})[#{model}]" end
