@@ -200,7 +200,7 @@ module Roby
 
             if task.failed_to_start?
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task has failed to start."
+		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task has failed to start: #{task.failure_reason}"
             elsif task.event(:stop).happened?
                 raise CommandFailed.new(nil, self), 
 		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
