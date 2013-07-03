@@ -252,7 +252,7 @@ module Roby
         end
 
         def to_s
-            "#{@object || 'task'}.#{@methods.map(&:to_s).join(".")}"
+            "default(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
         end
 
         def pretty_print(pp)
