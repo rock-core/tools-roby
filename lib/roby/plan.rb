@@ -663,6 +663,7 @@ module Roby
                     events ||= ValueSet.new
                     for t in new_tasks
                         for ev in t.bound_events.values
+                            task_events << ev
                             events << ev
                         end
                     end
