@@ -223,8 +223,12 @@ module Roby
 	attr_reader   :name
 	# The relation parent (if any). See #superset_of.
 	attr_accessor :parent
-	# The set of graphs
+	# The set of graphs that are directly children of self in the graph
+        # hierarchy. They are subgraphs of self, but not all the existing
+        # subgraphs of self. See {recursive_subsets} to get all subsets
 	attr_reader   :subsets
+        # The set of all graphs that are known to be subgraphs of self
+        attr_reader :recursive_subsets
 	# The graph options as given to RelationSpace#relation
 	attr_reader   :options
 
@@ -243,6 +247,7 @@ module Roby
 	    @name    = name
 	    @options = options
 	    @subsets = ValueSet.new
+            @recursive_subsets = ValueSet.new
 	    @distribute = options[:distribute]
 	    @dag     = options[:dag]
 	    @weak    = options[:weak]
@@ -469,6 +474,7 @@ module Roby
 
 	    relation.parent = self
 	    subsets << relation
+            recompute_recursive_subsets
 
 	    # Copy the relations of the child into this graph
 	    relation.each_edge do |source, target, info|
@@ -478,6 +484,17 @@ module Roby
 
 	# The Ruby module that gets included in graph objects
 	attr_accessor :support
+
+        # Recomputes the recursive_subsets attribute, and triggers the
+        # recomputation on its parents as well
+        def recompute_recursive_subsets
+            @recursive_subsets = subsets.inject(ValueSet.new) do |set, child|
+                set.merge(child.recursive_subsets)
+            end
+            if parent
+                parent.recompute_recursive_subsets
+            end
+        end
     end
 
     # Subclass of RelationSpace for events. Its main usage is to keep track of

@@ -672,6 +672,21 @@ module Roby
 	    if events && !events.empty?
 		events = events.to_value_set
                 new_events = discover_new_objects(EventStructure.relations, nil, free_events.dup, events)
+
+                # Issue added_task_relation hooks for the relations between the new
+                # events, including task events
+                #
+                # If some of these events already have relations with existing tasks,
+                # they will be triggered in Task#added_child_object
+                new_events.each do |e|
+                    e.each_root_relation do |rel|
+                        e.each_child_object do |child_e|
+                            if new_events.include?(child_e)
+                                added_event_relation(e, child_e, rel.recursive_subsets)
+                            end
+                        end
+                    end
+                end
                 new_events.delete_if { |ev| ev.respond_to?(:task) }
 		add_event_set(new_events)
 	    end
@@ -727,21 +742,94 @@ module Roby
             if engine
                 engine.event_ordering.clear
             end
+
+            # Issue added_task_relation hooks for the relations between the new
+            # tasks themselves
+            #
+            # If some of these tasks already have relations with existing tasks,
+            # they will be triggered in Task#added_child_object
+            tasks.each do |t|
+                t.each_root_relation do |rel|
+                    t.each_child_object do |child_t|
+                        if tasks.include?(child_t)
+                            added_task_relation(t, child_t, rel.recursive_subsets)
+                        end
+                    end
+                end
+            end
+
             super if defined? super
         end
 
 	# Hook called when new events have been discovered in this plan
 	def added_events(events)
-            if engine
-                engine.event_ordering.clear
-            end
-
             if respond_to?(:discovered_events)
                 Roby.warn_deprecated "the #discovered_events hook has been replaced by #added_events"
                 discovered_events(events)
             end
+
+            if engine
+                engine.event_ordering.clear
+            end
+
 	    super if defined? super
 	end
+
+        # Hook called when relations are created between tasks that are included
+        # in this plan 
+        #
+        # @param [Task] parent
+        # @param [Task] child
+        # @param [Array<RelationGraph>] relations the relation graphs in which
+        #   the new relation has been created
+        # @param [Object,nil] info the relation info
+        # @return [void]
+        def added_task_relation(parent, child, relations)
+            super if defined? super
+        end
+
+        # Hook called when relations are removed between tasks that are included
+        # in this plan 
+        #
+        # @param [Task] parent
+        # @param [Task] child
+        # @param [Array<RelationGraph>] relations the relation graphs in which
+        #   the relation has been removed
+        # @return [void]
+        def removed_task_relation(parent, child, relations)
+            super if defined? super
+        end
+
+        # Hook called when relations are created between events that are included
+        # in this plan 
+        #
+        # @param [Task] parent
+        # @param [Task] child
+        # @param [Array<RelationGraph>] relations the relation graphs in which
+        #   the new relation has been created
+        # @param [Object,nil] info the relation info
+        # @return [void]
+        def added_event_relation(parent, child, relations)
+            if engine && relations.include?(Roby::EventStructure::Precedence)
+                engine.event_ordering.clear
+            end
+            super if defined? super
+        end
+
+        # Hook called when relations are removed between tasks that are included
+        # in this plan 
+        #
+        # @param [Task] parent
+        # @param [Task] child
+        # @param [Array<RelationGraph>] relations the relation graphs in which
+        #   the relation has been removed
+        # @return [void]
+        def removed_event_relation(parent, child, relations)
+            if engine && relations.include?(Roby::EventStructure::Precedence)
+                engine.event_ordering.clear
+            end
+            super if defined? super
+        end
 
         # Creates a new transaction and yields it. Ensures that the transaction
         # is discarded if the block returns without having committed it.

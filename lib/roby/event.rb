@@ -961,15 +961,15 @@ module Roby
 
         def added_child_object(child, relations, info) # :nodoc:
             super if defined? super
-            if relations.include?(Roby::EventStructure::Precedence) && plan && plan.engine
-                plan.engine.event_ordering.clear
+            if plan
+                plan.added_event_relation(self, child, relations)
             end
         end
 
         def removed_child_object(child, relations) # :nodoc:
             super if defined? super
-            if relations.include?(Roby::EventStructure::Precedence) && plan && plan.engine
-                plan.engine.event_ordering.clear
+            if plan
+                plan.removed_event_relation(self, child, relations)
             end
         end
 
