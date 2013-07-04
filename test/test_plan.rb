@@ -420,7 +420,9 @@ module TC_PlanStatic
 	plan.real_plan.add [t, e]
 	engine.garbage_collect
 	assert_raises(ArgumentError) { plan.add(t) }
+        assert !plan.known_tasks.include?(t)
 	assert_raises(ArgumentError) { plan.add(e) }
+        assert !plan.known_tasks.include?(e)
     end
 
     def test_proxy_operator

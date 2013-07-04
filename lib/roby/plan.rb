@@ -657,7 +657,7 @@ module Roby
 
 	    if tasks && !tasks.empty?
                 tasks = tasks.to_value_set
-		new_tasks = discover_new_objects(TaskStructure.relations, nil, known_tasks, tasks)
+		new_tasks = discover_new_objects(TaskStructure.relations, nil, known_tasks.dup, tasks)
 		if !new_tasks.empty?
 		    add_task_set(new_tasks)
                     events ||= ValueSet.new
@@ -684,12 +684,12 @@ module Roby
 	#
 	# This is for internal use, use #add instead
 	def add_event_set(events)
-	    events.each do |e|
+            for e in events
                 e.plan = self
+                free_events << e
 	    end
 
 	    if !events.empty?
-		free_events.merge(events)
 		added_events(events)
 	    end
 
@@ -703,9 +703,9 @@ module Roby
 	def add_task_set(tasks)
 	    for t in tasks
 		t.plan = self
+                known_tasks << t
 		task_index.add t
 	    end
-	    known_tasks.merge tasks
 	    added_tasks(tasks)
 
 	    for t in tasks
