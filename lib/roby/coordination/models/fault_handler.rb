@@ -93,6 +93,8 @@ module Roby
                             failure_event.generator.handle_with(response_task)
                             plan.add_repair(failure_event, response_task)
                         end
+                        # In any case, we do declare the error handling relation
+                        task.add_error_handler(response_task, Set.new)
                     end
                     locations.each do |task|
                         # This should not be needed. However, the current GC

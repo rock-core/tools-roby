@@ -24,6 +24,9 @@ describe Roby::Coordination::FaultResponseTable do
             failure_event = child.failed_event.last
             repairs = plan.repairs_for(failure_event)
             repair_task = repairs[failure_event]
+            assert_equal [child], repair_task.repaired_tasks.to_a
+            process_events
+            assert repair_task.running?
             assert_kind_of Roby::Coordination::FaultHandlingTask, repair_task
             assert_equal fault_handler, repair_task.fault_handler
 
