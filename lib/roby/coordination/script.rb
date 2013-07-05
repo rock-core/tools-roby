@@ -120,7 +120,6 @@ module Roby
                 root_task.on :stop do |context|
                     current_instruction.cancel if current_instruction
                     instructions.each do |ins|
-                        puts ins
                         ins.cancel
                     end
                 end
