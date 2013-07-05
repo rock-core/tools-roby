@@ -1139,10 +1139,10 @@ module Roby
 		elsif !object.plan
                     if object.removed_at
                         if PlanObject.debug_finalization_place?
-                            raise ArgumentError, "#{self} has already been removed from its plan\n" +
+                            raise ArgumentError, "#{object} has already been removed from its plan\n" +
                                 "Removed at\n  #{object.removed_at.join("\n  ")}"
                         else
-                            raise ArgumentError, "#{self} has already been removed from its plan. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
+                            raise ArgumentError, "#{object} has already been removed from its plan. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
                         end
                     else
 			raise ArgumentError, "#{object} has never been included in this plan"
