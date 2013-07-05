@@ -35,10 +35,11 @@ module Roby
             #   state machine
             # @return [Model<StateMachine>] a subclass of StateMachine
             def new_submodel(task_model = Roby::Task, arguments = Array.new)
-                submodel = super()
-                submodel.root = Root.new(task_model)
-                submodel.arguments.concat(arguments.map(&:to_sym).to_a)
-                submodel
+                super() do
+                    self.root = Root.new(task_model)
+                    self.arguments.concat(arguments.map(&:to_sym).to_a)
+                    apply_block(&proc) if block_given?
+                end
             end
 
             # Returns true if this is the name of an argument for this state
