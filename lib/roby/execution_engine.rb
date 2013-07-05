@@ -1396,7 +1396,17 @@ module Roby
         def garbage_collect(force_on = nil)
             if force_on && !force_on.empty?
                 ExecutionEngine.info "GC: adding #{force_on.size} tasks in the force_gc set"
-                plan.force_gc.merge(force_on.to_value_set)
+                mismatching_plan = force_on.find_all do |t|
+                    if t.plan == self.plan
+                        plan.force_gc << t
+                        false
+                    else
+                        true
+                    end
+                end
+                if !mismatching_plan.empty?
+                    raise ArgumentError, "#{mismatching_plan.map(&:to_s).join(", ")} have been given to #garbage_collect, but they are not tasks in #{plan}"
+                end
             end
 
             # The set of tasks for which we queued stop! at this cycle
