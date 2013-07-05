@@ -1041,6 +1041,8 @@ module Roby
         end
 
         # Adds a new poll block on this instance
+        #
+        # See {InstanceHandler} for the list of valid options
         def poll(options = Hash.new, &block)
             default_on_replace = if abstract? then :copy else :drop end
             options = InstanceHandler.validate_options(options, :on_replace => default_on_replace)

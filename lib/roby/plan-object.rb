@@ -6,6 +6,19 @@ module Roby
         # This is usually self.class
 	attr_reader :model
 
+        # Generic handling object for blocks that are stored on tasks (event
+        # handlers,poll, ...)
+        #
+        # The only configurable behaviour so far is the ability to specify what
+        # to do with the block when a task is replaced by another one. This is
+        # given as a :on_replace option, which can take only two values:
+        #
+        # drop:: the handler is not copied
+        # copy:: the handler is copied
+        #
+        # The default is dependent on the receiving's object state. For
+        # instance, abstract tasks will use a default of 'copy' while
+        # non-abstract one will use a default of 'drop'.
         class InstanceHandler
             # The poll Proc object
             attr_reader :block
