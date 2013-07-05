@@ -10,7 +10,7 @@ module Roby::TaskStructure
                 :remove_when_done => true
 
 	    if !task.child_object?(repairing_task, ErrorHandling)
-		task.add_error_handler repairing_task, ValueSet.new
+		task.add_error_handler repairing_task, Set.new
 	    end
 
             if options[:remove_when_done]
@@ -30,14 +30,25 @@ module Roby::TaskStructure
 	end
     end
 
-    relation :ErrorHandling, :child_name => :error_handler, :strong => true do
+    relation :ErrorHandling, :child_name => :error_handler, :strong => true
+
+    module ErrorHandlingGraphClass::Extension
+        def repaired_tasks
+	    enum_parent_objects(ErrorHandling).to_a
+        end
+
 	def failed_task
-	    each_parent_object(ErrorHandling) do |task|
-		return task
-	    end
-	    nil
+            # For backward compatibility only. One should use #repaired_tasks
+            repaired_tasks.first
 	end
     end
+
+    class ErrorHandlingGraphClass
+        def merge_info(parent, child, opt1, opt2)
+            opt1 | opt2
+        end
+    end
+
     ErrorHandling.scheduling = false
 end
 
