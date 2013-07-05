@@ -68,6 +68,11 @@ module Roby
 
                 def activate(origin, failure_event = nil)
                     locations = find_response_locations(origin)
+                    if locations.empty?
+                        Roby.warn "#{self} did match an exception, but the response location #{response_location} does not match anything"
+                        return
+                    end
+
                     plan = origin.plan
 
                     # Create the response task
