@@ -58,6 +58,11 @@ module Roby
 	# The list of events that are kept outside GC. Do not change that set
         # directly, use #permanent and #auto instead.
 	attr_reader :permanent_events
+        # A set of pair of task matching objects and blocks defining this plan's
+        # triggers
+        #
+        # See {add_trigger}
+        attr_reader :triggers
 
 	# A map of event => task repairs. Whenever an exception is found,
 	# exception propagation checks that no repair is defined for that
@@ -133,6 +138,7 @@ module Roby
             @exception_handlers = Array.new
             @fault_response_tables = Array.new
             @active_fault_response_tables = Array.new
+            @triggers = []
 
             on_exception LocalizedError do |plan, error|
                 plan.default_localized_error_handling(error)
@@ -695,6 +701,14 @@ module Roby
 	    self
 	end
 
+        # Add a trigger
+        #
+        # This registers a notification: the given block will be called for each
+        # new task that match the given query object
+        def add_trigger(query_object, &block)
+            triggers << [query_object, block]
+        end
+
 	# Add +events+ to the set of known events and call added_events
 	# for the new events
 	#
@@ -755,6 +769,11 @@ module Roby
                         if tasks.include?(child_t)
                             added_task_relation(t, child_t, rel.recursive_subsets)
                         end
+                    end
+                end
+                triggers.each do |trigger, block|
+                    if trigger === t
+                        block.call(t)
                     end
                 end
             end
