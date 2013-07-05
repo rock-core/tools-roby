@@ -4,7 +4,7 @@ module Roby
         module Script
             DeadInstruction = Models::Script::DeadInstruction
 
-            class BlockExecute
+            class BlockExecute < ScriptInstruction
                 attr_reader :task
 
                 attr_reader :block
@@ -37,7 +37,7 @@ module Roby
                 end
             end
 
-            class PollUntil
+            class PollUntil < ScriptInstruction
                 attr_reader :root_task, :event, :block
                 def initialize(root_task, event, block)
                     @root_task, @event, @block = root_task, event, block
@@ -46,11 +46,15 @@ module Roby
                 def execute(script)
                     poll_handler_id = root_task.poll(&block)
                     event.resolve.on do |context|
-                        root_task.remove_poll_handler(poll_handler_id)
-                        script.step
+                        if !disabled?
+                            root_task.remove_poll_handler(poll_handler_id)
+                            script.step
+                        end
                     end
                     event.resolve.when_unreachable(true) do |reason, generator|
-                        raise Script::DeadInstruction.new(script.root_task), "the 'until' condition of #{self} will never be reached: #{reason}"
+                        if !disabled?
+                            raise Script::DeadInstruction.new(script.root_task), "the 'until' condition of #{self} will never be reached: #{reason}"
+                        end
                     end
                     false
                 end
@@ -112,6 +116,14 @@ module Roby
                 @instructions = Array.new
                 resolve_instructions
                 @current_instruction = nil
+
+                root_task.on :stop do |context|
+                    current_instruction.cancel if current_instruction
+                    instructions.each do |ins|
+                        puts ins
+                        ins.cancel
+                    end
+                end
             end
 
             def resolve_instructions
@@ -130,8 +142,10 @@ module Roby
 
             def step
                 while @current_instruction = instructions.shift
-                    if !current_instruction.execute(self)
-                        break
+                    if !current_instruction.disabled?
+                        if !current_instruction.execute(self)
+                            break
+                        end
                     end
                 end
             rescue LocalizedError => e
