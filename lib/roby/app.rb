@@ -749,7 +749,10 @@ module Roby
         def make_path_relative(path)
             path = path.dup
             search_path.each do |p|
-                path.gsub!(/^#{Regexp.quote(p)}\//, '')
+                relative_path = path.gsub(/^#{Regexp.quote(p)}\//, '')
+                if File.file?(File.join(p, relative_path)) || File.file?(File.join(p, "#{relative_path}.rb"))
+                    path = relative_path
+                end
             end
             path
         end
@@ -768,11 +771,7 @@ module Roby
             Roby::Application.info "loading #{file} (#{absolute_path})"
             begin
                 if file != absolute_path
-                    begin
-                        Kernel.require(File.join(".", file))
-                    rescue LoadError
-                        Kernel.require absolute_path
-                    end
+                    Kernel.require(file)
                 else
                     Kernel.require absolute_path
                 end
