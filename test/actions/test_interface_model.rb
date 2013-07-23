@@ -124,4 +124,49 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         end
         assert_equal parent_m::AnAction, parent_m.find_action_by_name('an_action').returned_type
     end
+
+    def test_it_allows_to_create_an_action_state_machine_at_model_level
+        action_m = Actions::Interface.new_submodel
+        action_m.describe 'a state machine'
+        action_m.action_state_machine('test') do
+        end
+        action = action_m.new(plan)
+        action.test
+    end
+
+    def test_it_allows_to_create_an_action_state_machine_at_action_level
+        action_m = Actions::Interface.new_submodel
+        action_m.describe 'a state machine'
+        action_m.send(:define_method, :test) do
+            task = Roby::Task.new
+            action_state_machine(task) do
+            end
+            task
+        end
+        action = action_m.new(plan)
+        action.test
+    end
+
+    def test_it_allows_to_create_an_action_script_at_model_level
+        action_m = Actions::Interface.new_submodel
+        action_m.describe 'a state machine'
+        action_m.action_script('test') do
+        end
+        action = action_m.new(plan)
+        action.test
+    end
+
+    def test_it_allows_to_create_an_action_script_at_action_level
+        action_m = Actions::Interface.new_submodel
+        action_m.describe 'a state machine'
+        action_m.send(:define_method, :test) do
+            task = Roby::Task.new
+            action_script(task) do
+            end
+            task
+        end
+        action = action_m.new(plan)
+        action.test
+    end
+
 end

@@ -36,15 +36,15 @@ module Roby
             def model; self.class end
 
             def action_state_machine(task, &block)
-                model = StateMachine.new_submodel(self.model, task.model)
+                model = Coordination::ActionStateMachine.new_submodel(self.model, task.model)
                 model.parse(&block)
-                model.new(task)
+                model.new(self.model, task)
             end
 
             def action_script(task, &block)
-                model = Script.new_submodel(self.model, task.model)
+                model = Coordination::ActionScript.new_submodel(self.model, task.model)
                 model.parse(&block)
-                model.new(task)
+                model.new(self.model, task)
             end
         end
     end
