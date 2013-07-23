@@ -7,18 +7,12 @@ roby run [-r ROBOT] [-c] action action action...
 
 Starts the Roby app, optionally starting the controller script in
 scripts/controllers/ and/or some explicitly given actions
-
     EOD
-    opt.on '-r', "--robot=NAME[:TYPE]", "the robot configuration to load" do |robot_desc|
-        robot_name, robot_type = robot_desc.split(':')
-        Roby.app.robot robot_name, (robot_type || robot_name)
-    end
+
+    Roby::Application.common_optparse_setup(opt)
+
     opt.on '-c', "--controller", "run the controller file"  do
         run_controller = true
-    end
-    opt.on "--help", "-h", "this help message" do
-        puts options
-        exit 1
     end
 end
 remaining_arguments = options.parse(ARGV)

@@ -320,8 +320,6 @@ module Roby
             end
             parser.on('-r NAME', '--robot=NAME[,TYPE]', String, 'the robot name and type') do |name|
                 robot_name, robot_type = name.split(',')
-                Scripts.robot_name = robot_name
-                Scripts.robot_type = robot_type
                 Roby.app.robot(robot_name, robot_type||robot_name)
             end
             parser.on_tail('-h', '--help', 'this help message') do
@@ -751,7 +749,10 @@ module Roby
         def make_path_relative(path)
             path = path.dup
             search_path.each do |p|
-                path.gsub!(/^#{Regexp.quote(p)}\//, '')
+                relative_path = path.gsub(/^#{Regexp.quote(p)}\//, '')
+                if File.file?(File.join(p, relative_path)) || File.file?(File.join(p, "#{relative_path}.rb"))
+                    path = relative_path
+                end
             end
             path
         end
@@ -770,11 +771,7 @@ module Roby
             Roby::Application.info "loading #{file} (#{absolute_path})"
             begin
                 if file != absolute_path
-                    begin
-                        Kernel.require(File.join(".", file))
-                    rescue LoadError
-                        Kernel.require absolute_path
-                    end
+                    Kernel.require(file)
                 else
                     Kernel.require absolute_path
                 end
