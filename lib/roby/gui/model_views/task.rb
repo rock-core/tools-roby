@@ -19,12 +19,23 @@ module Roby
                 def clear
                 end
 
-                TEMPLATE_PATH = File.expand_path('task.html', File.dirname(__FILE__))
+                TEMPLATE_PATH = File.expand_path('task.rhtml', File.dirname(__FILE__))
                 TEMPLATE = ERB.new(File.read(TEMPLATE_PATH))
-                def render(task_model)
+                TEMPLATE.filename = TEMPLATE_PATH
+
+                def render(task_model, options = Hash.new)
                     html = TEMPLATE.result(binding)
                     svg  = Roby::LogReplay::RelationsDisplay::DisplayTask.to_svg(task_model.new)
-                    page.push('Roby Task Model', TEMPLATE.result(binding))
+
+                    options, push_options = Kernel.filter_options options,
+                        :external_objects => false
+                    if external_objects = options[:external_objects]
+                        file = external_objects % 'roby_task' + ".svg"
+                        File.open(file, 'w') { |io| io.write(svg) }
+                        svg = "<object data=\"#{file}\" type=\"image/svg+xml\"></object>"
+                    end
+
+                    page.push('Roby Task Model', TEMPLATE.result(binding), push_options)
                 end
             end
         end

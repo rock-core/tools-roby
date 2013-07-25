@@ -5,7 +5,7 @@ while ancestry.last != Roby::Task
 end
 ancestry.shift
 %>
-<p><b>Superclasses</b>: <%= ancestry.map(&:name).join(", ") %></p>
+<p><b>Superclasses</b>: <%= ancestry.map { |m| page.link_to(m) }.join(", ") %></p>
 
 <%
 events = task_model.each_event.map { |ev| ev.last }.sort_by { |ev| ev.symbol.to_s }
