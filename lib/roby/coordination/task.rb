@@ -3,7 +3,7 @@ module Roby
             # Representation of a toplevel task in an execution context instance
             class Task < TaskBase
                 # @return [nil,Roby::Task] the actual Roby task this is
-                # representing
+                #   representing
                 attr_reader :task
 
                 def initialize(execution_context, model)
@@ -11,10 +11,19 @@ module Roby
                     @task  = nil
                 end
 
+                # Associate this coordination task to the given roby task
+                #
+                # This sets the next value returned by #resolve
+                #
+                # @param [Roby::Task]
                 def bind(task)
                     @task = task
                 end
 
+                # Resolves this to the actual task object
+                #
+                # @return [Roby::Task]
+                # @raise ResolvingUnboundObject
                 def resolve
                     if task then task
                     else raise ResolvingUnboundObject, "trying to resolve #{self}, which is not (yet) bound"

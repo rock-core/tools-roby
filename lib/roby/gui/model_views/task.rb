@@ -3,8 +3,6 @@ module Roby
     module GUI
         module ModelViews
             # Handler class to display information about a task model
-            #
-            # It is compatible
             class Task < Qt::Object
                 attr_reader :page
 
