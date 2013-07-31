@@ -1117,8 +1117,19 @@ module Roby
             @task_events.clear
             @gc_quarantine.clear
 
-            known_tasks.each do |t|
-                finalize_object(t)
+            remaining = known_tasks.find_all do |t|
+                if executable? && t.running?
+                    true
+                else
+                    finalize_object(t)
+                    false
+                end
+            end
+            if !remaining.empty?
+                Roby.warn "#{remaining.size} tasks remaining after clearing the plan as they are still running"
+                remaining.each do |t|
+                    Roby.warn "  #{t}"
+                end
             end
 	    free_events.each do |e|
                 finalize_object(e)
