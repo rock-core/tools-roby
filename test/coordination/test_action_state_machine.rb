@@ -52,10 +52,26 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         assert_equal Hash[:id => :start], start.arguments
     end
 
-    def test_it_can_transition_using_an_arbitrary_event
+    def test_it_can_transition_using_an_event_from_a_globally_defined_dependency
         action_m.state_machine 'test' do
             depends_on(monitor = state(monitoring_task))
             start_state = state start_task
+            next_state  = state next_task
+            start(start_state)
+            transition(start_state, monitor.success_event, next_state)
+        end
+
+        task = start_machine('test')
+        monitor = plan.find_tasks.with_arguments(:id => 'monitoring').first
+        monitor.start!
+        monitor.emit :success
+        assert_equal Hash[:id => :next], task.current_task_child.arguments
+    end
+
+    def test_it_can_transition_using_an_event_from_a_task_level_dependency
+        action_m.state_machine 'test' do
+            start_state = state start_task
+            start_state.depends_on(monitor = state(monitoring_task))
             next_state  = state next_task
             start(start_state)
             transition(start_state, monitor.success_event, next_state)
