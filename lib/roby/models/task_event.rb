@@ -19,12 +19,11 @@ module Roby
             # @return [Symbol] the event name
             attr_accessor :symbol
 
-            # Creates a new task event model
-            def new_submodel(options = Hash.new)
+            def setup_submodel(submodel, options = Hash.new, &block)
                 options = Kernel.validate_options options,
                     :task_model, :symbol, :command, :terminal
 
-                submodel = super()
+                super(submodel, options, &block)
                 submodel.task_model = options[:task_model]
                 submodel.symbol     = options[:symbol]
                 submodel.terminal   = options[:terminal]
