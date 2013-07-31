@@ -62,6 +62,8 @@ module Roby
                 end
             end
 
+            # Exception generated when a timeout block has reached its specified
+            # limit, if the :event argument has not been set
             class TimedOut < LocalizedError
                 attr_reader :instruction
 

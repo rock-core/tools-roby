@@ -57,6 +57,8 @@ module Roby
                 end
             end
 
+            # Resolve the given event object into a Coordination::Task and a
+            # Coordination::Models::Task
             def resolve_task(task)
                 if task.kind_of?(Roby::Task)
                     model_task = Coordination::Models::Task.new(task.model)
@@ -70,6 +72,8 @@ module Roby
                 return script_task, model_task
             end
 
+            # Resolve the given event object into a Coordination::Event and a
+            # Coordination::Models::Event
             def resolve_event(event)
                 if event.respond_to?(:to_sym)
                     symbol = event
@@ -88,12 +92,24 @@ module Roby
                 return script_event, model_event
             end
 
+            # Start the given task at that point in the script, and wait for it
+            # to emit its start event
+            #
+            # @param [Task] task the task that should be started
+            # @param [Hash] dependency_options options that should be passed to
+            #   TaskStructure::DependencyGraphClass::Extension#depends_on
             def start(task, dependency_options = Hash.new)
                 task, model_task = resolve_task(task)
                 model.start(model_task, dependency_options)
                 task
             end
 
+            # @overload execute(task)
+            #   Deploy and start the given task, and wait for it to finish
+            #   successfully
+            #
+            # @overload execute { ... }
+            #   Execute the content of the given block once
             def execute(task = nil, &block)
                 if task
                     task, model_task = resolve_task(task)
@@ -105,47 +121,87 @@ module Roby
                 end
             end
 
+            # Wait for an event to be emitted
+            #
+            # @param [Hash] options
+            # @option options [Time,nil] after (nil) if set, only event
+            #   emissions that happened after this value will make the script
+            #   pass this instruction. The default of nil means "from the point
+            #   of this instruction on"
+            #
+            # @example wait first_child.start_event
+            #   Waits until start event has been emitted. Will wait forever if
+            #   the start event has already been emitted
+            # @example wait first_child.start_event, :after => Time.at(0)
+            #   Waits for start event to be emitted. Will return immediately if
+            #   it has already been emitted.
             def wait(event, options = Hash.new)
                 event, model_event = resolve_event(event)
                 model.wait(model_event, options)
                 event
             end
 
+            # @deprecated
+            #
+            # Use wait(event :after => Time.at(0)) instead
             def wait_any(event, options = Hash.new)
                 wait(event, options.merge(:after => Time.at(0)))
             end
 
+            # Sleep for a given number of seconds
+            #
+            # @param [Float] seconds the number of seconds to stop the script
+            #   execution
             def sleep(seconds)
                 task = start(Tasks::Timeout.new(:delay => seconds))
                 wait task.stop_event
             end
 
+            # Emit the given event
             def emit(event)
                 event, model_event = resolve_event(event)
                 model.emit(model_event)
                 event
             end
 
+            # Executes the provided block once per execution cycle
+            #
+            # Call {transition!} to quit the block
             def poll(&block)
                 poll_until(poll_transition_event, &block)
             end
 
+            # Execute the provided block once per execution cycle, until the
+            # given event is emitted
             def poll_until(event, &block)
                 event, model_event = resolve_event(event)
                 model.instructions << Script::Models::PollUntil.new(model_event, block)
                 event
             end
 
+            # Quit a {poll} block
             def transition!
                 root_task.poll_transition_event.emit
             end
 
+            # Execute the script instructions given as block. If they take more
+            # than the specified number of seconds, either generate an error or
+            # emit an event (and quit the block)
+            #
+            # @param [Hash] options
+            # @option options [Event] :event (nil) if set, the given event will
+            #   be emitted when the timeout is reached. Otherwise, a
+            #   Script::TimedOut exception is generated with the script's
+            #   supporting task as origin
             def timeout(seconds, options = Hash.new, &block)
                 timeout = timeout_start(seconds, options)
                 parse(&block)
                 timeout_stop(timeout)
             end
 
+            # Start a timeout operation. Usually not used directly
+            #
+            # @see timeout
             def timeout_start(seconds, options = Hash.new)
                 options, timeout_options  = Kernel.filter_options options, :emit => nil
                 if event = options[:emit]
@@ -154,10 +210,14 @@ module Roby
                 model.timeout_start(seconds, timeout_options.merge(:emit => model_event))
             end
 
+            # Stop a timeout operation. Usually not used directly
+            #
+            # @see timeout
             def timeout_stop(timeout)
                 model.timeout_stop(timeout)
             end
 
+            # Used by Script
             def start_task(task)
                 root_task.start_event.remove_causal_link(task.resolve.start_event)
             end
