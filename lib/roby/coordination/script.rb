@@ -44,7 +44,9 @@ module Roby
                 end
 
                 def execute(script)
-                    poll_handler_id = root_task.poll(&block)
+                    poll_handler_id = root_task.poll do
+                        root_task.instance_eval(&block)
+                    end
                     event.resolve.on do |context|
                         if !disabled?
                             root_task.remove_poll_handler(poll_handler_id)

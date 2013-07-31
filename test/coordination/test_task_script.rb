@@ -69,6 +69,20 @@ class TC_Coordination_TaskScript < Test::Unit::TestCase
         task.emit :poll_transition
     end
 
+    def test_poll_evaluates_the_block_in_the_context_of_the_root_task
+        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        recorder = flexmock
+        recorder.should_receive(:called).with(task)
+        task.script do
+            poll do
+                recorder.called(self)
+            end
+            emit :success
+        end
+        task.start!
+        task.emit :poll_transition
+    end
+
     def test_wait_for_event
         model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
