@@ -754,8 +754,8 @@ class TC_Task < Test::Unit::TestCase
             m.cmd_stop(expected_status[:started? => true, :running? => true, :success? => nil]).once.ordered
             m.cmd_failed(expected_status[:started? => true, :running? => true, :finishing? => true, :success? => nil]).once.ordered
             m.on_failed(expected_status[:started? => true, :running? => true, :finishing? => true, :success? => false]).once.ordered
-            m.stop_unreachable.once.ordered
             m.on_stop(expected_status[:started? => true, :finished? => true, :success? => false]).once.ordered
+            m.stop_unreachable.once.ordered
         end
 
         assert(task.pending?)
@@ -2296,6 +2296,25 @@ class TC_Task < Test::Unit::TestCase
                 plan.engine.add_error(error)
             end
         end
+    end
+
+    def test_unreachable_handlers_are_called_after_on_stop
+        task_m = Roby::Task.new_submodel do
+            terminates
+            event :intermediate
+        end
+        recorder = flexmock
+        plan.add(task = task_m.new)
+        task.on :stop do
+            recorder.on_stop
+        end
+        task.intermediate_event.when_unreachable do
+            recorder.when_unreachable
+        end
+        recorder.should_receive(:on_stop).once.ordered
+        recorder.should_receive(:when_unreachable).once.ordered
+        task.start!
+        task.stop!
     end
 end
 

@@ -65,6 +65,10 @@ module Roby
             super
             if event.symbol == :start
                 task.do_poll(plan)
+            elsif event.symbol == :stop
+                task.each_event do |ev|
+                    ev.unreachable!(task.terminal_event)
+                end
             end
         end
 

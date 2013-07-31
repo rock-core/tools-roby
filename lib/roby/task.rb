@@ -726,10 +726,6 @@ module Roby
 		self.finished = true
                 self.finishing = false
 	        @executable = false
-
-		each_event do |ev|
-                    ev.unreachable!(terminal_event)
-                end
 	    end
 	end
         
