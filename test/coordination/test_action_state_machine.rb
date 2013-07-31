@@ -34,7 +34,9 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
     end
 
     def test_it_defines_an_action_with_the_state_machine_name
-        action_m.state_machine('state_machine_action') { }
+        action_m.state_machine('state_machine_action') do
+            start(state(Roby::Task))
+        end
         assert action_m.find_action_by_name('state_machine_action')
     end
 
@@ -64,6 +66,18 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         monitor.start!
         monitor.emit :success
         assert_equal Hash[:id => :next], task.current_task_child.arguments
+    end
+
+    def test_it_raises_if_a_transition_source_state_is_not_reachable
+        assert_raises(Roby::Coordination::Models::UnreachableStateUsed) do
+            action_m.state_machine 'test' do
+                start_state = state start_task
+                start_state.depends_on(monitor = state(monitoring_task))
+                next_state  = state next_task
+                start(start_state)
+                transition(monitor.success_event, next_state)
+            end
+        end
     end
 
     def test_it_removes_during_transition_the_dependency_from_the_root_to_the_instanciated_tasks
