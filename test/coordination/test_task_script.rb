@@ -69,6 +69,26 @@ class TC_Coordination_TaskScript < Test::Unit::TestCase
         task.emit :poll_transition
     end
 
+    def test_cancelling_a_poll_operation_deregisters_the_poll_handler
+        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        recorder = flexmock
+        script = task.model.create_script(task) do
+            poll do
+                recorder.called
+            end
+        end
+        task.start!
+        script.prepare
+
+        recorder.should_receive(:called).never
+        script.step
+        script.current_instruction.cancel
+        script.step
+    end
+
+    def test_quitting_a_poll_operation_deregisters_the_poll_handler
+    end
+
     def test_poll_evaluates_the_block_in_the_context_of_the_root_task
         task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
         recorder = flexmock
