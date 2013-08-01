@@ -166,6 +166,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         action_m = Actions::Interface.new_submodel
         action_m.describe 'a state machine'
         action_m.action_state_machine('test') do
+            start state(Roby::Task)
         end
         action = action_m.new(plan)
         action.test
@@ -177,6 +178,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         action_m.send(:define_method, :test) do
             task = Roby::Task.new
             action_state_machine(task) do
+                start state(Roby::Task)
             end
             task
         end
