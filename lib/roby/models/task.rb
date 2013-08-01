@@ -668,6 +668,10 @@ module Roby
             def can_merge?(target_model)
                 fullfills?(target_model)
             end
+
+            def to_coordination_task(task_model)
+                Roby::Coordination::Models::TaskFromAsPlan.new(self, self)
+            end
         end
     end
 end
