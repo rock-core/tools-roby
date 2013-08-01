@@ -57,7 +57,7 @@ module Roby
                 @arguments = Kernel.normalize_options arguments
                 model.arguments.each do |key|
                     if !@arguments.has_key?(key)
-                        raise ArgumentError, "expected an argument named #{key} but got none"
+                        raise ArgumentError, "argument #{key} does not exist on #{self}"
                     end
                 end
                 @parent = options[:parent]
