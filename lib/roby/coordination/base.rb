@@ -4,6 +4,11 @@ module Roby
         # action interface and/or tasks, such as state machines and scripts
         class Base
             extend Models::Base
+            
+            # The parent coordination object
+            #
+            # @return [nil,Base]
+            attr_reader :parent
 
             # The task on which this execution context is being executed. It
             # must fullfill model.task_model
@@ -55,6 +60,7 @@ module Roby
                         raise ArgumentError, "expected an argument named #{key} but got none"
                     end
                 end
+                @parent = options[:parent]
                 @instances = Hash.new
                 if root_task
                     bind_coordination_task_to_instance(instance_for(model.root), root_task, :on_replace => options[:on_replace])
@@ -73,8 +79,14 @@ module Roby
             end
 
             def instance_for(object)
-                instances[object] ||= object.new(self)
+                if !(ins = instances[object])
+                    if !parent || !(ins = parent.instances[object])
+                        ins = instances[object] = object.new(self)
+                    end
+                end
+                ins
             end
         end
     end
 end
+
