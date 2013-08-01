@@ -8,10 +8,26 @@ module Roby
     class PlanService
         # The underlying task
         attr_reader :task
+        # Set of blocks that will be called when the service itself is finalized
+        #
+        # See #when_finalized
+        attr_reader :finalization_handlers
+        # The set of event handlers that have been defined for this service
+        #
+        # It is a mapping from a symbol (that represents the event name) to a
+        # set of procs that represent the handlers themselves
+        #
+        # See #on
+        attr_reader :event_handlers
+        # The set of handlers for replacments
+        #
+        # @see on_replacement
+        attr_reader :replacement_handlers
 
         def initialize(task)
             @event_handlers = Hash.new
             @finalization_handlers = Array.new
+            @replacement_handlers = Array.new
             self.task = task
             task.plan.add_plan_service(self)
         end
@@ -34,16 +50,19 @@ module Roby
             "#<service #{task.to_s}>"
         end
 
-        # The set of event handlers that have been defined for this service
+        # Register a callback that should be called when the underlying task is
+        # replaced
         #
-        # It is a mapping from a symbol (that represents the event name) to a
-        # set of procs that represent the handlers themselves
-        #
-        # See #on
-        attr_reader :event_handlers
+        # @yield old, new
+        def on_replacement(&block)
+            replacement_handlers << block
+        end
 
         # Change the underlying task
         def task=(new_task)
+            replacement_handlers.each do |h|
+                h.call(task, new_task)
+            end
             @task = new_task
 
             # Register event handlers for all events that have a definition
@@ -73,11 +92,6 @@ module Roby
                 end
             end
         end
-
-        # Set of blocks that will be called when the service itself is finalized
-        #
-        # See #when_finalized
-        attr_reader :finalization_handlers
 
         # Defines a finalization handler for this service
         #

@@ -37,7 +37,7 @@ module Roby
                     script_task = instance_for(model_task)
                     if script_task.respond_to?(:task) && !script_task.task # Not bound ? Check if the model can be instanciated
                         task = model_task.instanciate(root_task.plan)
-                        script_task.bind(task)
+                        bind_coordination_task_to_instance(script_task, task, :on_replace => :copy)
 
                         # Protect from scheduling until the start is executed
                         #
@@ -60,10 +60,11 @@ module Roby
             # Resolve the given event object into a Coordination::Task and a
             # Coordination::Models::Task
             def resolve_task(task)
-                if task.kind_of?(Roby::Task)
+                if root_task && task.kind_of?(Roby::Task)
+                    root_task.plan.add(task)
                     model_task = Coordination::Models::Task.new(task.model)
                     script_task = instance_for(model_task)
-                    script_task.bind(task)
+                    bind_coordination_task_to_instance(script_task, task, :on_replace => :copy)
                 else
                     model_task = self.model.task(task)
                     script_task = instance_for(model_task)
