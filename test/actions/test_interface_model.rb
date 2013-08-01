@@ -44,6 +44,43 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         assert !m.find_action_by_name('an_action')
     end
 
+    def test_it_adds_default_arguments_to_the_action
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action').
+            optional_arg('test', nil, 10)
+        m.class_eval { def an_action(args = Hash.new); end }
+        flexmock(m).new_instances.should_receive(:an_action).with(:test => 10).once
+        m.an_action.instanciate(plan)
+    end
+
+    def test_it_allows_to_override_default_arguments
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action').
+            optional_arg('test', nil, 10)
+        m.class_eval { def an_action(args = Hash.new); end }
+        flexmock(m).new_instances.should_receive(:an_action).with(:test => 20).once
+        m.an_action.instanciate(plan, :test => 20)
+    end
+
+    def test_it_raises_ArgumentError_if_a_required_argument_is_not_given
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action').
+            required_arg('test', nil)
+        m.class_eval { def an_action(args = Hash.new); end }
+        assert_raises(ArgumentError) do
+            m.an_action.instanciate(plan)
+        end
+    end
+
+    def test_it_raises_ArgumentError_if_arguments_are_given_but_the_action_does_not_expect_any
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action')
+        m.class_eval { def an_action(args = Hash.new); end }
+        assert_raises(ArgumentError) do
+            m.an_action.instanciate(plan, :test => 10)
+        end
+    end
+
     def test_it_allows_to_find_methods_by_type
         task_m = Roby::Task.new_submodel
         subtask_m = task_m.new_submodel

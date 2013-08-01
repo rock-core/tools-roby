@@ -6,7 +6,7 @@ module Roby
             # Structure that stores the information about planning method arguments
             #
             # See MethodDescription
-            Argument = Struct.new :name, :doc, :required do
+            Argument = Struct.new :name, :doc, :required, :default_value do
                 def pretty_print(pp)
                     pp.text "#{name}: #{doc} (#{if required then 'required' else 'optional' end})"
                 end
@@ -68,8 +68,10 @@ module Roby
                 self
             end
             # Documents a new optional argument to the method
-            def optional_arg(name, doc = nil)
-                arguments << Argument.new(name.to_s, doc, false)
+            def optional_arg(name, doc = nil, default = nil)
+                arg = Argument.new(name.to_s, doc, false)
+                arg.default_value = default
+                arguments << arg
                 self
             end
             # Sets the advanced flag to true. See #advanced?
@@ -96,8 +98,21 @@ module Roby
             # Executes the action on the given action interface
             def run(action_interface, arguments = Hash.new)
                 if self.arguments.empty?
+                    if !arguments.empty?
+                        raise ArgumentError, "#{name} expects no arguments, but #{arguments.size} are given"
+                    end
                     action_interface.send(name)
                 else
+                    default_arguments = self.arguments.inject(Hash.new) do |h, arg|
+                        h[arg.name] = arg.default_value
+                        h
+                    end
+                    arguments = Kernel.validate_options arguments, default_arguments
+                    self.arguments.each do |arg|
+                        if arg.required && !arguments.has_key?(arg.name.to_sym)
+                            raise ArgumentError, "required argument #{arg.name} not given to #{name}"
+                        end
+                    end
                     action_interface.send(name, arguments)
                 end
             end
