@@ -53,6 +53,7 @@ module Roby
                     action_task = task.model.instanciate(root_task.plan, arguments)
                     root_task.depends_on(action_task, dependency_options_for(toplevel, task, roles))
                     bind_coordination_task_to_instance(task, action_task, :on_replace => :copy)
+                    task.model.setup_instanciated_task(self, action_task, arguments)
                 end
 
                 @current_task = toplevel
