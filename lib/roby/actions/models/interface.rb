@@ -51,6 +51,8 @@ module Roby
             # Create a new action description that is going to be used to
             # describe the next method. Note that only methods that have a
             # description are exported as actions
+            #
+            # @return Action
             def describe(doc = nil)
                 if @current_description
                     Interface.warn "#{@current_description} started but never used. Did you forget to add a method to your action interface ?"
