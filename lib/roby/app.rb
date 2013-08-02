@@ -10,6 +10,8 @@ module Roby
     # Regular expression that matches backtrace paths that are within the
     # Roby framework
     RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)|^\(eval\)|^\/usr\/lib\/ruby/
+    RX_IN_METARUBY = /^(?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(MetaRuby::LIB_DIR)}\//
+    RX_IN_UTILRB = /^(?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(Utilrb::LIB_DIR)}\//
     # Regular expression that matches backtrace paths that are require lines
     RX_REQUIRE = /in `(gem_original_)?require'$/
 
@@ -394,7 +396,10 @@ module Roby
 	    @testing_keep_logs = false
             @registered_exceptions = []
 
-            @filter_out_patterns = [Roby::RX_IN_FRAMEWORK, Roby::RX_REQUIRE]
+            @filter_out_patterns = [Roby::RX_IN_FRAMEWORK,
+                                    Roby::RX_IN_METARUBY,
+                                    Roby::RX_IN_UTILRB,
+                                    Roby::RX_REQUIRE]
             self.abort_on_application_exception = true
 
             @planners    = []
