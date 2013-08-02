@@ -707,6 +707,11 @@ module Roby
         # new task that match the given query object
         def add_trigger(query_object, &block)
             triggers << [query_object, block]
+            known_tasks.each do |t|
+                if query_object === t
+                    block.call(t)
+                end
+            end
         end
 
 	# Add +events+ to the set of known events and call added_events
