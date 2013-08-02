@@ -331,7 +331,9 @@ class TC_Coordination_TaskScript < Test::Unit::TestCase
         assert !task.done_script2?
         plan.unmark_permanent(task)
         inhibit_fatal_messages do
-            assert_raises(Roby::Coordination::Script::DeadInstruction) { task.stop! }
+            assert_raises(Roby::Coordination::Script::DeadInstruction) do
+                task.done_script2_event.unreachable!
+            end
         end
         assert task.done_script1?
         assert !task.done_script2?
