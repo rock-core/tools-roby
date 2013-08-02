@@ -5,10 +5,14 @@ module Roby
         module Base
             include MetaRuby::ModelAsClass
 
+            # Gets or sets the root task model
+            #
             # @return [Root] the root task model, i.e. a representation of the
             #   task this execution context is going to be run on
-            def root
-                if @root then @root
+            def root(*new_root)
+                if !new_root.empty?
+                    @root = Root.new(new_root.first)
+                elsif @root then @root
                 elsif superclass.respond_to?(:root)
                     superclass.root
                 end
@@ -16,6 +20,7 @@ module Roby
 
             Argument = Struct.new :name, :required, :default
 
+            # @deprecated use {#root} instead, as it is a more DSL-like API
             attr_writer :root
 
             # @return [Model<Roby::Task>] the task model this execution context
