@@ -4,17 +4,7 @@ module Roby
             # Definition of the metamodel for Coordination::FaultResponseTable
             module FaultResponseTable
                 include Roby::Actions::Models::Interface
-
-                Argument = Roby::Coordination::Models::Base::Argument
-
-                inherited_attribute(:argument, :arguments, :map => true) { Hash.new }
-
-                # Declares an argument on this fault response table
-                def argument(name, options = Hash.new)
-                    options = Kernel.validate_options options, :default
-                    arguments[name.to_sym] = Argument.new(
-                        name.to_sym, options.has_key?(:default), options[:default])
-                end
+                include Arguments
 
                 # The set of defined fault handlers
                 #
