@@ -66,7 +66,7 @@ module Roby
                     result
                 end
 
-                def activate(origin, failure_event = nil)
+                def activate(origin, failure_event = nil, arguments = Hash.new)
                     locations = find_response_locations(origin)
                     if locations.empty?
                         Roby.warn "#{self} did match an exception, but the response location #{response_location} does not match anything"
@@ -78,7 +78,7 @@ module Roby
                     # Create the response task
                     plan.add(response_task = FaultHandlingTask.new)
                     response_task.fault_handler = self
-                    new(action_interface.new(plan), response_task)
+                    new(action_interface.new(plan), response_task, arguments)
                     response_task.start!
                     locations.each do |task|
                         # Mark :stop as handled by the response task and kill

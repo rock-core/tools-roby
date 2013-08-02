@@ -51,17 +51,7 @@ module Roby
             def initialize(plan, arguments = Hash.new)
                 # Argument massaging must be done before we call super(), as
                 # super() will attach the table on the plan
-                @arguments = Hash.new
-                model.each_argument do |_, arg|
-                    if arguments.has_key?(arg.name)
-                        @arguments[arg.name] = arguments[arg.name]
-                    elsif arguments[arg.name].required
-                        raise ArgumentError, "required argument #{arg.name} not set on #{self}"
-                    else
-                        @arguments[arg.name] = arg.default
-                    end
-                end
-
+                @arguments = model.validate_arguments(arguments)
                 super(plan)
             end
 

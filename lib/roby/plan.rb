@@ -157,12 +157,17 @@ module Roby
 	end
 
         def default_localized_error_handling(error)
-            matching_handlers = active_fault_response_tables.inject([]) do |handlers, table|
-                handlers.concat(table.find_all_matching_handlers(error))
+            matching_handlers = Array.new
+            active_fault_response_tables.each do |table|
+                table.find_all_matching_handlers(error).each do |handler|
+                    matching_handlers << [table, handler]
+                end
             end
-            handlers = matching_handlers.sort_by(&:priority)
-            if h = handlers.first
-                h.activate(error.origin, error.exception.failed_event)
+            handlers = matching_handlers.sort_by { |_, handler| handler.priority }
+
+            table, handler = handlers.first
+            if handler
+                handler.activate(error.origin, error.exception.failed_event, table.arguments)
             else
                 error.each_involved_task.
                     find_all { |t| mission?(t) && t != error.origin }.
