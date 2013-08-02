@@ -1114,6 +1114,8 @@ module Roby
         # Declares that this fault response table should be made active when
         # this task starts, and deactivated when it ends
         def use_fault_response_table(table_model, arguments = Hash.new)
+            arguments = table_model.validate_arguments(arguments)
+
             table = nil
             execute do |task|
                 table = task.plan.use_fault_response_table(table_model, arguments)
