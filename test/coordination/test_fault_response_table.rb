@@ -35,7 +35,20 @@ describe Roby::Coordination::FaultResponseTable do
         end
     end
 
-    it "is used to handle the fault if a matching handler exists" do
+    it "can be attached to a specific task instance" do
+        fault_table_m = Roby::Coordination::FaultResponseTable.new_submodel do
+            argument :arg
+        end
+        task = Roby::Tasks::Simple.new
+        task.use_fault_response_table fault_table_m, :arg => 20
+        plan.add(task)
+        task.start!
+        assert_equal 1, plan.active_fault_response_tables.size
+        table = plan.active_fault_response_tables.first
+        assert_kind_of fault_table_m, table
+        assert_equal Hash[:arg => 20], table.arguments
+        task.stop!
+        assert plan.active_fault_response_tables.empty?
     end
 end
 

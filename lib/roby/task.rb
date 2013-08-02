@@ -1111,6 +1111,18 @@ module Roby
             end
         end
 
+        # Declares that this fault response table should be made active when
+        # this task starts, and deactivated when it ends
+        def use_fault_response_table(table_model, arguments = Hash.new)
+            table = nil
+            execute do |task|
+                table = task.plan.use_fault_response_table(table_model, arguments)
+            end
+            on :stop do |event|
+                plan.remove_fault_response_table(table)
+            end
+        end
+
 	# The fullfills? predicate checks if this task can be used
 	# to fullfill the need of the given +model+ and +arguments+
 	# The default is to check if
