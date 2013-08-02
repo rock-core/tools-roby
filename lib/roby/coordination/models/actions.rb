@@ -26,9 +26,10 @@ module Roby
             #   task model that is going to be used as a toplevel task for the
             #   state machine
             # @return [Model<StateMachine>] a subclass of StateMachine
-            def new_submodel(action_interface, task_model = Roby::Task, arguments = Array.new)
-                submodel = super(task_model, arguments)
-                submodel.action_interface = action_interface
+            def setup_submodel(submodel, options = Hash.new)
+                options, super_options = Kernel.filter_options options, :action_interface
+                super(submodel, super_options)
+                submodel.action_interface = options[:action_interface]
                 submodel
             end
 

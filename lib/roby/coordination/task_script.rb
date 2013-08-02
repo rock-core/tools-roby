@@ -24,7 +24,7 @@ module Roby
             end
 
             def bind(task)
-                result_model = self.class.superclass.new_submodel(task.model)
+                result_model = self.class.superclass.new_submodel(:root => task.model)
                 result = result_model.new(task)
                 result.parse(&definition_block)
                 result.prepare
@@ -241,7 +241,7 @@ module Roby
         event :poll_transition
 
         def self.create_script(*task, &block)
-            script_model = Coordination::TaskScript.new_submodel(self)
+            script_model = Coordination::TaskScript.new_submodel(:root => self)
             script = script_model.new(*task)
             if block_given?
                 script.parse(&block)

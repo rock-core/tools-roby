@@ -7,7 +7,7 @@ describe Roby::Coordination::ActionScript do
 
     attr_reader :task_model, :root_task, :script_task, :script_model
     before do
-        @script_model = Roby::Coordination::ActionScript.new_submodel(flexmock(:find_action_by_name => nil))
+        @script_model = Roby::Coordination::ActionScript.new_submodel(:action_interface => flexmock(:find_action_by_name => nil))
         @task_model = Class.new(Roby::Tasks::Simple) do
             event :intermediate
         end

@@ -17,7 +17,7 @@ describe Roby::Coordination::Models::FaultHandler do
         t0.depends_on t1
 
         fault_response_table = Roby::Coordination::FaultResponseTable.new_submodel
-        @handler = Roby::Coordination::FaultHandler.new_submodel(fault_response_table)
+        @handler = Roby::Coordination::FaultHandler.new_submodel(:action_interface => fault_response_table)
 
         [m0, m1, m2, t0, t1, t2].each do |t|
             t.start!

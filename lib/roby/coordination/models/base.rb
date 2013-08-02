@@ -34,18 +34,10 @@ module Roby
             #   task model that is going to be used as a toplevel task for the
             #   state machine
             # @return [Model<StateMachine>] a subclass of StateMachine
-            def new_submodel(task_model = Roby::Task, arguments = Array.new)
-                super() do
-                    self.root = Root.new(task_model)
-                    self.arguments.concat(arguments.map(&:to_sym).to_a)
-                    apply_block(&proc) if block_given?
-                end
-            end
-
-            # Returns true if this is the name of an argument for this state
-            # machine model
-            def has_argument?(name)
-                each_argument.any? { |n| n == name }
+            def setup_submodel(subclass, options = Hash.new)
+                options = Kernel.validate_options options, :root => Roby::Task
+                subclass.root(options[:root])
+                super
             end
 
             # Creates a state from an object
