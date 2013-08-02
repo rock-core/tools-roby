@@ -6,7 +6,7 @@ module Roby
             # Structure that stores the information about planning method arguments
             #
             # See MethodDescription
-            Argument = Struct.new :name, :doc, :required, :default_value do
+            Argument = Struct.new :name, :doc, :required, :default do
                 def pretty_print(pp)
                     pp.text "#{name}: #{doc} (#{if required then 'required' else 'optional' end})"
                 end
@@ -70,7 +70,7 @@ module Roby
             # Documents a new optional argument to the method
             def optional_arg(name, doc = nil, default = nil)
                 arg = Argument.new(name.to_s, doc, false)
-                arg.default_value = default
+                arg.default = default
                 arguments << arg
                 self
             end
@@ -104,7 +104,7 @@ module Roby
                     action_interface.send(name)
                 else
                     default_arguments = self.arguments.inject(Hash.new) do |h, arg|
-                        h[arg.name] = arg.default_value
+                        h[arg.name] = arg.default
                         h
                     end
                     arguments = Kernel.validate_options arguments, default_arguments

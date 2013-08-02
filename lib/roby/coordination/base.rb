@@ -54,12 +54,8 @@ module Roby
             def initialize(root_task = nil, arguments = Hash.new, options = Hash.new)
                 options = Kernel.validate_options options, :on_replace => :drop, :parent => nil
                 @root_task = root_task
-                @arguments = Kernel.normalize_options arguments
-                model.arguments.each do |key|
-                    if !@arguments.has_key?(key)
-                        raise ArgumentError, "argument #{key} does not exist on #{self}"
-                    end
-                end
+
+                @arguments = model.validate_arguments(arguments)
                 @parent = options[:parent]
                 @instances = Hash.new
                 if root_task

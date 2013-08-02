@@ -180,8 +180,8 @@ module Roby
             end
         end
 
-        def use_fault_response_table(table_model)
-            table = table_model.new(self)
+        def use_fault_response_table(table_model, arguments = Hash.new)
+            table = table_model.new(self, arguments)
             active_fault_response_tables << table
             table
         end

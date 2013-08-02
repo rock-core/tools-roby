@@ -46,6 +46,25 @@ module Roby
         class FaultResponseTable < Roby::Actions::Interface
             extend Models::FaultResponseTable
 
+            attr_reader :arguments
+
+            def initialize(plan, arguments = Hash.new)
+                # Argument massaging must be done before we call super(), as
+                # super() will attach the table on the plan
+                @arguments = Hash.new
+                model.each_argument do |_, arg|
+                    if arguments.has_key?(arg.name)
+                        @arguments[arg.name] = arguments[arg.name]
+                    elsif arguments[arg.name].required
+                        raise ArgumentError, "required argument #{arg.name} not set on #{self}"
+                    else
+                        @arguments[arg.name] = arg.default
+                    end
+                end
+
+                super(plan)
+            end
+
             def find_all_matching_handlers(exception)
                 model.find_all_matching_handlers(exception)
             end

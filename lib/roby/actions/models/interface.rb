@@ -149,6 +149,13 @@ module Roby
                 root_m = action_model.returned_type
                 arguments = action_model.arguments.map(&:name)
                 coordination_model = model.new_submodel(:action_interface => self, :root => root_m)
+                action_model.arguments.each do |arg|
+                    if !arg.required
+                        coordination_model.argument arg.name, :default => arg.default
+                    else
+                        coordination_model.argument arg.name
+                    end
+                end
                 coordination_model.parse(&block)
 
                 if name
