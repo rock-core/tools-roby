@@ -33,6 +33,16 @@ module Roby
                 argument_defaults.clear
             end
 
+            def match(*args)
+                matcher = Queries::TaskMatcher.new
+                if args.empty? && self != TaskService
+                    matcher.which_fullfills(self)
+                else
+                    matcher.which_fullfills(*args)
+                end
+                matcher
+            end
+
             @@local_to_remote = Hash.new
             @@remote_to_local = Hash.new
             def self.local_to_remote; @@local_to_remote end
