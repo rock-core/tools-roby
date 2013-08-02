@@ -30,6 +30,10 @@ module Roby
             # @return [Array<Task>]
             inherited_attribute(:task, :tasks) { Array.new }
 
+            # The set of fault response tables that should be active when this
+            # coordination model is
+            # @return [Array<(FaultResponseTable,Hash)>]
+            inherited_attribute(:used_fault_response_table, :used_fault_response_tables) { Array.new }
 
             # Creates a new execution context model as a submodel of self
             #
@@ -83,6 +87,12 @@ module Roby
                 object
             end
 
+            # Declare that this fault response table should be active as long as
+            # this coordination model is
+            def use_fault_response_table(table_model, arguments = Hash.new)
+                arguments = table_model.validate_arguments(arguments)
+                used_fault_response_tables << [table_model, arguments]
+            end
         end
         end
     end

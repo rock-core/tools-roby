@@ -59,7 +59,30 @@ module Roby
                 @parent = options[:parent]
                 @instances = Hash.new
                 if root_task
-                    bind_coordination_task_to_instance(instance_for(model.root), root_task, :on_replace => options[:on_replace])
+                    bind_coordination_task_to_instance(
+                        instance_for(model.root),
+                        root_task,
+                        :on_replace => options[:on_replace])
+
+                    attach_fault_response_tables_to(root_task)
+                    
+                    if options[:on_replace] == :copy
+                        root_task.as_service.on_replacement do |old_task, new_task|
+                            attach_fault_response_tables_to(new_task)
+                        end
+                    end
+                end
+            end
+
+            def attach_fault_response_tables_to(task)
+                model.each_used_fault_response_table do |table, arguments|
+                    arguments = arguments.map_value do |key, val|
+                        if val.kind_of?(Models::Variable)
+                            self.arguments[val.name]
+                        else val
+                        end
+                    end
+                    root_task.use_fault_response_table(table, arguments)
                 end
             end
 

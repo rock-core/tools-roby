@@ -249,5 +249,40 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         assert task.current_task_child
         assert_kind_of child_task_m, task.current_task_child
     end
+
+    # NOTE: this should be in a separate test suite for Coordination::Base (!)
+    def test_it_can_be_associated_with_fault_response_tables
+        task_m = self.task_m
+        table_m = Roby::Coordination::FaultResponseTable.new_submodel
+        action_m.action_state_machine 'test' do
+            use_fault_response_table table_m
+            start state(task_m)
+        end
+        task = action_m.test.instanciate(plan)
+        assert plan.active_fault_response_tables.empty?
+        task.start!
+        table = plan.active_fault_response_tables.first
+        assert table
+        assert_kind_of table_m, table
+        task.stop!
+        assert plan.active_fault_response_tables.empty?
+    end
+
+    # NOTE: this should be in a separate test suite for Coordination::Base (!)
+    def test_it_can_pass_arguments_to_the_associated_fault_response_tables
+        task_m = self.task_m
+        table_m = Roby::Coordination::FaultResponseTable.new_submodel do
+            argument :arg
+        end
+        description.required_arg('machine_arg')
+        action_m.action_state_machine 'test' do
+            use_fault_response_table table_m, :arg => machine_arg
+            start state(task_m)
+        end
+        task = action_m.test.instanciate(plan, :machine_arg => 10)
+        task.start!
+        table = plan.active_fault_response_tables.first
+        assert_equal Hash[:arg => 10], table.arguments
+    end
 end
 
