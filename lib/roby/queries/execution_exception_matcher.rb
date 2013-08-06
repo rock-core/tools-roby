@@ -55,6 +55,11 @@ module Roby
                     involved_tasks_matchers.all? { |m| exception.trace.any? { |t| m === t } }
             end
 
+            def matches_task?(task)
+                involved_tasks_matchers.all? { |m| m === task } &&
+                    exception_matcher.matches_task?(task)
+            end
+
             def to_execution_exception_matcher
                 self
             end

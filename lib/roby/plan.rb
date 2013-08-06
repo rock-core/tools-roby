@@ -64,13 +64,6 @@ module Roby
         # See {add_trigger}
         attr_reader :triggers
 
-	# A map of event => task repairs. Whenever an exception is found,
-	# exception propagation checks that no repair is defined for that
-	# particular event or for events that are forwarded by it.
-        #
-        # See also #add_repair and #remove_repair
-	attr_reader :repairs
-
 	# A set of tasks which are useful (and as such would not been garbage
 	# collected), but we want to GC anyway
 	attr_reader :force_gc
@@ -134,7 +127,6 @@ module Roby
 	    @force_gc    = ValueSet.new
 	    @gc_quarantine = ValueSet.new
 	    @transactions = ValueSet.new
-	    @repairs     = Hash.new
             @exception_handlers = Array.new
             @fault_response_tables = Array.new
             @active_fault_response_tables = Array.new
@@ -941,20 +933,6 @@ module Roby
 
 	# Returns the set of useful tasks in this plan
 	def locally_useful_tasks
-            to_unmark = task_index.by_predicate[:finished?] | task_index.by_predicate[:failed?]
-
-	    # Remove all missions that are finished
-	    for finished_mission in (@missions & to_unmark)
-		if !task_index.repaired_tasks.include?(finished_mission)
-		    unmark_mission(finished_mission)
-		end
-	    end
-	    for finished_permanent in (@permanent_tasks & to_unmark)
-		if !task_index.repaired_tasks.include?(finished_permanent)
-		    unmark_permanent(finished_permanent)
-		end
-	    end
-
 	    # Create the set of tasks which must be kept as-is
 	    seeds = @missions | @permanent_tasks
 	    for trsc in transactions
@@ -1059,76 +1037,6 @@ module Roby
 	# Iterates on all tasks
 	def each_task; @known_tasks.each { |t| yield(t) } end
  
-        # Install a plan repair for +failure_point+ with +task+. A plan repair
-        # is a task which, during its lifetime, is supposed to fix the problem
-        # encountered at +failure_point+
-        #
-        # +failure_point+ is an Event object which represents the event causing
-        # the problem.
-        #
-        # See also #repairs and #remove_repair
-	def add_repair(failure_point, task)
-	    if !failure_point.kind_of?(Event)
-		raise TypeError, "failure point #{failure_point} should be an event"
-	    elsif task.plan && task.plan != self
-		raise ArgumentError, "wrong plan: #{task} is in #{task.plan}, not #{plan}"
-	    elsif repairs.has_key?(failure_point)
-		raise ArgumentError, "there is already a plan repair defined for #{failure_point}: #{repairs[failure_point]}"
-	    elsif !task.plan
-		add(task)
-	    end
-
-	    repairs[failure_point] = task
-	    if failure_point.generator.respond_to?(:task)
-		task_index.repaired_tasks << failure_point.generator.task
-	    end
-	end
-
-        # Removes +task+ from the set of active plan repairs.
-        #
-        # See also #repairs and #add_repair
-	def remove_repair(task)
-	    repairs.delete_if do |ev, repair|
-		if repair == task
-		    if ev.generator.respond_to?(:task)
-			task_index.repaired_tasks.delete(ev.generator.task)
-		    end
-		    true
-		end
-	    end
-	end
-
-	# Return all repairs which apply on +event+
-        #
-        # @return [Hash<Event
-	def repairs_for(event)
-	    result = Hash.new
-
-	    if event.generator.respond_to?(:task)
-		equivalent_generators = event.generator.generated_subgraph(EventStructure::Forwarding)
-
-		history = event.generator.task.history
-		id    = event.propagation_id
-		index = history.index(event)
-		while index < history.size
-		    ev = history[index]
-		    break if ev.propagation_id != id
-
-		    if equivalent_generators.include?(ev.generator) &&
-			(task = repairs[ev])
-
-			result[ev] = task
-		    end
-
-		    index += 1
-		end
-	    elsif task = repairs[event]
-		result[event] = task
-	    end
-
-	    result
-	end
-
 	# Returns +object+ if object is a plan object from this plan, or if
 	# it has no plan yet (in which case it is added to the plan first).
 	# Otherwise, raises ArgumentError.
@@ -1374,7 +1282,7 @@ module Roby
         
         def format_exception_set(result, new)
             [*new].each do |error, tasks|
-                roby_exception = ExecutionEngine.to_execution_exception(error)
+                roby_exception = error.to_execution_exception
                 if !tasks
                     if error.kind_of?(RelationFailedError)
                         tasks = [error.parent]

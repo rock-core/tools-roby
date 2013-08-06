@@ -12,8 +12,6 @@ module Roby
 	attr_reader :by_predicate
 	# A peer => ValueSet map of tasks given their owner.
 	attr_reader :by_owner
-	# The set of tasks which have an event which is being repaired
-	attr_reader :repaired_tasks
 
 	STATE_PREDICATES = [:pending?, :running?, :finished?, :success?, :failed?].to_value_set
         PREDICATES = STATE_PREDICATES.dup
@@ -25,7 +23,6 @@ module Roby
 		by_predicate[state_name] = ValueSet.new
 	    end
 	    @by_owner = Hash.new
-	    @repaired_tasks = ValueSet.new
 	end
 
         def initialize_copy(source)
@@ -40,14 +37,12 @@ module Roby
                 by_predicate[state] = set.dup
             end
             @by_owner = source.by_owner.dup
-            @repaired_tasks = source.repaired_tasks.dup
         end
 
         def clear
             @by_model.clear
             @by_predicate.each_value(&:clear)
             @by_owner.clear
-            @repaired_tasks.clear
         end
 
         # Add a new task to this index

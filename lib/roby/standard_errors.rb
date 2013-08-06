@@ -42,6 +42,10 @@ module Roby
             super("")
 	end
 
+        def to_execution_exception
+            ExecutionException.new(self)
+        end
+
         def pretty_print(pp)
 	    pp.text "#{self.class.name}"
             if !message.empty?
@@ -292,10 +296,21 @@ module Roby
     # Raised when an exception handler has raised.
     class FailedExceptionHandler < CodeError
 	attr_reader :handled_exception
-	def initialize(error, object, handled_exception)
+        attr_reader :handler
+
+	def initialize(error, object, handled_exception, handler)
 	    super(error, object)
 	    @handled_exception = handled_exception
+            @handler = handler
 	end
+
+        def pretty_print(pp)
+            pp.text "exception handler #{handler} failed while processing"
+            pp.breakable
+            handled_exception.pretty_print(pp)
+            pp.breakable
+            pp_exception(pp, error)
+        end
     end
 
     # Raised when an event has become unreachable while other parts of the plan

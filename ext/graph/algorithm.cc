@@ -420,6 +420,26 @@ static bool search_terminator(vertex_descriptor u, G const& g)
     return result;
 }
 
+/* @overload reset_prune_flag
+ *   Resets the prune flag. This can be used in algorithms that want to allow
+ *   the blocks given to them to use {#prune} as a way to stop iteration without
+ *   actually passing it to the underlying iteration algorithm
+ */
+static VALUE graph_reset_prune_flag(VALUE graph)
+{
+    rb_thread_local_aset(rb_thread_current(), rb_intern("@prune"), Qfalse);
+    return Qnil;
+}
+
+/* @overload pruned?
+ *   Test if Graph.prune got called in the current graph iteration
+ */
+static VALUE graph_pruned_p(VALUE graph)
+{
+    VALUE thread = rb_thread_current();
+    return rb_thread_local_aref(thread, rb_intern("@prune"));
+}
+
 /* call-seq:
  *  graph.prune
  *
@@ -731,6 +751,8 @@ void Init_graph_algorithms()
     rb_define_method(bglGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_direct_each_bfs), 2);
     rb_define_method(bglGraph, "reachable?", RUBY_METHOD_FUNC(graph_reachable_p), 2);
     rb_define_method(bglGraph, "prune",		RUBY_METHOD_FUNC(graph_prune), 0);
+    rb_define_method(bglGraph, "pruned?",       RUBY_METHOD_FUNC(graph_pruned_p), 0);
+    rb_define_method(bglGraph, "reset_prune",       RUBY_METHOD_FUNC(graph_reset_prune_flag), 0);
     rb_define_method(bglGraph, "topological_sort",		RUBY_METHOD_FUNC(graph_topological_sort), -1);
 
     bglReverseGraph = rb_define_class_under(bglGraph, "Reverse", rb_cObject);

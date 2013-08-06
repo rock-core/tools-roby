@@ -15,7 +15,7 @@ require 'test_event_constraints'
 require 'suite_models'
 
 require 'test_execution_engine'
-require 'test_exceptions'
+require 'test_execution_exception'
 
 require 'test_plan'
 require 'test_transactions'

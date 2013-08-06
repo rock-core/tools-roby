@@ -506,8 +506,37 @@ static VALUE vertex_singleton_p(VALUE self)
     return Qtrue;
 }
 
-/*
- * call-seq:
+/* @overload in_degree(vertex)
+ *   Returns the number of edges for which the given vertex is the target
+ *
+ *   @param [BGL::Vertex] vertex the vertex for which we want the number of in-edges
+ *   @return [Integer]
+ */
+static VALUE graph_in_degree(VALUE _graph, VALUE _vertex)
+{
+    RubyGraph& graph = graph_wrapped(_graph);
+    vertex_descriptor s, t; bool exists;
+    tie(s, exists) = rb_to_vertex(_vertex, _graph);
+    if (!exists) return INT2NUM(0);
+    else return INT2NUM(in_degree(s, graph));
+}
+
+/* @overload out_degree(vertex)
+ *   Returns the number of edges in which the given vertex is the source
+ *
+ *   @param [BGL::Vertex] vertex the vertex for which we want the number of out-edges
+ *   @return [Integer]
+ */
+static VALUE graph_out_degree(VALUE _graph, VALUE _vertex)
+{
+    RubyGraph& graph = graph_wrapped(_graph);
+    vertex_descriptor s, t; bool exists;
+    tie(s, exists) = rb_to_vertex(_vertex, _graph);
+    if (!exists) return INT2NUM(0);
+    else return INT2NUM(out_degree(s, graph));
+}
+
+/* call-seq:
  *	vertex[child, graph]				    => info
  *
  * Get the data associated with the vertex => +child+ edge in +graph+.
@@ -632,6 +661,8 @@ extern "C" void Init_roby_bgl()
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
     rb_define_method(bglGraph, "root?", RUBY_METHOD_FUNC(graph_root_p), 1);
     rb_define_method(bglGraph, "leaf?", RUBY_METHOD_FUNC(graph_leaf_p), 1);
+    rb_define_method(bglGraph, "in_degree",		RUBY_METHOD_FUNC(graph_in_degree), 1);
+    rb_define_method(bglGraph, "out_degree",		RUBY_METHOD_FUNC(graph_out_degree), 1);
     rb_define_method(bglGraph, "clear",	RUBY_METHOD_FUNC(graph_clear), 0);
     rb_define_method(bglGraph, "name=",	RUBY_METHOD_FUNC(graph_set_name), 1);
 

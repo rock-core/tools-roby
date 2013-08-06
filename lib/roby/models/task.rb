@@ -529,7 +529,7 @@ module Roby
             # Defines a forwarding relation between two events of the same task
             # instance.
             #
-            # @param [{Symbol=>Symbol}] mapping of event names, where the keys
+            # @param [{Symbol=>Symbol}] mappings of event names, where the keys
             #   are forwarded to the values
             # @example
             #   # A task that is stopped as soon as it is started

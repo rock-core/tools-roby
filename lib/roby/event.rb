@@ -116,6 +116,10 @@ module Roby
                 end
             end
         end
+
+        def to_execution_exception
+            generator.to_execution_exception
+        end
     end
 
     # EventGenerator objects are the objects which manage the event generation
@@ -1071,6 +1075,10 @@ module Roby
 		pp.seplist(relations) { |r| pp.text r.name }
 	    end
 	end
+
+        def to_execution_exception
+            LocalizedError.new(self).to_execution_exception
+        end
     end
 
 

@@ -1193,6 +1193,22 @@ module Roby
 
 	include ExceptionHandlingObject
 
+        # Handles the given exception.
+        #
+        # In addition to the exception handlers provided by
+        # {ExceptionHandlingObject}, it checks for repair tasks (as defined by
+        # TaskStructure::ErrorHandling)
+        #
+        # @param [ExecutionException] e
+        def handle_exception(e)
+            tasks = find_all_matching_repair_tasks(e)
+            return super if tasks.empty?
+            if !tasks.any? { |t| t.running? }
+                tasks.first.start!
+            end
+            true
+        end
+
         # Lists all exception handlers attached to this task
 	def each_exception_handler(&iterator); model.each_exception_handler(&iterator) end
 
