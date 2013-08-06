@@ -250,18 +250,18 @@ module Roby
             #
             # See also ExecutionEngine#remove_propagation_handler
             #
-            # @options options [:external_events,:propagation] type defines when
+            # @option options [:external_events,:propagation] type defines when
             #   this block should be called. If :external_events, it is called
             #   only once at the beginning of each execution cycle. If
             #   :propagation, it is called once at the beginning of each cycle,
             #   as well as after each propagation step. The :late option also
             #   gives some control over when the handler is called when in
             #   propagation mode
-            # @options options [Boolean] once (false) if true, this handler will
+            # @option options [Boolean] once (false) if true, this handler will
             #   be removed just after its first execution
-            # @options options [Boolean] late (false) if true, the handler is
+            # @option options [Boolean] late (false) if true, the handler is
             #   called only when there are no events to propagate anymore.
-            # @options options [:raise,:ignore,:disable] on_error (:raise)
+            # @option options [:raise,:ignore,:disable] on_error (:raise)
             #   controls what happens when the block raises an exception. If
             #   :raise, the error is registered as a framework error. If
             #   :ignore, it is completely ignored. If :disable, the handler

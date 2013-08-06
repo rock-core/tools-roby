@@ -812,7 +812,6 @@ module Roby
         # @param [Task] child
         # @param [Array<RelationGraph>] relations the relation graphs in which
         #   the new relation has been created
-        # @param [Object,nil] info the relation info
         # @return [void]
         def added_task_relation(parent, child, relations)
             super if defined? super
@@ -837,7 +836,6 @@ module Roby
         # @param [Task] child
         # @param [Array<RelationGraph>] relations the relation graphs in which
         #   the new relation has been created
-        # @param [Object,nil] info the relation info
         # @return [void]
         def added_event_relation(parent, child, relations)
             if engine && relations.include?(Roby::EventStructure::Precedence)

@@ -8,7 +8,7 @@ module Roby
 
             def process
                 name = statement.parameters[0].jump(:tstring_content, :ident).source
-                key_type, value_type = Utilrb::YARD::InheritedEnumerableHandler.
+                key_type, value_type = Utilrb::YARD::InheritedAttributeHandler.
                     process(self, "#{name}_set", "#{name}_sets", true)
 
                 push_state(:scope => :class) do
