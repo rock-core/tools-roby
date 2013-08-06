@@ -225,6 +225,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
                     mock.one_poll
                     task.emit :one_poll
                 end
+                on(:one_poll) { transition :one => :final }
             end
         end
 
@@ -233,6 +234,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         task.start!
         task.on(:one_poll) { |_| mock.one_poll_event }
         task.emit :intermediate
+        process_events
     end
 
     def test_script_in_state
@@ -272,6 +274,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         process_events
         assert task.one_poll?, task.history.map(&:symbol).map(&:to_s).join(", ")
 
+        process_events
         process_events
         assert_equal [:start, :running_poll, :intermediate, :one_poll, :running_poll], task.history.map(&:symbol)
     end

@@ -264,6 +264,7 @@ module Roby
         end
 
 	def teardown
+            flexmock_teardown
 	    timings[:quit] = Time.now
 	    teardown_plan
 	    timings[:teardown_plan] = Time.now
