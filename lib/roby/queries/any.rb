@@ -6,6 +6,15 @@ module Roby
             def self.===(other)
                 true
             end
+
+            class DRoby
+                def proxy(peer)
+                    Queries.any
+                end
+            end
+            def self.droby_dump(peer)
+                DRoby.new
+            end
         end
 
         # @return [Any] an object that matches anything

@@ -60,6 +60,13 @@ describe Roby::Queries::LocalizedErrorMatcher do
             assert !matcher.failure_point_matcher.generalized?
         end
     end
+    describe "droby marshalling" do
+        it "should be dump-able" do
+            origin = Roby::Task.success_event.match
+            matcher = Roby::LocalizedError.match.with_origin(origin)
+            verify_is_droby_marshallable_object(matcher)
+        end
+    end
 end
 
 

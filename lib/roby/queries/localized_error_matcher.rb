@@ -73,6 +73,28 @@ module Roby
             def to_execution_exception_matcher
                 Roby::Queries::ExecutionExceptionMatcher.new.with_exception(self)
             end
+
+            # An intermediate representation of OrMatcher objects suitable to
+            # be sent to our peers.
+            class DRoby
+                attr_reader :model, :failure_point_matcher
+                def initialize(model, failure_point_matcher)
+                    @model = model
+                    @failure_point_matcher = failure_point_matcher
+                end
+                def proxy(peer)
+                    matcher = LocalizedErrorMatcher.new
+                    matcher.with_model(peer.local_object(model))
+                    matcher.with_origin(peer.local_object(failure_point_matcher))
+                    matcher
+                end
+            end
+            
+            # Returns an intermediate representation of +self+ suitable to be sent
+            # to the +dest+ peer.
+            def droby_dump(dest)
+                DRoby.new(model.droby_dump(dest), failure_point_matcher.droby_dump(dest))
+            end
         end
     end
 end

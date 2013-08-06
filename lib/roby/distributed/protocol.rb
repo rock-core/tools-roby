@@ -119,6 +119,9 @@ module Roby
 	    def proxy(peer); constant(name) end
 	end
 
+        class Roby::LocalizedError
+            extend Roby::Distributed::DRobyConstant::Dump
+        end
 	class Roby::RelationGraph
 	    include Roby::Distributed::DRobyConstant::Dump
 	end

@@ -63,6 +63,30 @@ module Roby
             def to_execution_exception_matcher
                 self
             end
+
+            # An intermediate representation of OrMatcher objects suitable to
+            # be sent to our peers.
+            class DRoby
+                attr_reader :exception_matcher, :involved_tasks_matchers
+                def initialize(exception_matchers, involved_tasks_matchers)
+                    @exception_matcher = exception_matcher
+                    @involved_tasks_matchers = involved_tasks_matchers
+                end
+                def proxy(peer)
+                    matcher = ExecutionExceptionMatcher.new
+                    matcher.with_exception(peer.local_object(exception_matcher))
+                    involved_tasks_matchers.each do |m|
+                        matcher.involving(peer.local_object(m))
+                    end
+                    matcher
+                end
+            end
+            
+            # Returns an intermediate representation of +self+ suitable to be sent
+            # to the +dest+ peer.
+            def droby_dump(dest)
+                DRoby.new(exception_matcher.droby_dump(dest), involved_tasks_matchers.droby_dump(dest))
+            end
         end
     end
 end
