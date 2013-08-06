@@ -388,6 +388,10 @@ module Roby
                 @block, @copy_on_replace, @once = block, copy_on_replace, once
             end
 
+            def call(*args)
+                block.call(*args)
+            end
+
             # True if this event handler should be moved to the new task in case
             # of replacements
             #
@@ -454,6 +458,13 @@ module Roby
                     event.on(h.as_options, &h.block)
                 end
             end
+
+            for h in unreachable_handlers
+                cancel, h = h
+                if h.copy_on_replace?
+                    event.if_unreachable(:cancel_at_emission => cancel, :on_replace => :copy, &h.block)
+                end
+            end
         end
 
 	# Adds a signal from this event to +generator+. +generator+ must be
@@ -482,13 +493,25 @@ module Roby
 	attr_reader :unreachable_handlers
 
 	# Calls +block+ if it is impossible that this event is ever emitted
-	def if_unreachable(cancel_at_emission = false, &block)
+	def if_unreachable(options = Hash.new, &block)
+            if options == true || options == false
+                options = Hash[:cancel_at_emission => options]
+            end
+            options = Kernel.validate_options options,
+                :cancel_at_emission => false,
+                :on_replace => :drop
+
+            if ![:drop, :copy].include?(options[:on_replace])
+                raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
+            end
+
             check_arity(block, 2)
-            if unreachable_handlers.any? { |cancel, b| b == block }
+            if unreachable_handlers.any? { |cancel, b| b.block == block }
                 return b.object_id
             end
-	    unreachable_handlers << [cancel_at_emission, block]
-	    block.object_id
+            handler = EventHandler.new(block, options[:on_replace] == :copy, true)
+	    unreachable_handlers << [options[:cancel_at_emission], handler]
+	    handler.object_id
 	end
 
         # React to this event being unreachable
@@ -503,7 +526,7 @@ module Roby
         # handler will be kept.
         def when_unreachable(cancel_at_emission = false, &block)
             if block_given?
-                return if_unreachable(cancel_at_emission, &block)
+                return if_unreachable(:cancel_at_emission => cancel_at_emission, &block)
             end
 
             # NOTE: the unreachable event is not directly tied to this one from
@@ -512,7 +535,7 @@ module Roby
             # user did not take care to use it.
             if !@unreachable_events[cancel_at_emission] || !@unreachable_events[cancel_at_emission].plan
                 result = EventGenerator.new(true)
-                if_unreachable(cancel_at_emission) do
+                if_unreachable(:cancel_at_emission => cancel_at_emission) do
                     if result.plan
                         result.emit
                     end
@@ -654,7 +677,7 @@ module Roby
             all_handlers = enum_for(:each_handler).to_a
 	    all_handlers.each do |h| 
 		begin
-		    h.block.call(event)
+		    h.call(event)
                 rescue LocalizedError => e
                     plan.engine.add_error( e )
 		rescue Exception => e
@@ -800,7 +823,7 @@ module Roby
 		ev.forward_to_once self
 	    end
 
-	    ev.if_unreachable(true) do |reason, event|
+	    ev.if_unreachable(:cancel_at_emission => true) do |reason, event|
 		emit_failed(EmissionFailed.new(UnreachableEvent.new(ev, reason), self))
 	    end
 	end
@@ -1019,9 +1042,9 @@ module Roby
 
         # Internal helper for unreachable!
         def call_unreachable_handlers(reason) # :nodoc:
-	    unreachable_handlers.each do |_, block|
+	    unreachable_handlers.each do |_, handler|
 		begin
-		    block.call(reason, self)
+		    handler.call(reason, self)
                 rescue LocalizedError => e
                     if engine
                         engine.add_error(e)
@@ -1215,7 +1238,7 @@ module Roby
 
 	    # If the parent is unreachable, check that it has neither been
 	    # removed, nor it has been emitted
-	    parent.if_unreachable(true) do |reason, event|
+	    parent.if_unreachable(:cancel_at_emission => true) do |reason, event|
 		if @events.has_key?(parent) && @events[parent] == parent.last
 		    unreachable!(reason || parent)
 		end
@@ -1308,7 +1331,7 @@ module Roby
 	    super if defined? super
 	    return unless relations.include?(EventStructure::Signal)
 
-	    parent.if_unreachable(true) do |reason, event|
+	    parent.if_unreachable(:cancel_at_emission => true) do |reason, event|
 		if !happened? && parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }
 		    unreachable!(reason || parent)
 		end
