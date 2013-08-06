@@ -239,6 +239,14 @@ module Roby
                     yield
                 rescue Exception => e
                     PP.pp(e, "")
+                    if e.kind_of?(Roby::SynchronousEventProcessingMultipleErrors)
+                        match = e.errors.find do |original_e, _|
+                            original_e.exception.kind_of?(exception)
+                        end
+                        if match
+                            raise match[0].exception
+                        end
+                    end
                     raise
                 end
             end
