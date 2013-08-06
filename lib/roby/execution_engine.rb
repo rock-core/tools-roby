@@ -1451,8 +1451,9 @@ module Roby
                 2.times do |i|
                     roots = local_tasks.dup
                     for rel in TaskStructure.relations
+                        next if !rel.root_relation?
                         roots.delete_if do |t|
-                            !t.root?(rel)
+                            t.enum_parent_objects(rel).any? { |p| !p.finished? }
                         end
                         break if roots.empty?
                     end
