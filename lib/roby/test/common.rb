@@ -233,6 +233,17 @@ module Roby
 	    Roby.logger.level = old_gc_roby_logger_level
 	end
 
+        def assert_raises(exception, &block)
+            super(exception) do
+                begin
+                    yield
+                rescue Exception => e
+                    PP.pp(e, "")
+                    raise
+                end
+            end
+        end
+
         def inhibit_fatal_messages(&block)
             with_log_level(Roby, Logger::FATAL, &block)
         end
