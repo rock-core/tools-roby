@@ -135,7 +135,7 @@ module Roby
     #
     class ExecutionEngine
         extend Logger::Hierarchy
-        extend Logger::Forward
+        include Logger::Hierarchy
 
         # Create an execution engine acting on +plan+, using +control+ as the
         # decision control object
@@ -723,7 +723,6 @@ module Roby
             fatal_errors = compute_fatal_errors(stats, events_errors)
             return if fatal_errors.empty?
 
-            Roby::ExecutionEngine.info "EE: #{fatal_errors.size} fatal exceptions remaining"
             kill_tasks = fatal_errors.inject(Set.new) do |tasks, (exception, affected_tasks)|
                 tasks | (affected_tasks || exception.trace).to_set
             end
@@ -736,11 +735,10 @@ module Roby
             end
 
             if !kill_tasks.empty?
-                Roby::ExecutionEngine.warn do
-                    Roby::ExecutionEngine.warn ""
-                    Roby::ExecutionEngine.warn "EE: will kill the following tasks because of unhandled exceptions:"
+                warn do
+                    warn "will kill the following #{kill_tasks.size} tasks because of unhandled exceptions:"
                     kill_tasks.each do |task|
-                        Roby::ExecutionEngine.warn "  " + task.to_s
+                        log_pp :warn, task
                     end
                     break
                 end
@@ -1002,13 +1000,30 @@ module Roby
             visitor = lambda do |task, e|
                 e.handled = yield(e, task)
                 if e.handled?
+                    debug { "handled by #{task}" }
                     handled_exception(e, task)
                     handled_exceptions[e.exception] << e
                     TaskStructure::Dependency.prune
+                else
+                    debug { "not handled by #{task}" }
                 end
             end
 
             exceptions.each do |exception, parents|
+                debug do
+                    debug "propagating exception "
+                    log_pp :debug, exception
+                    if parents && !parents.empty?
+                        debug "  constrained to parents"
+                        log_nest(2) do
+                            parents.each do |p|
+                                log_pp :debug, p
+                            end
+                        end
+                    end
+                    break
+                end
+
                 origin = exception.origin
                 handled_exceptions[exception.exception] = Set.new
                 remaining = TaskStructure::Dependency.reverse.
@@ -1048,10 +1063,20 @@ module Roby
                 [e, affected_tasks]
             end
 
-            if !unhandled.empty?
-                Roby::ExecutionEngine.debug do
-                    "remaining unhandled exceptions: #{unhandled.map { |e, _| e.to_s }.join(", ")}"
+            debug do
+                debug "#{unhandled.size} unhandled exceptions remain"
+                log_nest(2) do
+                    unhandled.each do |e, affected_tasks|
+                        log_pp :debug, e
+                        debug "Affects #{affected_tasks.size} tasks"
+                        log_nest(2) do
+                            affected_tasks.each do |t|
+                                log_pp :debug, t
+                            end
+                        end
+                    end
                 end
+                break
             end
             unhandled
         end
@@ -1059,14 +1084,20 @@ module Roby
         # Propagation exception phase, checking if tasks and/or the main plan
         # are handling the exceptions
         def propagate_exceptions(exceptions)
-            non_inhibited = remove_inhibited_exceptions(exceptions)
-            exceptions = exceptions.find_all do |exception, _|
-                exception.reset_trace
-                non_inhibited.any? { |e, _| e.exception == exception.exception }
+            debug "Filtering inhibited exceptions"
+            exceptions = log_nest(2) do
+                non_inhibited = remove_inhibited_exceptions(exceptions)
+                exceptions.find_all do |exception, _|
+                    exception.reset_trace
+                    non_inhibited.any? { |e, _| e.exception == exception.exception }
+                end
             end
 
-            propagate_exception_in_plan(exceptions) do |e, object|
-                object.handle_exception(e)
+            debug "Propagating #{exceptions.size} non-inhibited exceptions"
+            log_nest(2) do
+                propagate_exception_in_plan(exceptions) do |e, object|
+                    object.handle_exception(e)
+                end
             end
         end
 
@@ -1180,12 +1211,13 @@ module Roby
                 end
             end
             if !nonfatal.empty?
-                ExecutionEngine.warn "unhandled #{nonfatal.size} non-fatal exceptions"
+                warn "unhandled #{nonfatal.size} non-fatal exceptions"
                 nonfatal.each do |e, tasks|
                     nonfatal_exception(e, tasks)
                 end
             end
 
+            debug "#{fatal_errors.size} fatal errors found"
             fatal_errors
         end
 
@@ -1398,17 +1430,17 @@ module Roby
 
                 break if local_tasks.empty?
 
-                ExecutionEngine.debug do
-                    ExecutionEngine.debug "#{local_tasks.size} tasks are unneeded in this plan"
+                debug do
+                    debug "#{local_tasks.size} tasks are unneeded in this plan"
                     local_tasks.each do |t|
-                        ExecutionEngine.debug "  #{t} mission=#{plan.mission?(t)} permanent=#{plan.permanent?(t)}"
+                        debug "  #{t} mission=#{plan.mission?(t)} permanent=#{plan.permanent?(t)}"
                     end
                     break
                 end
 
                 if local_tasks.all? { |t| t.pending? || t.finished? }
                     local_tasks.each do |t|
-                        ExecutionEngine.debug { "GC: #{t} is not running, removed" }
+                        debug { "GC: #{t} is not running, removed" }
                         plan.garbage(t)
                     end
                     break
@@ -1429,7 +1461,7 @@ module Roby
 
                     # There is a cycle somewhere. Try to break it by removing
                     # weak relations within elements of local_tasks
-                    ExecutionEngine.debug "cycle found, removing weak relations"
+                    debug "cycle found, removing weak relations"
 
                     local_tasks.each do |t|
                         for rel in t.sorted_relations
@@ -1440,46 +1472,46 @@ module Roby
 
                 (roots.to_value_set - finishing - plan.gc_quarantine).each do |local_task|
                     if local_task.pending?
-                        ExecutionEngine.info "GC: removing pending task #{local_task}"
+                        info "GC: removing pending task #{local_task}"
 
                         plan.garbage(local_task)
                         did_something = true
                     elsif local_task.failed_to_start?
-                        ExecutionEngine.info "GC: removing task that failed to start #{local_task}"
+                        info "GC: removing task that failed to start #{local_task}"
                         plan.garbage(local_task)
                         did_something = true
                     elsif local_task.starting?
                         # wait for task to be started before killing it
-                        ExecutionEngine.debug { "GC: #{local_task} is starting" }
+                        debug { "GC: #{local_task} is starting" }
                     elsif local_task.finished?
-                        ExecutionEngine.debug { "GC: #{local_task} is not running, removed" }
+                        debug { "GC: #{local_task} is not running, removed" }
                         plan.garbage(local_task)
                         did_something = true
                     elsif !local_task.finishing?
                         if local_task.event(:stop).controlable?
-                            ExecutionEngine.debug { "GC: queueing #{local_task}/stop" }
+                            debug { "GC: queueing #{local_task}/stop" }
                             if !local_task.respond_to?(:stop!)
-                                ExecutionEngine.fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
+                                fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
                                 plan.quarantine(local_task)
                             else
                                 finishing << local_task
                             end
                         else
-                            ExecutionEngine.warn "GC: ignored #{local_task}, it cannot be stopped"
+                            warn "GC: ignored #{local_task}, it cannot be stopped"
                             # We don't use Plan#quarantine as it is normal that
                             # this task does not get GCed
                             plan.gc_quarantine << local_task
                         end
                     elsif local_task.finishing?
-                        ExecutionEngine.debug do
-			    ExecutionEngine.debug "GC: waiting for #{local_task} to finish"
+                        debug do
+			    debug "GC: waiting for #{local_task} to finish"
 			    local_task.history.each do |ev|
-			        ExecutionEngine.debug "GC:   #{ev}"
+			        debug "GC:   #{ev}"
 			    end
 			    break
 			end
                     else
-                        ExecutionEngine.warn "GC: ignored #{local_task}"
+                        warn "GC: ignored #{local_task}"
                     end
                 end
             end

@@ -126,6 +126,25 @@ module Roby
         def to_execution_exception
             self
         end
+
+        def pretty_print(pp)
+            pp.text "from #{origin} with trace "
+            pp.nest(2) do
+                pp.breakable
+                pp.nest(2) do
+                    trace.each do |t|
+                        pp.breakable
+                        pp.text t.to_s
+                    end
+                end
+                pp.breakable
+                pp.text "Exception:"
+                pp.nest(2) do
+                    pp.breakable
+                    exception.pretty_print(pp)
+                end
+            end
+        end
     end
 
     # This module is to be included in all objects that are
