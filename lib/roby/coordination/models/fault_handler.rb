@@ -66,14 +66,14 @@ module Roby
                     result
                 end
 
-                def activate(origin, failure_event = nil, arguments = Hash.new)
-                    locations = find_response_locations(origin)
+                def activate(exception, arguments = Hash.new)
+                    locations = find_response_locations(exception.origin)
                     if locations.empty?
                         Roby.warn "#{self} did match an exception, but the response location #{response_location} does not match anything"
                         return
                     end
 
-                    plan = origin.plan
+                    plan = exception.origin.plan
 
                     # Create the response task
                     plan.add(response_task = FaultHandlingTask.new)
@@ -86,15 +86,8 @@ module Roby
                         #
                         # In addition, if origin == task, we need to handle the
                         # error events as well
-                        task.stop_event.handle_with(response_task)
-                        if task == origin && failure_event
-                            # Add a error handling relation, explaining what the
-                            # response task does
-                            failure_event.generator.handle_with(response_task)
-                            plan.add_repair(failure_event, response_task)
-                        end
-                        # In any case, we do declare the error handling relation
-                        task.add_error_handler(response_task, Set.new)
+                        task.add_error_handler response_task,
+                            [task.stop_event.to_execution_exception_matcher, execution_exception_matcher].to_set
                     end
                     locations.each do |task|
                         # This should not be needed. However, the current GC

@@ -1009,16 +1009,21 @@ module Roby
             end
 
             exceptions.each do |exception, parents|
+                origin = exception.origin
                 handled_exceptions[exception.exception] = Set.new
                 remaining = TaskStructure::Dependency.reverse.
-                    fork_merge_propagation(exception.origin, exception,
-                                          :vertex_visitor => visitor, &propagation)
+                    fork_merge_propagation(origin, exception, :vertex_visitor => visitor) do |from, to, e|
+                        if parents && !parents.empty?
+                            if from == origin && !parents.include?(to)
+                                TaskStructure::Dependency.prune
+                            end
+                        end
+                        e.trace << to
+                        e
+                    end
 
                 remaining.each_value do |unhandled_exception|
-                    if sibling = unhandled.find { |e| e.exception == unhandled_exception.exception }
-                        sibling.merge(unhandled_exception)
-                    else unhandled << unhandled_exception
-                    end
+                    unhandled << unhandled_exception
                 end
             end
 
@@ -1054,9 +1059,10 @@ module Roby
         # Propagation exception phase, checking if tasks and/or the main plan
         # are handling the exceptions
         def propagate_exceptions(exceptions)
-            exceptions = remove_inhibited_exceptions(exceptions).map do |e, _|
-                e.reset_trace
-                e
+            non_inhibited = remove_inhibited_exceptions(exceptions)
+            exceptions = exceptions.find_all do |exception, _|
+                exception.reset_trace
+                non_inhibited.any? { |e, _| e.exception == exception.exception }
             end
 
             propagate_exception_in_plan(exceptions) do |e, object|

@@ -1590,5 +1590,22 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         task.start!
         task.stop!
     end
+
+    def test_it_propagates_exceptions_only_through_the_listed_parents
+        mock = flexmock
+        task_model = Task.new_submodel do
+            on_exception LocalizedError do |error|
+                mock.called(self)
+                pass_exception
+            end
+        end
+        a0, a1 = prepare_plan :add => 2, :model => task_model
+        plan.add(b = Roby::Task.new)
+        a0.depends_on b
+        a1.depends_on b
+        mock.should_receive(:called).with(a0).once
+        mock.should_receive(:called).with(a1).never
+        engine.propagate_exceptions([[b.to_execution_exception, [a0]]])
+    end
 end
 

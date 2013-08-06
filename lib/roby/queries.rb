@@ -5,6 +5,7 @@ module Roby
 end
 
 require 'roby/queries/any'
+require 'roby/queries/none'
 require 'roby/queries/matcher_base'
 require 'roby/queries/index'
 require 'roby/queries/plan_object_matcher'

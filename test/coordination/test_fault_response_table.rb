@@ -21,10 +21,9 @@ describe Roby::Coordination::FaultResponseTable do
             child.start!
             child.stop!
 
-            failure_event = child.failed_event.last
-            repairs = plan.repairs_for(failure_event)
-            repair_task = repairs[failure_event]
-            assert_equal [child], repair_task.repaired_tasks.to_a
+            repairs = child.find_all_matching_repair_tasks(child.failed_event.last)
+            assert_equal 1, repairs.size
+            repair_task = repairs.first
             process_events
             assert repair_task.running?
             assert_kind_of Roby::Coordination::FaultHandlingTask, repair_task

@@ -1419,6 +1419,10 @@ module Roby
                 Tasks::Parallel.new << self << task
             end
         end
+
+        def to_execution_exception
+            ExecutionException.new(LocalizedError.new(self))
+        end
     end
 
 

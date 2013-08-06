@@ -53,14 +53,14 @@ describe Roby::Coordination::Models::FaultHandler do
 
         it "stops all the response locations and makes it so that stopping the response locations do not generate any exceptions" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([m1].to_set)
-            handler.activate(t2)
+            handler.activate(flexmock(:origin => t2))
             assert m1.finished?
             assert m0.running?
             assert m2.running?
         end
         it "removes children so that the relevant ones are garbage-collected" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([m0, m1].to_set)
-            handler.activate(t2)
+            handler.activate(flexmock(:origin => t2))
             plan.engine.garbage_collect_synchronous
             assert !t1.plan
             assert !t2.plan
@@ -72,9 +72,11 @@ describe Roby::Coordination::Models::FaultHandler do
         it "registers the fault handling task as a repair for the error event if the response location is the origin" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([t2].to_set)
             failure_event = t2.start_event.last
-            handler.activate(t2, failure_event)
+            handler.activate(flexmock(:origin => t2))
 
-            repair_task = plan.repairs_for(failure_event)[failure_event]
+            repairs = t2.find_all_matching_repair_tasks(t2.stop_event)
+            assert_equal 1, repairs.size
+            repair_task = repairs.first
             assert_kind_of Roby::Coordination::FaultHandlingTask, repair_task
             assert_equal handler, repair_task.fault_handler
         end

@@ -120,6 +120,10 @@ module Roby
         def to_execution_exception
             generator.to_execution_exception
         end
+
+        def to_execution_exception_matcher
+            generator.to_execution_exception_matcher
+        end
     end
 
     # EventGenerator objects are the objects which manage the event generation
@@ -1078,6 +1082,14 @@ module Roby
 
         def to_execution_exception
             LocalizedError.new(self).to_execution_exception
+        end
+
+        def to_execution_exception_matcher
+            LocalizedError.to_execution_exception_matcher.with_origin(self)
+        end
+
+        def match
+            Queries::TaskEventGeneratorMatcher.new(task, symbol)
         end
     end
 

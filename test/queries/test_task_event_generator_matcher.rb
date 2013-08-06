@@ -71,7 +71,7 @@ describe Roby::Queries::TaskEventGeneratorMatcher do
             end
             it "should return true if the task matcher returns true and the symbol matches" do
                 task_matcher.should_receive(:===).with(task).and_return(true)
-                @symbol_match = flexmock
+                symbol_match = flexmock
                 symbol_match.should_receive(:===).with('stop').and_return(true)
                 matcher = Roby::Queries::TaskEventGeneratorMatcher.new(task_matcher, symbol_match).generalized
                 assert (matcher === generator)

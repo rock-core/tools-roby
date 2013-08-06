@@ -836,6 +836,18 @@ describe BGL::Graph do
             assert_equal Hash[], result
         end
 
+        it "does not add to the result the seeds that have been pruned" do
+            a = *create_and_add_vertices(%w{a})
+            v = flexmock
+            visitor.should_receive(:call).with(a, v).and_return do
+                graph.prune
+            end
+            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+                v
+            end
+            assert result.empty?
+        end
+
         it "allows pruning its seeds internally while still propagating the other branches" do
             # This is a corner case related to how the algorithm is implemented.
             # At some point, we catch the #pruned? flag without passing it to

@@ -16,6 +16,9 @@ module Roby
             attr_predicate :generalized?
 
             def initialize(task_matcher = Roby::Task.match, symbol = Queries.any)
+                if symbol.respond_to?(:to_sym) # Probably a symbol, convert to string
+                    symbol = symbol.to_s
+                end
                 @symbol = symbol
                 @task_matcher = task_matcher
                 @generalized = false

@@ -99,15 +99,15 @@ module BGL
             while !queue.empty?
                 while !queue.empty?
                     seed, value = queue.shift
-                    if leaf?(seed)
-                        tips[seed] = value
-                    end
                     if vertex_visitor
                         vertex_visitor.call(seed, value)
                         if pruned?
                             reset_prune
                             next
                         end
+                    end
+                    if leaf?(seed)
+                        tips[seed] = value
                     end
 
                     last_vertex = nil

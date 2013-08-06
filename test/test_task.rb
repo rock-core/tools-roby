@@ -2288,14 +2288,12 @@ class TC_Task < Test::Unit::TestCase
         assert(task.event(:terminal).terminal?)
     end
 
-    def test_add_error_raises_if_called_outside_propagation_context
+    def test_add_error_propagates_it_using_process_events_synchronous
         error_m = Class.new(LocalizedError)
         error = error_m.new(Roby::Task.new)
-        assert_raises(error_m) do
-            inhibit_fatal_messages do
-                plan.engine.add_error(error)
-            end
-        end
+        error = error.to_execution_exception
+        flexmock(engine).should_receive(:process_events_synchronous).with([], [error]).once
+        plan.engine.add_error(error)
     end
 
     def test_unreachable_handlers_are_called_after_on_stop
@@ -2315,6 +2313,13 @@ class TC_Task < Test::Unit::TestCase
         recorder.should_receive(:when_unreachable).once.ordered
         task.start!
         task.stop!
+    end
+
+    def test_event_to_execution_exception_matcher_matches_the_event_specifically
+        plan.add(task = Roby::Task.new)
+        matcher = task.stop_event.to_execution_exception_matcher
+        assert(matcher === LocalizedError.new(task.stop_event).to_execution_exception)
+        assert(!(matcher === LocalizedError.new(Roby::Task.new.stop_event).to_execution_exception))
     end
 end
 

@@ -159,7 +159,7 @@ module Roby
 
             table, handler = handlers.first
             if handler
-                handler.activate(error.origin, error.exception.failed_event, table.arguments)
+                handler.activate(error, table.arguments)
             else
                 error.each_involved_task.
                     find_all { |t| mission?(t) && t != error.origin }.
@@ -1286,8 +1286,6 @@ module Roby
                 if !tasks
                     if error.kind_of?(RelationFailedError)
                         tasks = [error.parent]
-                    else
-                        tasks = [roby_exception.origin]
                     end
                 end
                 result[roby_exception] = tasks

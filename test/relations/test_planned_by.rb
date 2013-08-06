@@ -46,9 +46,8 @@ class TC_PlannedBy < Test::Unit::TestCase
         error = errors.find { |err| err.first.exception.kind_of?(Roby::PlanningFailedError) }
         assert(error, "no PlanningFailedError generated while one was expected")
         error = error.first.exception
-	assert_equal(planner, error.failed_task, "failed task was expected to be the planner, but was #{error.failed_task}")
+	assert_equal(planner, error.planning_task)
 	assert_equal(task, error.planned_task)
-	assert_equal(planner.terminal_event, error.failed_event)
 
         # Verify that the formatting works fine
         PP.pp(error, "")
@@ -81,6 +80,7 @@ class TC_PlannedBy < Test::Unit::TestCase
         assert !task.finalized?
         engine.wait_one_cycle
         engine.execute { planner.failed! }
+        engine.wait_one_cycle
         engine.wait_one_cycle
         assert task.finalized?
     end
