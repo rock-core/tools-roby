@@ -66,13 +66,13 @@ module Roby
                             raise DeadInstruction.new(script.root_task), "#{self} is locked: #{event.unreachability_reason}"
                         end
 
-                        event.when_unreachable(true) do |reason, generator|
-                            if !disabled?
+                        event.if_unreachable(:cancel_at_emission => true, :on_replace => :copy) do |reason, generator|
+                            if generator == self.event.resolve && !disabled?
                                 raise DeadInstruction.new(script.root_task), "#{self} is locked: #{reason}"
                             end
                         end
-                        event.on do |context|
-                            if !disabled?
+                        event.on :on_replace => :copy do |event|
+                            if event.generator == self.event.resolve && !disabled?
                                 script.step
                             end
                         end

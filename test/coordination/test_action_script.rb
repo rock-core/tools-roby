@@ -72,6 +72,46 @@ describe Roby::Coordination::ActionScript do
                 end
             end
         end
+
+        it "is robust to replacement in the error case" do
+            action_model = Roby::Actions::Interface.new_submodel do
+                describe ''
+                action_script 'test' do
+                    t = task Roby::Tasks::Simple
+                    execute t, :role => 'test'
+                    emit success_event
+                end
+            end
+            root_task = action_model.test.instanciate(plan)
+            root_task.start!
+            plan.force_replace(
+                child = root_task.test_child,
+                new_child = Roby::Tasks::Simple.new)
+            child.start!
+            child.success_event.emit
+            inhibit_fatal_messages do
+                assert_raises(Roby::Coordination::Models::Script::DeadInstruction) do
+                    new_child.failed_to_start!(nil)
+                end
+            end
+        end
+
+        it "is robust to replacement on the nominal case" do
+            action_model = Roby::Actions::Interface.new_submodel do
+                describe ''
+                action_script 'test' do
+                    t = task Roby::Tasks::Simple
+                    execute t, :role => 'test'
+                    emit success_event
+                end
+            end
+            root_task = action_model.test.instanciate(plan)
+            root_task.start!
+            plan.force_replace(root_task.test_child, new_child = Roby::Tasks::Simple.new)
+            new_child.start!
+            new_child.success_event.emit
+            assert root_task.success?
+        end
     end
 
     describe "#start" do
