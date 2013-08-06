@@ -6,6 +6,11 @@ module Roby
         # This is usually self.class
 	attr_reader :model
 
+        # The non-specialized model for self
+        #
+        # It is always self.class
+        def concrete_model; self.class end
+
         # Generic handling object for blocks that are stored on tasks (event
         # handlers,poll, ...)
         #
