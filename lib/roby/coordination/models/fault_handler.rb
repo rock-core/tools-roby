@@ -78,7 +78,7 @@ module Roby
                     # Create the response task
                     plan.add(response_task = FaultHandlingTask.new)
                     response_task.fault_handler = self
-                    new(action_interface.new(plan), response_task, arguments)
+                    new(action_interface, response_task, arguments)
                     response_task.start!
                     locations.each do |task|
                         # Mark :stop as handled by the response task and kill
