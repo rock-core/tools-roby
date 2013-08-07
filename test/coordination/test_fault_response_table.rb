@@ -49,6 +49,27 @@ describe Roby::Coordination::FaultResponseTable do
         task.stop!
         assert plan.active_fault_response_tables.empty?
     end
+
+    describe "adding fault tables in transactions" do
+        it "can be added in a transaction" do
+            fault_table_m = Roby::Coordination::FaultResponseTable.new_submodel
+            fault_table_m.argument :arg
+            flexmock(plan).should_receive(:use_fault_response_table).with(fault_table_m, :arg => 10).once
+            plan.in_transaction do |trsc|
+                trsc.use_fault_response_table fault_table_m, :arg => 10
+                trsc.commit_transaction
+            end
+        end
+        it "is not added if the transaction is discarded" do
+            fault_table_m = Roby::Coordination::FaultResponseTable.new_submodel
+            fault_table_m.argument :arg
+            flexmock(plan).should_receive(:use_fault_response_table).never
+            plan.in_transaction do |trsc|
+                trsc.use_fault_response_table fault_table_m, :arg => 10
+                trsc.discard_transaction
+            end
+        end
+    end
 end
 
 

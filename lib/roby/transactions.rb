@@ -502,6 +502,10 @@ module Roby
             insert.each    { |t| plan.add_mission(t) }
             permanent.each { |t| plan.add_permanent(t) }
 
+            active_fault_response_tables.each do |tbl|
+                plan.use_fault_response_table tbl.model, tbl.arguments
+            end
+
             super if defined? super
         end
 
