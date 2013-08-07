@@ -1311,6 +1311,25 @@ module Roby
             engine.once { new.start!(nil) }
 	    new
 	end
+
+        # Creates a new planning pattern replacing the given task and its
+        # current planner
+        #
+        # @param [Roby::Task] the task that needs to be replanned
+        # @return [Roby::Task] the new planning pattern
+        def replan(task)
+            if !task.planning_task
+                return task.create_fresh_copy
+            end
+
+            planner = replan(old_planner = task.planning_task)
+            planned = task.create_fresh_copy
+            planned.abstract = true
+            planned.planned_by planner
+            replace(task, planned)
+            planned
+        end
+
         
         # The set of blocks that should be called to check the structure of the
         # plan. See also Plan.structure_checks.

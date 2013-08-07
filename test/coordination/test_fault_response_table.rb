@@ -70,6 +70,39 @@ describe Roby::Coordination::FaultResponseTable do
             end
         end
     end
+
+    describe "try_again" do
+        it "restarts the interrupted action when the reaction script is successfully finished" do
+            fault_table_m = Roby::Coordination::FaultResponseTable.new_submodel
+            fault_table_m.on_fault Roby::ChildFailedError do
+                try_again
+            end
+            task_m = Roby::Task.new_submodel do
+                terminates
+            end
+            action_m = Roby::Actions::Interface.new_submodel do
+                describe('').returns(task_m)
+                define_method :test do
+                    parent, child = task_m.new, task_m.new
+                    parent.depends_on child, :role => 'test'
+                    plan.add(parent)
+                    parent
+                end
+            end
+
+            plan.use_fault_response_table fault_table_m
+            plan.add_mission(parent = action_m.test.as_plan)
+            parent = parent.as_service
+            parent.planning_task.start!
+            parent.start!
+            parent.test_child.start!
+            parent.test_child.stop!
+
+            parent.planning_task.start!
+            parent.start!
+            parent.test_child.start!
+        end
+    end
 end
 
 
