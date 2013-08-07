@@ -177,6 +177,17 @@ module Roby
             end
         end
 
+        # Enables a fault response table on this plan
+        #
+        # @param [Model<Coordination::FaultResponseTable>] table_model the fault
+        #   response table model
+        # @param [Hash] arguments the arguments that should be passed to the
+        #   created table
+        # @return [Coordination::FaultResponseTable] the fault response table
+        #   that got added to this plan. It can be removed using
+        #   {#remove_fault_response_table}
+        # @return [void]
+        # @see remove_fault_response_table
         def use_fault_response_table(table_model, arguments = Hash.new)
             table = table_model.new(self, arguments)
             table.attach_to(self)
@@ -184,6 +195,21 @@ module Roby
             table
         end
 
+        # Remove a fault response table that has been added with
+        # {#use_fault_response_table}
+        #
+        # @overload remove_fault_response_table(table)
+        #   @param [Coordination::FaultResponseTable] table the table that
+        #     should be removed. This is the return value of
+        #     {#use_fault_response_table}
+        #
+        # @overload remove_fault_response_table(table_model)
+        #   Removes all the tables whose model is the given table model
+        #
+        #   @param [Model<Coordination::FaultResponseTable>] table_model
+        #
+        # @return [void]
+        # @see use_fault_response_table
         def remove_fault_response_table(table_model)
             active_fault_response_tables.delete_if do |t|
                 if (table_model.kind_of?(Class) && t.kind_of?(table_model)) || t == table_model

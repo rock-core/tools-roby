@@ -46,6 +46,7 @@ module Roby
         class FaultResponseTable < Roby::Actions::Interface
             extend Models::FaultResponseTable
 
+            # @return [{Symbol=>Object}] assigned table arguments
             attr_reader :arguments
 
             def initialize(plan, arguments = Hash.new)
@@ -71,6 +72,11 @@ module Roby
                 super if defined? super
             end
 
+            # Returns the handlers that are defined for a particular exception
+            #
+            # @param [ExecutionException] exception the exception that should be
+            #   matched
+            # @return [Array<Models::FaultHandler>]
             def find_all_matching_handlers(exception)
                 model.find_all_matching_handlers(exception)
             end
