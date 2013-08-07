@@ -11,7 +11,7 @@ describe Roby::Queries::None do
     end
 
     it "should be droby-marshallable" do
-        assert_same Roby::Queries.any, verify_is_droby_marshallable_object(Roby::Queries.none)
+        assert_same Roby::Queries.none, verify_is_droby_marshallable_object(Roby::Queries.none)
     end
 end
 
