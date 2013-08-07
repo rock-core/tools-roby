@@ -213,6 +213,7 @@ module Roby
         def remove_fault_response_table(table_model)
             active_fault_response_tables.delete_if do |t|
                 if (table_model.kind_of?(Class) && t.kind_of?(table_model)) || t == table_model
+                    t.removed!
                     true
                 end
             end

@@ -80,6 +80,20 @@ module Roby
             def find_all_matching_handlers(exception)
                 model.find_all_matching_handlers(exception)
             end
+
+            # Called when this table has been removed from the plan it was
+            # attached to
+            #
+            # It cannot be reused afterwards
+            #
+            # It calls super if it is defined, so it is possible to use it as a
+            # hook by defining a module that defines removed! and include it in
+            # the FaultResponseTable class.
+            #.
+            # @return [void]
+            def removed!
+                super if defined? super
+            end
         end
     end
 end
