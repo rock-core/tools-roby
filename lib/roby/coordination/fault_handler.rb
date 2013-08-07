@@ -12,6 +12,7 @@ module Roby
                         response_task.each_parent_object(Roby::TaskStructure::ErrorHandling) do |repaired_task|
                             plan.replan(repaired_task)
                         end
+                        response_task.success_event.emit
                     end
                 end
             end
