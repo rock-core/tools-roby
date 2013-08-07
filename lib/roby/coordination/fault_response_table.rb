@@ -55,6 +55,22 @@ module Roby
                 super(plan)
             end
 
+            # Hook called when this table is attached to a given plan
+            #
+            # This is a hook, so one can inject code here by defining a
+            # attach_to method on a module and including this module on the
+            # FaultResponseTable class. Do not forget to add
+            #
+            #   super if defined? super
+            #
+            # in the hook method.
+            #
+            # @param [Plan] plan
+            # @return [void]
+            def attach_to(plan)
+                super if defined? super
+            end
+
             def find_all_matching_handlers(exception)
                 model.find_all_matching_handlers(exception)
             end

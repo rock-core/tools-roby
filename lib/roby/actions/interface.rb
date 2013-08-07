@@ -23,14 +23,7 @@ module Roby
             attr_reader :plan
 
             def initialize(plan)
-                attach_to(plan)
-            end
-
-            def attach_to(plan)
                 @plan = plan
-                model.fault_response_tables.each do |table_model|
-                    plan.use_fault_response_table table_model
-                end
             end
 
             def model; self.class end

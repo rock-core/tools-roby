@@ -179,6 +179,7 @@ module Roby
 
         def use_fault_response_table(table_model, arguments = Hash.new)
             table = table_model.new(self, arguments)
+            table.attach_to(self)
             active_fault_response_tables << table
             table
         end

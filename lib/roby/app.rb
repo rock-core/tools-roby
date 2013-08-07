@@ -939,6 +939,15 @@ module Roby
 		end
 	    end
 
+            # Attach the global fault tables to the plan
+            self.planners.each do |planner|
+                if planner.respond_to?(:each_fault_response_table)
+                    planner.each_fault_response_table do |table, arguments|
+                        plan.use_fault_response_table table, arguments
+                    end
+                end
+            end
+
             if public_shell_interface?
                 setup_shell_interface
             else

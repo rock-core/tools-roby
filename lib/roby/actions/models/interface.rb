@@ -203,8 +203,11 @@ module Roby
                 super
             end
 
-            def use_fault_response_table(table_model)
-                fault_response_tables << table_model
+            # Declare that this fault response table should be used on all plans
+            # that are going to use this action interface
+            def use_fault_response_table(table_model, arguments = Hash.new)
+                table_model.validate_arguments(arguments)
+                fault_response_tables << [table_model, arguments]
             end
         end
         end
