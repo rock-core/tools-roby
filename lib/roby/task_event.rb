@@ -95,13 +95,15 @@ module Roby
             result
 	end
 
-        def pretty_print(pp)
+        def pretty_print(pp, with_context = true)
             pp.text "[#{Roby.format_time(time)} @#{propagation_id}] #{task}/#{symbol}"
-            if context
+            if with_context && context
                 pp.breakable
                 pp.nest(2) do
                     pp.text "  "
-                    pp.seplist(context) { |v| v.pretty_print(pp) }
+                    pp.seplist(context) do |v|
+                        v.pretty_print(pp)
+                    end
                 end
             end
         end
