@@ -1038,7 +1038,11 @@ module Roby
 
         # Adds a new poll block on this instance
         #
-        # See {InstanceHandler} for the list of valid options
+        # @macro InstanceHandlerOptions
+        # @yieldparam [Roby::Task] task the task on which the poll block is
+        #   executed. It might be different than the one on which it has been
+        #   added because of replacements.
+        # @return [Object] an ID that can be used in {#remove_poll_handler}
         def poll(options = Hash.new, &block)
             default_on_replace = if abstract? then :copy else :drop end
             options = InstanceHandler.validate_options(options, :on_replace => default_on_replace)
@@ -1049,6 +1053,10 @@ module Roby
             handler
         end
 
+        # Remove a poll handler from this instance
+        #
+        # @param [Object] handler the ID returned by {#poll}
+        # @return [void]
         def remove_poll_handler(handler)
             @poll_handlers.delete(handler)
         end
