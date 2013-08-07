@@ -656,3 +656,61 @@ class TC_Plan < Test::Unit::TestCase
     end
 end
 
+describe Roby::Plan do
+    include Roby::SelfTest
+
+    describe "#add_trigger" do
+        it "yields new tasks that match the given object" do
+            match = flexmock
+            match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
+            recorder = flexmock
+            recorder.should_receive(:called).once.with(task)
+            plan.add_trigger match do |task|
+                recorder.called(task)
+            end
+            plan.add task
+        end
+        it "does not yield new tasks that do not match the given object" do
+            match = flexmock
+            match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
+            recorder = flexmock
+            recorder.should_receive(:called).never
+            plan.add_trigger match do |task|
+                recorder.called(task)
+            end
+            plan.add task
+        end
+        it "yields matching tasks that already are in the plan" do
+            match = flexmock
+            match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
+            recorder = flexmock
+            recorder.should_receive(:called).once
+            plan.add task
+            plan.add_trigger match do |task|
+                recorder.called(task)
+            end
+        end
+        it "does not yield not matching tasks that already are in the plan" do
+            match = flexmock
+            match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
+            recorder = flexmock
+            recorder.should_receive(:called).never
+            plan.add task
+            plan.add_trigger match do |task|
+                recorder.called(task)
+            end
+        end
+    end
+
+    describe "#remove_trigger" do
+        it "allows to remove a trigger added by #add_trigger" do
+            match = flexmock
+            trigger = plan.add_trigger match do |task|
+            end
+            plan.remove_trigger trigger
+            match.should_receive(:===).never
+            plan.add Roby::Task.new
+        end
+    end
+end
+

@@ -698,17 +698,44 @@ module Roby
 	    self
 	end
 
+        Trigger = Struct.new :query_object, :block do
+            def ===(task)
+                query_object === task
+            end
+            def call(task)
+                block.call(task)
+            end
+        end
+
         # Add a trigger
         #
         # This registers a notification: the given block will be called for each
-        # new task that match the given query object
+        # new task that match the given query object. It yields right away for
+        # the tasks that are already in the plan
+        #
+        # @param [#===] query_object the object against which tasks are tested.
+        #   Tasks for which #=== returns true are yield to the block
+        # @yieldparam [Roby::Task] task the task that matched the query object
+        # @return [Object] an ID object that can be used in {#remove_trigger}
         def add_trigger(query_object, &block)
-            triggers << [query_object, block]
+            tr = Trigger.new(query_object, block)
+            triggers << tr
             known_tasks.each do |t|
-                if query_object === t
-                    block.call(t)
+                if tr === t
+                    tr.call(t)
                 end
             end
+            tr
+        end
+
+        # Removes a trigger
+        #
+        # @param [Object] trigger the trigger to be removed. This is the return value of
+        #   the corresponding {#add_trigger} call
+        # @return [void]
+        def remove_trigger(trigger)
+            triggers.delete(trigger)
+            nil
         end
 
 	# Add +events+ to the set of known events and call added_events
@@ -773,9 +800,9 @@ module Roby
                         end
                     end
                 end
-                triggers.each do |trigger, block|
+                triggers.each do |trigger|
                     if trigger === t
-                        block.call(t)
+                        trigger.call(t)
                     end
                 end
             end
