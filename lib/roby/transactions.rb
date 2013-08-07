@@ -405,6 +405,106 @@ module Roby
 	    raise InvalidTransaction, "invalid transaction: #{message}"
 	end
 
+        # Apply the modifications represented by self to the underlying plan
+        #
+        # It can be used as a hook, by defining a module that defines
+        # apply_modifications_to_plan and including it in the Transaction class.
+        # Don't forget to add the 
+        #
+        #   super if defined? super
+        #
+        # snippet in your redefinition if you do so.
+        def apply_modifications_to_plan
+            auto_tasks.each      { |t| plan.unmark_permanent(t) }
+            discarded_tasks.each { |t| plan.unmark_mission(t) }
+
+            discover_tasks  = ValueSet.new
+            discover_events  = ValueSet.new
+            insert    = ValueSet.new
+            permanent = ValueSet.new
+            known_tasks.dup.each do |t|
+                unwrapped = if t.kind_of?(Transaction::Proxying)
+                                finalized_task(t)
+                                t.__getobj__
+                            else
+                                known_tasks.delete(t)
+                                t
+                            end
+
+                if missions.include?(t) && t.self_owned?
+                    missions.delete(t)
+                    insert << unwrapped
+                elsif permanent_tasks.include?(t) && t.self_owned?
+                    permanent_tasks.delete(t)
+                    permanent << unwrapped
+                end
+
+                discover_tasks << unwrapped
+            end
+
+            free_events.dup.each do |ev|
+                unwrapped = if ev.kind_of?(Transaction::Proxying)
+                                finalized_event(ev)
+                                ev.__getobj__
+                            else
+                                free_events.delete(ev)
+                                ev
+                            end
+
+                if permanent_events.include?(ev) && ev.self_owned?
+                    permanent_events.delete(ev)
+                    permanent << unwrapped
+                end
+
+                discover_events << unwrapped
+            end
+
+            new_tasks = discover_tasks - plan.known_tasks
+            new_tasks.each do |t|
+                t.commit_transaction
+            end
+            plan.add_task_set(new_tasks)
+            new_events = discover_events - plan.free_events
+            new_events.each do |e|
+                e.commit_transaction
+            end
+            plan.add_event_set(new_events)
+
+            # Set the plan to nil in known tasks to avoid having the checks on
+            # #plan to raise an exception
+            proxy_objects.each_value { |proxy| proxy.commit_transaction }
+            proxy_objects.each_value { |proxy| proxy.clear_relations  }
+
+            # Update the plan services on the underlying plan. The only
+            # thing we need to take care of is replacements and new
+            # services. Other modifications will be applied automatically
+            plan_services.each do |task, services|
+                services.each do |srv|
+                    if srv.transaction_proxy?
+                        # Modified service. Might be moved to a new task
+                        original = srv.__getobj__
+                        task     = may_unwrap(task)
+                        if original.task != task
+                            plan.move_plan_service(original, task)
+                        end
+                        srv.commit_transaction
+                    elsif task.transaction_proxy?
+                        # New service on an already existing task
+                        srv.task = task.__getobj__
+                        plan.add_plan_service(srv)
+                    else
+                        # New service on a new task
+                        plan.add_plan_service(srv)
+                    end
+                end
+            end
+
+            insert.each    { |t| plan.add_mission(t) }
+            permanent.each { |t| plan.add_permanent(t) }
+
+            super if defined? super
+        end
+
 	# Commit all modifications that have been registered
 	# in this transaction
 	def commit_transaction
@@ -416,101 +516,16 @@ module Roby
 	    frozen!
 
 	    plan.execute do
-		auto_tasks.each      { |t| plan.unmark_permanent(t) }
-		discarded_tasks.each { |t| plan.unmark_mission(t) }
+                apply_modifications_to_plan
 
-		discover_tasks  = ValueSet.new
-		discover_events  = ValueSet.new
-		insert    = ValueSet.new
-		permanent = ValueSet.new
-		known_tasks.dup.each do |t|
-		    unwrapped = if t.kind_of?(Transaction::Proxying)
-				    finalized_task(t)
-				    t.__getobj__
-				else
-				    known_tasks.delete(t)
-				    t
-				end
-
-		    if missions.include?(t) && t.self_owned?
-			missions.delete(t)
-			insert << unwrapped
-		    elsif permanent_tasks.include?(t) && t.self_owned?
-			permanent_tasks.delete(t)
-			permanent << unwrapped
-		    end
-
-		    discover_tasks << unwrapped
-		end
-
-		free_events.dup.each do |ev|
-		    unwrapped = if ev.kind_of?(Transaction::Proxying)
-				    finalized_event(ev)
-				    ev.__getobj__
-				else
-				    free_events.delete(ev)
-				    ev
-				end
-
-                    if permanent_events.include?(ev) && ev.self_owned?
-                        permanent_events.delete(ev)
-                        permanent << unwrapped
-                    end
-
-		    discover_events << unwrapped
-		end
-
-		new_tasks = discover_tasks - plan.known_tasks
-                new_tasks.each do |t|
-                    t.commit_transaction
-                end
-                plan.add_task_set(new_tasks)
-		new_events = discover_events - plan.free_events
-                new_events.each do |e|
-                    e.commit_transaction
-                end
-                plan.add_event_set(new_events)
-
-		# Set the plan to nil in known tasks to avoid having the checks on
-		# #plan to raise an exception
-		proxy_objects.each_value { |proxy| proxy.commit_transaction }
-		proxy_objects.each_value { |proxy| proxy.clear_relations  }
-
-                # Update the plan services on the underlying plan. The only
-                # thing we need to take care of is replacements and new
-                # services. Other modifications will be applied automatically
-                plan_services.each do |task, services|
-                    services.each do |srv|
-                        if srv.transaction_proxy?
-                            # Modified service. Might be moved to a new task
-                            original = srv.__getobj__
-                            task     = may_unwrap(task)
-                            if original.task != task
-                                plan.move_plan_service(original, task)
-                            end
-                            srv.commit_transaction
-                        elsif task.transaction_proxy?
-                            # New service on an already existing task
-                            srv.task = task.__getobj__
-                            plan.add_plan_service(srv)
-                        else
-                            # New service on a new task
-                            plan.add_plan_service(srv)
-                        end
-                    end
-                end
-
-		insert.each    { |t| plan.add_mission(t) }
-		permanent.each { |t| plan.add_permanent(t) }
-
-		proxies     = proxy_objects.dup
-		clear
-		# Replace proxies by forwarder objects
-		proxies.each do |object, proxy|
-		    forwarder_module = Transaction::Proxying.forwarder_module_for(object.model)
+                proxies     = proxy_objects.dup
+                clear
+                # Replace proxies by forwarder objects
+                proxies.each do |object, proxy|
+                    forwarder_module = Transaction::Proxying.forwarder_module_for(object.model)
                     proxy.extend forwarder_module
                     proxy.__freeze__
-		end
+                end
 
                 @committed = true
 		committed_transaction
