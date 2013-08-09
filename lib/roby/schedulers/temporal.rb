@@ -38,11 +38,12 @@ module Roby
                 meets_constraints = start_event.meets_temporal_constraints?(time, &event_filter)
                 if !meets_constraints
                     Schedulers.debug do
-                        Schedulers.debug "Temporal: won't schedule #{task} as its temporal constraints are not met"
                         if failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter)
+                            Schedulers.debug "Temporal: won't schedule #{task} as its temporal constraints are not met"
                             Schedulers.debug "  #{failed_temporal[0]}: #{failed_temporal[1]}"
                         end
                         if failed_occurence = start_event.find_failed_occurence_constraint(true, &event_filter)
+                            Schedulers.debug "Temporal: won't schedule #{task} as its occurence constraints are not met"
                             Schedulers.debug "  #{failed_occurence.map(&:to_s).join(", ")}"
                         end
                         break
