@@ -101,7 +101,7 @@ public:
     typedef Super::key_type	key_type;
     typedef Super::value_type	value_type;
 
-    Super::clear;
+    using Super::clear;
 
     ColorMap()
 	: default_value(color_traits<default_color_type>::white()) {}

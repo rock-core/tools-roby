@@ -1,100 +1,36 @@
-$LOAD_PATH.unshift File.expand_path('lib', File.dirname(__FILE__))
-require 'enumerator'
-require 'roby/config'
-require 'utilrb/doc/rake'
+task :default
+package_name = 'roby'
 
-task :default => :setup
 begin
     require 'hoe'
-    namespace 'dist' do
-        hoe = Hoe.spec 'roby' do |hoe|
-            self.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
+    Hoe::RUBY_FLAGS.gsub! /-w/, ''
 
-            self.summary = 'A plan-based control framework for autonomous systems'
-            self.urls        = ["http://rock-robotics.org/master/api/tools/roby", "http://rock-robotics.org/stable/documentation/system"]
-            self.description = <<-EOD
-The Roby plan manager is currently developped from within the Robot Construction
-Kit (http://rock-robotics.org). Have a look there. Additionally, the [Roby User
-Guide](http://rock-robotics.org/api/tools/roby) is a good place to start wit
-Roby.
-            EOD
- 
-            self.extra_deps <<
-                ['facets', '>= 2.0'] <<
-                ['utilrb', '>= 1.3.1']
+    hoe_spec = Hoe.spec package_name do |hoe|
+        self.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
-            self.extra_dev_deps <<
-                ['webgen', '>= 0.5']
-        end
-	hoe.spec.extensions << 
-	    'ext/droby/extconf.rb' <<
-	    'ext/graph/extconf.rb'
+        self.summary = 'A plan-based control framework for autonomous systems'
+        self.urls        = ["http://rock-robotics.org/master/api/tools/roby", "http://rock-robotics.org/stable/documentation/system"]
+        self.description = <<-EOD
+    The Roby plan manager is currently developped from within the Robot Construction
+    Kit (http://rock-robotics.org). Have a look there. Additionally, the [Roby User
+    Guide](http://rock-robotics.org/api/tools/roby) is a good place to start wit
+    Roby.
+        EOD
 
-        hoe.spec.description = hoe.summary
-            
-        Rake.clear_tasks(/doc/)
+        self.extra_deps <<
+            ['facets', '>= 2.0'] <<
+            ['utilrb', '>= 1.3.1']
+
+        self.extra_dev_deps <<
+            ['webgen', '>= 0.5']
+
+        self.test_globs = ['test/suite_core.rb']
     end
-
-rescue Exception => e
-    if e.message !~ /\.rubyforge/
-        STDERR.puts "cannot load the Hoe gem, or Hoe fails. Distribution is disabled"
-        STDERR.puts "error message is: #{e.message}"
-    end
-end
-
-def build_extension(name, soname = name)
-    Dir.chdir("ext/#{name}") do
-	extconf = "#{FileUtils::RUBY} extconf.rb"
-	extconf << " --with-boost-dir=#{ENV['BOOST_DIR']}" if ENV['BOOST_DIR']
-	if !system(extconf) || !system("make")
-	    raise "cannot set up #{name} extension"
-	end
-    end
-    FileUtils.ln_sf "../ext/#{name}/#{soname}.so", "lib/#{soname}.so"
-end
-def clean_extension(name, soname = name)
-    puts "Cleaning ext/#{name}"
-    Dir.chdir("ext/#{name}") do
-	FileUtils.rm_f ["#{soname}.so", 'Makefile', 'mkmf.log']
-	FileUtils.rm_f Dir.enum_for(:glob, '*.o').to_a
-    end
-end
-
-task :cruise => [:setup, 'doc:recore', :test]
-
-#########
-# Test-related targets
-
-desc 'run all tests'
-task :test => ['test:core', 'test:distributed']
-
-namespace 'test' do
-    desc 'run tests on the Core'
-    task 'core' => :setup do
-        if !system("testrb test/suite_core.rb")
-            puts "failed core suite"
-            exit(1)
-        end
-    end
-    desc 'run tests on Distributed Roby'
-    task 'distributed' => :setup do
-        if !system("testrb test/suite_distributed.rb")
-            puts "failed droby suite"
-            exit(1)
-        end
-    end
-end
-
-desc 'generate and build all the necessary files'
-task :setup => :uic do
-    build_extension 'droby', 'roby_marshalling'
-    build_extension 'graph', 'roby_bgl'
-end
-
-desc 'remove all generated files'
-task :clean => 'dist:clean' do
-    clean_extension 'droby'
-    clean_extension 'graph', 'bgl'
+    Rake.clear_tasks(/^default$/)
+rescue LoadError => e
+    STDERR.puts "The Hoe gem cannot be loaded. Some distribution functionality will not be available"
+    STDERR.puts "(such as e.g. gem packaging) will not be available, but the package should still"
+    STDERR.puts "be functional"
 end
 
 UIFILES = %w{gui/relations_view/relations.ui gui/relations_view/relations_view.ui gui/stepping.ui}
@@ -106,12 +42,29 @@ task :uic do
     end
 
     UIFILES.each do |file|
-	file = 'lib/roby/log/' + file
-	if !system(rbuic, '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
-	    STDERR.puts "Failed to generate #{file}"
-	end
+        file = 'lib/roby/log/' + file
+        if !system(rbuic, '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
+            STDERR.puts "Failed to generate #{file}"
+        end
     end
 end
+
+require 'rake/extensiontask'
+
+Rake::ExtensionTask.new 'roby_marshalling' do |ext|
+    if ENV['BOOST_DIR']
+        ext.config_options << "--with-boost-dir=#{ENV['BOOST_DIR']}" 
+    end
+end
+
+Rake::ExtensionTask.new 'roby_bgl' do |ext|
+    if ENV['BOOST_DIR']
+        ext.config_options << "--with-boost-dir=#{ENV['BOOST_DIR']}" 
+    end
+end
+
+task :default => :compile
+task :compile => :uic
 
 ###########
 # Documentation generation
@@ -121,6 +74,7 @@ end
 
 # This is for the user's guide
 begin
+    require 'utilrb/doc/rake'
     require 'roby/app/rake'
     require 'webgen/webgentask'
     do_doc = true

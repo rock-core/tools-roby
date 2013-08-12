@@ -515,7 +515,7 @@ static VALUE vertex_singleton_p(VALUE self)
 static VALUE graph_in_degree(VALUE _graph, VALUE _vertex)
 {
     RubyGraph& graph = graph_wrapped(_graph);
-    vertex_descriptor s, t; bool exists;
+    vertex_descriptor s; bool exists;
     tie(s, exists) = rb_to_vertex(_vertex, _graph);
     if (!exists) return INT2NUM(0);
     else return INT2NUM(in_degree(s, graph));
@@ -530,7 +530,7 @@ static VALUE graph_in_degree(VALUE _graph, VALUE _vertex)
 static VALUE graph_out_degree(VALUE _graph, VALUE _vertex)
 {
     RubyGraph& graph = graph_wrapped(_graph);
-    vertex_descriptor s, t; bool exists;
+    vertex_descriptor s; bool exists;
     tie(s, exists) = rb_to_vertex(_vertex, _graph);
     if (!exists) return INT2NUM(0);
     else return INT2NUM(out_degree(s, graph));
@@ -636,6 +636,7 @@ static VALUE graph_set_name(VALUE self, VALUE name)
 {
     RubyGraph& graph = graph_wrapped(self);
     graph.name = StringValuePtr(name);
+    return Qnil;
 }
 
 void Init_graph_algorithms();
