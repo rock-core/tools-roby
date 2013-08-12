@@ -384,6 +384,8 @@ module Roby
         }
 
 	def initialize
+            @app_dir = nil
+            @search_path = nil
 	    @plugins = Array.new
             @plugins_enabled = true
             @plan = Plan.new

@@ -172,7 +172,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
     def test_propagation_handlers_raises_on_error
         FlexMock.use do |mock|
-            id = engine.add_propagation_handler do |plan|
+            engine.add_propagation_handler do |plan|
                 mock.called
                 raise SpecificException
             end
@@ -184,7 +184,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     def test_propagation_handlers_disabled_on_error
         Roby.logger.level = Logger::FATAL
         FlexMock.use do |mock|
-            id = engine.add_propagation_handler :on_error => :disable do |plan|
+            engine.add_propagation_handler :on_error => :disable do |plan|
                 mock.called
                 raise
             end
@@ -196,7 +196,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
     def test_propagation_handlers_ignore_on_error
         FlexMock.use do |mock|
-            id = engine.add_propagation_handler :on_error => :ignore do |plan|
+            engine.add_propagation_handler :on_error => :ignore do |plan|
                 mock.called
                 raise
             end

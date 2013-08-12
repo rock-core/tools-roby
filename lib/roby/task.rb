@@ -155,6 +155,7 @@ module Roby
 	    @model   = self.class
             @abstract = @model.abstract?
             
+            @failed_to_start = false
             @started = false
             @finished = false
             @finishing = false
