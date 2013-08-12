@@ -30,7 +30,7 @@ module Roby
                 end
             end
 
-            # @!method argument(argument_name, options)
+            # @overload argument(argument_name, options)
             #   @param [String] argument_name the name of the new argument
             #   @param [Hash] options
             #   @option options default the default value for this argument. It

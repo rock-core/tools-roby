@@ -588,7 +588,7 @@ module Roby
         # stored in {PlanObject#removed_at}. It is false by default, as it is
         # pretty expensive.
         # 
-        # @param [Time,nil] the time at which it got finalized. It is stored in
+        # @param [Time,nil] timestamp the time at which it got finalized. It is stored in
         #   {#finalization_time}
         # @return [void]
         def finalized!(timestamp = nil)

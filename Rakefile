@@ -27,6 +27,7 @@ begin
         self.test_globs = ['test/suite_core.rb']
     end
     Rake.clear_tasks(/^default$/)
+    Rake.clear_tasks(/^doc$/)
 rescue LoadError => e
     STDERR.puts "The Hoe gem cannot be loaded. Some distribution functionality will not be available"
     STDERR.puts "(such as e.g. gem packaging) will not be available, but the package should still"

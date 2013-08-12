@@ -27,7 +27,6 @@ module Roby
 
         # Invoke the given target in all plugins found in plugins/ that define it
         def self.invoke_plugin_target(target)
-	    ENV['ROBY_ROOT_DIR'] = ROBY_ROOT_DIR
             Dir.new('plugins').each do |plugin_dir|
                 next if plugin_dir =~ /^\.{1,2}$/
 

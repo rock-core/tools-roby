@@ -1,10 +1,11 @@
 module Roby
-    # Implementation module for the task scripting capabilities. See
-    # TaskScripting::Script for details
     module Coordination
         extend Logger::Forward
         extend Logger::Hierarchy
 
+        # Implementation of a task script
+        #
+        # The model-level accessors and API is described in {Models::Script}
         class TaskScript < Base
             extend Models::Script
             include Script
@@ -167,7 +168,7 @@ module Roby
 
             # Executes the provided block once per execution cycle
             #
-            # Call {transition!} to quit the block
+            # Call {#transition!} to quit the block
             def poll(&block)
                 poll_until(poll_transition_event, &block)
             end
@@ -180,7 +181,7 @@ module Roby
                 event
             end
 
-            # Quit a {poll} block
+            # Quit a {#poll} block
             def transition!
                 root_task.poll_transition_event.emit
             end

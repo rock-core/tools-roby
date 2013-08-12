@@ -212,7 +212,7 @@ module Roby
     # * a graph, which is represented by the RelationGraph instance itself
     # * support methods that are defined on the vertices of the relation. They 
     #   allow to manage the vertex in its relations easily. Those methods are
-    #   defined in a separate module (see #support)
+    #   defined in a separate module (see {#support})
     #
     # In general, relations are part of a RelationSpace instance, which manages
     # the set of relations whose vertices are of the same kind (for instance
@@ -225,7 +225,7 @@ module Roby
 	attr_accessor :parent
 	# The set of graphs that are directly children of self in the graph
         # hierarchy. They are subgraphs of self, but not all the existing
-        # subgraphs of self. See {recursive_subsets} to get all subsets
+        # subgraphs of self. See {#recursive_subsets} to get all subsets
 	attr_reader   :subsets
         # The set of all graphs that are known to be subgraphs of self
         attr_reader :recursive_subsets

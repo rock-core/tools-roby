@@ -37,7 +37,7 @@ module Roby
 
             # Creates a new execution context model as a submodel of self
             #
-            # @param [Model<Roby::Task>] task_model the
+            # @param [Model<Roby::Task>] subclass the
             #   task model that is going to be used as a toplevel task for the
             #   state machine
             # @return [Model<StateMachine>] a subclass of StateMachine

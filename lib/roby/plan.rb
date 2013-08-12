@@ -61,7 +61,7 @@ module Roby
         # A set of pair of task matching objects and blocks defining this plan's
         # triggers
         #
-        # See {add_trigger}
+        # See {#add_trigger}
         attr_reader :triggers
 
 	# A set of tasks which are useful (and as such would not been garbage
@@ -1315,7 +1315,7 @@ module Roby
         # Creates a new planning pattern replacing the given task and its
         # current planner
         #
-        # @param [Roby::Task] the task that needs to be replanned
+        # @param [Roby::Task] task the task that needs to be replanned
         # @return [Roby::Task] the new planning pattern
         def replan(task)
             if !task.planning_task

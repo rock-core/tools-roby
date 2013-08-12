@@ -20,12 +20,12 @@ module Roby
 
             # Creates a new state machine model as a submodel of self
             #
-            # @param [Model<Interface>] action_interface the action
+            # @param [Model<Coordination::Actions>] submodel the submodel that
+            #   is being setup
+            # @option options [Model<Actions::Interface>] :action_interface the action
             #   interface model on which this state machine is defined
-            # @param [Model<Roby::Task>] task_model the
-            #   task model that is going to be used as a toplevel task for the
-            #   state machine
-            # @return [Model<StateMachine>] a subclass of StateMachine
+            # @option options [Model<Roby::Task>] :root the task model that is
+            #   going to be used as a toplevel task for the state machine
             def setup_submodel(submodel, options = Hash.new)
                 options, super_options = Kernel.filter_options options, :action_interface
                 super(submodel, super_options)

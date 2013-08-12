@@ -15,7 +15,7 @@ module Roby
                 #
                 # This sets the next value returned by #resolve
                 #
-                # @param [Roby::Task]
+                # @param [Roby::Task] task
                 def bind(task)
                     @task = task
                 end

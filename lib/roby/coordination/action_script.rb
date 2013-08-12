@@ -6,7 +6,7 @@ module Roby
             include Script
 
             # The list of instructions, instanciated from model.instructions
-            # using {Actions#instance_for}
+            # using {Base#instance_for}
             attr_reader :instructions
 
             # The current instruction

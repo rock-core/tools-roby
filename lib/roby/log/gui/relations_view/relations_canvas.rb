@@ -213,11 +213,11 @@ module Roby
             # Generates a SVG representation of a given task model, using the
             # task as proxy for the model
             #
-            # @param [Roby::Task] the Roby task
-            # @options options [String] path a file path to which the SVG should
+            # @param [Roby::Task] task the Roby task
+            # @option options [String] :path a file path to which the SVG should
             #   be saved
-            # @options options [Float] scale_x (Layout::DOT_TO_QT_SCALE_FACTOR_X)
-            # @options options [Float] scale_y (Layout::DOT_TO_QT_SCALE_FACTOR_Y)
+            # @option options [Float] :scale_x (Layout::DOT_TO_QT_SCALE_FACTOR_X)
+            # @option options [Float] :scale_y (Layout::DOT_TO_QT_SCALE_FACTOR_Y)
             #
             # @return [String,nil] if the file path is not set, the SVG content.
             #   Otherwise, nil.

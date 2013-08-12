@@ -39,8 +39,8 @@ module Roby
             # @param [Roby::Task] root_task the task instance that should be
             #   bound to {Models::Base#root}
             # @param [Hash] arguments parametrization of this coordination
-            #   object. The list of known arguments is in
-            #   {Models::Base#arguments}
+            #   object. The list of known arguments can be accessed with
+            #   model.arguments (defined by {Models::Arguments}.
             # @param [Hash] options
             # @option options [:drop,:copy] :on_replace (:drop) defines what
             #   should be done if the root task gets replaced. :drop means that

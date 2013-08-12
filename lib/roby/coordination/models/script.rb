@@ -84,7 +84,7 @@ module Roby
 
                 # Script element that implements {Script#emit}
                 class Emit < Coordination::ScriptInstruction
-                    # @return [ExecutionContext::Event] the event that should be
+                    # @return [Event] the event that should be
                     # emitted
                     attr_reader :event
 
@@ -141,8 +141,8 @@ module Roby
 
                 # Starts the given task
                 #
-                # @param [ExecutionContext::Task] task the action-task. It must be created by
-                #   calling {ExecutionContext#task} on the relevant object
+                # @param [Task] task the action-task. It must be created by
+                #   calling {Base#task} on the relevant object
                 # @param [Hash] options the dependency relation options. See
                 #   {Roby::TaskStructure::DependencyGraphClass::Extension#depends_on}
                 def start(task, options = Hash.new)
@@ -153,8 +153,8 @@ module Roby
 
                 # Starts the given task, and waits for it to successfully finish
                 #
-                # @param [ExecutionContext::Task] task the action-task. It must be created by
-                #   calling {ExecutionContext#task} on the relevant object
+                # @param [Task] task the action-task. It must be created by
+                #   calling {Base#task} on the relevant object
                 # @param [Hash] options the dependency relation options. See
                 #   {Roby::TaskStructure::DependencyGraphClass::Extension#depends_on}
                 def execute(task, options = Hash.new)
@@ -177,7 +177,7 @@ module Roby
                 # It will wait even if this event has already been emitted at
                 # this point in the script (i.e. waits for a "new" emission)
                 #
-                # @param [ExecutionContext::Event] event the event to wait for
+                # @param [Event] event the event to wait for
                 # @param [Hash] options
                 # @option options [Float] timeout a timeout (for backward
                 #   compatibility, use timeout(seconds) do ... end instead)
@@ -200,7 +200,7 @@ module Roby
 
                 # Emit the given event
                 #
-                # @param [ExecutionContext::Event]
+                # @param [Event] event
                 def emit(event)
                     validate_event event
                     instructions << Emit.new(event)
