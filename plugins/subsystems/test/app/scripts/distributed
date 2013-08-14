@@ -1,3 +1,0 @@
-#! /usr/bin/env ruby
-APP_DIR = File.expand_path('..', File.dirname(__FILE__))
-require 'roby/app/scripts/distributed'

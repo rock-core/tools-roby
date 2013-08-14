@@ -1,4 +1,0 @@
-=== 0.1 / 2008-04-15
-
-* First public release, along with Roby 0.7
-

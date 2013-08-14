@@ -515,7 +515,6 @@ module Roby
             end
 
             # Load the plugins 'main' files
-            load_plugins_from_prefix File.join(ROBY_ROOT_DIR, 'plugins')
             if plugin_path = ENV['ROBY_PLUGIN_PATH']
                 plugin_path.split(':').each do |plugin|
                     if File.directory?(plugin)
