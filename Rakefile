@@ -105,15 +105,8 @@ if do_doc
                 Roby::Rake.invoke_plugin_target("#{target_prefix}docs")
             end
         end
-        desc 'generate the documentation for all installed plugins'
-        plugins_documentation_generation ''
-        desc 'remove the documentation for all installed plugins'
-        plugins_documentation_generation 'clobber_'
-        desc 'regenerate the documentation for all installed plugins'
-        plugins_documentation_generation 're'
-
         desc 'generate all documentation'
-        task 'all' => ['doc:guide', 'doc:api', 'doc:plugins_docs']
+        task 'all' => ['doc:guide', 'doc:api']
         desc 'removes all documentation'
         task 'clobber' do
             FileUtils.rm_rf File.join('doc', 'html')
