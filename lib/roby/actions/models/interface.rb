@@ -27,9 +27,22 @@ module Roby
             # are specified)
             class ArgumentCountMismatch < ScriptError; end
 
-            # Adds all actions defined in this library in this interface
+            # Adds all actions defined in another action interface or in an
+            # action library in this interface
+            #
+            # @param [Module,Interface]
+            # @return [void]
             def use_library(library)
-                include library
+                if library <= Actions::Interface
+                    library.each_registered_action do |name, action|
+                        actions[name] = action
+                    end
+                    library.each_fault_response_table do |table|
+                        use_fault_response_table table
+                    end
+                else
+                    include library
+                end
             end
 
             # Enumerates the actions registered on this interface
