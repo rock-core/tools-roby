@@ -66,7 +66,13 @@ module Roby
             values.to_s
         end
 
-	def each_static
+        # @deprecated use {#each_assigned_argument} instead
+        def each_static(&block)
+            each_assigned_argument(&block)
+        end
+
+        # Enumerates the arguments that have been explicitly assigned
+	def each_assigned_argument
 	    each do |key, value|
 		if !value.respond_to?(:evaluate_delayed_argument)
 		    yield(key, value)

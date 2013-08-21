@@ -141,22 +141,6 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal({:arg => 'B', :assigned => true}, task.arguments)
     end
 
-    def test_arguments_assignation
-	model = Task.new_submodel { argument :arg }
-	plan.add(task = model.new)
-	task.arguments[:arg] = 'A'
-        assert_equal('A', task.arg)
-        assert_equal({ :arg => 'A' }, task.arguments)
-    end
-    
-    def test_arguments_assignation_operator
-	model = Task.new_submodel { argument :arg }
-	plan.add(task = model.new)
-        task.arg = 'B'
-        assert_equal('B', task.arg)
-        assert_equal({ :arg => 'B' }, task.arguments)
-    end
-
     def test_meaningful_arguments
 	model = Task.new_submodel { argument :arg }
 	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
@@ -171,16 +155,6 @@ class TC_Task < Test::Unit::TestCase
         end
         plan.add(child = child_model.new(:target => 10))
         assert_equal({:target => 10}, child.meaningful_arguments)
-    end
-
-    def test_arguments_cannot_override
-	model = Task.new_submodel { argument :arg }
-	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
-	assert_raises(ArgumentError) { task.arg = 10 }
-
-        # But we can override non-meaningful arguments
-	task.arguments[:bar] = 42
-	assert_nothing_raised { task.arguments[:bar] = 43 }
     end
 
     def test_arguments_partially_instanciated
