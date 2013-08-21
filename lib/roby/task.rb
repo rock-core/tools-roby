@@ -1163,7 +1163,7 @@ module Roby
         # True if this model requires an argument named +key+ and that argument
         # is set
         def has_argument?(key)
-            self.arguments.has_key?(key)
+            self.arguments.set?(key)
         end
 
         # True if +self+ can be used to replace +target+

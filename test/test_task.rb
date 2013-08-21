@@ -2321,5 +2321,27 @@ class TC_Task < Test::Unit::TestCase
         assert(matcher === LocalizedError.new(task.stop_event).to_execution_exception)
         assert(!(matcher === LocalizedError.new(Roby::Task.new.stop_event).to_execution_exception))
     end
+
+    def test_has_argument_p_returns_true_if_the_argument_is_set
+        task_m = Roby::Task.new_submodel { argument :arg }
+        plan.add(task = task_m.new(:arg => 10))
+        assert task.has_argument?(:arg)
+    end
+    def test_has_argument_p_returns_true_if_the_argument_is_set_with_nil
+        task_m = Roby::Task.new_submodel { argument :arg }
+        plan.add(task = task_m.new(:arg => nil))
+        assert task.has_argument?(:arg)
+    end
+    def test_has_argument_p_returns_false_if_the_argument_is_not_set
+        task_m = Roby::Task.new_submodel { argument :arg }
+        plan.add(task = task_m.new)
+        assert !task.has_argument?(:arg)
+    end
+    def test_has_argument_p_returns_false_if_the_argument_is_a_delayed_argument
+        task_m = Roby::Task.new_submodel { argument :arg }
+        delayed_arg = flexmock(:evaluate_delayed_argument => nil)
+        plan.add(task = task_m.new(:arg => delayed_arg))
+        assert !task.has_argument?(:arg)
+    end
 end
 
