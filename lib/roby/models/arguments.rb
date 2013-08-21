@@ -89,8 +89,8 @@ module Roby
             def meaningful_arguments(arguments)
                 self_arguments = self.arguments.to_set
                 result = Hash.new
-                arguments.values.each do |key, value|
-                    if self_arguments.include?(key) && !value.respond_to?(:evaluate_delayed_argument)
+                arguments.each_assigned_argument do |key, value|
+                    if self_arguments.include?(key)
                         result[key] = value
                     end
                 end
