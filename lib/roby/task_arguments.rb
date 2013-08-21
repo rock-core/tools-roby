@@ -73,6 +73,7 @@ module Roby
 
         # Enumerates the arguments that have been explicitly assigned
 	def each_assigned_argument
+            return enum_for(:each_assigned_argument) if !block_given?
 	    each do |key, value|
 		if !value.respond_to?(:evaluate_delayed_argument)
 		    yield(key, value)
