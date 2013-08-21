@@ -295,7 +295,7 @@ class TC_Dependency < Test::Unit::TestCase
         assert_raises(ModelViolation) { child.fullfilled_model }
     end
 
-    def test_fullfilled_model
+    def test_fullfilled_model_determination_from_dependency_relation
 	tag = TaskService.new_submodel
 	klass = Tasks::Simple.new_submodel do
 	    include tag
@@ -320,6 +320,14 @@ class TC_Dependency < Test::Unit::TestCase
         flexmock(task_model).should_receive(:fullfilled_model).and_return([Roby::Task, subtask = Roby::Task.new_submodel])
         plan.add(task = task_model.new)
         assert_equal [subtask], task.fullfilled_model[0]
+    end
+
+    def test_depends_on_ignores_delayed_arguments_when_computing_the_required_model
+        task_m = Roby::Task.new_submodel { argument :arg }
+        parent, child = prepare_plan :add => 2, :model => task_m
+        child.arg = flexmock(:evaluate_delayed_argument => nil)
+	parent.depends_on child
+        assert_equal Hash.new, parent[child, Roby::TaskStructure::Dependency][:model][1]
     end
 
     def test_explicit_fullfilled_model

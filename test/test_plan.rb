@@ -359,6 +359,16 @@ module TC_PlanStatic
         assert t3.child_object?(t2, TaskStructure::ExecutionAgent)
     end
 
+    def test_replace_can_replace_a_task_with_unset_delayed_arguments
+        task_m = Roby::Task.new_submodel do
+            argument :arg
+        end
+        delayed_arg = flexmock(:evaluate_delayed_argument => nil)
+        plan.add(original = task_m.new(:arg => delayed_arg))
+        plan.add(replacing = task_m.new(:arg => 10))
+        plan.replace(original, replacing)
+    end
+
     def test_free_events
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
 	plan.add_mission(t1)
