@@ -140,6 +140,11 @@ module Roby
 	    # A class => ID object which maps the anonymous classes we built for remote
 	    # models to the remote ID of these remote models
 	    def self.local_to_remote; @@local_to_remote end
+
+            def name
+                ancestors.first
+            end
+
 	    def to_s # :nodoc:
                 "#<dRoby:Model #{ancestors.first.first}"
             end
