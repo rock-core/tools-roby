@@ -106,7 +106,7 @@ module Roby
 
 		updating
 		values[key] = value
-		updated
+		updated(key, value)
 
                 if update_static
                     @static = values.all? { |k, v| !v.respond_to?(:evaluate_delayed_argument) }
@@ -117,7 +117,7 @@ module Roby
 	    end
 	end
 	def updating; super if defined? super end
-	def updated; super if defined? super end
+	def updated(key, value); super if defined? super end
 
         def [](key)
             key = key.to_sym if key.respond_to?(:to_str)
