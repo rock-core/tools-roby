@@ -51,7 +51,9 @@ module Roby
                 tasks.each do |task, roles|
                     known_transitions.each do |source_event, new_state|
                         source_event.resolve.on do |event|
-                            instanciate_state_transition(event.task, new_state)
+                            if root_task.running?
+                                instanciate_state_transition(event.task, new_state)
+                            end
                         end
                     end
                 end

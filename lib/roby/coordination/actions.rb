@@ -58,7 +58,11 @@ module Roby
 
                 @current_task = toplevel
                 forwards.each do |source, target|
-                    source.resolve.forward_to target.resolve
+                    source.resolve.on do |event|
+                        if target.resolve.task.running?
+                            target.resolve.emit
+                        end
+                    end
                 end
             end
 

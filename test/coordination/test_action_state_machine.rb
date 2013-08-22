@@ -284,5 +284,40 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         table = plan.active_fault_response_tables.first
         assert_equal Hash[:arg => 10], table.arguments
     end
+
+    def test_it_does_not_instanciates_transitions_if_the_root_task_is_finished
+        task_m = self.task_m
+        _, state_machine_m = action_m.action_state_machine 'test' do
+            task = state(task_m)
+            next_task = state(task_m)
+            start task
+            transition task.success_event, next_task
+        end
+        plan.add_permanent(task = task_m.new)
+        state_machine = state_machine_m.new(action_m, task)
+
+        task.start!
+        flexmock(state_machine).should_receive(:instanciate_state).never
+        plan.add_permanent(task.current_task_child)
+        task.current_task_child.start!
+        task.stop!
+        task.current_task_child.success_event.emit
+    end
+
+    def test_it_removes_forwarding_to_the_root_task_if_it_is_finished
+        task_m = self.task_m
+        _, state_machine_m = action_m.action_state_machine 'test' do
+            task = state(task_m)
+            start task
+            forward task.success_event, success_event
+        end
+        plan.add_permanent(task = task_m.new)
+        state_machine = state_machine_m.new(action_m, task)
+
+        task.start!
+        task.current_task_child.start!
+        task.stop!
+        task.current_task_child.success_event.emit
+    end
 end
 
