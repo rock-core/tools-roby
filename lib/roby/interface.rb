@@ -546,10 +546,13 @@ kill_job ID                       | stop job with the given ID                  
 	end
 
 	# Reload the Roby framework code
-        #
-        # WARNING: does not work for now
 	def reload_planners
-	    Roby.app.reload_planners
+	    reload_actions
+	end
+
+	# Reload the Roby framework code
+	def reload_actions
+	    Roby.app.reload_actions
 	    nil
 	end
 

@@ -1580,6 +1580,15 @@ module Roby
             require_models
         end
 
+        def reload_actions
+            unload_features("actions", ".*\.rb$")
+            unload_features("models", "actions", ".*\.rb$")
+            planners.each do |planner_model|
+                planner_model.clear_model
+            end
+            require_planners
+        end
+
         def reload_planners
             unload_features("planners", ".*\.rb$")
             unload_features("models", "planners", ".*\.rb$")
