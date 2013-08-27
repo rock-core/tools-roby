@@ -325,6 +325,50 @@ module Roby
 	    self
 	end
 
+        def tasks_to_start
+            known_tasks.reject do |kt| 
+                a = discarded_tasks.select do |dt|
+                    if dt.class != kt.class #micro optimization
+                        false 
+                    else
+                        dt.fullfills?(kt) or
+                        plan.known_tasks.select{|t| t.fullfills?(kt)}
+                    end
+                end
+                a.size != 0
+            end
+        end
+        
+        def tasks_to_reconfigure
+            arr = known_tasks.reject do |kt| 
+                a = discarded_tasks.select do |dt| 
+                    if dt.class != kt.class #micro optimization
+                        false 
+                    else
+                        dt.fullfills?(kt)
+                    end
+                end
+                a.size != 0
+            end
+            arr.delete_if do |kt|
+                tasks_to_start.include?(kt)
+            end
+            arr
+        end
+        
+        def tasks_to_stop
+            discarded_tasks.reject do |dt| 
+                a = known_tasks.select do |kt| 
+                    if dt.class != kt.class #micro optimization
+                        false 
+                    else
+                        dt.fullfills?(kt)
+                    end
+                end
+                a.size != 0
+            end
+        end
+
 	def unmark_permanent(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
             t = t.as_plan
