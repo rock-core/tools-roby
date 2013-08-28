@@ -1549,23 +1549,6 @@ module Roby
                     next if m.permanent_model?
 
                     Roby::Transaction::Proxying.proxying_modules.delete(m)
-
-                    # Deregister non-permanent models that are registered in the
-                    # constant hierarchy
-                    valid_name =
-                        begin
-                            constant(m.name) == m
-                        rescue NameError
-                        end
-
-                    if valid_name
-                        parent_module =
-                            if m.name =~ /::/
-                                m.name.gsub(/::[^:]*$/, '')
-                            else Object
-                            end
-                        constant(parent_module).send(:remove_const, m.name.gsub(/.*::/, ''))
-                    end
                 end
             end
             call_plugins(:clear_models, self)
