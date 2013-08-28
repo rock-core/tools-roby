@@ -68,7 +68,7 @@ module Roby
             # @return Action
             def describe(doc = nil)
                 if @current_description
-                    Interface.warn "#{@current_description} started but never used. Did you forget to add a method to your action interface ?"
+                    Actions::Interface.warn "#{@current_description} started but never used. Did you forget to add a method to your action interface ?"
                 end
                 @current_description = Models::Action.new(self, doc)
             end
