@@ -551,7 +551,9 @@ reload_actions                    | reload action definitions (faster than reloa
         #
         # Do NOT do this while the robot does critical things
         def reload_models
-            Roby.app.reload_models
+            Roby.execute do
+                Roby.app.reload_models
+            end
             nil
         end
 
@@ -562,7 +564,9 @@ reload_actions                    | reload action definitions (faster than reloa
 
 	# Reload the Roby framework code
 	def reload_actions
-	    Roby.app.reload_actions
+            Roby.execute do
+                Roby.app.reload_actions
+            end
 	    nil
 	end
 
