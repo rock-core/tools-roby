@@ -400,6 +400,7 @@ jobs                              | the list of actions started with the associa
 job ID                            | returns the task object for job ID                      |
 kill_job ID                       | stop job with the given ID                              |
 reload_models                     | reload all models                                       |
+reload_actions                    | reload action definitions (faster than reload_models)   |
 
             EOHELP
         end
