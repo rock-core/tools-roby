@@ -554,6 +554,8 @@ reload_actions                    | reload action definitions (faster than reloa
             Roby.app.reload_models
             nil
         end
+
+	# @deprecated use {#reload_actions} instead
 	def reload_planners
 	    reload_actions
 	end
