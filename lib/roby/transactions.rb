@@ -326,17 +326,19 @@ module Roby
 	end
 
         def tasks_to_start
-            known_tasks.reject do |kt| 
-                a = discarded_tasks.select do |dt|
-                    if dt.class != kt.class #micro optimization
-                        false 
-                    else
-                        dt.fullfills?(kt) or
-                        plan.known_tasks.select{|t| t.fullfills?(kt)}
-                    end
-                end
-                a.size != 0
-            end
+            known_tasks.reject{|t| proxy_objects.values.select{|v| t == v}.size != 0}
+#            known_tasks - proxy_objects.values
+#            known_tasks.reject do |kt| 
+#                a = discarded_tasks.select do |dt|
+#                    if dt.class != kt.class #micro optimization
+#                        false 
+#                    else
+#                        dt.fullfills?(kt) or
+#                        plan.known_tasks.select{|t| t.fullfills?(kt)}
+#                    end
+#                end
+#                a.size != 0
+#            end
         end
         
         def tasks_to_reconfigure
@@ -357,16 +359,19 @@ module Roby
         end
         
         def tasks_to_stop
-            discarded_tasks.reject do |dt| 
-                a = known_tasks.select do |kt| 
-                    if dt.class != kt.class #micro optimization
-                        false 
-                    else
-                        dt.fullfills?(kt)
-                    end
+            rc_tasks = tasks_to_reconfigure
+            to_start_tasks = tasks_to_start
+
+            res = unneeded_tasks.select do |u| 
+                a = rc_tasks.select do |r| 
+                    u.class.fullfills?(r.class) 
                 end
-                a.size != 0
+                a.size == 0
             end
+            res.delete_if do |d| 
+                to_start_tasks.include?(d)
+            end
+            res
         end
 
 	def unmark_permanent(t)
