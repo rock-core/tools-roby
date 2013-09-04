@@ -16,17 +16,27 @@ module Roby
 	    super()
 	end
 
+        # True if none of the argument values are delayed objects
         def static?
             @static
         end
 
-        def has_key?(value)
-            values.has_key?(value)
+        # True if an argument with that name is assigned, be it a proper value
+        # or a delayed value object
+        def has_key?(key)
+            values.has_key?(key)
         end
+
+        # The set of argument names that have been assigned so far, either
+        # with a proper object or a delayed value object
         def keys
             values.keys
         end
 
+        # True if it is possible to write the given value to the given argument 
+        #
+        # @param [Symbol] key the argument name
+        # @param [Object] value the new argument value
 	def writable?(key, value)
             if has_key?(key)
                 !task.model.arguments.include?(key) ||
@@ -36,6 +46,11 @@ module Roby
             end
 	end
 
+        # Returns the listed set of arguments
+        #
+        # @param [Array<Symbol>] args the argument names
+        #
+        # Delayed arguments are evaluated before it is sliced
         def slice(*args)
             evaluate_delayed_arguments.slice(*args)
         end
@@ -45,14 +60,22 @@ module Roby
 	    values.dup
 	end
 
+        # Tests if a given argument has been set with a proper value (not a
+        # delayed value object)
 	def set?(key)
 	    has_key?(key) && !values.fetch(key).respond_to?(:evaluate_delayed_argument)
 	end
 
+        # True if the arguments are equal
+        #
+        # Both proper values and delayed values have to be equal
+        #
+        # @return [Boolean]
         def ==(hash)
             to_hash == hash.to_hash
         end
 
+        # Pretty-prints this argument set
         def pretty_print(pp)
             pp.seplist(values) do |keyvalue|
                 key, value = *keyvalue
@@ -87,10 +110,22 @@ module Roby
             end
         end
 
+        # Updates the given argument, regardless of whether it is allowed or not
+        #
+        # @see {#writable?}
+        # @param [Symbol] key the argument name
+        # @param [Object] value the new argument value
+        # @return [Object]
 	def update!(key, value)
             values[key] = value
         end
 
+        # Assigns a value to a given argument name
+        #
+        # The method validates that writing this argument value is allowed
+        #
+        # @raise OwnershipError if we don't own the task
+        # @raise ArgumentError if the argument is already set
 	def []=(key, value)
             key = key.to_sym if key.respond_to?(:to_str)
 	    if writable?(key, value)
@@ -128,6 +163,8 @@ module Roby
         end
 
         # Returns this argument set, but with the delayed arguments evaluated
+        #
+        # @return [Hash]
         def evaluate_delayed_arguments
             result = Hash.new
             values.each do |key, val|
