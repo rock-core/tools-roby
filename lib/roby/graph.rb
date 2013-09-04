@@ -369,6 +369,8 @@ module BGL
                     end
                 end
 
+#                binding.pry
+
                 self_v.each_child_vertex(self) do |self_child|
                     # If we already worked on +self_child+, this connection has
                     # already been taken into account

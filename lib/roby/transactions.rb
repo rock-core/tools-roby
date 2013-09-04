@@ -326,19 +326,12 @@ module Roby
 	end
 
         def tasks_to_start
-            known_tasks.reject{|t| proxy_objects.values.select{|v| t == v}.size != 0}
-#            known_tasks - proxy_objects.values
-#            known_tasks.reject do |kt| 
-#                a = discarded_tasks.select do |dt|
-#                    if dt.class != kt.class #micro optimization
-#                        false 
-#                    else
-#                        dt.fullfills?(kt) or
-#                        plan.known_tasks.select{|t| t.fullfills?(kt)}
-#                    end
-#                end
-#                a.size != 0
-#            end
+            known_tasks.reject do |t| 
+                tmp = proxy_objects.values.select do |v| 
+                    t == v
+                end
+                tmp.size != 0
+            end
         end
         
         def tasks_to_reconfigure
@@ -357,7 +350,24 @@ module Roby
             end
             arr
         end
-        
+       
+        def changes_in_dataflow
+            new_flow = nil
+            begin
+            binding.pry
+            current_flow = Syskit::Flows::DataFlow
+            #Getting the new flow, but this includes all old-knots too
+            new_flow = current_flow.difference(current_flow, plan.real_plan.find_tasks(Syskit::Component).to_a) do |plan_task|
+                   proxy_objects[plan_task]
+            end
+
+            rescue Exception => e
+                #Testing code so does not rise up
+                STDERR.puts e
+            end
+            new_flow
+        end
+
         def tasks_to_stop
             rc_tasks = tasks_to_reconfigure
             to_start_tasks = tasks_to_start
