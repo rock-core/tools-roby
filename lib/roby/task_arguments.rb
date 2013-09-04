@@ -94,9 +94,21 @@ module Roby
             each_assigned_argument(&block)
         end
 
+        # Returns the set of arguments for which a proper value has been
+        # assigned
+        #
+        # @return [Hash]
+        def assigned_arguments
+            result = Hash.new
+            each_assigned_argument do |k, v|
+                result[k] = v
+            end
+            result
+        end
+
         # Enumerates the arguments that have been explicitly assigned
 	def each_assigned_argument
-            return enum_for(:each_assigned_argument) if !block_given?
+            return assigned_arguments if !block_given?
 	    each do |key, value|
 		if !value.respond_to?(:evaluate_delayed_argument)
 		    yield(key, value)
