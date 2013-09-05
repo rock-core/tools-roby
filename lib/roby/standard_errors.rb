@@ -424,5 +424,36 @@ module Roby
     # Exception raised in threads which are waiting for the control thread
     # See for instance Roby.execute
     class ExecutionQuitError < RuntimeError; end
+
+    # Exception raised when a child is being resolved by role, but the role is
+    # not associated with any child
+    class NoSuchChild < ArgumentError
+        # @return [Object] the object whose children we try to access
+        attr_reader :object
+        # @return [String] the role that failed to be resolved
+        attr_reader :role
+        # @return [{String=>Object}] the set of known children
+        attr_reader :known_children
+
+        def initialize(object, role, known_children)
+            @object, @role, @known_children = object, role, known_children
+        end
+
+        def pretty_print(pp)
+            pp.text "#{object} has no child with the role '#{role}'"
+
+            if known_children.empty?
+                pp.text ", actually, it has no child at all"
+            else
+                pp.text ". Known children:"
+                pp.nest(2) do
+                    known_children.each do |role, child|
+                        pp.breakable
+                        pp.text "#{role}: #{child}"
+                    end
+                end
+            end
+        end
+    end
 end
 
