@@ -1334,6 +1334,10 @@ module Roby
             @service ||= (plan.find_plan_service(self) || PlanService.new(self))
         end
 
+        def as_plan
+            self
+        end
+
         def when_finalized(options = Hash.new, &block)
             default = if abstract? then :copy else :drop end
             options, remaining = InstanceHandler.filter_options options, :on_replace => default

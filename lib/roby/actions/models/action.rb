@@ -101,7 +101,7 @@ module Roby
                     if !arguments.empty?
                         raise ArgumentError, "#{name} expects no arguments, but #{arguments.size} are given"
                     end
-                    action_interface.send(name)
+                    action_interface.send(name).as_plan
                 else
                     default_arguments = self.arguments.inject(Hash.new) do |h, arg|
                         h[arg.name] = arg.default
@@ -113,7 +113,7 @@ module Roby
                             raise ArgumentError, "required argument #{arg.name} not given to #{name}"
                         end
                     end
-                    action_interface.send(name, arguments)
+                    action_interface.send(name, arguments).as_plan
                 end
             end
 
