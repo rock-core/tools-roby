@@ -771,25 +771,31 @@ module Roby
             registered_exceptions.clear
         end
 
+        def isolate_load_errors(message, logger = Application, level = :warn)
+            begin
+                yield
+            rescue Interrupt
+                raise
+            rescue ::Exception => e
+                register_exception(e, message)
+                if ignore_all_load_errors?
+                    Robot.warn message
+                    Roby.log_exception(e, logger, level)
+                    Roby.log_backtrace(e, logger, level)
+                else raise
+                end
+            end
+        end
+
         def require(absolute_path)
             # Make the file relative to the search path
             file = make_path_relative(absolute_path)
             Roby::Application.info "loading #{file} (#{absolute_path})"
-            begin
+            isolate_load_errors("ignored file #{file}") do
                 if file != absolute_path
                     Kernel.require(file)
                 else
                     Kernel.require absolute_path
-                end
-            rescue Interrupt
-                raise
-            rescue ::Exception => e
-                register_exception(e, "ignored file #{file}")
-                if ignore_all_load_errors?
-                    Robot.warn "ignored file #{file}"
-                    Roby.log_exception(e, Application, :warn)
-                    Roby.log_backtrace(e, Application, :warn)
-                else raise
                 end
             end
         end
