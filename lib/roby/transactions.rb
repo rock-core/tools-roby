@@ -354,7 +354,6 @@ module Roby
         def changes_in_dataflow
             new_flow = nil
             begin
-            binding.pry
             current_flow = Syskit::Flows::DataFlow
             #Getting the new flow, but this includes all old-knots too
             new_flow = current_flow.difference(current_flow, plan.real_plan.find_tasks(Syskit::Component).to_a) do |plan_task|
@@ -365,6 +364,7 @@ module Roby
                 #Testing code so does not rise up
                 STDERR.puts e
             end
+            binding.pry
             new_flow
         end
 
