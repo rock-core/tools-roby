@@ -110,10 +110,10 @@ module Roby::TaskStructure
                 known_children = Hash.new
                 merged_relations(:each_child_object, false, Dependency) do |myself, child|
                     myself[child, Dependency][:roles].each do |role|
-                        known_children[role] << child
+                        known_children[role] = child
                     end
                 end
-                raise NoSuchChild.new(self, role_name, known_children), "#{self} has no child with the role '#{role_name}'"
+                raise Roby::NoSuchChild.new(self, role_name, known_children), "#{self} has no child with the role '#{role_name}'"
             end
             child
         end

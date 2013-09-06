@@ -573,7 +573,7 @@ class TC_Dependency < Test::Unit::TestCase
 
         assert_equal child, parent.child_from_role('child0')
         assert_equal nil, parent.find_child_from_role('nonexist')
-        assert_raises(ArgumentError) { parent.child_from_role('nonexist') }
+        assert_raises(NoSuchChild) { parent.child_from_role('nonexist') }
     ensure
 	plan.add(parent) if parent
     end
@@ -584,7 +584,7 @@ class TC_Dependency < Test::Unit::TestCase
 
         assert_equal child, parent.child_from_role('child0')
         assert_equal nil, parent.find_child_from_role('nonexist')
-        assert_raises(ArgumentError) { parent.child_from_role('nonexist') }
+        assert_raises(NoSuchChild) { parent.child_from_role('nonexist') }
     end
 
     def test_child_from_role_in_transaction
