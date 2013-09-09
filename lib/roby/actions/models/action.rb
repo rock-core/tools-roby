@@ -10,6 +10,26 @@ module Roby
                 def pretty_print(pp)
                     pp.text "#{name}: #{doc} (#{if required then 'required' else 'optional' end})"
                 end
+
+                def droby_dump(peer)
+                    result = self.dup
+                    result.droby_dump!(peer)
+                    result
+                end
+
+                def droby_dump!(peer)
+                    self.default = default.droby_dump(peer)
+                end
+
+                def proxy(peer)
+                    result = dup
+                    result.proxy!(peer)
+                    result
+                end
+
+                def proxy!(peer)
+                    self.default = peer.local_object(default)
+                end
             end
 
             # The action interface on which this action is defined
@@ -141,6 +161,7 @@ module Roby
             def droby_dump!(dest)
                 @action_interface_model = action_interface_model.droby_dump(dest)
                 @returned_type = returned_type.droby_dump(dest)
+                @arguments = arguments.droby_dump(dest)
                 @returned_task_type = nil
             end
 
@@ -151,13 +172,14 @@ module Roby
                 end
 
                 result = self.dup
-                result.proxy!(peer, interface_model)
+                result.proxy!(peer, interface_model, arguments)
                 result
             end
 
-            def proxy!(peer, interface_model)
+            def proxy!(peer, interface_model, arguments)
                 @action_interface_model = interface_model
                 @returned_type = returned_type.proxy(peer)
+                @arguments = arguments.proxy(peer)
             end
 
             def to_s
