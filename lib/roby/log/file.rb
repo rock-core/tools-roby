@@ -390,7 +390,7 @@ module Roby::Log
                         rescue Exception => e
                             Roby::Log.fatal "cannot dump #{obj}"
                             Roby::Log.fatal e.to_s
-                            obj, exception = find_invalid_marshalling_object(obj)
+                            obj, exception = self.class.find_invalid_marshalling_object(obj)
                             if obj
                                 Roby::Log.fatal "  it seems that #{obj} can't be marshalled"
                                 Roby::Log.fatal "    #{exception.class}: #{exception.message}"
@@ -401,7 +401,7 @@ module Roby::Log
             end
 	end
 
-        def find_invalid_marshalling_object(obj, stack = Set.new)
+        def self.find_invalid_marshalling_object(obj, stack = Set.new)
             if stack.include?(obj)
                 return
             end
@@ -412,7 +412,7 @@ module Roby::Log
                 obj.each do |value|
 		    invalid, exception = find_invalid_marshalling_object(value, stack)
                     if invalid
-                        return "#{invalid}, included in #{obj}", exception
+                        return "#{invalid}, []", exception
                     end
                 end
             end
@@ -422,7 +422,7 @@ module Roby::Log
                 value = obj.instance_variable_get(iv)
 		invalid, exception = find_invalid_marshalling_object(value, stack)
                 if invalid
-                    return "#{invalid}, instance variable #{obj}.#{iv}", exception
+                    return "#{invalid}, #{iv}", exception
                 end
             end
 
@@ -430,7 +430,11 @@ module Roby::Log
                 Marshal.dump(obj)
                 nil
             rescue Exception => e
-                return "#{obj} (#{obj.class})", e
+                begin
+                    return "#{obj} (#{obj.class})", e
+                rescue Exception
+                    return "-- cannot display object, #to_s raised -- (#{obj.class})", e
+                end
             end
         end
 
