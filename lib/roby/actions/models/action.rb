@@ -8,7 +8,13 @@ module Roby
             # See MethodDescription
             Argument = Struct.new :name, :doc, :required, :default do
                 def pretty_print(pp)
-                    pp.text "#{name}: #{doc} (#{if required then 'required' else 'optional' end})"
+                    pp.text "#{name}: #{doc}"
+                    if required then pp.text ' (required)'
+                    else pp.text ' (optional)'
+                    end
+                    if default
+                        pp.text " default=#{default}"
+                    end
                 end
 
                 def droby_dump(peer)
