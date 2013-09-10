@@ -47,221 +47,6 @@ class Class
 end
 
 module Roby
-    module Models
-        class TaskServiceModel
-            @@local_to_remote = Hash.new
-            @@remote_to_local = Hash.new
-            def self.local_to_remote; @@local_to_remote end
-            def self.remote_to_local; @@remote_to_local end
-
-            class DRoby
-                attr_reader :tagdef
-                def initialize(tagdef); @tagdef = tagdef end
-                def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump(tagdef) end
-                def self._load(str); DRoby.new(Marshal.load(str)) end
-
-                def proxy(peer)
-                    including = []
-                    factory = if peer then peer.method(:local_task_tag)
-                              else
-                                  DRoby.method(:anon_tag_factory)
-                              end
-
-                    tagdef.each do |name, remote_tag|
-                        tag = DRoby.local_tag(name, remote_tag, factory) do |tag|
-                            including.each { |mod| tag.include mod }
-                        end
-                        including << tag
-                    end
-                    including.last
-                end
-
-                def self.anon_tag_factory(tag_name)
-                    m = Roby::TaskService.new_submodel
-                    m.name = tag_name
-                    m
-                end
-
-                def self.local_tag(name, remote_tag, unknown_model_factory = method(:anon_tag_factory))
-                    if !remote_tag.kind_of?(Distributed::RemoteID)
-                        remote_tag
-                    elsif local_model = TaskServiceModel.remote_to_local[remote_tag]
-                        local_model
-                    else
-                        if name && !name.empty?
-                            local_model = constant(name) rescue nil
-                        end
-                        unless local_model
-                            local_model = unknown_model_factory[name]
-                            TaskServiceModel.remote_to_local[remote_tag] = local_model
-                            TaskServiceModel.local_to_remote[local_model] = [name, remote_tag]
-                            yield(local_model) if block_given?
-                        end
-                        local_model
-                    end
-                end
-
-                def ==(other)
-                    other.kind_of?(DRoby) && 
-                        tagdef.zip(other.tagdef).all? { |a, b| a == b }
-                end
-            end
-
-            def droby_dump(dest)
-                unless @__droby_marshalled__
-                    tagdef = ancestors.map do |mod|
-                        if mod.kind_of?(TaskServiceModel)
-                            unless id = TaskServiceModel.local_to_remote[mod]
-                                id = [mod.name, mod.remote_id]
-                            end
-                            id
-                        end
-                    end
-                    tagdef.compact!
-                    @__droby_marshalled__ = DRoby.new(tagdef.reverse)
-                end
-                @__droby_marshalled__
-            end
-        end
-    end
-
-    class TaskMatcher
-        # An intermediate representation of TaskMatcher objects suitable to be
-        # sent to our peers.
-	class DRoby
-	    attr_reader :args
-	    def initialize(args); @args = args end
-	    def _dump(lvl) # :nodoc:
-                Marshal.dump(args) 
-            end
-
-	    def self._load(str) # :nodoc:
-		setup_matcher(TaskMatcher.new, Marshal.load(str))
-	    end
-
-            # Common initialization of a TaskMatcher object from the given
-            # argument set. This is to be used by DRoby-dumped versions of
-            # subclasses of TaskMatcher.
-	    def self.setup_matcher(matcher, args)
-		model, args, predicates, neg_predicates, owners = *args
-		model  = model.proxy(nil) if model
-		owners = owners.map { |peer| peer.local_object(nil) } if owners
-		args   = args
-
-		matcher = matcher.with_model(model).with_arguments(args || {})
-		matcher.predicates.merge(predicates)
-		matcher.owners.concat(owners)
-		matcher
-	    end
-	end
-
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer. +klass+ is the actual class of the intermediate
-        # representation. It is used for code reuse by subclasses of
-        # TaskMatcher.
-	def droby_dump(dest, klass = DRoby)
-	    args = [model, arguments, predicates, neg_predicates, owners]
-	    klass.new args.droby_dump(dest)
-	end
-    end
-    class Query
-        # An intermediate representation of Query objects suitable to be sent
-        # to our peers.
-	class DRoby # :nodoc:
-	    attr_reader :plan_predicates, :neg_plan_predicates, :matcher
-	    def initialize(plan_predicates, neg_plan_predicates, matcher)
-		@plan_predicates, @neg_plan_predicates, @matcher = 
-		    plan_predicates, neg_plan_predicates, matcher
-	    end
-
-	    def _dump(lvl) # :nodoc:
-		Marshal.dump([plan_predicates, neg_plan_predicates, matcher])
-	    end
-
-	    def self._load(str) # :nodoc:
-		DRoby.new(*Marshal.load(str))
-	    end
-
-	    def to_query(plan)
-		query = TaskMatcher::DRoby.setup_matcher(plan.find_tasks, matcher)
-		query.plan_predicates.concat(plan_predicates)
-		query.neg_plan_predicates.concat(neg_plan_predicates)
-		query
-	    end
-
-	    def proxy(peer)
-		to_query(peer.connection_space.plan)
-	    end
-	end
-	
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer.
-	def droby_dump(dest)
-	    marshalled_matcher = super
-	    DRoby.new(plan_predicates, neg_plan_predicates, marshalled_matcher.args)
-	end
-    end
-
-    class OrTaskMatcher
-        # An intermediate representation of OrTaskMatcher objects suitable to
-        # be sent to our peers.
-	class DRoby < TaskMatcher::DRoby
-	    def self._load(str) # :nodoc:
-		args = Marshal.load(str)
-		ops  = args.pop
-		setup_matcher(OrTaskMatcher.new(*ops), args)
-	    end
-	end
-	
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer.
-	def droby_dump(dest)
-	    m = super(dest, OrTaskMatcher::DRoby)
-	    m.args << @ops
-	    m
-	end
-    end
-    class AndTaskMatcher
-        # An intermediate representation of AndTaskMatcher objects suitable to
-        # be sent to our peers.
-	class DRoby < TaskMatcher::DRoby
-	    def self._load(str) # :nodoc:
-		args = Marshal.load(str)
-		ops  = args.pop
-		setup_matcher(AndTaskMatcher.new(*ops), args)
-	    end
-	end
-	
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer.
-	def droby_dump(dest)
-	    m = super(dest, AndTaskMatcher::DRoby)
-	    m.args << @ops
-	    m
-	end
-    end
-    class NegateTaskMatcher
-        # An intermediate representation of NegateTaskMatcher objects suitable to
-        # be sent to our peers.
-	class DRoby < TaskMatcher::DRoby
-	    def self._load(str) # :nodoc:
-		args = Marshal.load(str)
-		op  = args.pop
-		setup_matcher(NegateTaskMatcher.new(op), args)
-	    end
-	end
-	
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer.
-	def droby_dump(dest)
-	    m = super(dest, NegateTaskMatcher::DRoby)
-	    m.args << @op
-	    m
-	end
-    end
-end
-
-module Roby
     module Distributed
         # If set to true, enable some consistency-checking code in the
         # communication code.
@@ -334,6 +119,9 @@ module Roby
 	    def proxy(peer); constant(name) end
 	end
 
+        class Roby::LocalizedError
+            extend Roby::Distributed::DRobyConstant::Dump
+        end
 	class Roby::RelationGraph
 	    include Roby::Distributed::DRobyConstant::Dump
 	end
@@ -352,6 +140,11 @@ module Roby
 	    # A class => ID object which maps the anonymous classes we built for remote
 	    # models to the remote ID of these remote models
 	    def self.local_to_remote; @@local_to_remote end
+
+            def name
+                ancestors.first
+            end
+
 	    def to_s # :nodoc:
                 "#<dRoby:Model #{ancestors.first.first}"
             end
@@ -566,25 +359,5 @@ class Exception
     # Returns an intermediate representation of +self+ suitable to be sent to
     # the +dest+ peer.
     def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), message) end
-end
-
-module Roby
-    class LocalizedError
-        class DRoby
-            attr_reader :model, :failure_point, :message
-            def initialize(model, failure_point, message); @model, @failure_point, @message = model, failure_point, message end
-
-            def proxy(peer)
-                failure_point = peer.local_object(self.failure_point)
-                error = LocalizedError.new(failure_point)
-                error.exception(message)
-                error
-            end
-        end
-
-        # Returns an intermediate representation of +self+ suitable to be sent to
-        # the +dest+ peer.
-        def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), Distributed.format(failure_point, dest), message) end
-    end
 end
 

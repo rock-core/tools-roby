@@ -54,9 +54,6 @@ module Roby
         # parent tasks to be stopped if unhandled.
         def fatal?; exception.fatal? end
     
-	# The exception siblings (the ExecutionException objects
-	# that come from the same exception object)
-	attr_reader :siblings
 	# The origin EventGenerator if there is one
 	attr_reader :generator
 	# The exception object
@@ -64,27 +61,22 @@ module Roby
 
 	# If this specific exception has been marked has handled
 	attr_accessor :handled
-	# If this exception or one of its siblings has been marked as handled
+	# If this exception has been marked as handled
 	def handled?
-	    siblings.find { |s| s.handled }
-	end
-	# Enumerates this exception's siblings
-	def each_sibling
-	    for e in siblings
-		yield(e) unless e == self
-	    end
+	    handled
 	end
         # Enumerates all tasks that are involved in this exception (either
         # origin or in the trace)
         def each_involved_task
             return enum_for(:each_involved_task) if !block_given?
             trace.each do |tr|
-                if tr.respond_to?(:to_ary)
-                    tr.each { |t| yield(t) }
-                else
-                    yield(tr)
-                end
+                yield(tr)
             end
+        end
+
+        # Resets the trace to [origin]
+        def reset_trace
+            @trace = [origin]
         end
 
         # True if this exception originates from the given task or generator
@@ -99,7 +91,6 @@ module Roby
 	def initialize(exception)
 	    @exception = exception
 	    @trace = Array.new
-	    @siblings = [self]
 
 	    if task = exception.failed_task
 		@trace << exception.failed_task
@@ -115,31 +106,45 @@ module Roby
 
 	# Create a sibling from this exception
 	def fork
-	    sibling = dup
-	    self.siblings << sibling
-	    sibling
+	    dup
 	end
 
 	# Merges +sibling+ into this object
 	def merge(sibling)
-	    siblings.delete(sibling)
-
-	    topstack   = trace.pop
-	    s_topstack = sibling.trace.pop
-
-	    origin     = trace.shift
-	    s_origin   = sibling.trace.shift
-	    origin     = origin || s_origin || topstack
-
-	    new_top    = (Array[*topstack] | Array[*s_topstack])
-            new_top = new_top.first if new_top.size == 1
-	    @trace = [origin] + (trace | sibling.trace) << new_top
+            new_trace = sibling.trace.find_all do |t|
+                !trace.include?(t)
+            end
+            @trace = self.trace + new_trace
+            self
 	end
 
 	def initialize_copy(from)
 	    super
 	    @trace = from.trace.dup
 	end
+
+        def to_execution_exception
+            self
+        end
+
+        def pretty_print(pp)
+            pp.text "from #{origin} with trace "
+            pp.nest(2) do
+                pp.breakable
+                pp.nest(2) do
+                    trace.each do |t|
+                        pp.breakable
+                        pp.text t.to_s
+                    end
+                end
+                pp.breakable
+                pp.text "Exception:"
+                pp.nest(2) do
+                    pp.breakable
+                    exception.pretty_print(pp)
+                end
+            end
+        end
     end
 
     # This module is to be included in all objects that are
@@ -160,14 +165,19 @@ module Roby
 	end
 
         def add_error(error)
-            engine.additional_errors << error
+            engine.add_error(error)
         end
 
 	# Calls the exception handlers defined in this task for +exception_object.exception+
 	# Returns true if the exception has been handled, false otherwise
 	def handle_exception(exception_object)
-	    each_exception_handler do |matchers, handler|
-		if matchers.find { |m| m === exception_object.exception }
+	    each_exception_handler do |matcher, handler|
+                if exception_object.exception.kind_of?(FailedExceptionHandler)
+                    # Do not handle a failed exception handler by itself
+                    next if exception_object.exception.handler == handler
+                end
+
+                if matcher === exception_object
 		    catch(:next_exception_handler) do 
 			begin
 			    handler.call(self, exception_object)
@@ -176,7 +186,7 @@ module Roby
 			    if !kind_of?(PlanObject)
 				engine.add_framework_error(e, 'global exception handling')
 			    else
-				add_error(FailedExceptionHandler.new(e, self, exception_object))
+				add_error(FailedExceptionHandler.new(e, self, exception_object, handler))
 			    end
 			end
 		    end

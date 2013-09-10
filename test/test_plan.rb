@@ -359,6 +359,16 @@ module TC_PlanStatic
         assert t3.child_object?(t2, TaskStructure::ExecutionAgent)
     end
 
+    def test_replace_can_replace_a_task_with_unset_delayed_arguments
+        task_m = Roby::Task.new_submodel do
+            argument :arg
+        end
+        delayed_arg = flexmock(:evaluate_delayed_argument => nil)
+        plan.add(original = task_m.new(:arg => delayed_arg))
+        plan.add(replacing = task_m.new(:arg => 10))
+        plan.replace(original, replacing)
+    end
+
     def test_free_events
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
 	plan.add_mission(t1)
@@ -420,7 +430,9 @@ module TC_PlanStatic
 	plan.real_plan.add [t, e]
 	engine.garbage_collect
 	assert_raises(ArgumentError) { plan.add(t) }
+        assert !plan.known_tasks.include?(t)
 	assert_raises(ArgumentError) { plan.add(e) }
+        assert !plan.known_tasks.include?(e)
     end
 
     def test_proxy_operator
@@ -608,6 +620,107 @@ class TC_Plan < Test::Unit::TestCase
 
         assert_equal plan, root.plan
         assert_equal plan, t1.plan
+    end
+
+    def test_discover_new_objects_single_object
+        t = Roby::Task.new
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = ValueSet.new), [t].to_value_set)
+        assert_equal [t], new.to_a
+        assert_equal [t], set.to_a
+    end
+
+    def test_discover_new_objects_with_child
+        t = Roby::Task.new
+        child = Roby::Task.new
+        t.depends_on child
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = ValueSet.new), [t].to_value_set)
+        assert_equal [t, child].to_value_set, new
+        assert_equal [t, child].to_value_set, set
+        plan.add([t, child])
+    end
+
+    def test_discover_new_objects_with_recursive
+        t = Roby::Task.new
+        child = Roby::Task.new
+        t.depends_on child
+        next_task = Roby::Task.new
+        child.planned_by next_task
+
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = ValueSet.new), [t].to_value_set)
+        assert_equal [t, child, next_task].to_value_set, new
+        assert_equal [t, child, next_task].to_value_set, set
+        plan.add([t, child, next_task])
+    end
+
+    def test_discover_new_objects_does_no_account_for_already_discovered_objects
+        t = Roby::Task.new
+        child = Roby::Task.new
+        t.depends_on child
+        next_task = Roby::Task.new
+        child.planned_by next_task
+
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = [child].to_value_set), [t].to_value_set)
+        assert_equal [t].to_value_set, new
+        assert_equal [t, child].to_value_set, set
+        plan.add([t, child, next_task])
+    end
+end
+
+describe Roby::Plan do
+    include Roby::SelfTest
+
+    describe "#add_trigger" do
+        it "yields new tasks that match the given object" do
+            match = flexmock
+            match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
+            recorder = flexmock
+            recorder.should_receive(:called).once.with(task)
+            plan.add_trigger match do |task|
+                recorder.called(task)
+            end
+            plan.add task
+        end
+        it "does not yield new tasks that do not match the given object" do
+            match = flexmock
+            match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
+            recorder = flexmock
+            recorder.should_receive(:called).never
+            plan.add_trigger match do |task|
+                recorder.called(task)
+            end
+            plan.add task
+        end
+        it "yields matching tasks that already are in the plan" do
+            match = flexmock
+            match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
+            recorder = flexmock
+            recorder.should_receive(:called).once
+            plan.add task
+            plan.add_trigger match do |task|
+                recorder.called(task)
+            end
+        end
+        it "does not yield not matching tasks that already are in the plan" do
+            match = flexmock
+            match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
+            recorder = flexmock
+            recorder.should_receive(:called).never
+            plan.add task
+            plan.add_trigger match do |task|
+                recorder.called(task)
+            end
+        end
+    end
+
+    describe "#remove_trigger" do
+        it "allows to remove a trigger added by #add_trigger" do
+            match = flexmock
+            trigger = plan.add_trigger match do |task|
+            end
+            plan.remove_trigger trigger
+            match.should_receive(:===).never
+            plan.add Roby::Task.new
+        end
     end
 end
 

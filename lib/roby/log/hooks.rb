@@ -194,9 +194,19 @@ module Roby::Log
     end
     Roby::ExecutionEngine.include ExecutionHooks
 
+    module TaskArgumentsHooks
+        HOOKS=%w{task_arguments_updated}
+
+        def updated(key, value)
+            super if defined? super
+            Roby::Log.log(:task_arguments_updated) { [task, key, value] }
+        end
+    end
+    Roby::TaskArguments.include TaskArgumentsHooks
+
     def self.each_hook
 	[TransactionHooks, BasicObjectHooks, TaskHooks,
-	    PlanHooks, EventGeneratorHooks, ExecutionHooks].each do |klass|
+	    PlanHooks, EventGeneratorHooks, ExecutionHooks, TaskArgumentsHooks].each do |klass|
 		klass::HOOKS.each do |m|
 		    yield(klass, m.to_sym)
 		end

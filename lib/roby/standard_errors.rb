@@ -42,6 +42,10 @@ module Roby
             super("")
 	end
 
+        def to_execution_exception
+            ExecutionException.new(self)
+        end
+
         def pretty_print(pp)
 	    pp.text "#{self.class.name}"
             if !message.empty?
@@ -80,6 +84,32 @@ module Roby
                 (obj == failed_event ||
                  obj == failed_generator ||
                  obj == failed_task)
+        end
+
+        # Intermediate representation used to marshal/unmarshal a LocalizedError
+        class DRoby
+            attr_reader :model, :failure_point, :message
+            def initialize(model, failure_point, message); @model, @failure_point, @message = model, failure_point, message end
+
+            def proxy(peer)
+                failure_point = peer.local_object(self.failure_point)
+                error = LocalizedError.new(failure_point)
+                error.exception(message)
+                error
+            end
+        end
+
+        # Returns an intermediate representation of +self+ suitable to be sent to
+        # the +dest+ peer.
+        def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), Distributed.format(failure_point, dest), message) end
+
+        # @return [Queries::ExecutionExceptionMatcher]
+        def self.to_execution_exception_matcher
+            Roby::Queries::ExecutionExceptionMatcher.new.with_model(self)
+        end
+        # @return [Queries::LocalizedErrorMatcher]
+        def self.match
+            Roby::Queries::LocalizedErrorMatcher.new.with_model(self)
         end
     end
 
@@ -196,6 +226,20 @@ module Roby
             pp.text "#{self.class.name}: user code raised an exception "
             failure_point.pretty_print(pp)
         end
+
+        def self.match
+            Roby::Queries::CodeErrorMatcher.new.with_model(self)
+        end
+    end
+
+    class ::Exception
+        def self.match
+            Roby::CodeError.match.with_ruby_exception(self)
+        end
+
+        def self.to_execution_exception_matcher
+            match.to_execution_exception_matcher
+        end
     end
 
     # Raised if a command block has raised an exception
@@ -252,10 +296,21 @@ module Roby
     # Raised when an exception handler has raised.
     class FailedExceptionHandler < CodeError
 	attr_reader :handled_exception
-	def initialize(error, object, handled_exception)
+        attr_reader :handler
+
+	def initialize(error, object, handled_exception, handler)
 	    super(error, object)
 	    @handled_exception = handled_exception
+            @handler = handler
 	end
+
+        def pretty_print(pp)
+            pp.text "exception handler #{handler} failed while processing"
+            pp.breakable
+            handled_exception.pretty_print(pp)
+            pp.breakable
+            pp_exception(pp, error)
+        end
     end
 
     # Raised when an event has become unreachable while other parts of the plan
@@ -369,5 +424,36 @@ module Roby
     # Exception raised in threads which are waiting for the control thread
     # See for instance Roby.execute
     class ExecutionQuitError < RuntimeError; end
+
+    # Exception raised when a child is being resolved by role, but the role is
+    # not associated with any child
+    class NoSuchChild < ArgumentError
+        # @return [Object] the object whose children we try to access
+        attr_reader :object
+        # @return [String] the role that failed to be resolved
+        attr_reader :role
+        # @return [{String=>Object}] the set of known children
+        attr_reader :known_children
+
+        def initialize(object, role, known_children)
+            @object, @role, @known_children = object, role, known_children
+        end
+
+        def pretty_print(pp)
+            pp.text "#{object} has no child with the role '#{role}'"
+
+            if known_children.empty?
+                pp.text ", actually, it has no child at all"
+            else
+                pp.text ". Known children:"
+                pp.nest(2) do
+                    known_children.each do |role, child|
+                        pp.breakable
+                        pp.text "#{role}: #{child}"
+                    end
+                end
+            end
+        end
+    end
 end
 

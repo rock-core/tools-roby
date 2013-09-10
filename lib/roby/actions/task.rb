@@ -15,7 +15,7 @@ module Roby
             attr_reader :transaction
 
             # The action itself
-            # @return [ActionModel]
+            # @return [Models::Action]
             argument :action_model
             # The arguments for the action method
             # @return [Hash]
@@ -29,14 +29,17 @@ module Roby
             end
 
             # The action interface model used by this planner
-            # @return [InterfaceModel]
+            # @return [Model<Interface>]
             def action_interface_model
                 action_model.action_interface_model
             end
                 
 
             def to_s
-                "#{super}[#{action_interface_model}:#{action_model}](#{action_arguments}) -> #{action_model.returned_type}"
+                if action_model
+                    "#{super}[#{action_interface_model}:#{action_model}](#{action_arguments}) -> #{action_model.returned_type}"
+                else "#{super}"
+                end
             end
 
             def planned_task

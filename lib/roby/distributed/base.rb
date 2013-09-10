@@ -479,6 +479,10 @@ module Roby
             def self.local_model(*args)
                 Distributed::DRobyModel.anon_model_factory(*args)
             end
+
+            def self.connection_space
+                Roby
+            end
         end
     end
 end

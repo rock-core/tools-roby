@@ -106,15 +106,25 @@ module Roby
 	    "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class.to_s}: #{context}"
 	end
 
-        def pretty_print(pp) # :nodoc:
+        def pretty_print(pp, with_context = true) # :nodoc:
             pp.text "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class}"
-            if context
+            if with_context && context
                 pp.breakable
                 pp.nest(2) do
                     pp.text "  "
-                    pp.seplist(context) { |v| v.pretty_print(pp) }
+                    pp.seplist(context) do |v|
+                        v.pretty_print(pp)
+                    end
                 end
             end
+        end
+
+        def to_execution_exception
+            generator.to_execution_exception
+        end
+
+        def to_execution_exception_matcher
+            generator.to_execution_exception_matcher
         end
     end
 
@@ -380,6 +390,10 @@ module Roby
                 @block, @copy_on_replace, @once = block, copy_on_replace, once
             end
 
+            def call(*args)
+                block.call(*args)
+            end
+
             # True if this event handler should be moved to the new task in case
             # of replacements
             #
@@ -446,6 +460,13 @@ module Roby
                     event.on(h.as_options, &h.block)
                 end
             end
+
+            for h in unreachable_handlers
+                cancel, h = h
+                if h.copy_on_replace?
+                    event.if_unreachable(:cancel_at_emission => cancel, :on_replace => :copy, &h.block)
+                end
+            end
         end
 
 	# Adds a signal from this event to +generator+. +generator+ must be
@@ -474,13 +495,25 @@ module Roby
 	attr_reader :unreachable_handlers
 
 	# Calls +block+ if it is impossible that this event is ever emitted
-	def if_unreachable(cancel_at_emission = false, &block)
+	def if_unreachable(options = Hash.new, &block)
+            if options == true || options == false
+                options = Hash[:cancel_at_emission => options]
+            end
+            options = Kernel.validate_options options,
+                :cancel_at_emission => false,
+                :on_replace => :drop
+
+            if ![:drop, :copy].include?(options[:on_replace])
+                raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
+            end
+
             check_arity(block, 2)
-            if unreachable_handlers.any? { |cancel, b| b == block }
+            if unreachable_handlers.any? { |cancel, b| b.block == block }
                 return b.object_id
             end
-	    unreachable_handlers << [cancel_at_emission, block]
-	    block.object_id
+            handler = EventHandler.new(block, options[:on_replace] == :copy, true)
+	    unreachable_handlers << [options[:cancel_at_emission], handler]
+	    handler.object_id
 	end
 
         # React to this event being unreachable
@@ -495,7 +528,7 @@ module Roby
         # handler will be kept.
         def when_unreachable(cancel_at_emission = false, &block)
             if block_given?
-                return if_unreachable(cancel_at_emission, &block)
+                return if_unreachable(:cancel_at_emission => cancel_at_emission, &block)
             end
 
             # NOTE: the unreachable event is not directly tied to this one from
@@ -504,7 +537,7 @@ module Roby
             # user did not take care to use it.
             if !@unreachable_events[cancel_at_emission] || !@unreachable_events[cancel_at_emission].plan
                 result = EventGenerator.new(true)
-                if_unreachable(cancel_at_emission) do
+                if_unreachable(:cancel_at_emission => cancel_at_emission) do
                     if result.plan
                         result.emit
                     end
@@ -643,9 +676,12 @@ module Roby
 	    # Since we are in a gathering context, call
 	    # to other objects are not done, but gathered in the 
 	    # :propagation TLS
-	    each_handler do |h| 
+            all_handlers = enum_for(:each_handler).to_a
+	    all_handlers.each do |h| 
 		begin
-		    h.block.call(event)
+		    h.call(event)
+                rescue LocalizedError => e
+                    plan.engine.add_error( e )
 		rescue Exception => e
 		    plan.engine.add_error( EventHandlerError.new(e, event) )
 		end
@@ -789,7 +825,7 @@ module Roby
 		ev.forward_to_once self
 	    end
 
-	    ev.if_unreachable(true) do |reason, event|
+	    ev.if_unreachable(:cancel_at_emission => true) do |reason, event|
 		emit_failed(EmissionFailed.new(UnreachableEvent.new(ev, reason), self))
 	    end
 	end
@@ -950,16 +986,23 @@ module Roby
 	    super
 	end
 
+        # Hook called when this object has been created inside a transaction and
+        # should be modified to now apply on the transaction's plan
+        def commit_transaction
+	    super if defined? super
+        end
+
         def added_child_object(child, relations, info) # :nodoc:
             super if defined? super
-            if relations.include?(Roby::EventStructure::Precedence) && plan && plan.engine
-                plan.engine.event_ordering.clear
+            if plan
+                plan.added_event_relation(self, child, relations)
             end
         end
+
         def removed_child_object(child, relations) # :nodoc:
             super if defined? super
-            if relations.include?(Roby::EventStructure::Precedence) && plan && plan.engine
-                plan.engine.event_ordering.clear
+            if plan
+                plan.removed_event_relation(self, child, relations)
             end
         end
 
@@ -1001,9 +1044,9 @@ module Roby
 
         # Internal helper for unreachable!
         def call_unreachable_handlers(reason) # :nodoc:
-	    unreachable_handlers.each do |_, block|
+	    unreachable_handlers.each do |_, handler|
 		begin
-		    block.call(reason, self)
+		    handler.call(reason, self)
                 rescue LocalizedError => e
                     if engine
                         engine.add_error(e)
@@ -1019,33 +1062,33 @@ module Roby
 	    unreachable_handlers.clear
         end
 
-	# Called internally when the event becomes unreachable
-	def unreachable!(reason = nil, plan = self.plan)
+        def unreachable_without_propagation(reason = nil, plan = self.plan)
 	    return if @unreachable
 	    @unreachable = true
             @unreachability_reason = reason
 
             EventGenerator.event_gathering.delete(self)
-            engine =
-                if plan
-                    plan.engine
-                end
-
-            if engine
-                # Announce that the event became unreachable to the engine
+            if plan && (engine = plan.engine)
                 engine.unreachable_event(self)
+            end
+            call_unreachable_handlers(reason)
+        end
 
-                # If we are not in a propagation phase. Just queue the handlers
-                # for the next cycle
-                if !engine.allow_propagation?
-                    engine.once do
-                        call_unreachable_handlers(reason)
+	# Called internally when the event becomes unreachable
+	def unreachable!(reason = nil, plan = self.plan)
+            if !plan || !plan.engine
+                unreachable_without_propagation(reason)
+            elsif engine.gathering?
+                unreachable_without_propagation(reason, plan)
+            elsif !@unreachable
+		Roby.synchronize do
+		    engine.process_events_synchronous do
+                        unreachable_without_propagation(reason, plan)
                     end
-                else
-                    call_unreachable_handlers(reason)
-                end
-            else
-                call_unreachable_handlers(reason)
+                    if unreachability_reason.kind_of?(Exception)
+                        raise unreachability_reason
+                    end
+		end
             end
 	end
 
@@ -1061,6 +1104,18 @@ module Roby
 		pp.seplist(relations) { |r| pp.text r.name }
 	    end
 	end
+
+        def to_execution_exception
+            LocalizedError.new(self).to_execution_exception
+        end
+
+        def to_execution_exception_matcher
+            LocalizedError.to_execution_exception_matcher.with_origin(self)
+        end
+
+        def match
+            Queries::TaskEventGeneratorMatcher.new(task, symbol)
+        end
     end
 
 
@@ -1185,7 +1240,7 @@ module Roby
 
 	    # If the parent is unreachable, check that it has neither been
 	    # removed, nor it has been emitted
-	    parent.if_unreachable(true) do |reason, event|
+	    parent.if_unreachable(:cancel_at_emission => true) do |reason, event|
 		if @events.has_key?(parent) && @events[parent] == parent.last
 		    unreachable!(reason || parent)
 		end
@@ -1278,7 +1333,7 @@ module Roby
 	    super if defined? super
 	    return unless relations.include?(EventStructure::Signal)
 
-	    parent.if_unreachable(true) do |reason, event|
+	    parent.if_unreachable(:cancel_at_emission => true) do |reason, event|
 		if !happened? && parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }
 		    unreachable!(reason || parent)
 		end

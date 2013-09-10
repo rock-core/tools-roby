@@ -46,6 +46,19 @@ module Roby
 
                 submodel
             end
+
+            # @return [TaskEventGeneratorMatcher] returns an object that allows
+            #   to match all generators of this type
+            def match
+                Queries::TaskEventGeneratorMatcher.new(task_model.match, symbol.to_s)
+            end
+
+            # @return [TaskEventGeneratorMatcher] returns an object that allows
+            #   to match all generators of this type, as well as any generator
+            #   that is forwarded to it
+            def generalized_match
+                Queries::TaskEventGeneratorMatcher.new(task_model.match, symbol.to_s).generalized
+            end
         end
     end
 end

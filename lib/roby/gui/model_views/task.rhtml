@@ -1,0 +1,41 @@
+<%
+ancestry = [task_model]
+while ancestry.last != Roby::Task
+    ancestry << ancestry.last.superclass
+end
+ancestry.shift
+%>
+<p><b>Superclasses</b>: <%= ancestry.map { |m| page.link_to(m) }.join(", ") %></p>
+
+<%
+events = task_model.each_event.map { |ev| ev.last }.sort_by { |ev| ev.symbol.to_s }
+events = events.map do |ev|
+    flags = []
+    if ev.controlable?
+        flags << "controlable"
+    end
+    if ev.terminal?
+        flags << "terminal"
+    end
+    if flags.empty?
+        flags = ""
+    else flags = "<span id=\"annotation-inline\">(#{flags.join(",")})</span>"
+    end
+    "#{ev.symbol}#{flags}"
+end
+%>
+<p><b>Events</b>: <%= events.join(", ") %></p>
+
+<%
+arguments = task_model.arguments
+arguments = arguments.map do |arg_name|
+    has_default, default = task_model.default_argument(arg_name)
+    if has_default
+        default = " <span id=\"annotation-inline\">default(#{default})</span>"
+    end
+    "#{arg_name}#{default}"
+end
+%>
+<p><b>Arguments</b>: <%= arguments.join(", ") %></p>
+
+<%= svg %>

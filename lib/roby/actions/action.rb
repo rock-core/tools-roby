@@ -3,7 +3,7 @@ module Roby
         # The representation of an action, as a model and arguments
         class Action
             # The action model
-            # @return [ActionModel]
+            # @return [Models::Action]
             attr_accessor :model
             # The action arguments
             # @return [Hash]
@@ -38,6 +38,10 @@ module Roby
 
             def to_s
                 "#{model}(#{arguments.map { |k,v| "#{k} => #{v}" }.sort.join(", ")})"
+            end
+
+            def to_coordination_task(task_model = Roby::Task)
+                Coordination::Models::TaskFromAction.new(self)
             end
         end
     end

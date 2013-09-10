@@ -107,15 +107,13 @@ module Roby::TaskStructure
 
             child = find_child_from_role(role_name)
             if !child && validate
-                roles = []
+                known_children = Hash.new
                 merged_relations(:each_child_object, false, Dependency) do |myself, child|
-                    roles << "#{child} => #{myself[child, Dependency][:roles]}"
+                    myself[child, Dependency][:roles].each do |role|
+                        known_children[role] = child
+                    end
                 end
-                if roles.empty?
-                    raise ArgumentError, "#{self} has no child with the role '#{role_name}', actually, it has no child at all"
-                else
-                    raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
-                end
+                raise Roby::NoSuchChild.new(self, role_name, known_children), "#{self} has no child with the role '#{role_name}'"
             end
             child
         end

@@ -1,17 +1,31 @@
-require 'test/unit'
-require 'utilrb/time/to_hms'
+# simplecov must be loaded FIRST. Only the files required after it gets loaded
+# will be profiled !!!
+if ENV['TEST_ENABLE_COVERAGE'] == '1'
+    begin
+        require 'simplecov'
+        SimpleCov.start
+    rescue LoadError
+        require 'roby'
+        Roby.warn "coverage is disabled because the 'simplecov' gem cannot be loaded"
+    rescue Exception => e
+        require 'roby'
+        Roby.warn "coverage is disabled: #{e.message}"
+    end
+end
+
+if ENV['TEST_ENABLE_PRY'] != '0'
+    begin
+        require 'pry'
+    rescue Exception
+        require 'roby'
+        Roby.warn "debugging is disabled because the 'pry' gem cannot be loaded"
+    end
+end
+
 require 'roby'
-require 'utilrb/module/attr_predicate'
-
-if !defined?(Test::Unit::AssertionFailedError)
-Test::Unit::AssertionFailedError = MiniTest::Assertion
-end
-
-begin
-    require 'pry'
-rescue LoadError
-    Roby.warn "pry gem is not present, not enabled"
-end
+require 'test/unit'
+require 'minitest/spec'
+require 'flexmock/test_unit'
 
 module Roby
     # This module is defining common support for tests that need the Roby
@@ -161,6 +175,8 @@ module Roby
                 engine.join
 	    end
 
+            last_known_tasks = ValueSet.new
+            last_quarantine = ValueSet.new
             counter = 0
             loop do
                 plan.permanent_tasks.clear
@@ -184,6 +200,20 @@ module Roby
                 counter += 1
                 if counter > 100
                     STDERR.puts "more than #{counter} iterations while trying to shut down the current plan, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
+                    if last_known_tasks != plan.known_tasks
+                        STDERR.puts "Known tasks:"
+                        plan.known_tasks.each do |t|
+                            STDERR.puts "  #{t}"
+                        end
+                        last_known_tasks = plan.known_tasks.dup
+                    end
+                    if last_quarantine != plan.gc_quarantine
+                        STDERR.puts "Known tasks:"
+                        plan.gc_quarantine.each do |t|
+                            STDERR.puts "  #{t}"
+                        end
+                        last_quarantine = plan.gc_quarantine.dup
+                    end
                 end
                 if plan.gc_quarantine.size == plan.known_tasks.size
                     break
@@ -202,6 +232,25 @@ module Roby
 	ensure
 	    Roby.logger.level = old_gc_roby_logger_level
 	end
+
+        def assert_raises(exception, &block)
+            super(exception) do
+                begin
+                    yield
+                rescue Exception => e
+                    PP.pp(e, "")
+                    if e.kind_of?(Roby::SynchronousEventProcessingMultipleErrors)
+                        match = e.errors.find do |original_e, _|
+                            original_e.exception.kind_of?(exception)
+                        end
+                        if match
+                            raise match[0].exception
+                        end
+                    end
+                    raise
+                end
+            end
+        end
 
         def inhibit_fatal_messages(&block)
             with_log_level(Roby, Logger::FATAL, &block)
@@ -223,6 +272,7 @@ module Roby
         end
 
 	def teardown
+            flexmock_teardown
 	    timings[:quit] = Time.now
 	    teardown_plan
 	    timings[:teardown_plan] = Time.now
@@ -323,6 +373,9 @@ module Roby
 	# Process pending events
 	def process_events
 	    Roby.synchronize do
+                if !engine.running?
+                    engine.start_new_cycle
+                end
 		engine.process_events
 	    end
 	end
@@ -517,12 +570,11 @@ module Roby
 	    end
 	end
 
-	def assert_marshallable(object)
-	    begin
-		Marshal.dump(object)
-		true
-	    rescue TypeError
-	    end
+	def verify_is_droby_marshallable_object(object)
+            droby = object.droby_dump(nil)
+	    marshalled = Marshal.dump(droby)
+            droby = Marshal.load(marshalled)
+            droby.proxy(Roby::Distributed::DumbManager)
 	end
 
 	# The console logger object. See #console_logger=
@@ -865,6 +917,10 @@ module Roby
     # @see Test
     module SelfTest
         include Test
+        if defined? FlexMock
+            include FlexMock::ArgumentTypes
+            include FlexMock::MockContainer
+        end
 
         def setup
             Roby.app.log['server'] = false

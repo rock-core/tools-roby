@@ -576,3 +576,312 @@ class TC_BGL < Test::Unit::TestCase
     end
 end
 
+describe BGL::Graph do
+    attr_reader :graph, :vertex_m, :vertex
+    before do
+        @graph = BGL::Graph.new
+        @vertex_m = Class.new do
+            include BGL::Vertex
+        end
+        @vertex = @vertex_m.new
+    end
+
+    describe "#out_degree" do
+        it "should return zero if the vertex is not included in the graph" do
+            assert_equal 0, graph.out_degree(vertex)
+        end
+        it "should return zero if there are no out-edges for the vertex in the graph" do
+            graph.insert(vertex)
+            assert_equal 0, graph.out_degree(vertex)
+        end
+        it "should return the number of out-edges for the vertex in the graph" do
+            graph.insert(vertex)
+            a, b = vertex_m.new, vertex_m.new
+            graph.insert(a)
+            graph.insert(b)
+            graph.link(vertex, a, nil)
+            assert_equal 1, graph.out_degree(vertex)
+            graph.link(vertex, b, nil)
+            assert_equal 2, graph.out_degree(vertex)
+            graph.link(b, vertex, nil)
+            assert_equal 2, graph.out_degree(vertex)
+        end
+    end
+
+    describe "#in_degree" do
+        it "should return zero if the vertex is not included in the graph" do
+            assert_equal 0, graph.in_degree(vertex)
+        end
+        it "should return zero if there are no in-edges for the vertex in the graph" do
+            graph.insert(vertex)
+            assert_equal 0, graph.in_degree(vertex)
+        end
+        it "should return the number of in-edges for the vertex in the graph" do
+            graph.insert(vertex)
+            a, b = vertex_m.new, vertex_m.new
+            graph.insert(a)
+            graph.insert(b)
+            graph.link(a, vertex, nil)
+            assert_equal 1, graph.in_degree(vertex)
+            graph.link(b, vertex, nil)
+            assert_equal 2, graph.in_degree(vertex)
+            graph.link(vertex, b, nil)
+            assert_equal 2, graph.in_degree(vertex)
+        end
+    end
+end
+
+
+describe BGL::Graph do
+    attr_reader :graph, :vertex_m, :vertex, :visitor
+    before do
+        @graph = BGL::Graph.new
+        @vertex_m = Class.new do
+            include BGL::Vertex
+
+            def self.id
+                @counter += 1
+            end
+            @counter = 0
+
+            def initialize(id = nil)
+                @id = id || self.class.id
+            end
+
+            def to_s
+                "V(#{@id})"
+            end
+        end
+        @vertex = @vertex_m.new
+        @visitor = flexmock
+    end
+
+    def create_and_add_vertices(count_or_names)
+        if count_or_names.respond_to? :to_i
+            count_or_names = (1..count_or_names)
+        end
+        count_or_names.map do |i|
+            v = vertex_m.new(i)
+            graph.insert(v)
+            v
+        end
+    end
+
+    def link(*vertices)
+        vertices.each_cons(2) do |a, b|
+            graph.link(a, b, nil)
+        end
+    end
+
+    def should_visit(*expected)
+        expected.each do |vertex, value|
+            visitor.should_receive(:call).with(vertex, value).once
+        end
+    end
+
+    describe "#prune" do
+        it "should be reset if calling next from the iteration block" do
+            a, b1, b2, c1, c2 = create_and_add_vertices %w{a b1 b2 c1 c2}
+            link(a, b1)
+            link(a, b2)
+
+            pruned = false
+            visited = []
+            graph.each_dfs(a, BGL::Graph::ALL) do |from, to, info|
+                visited << to
+                if !pruned && [b1, b2].include?(to)
+                    graph.prune
+                    pruned = true
+                    next
+                end
+            end
+
+            assert(visited.include?(b1) && visited.include?(b2))
+        end
+    end
+
+    describe "#fork_merge_propagation" do
+        it "should handle singletons gracefully" do
+            a = *create_and_add_vertices(1)
+            value = flexmock
+            should_visit([a, value])
+            result = graph.fork_merge_propagation(a, value, :vertex_visitor => visitor)
+            assert_equal Hash[a => value], result
+        end
+
+        it "should simply propagate when in a line" do
+            a, b, c = create_and_add_vertices 3
+            link(a, b, c)
+            should_visit([a, 0], [b, 1], [c, 2])
+            value = flexmock
+            value.should_receive(:propagate).with(a, b, 0).and_return(1)
+            value.should_receive(:propagate).with(b, c, 1).and_return(2)
+            result = graph.fork_merge_propagation(a, 0, :vertex_visitor => visitor) do |from, to, v|
+                value.propagate(from, to, v)
+            end
+            assert_equal Hash[c => 2], result
+        end
+
+        def setup_dfs(graph, *pairs)
+            graph.singleton_class.class_eval do
+                define_method :each_dfs do |*args, &block|
+                    pairs.each(&block)
+                end
+            end
+            graph
+        end
+
+        it "should fork when reaching a vertex that has more than one child" do
+            a, b, c0, c1 = create_and_add_vertices 4
+            link(a, b, c0)
+            link(b, c1)
+
+            v, v_clone = flexmock, flexmock
+            v.should_receive(:fork).and_return(v_clone)
+            should_visit([a, v], [b, v], [c0, v_clone], [c1, v_clone])
+            setup_dfs graph, [a, b], [b, c0], [b, c1]
+            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+                v
+            end
+            assert_equal Hash[c0 => v_clone, c1 => v_clone], result
+        end
+
+        it "should merge forked branches" do
+            a, b, c0, c1, d = create_and_add_vertices %w{a b c0 c1 d}
+            link(a, b, c0, d)
+            link(b, c1, d)
+
+            v, v_clone, v_merged = flexmock, flexmock, flexmock
+            v.should_receive(:propagate).with(a, b).once.and_return(v)
+            v.should_receive(:fork).and_return(v_clone)
+            v_clone.should_receive(:propagate).with(b, c0).once.and_return(v_clone)
+            v_clone.should_receive(:propagate).with(c0, d).once.and_return(v_clone)
+            v_clone.should_receive(:propagate).with(b, c1).once.and_return(v_clone)
+            v_clone.should_receive(:propagate).with(c1, d).once.and_return(v_clone)
+            v_clone.should_receive(:merge).once.with(v_clone).and_return(v_merged)
+            should_visit([a, v], [b, v], [c0, v_clone], [c1, v_clone], [d, v_merged])
+            setup_dfs graph, [a, b], [b, c0], [c0, d], [b, c1], [c1, d]
+            flexmock(graph).should_receive(:prune).once
+            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+                v.propagate(from, to)
+            end
+            assert_equal Hash[d => v_merged], result
+        end
+
+        it "should propagate merges for which some inputs are not part of the interesting connected component" do
+            a0, a1, b = create_and_add_vertices %w{a0 a1 b}
+            link(a0, b)
+            link(a1, b)
+
+            v = flexmock
+            v.should_receive(:propagate).and_return(v)
+            should_visit([a0, v], [b, v])
+            result = graph.fork_merge_propagation(a0, v, :vertex_visitor => visitor) do |from, to, v|
+                v
+            end
+            assert_equal Hash[b => v], result
+        end
+
+        it "should allow the usage of #prune" do
+            a, b0, b1, c = create_and_add_vertices %w{a b0 b1 c}
+            link(a, b0, c)
+            link(a, b1, c)
+
+            v = flexmock
+            v.should_receive(:propagate).and_return(v)
+            v.should_receive(:fork).and_return(v)
+            v.should_receive(:propagate).with(b1, c).never
+            should_visit([a, v], [b0, v], [c, v])
+            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+                if to == b1
+                    graph.prune
+                else
+                    v.propagate(from, to, v)
+                end
+            end
+            assert_equal Hash[c, v], result
+        end
+        
+        it "should allow to prune from the vertex visitor" do
+            a, b0, b1, c = create_and_add_vertices %w{a b0 b1 c}
+            link(a, b0, c)
+            link(a, b1, c)
+
+            v = flexmock
+            v.should_receive(:propagate).and_return(v)
+            v.should_receive(:fork).and_return(v)
+            v.should_receive(:propagate).with(b1, c).never
+            visitor.should_receive(:call).with(b1, v).and_return do
+                graph.prune
+            end
+            should_visit([a, v], [b0, v], [c, v])
+            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+                v.propagate(from, to, v)
+            end
+            assert_equal Hash[c, v], result
+        end
+        
+        it "should allow to prune from the vertex visitor at the seed level" do
+            a, b = create_and_add_vertices %w{a b}
+            link(a, b)
+
+            v = flexmock
+            v.should_receive(:propagate).never
+            visitor.should_receive(:call).with(a, v).and_return do
+                graph.prune
+            end
+            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+                v.propagate(from, to, v)
+            end
+            assert_equal Hash[], result
+        end
+
+        it "does not add to the result the seeds that have been pruned" do
+            a = *create_and_add_vertices(%w{a})
+            v = flexmock
+            visitor.should_receive(:call).with(a, v).and_return do
+                graph.prune
+            end
+            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+                v
+            end
+            assert result.empty?
+        end
+
+        it "allows pruning its seeds internally while still propagating the other branches" do
+            # This is a corner case related to how the algorithm is implemented.
+            # At some point, we catch the #pruned? flag without passing it to
+            # the underlying iteration algorithm, so #fork_merge_propagation
+            # must reset it manually. The symptom is that two branches are
+            # pruned instead of one.
+            #
+            # It affects only the "internal" seeds, i.e. the merges vertices
+            # that have parents outside the iterated graph
+            a0, a1, a2, b, c0, c1, c2, d0, d1, d2 = create_and_add_vertices %w{a0 a1 a2 b c0 c1 c2 d0 d1 d2}
+            link(a0, b, c0, d0)
+            link(b, c1)
+            link(b, c2)
+            link(a1, c1, d1)
+            link(a2, c2, d2)
+            v = flexmock
+            v.should_receive(:merge).and_return(v)
+            v.should_receive(:fork).and_return(v)
+
+            visited = []
+            pruned = false
+            visitor.should_receive(:call).and_return do |vertex, value|
+                visited << vertex
+                if [c1, c2].include?(vertex) && !pruned
+                    pruned = true
+                    graph.prune
+                end
+            end
+            result = graph.fork_merge_propagation(a0, v, :vertex_visitor => visitor) do |from, to, v|
+                v
+            end
+
+            assert(visited.include?(d1) ^ visited.include?(d2), "visited d1:#{visited.include?(d1)} d2:#{visited.include?(d2)}, should have visited at most one of the two")
+        end
+    end
+end
+

@@ -488,7 +488,7 @@ module Roby
 	module TaskArgumentsNotifications
             # Hook called when the task argumensts are modified. It sends
             # the PeerServer#updated_arguments message.
-	    def updated
+	    def updated(key, value)
 		super if defined? super
 
 		unless Distributed.updating?(task)

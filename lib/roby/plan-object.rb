@@ -1,6 +1,29 @@
 module Roby
     # Base class for all objects which are included in a plan.
     class PlanObject < BasicObject
+        # This object's model
+        #
+        # This is usually self.class
+	attr_reader :model
+
+        # The non-specialized model for self
+        #
+        # It is always self.class
+        def concrete_model; self.class end
+
+        # Generic handling object for blocks that are stored on tasks (event
+        # handlers,poll, ...)
+        #
+        # The only configurable behaviour so far is the ability to specify what
+        # to do with the block when a task is replaced by another one. This is
+        # given as a :on_replace option, which can take only two values:
+        #
+        # drop:: the handler is not copied
+        # copy:: the handler is copied
+        #
+        # The default is dependent on the receiving's object state. For
+        # instance, abstract tasks will use a default of 'copy' while
+        # non-abstract one will use a default of 'drop'.
         class InstanceHandler
             # The poll Proc object
             attr_reader :block
@@ -10,6 +33,16 @@ module Roby
             # task holding the handler gets replaced
             attr_predicate :copy_on_replace?, true
 
+            # Helper method for validate_options and filter_options
+            #
+            # @param [:validate,:filter] method which of the filter_options or
+            #   validate_options should be called.
+            # @!macro InstanceHandlerOptions
+            #   @option options [:copy,:drop] :on_replace defines the behaviour
+            #      when this object gets replaced in the plan. If :copy is used,
+            #      the handler is added to the replacing task and is also kept
+            #      in the original task. If :drop, it is not copied (but is
+            #      kept).
             def self.handle_options(method, options, defaults)
                 options, other = Kernel.send("#{method}_options", options,
                     :on_replace => (defaults[:on_replace] || :drop))
@@ -61,6 +94,7 @@ module Roby
             @removed_at = nil
             @executable = nil
             @finalization_handlers = Array.new
+            @model = self.class
         end
 
         def initialize_copy(other)
@@ -496,15 +530,27 @@ module Roby
             end
         end
 
+        # @return [Array<InstanceHandler>] set of finalization handlers defined
+        #   on this task instance
+        # @see when_finalized
         attr_reader :finalization_handlers
 
         class << self
             extend MetaRuby::Attributes
+
+            # @return [Array<UnboundMethod>] set of finalization handlers
+            #   defined at the model level
+            # @see PlanObject.when_finalized
             inherited_attribute(:finalization_handler, :finalization_handlers) { Array.new }
         end
 
         # Adds a model-level finalization handler, i.e. a handler that will be
         # called on every instance of the class
+        #
+        # The block is called in the context of the task that got finalized
+        # (i.e. in the block, self is this task)
+        #
+        # @return [void]
         def self.when_finalized(&block)
             method_name = "finalization_handler_#{block.object_id}"
             define_method(method_name, &block)
@@ -513,6 +559,9 @@ module Roby
 
         # Enumerates the finalization handlers that should be applied in
         # finalized!
+        #
+        # @yieldparam [#call] block the handler's block
+        # @return [void]
         def each_finalization_handler(&block)
             finalization_handlers.each do |handler|
                 yield(handler.block)
@@ -523,10 +572,25 @@ module Roby
         end
 
         class << self
+            # If true, the backtrace at which a plan object is finalized is
+            # stored in this object's {PlanObject#removed_at} attribute.
+            #
+            # It defaults to false
+            #
+            # @see PlanObject#finalized!
             attr_predicate :debug_finalization_place?, true
         end
 
         # Called when a particular object has been removed from its plan
+        #
+        # If PlanObject.debug_finalization_place? is true (set with
+        # {PlanObject.debug_finalization_place=}, the backtrace in this call is
+        # stored in {PlanObject#removed_at}. It is false by default, as it is
+        # pretty expensive.
+        # 
+        # @param [Time,nil] timestamp the time at which it got finalized. It is stored in
+        #   {#finalization_time}
+        # @return [void]
         def finalized!(timestamp = nil)
             if self.plan.executable?
                 # call finalization handlers
@@ -547,10 +611,16 @@ module Roby
             end
         end
 
-        # call-seq:
-        #   when_finalized { }
-        #
         # Called when the task gets finalized, i.e. removed from the main plan
+        #
+        # @option options [:copy,:drop] :on_replace (:drop) behaviour to be
+        #   followed when the task gets replaced. If :drop, the handler is not
+        #   passed, if :copy it is installed on the new task as well as kept on
+        #   the old one
+        # @yieldparam [Roby::Task] task the task that got finalized. It might be
+        #   different than the one on which the handler got installed because of
+        #   replacements
+        # @return [void]
         def when_finalized(options = Hash.new, &block)
             options = InstanceHandler.validate_options options
             check_arity(block, 1)
@@ -567,6 +637,13 @@ module Roby
         # The time at which this plan object has been finalized (i.e. removed
         # from plan), or nil if it has not been (yet)
         attr_accessor :finalization_time
+
+        # @return [Boolean] true if this object provides all the given models
+        def fullfills?(models)
+            Array(models).all? do |m|
+                self.model <= m
+            end
+        end
     end
 end
 

@@ -59,6 +59,7 @@ end
 require 'roby/graph.rb'
 require 'roby/relations.rb'
 
+require 'roby/queries.rb'
 require 'roby/plan-object.rb'
 require 'roby/event.rb'
 require 'roby/models/arguments'
@@ -69,7 +70,6 @@ require 'roby/task_event'
 require 'roby/task_event_generator'
 require 'roby/task_arguments'
 require 'roby/task'
-require 'roby/task_statemachine.rb'
 require 'roby/plan_service.rb'
 require 'roby/tasks/aggregator'
 require 'roby/tasks/parallel'
@@ -86,11 +86,9 @@ require 'roby/relations/influence.rb'
 require 'roby/relations/planned_by.rb'
 require 'roby/relations/temporal_constraints'
 
-require 'roby/task_index.rb'
 require 'roby/plan.rb'
 require 'roby/transactions/proxy.rb'
 require 'roby/transactions.rb'
-require 'roby/query.rb'
 
 begin
     require 'roby_marshalling'
@@ -114,6 +112,6 @@ require 'roby/log'
 
 require 'roby/robot.rb'
 require 'roby/actions'
+require 'roby/coordination'
 require 'roby/planning.rb'
-require 'roby/task_scripting.rb'
 

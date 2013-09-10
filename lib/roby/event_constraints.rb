@@ -307,36 +307,40 @@ end
                 pp.nest(2) do
                     elements.each do |explanation|
                         pp.breakable
+                        case explanation
+                        when Event
+                            pp.text "the following event has been emitted "
+                        when EventGenerator
+                            if value == nil
+                                pp.text "the following event is unreachable "
+                            elsif value == true
+                                pp.text "the following event is reachable, but has not been emitted "
+                            else
+                                pp.text "the following event has been emitted "
+                            end
+                        end
+
                         explanation.pretty_print(pp)
                         case explanation
                         when Event
                             sources = explanation.all_sources
-                            if sources.empty?
-                                pp.text " has been emitted"
-                            else
-                                pp.text " has been emitted because of the following events"
+                            if !sources.empty?
+                                pp.breakable
+                                pp.text "The emission was caused by the following events"
                                 sources.each do |ev|
                                     pp.breakable
                                     pp.text "< "
-                                    ev.pretty_print(pp)
+                                    ev.pretty_print(pp, false)
                                 end
                             end
 
                         when EventGenerator
-                            if value == nil
-                                if explanation.unreachability_reason
-                                    pp.text " is unreachable because of"
-                                    pp.nest(2) do
-                                        pp.breakable
-                                        explanation.unreachability_reason.pretty_print(pp)
-                                    end
-                                else
-                                    pp.text " is unreachable"
+                            if value == nil && explanation.unreachability_reason
+                                pp.text "The unreachability was caused by "
+                                pp.nest(2) do
+                                    pp.breakable
+                                    explanation.unreachability_reason.pretty_print(pp)
                                 end
-                            elsif value == true
-                                pp.text " is reachable, but has not been emitted"
-                            else
-                                pp.text " has not been emitted"
                             end
                         else
                             explanation.pretty_print(pp)

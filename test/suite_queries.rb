@@ -1,0 +1,11 @@
+$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
+require 'roby/test/common'
+require 'queries/test_task_matcher'
+require 'queries/test_or_matcher'
+require 'queries/test_any'
+require 'queries/test_none'
+require 'queries/test_and_matcher'
+require 'queries/test_not_matcher'
+require 'queries/test_query'
+require 'queries/test_task_event_generator_matcher'
+require 'queries/test_localized_error_matcher'

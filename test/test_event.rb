@@ -150,7 +150,10 @@ class TC_Event < Test::Unit::TestCase
 
     def assert_event_fails(ev, error_type)
         with_log_level(Roby, Logger::FATAL) do
-            yield
+            begin
+                yield
+            rescue error_type
+            end
         end
         assert(ev.unreachable?, "#{ev} was expected to be marked as unreachable, but is not")
         assert_kind_of(error_type, ev.unreachability_reason)
@@ -158,7 +161,9 @@ class TC_Event < Test::Unit::TestCase
 
     def assert_emission_failed(ev, error_type)
         assert_event_fails(ev, EmissionFailed) do
-            yield
+            assert_raises(error_type) do
+                yield
+            end
         end
         assert_kind_of(error_type, ev.unreachability_reason.error, "unreachability reason set to #{ev.unreachability_reason.error}, expected an instance of #{error_type}")
     end
@@ -1265,6 +1270,22 @@ class TC_Event < Test::Unit::TestCase
         assert_equal [i1.last, i2.last].to_value_set, event.sources.to_value_set
         assert_equal [root.last, i1.last, i2.last].to_value_set, event.all_sources.to_value_set
         assert_equal [root.last].to_value_set, event.root_sources.to_value_set
+    end
+
+    def test_adding_a_handler_from_within_a_handler_does_not_call_the_new_handler
+        plan.add(event = Roby::EventGenerator.new)
+        called = false
+        event.on do |context|
+            event.on { |context| called = true }
+        end
+        event.emit
+        assert !called
+    end
+
+    def test_calling_unreachable_outside_propagation_raises_the_unreachability_reason
+        plan.add(event = Roby::EventGenerator.new)
+        exception = Class.new(Exception).new
+        assert_raises(exception.class) { event.unreachable!(exception) }
     end
 end
 

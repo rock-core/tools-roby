@@ -399,6 +399,8 @@ unmark(task)                      | remove permanent or mission mark on +task+  
 jobs                              | the list of actions started with the associated job ID  |
 job ID                            | returns the task object for job ID                      |
 kill_job ID                       | stop job with the given ID                              |
+reload_models                     | reload all models                                       |
+reload_actions                    | reload action definitions (faster than reload_models)   |
 
             EOHELP
         end
@@ -545,11 +547,26 @@ kill_job ID                       | stop job with the given ID                  
 	    DRbObject.new(name.to_s.camelcase(true))
 	end
 
-	# Reload the Roby framework code
+        # Reload all models from this Roby application
         #
-        # WARNING: does not work for now
+        # Do NOT do this while the robot does critical things
+        def reload_models
+            Roby.execute do
+                Roby.app.reload_models
+            end
+            nil
+        end
+
+	# @deprecated use {#reload_actions} instead
 	def reload_planners
-	    Roby.app.reload_planners
+	    reload_actions
+	end
+
+	# Reload the Roby framework code
+	def reload_actions
+            Roby.execute do
+                Roby.app.reload_actions
+            end
 	    nil
 	end
 

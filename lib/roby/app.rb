@@ -10,6 +10,8 @@ module Roby
     # Regular expression that matches backtrace paths that are within the
     # Roby framework
     RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)|^\(eval\)|^\/usr\/lib\/ruby/
+    RX_IN_METARUBY = /^(?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(MetaRuby::LIB_DIR)}\//
+    RX_IN_UTILRB = /^(?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(Utilrb::LIB_DIR)}\//
     # Regular expression that matches backtrace paths that are require lines
     RX_REQUIRE = /in `(gem_original_)?require'$/
 
@@ -382,6 +384,8 @@ module Roby
         }
 
 	def initialize
+            @app_dir = nil
+            @search_path = nil
 	    @plugins = Array.new
             @plugins_enabled = true
             @plan = Plan.new
@@ -394,7 +398,10 @@ module Roby
 	    @testing_keep_logs = false
             @registered_exceptions = []
 
-            @filter_out_patterns = [Roby::RX_IN_FRAMEWORK, Roby::RX_REQUIRE]
+            @filter_out_patterns = [Roby::RX_IN_FRAMEWORK,
+                                    Roby::RX_IN_METARUBY,
+                                    Roby::RX_IN_UTILRB,
+                                    Roby::RX_REQUIRE]
             self.abort_on_application_exception = true
 
             @planners    = []
@@ -508,7 +515,6 @@ module Roby
             end
 
             # Load the plugins 'main' files
-            load_plugins_from_prefix File.join(ROBY_ROOT_DIR, 'plugins')
             if plugin_path = ENV['ROBY_PLUGIN_PATH']
                 plugin_path.split(':').each do |plugin|
                     if File.directory?(plugin)
@@ -765,25 +771,31 @@ module Roby
             registered_exceptions.clear
         end
 
+        def isolate_load_errors(message, logger = Application, level = :warn)
+            begin
+                yield
+            rescue Interrupt
+                raise
+            rescue ::Exception => e
+                register_exception(e, message)
+                if ignore_all_load_errors?
+                    Robot.warn message
+                    Roby.log_exception(e, logger, level)
+                    Roby.log_backtrace(e, logger, level)
+                else raise
+                end
+            end
+        end
+
         def require(absolute_path)
             # Make the file relative to the search path
             file = make_path_relative(absolute_path)
             Roby::Application.info "loading #{file} (#{absolute_path})"
-            begin
+            isolate_load_errors("ignored file #{file}") do
                 if file != absolute_path
                     Kernel.require(file)
                 else
                     Kernel.require absolute_path
-                end
-            rescue Interrupt
-                raise
-            rescue ::Exception => e
-                register_exception(e, "ignored file #{file}")
-                if ignore_all_load_errors?
-                    Robot.warn "ignored file #{file}"
-                    Roby.log_exception(e, Application, :warn)
-                    Roby.log_backtrace(e, Application, :warn)
-                else raise
                 end
             end
         end
@@ -933,6 +945,15 @@ module Roby
 		    end
 		end
 	    end
+
+            # Attach the global fault tables to the plan
+            self.planners.each do |planner|
+                if planner.respond_to?(:each_fault_response_table)
+                    planner.each_fault_response_table do |table, arguments|
+                        plan.use_fault_response_table table, arguments
+                    end
+                end
+            end
 
             if public_shell_interface?
                 setup_shell_interface
@@ -1524,7 +1545,8 @@ module Roby
         end
 
         def clear_models
-            [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library, Actions::StateMachine].each do |root_model|
+            [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
+             Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript].each do |root_model|
                 submodels = root_model.each_submodel.to_a.dup
                 submodels.each do |m|
                     if model_defined_in_app?(m) || !m.permanent_model?
@@ -1533,23 +1555,6 @@ module Roby
                     next if m.permanent_model?
 
                     Roby::Transaction::Proxying.proxying_modules.delete(m)
-
-                    # Deregister non-permanent models that are registered in the
-                    # constant hierarchy
-                    valid_name =
-                        begin
-                            constant(m.name) == m
-                        rescue NameError
-                        end
-
-                    if valid_name
-                        parent_module =
-                            if m.name =~ /::/
-                                m.name.gsub(/::[^:]*$/, '')
-                            else Object
-                            end
-                        constant(parent_module).send(:remove_const, m.name.gsub(/.*::/, ''))
-                    end
                 end
             end
             call_plugins(:clear_models, self)
@@ -1562,6 +1567,15 @@ module Roby
                 unload_features(path)
             end
             require_models
+        end
+
+        def reload_actions
+            unload_features("actions", ".*\.rb$")
+            unload_features("models", "actions", ".*\.rb$")
+            planners.each do |planner_model|
+                planner_model.clear_model
+            end
+            require_planners
         end
 
         def reload_planners

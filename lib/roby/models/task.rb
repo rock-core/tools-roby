@@ -529,7 +529,7 @@ module Roby
             # Defines a forwarding relation between two events of the same task
             # instance.
             #
-            # @param [{Symbol=>Symbol}] mapping of event names, where the keys
+            # @param [{Symbol=>Symbol}] mappings of event names, where the keys
             #   are forwarded to the values
             # @example
             #   # A task that is stopped as soon as it is started
@@ -601,11 +601,12 @@ module Roby
             #	end
             #       do_handle
             #   end
-            def on_exception(*matchers, &handler)
+            def on_exception(matcher, &handler)
                 check_arity(handler, 1)
+                matcher = matcher.to_execution_exception_matcher
                 id = (@@exception_handler_id += 1)
                 define_method("exception_handler_#{id}", &handler)
-                exception_handlers.unshift [matchers, instance_method("exception_handler_#{id}")]
+                exception_handlers.unshift [matcher, instance_method("exception_handler_#{id}")]
             end
 
             @@exception_handler_id = 0
@@ -626,6 +627,23 @@ module Roby
                     end
                 end
                 @simulation_model ||= model
+            end
+
+            # Returns a TaskMatcher object that matches this task model
+            def match(*args)
+                matcher = Queries::TaskMatcher.new
+                if args.empty? && self != Task
+                    matcher.which_fullfills(self)
+                else
+                    matcher.which_fullfills(*args)
+                end
+                matcher
+            end
+
+            # @return [Queries::ExecutionExceptionMatcher] an exception match
+            #   object that matches exceptions originating from this task
+            def to_execution_exception_matcher
+                Queries::ExecutionExceptionMatcher.new.with_origin(self)
             end
 
             def fullfills?(models)
@@ -649,6 +667,10 @@ module Roby
 
             def can_merge?(target_model)
                 fullfills?(target_model)
+            end
+
+            def to_coordination_task(task_model)
+                Roby::Coordination::Models::TaskFromAsPlan.new(self, self)
             end
         end
     end

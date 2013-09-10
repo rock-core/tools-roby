@@ -559,6 +559,11 @@ module Roby
                 announce_event_propagation_update
             end
 
+            def task_arguments_updated(time, task, key, value)
+                task = local_object(task)
+                task.arguments.values[key] = value
+            end
+
 	    def added_task_child(time, parent, rel, child, info)
 		parent = local_object(parent)
 		child  = local_object(child)

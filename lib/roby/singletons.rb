@@ -48,7 +48,7 @@ module Roby
     
     # Defines a global exception handler on the main plan.
     # See also Plan#on_exception
-    def self.on_exception(*matchers, &handler); Roby.app.plan.on_exception(*matchers, &handler) end
+    def self.on_exception(matcher, &handler); Roby.app.plan.on_exception(matcher, &handler) end
 
     # The main state object
     State = Roby.state

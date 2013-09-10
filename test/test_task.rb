@@ -141,22 +141,6 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal({:arg => 'B', :assigned => true}, task.arguments)
     end
 
-    def test_arguments_assignation
-	model = Task.new_submodel { argument :arg }
-	plan.add(task = model.new)
-	task.arguments[:arg] = 'A'
-        assert_equal('A', task.arg)
-        assert_equal({ :arg => 'A' }, task.arguments)
-    end
-    
-    def test_arguments_assignation_operator
-	model = Task.new_submodel { argument :arg }
-	plan.add(task = model.new)
-        task.arg = 'B'
-        assert_equal('B', task.arg)
-        assert_equal({ :arg => 'B' }, task.arguments)
-    end
-
     def test_meaningful_arguments
 	model = Task.new_submodel { argument :arg }
 	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
@@ -171,16 +155,6 @@ class TC_Task < Test::Unit::TestCase
         end
         plan.add(child = child_model.new(:target => 10))
         assert_equal({:target => 10}, child.meaningful_arguments)
-    end
-
-    def test_arguments_cannot_override
-	model = Task.new_submodel { argument :arg }
-	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
-	assert_raises(ArgumentError) { task.arg = 10 }
-
-        # But we can override non-meaningful arguments
-	task.arguments[:bar] = 42
-	assert_nothing_raised { task.arguments[:bar] = 43 }
     end
 
     def test_arguments_partially_instanciated
@@ -754,8 +728,8 @@ class TC_Task < Test::Unit::TestCase
             m.cmd_stop(expected_status[:started? => true, :running? => true, :success? => nil]).once.ordered
             m.cmd_failed(expected_status[:started? => true, :running? => true, :finishing? => true, :success? => nil]).once.ordered
             m.on_failed(expected_status[:started? => true, :running? => true, :finishing? => true, :success? => false]).once.ordered
-            m.stop_unreachable.once.ordered
             m.on_stop(expected_status[:started? => true, :finished? => true, :success? => false]).once.ordered
+            m.stop_unreachable.once.ordered
         end
 
         assert(task.pending?)
@@ -831,11 +805,11 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	ev_models = Hash[*model.enum_for(:each_event).to_a.flatten]
-	assert_equal([:start, :success, :aborted, :internal_error, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
+	assert_equal([:start, :success, :aborted, :internal_error, :updated_data, :stop, :failed, :inter, :poll_transition].to_set, ev_models.keys.to_set)
 
 	plan.add(task = model.new)
 	ev_models = Hash[*task.model.enum_for(:each_event).to_a.flatten]
-	assert_equal([:start, :success, :aborted, :internal_error, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
+	assert_equal([:start, :success, :aborted, :internal_error, :updated_data, :stop, :failed, :inter, :poll_transition].to_set, ev_models.keys.to_set)
 	assert( ev_models[:start].symbol )
 	assert( ev_models[:start].name || ev_models[:start].name.length > 0 )
     end
@@ -2286,6 +2260,62 @@ class TC_Task < Test::Unit::TestCase
         end
         plan.add(task = task_model.new)
         assert(task.event(:terminal).terminal?)
+    end
+
+    def test_add_error_propagates_it_using_process_events_synchronous
+        error_m = Class.new(LocalizedError)
+        error = error_m.new(Roby::Task.new)
+        error = error.to_execution_exception
+        flexmock(engine).should_receive(:process_events_synchronous).with([], [error]).once
+        plan.engine.add_error(error)
+    end
+
+    def test_unreachable_handlers_are_called_after_on_stop
+        task_m = Roby::Task.new_submodel do
+            terminates
+            event :intermediate
+        end
+        recorder = flexmock
+        plan.add(task = task_m.new)
+        task.on :stop do
+            recorder.on_stop
+        end
+        task.intermediate_event.when_unreachable do
+            recorder.when_unreachable
+        end
+        recorder.should_receive(:on_stop).once.ordered
+        recorder.should_receive(:when_unreachable).once.ordered
+        task.start!
+        task.stop!
+    end
+
+    def test_event_to_execution_exception_matcher_matches_the_event_specifically
+        plan.add(task = Roby::Task.new)
+        matcher = task.stop_event.to_execution_exception_matcher
+        assert(matcher === LocalizedError.new(task.stop_event).to_execution_exception)
+        assert(!(matcher === LocalizedError.new(Roby::Task.new.stop_event).to_execution_exception))
+    end
+
+    def test_has_argument_p_returns_true_if_the_argument_is_set
+        task_m = Roby::Task.new_submodel { argument :arg }
+        plan.add(task = task_m.new(:arg => 10))
+        assert task.has_argument?(:arg)
+    end
+    def test_has_argument_p_returns_true_if_the_argument_is_set_with_nil
+        task_m = Roby::Task.new_submodel { argument :arg }
+        plan.add(task = task_m.new(:arg => nil))
+        assert task.has_argument?(:arg)
+    end
+    def test_has_argument_p_returns_false_if_the_argument_is_not_set
+        task_m = Roby::Task.new_submodel { argument :arg }
+        plan.add(task = task_m.new)
+        assert !task.has_argument?(:arg)
+    end
+    def test_has_argument_p_returns_false_if_the_argument_is_a_delayed_argument
+        task_m = Roby::Task.new_submodel { argument :arg }
+        delayed_arg = flexmock(:evaluate_delayed_argument => nil)
+        plan.add(task = task_m.new(:arg => delayed_arg))
+        assert !task.has_argument?(:arg)
     end
 end
 

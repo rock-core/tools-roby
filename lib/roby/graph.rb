@@ -79,10 +79,133 @@ module BGL
 	end
     end
 
+    # Base class for Graph and the graph-view objects (Reverse and Undirected)
+    module GraphCommonAlgorithms
+        # This performs an algorithm in which a given value is propagated (a la
+        # #inject) along the graph, forking (calling #fork on the value) each
+        # time there is a fork in the graph and merging (calling #merge) each
+        # time the forks meet again
+        def fork_merge_propagation(seed, value, options = Hash.new)
+            options = Kernel.validate_options options, :vertex_visitor => nil
+            vertex_visitor = options[:vertex_visitor]
+            forks  = Hash.new
+            merges = Hash.new
+
+            reset_prune
+
+            tips = Hash.new
+
+            queue = [[seed, value]]
+            while !queue.empty?
+                while !queue.empty?
+                    seed, value = queue.shift
+                    if vertex_visitor
+                        vertex_visitor.call(seed, value)
+                        if pruned?
+                            reset_prune
+                            next
+                        end
+                    end
+                    if leaf?(seed)
+                        tips[seed] = value
+                    end
+
+                    last_vertex = nil
+                    each_dfs(seed, BGL::Graph::ALL) do |from, to, info|
+                        if last_vertex && (from != last_vertex)
+                            tips[last_vertex] = value
+                        end
+                        last_vertex = to
+
+                        # Reset value if we backtracked to a fork
+                        out_degree = self.out_degree(from)
+                        if out_degree > 1
+                            forks[from] ||= value
+                            value = forks[from].fork
+                        end
+
+                        # Update value based on the edge information
+                        value = yield(from, to, value)
+                        if pruned?
+                            last_vertex = nil
+                            next
+                        end
+
+                        # And take care of merges
+                        in_degree = self.in_degree(to)
+                        if in_degree > 1
+                            merges[to] ||= []
+                            merges[to] << value
+                            if merges[to].size == in_degree
+                                value = merges.delete(to).inject do |value, v|
+                                    value.merge(v)
+                                end
+                            else
+                                # Do not save this tip, it will be given for
+                                # processing later on when we can merge
+                                last_vertex = nil
+                                prune
+                            end
+                        end
+                        if vertex_visitor && last_vertex
+                            vertex_visitor.call(last_vertex, value)
+                            if pruned?
+                                last_vertex = nil
+                                next
+                            end
+                        end
+                    end
+                    if last_vertex
+                        tips[last_vertex] = value
+                    end
+                end
+
+                queue = merges.map do |v, values|
+                    [v, values.inject { |value, v| value.merge(v) }]
+                end
+                merges.clear
+            end
+
+            tips
+        end
+    end
+
     class Graph
+        include GraphCommonAlgorithms
+
 	# This class is an adaptor which transforms a directed graph by
 	# swapping its edges
 	class Reverse
+            include GraphCommonAlgorithms
+
+            def root?(vertex)
+                @__bgl_real_graph__.leaf?(vertex)
+            end
+
+            def leaf?(vertex)
+                @__bgl_real_graph__.root?(vertex)
+            end
+
+            def in_degree(vertex)
+                @__bgl_real_graph__.out_degree(vertex)
+            end
+
+            def out_degree(vertex)
+                @__bgl_real_graph__.in_degree(vertex)
+            end
+            
+            def prune
+                @__bgl_real_graph__.prune
+            end
+
+            def pruned?
+                @__bgl_real_graph__.pruned?
+            end
+
+            def reset_prune
+                @__bgl_real_graph__.reset_prune
+            end
+
 	    # Create a directed graph whose edges are the ones of +g+, but with
 	    # source and destination swapped.
 	    def initialize(g)
@@ -287,5 +410,6 @@ module BGL
             return new, removed, updated
         end
     end
+
 end
 

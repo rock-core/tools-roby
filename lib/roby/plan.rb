@@ -58,13 +58,11 @@ module Roby
 	# The list of events that are kept outside GC. Do not change that set
         # directly, use #permanent and #auto instead.
 	attr_reader :permanent_events
-
-	# A map of event => task repairs. Whenever an exception is found,
-	# exception propagation checks that no repair is defined for that
-	# particular event or for events that are forwarded by it.
+        # A set of pair of task matching objects and blocks defining this plan's
+        # triggers
         #
-        # See also #add_repair and #remove_repair
-	attr_reader :repairs
+        # See {#add_trigger}
+        attr_reader :triggers
 
 	# A set of tasks which are useful (and as such would not been garbage
 	# collected), but we want to GC anyway
@@ -110,13 +108,14 @@ module Roby
 
         # The set of relations available for this plan
         attr_reader :relations
-
         # The propagation engine for this object. It is either nil (if no
         # propagation engine is available) or self.
         attr_reader :propagation_engine
-
         # The set of PlanService instances that are defined on this plan
         attr_reader :plan_services
+        # The list of fault response tables that are currently globally active
+        # on this plan
+        attr_reader :active_fault_response_tables
 
 	def initialize
 	    @missions	 = ValueSet.new
@@ -128,23 +127,13 @@ module Roby
 	    @force_gc    = ValueSet.new
 	    @gc_quarantine = ValueSet.new
 	    @transactions = ValueSet.new
-	    @repairs     = Hash.new
             @exception_handlers = Array.new
+            @fault_response_tables = Array.new
+            @active_fault_response_tables = Array.new
+            @triggers = []
 
             on_exception LocalizedError do |plan, error|
-                error.each_involved_task.
-                    find_all { |t| plan.mission?(t) && t != error.origin }.
-                    each do |m|
-                        plan.add_error(MissionFailedError.new(m, error.exception))
-                    end
-
-                error.each_involved_task.
-                    find_all { |t| plan.permanent?(t) && t != error.origin }.
-                    each do |m|
-                        plan.add_error(PermanentTaskError.new(m, error.exception))
-                    end
-
-                pass_exception
+                plan.default_localized_error_handling(error)
             end
 
             @plan_services = Hash.new
@@ -154,10 +143,81 @@ module Roby
                 map { |r| r.method(:check_structure) if r.respond_to?(:check_structure) }.
                 compact
 
-	    @task_index  = Roby::TaskIndex.new
+	    @task_index  = Roby::Queries::Index.new
 
 	    super() if defined? super
 	end
+
+        def default_localized_error_handling(error)
+            matching_handlers = Array.new
+            active_fault_response_tables.each do |table|
+                table.find_all_matching_handlers(error).each do |handler|
+                    matching_handlers << [table, handler]
+                end
+            end
+            handlers = matching_handlers.sort_by { |_, handler| handler.priority }
+
+            table, handler = handlers.first
+            if handler
+                handler.activate(error, table.arguments)
+            else
+                error.each_involved_task.
+                    find_all { |t| mission?(t) && t != error.origin }.
+                    each do |m|
+                        add_error(MissionFailedError.new(m, error.exception))
+                    end
+
+                error.each_involved_task.
+                    find_all { |t| permanent?(t) && t != error.origin }.
+                    each do |m|
+                        add_error(PermanentTaskError.new(m, error.exception))
+                    end
+
+                pass_exception
+            end
+        end
+
+        # Enables a fault response table on this plan
+        #
+        # @param [Model<Coordination::FaultResponseTable>] table_model the fault
+        #   response table model
+        # @param [Hash] arguments the arguments that should be passed to the
+        #   created table
+        # @return [Coordination::FaultResponseTable] the fault response table
+        #   that got added to this plan. It can be removed using
+        #   {#remove_fault_response_table}
+        # @return [void]
+        # @see remove_fault_response_table
+        def use_fault_response_table(table_model, arguments = Hash.new)
+            table = table_model.new(self, arguments)
+            table.attach_to(self)
+            active_fault_response_tables << table
+            table
+        end
+
+        # Remove a fault response table that has been added with
+        # {#use_fault_response_table}
+        #
+        # @overload remove_fault_response_table(table)
+        #   @param [Coordination::FaultResponseTable] table the table that
+        #     should be removed. This is the return value of
+        #     {#use_fault_response_table}
+        #
+        # @overload remove_fault_response_table(table_model)
+        #   Removes all the tables whose model is the given table model
+        #
+        #   @param [Model<Coordination::FaultResponseTable>] table_model
+        #
+        # @return [void]
+        # @see use_fault_response_table
+        def remove_fault_response_table(table_model)
+            active_fault_response_tables.delete_if do |t|
+                if (table_model.kind_of?(Class) && t.kind_of?(table_model)) || t == table_model
+                    t.removed!
+                    true
+                end
+            end
+        end
 
         def dup
             new_plan = Plan.new
@@ -624,55 +684,99 @@ module Roby
         # #added_tasks hooks are called for the objects that were not in
         # the plan.
 	def add(objects)
-	    event_seeds, tasks = partition_event_task(objects)
-	    event_seeds = (event_seeds || ValueSet.new).to_value_set
+	    events, tasks = partition_event_task(objects)
 
-	    if tasks
-		tasks = tasks.to_value_set
-		new_tasks = connected_task_component(nil, known_tasks.dup, tasks)
-		unless new_tasks.empty?
-		    old_task_events = task_events.dup
-		    new_tasks = add_task_set(new_tasks)
-		    event_seeds.merge(task_events - old_task_events)
+	    if tasks && !tasks.empty?
+                tasks = tasks.to_value_set
+		new_tasks = discover_new_objects(TaskStructure.relations, nil, known_tasks.dup, tasks)
+		if !new_tasks.empty?
+		    add_task_set(new_tasks)
+                    events ||= ValueSet.new
+                    for t in new_tasks
+                        for ev in t.bound_events.values
+                            task_events << ev
+                            events << ev
+                        end
+                    end
 		end
 	    end
 
-	    if !event_seeds.empty?
-		events = event_seeds.dup
+	    if events && !events.empty?
+		events = events.to_value_set
+                new_events = discover_new_objects(EventStructure.relations, nil, free_events.dup, events)
 
-		# now, we include the set of free events that are linked to
-		# +new_tasks+ in +events+
-		EventStructure.each_root_relation do |rel|
-		    components = rel.generated_subgraphs(event_seeds, false)
-		    components.concat rel.reverse.generated_subgraphs(event_seeds, false)
-		    for c in components
-			events.merge(c.to_value_set)
-		    end
-		end
-
-		add_event_set(events - task_events - free_events)
+                # Issue added_task_relation hooks for the relations between the new
+                # events, including task events
+                #
+                # If some of these events already have relations with existing tasks,
+                # they will be triggered in Task#added_child_object
+                new_events.each do |e|
+                    e.each_root_relation do |rel|
+                        e.each_child_object do |child_e|
+                            if new_events.include?(child_e)
+                                added_event_relation(e, child_e, rel.recursive_subsets)
+                            end
+                        end
+                    end
+                end
+                new_events.delete_if { |ev| ev.respond_to?(:task) }
+		add_event_set(new_events)
 	    end
 
 	    self
 	end
+
+        Trigger = Struct.new :query_object, :block do
+            def ===(task)
+                query_object === task
+            end
+            def call(task)
+                block.call(task)
+            end
+        end
+
+        # Add a trigger
+        #
+        # This registers a notification: the given block will be called for each
+        # new task that match the given query object. It yields right away for
+        # the tasks that are already in the plan
+        #
+        # @param [#===] query_object the object against which tasks are tested.
+        #   Tasks for which #=== returns true are yield to the block
+        # @yieldparam [Roby::Task] task the task that matched the query object
+        # @return [Object] an ID object that can be used in {#remove_trigger}
+        def add_trigger(query_object, &block)
+            tr = Trigger.new(query_object, block)
+            triggers << tr
+            known_tasks.each do |t|
+                if tr === t
+                    tr.call(t)
+                end
+            end
+            tr
+        end
+
+        # Removes a trigger
+        #
+        # @param [Object] trigger the trigger to be removed. This is the return value of
+        #   the corresponding {#add_trigger} call
+        # @return [void]
+        def remove_trigger(trigger)
+            triggers.delete(trigger)
+            nil
+        end
 
 	# Add +events+ to the set of known events and call added_events
 	# for the new events
 	#
 	# This is for internal use, use #add instead
 	def add_event_set(events)
-	    events = events.difference(free_events)
-	    events.delete_if do |e|
-		if !e.root_object?
-		    true
-		else
-		    e.plan = self
-		    false
-		end
+            for e in events
+                e.plan = self
+                free_events << e
 	    end
 
-	    unless events.empty?
-		free_events.merge(events)
+	    if !events.empty?
 		added_events(events)
 	    end
 
@@ -684,21 +788,17 @@ module Roby
 	#
 	# This is for internal use, use #add instead
 	def add_task_set(tasks)
-	    tasks = tasks.difference(known_tasks)
 	    for t in tasks
 		t.plan = self
-                for ev in t.bound_events
-                    task_events << ev[1]
-                end
+                known_tasks << t
 		task_index.add t
 	    end
-	    known_tasks.merge tasks
 	    added_tasks(tasks)
 
 	    for t in tasks
 		t.instantiate_model_event_relations
 	    end
-	    tasks
+	    nil
 	end
 
         def added_tasks(tasks)
@@ -714,21 +814,97 @@ module Roby
             if engine
                 engine.event_ordering.clear
             end
+
+            # Issue added_task_relation hooks for the relations between the new
+            # tasks themselves
+            #
+            # If some of these tasks already have relations with existing tasks,
+            # they will be triggered in Task#added_child_object
+            tasks.each do |t|
+                t.each_root_relation do |rel|
+                    t.each_child_object do |child_t|
+                        if tasks.include?(child_t)
+                            added_task_relation(t, child_t, rel.recursive_subsets)
+                        end
+                    end
+                end
+                triggers.each do |trigger|
+                    if trigger === t
+                        trigger.call(t)
+                    end
+                end
+            end
+
             super if defined? super
         end
 
 	# Hook called when new events have been discovered in this plan
 	def added_events(events)
-            if engine
-                engine.event_ordering.clear
-            end
-
             if respond_to?(:discovered_events)
                 Roby.warn_deprecated "the #discovered_events hook has been replaced by #added_events"
                 discovered_events(events)
             end
+
+            if engine
+                engine.event_ordering.clear
+            end
+
 	    super if defined? super
 	end
+
+        # Hook called when relations are created between tasks that are included
+        # in this plan 
+        #
+        # @param [Task] parent
+        # @param [Task] child
+        # @param [Array<RelationGraph>] relations the relation graphs in which
+        #   the new relation has been created
+        # @return [void]
+        def added_task_relation(parent, child, relations)
+            super if defined? super
+        end
+
+        # Hook called when relations are removed between tasks that are included
+        # in this plan 
+        #
+        # @param [Task] parent
+        # @param [Task] child
+        # @param [Array<RelationGraph>] relations the relation graphs in which
+        #   the relation has been removed
+        # @return [void]
+        def removed_task_relation(parent, child, relations)
+            super if defined? super
+        end
+
+        # Hook called when relations are created between events that are included
+        # in this plan 
+        #
+        # @param [Task] parent
+        # @param [Task] child
+        # @param [Array<RelationGraph>] relations the relation graphs in which
+        #   the new relation has been created
+        # @return [void]
+        def added_event_relation(parent, child, relations)
+            if engine && relations.include?(Roby::EventStructure::Precedence)
+                engine.event_ordering.clear
+            end
+            super if defined? super
+        end
+
+        # Hook called when relations are removed between tasks that are included
+        # in this plan 
+        #
+        # @param [Task] parent
+        # @param [Task] child
+        # @param [Array<RelationGraph>] relations the relation graphs in which
+        #   the relation has been removed
+        # @return [void]
+        def removed_event_relation(parent, child, relations)
+            if engine && relations.include?(Roby::EventStructure::Precedence)
+                engine.event_ordering.clear
+            end
+            super if defined? super
+        end
 
         # Creates a new transaction and yields it. Ensures that the transaction
         # is discarded if the block returns without having committed it.
@@ -753,10 +929,10 @@ module Roby
 
 	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
 	# Only the tasks that are in +complete_set+ are included.
-	def connected_task_component(complete_set, useful_set, seeds, explored_relations = Hash.new)
-	    old_useful_set = useful_set.dup
-            useful_set.merge(seeds.to_value_set)
-	    for rel in TaskStructure.relations
+	def discover_new_objects(relations, complete_set, useful_set, seeds, explored_relations = Hash.new)
+            new_objects = ValueSet.new
+            useful_set.merge(seeds)
+	    for rel in relations
 		next if !rel.root_relation?
 
                 explored_relations[rel] ||= [ValueSet.new, ValueSet.new]
@@ -764,25 +940,28 @@ module Roby
                 reverse_seeds = seeds - explored_relations[rel][0]
 		for subgraph in rel.reverse.generated_subgraphs(reverse_seeds, false)
                     explored_relations[rel][0].merge(subgraph)
-		    useful_set.merge(subgraph)
+		    new_objects.merge(subgraph)
 		end
 
                 direct_seeds = seeds - explored_relations[rel][1]
 		for subgraph in rel.generated_subgraphs(direct_seeds, false)
                     explored_relations[rel][1].merge(subgraph)
-		    useful_set.merge(subgraph)
+		    new_objects.merge(subgraph)
 		end
 	    end
 
 	    if complete_set
-		useful_set &= complete_set
+		new_objects.delete_if { |obj| !complete_set.include?(obj) }
 	    end
 
-	    if useful_set.size == old_useful_set.size || (complete_set && useful_set.size == complete_set.size)
-		useful_set
-	    else
-		connected_task_component(complete_set, useful_set, (useful_set - old_useful_set), explored_relations)
-	    end
+            new_objects.difference!(seeds)
+            new_objects.delete_if { |t| useful_set.include?(t) }
+            if new_objects.empty?
+                seeds
+            else
+                useful_set.merge(new_objects)
+                seeds.merge(discover_new_objects(relations, complete_set, useful_set, new_objects, explored_relations))
+            end
 	end
 
 	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
@@ -809,20 +988,6 @@ module Roby
 
 	# Returns the set of useful tasks in this plan
 	def locally_useful_tasks
-            to_unmark = task_index.by_state[:finished?] | task_index.by_state[:failed?]
-
-	    # Remove all missions that are finished
-	    for finished_mission in (@missions & to_unmark)
-		if !task_index.repaired_tasks.include?(finished_mission)
-		    unmark_mission(finished_mission)
-		end
-	    end
-	    for finished_permanent in (@permanent_tasks & to_unmark)
-		if !task_index.repaired_tasks.include?(finished_permanent)
-		    unmark_permanent(finished_permanent)
-		end
-	    end
-
 	    # Create the set of tasks which must be kept as-is
 	    seeds = @missions | @permanent_tasks
 	    for trsc in transactions
@@ -927,74 +1092,6 @@ module Roby
 	# Iterates on all tasks
 	def each_task; @known_tasks.each { |t| yield(t) } end
  
-        # Install a plan repair for +failure_point+ with +task+. A plan repair
-        # is a task which, during its lifetime, is supposed to fix the problem
-        # encountered at +failure_point+
-        #
-        # +failure_point+ is an Event object which represents the event causing
-        # the problem.
-        #
-        # See also #repairs and #remove_repair
-	def add_repair(failure_point, task)
-	    if !failure_point.kind_of?(Event)
-		raise TypeError, "failure point #{failure_point} should be an event"
-	    elsif task.plan && task.plan != self
-		raise ArgumentError, "wrong plan: #{task} is in #{task.plan}, not #{plan}"
-	    elsif repairs.has_key?(failure_point)
-		raise ArgumentError, "there is already a plan repair defined for #{failure_point}: #{repairs[failure_point]}"
-	    elsif !task.plan
-		add(task)
-	    end
-
-	    repairs[failure_point] = task
-	    if failure_point.generator.respond_to?(:task)
-		task_index.repaired_tasks << failure_point.generator.task
-	    end
-	end
-
-        # Removes +task+ from the set of active plan repairs.
-        #
-        # See also #repairs and #add_repair
-	def remove_repair(task)
-	    repairs.delete_if do |ev, repair|
-		if repair == task
-		    if ev.generator.respond_to?(:task)
-			task_index.repaired_tasks.delete(ev.generator.task)
-		    end
-		    true
-		end
-	    end
-	end
-
-	# Return all repairs which apply on +event+
-	def repairs_for(event)
-	    result = Hash.new
-
-	    if event.generator.respond_to?(:task)
-		equivalent_generators = event.generator.generated_subgraph(EventStructure::Forwarding)
-
-		history = event.generator.task.history
-		id    = event.propagation_id
-		index = history.index(event)
-		while index < history.size
-		    ev = history[index]
-		    break if ev.propagation_id != id
-
-		    if equivalent_generators.include?(ev.generator) &&
-			(task = repairs[ev])
-
-			result[ev] = task
-		    end
-
-		    index += 1
-		end
-	    elsif task = repairs[event]
-		result[event] = task
-	    end
-
-	    result
-	end
-
 	# Returns +object+ if object is a plan object from this plan, or if
 	# it has no plan yet (in which case it is added to the plan first).
 	# Otherwise, raises ArgumentError.
@@ -1032,10 +1129,10 @@ module Roby
 		elsif !object.plan
                     if object.removed_at
                         if PlanObject.debug_finalization_place?
-                            raise ArgumentError, "#{self} has already been removed from its plan\n" +
+                            raise ArgumentError, "#{object} has already been removed from its plan\n" +
                                 "Removed at\n  #{object.removed_at.join("\n  ")}"
                         else
-                            raise ArgumentError, "#{self} has already been removed from its plan. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
+                            raise ArgumentError, "#{object} has already been removed from its plan. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
                         end
                     else
 			raise ArgumentError, "#{object} has never been included in this plan"
@@ -1214,6 +1311,25 @@ module Roby
             engine.once { new.start!(nil) }
 	    new
 	end
+
+        # Creates a new planning pattern replacing the given task and its
+        # current planner
+        #
+        # @param [Roby::Task] task the task that needs to be replanned
+        # @return [Roby::Task] the new planning pattern
+        def replan(task)
+            if !task.planning_task
+                return task.create_fresh_copy
+            end
+
+            planner = replan(old_planner = task.planning_task)
+            planned = task.create_fresh_copy
+            planned.abstract = true
+            planned.planned_by planner
+            replace(task, planned)
+            planned
+        end
+
         
         # The set of blocks that should be called to check the structure of the
         # plan. See also Plan.structure_checks.
@@ -1240,12 +1356,10 @@ module Roby
         
         def format_exception_set(result, new)
             [*new].each do |error, tasks|
-                roby_exception = ExecutionEngine.to_execution_exception(error)
+                roby_exception = error.to_execution_exception
                 if !tasks
                     if error.kind_of?(RelationFailedError)
                         tasks = [error.parent]
-                    else
-                        tasks = [roby_exception.origin]
                     end
                 end
                 result[roby_exception] = tasks
@@ -1300,9 +1414,9 @@ module Roby
 
         attr_reader :exception_handlers
         def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
-        def on_exception(*matchers, &handler)
+        def on_exception(matcher, &handler)
             check_arity(handler, 2)
-            exception_handlers.unshift [matchers, handler]
+            exception_handlers.unshift [matcher.to_execution_exception_matcher, handler]
         end
 
         # Finds a single difference between this plan and the other plan, using
@@ -1345,6 +1459,86 @@ module Roby
         def same_plan?(other_plan, mappings)
             !find_plan_difference(other_plan, mappings)
         end
+
+        # Returns a Query object that applies on this plan.
+        #
+        # This is equivalent to
+        #
+        #   Roby::Query.new(self)
+        #
+        # Additionally, the +model+ and +args+ options are passed to
+        # Query#which_fullfills. For example:
+        #
+        #   plan.find_tasks(Tasks::SimpleTask, :id => 20)
+        #
+        # is equivalent to
+        #
+        #   Roby::Query.new(self).which_fullfills(Tasks::SimpleTask, :id => 20)
+        #
+        # The returned query is applied on the global scope by default. This
+        # means that, if it is applied on a transaction, it will match tasks
+        # that are in the underlying plans but not yet in the transaction,
+        # import the matches in the transaction and return the new proxies.
+        #
+        # See #find_local_tasks for a local query.
+	def find_tasks(model = nil, args = nil)
+	    q = Queries::Query.new(self)
+	    if model || args
+		q.which_fullfills(model, args)
+	    end
+	    q
+	end
+
+        # Starts a local query on this plan.
+        #
+        # Unlike #find_tasks, when applied on a transaction, it will only match
+        # tasks that are already in the transaction.
+        #
+        # See #find_global_tasks for a local query.
+        def find_local_tasks(*args, &block)
+            query = find_tasks(*args, &block)
+            query.local_scope
+            query
+        end
+
+	# Called by TaskMatcher#result_set and Query#result_set to get the set
+	# of tasks matching +matcher+
+	def query_result_set(matcher) # :nodoc:
+            filtered = matcher.filter(known_tasks.dup, task_index)
+
+            if matcher.indexed_query?
+                filtered
+            else
+                result = ValueSet.new
+                for task in filtered
+                    result << task if matcher === task
+                end
+                result
+            end
+	end
+
+	# Called by TaskMatcher#each and Query#each to return the result of
+	# this query on +self+
+	def query_each(result_set, &block) # :nodoc:
+	    for task in result_set
+		yield(task)
+	    end
+	end
+
+	# Given the result set of +query+, returns the subset of tasks which
+	# have no parent in +query+
+	def query_roots(result_set, relation) # :nodoc:
+	    children = ValueSet.new
+	    found    = ValueSet.new
+	    for task in result_set
+		next if children.include?(task)
+		task_children = task.generated_subgraph(relation)
+		found -= task_children
+		children.merge(task_children)
+		found << task
+	    end
+	    found
+	end
     end
 end
 

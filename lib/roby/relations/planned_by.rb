@@ -58,21 +58,23 @@ module Roby
     # this task, and this is a failure
     class PlanningFailedError < LocalizedError
 	# The planning task
-	attr_reader :planned_task
+        attr_reader :planning_task
+        # The planned task
+        def planned_task; failed_task end
 
 	def initialize(planned_task, planning_task)
-	    @planned_task = planned_task
-	    super(planning_task.failure_event || planning_task)
+            @planning_task = planning_task
+	    super(planned_task)
 	end
         def pretty_print(pp)
             pp.text "failed to plan "
             planned_task.pretty_print(pp)
             pp.breakable
 
-            failed_task.pretty_print(pp)
+            planning_task.pretty_print(pp)
             pp.breakable
             pp.text " failed with "
-            pp_failure_reason(pp, failed_task.failure_reason)
+            pp_failure_reason(pp, planning_task.failure_reason)
         end
     end
 end

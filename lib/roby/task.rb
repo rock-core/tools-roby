@@ -155,6 +155,7 @@ module Roby
 	    @model   = self.class
             @abstract = @model.abstract?
             
+            @failed_to_start = false
             @started = false
             @finished = false
             @finishing = false
@@ -247,8 +248,6 @@ module Roby
 	    end
 	    @bound_events = bound_events
         end
-
-	attr_reader :model
 
 	# Returns for how many seconds this task is running.  Returns nil if
 	# the task is not running.
@@ -539,6 +538,27 @@ module Roby
             self
 	end
 
+        # Hook called when a new child is added to this task
+        def added_child_object(child, relations, info)
+            # We must call super first, as it calls
+            # PlanObject#added_child_object: this hook will make sure that self
+            # is added to child's plan if self is in no plan and child is.
+            super if defined? super
+
+            if plan
+                plan.added_task_relation(self, child, relations)
+            end
+        end
+
+        # Hook called when child is removed from this task
+        def removed_child_object(child, relations)
+            super if defined? super
+
+            if plan
+                plan.removed_task_relation(self, child, relations)
+            end
+        end
+
         def invalidated_terminal_flag?; !!@terminal_flag_invalid end
         def invalidate_terminal_flag; @terminal_flag_invalid = true end
 
@@ -638,13 +658,13 @@ module Roby
 
             if finished? && !event.terminal?
                 raise EmissionFailed.new(nil, event),
-		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
+		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
             elsif pending? && event.symbol != :start
                 raise EmissionFailed.new(nil, event),
-		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
+		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
             elsif running? && event.symbol == :start
                 raise EmissionFailed.new(nil, event),
-		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
+		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
             end
 
 	    super if defined? super
@@ -707,10 +727,6 @@ module Roby
 		self.finished = true
                 self.finishing = false
 	        @executable = false
-
-		each_event do |ev|
-                    ev.unreachable!(terminal_event)
-                end
 	    end
 	end
         
@@ -730,13 +746,18 @@ module Roby
             self
         end
 
+        def find_event(symbol)
+            event(symbol)
+        rescue ArgumentError
+        end
+
         # Returns the TaskEventGenerator which describes the required event
         # model. +event_model+ can either be an event name or an Event class.
         def event(event_model)
 	    unless event = bound_events[event_model]
 		event_model = self.event_model(event_model)
 		unless event = bound_events[event_model.symbol]
-		    raise "cannot find #{event_model.symbol.inspect} in the set of bound events in #{self}. Known events are #{bound_events}."
+		    raise ArgumentError, "cannot find #{event_model.symbol.inspect} in the set of bound events in #{self}. Known events are #{bound_events}."
 		end
 	    end
 	    event
@@ -1017,13 +1038,28 @@ module Roby
         end
 
         # Adds a new poll block on this instance
+        #
+        # @macro InstanceHandlerOptions
+        # @yieldparam [Roby::Task] task the task on which the poll block is
+        #   executed. It might be different than the one on which it has been
+        #   added because of replacements.
+        # @return [Object] an ID that can be used in {#remove_poll_handler}
         def poll(options = Hash.new, &block)
             default_on_replace = if abstract? then :copy else :drop end
             options = InstanceHandler.validate_options(options, :on_replace => default_on_replace)
             
             check_arity(block, 1)
-            @poll_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
+            @poll_handlers << (handler = InstanceHandler.new(block, (options[:on_replace] == :copy)))
             ensure_poll_handler_called
+            handler
+        end
+
+        # Remove a poll handler from this instance
+        #
+        # @param [Object] handler the ID returned by {#poll}
+        # @return [void]
+        def remove_poll_handler(handler)
+            @poll_handlers.delete(handler)
         end
 
         def ensure_poll_handler_called
@@ -1084,6 +1120,20 @@ module Roby
             end
         end
 
+        # Declares that this fault response table should be made active when
+        # this task starts, and deactivated when it ends
+        def use_fault_response_table(table_model, arguments = Hash.new)
+            arguments = table_model.validate_arguments(arguments)
+
+            table = nil
+            execute do |task|
+                table = task.plan.use_fault_response_table(table_model, arguments)
+            end
+            on :stop do |event|
+                plan.remove_fault_response_table(table)
+            end
+        end
+
 	# The fullfills? predicate checks if this task can be used
 	# to fullfill the need of the given +model+ and +arguments+
 	# The default is to check if
@@ -1113,7 +1163,7 @@ module Roby
         # True if this model requires an argument named +key+ and that argument
         # is set
         def has_argument?(key)
-            self.arguments.has_key?(key)
+            self.arguments.set?(key)
         end
 
         # True if +self+ can be used to replace +target+
@@ -1151,6 +1201,22 @@ module Roby
         end
 
 	include ExceptionHandlingObject
+
+        # Handles the given exception.
+        #
+        # In addition to the exception handlers provided by
+        # {ExceptionHandlingObject}, it checks for repair tasks (as defined by
+        # TaskStructure::ErrorHandling)
+        #
+        # @param [ExecutionException] e
+        def handle_exception(e)
+            tasks = find_all_matching_repair_tasks(e)
+            return super if tasks.empty?
+            if !tasks.any? { |t| t.running? }
+                tasks.first.start!
+            end
+            true
+        end
 
         # Lists all exception handlers attached to this task
 	def each_exception_handler(&iterator); model.each_exception_handler(&iterator) end
@@ -1268,6 +1334,10 @@ module Roby
             @service ||= (plan.find_plan_service(self) || PlanService.new(self))
         end
 
+        def as_plan
+            self
+        end
+
         def when_finalized(options = Hash.new, &block)
             default = if abstract? then :copy else :drop end
             options, remaining = InstanceHandler.filter_options options, :on_replace => default
@@ -1361,6 +1431,10 @@ module Roby
             else
                 Tasks::Parallel.new << self << task
             end
+        end
+
+        def to_execution_exception
+            ExecutionException.new(LocalizedError.new(self))
         end
     end
 

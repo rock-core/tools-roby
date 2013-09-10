@@ -135,7 +135,7 @@ module Roby
     #
     class ExecutionEngine
         extend Logger::Hierarchy
-        extend Logger::Forward
+        include Logger::Hierarchy
 
         # Create an execution engine acting on +plan+, using +control+ as the
         # decision control object
@@ -160,7 +160,7 @@ module Roby
             @waiting_threads = Array.new
             @emitted_events  = Array.new
             @disabled_handlers = ValueSet.new
-            @additional_errors = Array.new
+            @additional_errors = nil
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -250,18 +250,18 @@ module Roby
             #
             # See also ExecutionEngine#remove_propagation_handler
             #
-            # @options options [:external_events,:propagation] type defines when
+            # @option options [:external_events,:propagation] type defines when
             #   this block should be called. If :external_events, it is called
             #   only once at the beginning of each execution cycle. If
             #   :propagation, it is called once at the beginning of each cycle,
             #   as well as after each propagation step. The :late option also
             #   gives some control over when the handler is called when in
             #   propagation mode
-            # @options options [Boolean] once (false) if true, this handler will
+            # @option options [Boolean] once (false) if true, this handler will
             #   be removed just after its first execution
-            # @options options [Boolean] late (false) if true, the handler is
+            # @option options [Boolean] late (false) if true, the handler is
             #   called only when there are no events to propagate anymore.
-            # @options options [:raise,:ignore,:disable] on_error (:raise)
+            # @option options [:raise,:ignore,:disable] on_error (:raise)
             #   controls what happens when the block raises an exception. If
             #   :raise, the error is registered as a framework error. If
             #   :ignore, it is completely ignored. If :disable, the handler
@@ -487,26 +487,25 @@ module Roby
         # current engine is in a propagation context, and #add_event_propagation
         # to add a new entry to this set.
         def gather_propagation(initial_set = Hash.new)
+            raise InternalError, "nested call to #gather_propagation" if gathering?
+
             old_allow_propagation, @allow_propagation = @allow_propagation, true
 
-            raise InternalError, "nested call to #gather_propagation" if gathering?
-            @propagation = initial_set
-            @propagation_step_id = 0
+            # The ensure clause must NOT apply to the recursive check above.
+            # Otherwise, we end up resetting @propagation_exceptions to nil,
+            # which wreaks havoc
+            begin
+                @propagation = initial_set
+                @propagation_step_id = 0
 
-            propagation_context(nil) { yield }
+                before = @propagation
+                propagation_context(nil) { yield }
 
-            return @propagation
-        ensure
-            @propagation = nil
-            @allow_propagation = old_allow_propagation
-        end
-
-        # Converts the Exception object +error+ into a Roby::ExecutionException
-        def self.to_execution_exception(error)
-            if error.kind_of?(Roby::ExecutionException)
-                error
-            else
-                Roby::ExecutionException.new(error)
+                result, @propagation = @propagation, nil
+                return result
+            ensure
+                @propagation = nil
+                @allow_propagation = old_allow_propagation
             end
         end
 
@@ -523,14 +522,15 @@ module Roby
         # handled later in the execution cycle. Otherwise, calls
         # #add_framework_error
         def add_error(e)
-            plan_exception = ExecutionEngine.to_execution_exception(e)
-            if @propagation_exceptions
+            plan_exception = e.to_execution_exception
+            if @additional_errors
+                # We are currently propagating exceptions. Gather new ones in
+                # @additional_errors
+                @additional_errors << e
+            elsif @propagation_exceptions
                 @propagation_exceptions << plan_exception
             else
-                gather_framework_errors("") do
-                    stats = Hash[:start => Time.now]
-                    error_handling_phase(stats, [plan_exception])
-                end
+                process_events_synchronous([], [plan_exception])
             end
         end
 
@@ -675,16 +675,26 @@ module Roby
             end
         end
 
+        # Executes the given block while gathering errors, and returns the
+        # errors that have been declared with #add_error
+        #
+        # @return [Array<ExecutionException>]
 	def gather_errors
             if @propagation_exceptions
                 raise InternalError, "recursive call to #gather_errors"
             end
-            @propagation_exceptions = []
-	    yield
-            @propagation_exceptions
 
-        ensure
-            @propagation_exceptions = nil
+            # The ensure clause must NOT apply to the recursive check above.
+            # Otherwise, we end up resetting @propagation_exceptions to nil,
+            # which wreaks havoc
+            begin
+                @propagation_exceptions = []
+                yield
+                @propagation_exceptions
+
+            ensure
+                @propagation_exceptions = nil
+            end
 	end
 
         # Calls its block in a #gather_propagation context and propagate events
@@ -711,28 +721,24 @@ module Roby
         def error_handling_phase(stats, events_errors)
             # Do the exception handling phase
             fatal_errors = compute_fatal_errors(stats, events_errors)
-
             return if fatal_errors.empty?
 
-            Roby::ExecutionEngine.info "EE: #{fatal_errors.size} fatal exceptions remaining"
-            kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
-                tasks ||= [*error.origin]
-                for parent in [*tasks]
-                    new_tasks = parent.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy) - plan.force_gc
-                    if !new_tasks.empty?
-                        fatal_exception(error, new_tasks)
-                    end
-                    kill_tasks.merge(new_tasks)
-                end
-                kill_tasks
+            kill_tasks = fatal_errors.inject(Set.new) do |tasks, (exception, affected_tasks)|
+                tasks | (affected_tasks || exception.trace).to_set
+            end
+            kill_tasks.delete_if do |t|
+                !t.plan
+            end
+
+            fatal_errors.each do |e, tasks|
+                fatal_exception(e, tasks)
             end
 
             if !kill_tasks.empty?
-                Roby::ExecutionEngine.warn do
-                    Roby::ExecutionEngine.warn ""
-                    Roby::ExecutionEngine.warn "EE: will kill the following tasks because of unhandled exceptions:"
+                warn do
+                    warn "will kill the following #{kill_tasks.size} tasks because of unhandled exceptions:"
                     kill_tasks.each do |task|
-                        Roby::ExecutionEngine.warn "  " + task.to_s
+                        log_pp :warn, task
                     end
                     break
                 end
@@ -960,191 +966,176 @@ module Roby
             current_step
         end
 
-        # Checks if +error+ is being repaired in the corresponding plan. Note that
-        # +error+ is supposed to be the original exception, not the corresponding
-        # ExecutionException object
+        # The core exception propagation algorithm
         #
-        # The returned value is a mapping from exception objects to the plan
-        # branches that are affected by this exception (i.e. for a failed
-        # relation, the tasks are the affected parents).
-        def remove_inhibited_exceptions(exceptions)
-            exceptions.find_all do |e, _|
-                !inhibited_exception?(e)
-            end
-        end
-        
-        def inhibited_exception?(e)
-            error = e.exception
-            if !error.respond_to?(:failed_event) ||
-                !(failed_event = error.failed_event) ||
-                !(failed_generator = error.failed_generator)
-                false
-            else
-                !plan.repairs_for(failed_event).empty?
-            end
-        end
-
-        # Removes the set of repairs defined on #plan that are not useful
-        # anymore, and returns it.
-        def remove_useless_repairs
-            finished_repairs = plan.repairs.dup.delete_if { |_, task| task.starting? || task.running? }
-            for repair in finished_repairs
-                plan.remove_repair(repair[1])
-            end
-
-            finished_repairs
-        end
-
-        # Performs exception propagation for the given ExecutionException objects
-        # Returns all exceptions which have found no handlers in the task hierarchy
-        def propagate_exceptions(exceptions)
-            fatal   = [] # the list of exceptions for which no handler has been found
-
-            # Remove finished repairs. Those are still considered during this cycle,
-            # as it is possible that some actions have been scheduled for the
-            # beginning of the next cycle through #once
-            finished_repairs = remove_useless_repairs
-
-            # Install new repairs based on the HandledBy task relation. If a repair
-            # is installed, remove the exception from the set of errors to handle
-            exceptions.delete_if do |e, _|
-                # Check for handled_by relations which would be able to handle +e+
-                error = e.exception
-                next unless (failed_event = error.failed_event)
-                next unless (failed_task = error.failed_task)
-                next(true) if inhibited_exception?(e)
-                next if finished_repairs.has_key?(failed_event)
-
-                failed_generator = error.failed_generator
-
-                all_repairs = failed_task.each_error_handler.
-                    find_all do |repairing_task, event_set|
-                        next if repairing_task.finished?
-
-                        event_set.any? do |repaired_generator|
-                            repaired_generator = failed_task.event(repaired_generator)
-
-                            !repairing_task.finished? &&
-                                (repaired_generator == failed_generator ||
-                                Roby::EventStructure::Forwarding.reachable?(failed_generator, repaired_generator))
-                        end
-                    end.
-                    map { |task, _| task }
-
-                if all_repairs.size > 1
-                    if running_repair = all_repairs.find { |t| t.running? || t.starting? }
-                        all_repairs = [running_repair]
-                    end
-                end
-
-                repair = all_repairs.first
-                if repair
-                    plan.add_repair(failed_event, repair)
-                    if repair.pending?
-                        repair.start!
-                    end
-                    true
-                else
-                    false
-                end
-            end
-
-            # First, try the origins themselves
-            exceptions.delete_if do |e,_|
-                if task = e.origin
-                    if handled = task.handle_exception(e)
-                        handled_exception(e, task)
-                        e.handled = true
-                        true
-                    end
-                else
+        # @yield exception, task
+        # @yieldparam [ExecutionException] exception the exception that is being
+        #   propagated
+        # @yieldparam [Task,Plan] handling_object the object we want to test
+        #   whether it handles the exception or not
+        # @yieldreturn [Boolean] true if the exception is handled, false
+        #   otherwise
+        #
+        # @return [Array<(ExecutionException,Array<Task>)>] the set of unhandled
+        #   exceptions, as a mapping from an exception description to the set of
+        #   tasks that are affected by it
+        def propagate_exception_in_plan(exceptions)
+            # Remove all exception that are not associated with a task
+            exceptions = exceptions.find_all do |e, _|
+                if !e.origin
                     Roby.display_exception(Roby.logger.io(:warn), e.exception)
                     e.generator.unreachable!(e.exception)
-                    true
+                    false
+                else true
                 end
             end
 
-            while !exceptions.empty?
-                by_task = Hash.new { |h, k| h[k] = Array.new }
-                by_task = exceptions.inject(by_task) do |by_task, (e, parents)|
-                    parents ||= e.task.parent_objects(Roby::TaskStructure::Hierarchy)
-
-                    has_parent = false
-                    [*parents].each do |parent|
-                        next if parent.finished?
-
-                        if has_parent # we have more than one parent
-                            e = e.fork
-                        end
-
-                        parent_exceptions = by_task[parent] 
-                        if s = parent_exceptions.find { |s| s.siblings.include?(e) }
-                            s.merge(e)
-                        else parent_exceptions << e
-                        end
-
-                        has_parent = true
-                    end
-
-                    # Add unhandled exceptions to the fatal set. Merge siblings
-                    # exceptions if possible
-                    unless has_parent
-                        if s = fatal.find { |s| s.siblings.include?(e) }
-                            s.merge(e)
-                        else fatal << e
-                        end
-                    end
-
-                    by_task
+            # Propagate the exceptions in the hierarchy
+            handled_exceptions = Hash.new
+            unhandled = Array.new
+            propagation = lambda do |from, to, e|
+                e.trace << to
+                e
+            end
+            visitor = lambda do |task, e|
+                e.handled = yield(e, task)
+                if e.handled?
+                    debug { "handled by #{task}" }
+                    handled_exception(e, task)
+                    handled_exceptions[e.exception] << e
+                    TaskStructure::Dependency.prune
+                else
+                    debug { "not handled by #{task}" }
                 end
-
-                parent_trees = by_task.map do |task, _|
-                    [task, task.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy)]
-                end
-
-                # Handle the exception in all tasks that are in no other parent trees
-                new_exceptions = ValueSet.new
-                by_task.each do |task, task_exceptions|
-                    if parent_trees.find { |t, tree| t != task && tree.include?(task) }
-                        task_exceptions.each { |e| new_exceptions << [e, [task]] }
-                        next
-                    end
-
-                    task_exceptions.each do |e|
-                        next if e.handled?
-                        handled = task.handle_exception(e)
-
-                        if handled
-                            handled_exception(e, task)
-                            e.handled = true
-                        else
-                            # We do not have the framework to handle concurrent repairs
-                            # For now, the first handler is the one ... 
-                            new_exceptions << e
-                            e.trace << task
-                        end
-                    end
-                end
-
-                exceptions = new_exceptions
             end
 
-            if !fatal.empty?
-                Roby::ExecutionEngine.debug do
-                    "remaining fatal exceptions: #{fatal.map(&:exception).map(&:to_s).join(", ")}"
+            exceptions.each do |exception, parents|
+                debug do
+                    debug "propagating exception "
+                    log_pp :debug, exception
+                    if parents && !parents.empty?
+                        debug "  constrained to parents"
+                        log_nest(2) do
+                            parents.each do |p|
+                                log_pp :debug, p
+                            end
+                        end
+                    end
+                    break
+                end
+
+                origin = exception.origin
+                handled_exceptions[exception.exception] = Set.new
+                remaining = TaskStructure::Dependency.reverse.
+                    fork_merge_propagation(origin, exception, :vertex_visitor => visitor) do |from, to, e|
+                        if parents && !parents.empty?
+                            if from == origin && !parents.include?(to)
+                                TaskStructure::Dependency.prune
+                            end
+                        end
+                        e.trace << to
+                        e
+                    end
+
+                remaining.each_value do |unhandled_exception|
+                    unhandled << unhandled_exception
                 end
             end
+
             # Call global exception handlers for exceptions in +fatal+. Return the
             # set of still unhandled exceptions
-            fatal.
-                find_all { |e| !e.handled? }.
-                reject { |e| plan.handle_exception(e) }
+            unhandled = unhandled.find_all do |e|
+                e.handled = yield(e, plan)
+                if e.handled?
+                    handled_exceptions[e.exception] << e
+                    handled_exception(e, plan)
+                end
+                !e.handled?
+            end
+
+            # Finally, compute the set of tasks that are affected by the
+            # unhandled exceptions
+            unhandled = unhandled.map do |e|
+                affected_tasks = e.trace.dup
+                handled_exceptions[e.exception].each do |handled_e|
+                    affected_tasks -= handled_e.trace
+                end
+                [e, affected_tasks]
+            end
+
+            debug do
+                debug "#{unhandled.size} unhandled exceptions remain"
+                log_nest(2) do
+                    unhandled.each do |e, affected_tasks|
+                        log_pp :debug, e
+                        debug "Affects #{affected_tasks.size} tasks"
+                        log_nest(2) do
+                            affected_tasks.each do |t|
+                                log_pp :debug, t
+                            end
+                        end
+                    end
+                end
+                break
+            end
+            unhandled
+        end
+
+        # Propagation exception phase, checking if tasks and/or the main plan
+        # are handling the exceptions
+        def propagate_exceptions(exceptions)
+            debug "Filtering inhibited exceptions"
+            exceptions = log_nest(2) do
+                non_inhibited = remove_inhibited_exceptions(exceptions)
+                exceptions.find_all do |exception, _|
+                    exception.reset_trace
+                    non_inhibited.any? { |e, _| e.exception == exception.exception }
+                end
+            end
+
+            debug "Propagating #{exceptions.size} non-inhibited exceptions"
+            log_nest(2) do
+                propagate_exception_in_plan(exceptions) do |e, object|
+                    object.handle_exception(e)
+                end
+            end
+        end
+
+        # Process the given exceptions to remove the ones that are currently
+        # filtered by the plan repairs
+        #
+        # The returned exceptions are propagated, i.e. their #trace method
+        # contains all the tasks that are affected by the absence of a handling
+        # mechanism
+        #
+        # @param [(ExecutionException,Array<Roby::Task>)] exceptions pairs of
+        #   exceptions as well as the "root tasks", i.e. the parents of
+        #   origin.task towards which they should be propagated
+        # @return [Array<ExecutionException>] the unhandled exceptions
+        def remove_inhibited_exceptions(exceptions)
+            propagate_exception_in_plan(exceptions) do |e, object|
+                if plan.force_gc.include?(object)
+                    true
+                elsif object.respond_to?(:handles_error?)
+                    object.handles_error?(e)
+                end
+            end
         end
 
         # Schedules +block+ to be called at the beginning of the next execution
         # cycle, in propagation context.
         def once(options = Hash.new, &block)
             add_propagation_handler(Hash[:type => :external_events, :once => true].merge(options), &block)
+        end
+
+        # Schedules +block+ to be called once after +delay+ seconds passed, in
+        # the propagation context
+        def delayed(delay, options = Hash.new, &block)
+            handler = PollBlockDefinition.new("delayed block #{block}", block, Hash[:once => true].merge(options))
+            once do
+                process_every << [handler, cycle_start, delay]
+            end
+            handler.id
         end
 
         # The set of errors which have been generated outside of the plan's
@@ -1180,6 +1171,9 @@ module Roby
             structure_errors = plan.check_structure
             add_timepoint(stats, :structure_check)
 
+            if @additional_errors
+                raise InternalError, "recursive call to #compute_fatal_errors"
+            end
             @additional_errors = Array.new
 
             # Propagate the errors. Note that the plan repairs are taken into
@@ -1197,35 +1191,33 @@ module Roby
                 errors, @additional_errors = additional_errors, Array.new
                 unhandled_additional_errors.concat(propagate_exceptions(plan.format_exception_set(Hash.new, errors)).to_a)
             end
+            @additional_errors = nil
 
             add_timepoint(stats, :exception_propagation)
 
             # Get the remaining problems in the plan structure, and act on it
             fatal_errors = remove_inhibited_exceptions(plan.check_structure)
-            # Reformat events_errors and unhandled_additional_errors to match
-            # the exception => tasks mapping of fatal_errors
-            for e in events_errors
-                fatal_errors << [e]
-            end
-            for e in unhandled_additional_errors
-                fatal_errors << [e]
-            end
+            # Add events_errors and unhandled_additional_errors to fatal_errors.
+            # Note that all the objects in fatal_errors now have a proper trace
+            fatal_errors.concat(events_errors.to_a)
+            fatal_errors.concat(unhandled_additional_errors.to_a)
 
+            # Partition between fatal and non-fatal errors. Simply log & notify
+            # for the nonfatal ones
             nonfatal = []
             fatal_errors.delete_if do |e, tasks|
                 if !e.fatal?
                     nonfatal << [e, tasks]
                 end
             end
-
-            # Warn about the nonfatal exception, and log them
             if !nonfatal.empty?
-                ExecutionEngine.warn "unhandled #{nonfatal.size} non-fatal exceptions"
+                warn "unhandled #{nonfatal.size} non-fatal exceptions"
                 nonfatal.each do |e, tasks|
                     nonfatal_exception(e, tasks)
                 end
             end
 
+            debug "#{fatal_errors.size} fatal errors found"
             fatal_errors
         end
 
@@ -1241,22 +1233,56 @@ module Roby
         # to Roby's error handling mechanisms), the method will raise
         # SynchronousEventProcessingMultipleErrors to wrap all the exceptions
         # into one.
-        def process_events_synchronous(seeds)
+        def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new)
             gather_framework_errors("process_events_simple") do
                 stats = Hash[:start => Time.now]
-                errors = event_propagation_phase(seeds)
-                kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
+                next_steps = seeds.dup
+                errors = initial_errors.dup
+                if block_given?
+                    if !seeds.empty?
+                        raise ArgumentError, "cannot give both seeds and block"
+                    end
 
-                if fatal_errors
-                    fatal_errors.each do |e, _|
-                        Roby.display_exception(Roby.logger.io(:warn), e.exception)
+                    next_steps = gather_propagation do
+                        new_errors = gather_errors do
+                            proc.call
+                        end
+                        errors.concat(new_errors)
                     end
-                    if fatal_errors.size == 1
-                        e = fatal_errors.find { true }.first.exception
-                        raise e.dup, e.message, e.backtrace
-                    elsif !fatal_errors.empty?
-                        raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
+                end
+
+                while !next_steps.empty? || !errors.empty?
+                    errors.concat(event_propagation_phase(next_steps))
+                    next_steps = gather_propagation do
+                        kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
+                        errors.clear
+
+                        if fatal_errors
+                            fatal_errors.each do |e, _|
+                                Roby.display_exception(Roby.logger.io(:warn), e.exception)
+                            end
+                            if fatal_errors.size == 1
+                                e = fatal_errors.first.first.exception
+                                raise e.dup, e.message, e.backtrace
+                            elsif !fatal_errors.empty?
+                                raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
+                            end
+                        end
                     end
+                end
+            end
+        end
+
+        def garbage_collect_synchronous
+            known_tasks_size = nil
+            while plan.known_tasks.size != known_tasks_size
+                if !known_tasks_size
+                    known_tasks_size = true
+                else
+                    known_tasks_size = plan.known_tasks.size
+                end
+                process_events_synchronous do
+                    garbage_collect([])
                 end
             end
         end
@@ -1285,29 +1311,33 @@ module Roby
             all_fatal_errors = Array.new
             if next_steps.empty?
                 next_steps = gather_propagation do
-                    kill_tasks, fatal_errors = error_handling_phase(stats, events_errors || [])
+                    kill_tasks, fatal_errors = error_handling_phase(stats, events_errors)
                     add_timepoint(stats, :exceptions_fatal)
                     if fatal_errors
                         all_fatal_errors.concat(fatal_errors)
                     end
 
-                    garbage_collect(kill_tasks)
+                    events_errors = gather_errors do
+                        garbage_collect(kill_tasks)
+                    end
                     add_timepoint(stats, :garbage_collect)
                 end
             end
 
-            while !next_steps.empty?
-                events_errors = event_propagation_phase(next_steps)
+            while !next_steps.empty? || !events_errors.empty?
+                events_errors.concat(event_propagation_phase(next_steps))
                 add_timepoint(stats, :events)
 
                 next_steps = gather_propagation do
-                    kill_tasks, fatal_errors = error_handling_phase(stats, events_errors || [])
+                    kill_tasks, fatal_errors = error_handling_phase(stats, events_errors)
                     add_timepoint(stats, :exceptions_fatal)
                     if fatal_errors
                         all_fatal_errors.concat(fatal_errors)
                     end
 
-                    garbage_collect(kill_tasks)
+                    events_errors = gather_errors do
+                        garbage_collect(kill_tasks)
+                    end
                     add_timepoint(stats, :garbage_collect)
                 end
             end
@@ -1340,6 +1370,24 @@ module Roby
 
         # Hook called when an exception +e+ has been handled by +task+
         def handled_exception(e, task); super if defined? super end
+
+        def unmark_finished_missions_and_permanent_tasks
+            to_unmark = plan.task_index.by_predicate[:finished?] | plan.task_index.by_predicate[:failed?]
+
+            finished_missions = (plan.missions & to_unmark)
+	    # Remove all missions that are finished
+	    for finished_mission in finished_missions
+                if !finished_mission.being_repaired?
+                    plan.unmark_mission(finished_mission)
+                end
+	    end
+            finished_permanent = (plan.permanent_tasks & to_unmark)
+	    for finished_permanent in (plan.permanent_tasks & to_unmark)
+                if !finished_permanent.being_repaired?
+                    plan.unmark_permanent(finished_permanent)
+                end
+	    end
+        end
         
         # Kills and removes all unneeded tasks. +force_on+ is a set of task
         # whose garbage-collection must be performed, even though those tasks
@@ -1348,8 +1396,20 @@ module Roby
         def garbage_collect(force_on = nil)
             if force_on && !force_on.empty?
                 ExecutionEngine.info "GC: adding #{force_on.size} tasks in the force_gc set"
-                plan.force_gc.merge(force_on.to_value_set)
+                mismatching_plan = force_on.find_all do |t|
+                    if t.plan == self.plan
+                        plan.force_gc << t
+                        false
+                    else
+                        true
+                    end
+                end
+                if !mismatching_plan.empty?
+                    raise ArgumentError, "#{mismatching_plan.map(&:to_s).join(", ")} have been given to #garbage_collect, but they are not tasks in #{plan}"
+                end
             end
+
+            unmark_finished_missions_and_permanent_tasks
 
             # The set of tasks for which we queued stop! at this cycle
             # #finishing? is false until the next event propagation cycle
@@ -1370,17 +1430,17 @@ module Roby
 
                 break if local_tasks.empty?
 
-                ExecutionEngine.debug do
-                    ExecutionEngine.debug "#{local_tasks.size} tasks are unneeded in this plan"
+                debug do
+                    debug "#{local_tasks.size} tasks are unneeded in this plan"
                     local_tasks.each do |t|
-                        ExecutionEngine.debug "  #{t} mission=#{plan.mission?(t)} permanent=#{plan.permanent?(t)}"
+                        debug "  #{t} mission=#{plan.mission?(t)} permanent=#{plan.permanent?(t)}"
                     end
                     break
                 end
 
                 if local_tasks.all? { |t| t.pending? || t.finished? }
                     local_tasks.each do |t|
-                        ExecutionEngine.debug { "GC: #{t} is not running, removed" }
+                        debug { "GC: #{t} is not running, removed" }
                         plan.garbage(t)
                     end
                     break
@@ -1391,8 +1451,9 @@ module Roby
                 2.times do |i|
                     roots = local_tasks.dup
                     for rel in TaskStructure.relations
+                        next if !rel.root_relation?
                         roots.delete_if do |t|
-                            !t.root?(rel)
+                            t.enum_parent_objects(rel).any? { |p| !p.finished? }
                         end
                         break if roots.empty?
                     end
@@ -1401,7 +1462,7 @@ module Roby
 
                     # There is a cycle somewhere. Try to break it by removing
                     # weak relations within elements of local_tasks
-                    ExecutionEngine.debug "cycle found, removing weak relations"
+                    debug "cycle found, removing weak relations"
 
                     local_tasks.each do |t|
                         for rel in t.sorted_relations
@@ -1412,46 +1473,46 @@ module Roby
 
                 (roots.to_value_set - finishing - plan.gc_quarantine).each do |local_task|
                     if local_task.pending?
-                        ExecutionEngine.info "GC: removing pending task #{local_task}"
+                        info "GC: removing pending task #{local_task}"
 
                         plan.garbage(local_task)
                         did_something = true
                     elsif local_task.failed_to_start?
-                        ExecutionEngine.info "GC: removing task that failed to start #{local_task}"
+                        info "GC: removing task that failed to start #{local_task}"
                         plan.garbage(local_task)
                         did_something = true
                     elsif local_task.starting?
                         # wait for task to be started before killing it
-                        ExecutionEngine.debug { "GC: #{local_task} is starting" }
+                        debug { "GC: #{local_task} is starting" }
                     elsif local_task.finished?
-                        ExecutionEngine.debug { "GC: #{local_task} is not running, removed" }
+                        debug { "GC: #{local_task} is not running, removed" }
                         plan.garbage(local_task)
                         did_something = true
                     elsif !local_task.finishing?
                         if local_task.event(:stop).controlable?
-                            ExecutionEngine.debug { "GC: queueing #{local_task}/stop" }
+                            debug { "GC: queueing #{local_task}/stop" }
                             if !local_task.respond_to?(:stop!)
-                                ExecutionEngine.fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
+                                fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
                                 plan.quarantine(local_task)
                             else
                                 finishing << local_task
                             end
                         else
-                            ExecutionEngine.warn "GC: ignored #{local_task}, it cannot be stopped"
+                            warn "GC: ignored #{local_task}, it cannot be stopped"
                             # We don't use Plan#quarantine as it is normal that
                             # this task does not get GCed
                             plan.gc_quarantine << local_task
                         end
                     elsif local_task.finishing?
-                        ExecutionEngine.debug do
-			    ExecutionEngine.debug "GC: waiting for #{local_task} to finish"
+                        debug do
+			    debug "GC: waiting for #{local_task} to finish"
 			    local_task.history.each do |ev|
-			        ExecutionEngine.debug "GC:   #{ev}"
+			        debug "GC:   #{ev}"
 			    end
 			    break
 			end
                     else
-                        ExecutionEngine.warn "GC: ignored #{local_task}"
+                        warn "GC: ignored #{local_task}"
                     end
                 end
             end
@@ -1827,6 +1888,14 @@ module Roby
 		end
 	    end
 	end
+
+        # Set the cycle_start attribute and increment cycle_index
+        #
+        # This is only used for testing purposes
+        def start_new_cycle(time = Time.now)
+            @cycle_start = time
+            @cycle_index += 1
+        end
 
         # A set of proc objects which are to be called when the execution engine
         # quits.

@@ -10,6 +10,7 @@ where the following modes are accepted:
     upgrade-format  upgrades an event log from an old format to the current one
     rebuild-index   rebuilds the index file for the given event log
     stats	    displays statistics about the given event log
+    decode	    show the content of the log file in raw format
     help	    this help message
 
 Call roby-log mode --help for more information about each mode

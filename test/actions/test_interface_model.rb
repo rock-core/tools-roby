@@ -11,7 +11,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     def test_it_allows_to_create_description_objects
         doc = 'this is an action'
         m = Actions::Interface.new_submodel
-        flexmock(Actions::ActionModel).should_receive(:new).once.
+        flexmock(Actions::Models::Action).should_receive(:new).once.
             with(m, doc).and_return(stub = Object.new)
 
         assert_same stub, m.describe(doc)
@@ -42,6 +42,43 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
             def an_action; end
         end
         assert !m.find_action_by_name('an_action')
+    end
+
+    def test_it_adds_default_arguments_to_the_action
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action').
+            optional_arg('test', nil, 10)
+        m.class_eval { def an_action(args = Hash.new); end }
+        flexmock(m).new_instances.should_receive(:an_action).with(:test => 10).once
+        m.an_action.instanciate(plan)
+    end
+
+    def test_it_allows_to_override_default_arguments
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action').
+            optional_arg('test', nil, 10)
+        m.class_eval { def an_action(args = Hash.new); end }
+        flexmock(m).new_instances.should_receive(:an_action).with(:test => 20).once
+        m.an_action.instanciate(plan, :test => 20)
+    end
+
+    def test_it_raises_ArgumentError_if_a_required_argument_is_not_given
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action').
+            required_arg('test', nil)
+        m.class_eval { def an_action(args = Hash.new); end }
+        assert_raises(ArgumentError) do
+            m.an_action.instanciate(plan)
+        end
+    end
+
+    def test_it_raises_ArgumentError_if_arguments_are_given_but_the_action_does_not_expect_any
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action')
+        m.class_eval { def an_action(args = Hash.new); end }
+        assert_raises(ArgumentError) do
+            m.an_action.instanciate(plan, :test => 10)
+        end
     end
 
     def test_it_allows_to_find_methods_by_type
@@ -78,7 +115,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     end
 
     def test_it_raises_if_an_action_model_specifies_arguments_but_the_method_does_not_accept_one
-        assert_raises(Actions::InterfaceModel::ArgumentCountMismatch) do
+        assert_raises(Actions::Models::Interface::ArgumentCountMismatch) do
             Actions::Interface.new_submodel do
                 m = describe('an action').
                     required_arg('test')
@@ -88,7 +125,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
     end
 
     def test_it_raises_if_an_action_model_specifies_no_arguments_but_the_method_expects_one
-        assert_raises(Actions::InterfaceModel::ArgumentCountMismatch) do
+        assert_raises(Actions::Models::Interface::ArgumentCountMismatch) do
             Actions::Interface.new_submodel do
                 m = describe('an action')
                 def an_action(argument); end
@@ -124,4 +161,51 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         end
         assert_equal parent_m::AnAction, parent_m.find_action_by_name('an_action').returned_type
     end
+
+    def test_it_allows_to_create_an_action_state_machine_at_model_level
+        action_m = Actions::Interface.new_submodel
+        action_m.describe 'a state machine'
+        action_m.action_state_machine('test') do
+            start state(Roby::Task)
+        end
+        action = action_m.new(plan)
+        action.test
+    end
+
+    def test_it_allows_to_create_an_action_state_machine_at_action_level
+        action_m = Actions::Interface.new_submodel
+        action_m.describe 'a state machine'
+        action_m.send(:define_method, :test) do
+            task = Roby::Task.new
+            action_state_machine(task) do
+                start state(Roby::Task)
+            end
+            task
+        end
+        action = action_m.new(plan)
+        action.test
+    end
+
+    def test_it_allows_to_create_an_action_script_at_model_level
+        action_m = Actions::Interface.new_submodel
+        action_m.describe 'a state machine'
+        action_m.action_script('test') do
+        end
+        action = action_m.new(plan)
+        action.test
+    end
+
+    def test_it_allows_to_create_an_action_script_at_action_level
+        action_m = Actions::Interface.new_submodel
+        action_m.describe 'a state machine'
+        action_m.send(:define_method, :test) do
+            task = Roby::Task.new
+            action_script(task) do
+            end
+            task
+        end
+        action = action_m.new(plan)
+        action.test
+    end
+
 end

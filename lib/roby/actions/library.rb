@@ -1,7 +1,7 @@
 module Roby
     module Actions
         module Library
-            include Roby::Actions::InterfaceModel
+            include Models::Interface
             include MetaRuby::ModelAsModule
             extend MetaRuby::Registration
 
