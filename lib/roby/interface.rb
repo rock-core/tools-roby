@@ -153,7 +153,7 @@ module Roby
 
             Roby.app.call_plugins(:setup, Roby.app)
 
-            remote_models = @interface.task_models
+            remote_models = @interface.models
             remote_models.each do |klass|
                 klass = klass.proxy(nil)
 
@@ -572,16 +572,18 @@ reload_actions                    | reload action definitions (faster than reloa
 
         # Returns the set of task models as DRobyTaskModel objects. The standard
         # Roby task models are excluded.
-	def task_models
-	    task_models = []
+	def models
+	    models = []
 	    engine.execute do
-                Task.all_models.each do |klass|
-                    if !klass.private_model? && klass.name !~ /^Roby::/
-                        task_models << klass
+                [Actions::Interface, Task].each do |root_model|
+                    root_model.each_submodel do |m|
+                        if !m.private_model? && m.name !~ /^Roby::/
+                            models << m
+                        end
                     end
                 end
 	    end
-            task_models.map { |t| t.droby_dump(nil) }
+            models.map { |t| t.droby_dump(nil) }
 	end
 
         def droby_call(m, *args)
