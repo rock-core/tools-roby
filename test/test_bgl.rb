@@ -532,6 +532,34 @@ class TC_BGL < Test::Unit::TestCase
 	assert(v3.singleton_vertex?)
     end
 
+    def test_unlink_does_nothing_when_none_of_the_arguments_are_included_in_the_graph
+	v1, v2 = (1..2).map { Vertex.new }
+	g = Graph.new
+        g.unlink(v1, v2)
+    end
+
+    def test_unlink_does_nothing_when_only_the_sink_is_included_in_the_graph
+	v1, v2 = (1..2).map { Vertex.new }
+	g = Graph.new
+        g.insert(v2)
+        g.unlink(v1, v2)
+    end
+
+    def test_unlink_does_nothing_when_only_the_source_is_included_in_the_graph
+	v1, v2 = (1..2).map { Vertex.new }
+	g = Graph.new
+        g.insert(v1)
+        g.unlink(v1, v2)
+    end
+
+    def test_unlink_does_nothing_when_it_is_called_with_two_vertices_included_in_the_graph_that_have_no_edge
+	v1, v2 = (1..2).map { Vertex.new }
+	g = Graph.new
+        g.insert(v1)
+        g.insert(v2)
+        g.unlink(v1, v2)
+    end
+
     def test_graph_reachable
 	v1, v2, v3 = (1..3).map { Vertex.new }
 	g = Graph.new

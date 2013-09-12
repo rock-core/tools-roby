@@ -273,7 +273,8 @@ VALUE graph_unlink(VALUE self, VALUE source, VALUE target)
     if (! exists) return self;
     tie(t, exists) = rb_to_vertex(target, self);
     if (! exists) return self;
-    remove_edge(s, t, graph);
+    if (edge(s, t, graph).second)
+        remove_edge(s, t, graph);
     return self;
 }
 
