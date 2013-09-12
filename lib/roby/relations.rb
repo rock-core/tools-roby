@@ -518,48 +518,28 @@ module Roby
             @task_graph = BGL::Graph.new
         end
 
-        def task_graph_inc(from_task, to_task)
-            if !task_graph.linked?(from_task, to_task)
-                task_graph.link(from_task, to_task, 1)
-            else
-                from_task[to_task, task_graph] += 1
-            end
-        end
-
-        def task_graph_dec(from_task, to_task)
-            count = (from_task[to_task, task_graph] -= 1)
-            if count == 0
-                task_graph.unlink(from_task, to_task)
-                task_graph_remove_if_singleton(from_task)
-                task_graph_remove_if_singleton(to_task)
-            end
-        end
-
-        def task_graph_remove_if_singleton(task)
-            if task.leaf?(task_graph) && task.root?(task_graph)
-                task_graph.remove(task)
-            end
-        end
-
         def __bgl_link(from, to, info)
             super
 
             if from.respond_to?(:task) && to.respond_to?(:task)
-                task_graph_inc(from.task, to.task)
+                from_task, to_task = from.task, to.task
+                if !task_graph.linked?(from_task, to_task)
+                    task_graph.link(from_task, to_task, nil)
+                end
             end
         end
 
         def remove(event)
-            # NOTE: we assume that we are working under Roby's relation graph.
-            # Roby calls #remove_relation for each existing edge BEFORE clearing
-            # a vertex. This basically means that we have nothing to do here.
             super
+            if event.respond_to?(:task)
+                task_graph.remove(event.task)
+            end
         end
 
         def unlink(from, to)
             super
             if from.respond_to?(:task) && to.respond_to?(:task)
-                task_graph_dec(from.task, to.task)
+                task_graph.unlink(from.task, to.task)
             end
         end
 

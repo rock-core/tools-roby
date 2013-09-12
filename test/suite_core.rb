@@ -2,7 +2,6 @@ $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE_
 
 require 'test_bgl'
 require 'test_relations'
-require 'test_event_relation_graph'
 require 'test_event'
 require 'test_task'
 require 'test_task_arguments'
