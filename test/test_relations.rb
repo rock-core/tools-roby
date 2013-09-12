@@ -150,6 +150,18 @@ class TC_Relations < Test::Unit::TestCase
 
     end
 
+    def test_it_can_remove_relations_from_the_same_object
+	klass = Class.new { include Roby::DirectedRelationSupport }
+	space = Roby::RelationSpace(klass)
+        r = space.relation :R
+
+	parent, n1, n2 = (1..3).map { klass.new }
+	parent.add_child_object(n1, r, true)
+	parent.add_child_object(n2, r, true)
+        r.remove_relation(parent, n1)
+        r.remove_relation(parent, n2)
+    end
+
     def test_hooks
 	FlexMock.use do |mock|
 	    hooks = Module.new do
@@ -297,37 +309,6 @@ class TC_Relations < Test::Unit::TestCase
         assert_equal [], v.relations
     end
 
-    def test_event_relation_graph
-	klass = Class.new do
-            attr_accessor :task
-            def initialize(task)
-                @task = task
-            end
-            include Roby::DirectedRelationSupport
-        end
-	space = Roby::RelationSpace(klass)
-        space.default_graph_class = EventRelationGraph
-        r = space.relation :R, :child_name => 'child', :noinfo => true
-
-        ta = Object.new
-        ea = klass.new(ta)
-        tb = Object.new
-        eb = klass.new(tb)
-
-        assert(!r.related_tasks?(ta, tb))
-
-        ea.add_child(eb)
-        assert(r.related_tasks?(ta, tb))
-
-        ea.remove_child(eb)
-        assert(!r.related_tasks?(ta, tb))
-        assert(r.task_graph.include?(ta))
-        assert(r.task_graph.include?(tb))
-
-        ea.clear_vertex
-        eb.clear_vertex
-        assert(!r.task_graph.include?(ta))
-        assert(!r.task_graph.include?(tb))
-    end
 end
+
 
