@@ -133,27 +133,8 @@ module Roby
 		DRb.start_service 'druby://localhost:0'
 	    end
 
-	    if defined? Roby::Planning::Planner
-		Roby::Planning::Planner.last_id = 0 
-	    end
-
             plan.engine.gc_warning = false
 
-	    # Save and restore some arrays
-	    save_collection engine.propagation_handlers
-	    save_collection engine.external_events_handlers
-	    save_collection Roby::ExecutionEngine.propagation_handlers
-	    save_collection Roby::ExecutionEngine.external_events_handlers
-	    save_collection plan.structure_checks
-	    save_collection Roby::Plan.structure_checks
-	    save_collection engine.at_cycle_end_handlers
-	    save_collection Roby::EventGenerator.event_gathering
-	    Roby.app.abort_on_exception = false
-	    Roby.app.abort_on_application_exception = true
-
-	    save_collection engine.event_ordering
-	    save_collection engine.delayed_events
-	    save_collection plan.exception_handlers
 	    timings[:setup] = Time.now
 
             @handler_ids = Array.new
@@ -937,6 +918,22 @@ module Roby
             Roby.app.public_logs = false
 
             super
+
+	    # Save and restore some arrays
+	    save_collection engine.propagation_handlers
+	    save_collection engine.external_events_handlers
+	    save_collection Roby::ExecutionEngine.propagation_handlers
+	    save_collection Roby::ExecutionEngine.external_events_handlers
+	    save_collection plan.structure_checks
+	    save_collection Roby::Plan.structure_checks
+	    save_collection engine.at_cycle_end_handlers
+	    save_collection Roby::EventGenerator.event_gathering
+	    Roby.app.abort_on_exception = false
+	    Roby.app.abort_on_application_exception = true
+
+	    save_collection engine.event_ordering
+	    save_collection engine.delayed_events
+	    save_collection plan.exception_handlers
         end
 
         def teardown
