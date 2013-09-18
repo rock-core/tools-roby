@@ -53,7 +53,6 @@ module Roby
             #   across instances
             def initialize(root_task = nil, arguments = Hash.new, options = Hash.new)
                 options = Kernel.validate_options options, :on_replace => :drop, :parent => nil
-                @root_task = root_task
 
                 @arguments = model.validate_arguments(arguments)
                 @parent = options[:parent]

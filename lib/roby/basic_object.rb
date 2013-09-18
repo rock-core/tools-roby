@@ -20,6 +20,11 @@ module Roby
         def private_model; @private_model = true end
     end
 
+    class ::Module
+        # There are currently no way to make a module private
+        def private_model?; false end
+    end
+
     # Base class for most plan-related objects (Plan, PlanObject, ...)
     #
     # This class contains the information and manipulation attributes that are
