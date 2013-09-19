@@ -13,6 +13,10 @@ module Roby
                 @model, @arguments = model, arguments
             end
 
+            def name
+                model.name
+            end
+
             # The task model returned by this action
             def returned_type
                 model.returned_type
