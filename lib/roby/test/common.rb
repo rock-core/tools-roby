@@ -23,7 +23,7 @@ if ENV['TEST_ENABLE_PRY'] != '0'
 end
 
 require 'roby'
-require 'test/unit'
+require 'test/unit/testcase'
 require 'minitest/spec'
 require 'flexmock/test_unit'
 
