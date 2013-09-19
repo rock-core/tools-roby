@@ -1129,19 +1129,22 @@ module Roby
         # The inverse of #setup. It gets called either at the end of #run or at
         # the end of #setup if there is an error during loading
         def cleanup
+            call_plugins(:cleanup, self)
+            # Deprecated version of #cleanup
+            call_plugins(:reset, self)
+
+            planners.clear
+            plan.clear
+            clear_models
+
             if !public_logs?
                 @created_log_dirs.each do |dir|
                     FileUtils.rm_rf dir
                 end
             end
 
-            clear_models
             stop_log_server
             stop_drb_service
-            planners.clear
-            plan.clear
-            call_plugins(:cleanup, self)
-            call_plugins(:reset, self)
         end
 
 	def stop; call_plugins(:stop, self) end
