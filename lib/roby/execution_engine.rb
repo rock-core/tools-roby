@@ -2028,6 +2028,55 @@ module Roby
                 end
             end
         end
+
+        # Kill all tasks that are currently running in the plan
+        def killall(limit = 100)
+            last_known_tasks = ValueSet.new
+            last_quarantine = ValueSet.new
+            counter = 0
+            loop do
+                plan.permanent_tasks.clear
+                plan.permanent_events.clear
+                plan.missions.clear
+                plan.transactions.each do |trsc|
+                    trsc.discard_transaction!
+                end
+
+                if scheduler
+                    scheduler.enabled = false
+                end
+                quit
+                join
+
+                if !running?
+                    start_new_cycle
+                    process_events
+                end
+
+                counter += 1
+                if counter > limit
+                    Roby.warn "more than #{counter} iterations while trying to shut down #{plan}, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
+                    if last_known_tasks != plan.known_tasks
+                        Roby.warn "Known tasks:"
+                        plan.known_tasks.each do |t|
+                            Roby.warn "  #{t}"
+                        end
+                        last_known_tasks = plan.known_tasks.dup
+                    end
+                    if last_quarantine != plan.gc_quarantine
+                        Roby.warn "Quarantined tasks:"
+                        plan.gc_quarantine.each do |t|
+                            Roby.warn "  #{t}"
+                        end
+                        last_quarantine = plan.gc_quarantine.dup
+                    end
+                end
+                if plan.gc_quarantine.size == plan.known_tasks.size
+                    break
+                end
+                sleep 0.01
+            end
+        end
     end
 
     # Execute the given block in the main plan's propagation context, but don't

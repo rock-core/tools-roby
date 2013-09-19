@@ -156,51 +156,7 @@ module Roby
                 engine.join
 	    end
 
-            last_known_tasks = ValueSet.new
-            last_quarantine = ValueSet.new
-            counter = 0
-            loop do
-                plan.permanent_tasks.clear
-                plan.permanent_events.clear
-                plan.missions.clear
-                plan.transactions.each do |trsc|
-                    trsc.discard_transaction!
-                end
-
-                if plan.engine
-                    if plan.engine.scheduler
-                        plan.engine.scheduler.enabled = false
-                    end
-                    plan.engine.quit
-                end
-                # Pre-run garbage collection. The standard runtime behaviour of
-                # process events is to run GC last (would not make sense
-                # otherwise). This teardown procedure is a bit special in this respect
-                process_events
-
-                counter += 1
-                if counter > 100
-                    STDERR.puts "more than #{counter} iterations while trying to shut down the current plan, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
-                    if last_known_tasks != plan.known_tasks
-                        STDERR.puts "Known tasks:"
-                        plan.known_tasks.each do |t|
-                            STDERR.puts "  #{t}"
-                        end
-                        last_known_tasks = plan.known_tasks.dup
-                    end
-                    if last_quarantine != plan.gc_quarantine
-                        STDERR.puts "Known tasks:"
-                        plan.gc_quarantine.each do |t|
-                            STDERR.puts "  #{t}"
-                        end
-                        last_quarantine = plan.gc_quarantine.dup
-                    end
-                end
-                if plan.gc_quarantine.size == plan.known_tasks.size
-                    break
-                end
-                sleep 0.01
-            end
+            plan.engine.killall
             if !plan.empty?
                 STDERR.puts "failed to teardown: plan has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
             end
