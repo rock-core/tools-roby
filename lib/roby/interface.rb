@@ -158,7 +158,7 @@ module Roby
                 klass = klass.proxy(nil)
 
                 ## The empty? test is a workaround. See ticket#113
-                if klass.respond_to?(:remote_name) && klass.remote_name && klass.remote_name =~ /^[A-Z][\w:]+/
+                if klass.respond_to?(:remote_name) && klass.remote_name && klass.remote_name =~ /^[A-Z][\w:]+$/
                     # This is a local proxy for a remote model. Add it in our
                     # namespace as well.
                     path  = klass.remote_name.split '::'
