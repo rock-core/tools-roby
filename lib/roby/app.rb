@@ -1066,6 +1066,8 @@ module Roby
 
                 start_log_server(logfile)
 	    end
+
+            call_plugins(:prepare, self)
         end
 
 	def run(&block)
