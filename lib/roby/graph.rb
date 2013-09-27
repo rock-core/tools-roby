@@ -173,6 +173,15 @@ module BGL
     class Graph
         include GraphCommonAlgorithms
 
+        def to_a
+            a = Array.new
+            each_edge do |source,dest,info,kind|
+                #binding.pry
+                a << [source,dest,info,kind]
+            end
+            a
+        end
+
 	# This class is an adaptor which transforms a directed graph by
 	# swapping its edges
 	class Reverse
