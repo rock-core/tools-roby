@@ -357,33 +357,37 @@ module Roby
             current_flow = Syskit::Flows::DataFlow
             new_flow = Syskit::ConnectionGraph.new 
             old_flow = Syskit::ConnectionGraph.new
-            Syskit::Runtime::ConnectionManagement.update_required_dataflow_graph(real_plan.known_tasks.select{|t| t.kind_of?(Syskit::Component)},old_flow)
-            Syskit::Runtime::ConnectionManagement.update_required_dataflow_graph(known_tasks.select{|t| t.kind_of?(Syskit::Component)},new_flow)
+            Syskit::Runtime::ConnectionManagement.update_required_dataflow_graph(real_plan.known_tasks.select{|t| t.kind_of?(Syskit::TaskContext)},old_flow)
+            Syskit::Runtime::ConnectionManagement.update_required_dataflow_graph(known_tasks.select{|t| t.kind_of?(Syskit::TaskContext)},new_flow)
             
-#            foo = old_flow.difference(new_flow,plan.real_plan.find_tasks(Syskit::Component).to_a) do |plan_task|
-#                proxy_objects[plan_task]
-#            end
-
-            binding.pry 
             new = new_flow.to_a.select{|t| !old_flow.to_a.include?(t)}
-            removed = old_flow.to_a.select{|t| !new_flow.to_a.include?(t)}
 
-          #  binding.pry
-           # new_flow = new_flow - current_flow
-#            Getting the new flow, but this includes all old-knots too
-#            new_flow = current_flow.difference(new_flow, plan.real_plan.find_tasks(Syskit::Component).to_a) do |plan_task|
-#                   proxy_objects[plan_task]
-#            end
-#
-#            rescue Exception => e
- #               #Testing code so does not rise up
-  #              STDERR.puts e
-   #         end
-    #        binding.pry
-         #   [[new],[old],[]]
-            #
-            #[new_flow,foo[0],foo[1],foo[2]]
-            [new_flow,removed,[]]
+            removed = Array.new 
+            reconf = Array.new 
+            old_flow.to_a.each do |t1,t2,conns|
+                valid = true
+                reconfigured = false 
+                new_flow.to_a.each do |tt1,tt2,conns2|
+                    if
+                        proxy_objects[t1] == tt1 and
+                        proxy_objects[t2] == tt2
+                        if conns != conns2
+                            reconfigured = true
+                        end
+                        valid = false
+                        break
+                    end
+                end
+                if valid
+                    if reconfigured
+                        reconf << [t1,t2,conns] 
+                    else
+                        removed << [t1,t2,conns]
+                    end
+                end
+            end
+            
+            [new_flow,new,removed,reconf]
         end
 
         def tasks_to_stop
