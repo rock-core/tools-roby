@@ -110,6 +110,7 @@ require 'roby/state'
 require 'roby/singletons'
 require 'roby/log'
 
+require 'roby/interface/job'
 require 'roby/robot'
 require 'roby/actions'
 require 'roby/coordination'
