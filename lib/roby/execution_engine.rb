@@ -250,8 +250,6 @@ module Roby
             # they would call or emit are injected in the propagation process
             # itself.
             #
-            # See also ExecutionEngine#remove_propagation_handler
-            #
             # @option options [:external_events,:propagation] type defines when
             #   this block should be called. If :external_events, it is called
             #   only once at the beginning of each execution cycle. If
@@ -269,6 +267,8 @@ module Roby
             #   :ignore, it is completely ignored. If :disable, the handler
             #   will be disabled, i.e. not called anymore until #disabled?
             #   is set to false.
+            #
+            # @see ExecutionEngine.remove_propagation_handler
             def add_propagation_handler(options = Hash.new, &block)
                 if options.respond_to?(:call) # for backward compatibility
                     block, options = options, Hash.new
@@ -320,21 +320,31 @@ module Roby
         # itself.
         attr_reader :external_events_handlers
         
-        # call-seq:
-        #   engine.add_propagation_handler { |plan| ... }
+        # The propagation handlers are blocks that should be called at
+        # various places during propagation for all plans. These objects
+        # are called in propagation context, which means that the events
+        # they would call or emit are injected in the propagation process
+        # itself.
         #
-        # The propagation handlers are a set of block objects that have to be
-        # called at the beginning of every propagation phase for all plans.
-        # These objects are called in propagation context, which means that the
-        # events they would call or emit are injected in the propagation
-        # process itself.
+        # @option options [:external_events,:propagation] type defines when
+        #   this block should be called. If :external_events, it is called
+        #   only once at the beginning of each execution cycle. If
+        #   :propagation, it is called once at the beginning of each cycle,
+        #   as well as after each propagation step. The :late option also
+        #   gives some control over when the handler is called when in
+        #   propagation mode
+        # @option options [Boolean] once (false) if true, this handler will
+        #   be removed just after its first execution
+        # @option options [Boolean] late (false) if true, the handler is
+        #   called only when there are no events to propagate anymore.
+        # @option options [:raise,:ignore,:disable] on_error (:raise)
+        #   controls what happens when the block raises an exception. If
+        #   :raise, the error is registered as a framework error. If
+        #   :ignore, it is completely ignored. If :disable, the handler
+        #   will be disabled, i.e. not called anymore until #disabled?
+        #   is set to false.
         #
-        # This method adds a new propagation handler. In its first form, the
-        # argument is the proc object to be added. In the second form, the
-        # block is taken the handler. In both cases, the method returns a value
-        # which can be used to remove the propagation handler later.
-        #
-        # See also #remove_propagation_handler
+        # @see ExecutionEngine#remove_propagation_handler
         def add_propagation_handler(options = Hash.new, &block)
             if options.respond_to?(:call) # for backward compatibility
                 block, options = options, Hash.new
