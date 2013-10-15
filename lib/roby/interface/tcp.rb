@@ -36,7 +36,7 @@ module Roby
                         begin
                             client.poll
                         rescue ComError => e
-                            Roby::Interface.warn "disconnecting from client: #{e}"
+                            Roby::Interface.warn "disconnecting from #{client.client_id}: #{e}"
                             client.close
                             clients.delete(client)
                         end
@@ -56,9 +56,8 @@ module Roby
         # @return [Client] the client object that gives access
         def self.connect_with_tcp_to(host, port)
             socket = TCPSocket.new(host, port)
-            client = Client.new(DRobyChannel.new(socket, true))
-            client.handshake
-            client
+            addr = socket.addr(true)
+            Client.new(DRobyChannel.new(socket, true), "#{addr[2]}:#{addr[1]}")
         rescue Errno::ECONNREFUSED
             raise ConnectionError, "failed to connect to #{host}:#{port}"
         end

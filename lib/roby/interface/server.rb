@@ -7,6 +7,8 @@ module Roby
             attr_reader :io
             # @return [Interface] the interface object we are giving access to
             attr_reader :interface
+            # @return [String] a string that allows the user to identify the client
+            attr_reader :client_id
 
             # @param [DRobyChannel] io a channel to the server
             # @param [Interface] interface the interface object we give remote
@@ -22,7 +24,9 @@ module Roby
                 io.to_io
             end
 
-            def handshake
+            def handshake(id)
+                @client_id = id
+                Roby::Interface.warn "new interface client: #{id}"
                 true
             end
 

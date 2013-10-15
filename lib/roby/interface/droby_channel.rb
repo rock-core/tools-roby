@@ -50,7 +50,7 @@ module Roby
             rescue Errno::ECONNRESET
                 raise ComError, "closed communication"
             rescue Errno::EPIPE
-                raise ComError, "broken communication channel #{io}"
+                raise ComError, "broken communication channel"
             end
 
             # Write one ruby object (usually an array) as a marshalled packet and
@@ -70,7 +70,7 @@ module Roby
                 io.write(packet.to_s)
                 nil
             rescue Errno::EPIPE
-                raise ComError, "broken communication channel #{io}"
+                raise ComError, "broken communication channel"
             end
         end
     end

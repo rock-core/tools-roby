@@ -9,8 +9,10 @@ module Roby
             attr_reader :actions
 
             # @param [DRobyChannel] a channel to the server
-            def initialize(io)
+            def initialize(io, id)
                 @io = io
+
+                handshake(id)
                 
                 # Get the list of existing actions so that we can validate them
                 # in #method_missing
