@@ -23,6 +23,14 @@ module Roby
                 io.to_io
             end
 
+            def find_action_by_name(name)
+                actions.find { |act| act.name == name }
+            end
+
+            def find_all_actions_matching(matcher)
+                actions.find_all { |act| matcher === act.name }
+            end
+
             def poll(expected_count = 0)
                 result = nil
                 timeout = if expected_count > 0 then nil

@@ -42,11 +42,35 @@ module Roby
                 super
             end
 
+            def actions
+                pp client.actions
+                nil
+            end
+
+            def describe(matcher)
+                if matcher.kind_of?(Roby::Actions::Action)
+                    pp matcher.model
+                elsif matcher.kind_of?(Roby::Actions::Model::Action)
+                    pp matcher
+                else
+                    client.find_all_actions_matching(matcher).each do |act|
+                        pp act
+                    end
+                end
+                nil
+            end
+
             def method_missing(m, *args, &block)
-                client.send(m, *args, &block)
+                if act = client.find_action_by_name(m.to_s)
+                    Roby::Actions::Action.new(act, *args)
+                else
+                    client.send(m, *args, &block)
+                end
             rescue ComError
                 connect
                 retry
+            rescue Interrupt
+                Interface.warn "Interrupted"
             end
         end
     end
