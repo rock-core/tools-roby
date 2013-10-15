@@ -24,7 +24,7 @@ module Roby
                 end
 
                 def droby_dump!(peer)
-                    self.default = default.droby_dump(peer)
+                    self.default = Distributed.format(default, peer)
                 end
 
                 def proxy(peer)
