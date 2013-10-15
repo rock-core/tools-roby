@@ -59,9 +59,11 @@ IRB.conf[:PROMPT][:ROBY] = {
 
 __main_remote_interface__ = 
     begin
-        Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
-    rescue DRb::DRbConnError
-        STDERR.puts "cannot connect to a Roby controller at #{remote_url}, is the controller started ?"
+        remote_url =~ /^(.*):(\d+)$/
+        remote_host, remote_port = $1, Integer($2)
+        Roby::Interface::ShellClient.new(remote_host, remote_port)
+    rescue Interrupt
+        Roby::Interface.warn "Interrupted by user"
         exit(1)
     end
 
@@ -78,53 +80,6 @@ begin
     trap("SIGINT") do
 	irb.signal_handle
     end
-
-    # Create a thread which reads the remote messages and display them if needed
-    Thread.new do
-	begin
-	    loop do
-		sleep(1)
-		
-		msgs = begin
-			  __main_remote_interface__.poll_messages
-		      rescue DRb::DRbConnError
-			  []
-		      end
-
-                if !msgs.empty?
-                    STDERR.puts
-                end
-
-                msgs.each do |level, lines|
-                    if !lines.respond_to?(:to_ary)
-                        lines = [lines]
-                    end
-
-                    first_line = lines.shift
-                    if !lines.empty?
-                        first_line = "= #{first_line}"
-                        lines = lines.map do |str|
-                            "| #{str}"
-                        end
-                        lines << ""
-                    end
-
-                    if level == :error
-                        first_line = Roby.color(first_line, :red, :bold)
-                    elsif level == :info
-                        first_line = Roby.color(first_line, :bold)
-                    end
-                    STDERR.puts first_line
-                    lines.each do |l|
-                        STDERR.puts l
-                    end
-                end
-	    end
-	rescue Exception => e
-	    STDERR.puts $!.full_message
-	end
-    end
-
     catch(:IRB_EXIT) do
 	irb.eval_input
     end

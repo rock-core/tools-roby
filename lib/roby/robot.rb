@@ -11,81 +11,27 @@ module Robot
     @logger.formatter = Roby.logger.formatter
     @logger.progname = "Robot"
 
-    # Find an action on the planning interface that can generate the given task
-    # model
-    #
-    # Raises ArgumentError if there either none or more than one. Otherwise,
-    # returns the action name.
+    # @deprecated use Roby.app.action_from_model instead
     def self.action_from_model(model)
-	candidates = []
-        Roby.app.planners.each do |planner_model|
-            planner_model.find_all_actions_by_type(model).each do |action|
-                candidates << [planner_model, action]
-            end
-        end
-        candidates = candidates.uniq
-            
-        if candidates.empty?
-            raise ArgumentError, "cannot find an action to produce #{model}"
-        elsif candidates.size > 1
-            raise ArgumentError, "more than one actions available produce #{model}: #{candidates.map { |pl, m| "#{pl}.#{m.name}" }.sort.join(", ")}"
-        else
-            candidates.first
-        end
+        return Roby.app.action_from_model(model)
     end
     
-    # Find an action with the given name on the action interfaces registered on
-    # Roby.app.planners
-    #
-    # @raise [ArgumentError] if no actions with that name exists, or if more
-    #   than one action interface provide one
+    # @deprecated use Roby.app.find_action_from_name instead
     def self.find_action_from_name(name)
-        candidates = []
-        Roby.app.planners.each do |planner_model|
-            if m = planner_model.find_action_by_name(name)
-                candidates << [planner_model, m]
-            end
-        end
-        candidates = candidates.uniq
-
-        if candidates.size > 1
-            raise ArgumentError, "more than one action interface provide the #{name} action: #{candidates.map { |pl, m| "#{pl}" }.sort.join(", ")}"
-        else candidates.first
-        end
+        return Roby.app.find_action_from_name(name)
     end
 
+    # @deprecated use Roby.app.action_from_name instead
     def self.action_from_name(name)
-        action = find_action_from_name(name)
-        if !action
-            available_actions = Roby.app.planners.map do |planner_model|
-                planner_model.each_action.map(&:name)
-            end.flatten
-            if available_actions.empty?
-                raise ArgumentError, "cannot find an action named #{name}, there are no actions defined"
-            else
-                raise ArgumentError, "cannot find an action named #{name}, available actions are: #{available_actions.sort.join(", ")}"
-            end
-        end
-        action
+        return Roby.app.action_from_name(name)
     end
 
-    # Generate the plan pattern that will call the required action on the
-    # planning interface, with the given arguments.
-    #
-    # This returns immediately, and the action is not yet deployed at that
-    # point.
-    #
-    # @return task, planning_task
+    # @deprecated use Roby.app.prepare_action instead
     def self.prepare_action(plan, name, arguments = Hash.new)
-        if name.kind_of?(Class)
-            planner_model, m = action_from_model(name)
-        else
-            planner_model, m = action_from_name(name)
+        if plan != Roby.app.plan
+            raise ArgumentError, "cannot call prepare_action with any other plan than Roby.app.plan"
         end
-        if plan
-            plan.add(task = m.plan_pattern(arguments))
-        end
-	return task, task.planning_task
+	return Roby.app.prepare_action(name, arguments)
     end
 
     # Implements that one can call
@@ -108,7 +54,7 @@ module Robot
 	end
 
 	options = args.first || {}
-	task, planner = Robot.prepare_action(Roby.plan, name, options)
+	task, planner = Roby.app.prepare_action(name, options)
 	Roby.plan.add_mission(task)
 
 	return task, planner

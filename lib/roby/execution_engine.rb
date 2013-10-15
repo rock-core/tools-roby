@@ -141,7 +141,7 @@ module Roby
         # decision control object
         #
         # See Roby::Plan and Roby::DecisionControl
-        def initialize(plan, control)
+        def initialize(plan, control = Roby::DecisionControl.new)
             @plan = plan
             plan.engine = self
             @control = control
@@ -161,6 +161,7 @@ module Roby
             @emitted_events  = Array.new
             @disabled_handlers = ValueSet.new
             @additional_errors = nil
+            @exception_listeners = Array.new
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -181,10 +182,12 @@ module Roby
         attr_accessor :control
         # A numeric ID giving the count of the current propagation cycle
         attr_reader :propagation_id
-
         # The set of events that have been emitted in the current execution
         # cycle
         attr_reader :emitted_events
+        # The blocks that are currently listening to exceptions
+        # @return [Array<#call>]
+        attr_reader :exception_listeners
 
         # Internal structure used to store a poll block definition provided to
         # #every or #add_propagation_handler
@@ -1370,6 +1373,7 @@ module Roby
             Roby.format_exception(error.exception).each do |line|
                 ExecutionEngine.warn line
             end
+	    notify_exception(EXCEPTION_NONFATAL, error, tasks)
         end
 
         # Hook called when a set of tasks is being killed because of an exception
@@ -1378,10 +1382,14 @@ module Roby
             Roby.format_exception(error.exception).each do |line|
                 ExecutionEngine.warn line
             end
+	    notify_exception(EXCEPTION_FATAL, error, tasks)
         end
 
         # Hook called when an exception +e+ has been handled by +task+
-        def handled_exception(e, task); super if defined? super end
+        def handled_exception(e, task)
+	    super if defined? super
+	    notify_exception(EXCEPTION_HANDLED, error, tasks)
+	end
 
         def unmark_finished_missions_and_permanent_tasks
             to_unmark = plan.task_index.by_predicate[:finished?] | plan.task_index.by_predicate[:failed?]
@@ -2089,6 +2097,40 @@ module Roby
                 sleep 0.01
             end
         end
+
+	EXCEPTION_NONFATAL = :nonfatal
+	EXCEPTION_FATAL    = :fatal
+	EXCEPTION_HANDLED  = :handled
+
+	# Registers a callback that will be called when exceptions are
+	# propagated in the plan
+	#
+        # @yieldparam [Object] kind one of the EXCEPTION_* constants
+        # @yieldparam [Roby::ExecutionException] error the exception
+        # @yieldparam [Array<Roby::Task>] tasks the tasks that are being killed
+        #   because of this exception
+        # @return [Object] an ID that can be used as argument to
+	#   {#remove_exception_listener}
+	def on_exception(&block)
+	    exception_listeners << block
+	    block
+	end
+
+	# Removes an exception listener registered with {#on_exception}
+	#
+	# @param [Object] the value returned by {#on_exception}
+	# @return [void]
+	def remove_exception_listener(block)
+	    exception_listeners.delete(block)
+	end
+
+	# Call to notify the listeners registered with {#on_exception} of the
+	# occurence of an exception
+	def notify_exception(kind, error, tasks)
+	    exception_listeners.each do |listener|
+		listener.call(kind, error, tasks)
+	    end
+	end
     end
 
     # Execute the given block in the main plan's propagation context, but don't

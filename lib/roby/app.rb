@@ -954,9 +954,8 @@ module Roby
 
             if public_shell_interface?
                 setup_shell_interface
-            else
-                DRb.start_service "druby://localhost:0"
             end
+            setup_drb_service
 
         rescue Exception => e
             begin cleanup
@@ -980,7 +979,7 @@ module Roby
             call_plugins(:require_config, self)
         end
 
-        # Publishes a shell interface on DRb
+        # Publishes a shell interface
         #
         # This method publishes a Roby::Interface object as the front object of
         # the local DRb server. The port on which this object is published can
@@ -999,21 +998,31 @@ module Roby
         def setup_shell_interface
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
-	    if host !~ /:\d+$/
-		host << ":#{Distributed::DEFAULT_DROBY_PORT}"
+            if host =~ /:(\d+)$/
+                port = Integer($1)
+            else
+		port = Distributed::DEFAULT_DROBY_PORT
 	    end
 
+            @shell_server = Interface::TCPServer.new(self, port)
+        end
+
+        def stop_shell_interface
+            if @shell_server
+                @shell_server.close
+            end
+        end
+
+        def setup_drb_service
+	    host = droby['host'] || ""
+            if host !~ /:\d+$/
+                host = host + ":0"
+            end
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
-		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(plan.engine)
+		DRb.start_service "druby://:#{$1 || '0'}"
 	    else
-		DRb.start_service "druby://#{host}", Interface.new(plan.engine)
-            end
-
-            # Consistency check: DRb.here?(DRbObject.new(obj).__drburi) should
-            # be true
-            if DRb.uri != DRb.current_server.uri
-                raise RuntimeError, "problem in DRb configuration: DRb.uri != DRb.current_server.uri (#{DRb.uri} != #{DRb.current_server.uri})"
+		DRb.start_service "druby://#{host}"
             end
         end
 
@@ -1141,6 +1150,7 @@ module Roby
             end
 
             stop_log_server
+            stop_shell_interface
             stop_drb_service
         end
 
@@ -1587,6 +1597,81 @@ module Roby
                 planner_model.clear_model
             end
             require_planners
+        end
+
+        # Find an action on the planning interface that can generate the given task
+        # model
+        #
+        # Raises ArgumentError if there either none or more than one. Otherwise,
+        # returns the action name.
+        def action_from_model(model)
+            candidates = []
+            planners.each do |planner_model|
+                planner_model.find_all_actions_by_type(model).each do |action|
+                    candidates << [planner_model, action]
+                end
+            end
+            candidates = candidates.uniq
+                
+            if candidates.empty?
+                raise ArgumentError, "cannot find an action to produce #{model}"
+            elsif candidates.size > 1
+                raise ArgumentError, "more than one actions available produce #{model}: #{candidates.map { |pl, m| "#{pl}.#{m.name}" }.sort.join(", ")}"
+            else
+                candidates.first
+            end
+        end
+        
+        # Find an action with the given name on the action interfaces registered on
+        # {#planners}
+        #
+        # @raise [ArgumentError] if more than one action interface provide an
+        #   action with this name
+        def find_action_from_name(name)
+            candidates = []
+            planners.each do |planner_model|
+                if m = planner_model.find_action_by_name(name)
+                    candidates << [planner_model, m]
+                end
+            end
+            candidates = candidates.uniq
+
+            if candidates.size > 1
+                raise ArgumentError, "more than one action interface provide the #{name} action: #{candidates.map { |pl, m| "#{pl}" }.sort.join(", ")}"
+            else candidates.first
+            end
+        end
+
+        def action_from_name(name)
+            action = find_action_from_name(name)
+            if !action
+                available_actions = planners.map do |planner_model|
+                    planner_model.each_action.map(&:name)
+                end.flatten
+                if available_actions.empty?
+                    raise ArgumentError, "cannot find an action named #{name}, there are no actions defined"
+                else
+                    raise ArgumentError, "cannot find an action named #{name}, available actions are: #{available_actions.sort.join(", ")}"
+                end
+            end
+            action
+        end
+
+        # Generate the plan pattern that will call the required action on the
+        # planning interface, with the given arguments.
+        #
+        # This returns immediately, and the action is not yet deployed at that
+        # point.
+        #
+        # @return task, planning_task
+        def prepare_action(name, arguments = Hash.new)
+            if name.kind_of?(Class)
+                planner_model, m = action_from_model(name)
+            else
+                planner_model, m = action_from_name(name)
+            end
+            plan.add(task = m.plan_pattern(arguments))
+            return task, task.planning_task
         end
     end
 end

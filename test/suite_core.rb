@@ -37,6 +37,6 @@ require 'suite_queries'
 require 'suite_state'
 require 'suite_coordination'
 
-require 'test_interface'
+require 'suite_interface'
 require 'test_log'
 

@@ -9,6 +9,11 @@ class TC_Robot < Test::Unit::TestCase
     include Roby::SelfTest
     include Roby::SelfTest::Assertions
 
+    def setup
+        super
+        @plan = Roby.app.plan # The Robot interface can only work on the singleton Roby app
+    end
+
     def test_action_from_model_no_match
         task_m = Roby::Task.new_submodel
         planner = flexmock
@@ -42,10 +47,10 @@ class TC_Robot < Test::Unit::TestCase
         task.planned_by planner_task
         planner = flexmock
         planning_method = flexmock(:plan_pattern => task)
-        flexmock(Robot).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
+        flexmock(Roby.app).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
 
-        assert_equal [task, planner_task], Robot.prepare_action(plan, task_t)
-        assert_same plan, task.plan
+        assert_equal [task, planner_task], Robot.prepare_action(Roby.app.plan, task_t)
+        assert_same Roby.app.plan, task.plan
     end
     def test_prepare_action_passes_arguments
         arguments = {:id => 10}
@@ -56,10 +61,10 @@ class TC_Robot < Test::Unit::TestCase
         planner = flexmock
         planning_method = flexmock
         planning_method.should_receive(:plan_pattern).with(arguments).once.and_return(task)
-        flexmock(Robot).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
+        flexmock(Roby.app).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
 
-        assert_equal [task, planner_task], Robot.prepare_action(plan, task_t, arguments)
-        assert_same plan, task.plan
+        assert_equal [task, planner_task], Robot.prepare_action(Roby.app.plan, task_t, arguments)
+        assert_same Roby.app.plan, task.plan
     end
 end
 

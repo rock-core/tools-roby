@@ -17,5 +17,6 @@
   <depend package="graphviz" optional='1' />
   <depend package="state_machine" />
   <depend package="tools/metaruby" />
+  <depend package="websocket-gem" />
 </package>
 
