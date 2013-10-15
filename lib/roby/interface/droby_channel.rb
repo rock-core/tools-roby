@@ -47,7 +47,7 @@ module Roby
                     Distributed::DumbManager.local_object(unmarshalled)
                 end
 
-            rescue Errno::ECONNRESET
+            rescue Errno::ECONNRESET, EOFError
                 raise ComError, "closed communication"
             rescue Errno::EPIPE
                 raise ComError, "broken communication channel"

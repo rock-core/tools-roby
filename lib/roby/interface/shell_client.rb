@@ -44,6 +44,9 @@ module Roby
 
             def method_missing(m, *args, &block)
                 client.send(m, *args, &block)
+            rescue ComError
+                connect
+                retry
             end
         end
     end
