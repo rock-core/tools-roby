@@ -57,6 +57,7 @@ IRB.conf[:PROMPT][:ROBY] = {
     :RETURN => "=> %s\n"
 }
 
+Roby::Distributed::DRobyModel.add_anonmodel_to_names = false
 __main_remote_interface__ = 
     begin
         remote_url =~ /^(.*):(\d+)$/

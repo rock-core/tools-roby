@@ -202,7 +202,12 @@ module Roby
 		    ancestors == other.ancestors
 	    end
 
-            def self.anon_model_factory(parent_model, name, add_anonmodel = true)
+            class << self
+                attr_predicate :add_anonmodel_to_names?, true
+            end
+            @add_anonmodel_to_names = true
+
+            def self.anon_model_factory(parent_model, name, add_anonmodel = DRobyModel.add_anonmodel_to_names?)
                 Class.new(parent_model) do
                     singleton_class.class_eval do
                         define_method(:remote_name) { name }
