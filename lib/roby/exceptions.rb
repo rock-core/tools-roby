@@ -13,6 +13,8 @@ class Exception
     def involved_plan_object?(obj)
         false
     end
+
+    # DRoby-marshalling is done in distributed/protocol
 end
 
 module Roby

@@ -330,15 +330,17 @@ class Exception
     # An intermediate representation of Exception objects suitable to
     # be sent to our peers.
     class DRoby
-	attr_reader :model, :message
-	def initialize(model, message); @model, @message = model, message end
+	attr_reader :model, :message, :backtrace
+	def initialize(model, message, backtrace); @model, @message, @backtrace = model, message, backtrace end
 
         # Returns a local representation of the exception object +self+
         # describes. If the real exception message is not available, it reuses
         # the more-specific exception class which is available.
 	def proxy(peer)
 	    error_model = model.proxy(peer)
-	    error_model.exception(self.message)
+	    error = error_model.exception(self.message)
+            error.set_backtrace(backtrace)
+            error
 
 	rescue Exception
 	    # try to get a less-specific error model which does allow a simple
@@ -349,7 +351,9 @@ class Exception
 	    for model in error_model.ancestors
 		next unless model.kind_of?(Class)
 		begin
-		    return model.exception(message)
+		    error = model.exception(message)
+                    error.set_backtrace(backtrace)
+                    return error
 		rescue ArgumentError
 		end
 	    end
@@ -358,6 +362,6 @@ class Exception
 
     # Returns an intermediate representation of +self+ suitable to be sent to
     # the +dest+ peer.
-    def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), message) end
+    def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), message, backtrace) end
 end
 

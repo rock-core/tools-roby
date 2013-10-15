@@ -88,15 +88,16 @@ module Roby
 
         # Intermediate representation used to marshal/unmarshal a LocalizedError
         class DRoby
-            attr_reader :model, :failure_point, :message, :formatted_message
-            def initialize(model, failure_point, message, formatted_message = [])
-                @model, @failure_point, @message, @formatted_message = model, failure_point, message, formatted_message
+            attr_reader :model, :failure_point, :message, :backtrace, :formatted_message
+            def initialize(model, failure_point, message, backtrace, formatted_message = [])
+                @model, @failure_point, @message, @backtrace, @formatted_message = model, failure_point, message, backtrace, formatted_message
             end
 
             def proxy(peer)
                 failure_point = peer.local_object(self.failure_point)
                 error = UntypedLocalizedError.new(failure_point)
-                error.exception(message.first)
+                error = error.exception(message.first)
+                error.set_backtrace(backtrace)
                 error.exception_class = model
                 error.formatted_message = formatted_message
                 error
