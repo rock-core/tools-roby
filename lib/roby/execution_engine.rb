@@ -228,6 +228,8 @@ module Roby
                     Roby.display_exception(ExecutionEngine.logger.io(:warn), e)
                     return false
                 elsif on_error == :ignore
+                    ExecutionEngine.warn "ignored error from propagation handler #{description}"
+                    Roby.display_exception(ExecutionEngine.logger.io(:warn), e)
                     return true
                 end
             end
