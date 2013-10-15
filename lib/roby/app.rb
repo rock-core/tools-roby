@@ -836,9 +836,6 @@ module Roby
                 require path
             end
 
-            if !defined?(MainPlanner) # For backward compatibility reasons
-                Object.const_set(:MainPlanner, Class.new(Roby::Planning::Planner))
-            end
             if !defined?(Main)
                 Object.const_set(:Main, Class.new(Roby::Actions::Interface))
             end
@@ -933,8 +930,8 @@ module Roby
 	    require_models
             require_config
 
-	    # MainPlanner is always included in the planner list
-            self.planners << MainPlanner << Main
+	    # Main is always included in the planner list
+            self.planners << Main
 	   
 	    # If we are in test mode, import the test extensions from plugins
 	    if testing?
