@@ -96,7 +96,7 @@ module Roby
             def proxy(peer)
                 failure_point = peer.local_object(self.failure_point)
                 error = UntypedLocalizedError.new(failure_point)
-                error = error.exception(message.first)
+                error = error.exception(message)
                 error.set_backtrace(backtrace)
                 error.exception_class = model
                 error.formatted_message = formatted_message
@@ -108,7 +108,11 @@ module Roby
         # the +dest+ peer.
         def droby_dump(dest)
             formatted = Roby.format_exception(self)
-            DRoby.new(self.class.droby_dump(dest), Distributed.format(failure_point, dest), message, formatted)
+            DRoby.new(self.class.droby_dump(dest),
+                      Distributed.format(failure_point, dest),
+                      message,
+                      backtrace,
+                      formatted)
         end
 
         # @return [Queries::ExecutionExceptionMatcher]
