@@ -52,15 +52,36 @@ module Roby
                 result
             end
 
-            # Starts an action
+            # Starts a job
             #
             # @return [Integer] the job ID
-            def start(m, arguments = Hash.new)
+            def start_job(m, arguments = Hash.new)
                 engine.execute do
                     task, planning_task = app.prepare_action(m, arguments)
                     app.plan.add_mission(task)
-                    monitor_job(task)
+                    planning_task.job_id = Job.allocate_job_id
+
+                    formatted_arguments = []
+                    arguments.each do |k, v|
+                        formatted_arguments << "#{k} => #{v}"
+                    end
+                    monitor_job(planning_task.job_id, "#{m}(#{formatted_arguments.join(", ")})", task)
                     planning_task.job_id
+                end
+            end
+
+            # Kill a job
+            #
+            # @param [Integer] job_id the ID of the job that should be
+            #   terminated
+            # @return [Boolean] true if the job was found and terminated, and
+            #   false otherwise
+            def kill_job(job_id)
+                if task = find_job_placeholder_by_id(job_id)
+                    plan.unmark_mission(task)
+                    task.stop! if task.running?
+                    true
+                else false
                 end
             end
 
@@ -192,6 +213,16 @@ module Roby
             def find_job_by_id(id)
                 engine.execute do
                     return plan.find_tasks(Job).with_arguments(:job_id => id).to_a.first
+                end
+            end
+
+            # Finds the task that represents the given job ID
+            #
+            # It can be different than the job task when e.g. the job task is a
+            # planning task
+            def find_job_placeholder_by_id(id)
+                if task = find_job_by_id(id)
+                    return task.planned_task || task
                 end
             end
 
