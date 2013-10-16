@@ -34,26 +34,31 @@ module Roby
             def poll(expected_count = 0)
                 result = nil
                 timeout = if expected_count > 0 then nil
-                          else 0.01
+                          else 0
                           end
 
                 while IO.select([io], [], [], timeout)
-                    m, *args = io.read_packet
-                    if m == :bad_call
-                        raise args.first
-                    elsif m == :reply
-                        if result
-                            raise ArgumentError, "got more than one reply in a single poll call"
+                    while true
+                        m, *args = io.read_packet
+                        if m == :bad_call
+                            raise args.first
+                        elsif m == :reply
+                            if result
+                                raise ArgumentError, "got more than one reply in a single poll call"
+                            end
+                            result = args.first
+                            expected_count -= 1
+                        elsif m == :notification
+                            push_notification(*args)
+                        elsif m == :exception
+                            push_exception(*args)
+                        elsif m
+                            raise ProtocolError, "unexpected reply from #{io}: #{m} (#{args.map(&:to_s).join(",")})"
+                        else break
                         end
-                        result = args.first
-                        expected_count -= 1
-                    elsif m == :exception
-                        push_exception(*args)
-                    elsif m
-                        raise ProtocolError, "unexpected reply from #{io}: #{m} (#{args.map(&:to_s).join(",")})"
                     end
                     if expected_count <= 0
-                        timeout = 0.01
+                        timeout = 0
                     end
                 end
                 result
