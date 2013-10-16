@@ -47,7 +47,7 @@ module Roby
             def actions
                 actions = call Hash[:retry => true], :actions
                 actions.each do |action|
-                    puts "#{action}: #{action.doc}"
+                    puts "#{action.name}!(#{action.arguments.map(&:name).sort.join(", ")}): #{action.doc}"
                 end
                 nil
             end
@@ -125,7 +125,7 @@ module Roby
                 @mutex.synchronize do
                     client.notification_queue.each do |id, (kind, job_id, job_name, *args)|
                         msg << Roby.console.color("-- ##{id} (notification) --", :bold)
-                        msg << format_notification(kind, job_id, job_name, *args)
+                        msg.concat format_notification(kind, job_id, job_name, *args)
                         msg << "\n"
                     end
                     client.exception_queue.each do |id, (kind, exception, tasks)|

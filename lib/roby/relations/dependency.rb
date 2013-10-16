@@ -845,7 +845,7 @@ module Roby
 	end
 
 	def pretty_print(pp) # :nodoc:
-            pp.text "#{child}"
+            pp.text "#{child} failed"
             pp.breakable
             pp.text "child #{relation[:roles].to_a.join(", ")} of #{parent}"
             pp.breakable
