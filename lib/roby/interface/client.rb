@@ -7,6 +7,10 @@ module Roby
             attr_reader :io
             # @return [Array<Roby::Actions::Model::Action>] set of known actions
             attr_reader :actions
+            # @return [Array] list of existing notifications
+            attr_reader :notification_queue
+            # @return [Array] list of existing exceptions
+            attr_reader :exception_queue
 
             # @param [DRobyChannel] a channel to the server
             def initialize(io, id)
@@ -17,6 +21,9 @@ module Roby
                 # Get the list of existing actions so that we can validate them
                 # in #method_missing
                 @actions = call(:actions)
+
+                @notification_queue = Array.new
+                @exception_queue = Array.new
             end
 
             def to_io
@@ -62,6 +69,18 @@ module Roby
                     end
                 end
                 result
+            end
+
+            def push_notification(kind, job_id, job_name, *args)
+                notification_queue.push [kind, job_id, job_name, *args]
+            end
+
+            def has_notifications?
+                !notification_queue.empty?
+            end
+
+            def pop_notification
+                notification_queue.pop
             end
 
             def push_exception(kind, error, tasks)

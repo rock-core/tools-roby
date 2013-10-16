@@ -79,6 +79,50 @@ begin
     context.save_history = 100
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
+    Thread.new do
+        begin
+            while true
+                ok = false
+                __main_remote_interface__.mutex.synchronize do
+                    begin
+                        __main_remote_interface__.client.poll
+                        ok = true
+                    rescue Exception
+                        puts "E"
+                    end
+                    if !ok
+                        begin
+                            __main_remote_interface__.connect(nil)
+                            ok = true
+                        rescue Exception
+                        end
+                    end
+                end
+
+                msg = []
+                if ok
+                    exceptions    = __main_remote_interface__.exception_queue.size
+                    notifications = __main_remote_interface__.notification_queue.size
+                    if exceptions > 0
+                        msg << "E:#{exceptions}"
+                    end
+                    if notifications > 0
+                        msg << "N:#{notifications}"
+                    end
+                else msg << "X"
+                end
+                if !msg.empty?
+                    Readline.message "[#{msg.join(",")}] #{remote_url} > "
+                else
+                    Readline.message "#{remote_url} > "
+                end
+                sleep 1
+            end
+        rescue Exception => e
+            puts e
+        end
+    end
+
     trap("SIGINT") do
 	irb.signal_handle
     end

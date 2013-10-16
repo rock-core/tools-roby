@@ -74,6 +74,11 @@ module Roby
 
             # Dispatch the given job-related notification to all listeners
             #
+            # Additional arguments are given in some cases:
+            # 
+            # JOB_MONITORED: the job task is given
+            # JOB_REPLACED: the new job task is given
+            #
             # Listeners are registered with {#on_job_notification}
             def job_notify(kind, job_id, job_name, *args)
                 each_job_listener do |listener|

@@ -15,8 +15,21 @@ module Roby
             #   access to
             def initialize(io, interface)
                 @io, @interface = io, interface
+                interface.on_job_notification do |*args|
+                    begin
+                        io.write_packet([:notification, *args])
+                    rescue ComError
+                        # The disconnection is going to be handled by the caller
+                        # of #poll
+                    end
+                end
                 interface.on_exception do |*args|
-                    io.write_packet([:exception, *args])
+                    begin
+                        io.write_packet([:exception, *args])
+                    rescue ComError
+                        # The disconnection is going to be handled by the caller
+                        # of #poll
+                    end
                 end
             end
 
