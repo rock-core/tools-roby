@@ -108,9 +108,13 @@ module Roby
                         elsif kind == ExecutionEngine::EXCEPTION_NONFATAL then [:magenta]
                         else []
                         end
-                msg = Roby.format_exception(error.exception)
-                if msg[0]
-                    msg[0] = Roby.console.color(msg[0], *color)
+                if error
+                    msg = Roby.format_exception(error.exception)
+                    if msg[0]
+                        msg[0] = Roby.console.color(msg[0], *color)
+                    end
+                else
+                    msg = ["<something wrong happened in transmission of exception information>"]
                 end
                 return msg
             end
