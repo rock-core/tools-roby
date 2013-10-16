@@ -96,7 +96,11 @@ module Roby
             end
 
             def format_notification(kind, job_id, job_name, *args)
-                "[#{job_id}] #{job_name}: #{kind}"
+                ["[#{job_id}] #{job_name}: #{kind}"]
+            end
+
+            def summarize_notification(kind, job_id, job_name, *args)
+                return format_notification(kind, job_id, job_name, *args).first, true
             end
 
             def format_exception(kind, error, *args)
@@ -104,23 +108,30 @@ module Roby
                         elsif kind == ExecutionEngine::EXCEPTION_NONFATAL then [:magenta]
                         else []
                         end
-                msg = error.exception.formatted_message || [error.exception.message] || []
-                msg = msg.dup
+                msg = Roby.format_exception(error.exception)
                 if msg[0]
-                    msg[0] = Roby.console.color(msg[0], :bold, *color)
+                    msg[0] = Roby.console.color(msg[0], *color)
                 end
-                puts msg.join("\n")
-                nil
+                return msg
+            end
+
+            def summarize_exception(kind, error, *args)
+                msg = "(#{kind}) #{format_exception(kind, error, *args).first}"
+                return msg, false
             end
 
             def wtf?
                 msg = []
                 @mutex.synchronize do
-                    client.notification_queue.each do |kind, job_id, job_name, *args|
+                    client.notification_queue.each do |id, (kind, job_id, job_name, *args)|
+                        msg << Roby.console.color("-- ##{id} (notification) --", :bold)
                         msg << format_notification(kind, job_id, job_name, *args)
+                        msg << "\n"
                     end
-                    client.exception_queue.each do |kind, exception, tasks|
-                        msg << format_exception(kind, exception, tasks)
+                    client.exception_queue.each do |id, (kind, exception, tasks)|
+                        msg << Roby.console.color("-- ##{id} (#{kind} exception) --", :bold)
+                        msg.concat format_exception(kind, exception, tasks)
+                        msg << "\n"
                     end
                     client.notification_queue.clear
                     client.exception_queue.clear

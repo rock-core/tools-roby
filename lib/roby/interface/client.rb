@@ -7,14 +7,19 @@ module Roby
             attr_reader :io
             # @return [Array<Roby::Actions::Model::Action>] set of known actions
             attr_reader :actions
-            # @return [Array] list of existing notifications
+            # @return [Array<Integer,Array>] list of existing notifications. The
+            #   integer is an ID that can be used to refer to the notification.
+            #   It is always growing and will never collide with an exception ID
             attr_reader :notification_queue
-            # @return [Array] list of existing exceptions
+            # @return [Array<Integer,Array>] list of existing exceptions. The
+            #   integer is an ID that can be used to refer to the exception.
+            #   It is always growing and will never collide with a notification ID
             attr_reader :exception_queue
 
             # @param [DRobyChannel] a channel to the server
             def initialize(io, id)
                 @io = io
+                @message_id = 0
 
                 handshake(id)
                 
@@ -71,8 +76,12 @@ module Roby
                 result
             end
 
+            def allocate_message_id
+                @message_id += 1
+            end
+
             def push_notification(kind, job_id, job_name, *args)
-                notification_queue.push [kind, job_id, job_name, *args]
+                notification_queue.push [allocate_message_id, [kind, job_id, job_name, *args]]
             end
 
             def has_notifications?
@@ -84,7 +93,7 @@ module Roby
             end
 
             def push_exception(kind, error, tasks)
-                exception_queue.push [kind, error, tasks]
+                exception_queue.push [allocate_message_id, [kind, error, tasks]]
             end
 
             def has_exceptions?

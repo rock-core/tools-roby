@@ -1,6 +1,7 @@
 require 'roby'
 require 'roby/distributed'
 require 'optparse'
+require 'utilrb/readline'
 
 require 'pp'
 
@@ -81,45 +82,56 @@ begin
 
     Thread.new do
         begin
+            already_summarized = Set.new
             while true
-                ok = false
+                was_connected = nil
                 __main_remote_interface__.mutex.synchronize do
-                    begin
-                        __main_remote_interface__.client.poll
-                        ok = true
-                    rescue Exception
-                        puts "E"
-                    end
-                    if !ok
+                    has_valid_connection =
                         begin
-                            __main_remote_interface__.connect(nil)
-                            ok = true
+                            __main_remote_interface__.client.poll
+                            true
                         rescue Exception
+                            begin
+                                __main_remote_interface__.connect(nil)
+                                true
+                            rescue Exception
+                            end
+                        end
+
+                    summarized = Set.new
+                    __main_remote_interface__.client.exception_queue.delete_if do |id, args|
+                        summarized << id
+                        if !already_summarized.include?(id)
+                            msg, complete = __main_remote_interface__.summarize_exception(*args)
+                            Readline.puts "##{id} #{msg}"
+                            complete
                         end
                     end
-                end
+                    __main_remote_interface__.client.notification_queue.delete_if do |id, args|
+                        summarized << id
+                        if !already_summarized.include?(id)
+                            msg, complete = __main_remote_interface__.summarize_notification(*args)
+                            Readline.puts "##{id} #{msg}"
+                            complete
+                        end
+                    end
+                    already_summarized = summarized
+                    if has_valid_connection
+                        was_connected = true
+                    end
 
-                msg = []
-                if ok
-                    exceptions    = __main_remote_interface__.exception_queue.size
-                    notifications = __main_remote_interface__.notification_queue.size
-                    if exceptions > 0
-                        msg << "E:#{exceptions}"
+                    if has_valid_connection && !was_connected
+                        Readline.puts "reconnected"
+                    elsif !has_valid_connection && was_connected
+                        Readline.puts "lost connection, reconnecting ..."
                     end
-                    if notifications > 0
-                        msg << "N:#{notifications}"
-                    end
-                else msg << "X"
+                    was_connected = has_valid_connection
                 end
-                if !msg.empty?
-                    Readline.message "[#{msg.join(",")}] #{remote_url} > "
-                else
-                    Readline.message "#{remote_url} > "
-                end
-                sleep 1
+                sleep 0.1
             end
         rescue Exception => e
             puts e
+            puts e.backtrace.join("\n")
         end
     end
 
