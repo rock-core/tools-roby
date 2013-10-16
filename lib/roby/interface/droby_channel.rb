@@ -30,7 +30,10 @@ module Roby
 
             # Read one packet from {#io} and unmarshal it
             #
-            # @return [Object,nil]
+            # It is non-blocking
+            #
+            # @return [Object,nil] returns the unmarshalled object, or nil if no
+            #   full object can be found in the data received so far
             def read_packet
                 data = begin io.read_nonblock(1024 ** 2)
                        rescue IO::WaitReadable
