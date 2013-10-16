@@ -44,12 +44,19 @@ module Roby
                 @client = nil
             end
 
-            def poll
-                super
+            def actions
+                actions = call Hash[:retry => true], :actions
+                actions.each do |action|
+                    puts "#{action}: #{action.doc}"
+                end
+                nil
             end
 
-            def actions
-                pp client.actions
+            def jobs
+                jobs = call Hash[:retry => true], :jobs
+                jobs.each do |id, name|
+                    puts "[%4d] %s" % [id, name]
+                end
                 nil
             end
 
