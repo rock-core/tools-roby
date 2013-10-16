@@ -1386,9 +1386,9 @@ module Roby
         end
 
         # Hook called when an exception +e+ has been handled by +task+
-        def handled_exception(e, task)
+        def handled_exception(error, task)
 	    super if defined? super
-	    notify_exception(EXCEPTION_HANDLED, error, tasks)
+	    notify_exception(EXCEPTION_HANDLED, error, task)
 	end
 
         def unmark_finished_missions_and_permanent_tasks
