@@ -86,10 +86,10 @@ module Roby
             end
 
             def method_missing(m, *args)
-                if m.to_s =~ /!$/
-                    action_name = $'
-                    if actions.find { |act| act.name == action_name }
-                        call(:start, $', *args)
+                if m.to_s =~ /(.*)!$/
+                    action_name = $1
+                    if act = find_action_by_name(action_name)
+                        call(:start_job, action_name, *args)
                     else raise ArgumentError, "there are is no action called #{action_name}"
                     end
 
