@@ -29,6 +29,7 @@ module Roby
                     pending = pending[0]
                     if pending.delete(server)
                         socket = server.accept
+                        socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, true)
                         server = Server.new(DRobyChannel.new(socket, false), interface)
                         clients << server
                     end
