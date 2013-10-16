@@ -19,13 +19,7 @@ module Roby
         #
         # Most methods can be accessed outside of the Roby execution thread. Methods
         # that cannot will be noted in their documentation
-        class Interface
-            # @return [Roby::Application] the application
-            attr_reader :app
-            # @return [Roby::Plan] the {#app}'s plan
-            def plan; app.plan end
-            # @return [Roby::ExecutionEngine] the {#plan}'s engine
-            def engine; plan.engine end
+        class Interface < CommandLibrary
             # @return [#call] the blocks that listen to job notifications. They are
             # added with {#on_job_notification} and removed with
             # {#remove_job_listener}
@@ -35,7 +29,7 @@ module Roby
             #
             # @param [Roby::Application] app the application
             def initialize(app)
-                @app = app
+                super(app)
                 @job_listeners = Array.new
             end
 
@@ -51,6 +45,7 @@ module Roby
                 end
                 result
             end
+            command :actions, 'lists a summary of the available actions'
 
             # Starts a job
             #
@@ -84,6 +79,8 @@ module Roby
                 else false
                 end
             end
+            command :kill_job, 'kills the given job',
+                :job_id => 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
 
             # Enumerates the job listeners currently registered through
             # #on_job_notification
@@ -205,6 +202,7 @@ module Roby
                 end
                 result
             end
+            command :jobs, 'returns the list of non-finished jobs'
 
             # Finds a job task by its ID
             #
@@ -246,8 +244,9 @@ module Roby
                 engine.execute do
                     app.reload_actions
                 end
-                nil
+                actions
             end
+            command :reload_actions, 'reloads the files in models/actions/'
 
             # @see ExecutionEngine#on_exception
             def on_exception(&block)
@@ -262,6 +261,10 @@ module Roby
                     engine.remove_exception_listener(listener)
                 end
             end
+
+            # This is implemented on ShellClient directly
+            command 'describe', 'gives details about the given action',
+                :action => 'the action itself'
         end
     end
 end

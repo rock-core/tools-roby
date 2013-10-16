@@ -20,6 +20,8 @@ module Roby
                 connect
             end
 
+            def path; [] end
+
             def connect(retry_period = 0.5)
                 retry_warning = false
                 begin
@@ -45,7 +47,7 @@ module Roby
             end
 
             def actions
-                actions = call Hash[:retry => true], :actions
+                actions = call Hash[:retry => true], [], :actions
                 actions.each do |action|
                     puts "#{action.name}!(#{action.arguments.map(&:name).sort.join(", ")}): #{action.doc}"
                 end
@@ -53,7 +55,7 @@ module Roby
             end
 
             def jobs
-                jobs = call Hash[:retry => true], :jobs
+                jobs = call Hash[:retry => true], [], :jobs
                 jobs.each do |id, name|
                     puts "[%4d] %s" % [id, name]
                 end
@@ -81,16 +83,16 @@ module Roby
                 nil
             end
 
-            def call(options, m, *args)
+            def call(options, path, m, *args)
                 options = Kernel.validate_options options, :retry => false
                 if options[:retry]
                     options = options.merge(:retry => false)
                     retry_on_com_error do
-                        return call options, m, *args
+                        return call options, path, m, *args
                     end
                 else
                     @mutex.synchronize do
-                        client.send(m, *args)
+                        client.call(path, m, *args)
                     end
                 end
             end
@@ -145,10 +147,24 @@ module Roby
             end
 
             def method_missing(m, *args, &block)
-                if act = client.find_action_by_name(m.to_s)
+                if sub = client.find_subcommand_by_name(m.to_s)
+                    ShellSubcommand.new(self, m.to_s, sub.description, sub.commands)
+                elsif act = client.find_action_by_name(m.to_s)
                     Roby::Actions::Action.new(act, *args)
                 else
-                    call Hash[], m, *args
+                    begin
+                        call Hash[], [], m, *args
+                    rescue NoMethodError => e
+                        if e.message =~ /undefined method .#{m}./
+                            puts "invalid command name #{m}, call 'help' for more information"
+                        else raise
+                        end
+                    rescue ArgumentError => e
+                        if e.message =~ /wrong number of arguments/ && e.backtrace.first =~ /#{m.to_s}/
+                            puts e.message
+                        else raise
+                        end
+                    end
                 end
             rescue ComError
                 Roby::Interface.warn "Lost communication with remote, will not retry the command after reconnection"
@@ -157,6 +173,34 @@ module Roby
                 end
             rescue Interrupt
                 Roby::Interface.warn "Interrupted"
+            end
+
+            def help(subcommand = client)
+                puts
+                if subcommand.respond_to?(:description)
+                    puts Roby.console.color(subcommand.description.join("\n"), :bold)
+                    puts
+                end
+
+                commands = subcommand.commands[''].commands
+                if !commands.empty?
+                    puts Roby.console.color("Commands", :bold)
+                    puts Roby.console.color("--------", :bold)
+                    commands.keys.sort.each do |command_name|
+                        cmd = commands[command_name]
+                        puts "#{command_name}(#{cmd.arguments.keys.map(&:to_s).join(", ")}): #{cmd.description.first}"
+                    end
+                end
+                if subcommand.commands.size > 1
+                    puts if !commands.empty?
+                    puts Roby.console.color("Subcommands (use help <subcommand name> for more details)", :bold)
+                    puts Roby.console.color("-----------", :bold)
+                    subcommand.commands.keys.sort.each do |subcommand_name|
+                        next if subcommand_name.empty?
+                        puts "#{subcommand_name}: #{subcommand.commands[subcommand_name].description.first}"
+                    end
+                end
+                nil
             end
         end
     end

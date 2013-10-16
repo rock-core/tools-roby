@@ -7,6 +7,8 @@ module Roby
             attr_reader :io
             # @return [Array<Roby::Actions::Model::Action>] set of known actions
             attr_reader :actions
+            # @return [Hash] the set of available commands
+            attr_reader :commands
             # @return [Array<Integer,Array>] list of existing notifications. The
             #   integer is an ID that can be used to refer to the notification.
             #   It is always growing and will never collide with an exception ID
@@ -20,15 +22,10 @@ module Roby
             def initialize(io, id)
                 @io = io
                 @message_id = 0
-
-                handshake(id)
-                
-                # Get the list of existing actions so that we can validate them
-                # in #method_missing
-                @actions = call(:actions)
-
                 @notification_queue = Array.new
                 @exception_queue = Array.new
+
+                @actions, @commands = handshake(id)
             end
 
             def to_io
@@ -104,18 +101,25 @@ module Roby
                 exception_queue.pop
             end
 
-            def call(*args)
-                io.write_packet(args)
-                poll(1)
+            def call(path, m, *args)
+                if m.to_s =~ /(.*)!$/
+                    action_name = $1
+                    if act = find_action_by_name(action_name)
+                        call([], :start_job, action_name, *args)
+                    else raise ArgumentError, "there is no action called #{action_name}"
+                    end
+                else
+                    io.write_packet([path, m, *args])
+                    poll(1)
+                end
             end
 
             def reload_actions
-                call(:reload_actions)
-                @actions = call(:actions)
+                @actions = call(:reload_actions)
             end
 
-            def help
-                call(:help)
+            def find_subcommand_by_name(name)
+                commands[name]
             end
 
             def method_missing(m, *args)
@@ -126,7 +130,7 @@ module Roby
                     else raise ArgumentError, "there are is no action called #{action_name}"
                     end
 
-                else call(m, *args)
+                else call([], m, *args)
                 end
             end
         end

@@ -40,7 +40,7 @@ module Roby
             def handshake(id)
                 @client_id = id
                 Roby::Interface.warn "new interface client: #{id}"
-                true
+                return interface.actions, interface.commands
             end
 
             def close
@@ -49,14 +49,18 @@ module Roby
 
             # Process one command from the client, and send the reply
             def poll
-                m, *args = io.read_packet
+                path, m, *args = io.read_packet
                 return if !m
 
-                reply = if respond_to?(m)
-                            send(m, *args)
-                        else
-                            interface.send(m, *args)
-                        end
+                if path.empty? && respond_to?(m)
+                    reply = send(m, *args)
+                else
+                    receiver = interface
+                    receiver = path.inject(interface) do |receiver, subcommand|
+                        receiver.send(subcommand)
+                    end
+                    reply = receiver.send(m, *args)
+                end
 
                 io.write_packet([:reply, reply])
             rescue Exception => e
