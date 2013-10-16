@@ -134,6 +134,7 @@ module Roby
         def pretty_print(pp)
             formatted_message.each do |line|
                 pp.text line
+                pp.breakable
             end
         end
     end
