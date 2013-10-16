@@ -43,6 +43,7 @@ require 'irb/ext/save-history'
 IRB.setup(remote_url)
 IRB.conf[:INSPECT_MODE] = false
 IRB.conf[:IRB_NAME]     = remote_url
+IRB.conf[:USE_READLINE] = true
 IRB.conf[:PROMPT_MODE]  = :ROBY
 IRB.conf[:AUTO_INDENT] = true
 if Roby.app.app_dir
