@@ -154,7 +154,7 @@ module Roby
             attr_reader :handled
 
             def initialize(trace, exception, handled)
-                @trace, @exception, @handled = trace, exception_handled
+                @trace, @exception, @handled = trace, exception, handled
             end
 
             def proxy(peer)
