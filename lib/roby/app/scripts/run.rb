@@ -30,11 +30,7 @@ Roby.app.additional_model_files.concat(direct_files)
 Roby.display_exception do
     app.setup
     Roby.engine.once do
-        if defined? RUBY_DESCRIPTION
-            Robot.info "loaded Roby #{Roby::VERSION} on #{RUBY_DESCRIPTION}"
-        else
-            Robot.info "loaded Roby #{Roby::VERSION}"
-        end
+        Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
 
         # Start the requested actions
         actions.each do |act|
