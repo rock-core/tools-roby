@@ -3,10 +3,11 @@
 require 'roby'
 
 mode = ARGV.shift
-begin
-    require "roby/app/scripts/#{mode}"
-rescue LoadError
-    STDERR.puts "unknown mode '#{mode}'"
-    exit(1)
+KNOWN_MODES = %w{run shell}
+
+if !KNOWN_MODES.include?(mode)
+    puts "unknown mode #{mode}, available modes are: #{KNOWN_MODES.join(", ")}"
+    exit 1
 end
 
+require "roby/app/scripts/#{mode}"
