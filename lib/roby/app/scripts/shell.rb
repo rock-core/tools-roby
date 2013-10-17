@@ -19,8 +19,6 @@ opt = OptionParser.new do |opt|
 end
 opt.parse! ARGV
 
-robot_name = ARGV.shift
-app.robot robot_name, (ARGV.shift || robot_name)
 error = Roby.display_exception do
     app.base_setup
 
