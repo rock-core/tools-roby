@@ -50,7 +50,7 @@ Roby.display_exception do
                 Robot.info "loading controller file #{controller_file}"
                 load controller_file
             else
-                Robot.info "found no controller file to load"
+                Robot.info "found no controller file to load for #{Roby.app.robot_name}:#{Roby.app.robot_type}"
             end
         end
         Robot.info "done initialization"
