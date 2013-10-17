@@ -14,7 +14,7 @@ module Roby
             end
 
             def new(coordination_model)
-                if coordination_model.action_interface_model != action.model.action_interface_model
+                if coordination_model.action_interface_model < action.model.action_interface_model
                     TaskFromAction.new(action.rebind(coordination_model.action_interface_model)).new(coordination_model)
                 else
                     return super

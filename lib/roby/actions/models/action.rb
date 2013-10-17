@@ -145,7 +145,11 @@ module Roby
 
             def rebind(action_interface_model)
                 m = dup
-                m.action_interface_model = action_interface_model
+                # We rebind only if the new interface model is a submodel of the
+                # old one
+                if action_interface_model <= self.action_interface_model
+                    m.action_interface_model = action_interface_model
+                end
                 m
             end
 
