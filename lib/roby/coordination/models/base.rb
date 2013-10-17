@@ -80,6 +80,13 @@ module Roby
                 object
             end
 
+            def validate_or_create_task(task)
+                if !task.kind_of?(Coordination::Models::Task)
+                    task(task)
+                else task
+                end
+            end
+
             def validate_event(object)
                 if !object.kind_of?(Coordination::Models::Event)
                     raise ArgumentError, "expected an action-event object, got #{object}. Acceptable events need to be created from e.g. actions by calling #task(action).my_event"

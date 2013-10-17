@@ -146,7 +146,7 @@ module Roby
                 # @param [Hash] options the dependency relation options. See
                 #   {Roby::TaskStructure::DependencyGraphClass::Extension#depends_on}
                 def start(task, options = Hash.new)
-                    validate_task task
+                    task = validate_or_create_task task
                     instructions << Start.new(task, options)
                     wait(task.start_event)
                 end
@@ -158,7 +158,7 @@ module Roby
                 # @param [Hash] options the dependency relation options. See
                 #   {Roby::TaskStructure::DependencyGraphClass::Extension#depends_on}
                 def execute(task, options = Hash.new)
-                    validate_task task
+                    task = validate_or_create_task task
                     start(task, options)
                     wait(task.success_event)
                 end
