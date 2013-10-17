@@ -16,6 +16,9 @@ module Roby
                 # @return [:missions,:actions,:origin] the fault response
                 #   location
                 inherited_single_value_attribute(:response_location) { :actions }
+                # @return [Boolean] if true, the action location will be retried
+                #   after the fault response table, otherwise whatever should
+                #   happen will happen (other error handling, ...)
                 inherited_single_value_attribute(:__try_again) { false }
                 # @return [Boolean] if true, the last action of the response
                 #   will be to retry whichever action/missions/tasks have been
@@ -40,8 +43,27 @@ module Roby
                     self
                 end
 
+                # Try the repaired action again when the fault handler
+                # successfully finishes
+                #
+                # It can be called anytime in the script, but will have an
+                # effect only at the end of the fault handler
                 def try_again
                     __try_again(true)
+                end
+
+                # Replace the response's location by this task when the fault
+                # handler script is finished
+                #
+                # It can be called anytime in the script, but will be performed
+                # only at the end of the handler
+                #
+                # @raise ArgumentError if there is already a replacement task
+                def replace_by(task)
+                    if @replacement
+                        raise ArgumentError, "there is already a replacement task defined"
+                    end
+                    @replacement = validate_or_create_task(task)
                 end
 
                 def find_response_locations(origin)
