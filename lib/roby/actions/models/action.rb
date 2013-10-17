@@ -62,6 +62,9 @@ module Roby
             # @return [Action] an action using this action model and the given
             #   arguments
             def new(arguments = Hash.new)
+                if !arguments.kind_of?(Hash)
+                    raise ArgumentError, "expected a hash as argument, got #{arguments}"
+                end
                 Actions::Action.new(self, arguments)
             end
 
