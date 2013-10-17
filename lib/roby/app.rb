@@ -1,5 +1,6 @@
 require 'roby/support'
 require 'roby/robot'
+require 'roby/app/robot_names'
 require 'singleton'
 require 'utilrb/hash'
 require 'utilrb/module/attr_predicate'
@@ -312,6 +313,7 @@ module Roby
         # Defines common configuration options valid for all Roby-oriented
         # scripts
         def self.common_optparse_setup(parser)
+            Roby.app.load_config_yaml
             parser.on("--log=SPEC", String, "configuration specification for text loggers. SPEC is of the form path/to/a/module:LEVEL[:FILE][,path/to/another]") do |log_spec|
                 log_spec.split(',').each do |spec|
                     mod, level, file = spec.split(':')
@@ -407,6 +409,15 @@ module Roby
             @planners    = []
 	end
 
+        # The robot names configuration
+        #
+        # @return [App::RobotNames]
+        def robots
+            robots = App::RobotNames.new(options['robots'] || Hash.new)
+            robots.strict = !!options['robots']
+            robots
+        end
+
         # Looks into subdirectories of +dir+ for files called app.rb and
         # registers them as Roby plugins
         def load_plugins_from_prefix(dir)
@@ -488,14 +499,11 @@ module Roby
 
 	    if robot_name && (robot_config = options['robots'])
 		if robot_config = robot_config[robot_name]
-		    robot_config.each do |section, values|
-			if options[section]
+		    robot_config.delete_if do |section, values|
+			if section != "robots" && options[section]
 			    options[section].merge! values
-			else
-			    options[section] = values
 			end
 		    end
-		    options.delete('robots')
 		end
 	    end
             options = options.map_value do |k, val|
@@ -567,20 +575,35 @@ module Roby
 	end
 
         # The robot name
-	attr_reader :robot_name
+        #
+        # @return [String,nil]
+	def robot_name
+            if @robot_name then @robot_name
+            else robots.default_robot_name
+            end
+        end
+
         # The robot type
-        attr_reader :robot_type
+        #
+        # @return [String,nil]
+        def robot_type
+            if @robot_type then @robot_type
+            else robots.default_robot_type
+            end
+        end
+
         # Sets up the name and type of the robot. This can be called only once
         # in a given Roby controller.
-	def robot(name, type = name)
+	def robot(name, type = nil)
+            name, type = robots.resolve(name, type)
+
 	    if @robot_name
 		if name != @robot_name && type != @robot_type
 		    raise ArgumentError, "the robot is already set to #{name}, of type #{type}"
 		end
 		return
 	    end
-	    @robot_name = name
-	    @robot_type = type
+	    @robot_name, @robot_type = name, type
 	end
 
         # The base directory in which logs should be saved
@@ -1060,8 +1083,12 @@ module Roby
 		end
 	    end
 
-	    @robot_name ||= 'common'
-	    @robot_type ||= 'common'
+            if !robot_name
+                @robot_name = 'common'
+            end
+            if !robot_type
+                @robot_type = 'common'
+            end
 
 	    if log['events'] && public_logs?
 		require 'roby/log/file'

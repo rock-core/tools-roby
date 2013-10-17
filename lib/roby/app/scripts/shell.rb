@@ -3,6 +3,12 @@ require 'roby/distributed'
 require 'optparse'
 require 'utilrb/readline'
 
+app = Roby.app
+app.guess_app_dir
+app.shell
+app.single
+app.load_config_yaml
+
 require 'pp'
 
 remote_url = nil
@@ -12,11 +18,6 @@ opt = OptionParser.new do |opt|
     end
 end
 opt.parse! ARGV
-
-app = Roby.app
-app.guess_app_dir
-app.shell
-app.single
 
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)

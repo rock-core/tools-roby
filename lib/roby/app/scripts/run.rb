@@ -1,5 +1,12 @@
 require 'roby'
 
+app = Roby.app
+app.require_app_dir
+app.public_shell_interface = true
+app.public_logs = true
+
+binding.pry
+
 run_controller = false
 options = OptionParser.new do |opt|
     opt.banner = <<-EOD
@@ -16,11 +23,6 @@ scripts/controllers/ and/or some explicitly given actions
     end
 end
 remaining_arguments = options.parse(ARGV)
-
-app = Roby.app
-app.require_app_dir
-app.public_shell_interface = true
-app.public_logs = true
 
 direct_files, actions = remaining_arguments.partition do |arg|
     File.file?(arg)
