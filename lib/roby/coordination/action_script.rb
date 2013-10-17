@@ -1,8 +1,7 @@
 module Roby
     module Coordination
         class ActionScript < Actions
-            extend Models::Actions
-            extend Models::Script
+            extend Models::ActionScript
             include Script
 
             # The list of instructions, instanciated from model.instructions
