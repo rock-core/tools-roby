@@ -348,6 +348,7 @@ module Roby
 
     def self.log_exception(e, logger, level)
         log_pp(e, logger, level)
+        log_backtrace(e, logger, level)
     end
 
     def self.log_backtrace(e, logger, level)
