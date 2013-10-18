@@ -25,8 +25,8 @@ module Roby
             # Returns a plan pattern that would deploy this action in the plan
             # @return [Roby::Task] the task, with a planning task of type
             #   {Actions::Task}
-            def as_plan
-                model.plan_pattern(arguments)
+            def as_plan(arguments = Hash.new)
+                model.plan_pattern(self.arguments.merge(arguments))
             end
 
             def rebind(action_interface_model)

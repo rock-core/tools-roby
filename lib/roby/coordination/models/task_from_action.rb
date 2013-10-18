@@ -30,7 +30,7 @@ module Roby
                     else value
                     end
                 end
-                action.instanciate(plan, arguments)
+                action.as_plan(arguments)
             end
 
             def to_s; "action(#{action})[#{model}]" end

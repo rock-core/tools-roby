@@ -165,6 +165,10 @@ module Roby
                 planner.planned_task
             end
 
+            def as_plan(arguments = Hash.new)
+                plan_pattern(arguments)
+            end
+
             def droby_dump(dest)
                 dump = self.dup
                 dump.droby_dump!(dest)
