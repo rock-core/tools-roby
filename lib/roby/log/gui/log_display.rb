@@ -113,9 +113,9 @@ module Roby
                 view = klass.new(@history_widget)
                 view.setAttribute(Qt::WA_QuitOnClose, false)
 
-                Qt::Object.connect(history_widget, SIGNAL('currentTimeChanged(QDateTime)'),
+                Qt::Object.connect(history_widget, SIGNAL('appliedSnapshot(QDateTime)'),
                                    view, SLOT('setCurrentTime(QDateTime)'))
-                Qt::Object.connect(history_widget, SIGNAL('received_new_data(QDateTime)'),
+                Qt::Object.connect(history_widget, SIGNAL('liveUpdate(QDateTime)'),
                                    view, SLOT('live_update(QDateTime)'))
                 Qt::Object.connect(history_widget, SIGNAL('sourceChanged()'),
                                    view, SLOT('updateWindowTitle()'))

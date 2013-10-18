@@ -20,7 +20,7 @@ module Roby
             signals 'warn(QString)'
             # Signal emitted when the currently displayed cycle changed, i.e.
             # when displays are supposed to be updated
-            signals 'currentTimeChanged(QDateTime)'
+            signals 'appliedSnapshot(QDateTime)'
 
             def initialize(parent, plan_rebuilder = nil)
                 super(parent)
@@ -84,7 +84,7 @@ module Roby
                     @current_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
                     snapshot.apply(@current_plan)
                 end
-                emit currentTimeChanged(Qt::DateTime.new(@current_time))
+                emit appliedSnapshot(Qt::DateTime.new(@current_time))
             end
 
             def seek(time)
@@ -121,9 +121,13 @@ module Roby
                 end
                 @last_cycle = cycle
                 time = Time.at(*plan_rebuilder.stats[:start]) + plan_rebuilder.stats[:real_start]
-                emit received_new_data(Qt::DateTime.new(time))
+                emit liveUpdate(Qt::DateTime.new(time))
             end
-            signals 'received_new_data(QDateTime)'
+            signals 'liveUpdate(QDateTime)'
+
+            def redraw(time = plan_rebuilder.current_time)
+                emit appliedSnapshot(Qt::DateTime.new(time))
+            end
 
             # Opens +filename+ and reads the data from there
             def open(filename)
