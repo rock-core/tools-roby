@@ -30,6 +30,16 @@ module Roby
                     handler
                 end
 
+                def each_task
+                    return enum_for(:each_task) if !block_given?
+                    super
+                    each_fault_handler do |handler|
+                        if task = handler.replacement
+                            yield(task)
+                        end
+                    end
+                end
+
                 def method_missing(m, *args, &block)
                     if Queries::ExecutionExceptionMatcher.method_defined?(m)
                         matcher = Queries::ExecutionExceptionMatcher.new

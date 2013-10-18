@@ -20,22 +20,26 @@ module Roby
                 @task_info = resolve_task_info
             end
 
+            def task_info_for(task)
+                required_tasks  = model.required_tasks_for(task).map do |t, roles|
+                    [instance_for(t), roles]
+                end
+
+                forwards = Set.new
+                model.each_forward do |in_task, event, target|
+                    if in_task == task
+                        event  = instance_for(event)
+                        target = instance_for(target)
+                        forwards << [event, target]
+                    end
+                end
+                TaskInfo.new(required_tasks, forwards)
+            end
+
             def resolve_task_info
                 result = Hash.new
                 model.each_task do |task|
-                    required_tasks  = model.required_tasks_for(task).map do |t, roles|
-                        [instance_for(t), roles]
-                    end
-
-                    forwards = Set.new
-                    model.each_forward do |in_task, event, target|
-                        if in_task == task
-                            event  = instance_for(event)
-                            target = instance_for(target)
-                            forwards << [event, target]
-                        end
-                    end
-                    result[instance_for(task)] = TaskInfo.new(required_tasks, forwards)
+                    result[instance_for(task)] = task_info_for(task)
                 end
                 result
             end

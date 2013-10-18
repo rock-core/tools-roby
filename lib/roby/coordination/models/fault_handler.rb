@@ -27,6 +27,9 @@ module Roby
                 # @return [#instanciate] an object that allows to create the
                 #   toplevel task of the fault response
                 inherited_single_value_attribute :action
+                # @return [Task] a replacement task for the response location,
+                #   once the fault handler is finished
+                attr_reader :replacement
 
                 def locate_on_missions
                     response_location :missions
