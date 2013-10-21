@@ -658,5 +658,18 @@ class TC_Dependency < Test::Unit::TestCase
         result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(options, options)
         assert !result.has_key?(:failure)
     end
+
+    def test_watches_are_updated_on_merges
+        parent, child = prepare_plan :add => 2, :model => Roby::Tasks::Simple
+        plan.add_permanent(parent)
+        parent.start!
+        child.start!
+        parent.depends_on child, :success => :stop
+        process_events # we clear the initial triggers added by #depends_on
+        parent.depends_on child, :success => :success
+        inhibit_fatal_messages do
+            assert_raises(Roby::ChildFailedError) { child.success_event.unreachable! }
+        end
+    end
 end
 

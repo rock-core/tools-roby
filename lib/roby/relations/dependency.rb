@@ -332,29 +332,7 @@ module Roby::TaskStructure
 	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
 	    if relations.include?(Dependency) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
-                events = ValueSet.new
-                if info[:success]
-                    for event_name in info[:success].required_events
-                        events << child.event(event_name)
-                    end
-                end
-
-                if info[:failure]
-                    for event_name in info[:failure].required_events
-                        events << child.event(event_name)
-                    end
-                end
-
-                if !events.empty?
-                    for ev in events
-                        ev.if_unreachable(&DependencyGraphClass.method(:register_interesting_event_if_unreachable))
-                    end
-                    Roby::EventGenerator.gather_events(Dependency.interesting_events, [event(:start)])
-                    Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
-                end
-
-                # Initial triggers
-                Dependency.failing_tasks << child
+                Dependency.update_triggers_for(self, child, info)
 	    end
 	end
 
@@ -575,6 +553,32 @@ module Roby::TaskStructure
             Dependency.interesting_events << ev
         end
 
+        def update_triggers_for(parent, child, info)
+            events = ValueSet.new
+            if info[:success]
+                for event_name in info[:success].required_events
+                    events << child.event(event_name)
+                end
+            end
+
+            if info[:failure]
+                for event_name in info[:failure].required_events
+                    events << child.event(event_name)
+                end
+            end
+
+            if !events.empty?
+                for ev in events
+                    ev.if_unreachable(&DependencyGraphClass.method(:register_interesting_event_if_unreachable))
+                end
+                Roby::EventGenerator.gather_events(Dependency.interesting_events, [parent.event(:start)])
+                Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
+            end
+
+            # Initial triggers
+            Dependency.failing_tasks << child
+        end
+
         def merge_fullfilled_model(model, required_models, required_arguments)
             model, tags, arguments = *model
 
@@ -695,7 +699,9 @@ module Roby::TaskStructure
         #
         # @see DependencyGraphClass.merge_dependency_options
         def merge_info(parent, child, opt1, opt2)
-            DependencyGraphClass.merge_dependency_options(opt1, opt2)
+            result = DependencyGraphClass.merge_dependency_options(opt1, opt2)
+            update_triggers_for(parent, child, result)
+            result
         end
 
         # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
