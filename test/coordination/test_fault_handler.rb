@@ -79,6 +79,7 @@ describe Roby::Coordination::Models::FaultHandler do
             repair_task = repairs.first
             assert_kind_of Roby::Coordination::FaultHandlingTask, repair_task
             assert_equal handler, repair_task.fault_handler
+            plan.remove_object t2
         end
     end
 end

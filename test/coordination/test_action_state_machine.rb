@@ -305,7 +305,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
             start task
             transition task.success_event, next_task
         end
-        plan.add_permanent(task = task_m.new)
+        plan.add(task = task_m.new)
         state_machine = state_machine_m.new(action_m, task)
 
         task.start!
@@ -323,7 +323,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
             start task
             forward task.success_event, success_event
         end
-        plan.add_permanent(task = task_m.new)
+        plan.add(task = task_m.new)
         state_machine = state_machine_m.new(action_m, task)
 
         task.start!
