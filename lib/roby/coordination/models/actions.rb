@@ -84,7 +84,7 @@ module Roby
 
             # Evaluates a state machine definition block
             def parse(&block)
-                instance_eval(&block)
+                class_eval(&block)
             end
 
             def method_missing(m, *args, &block)
