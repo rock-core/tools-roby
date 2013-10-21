@@ -983,7 +983,10 @@ module Roby
 
         # The core exception propagation algorithm
         #
-        # @yield exception, task
+        # @param [Array<(ExecutionException,Array<Task>)>] exceptions the set of
+        #   exceptions to propagate, as well as the parents that towards which
+        #   we should propagate them (if empty, all parents)
+        #
         # @yieldparam [ExecutionException] exception the exception that is being
         #   propagated
         # @yieldparam [Task,Plan] handling_object the object we want to test
@@ -1098,6 +1101,10 @@ module Roby
 
         # Propagation exception phase, checking if tasks and/or the main plan
         # are handling the exceptions
+        #
+        # @param [Array<(ExecutionException,Array<Task>)>] exceptions the set of
+        #   exceptions to propagate, as well as the parents that towards which
+        #   we should propagate them (if empty, all parents)
         def propagate_exceptions(exceptions)
             debug "Filtering inhibited exceptions"
             exceptions = log_nest(2) do
