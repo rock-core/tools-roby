@@ -103,6 +103,7 @@ module Roby
                             end
                         end
                     end
+                    true
                 end
             end
 
@@ -116,6 +117,7 @@ module Roby
 
                 def execute(script)
                     timeout_start.cancel
+                    true
                 end
             end
 
@@ -151,6 +153,10 @@ module Roby
             end
 
             def step
+                if current_instruction && !current_instruction.disabled?
+                    return
+                end
+
                 while @current_instruction = instructions.shift
                     if !current_instruction.disabled?
                         if !current_instruction.execute(self)

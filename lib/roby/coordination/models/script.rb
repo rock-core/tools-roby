@@ -41,12 +41,19 @@ module Roby
                     #   instruction should generate an error
                     attr_reader :timeout
 
+                    # @return [Boolean] true if {#execute} has been called once
+                    attr_predicate :initialized?
+
+                    # @return [Boolean] true if the watched event got emitted
+                    attr_predicate :done?
+
                     # @option options [Float] :timeout (nil) value for {#timeout}
                     # @option options [Time] :after (nil) value for
                     #   {#time_barrier}
                     def initialize(event, options = Hash.new)
                         options = Kernel.validate_options options, :after => nil
                         @event = event
+                        @done = false
                         @time_barrier = options[:after]
                     end
 
@@ -58,7 +65,8 @@ module Roby
                         event = self.event.resolve
 
                         if time_barrier
-                            if event.history.find { |ev| ev.time > time_barrier }
+                            last_event = event.history.last
+                            if last_event && last_event.time > time_barrier
                                 return true
                             end
                         end
@@ -73,9 +81,13 @@ module Roby
                         end
                         event.on :on_replace => :copy do |event|
                             if event.generator == self.event.resolve && !disabled?
-                                script.step
+                                if !time_barrier || event.time > time_barrier
+                                    cancel
+                                    script.step
+                                end
                             end
                         end
+
                         false
                     end
 
