@@ -239,10 +239,8 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
             start(first_state)
         end
 
-        obj = flexmock
-        obj.should_receive(:instanciate).and_return(first_task = Roby::Task.new)
-        task = start_machine('test', :first_task => obj)
-        assert_equal first_task, task.current_task_child
+        task = start_machine('test', :first_task => action_m.start_task)
+        assert_equal :start, task.current_task_child.arguments[:id]
     end
 
     def test_it_rebinds_the_action_states_to_the_actual_interface_model
