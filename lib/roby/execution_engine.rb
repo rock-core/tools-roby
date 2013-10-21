@@ -1273,24 +1273,33 @@ module Roby
                     end
                 end
 
+                if next_steps.empty? && errors.empty?
+                    next_steps = gather_propagation do
+                        error_handling_phase_synchronous(stats, errors)
+                    end
+                end
+
                 while !next_steps.empty? || !errors.empty?
                     errors.concat(event_propagation_phase(next_steps))
                     next_steps = gather_propagation do
-                        kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
+                        error_handling_phase_synchronous(stats, errors)
                         errors.clear
-
-                        if fatal_errors
-                            fatal_errors.each do |e, _|
-                                Roby.display_exception(Roby.logger.io(:warn), e.exception)
-                            end
-                            if fatal_errors.size == 1
-                                e = fatal_errors.first.first.exception
-                                raise e.dup, e.message, e.backtrace
-                            elsif !fatal_errors.empty?
-                                raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
-                            end
-                        end
                     end
+                end
+            end
+        end
+
+        def error_handling_phase_synchronous(stats, errors)
+            kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
+            if fatal_errors
+                fatal_errors.each do |e, _|
+                    Roby.display_exception(Roby.logger.io(:warn), e.exception)
+                end
+                if fatal_errors.size == 1
+                    e = fatal_errors.first.first.exception
+                    raise e.dup, e.message, e.backtrace
+                elsif !fatal_errors.empty?
+                    raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
                 end
             end
         end
