@@ -222,6 +222,9 @@ module Roby::TaskStructure
             if task.respond_to?(:as_plan)
                 task = task.as_plan
             end
+            if task == self
+                raise ArgumentError, "cannot add a dependency of a task to itself"
+            end
 
             options = DependencyGraphClass.validate_options options, 
 		:model => [task.provided_models, task.meaningful_arguments], 
