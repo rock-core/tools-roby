@@ -55,8 +55,8 @@ module Roby
                         root_task.instance_eval(&block)
                     end
                     event = self.event.resolve
-                    event.on do |context|
-                        if !disabled?
+                    event.on do |ev|
+                        if ev.generator == self.event.resolve && !disabled?
                             cancel
                             script.step
                         end
