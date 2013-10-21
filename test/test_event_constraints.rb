@@ -404,6 +404,19 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
              task)
     end
 
+    def test_and_is_static_if_one_of_the_two_predicates_is_false_and_static
+        first_pred  = :first.to_unbound_task_predicate
+        second_pred = :second.to_unbound_task_predicate
+        pred = first_pred.and(second_pred)
+
+        plan.add(task = TaskModel.new)
+        task.start!
+        task.first_event.unreachable!
+        assert pred.static?(task)
+        assert_static(nil, first_pred, task.first_event, task, pred)
+    end
+
+
     def test_or
         first_pred  = :start.followed_by(:failed)
         second_pred = :first.not_followed_by(:second)
@@ -438,6 +451,19 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
 
         task.stop!
         assert_explained_by(true, first_pred,  [task.start_event.last, task.failed_event.last], pred.explain_true(task))
+    end
+
+    def test_or_is_static_if_one_of_the_two_predicates_is_true_and_static
+        first_pred  = :first.to_unbound_task_predicate
+        second_pred = :second.to_unbound_task_predicate
+        pred = first_pred.or(second_pred)
+
+        plan.add(task = TaskModel.new)
+        task.start!
+        task.first_event.emit
+        task.first_event.unreachable!
+        assert pred.static?(task)
+        assert_static(true, first_pred, task.first_event.last, task, pred)
     end
 
     def test_or_static_at_false

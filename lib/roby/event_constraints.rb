@@ -520,9 +520,6 @@ end
             def code
                 "(#{predicates[0].code}) && (#{predicates[1].code})"
             end
-            def static?(task)
-                (predicates[0].static?(task) && predicates[1].static?(task))
-            end
 
             def and(pred)
                 pred = pred.to_unbound_task_predicate
@@ -540,21 +537,26 @@ end
                 end
             end
 
-            def explain_static(task)
-                return if !static?(task)
+            def static?(task)
+                static0 = predicates[0].static?(task)
+                static1 = predicates[1].static?(task)
+                static0 && static1 ||
+                    (static0 && !predicates[0].evaluate(task) ||
+                     static1 && !predicates[1].evaluate(task))
+            end
 
-                if predicates[0].evaluate(task)
-                    reason0 = predicates[0].explain_static(task)
-                    reason1 = predicates[1].explain_static(task)
-                    if reason0 && reason1
-                        Explanation.new(nil, self, [reason0, reason1])
-                    else
-                        reason0 || reason1
-                    end
-                else
+            def explain_static(task)
+                static0 = predicates[0].static?(task)
+                static1 = predicates[1].static?(task)
+                if static0 && static1
+                    super(task)
+                elsif static0 && !predicates[0].evaluate(task)
                     predicates[0].explain_static(task)
+                elsif static1 && !predicates[1].evaluate(task)
+                    predicates[1].explain_static(task)
                 end
             end
+
             def to_s; "(#{predicates[0]}) && (#{predicates[1]})" end
         end
 
