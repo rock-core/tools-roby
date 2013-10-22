@@ -62,10 +62,7 @@ module Roby
             # @return [Action] an action using this action model and the given
             #   arguments
             def new(arguments = Hash.new)
-                if !arguments.kind_of?(Hash)
-                    raise ArgumentError, "expected a hash as argument, got #{arguments}"
-                end
-                Actions::Action.new(self, arguments)
+                Actions::Action.new(self, normalize_arguments(arguments))
             end
 
             # Task model that can be used to represent this action in a plan
@@ -117,6 +114,10 @@ module Roby
                 end
                 @returned_type = type
                 self
+            end
+
+            def normalize_arguments(arguments)
+                Kernel.validate_options arguments, self.arguments.map(&:name)
             end
 
             # Instanciate this action on the given plan
