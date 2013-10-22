@@ -27,9 +27,6 @@ module Roby
                 # @return [#instanciate] an object that allows to create the
                 #   toplevel task of the fault response
                 inherited_single_value_attribute :action
-                # @return [Task] a replacement task for the response location,
-                #   once the fault handler is finished
-                attr_reader :replacement
 
                 def locate_on_missions
                     response_location :missions
@@ -55,6 +52,38 @@ module Roby
                     __try_again(true)
                 end
 
+                # Script element that implements the replacement part of
+                # {#replace_by}
+                class ReplaceBy < Coordination::ScriptInstruction
+                    attr_reader :replacement_task
+
+                    def initialize(replacement_task)
+                        @replacement_task = replacement_task
+                    end
+
+                    def new(fault_handler)
+                        ReplaceBy.new(fault_handler.instance_for(replacement_task))
+                    end
+
+                    def execute(fault_handler)
+                        response_task = fault_handler.root_task
+                        plan = response_task.plan
+                        replacement_task = self.replacement_task.resolve
+
+                        response_task.each_parent_object(Roby::TaskStructure::ErrorHandling) do |repaired_task|
+                            repaired_task_parents = repaired_task.each_parent_task.to_a
+                            plan.replace(repaired_task, replacement_task)
+                            repaired_task_parents.each do |parent_t|
+                                parent_t.depends_on repaired_task
+                            end
+                        end
+                        true
+                    end
+
+                    def to_s; "start(#{task}, #{dependency_options})" end
+                end
+
+
                 # Replace the response's location by this task when the fault
                 # handler script is finished
                 #
@@ -62,12 +91,14 @@ module Roby
                 # only at the end of the handler
                 #
                 # @raise ArgumentError if there is already a replacement task
-                def replace_by(task)
-                    if @replacement
-                        raise ArgumentError, "there is already a replacement task defined"
-                    end
-                    @replacement = validate_or_create_task(task)
+                def replace_by(task, until_event = nil)
+                    __try_again(false)
+                    replacement_task = validate_or_create_task(task)
+                    start replacement_task
+                    instructions << ReplaceBy.new(replacement_task)
+                    wait(until_event || replacement_task.success_event)
                 end
+
 
                 def find_response_locations(origin)
                     if response_location == :origin
