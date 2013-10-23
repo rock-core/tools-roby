@@ -28,6 +28,10 @@ module Roby
                 #   toplevel task of the fault response
                 inherited_single_value_attribute :action
 
+                def to_s
+                    "#{fault_response_table}.on_fault(#{execution_exception_matcher})"
+                end
+
                 def locate_on_missions
                     response_location :missions
                     self

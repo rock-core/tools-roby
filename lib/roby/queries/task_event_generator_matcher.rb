@@ -54,6 +54,10 @@ module Roby
 
             alias plan_object_match :===
 
+            def to_s
+                "#{task_matcher}.#{symbol}"
+            end
+
             # Tests whether the given task event generator matches self
             #
             # @param [TaskEventGenerator] object
