@@ -218,8 +218,8 @@ module Roby
         
             def to_s; "#<PollBlockDefinition: #{description} #{handler} on_error:#{on_error}>" end
 
-            def call(engine)
-                handler.call(engine.plan)
+            def call(engine, *args)
+                handler.call(*args)
                 true
 
             rescue Exception => e
@@ -662,7 +662,7 @@ module Roby
                     next
                 end
 
-                if !handler.call(self)
+                if !handler.call(self, plan)
                     handler.disabled = true
                 end
                 handler.once?
@@ -1587,7 +1587,7 @@ module Roby
                 # Check if the nearest timepoint is the beginning of
                 # this cycle or of the next cycle
                 if !last_call || (duration - (now - last_call)) < length / 2
-                    if !block.call(engine)
+                    if !block.call(engine, engine.plan)
                         next
                     end
 
@@ -1609,7 +1609,8 @@ module Roby
 
         # Call +block+ at the end of the execution cycle	
         def at_cycle_end(&block)
-            at_cycle_end_handlers << block
+            handler = PollBlockDefinition.new("at_cycle_end #{block}", block, Hash.new)
+            at_cycle_end_handlers << handler
         end
 
         # A set of blocks which are called every cycle
@@ -1624,7 +1625,7 @@ module Roby
             handler = PollBlockDefinition.new("periodic handler #{block}", block, options)
 
             once do
-                if handler.call(self)
+                if handler.call(self, plan)
                     process_every << [handler, cycle_start, duration]
                 end
             end
@@ -1952,7 +1953,7 @@ module Roby
 
 	    at_cycle_end_handlers.each do |handler|
 		begin
-		    handler.call
+		    handler.call(self)
 		rescue Exception => e
 		    add_framework_error(e, "during cycle end handler #{handler}")
 		end
@@ -2128,23 +2129,24 @@ module Roby
         # @return [Object] an ID that can be used as argument to
 	#   {#remove_exception_listener}
 	def on_exception(&block)
-	    exception_listeners << block
-	    block
+            handler = PollBlockDefinition.new("exception listener #{block}", block, :on_error => :disable)
+	    exception_listeners << handler
+	    handler
 	end
 
 	# Removes an exception listener registered with {#on_exception}
 	#
 	# @param [Object] the value returned by {#on_exception}
 	# @return [void]
-	def remove_exception_listener(block)
-	    exception_listeners.delete(block)
+	def remove_exception_listener(handler)
+	    exception_listeners.delete(handler)
 	end
 
 	# Call to notify the listeners registered with {#on_exception} of the
 	# occurence of an exception
 	def notify_exception(kind, error, tasks)
 	    exception_listeners.each do |listener|
-		listener.call(kind, error, tasks)
+		listener.call(self, kind, error, tasks)
 	    end
 	end
     end
