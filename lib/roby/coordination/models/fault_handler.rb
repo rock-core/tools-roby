@@ -102,6 +102,7 @@ module Roby
                     start replacement_task
                     instructions << ReplaceBy.new(replacement_task)
                     wait(until_event || replacement_task.success_event)
+                    emit success_event
                     terminal
                 end
 
