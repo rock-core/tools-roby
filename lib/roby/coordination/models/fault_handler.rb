@@ -54,6 +54,7 @@ module Roby
                 # effect only at the end of the fault handler
                 def try_again
                     __try_again(true)
+                    terminal
                 end
 
                 # Script element that implements the replacement part of
@@ -91,8 +92,8 @@ module Roby
                 # Replace the response's location by this task when the fault
                 # handler script is finished
                 #
-                # It can be called anytime in the script, but will be performed
-                # only at the end of the handler
+                # It terminates the script, i.e. no instructions can be added
+                # after it is called
                 #
                 # @raise ArgumentError if there is already a replacement task
                 def replace_by(task, until_event = nil)
@@ -101,6 +102,7 @@ module Roby
                     start replacement_task
                     instructions << ReplaceBy.new(replacement_task)
                     wait(until_event || replacement_task.success_event)
+                    terminal
                 end
 
 

@@ -4,6 +4,8 @@ module Roby
         module Models
             # The metamodel for all script-based coordination models
             module Script
+                extend MetaRuby::Attributes
+
                 class DeadInstruction < Roby::LocalizedError; end
 
                 # Script element that implements {Script#start}
@@ -152,6 +154,23 @@ module Roby
                     end
                 end
 
+                inherited_single_value_attribute('__terminal') { false }
+
+                # Marks this script has being terminated, i.e. that no new
+                # instructions can be added to it
+                #
+                # Once this is called, adding new instructions will raise
+                # ArgumentError
+                def terminal
+                    __terminal(true)
+                end
+
+                # @return [Boolean] if true, this script cannot get new
+                #   instructions (a terminal instruction has been added)
+                def terminal?
+                    __terminal
+                end
+
                 # The list of instructions in this script
                 # @return [Array]
                 attribute(:instructions) { Array.new }
@@ -164,7 +183,7 @@ module Roby
                 #   {Roby::TaskStructure::DependencyGraphClass::Extension#depends_on}
                 def start(task, options = Hash.new)
                     task = validate_or_create_task task
-                    instructions << Start.new(task, options)
+                    add Start.new(task, options)
                     wait(task.start_event)
                 end
 
@@ -207,10 +226,10 @@ module Roby
                     wait = Wait.new(event, wait_options)
                     if options[:timeout]
                         timeout(options[:timeout]) do
-                            instructions << wait
+                            add wait
                         end
                     else
-                        instructions << wait
+                        add wait
                     end
                     wait
                 end
@@ -220,7 +239,7 @@ module Roby
                 # @param [Event] event
                 def emit(event)
                     validate_event event
-                    instructions << Emit.new(event)
+                    add Emit.new(event)
                 end
 
                 # Execute another script at this point in the execution
@@ -230,14 +249,21 @@ module Roby
 
                 def timeout_start(delay, options = Hash.new)
                     ins = TimeoutStart.new(delay, options)
-                    instructions << ins
+                    add ins
                     ins
                 end
 
                 def timeout_stop(timeout_start)
                     ins = TimeoutStop.new(timeout_start)
-                    instructions << ins
+                    add ins
                     ins
+                end
+
+                def add(instruction)
+                    if terminal?
+                        raise ArgumentError, "a terminal command has been called on this script, cannot add anything further"
+                    end
+                    instructions << instruction
                 end
             end
         end
