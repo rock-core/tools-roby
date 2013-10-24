@@ -76,10 +76,12 @@ module Roby
                         replacement_task = self.replacement_task.resolve
 
                         response_task.each_parent_object(Roby::TaskStructure::ErrorHandling) do |repaired_task|
-                            repaired_task_parents = repaired_task.each_parent_task.to_a
+                            repaired_task_parents = repaired_task.each_parent_task.map do |parent_task|
+                                [parent_task, parent_task[repaired_task, Roby::TaskStructure::Dependency]]
+                            end
                             plan.replace(repaired_task, replacement_task)
-                            repaired_task_parents.each do |parent_t|
-                                parent_t.depends_on repaired_task
+                            repaired_task_parents.each do |parent_t, dependency_options|
+                                parent_t.add_child repaired_task, dependency_options
                             end
                         end
                         true
@@ -88,6 +90,21 @@ module Roby
                     def to_s; "start(#{task}, #{dependency_options})" end
                 end
 
+                class FinalizeReplacement < Coordination::ScriptInstruction
+                    def new(fault_handler)
+                        self
+                    end
+
+                    def execute(fault_handler)
+                        response_task = fault_handler.root_task
+                        response_task.each_parent_object(Roby::TaskStructure::ErrorHandling) do |repaired_task|
+                            repaired_task_parents = repaired_task.each_parent_task.to_a
+                            repaired_task_parents.each do |parent|
+                                parent.remove_child repaired_task
+                            end
+                        end
+                    end
+                end
 
                 # Replace the response's location by this task when the fault
                 # handler script is finished
@@ -102,6 +119,7 @@ module Roby
                     start replacement_task
                     instructions << ReplaceBy.new(replacement_task)
                     wait(until_event || replacement_task.success_event)
+                    instructions << FinalizeReplacement.new
                     emit success_event
                     terminal
                 end
