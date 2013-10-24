@@ -72,7 +72,7 @@ module Roby
 
                 io.write(packet.to_s)
                 nil
-            rescue Errno::EPIPE, IOError
+            rescue Errno::EPIPE, IOError, Errno::ECONNRESET
                 raise ComError, "broken communication channel"
             end
         end
