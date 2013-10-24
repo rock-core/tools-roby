@@ -56,11 +56,9 @@ static VALUE graph_alloc(VALUE klass)
     return rb_graph;
 }
 
-/*
- * call-seq:
- *    graph.vertices => all_vertices
+/* @overload vertices
  *
- * Returns all vertices contained in +graph+
+ * @return [Array<Object>] all vertices contained in +graph+
  */
 static
 VALUE graph_vertices(VALUE self)
@@ -76,11 +74,9 @@ VALUE graph_vertices(VALUE self)
     return result;
 }
 
-/*
- * call-seq:
- *    graph.empty? => true or false
+/* @overload empty?
  *
- * Returns whether this graph contains vertices or not
+ * @return [Boolean] whether this graph contains vertices or not
  */
 static
 VALUE graph_empty_p(VALUE self)
@@ -92,11 +88,11 @@ VALUE graph_empty_p(VALUE self)
     return (begin == end) ? Qtrue : Qfalse;
 }
 
-/*
- * call-seq:
- *    graph.each_vertex { |vertex| ... }     => graph
+/* @overload each_vertex
  *
  * Iterates on all vertices in +graph+.
+ *
+ * @yieldparam [Object] vertex
  */
 static
 VALUE graph_each_vertex(VALUE self)
@@ -115,10 +111,9 @@ VALUE graph_each_vertex(VALUE self)
     return self;
 }
 
-/* call-seq:
- *    graph.size => vertex_count
+/* @overload size
  *
- * Returns the number of vertices in +graph+
+ * @return [Integer] the number of vertices in +graph+
  */
 static
 VALUE graph_size(VALUE self)
@@ -135,11 +130,12 @@ VALUE graph_size(VALUE self)
 }
 
 
-/*
- * call-seq:
- *  graph.insert(vertex)		    => graph
+/* @overload insert(vertex)
  *
- * Add +vertex+ in this graph.
+ * Adds a new vertex to this graph
+ *
+ * @param [BGL::Vertex] the new vertex
+ * @return [self]
  */
 static
 VALUE graph_insert(VALUE self, VALUE vertex)
@@ -156,11 +152,13 @@ VALUE graph_insert(VALUE self, VALUE vertex)
     return self;
 }
 
-/*
- * call-seq:
- *   graph.remove(vertex)		    => graph
+/* @overload remove(vertex)
  * 
- * Remove +vertex+ from this graph.
+ * Removes a vertex from this graph. It simply does nothing if the vertex is not
+ * part of the graph
+ *
+ * @param [BGL::Vertex] the vertex that should be removed
+ * @return [self]
  */
 static
 VALUE graph_remove(VALUE self, VALUE vertex)
@@ -180,10 +178,11 @@ VALUE graph_remove(VALUE self, VALUE vertex)
     return self;
 }
 
-/*
- * call-seq: graph.clear => graph
+/* @overload clear
  *
- * Removes from graph all vertices that are in graph
+ * Removes all vertices from this graph
+ *
+ * @return [self]
  */
 static
 VALUE graph_clear(VALUE self)
@@ -204,11 +203,9 @@ VALUE graph_clear(VALUE self)
     return self;
 }
 
-/*
- * call-seq:
- *  graph.include?(vertex)		    => true of false
+/* @overload include?(vertex)
  *
- * Returns true if +vertex+ is part of this graph.
+ * @return [Boolean] true if +vertex+ is part of this graph.
  */
 static
 VALUE graph_include_p(VALUE self, VALUE vertex)
@@ -233,12 +230,17 @@ static vertex_descriptor graph_ensure_inserted_vertex(VALUE self, VALUE vertex)
     return v;
 }
 
-/*
- * call-seq:
- *    graph.link(source, target, info)	    => graph
+/* @overload link(source, target, info)
  *
- * Adds an edge from +source+ to +target+, with +info+ as property
- * Raises ArgumentError if the edge already exists.
+ * Adds an edge in this graph
+ *
+ * @param [BGL::Vertex] source the source vertex. It gets added to the graph if
+ *   it is not already.
+ * @param [BGL::Vertex] target the target vertex. It gets added to the graph if
+ *   it is not already.
+ * @param [Object] info the edge information. It can be retrieved later with
+ *   {BGL::Vertex#[]}
+ * @return [self]
  */
 static
 VALUE graph_link(VALUE self, VALUE source, VALUE target, VALUE info)
@@ -256,12 +258,13 @@ VALUE graph_link(VALUE self, VALUE source, VALUE target, VALUE info)
     return self;
 }
 
-/*
- * call-seq:
- *    graph.unlink(source, target, info)	    => graph
+/* @overload unlink(source, target)
  *
- * Removes the edge from +source+ to +target+. Does nothing if the 
- * edge does not exist.
+ * Removes an edge from this graph. Does nothing if the edge does not exist
+ *
+ * @param [BGL::Vertex] source the source of the edge
+ * @param [BGL::Vertex] target the target of the edge
+ * @return [self]
  */
 static
 VALUE graph_unlink(VALUE self, VALUE source, VALUE target)
@@ -278,11 +281,13 @@ VALUE graph_unlink(VALUE self, VALUE source, VALUE target)
     return self;
 }
 
-/*
- * call-seq:
- *    graph.linked?(source, target)	    => true or false
+/* @overload linked?(source, target)
  *
- * Checks if there is an edge from +source+ to +target+
+ * Checks for the existence of an edge
+ *
+ * @param [BGL::Vertex] source the edge source vertex
+ * @param [BGL::Vertex] target the edge target vertex
+ * @return [Boolean]
  */
 static
 VALUE graph_linked_p(VALUE self, VALUE source, VALUE target)
@@ -297,12 +302,14 @@ VALUE graph_linked_p(VALUE self, VALUE source, VALUE target)
     return edge(s, t, graph).second ? Qtrue : Qfalse;
 }
 
-/*
- * call-seq:
- *    graph.each_edge { |source, target, info| ... }     => graph
+/* @overload each_edge { |source, target, info| ... }
  *
- * Iterates on all edges in this graph. +source+ and +target+ are the
- * edge vertices, +info+ is the data associated with the edge. See #link.
+ * Iterates on all edges in this graph.
+ *
+ * @yieldparam [BGL::Vertex] source the edge source
+ * @yieldparam [BGL::Vertex] target the edge target
+ * @yieldparam [Object] info the information associated with the edge
+ * @return [self]
  */
 static
 VALUE graph_each_edge(VALUE self)
@@ -357,11 +364,12 @@ graph_map* vertex_descriptor_map(VALUE self, bool create)
     return map;
 }
 
-/*
- * call-seq:
- *	vertex.each_graph { |graph| ... }	    => self
+/* @overload vertex.each_graph { |graph| ... }
  *
  * Iterates on all graphs this object is part of
+ *
+ * @yieldparam [BGL::Graph] graph
+ * @return [self]
  */
 static VALUE vertex_each_graph(VALUE self)
 {
@@ -380,13 +388,21 @@ static VALUE vertex_each_graph(VALUE self)
     return self;
 }
 
-/*
- * call-seq:
- *  vertex.parent_object?(object[, graph])		=> true of false
+/* Tests whether an object is a parent of self
  *
- * Checks if +object+ is a parent of +vertex+. If +graph+ is given,
- * check only in this graph. Otherwise, check in all graphs +vertex+
- * is part of.
+ * @overload vertex.parent_object?(object)
+ *   Tests if the object is a parent of vertex in at least one of the graphs
+ *   they are included in
+ *
+ *   @param [BGL::Vertex] object
+ *   @return [Boolean]
+ *
+ * @overload vertex.parent_object?(object, graph)
+ *   Tests if the object is a parent of vertex in graph
+ *
+ *   @param [BGL::Vertex] object
+ *   @param [BGL::Graph] graph
+ *   @return [Boolean]
  */
 static VALUE vertex_parent_p(int argc, VALUE* argv, VALUE self)
 { 
@@ -410,13 +426,21 @@ static VALUE vertex_parent_p(int argc, VALUE* argv, VALUE self)
     return Qfalse;
 }
 
-/*
- * call-seq:
- *	vertex.child_vertex?(object[, graph])		=> true or false
+/* Tests whether an object is a child of self
  *
- * Checks if +object+ is a child of +vertex+ in +graph+. If +graph+ is given,
- * check only in this graph. Otherwise, check in all graphs +vertex+ is part
- * of.
+ * @overload vertex.child_object?(object)
+ *   Tests if the object is a child of vertex in at least one of the graphs
+ *   they are included in
+ *
+ *   @param [BGL::Vertex] object
+ *   @return [Boolean]
+ *
+ * @overload vertex.child_object?(object, graph)
+ *   Tests if the object is a child of vertex in graph
+ *
+ *   @param [BGL::Vertex] object
+ *   @param [BGL::Graph] graph
+ *   @return [Boolean]
  */
 static VALUE vertex_child_p(int argc, VALUE* argv, VALUE self)
 { 
@@ -424,13 +448,21 @@ static VALUE vertex_child_p(int argc, VALUE* argv, VALUE self)
     return vertex_parent_p(argc, argv, self);
 }
 
-/*
- * call-seq:
- *	vertex.related_vertex?(object[, graph])		=> true or false
+/* Tests whether there is an edge between self and another vertex
  *
- * Checks if +object+ is a child or a parent of +vertex+ in +graph+.  If
- * +graph+ is given, check only in this graph. Otherwise, check in all graphs
- * +vertex+ is part of.
+ * @overload vertex.related_object?(object)
+ *   Tests if there is an edge between object and vertex in at least one of the
+ *   graphs they are included in
+ *
+ *   @param [BGL::Vertex] object
+ *   @return [Boolean]
+ *
+ * @overload vertex.related_object?(object, graph)
+ *   Tests if there is an edge in graph between object and vertex
+ *
+ *   @param [BGL::Vertex] object
+ *   @param [BGL::Graph] graph
+ *   @return [Boolean]
  */
 static VALUE vertex_related_p(int argc, VALUE* argv, VALUE self)
 {
@@ -468,31 +500,38 @@ static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
     return self;
 }
 
-/*
- * call-seq:
- *	vertex.each_parent_vertex([graph]) { |object| ... }	=> vertex
+/* @overload each_parent_vertex { |object| ... }
+ *   Iterates on all parents of self in all the graphs it is part of
+ *   @yieldparam [BGL::Vertex] object
+ *   @return [self]
  *
- * Iterates on all parents of +vertex+. If +graph+ is given, only iterate on
- * the vertices that are parent in +graph+.
+ * @overload each_parent_vertex(graph) { |object| ... }
+ *   Iterates on all parents of self in graph
+ *   @param [BGL::Graph] graph
+ *   @yieldparam [BGL::Vertex] object
+ *   @return [self]
  */
 static VALUE vertex_each_parent(int argc, VALUE* argv, VALUE self)
 { return vertex_each_related<false>(argc, argv, self); }
 
-/*
- * call-seq:
- *	vertex.each_child_vertex([graph]) { |child| ... }	=> vertex
+/* @overload each_child_vertex { |object| ... }
+ *   Iterates on all children of self in all the graphs it is part of
+ *   @yieldparam [BGL::Vertex] object
+ *   @return [self]
  *
- * Iterates on all children of +vertex+. If +graph+ is given, iterates only on
- * the vertices which are a child of +vertex+ in +graph+
+ * @overload each_child_vertex(graph) { |object| ... }
+ *   Iterates on all children of self in graph
+ *   @param [BGL::Graph] graph
+ *   @yieldparam [BGL::Vertex] object
+ *   @return [self]
  */
 static VALUE vertex_each_child(int argc, VALUE* argv, VALUE self)
 { return vertex_each_related<true>(argc, argv, self); }
 
-/*
- * call-seq:
- *	vertex.singleton_vertex? => true or false
+/* @overload singleton_vertex?
  *
- * Returns true if the vertex is linked to no other vertex
+ * @return [Boolean] returns true if there are no graphs in which self is part
+ *   of where it is included in an edge
  */
 static VALUE vertex_singleton_p(VALUE self)
 {
@@ -537,11 +576,13 @@ static VALUE graph_out_degree(VALUE _graph, VALUE _vertex)
     else return INT2NUM(out_degree(s, graph));
 }
 
-/* call-seq:
- *	vertex[child, graph]				    => info
+/* @overload self[child, graph]
  *
- * Get the data associated with the vertex => +child+ edge in +graph+.
- * Raises ArgumentError if there is no such edge.
+ * Get the data associated with the self => child edge in graph.
+ *
+ * @param [BGL::Vertex] child
+ * @param [BGL::Graph] graph
+ * @raise ArgumentError if there is no such edge.
  */
 static VALUE vertex_get_info(VALUE self, VALUE child, VALUE rb_graph)
 {
@@ -563,12 +604,14 @@ static VALUE vertex_get_info(VALUE self, VALUE child, VALUE rb_graph)
     return graph[e].info;
 }
 
-/*
- * call-seq:
- *	vertex[child, graph] = new_value		    => new_value
+/* @overload self[child, graph] = value
  *
- * Sets the data associated with the vertex => +child+ edge in +graph+.
- * Raises ArgumentError if there is no such edge.
+ * Sets the data associated with the self => child edge in graph.
+ *
+ * @param [BGL::Vertex] child
+ * @param [BGL::Graph] graph
+ * @param [Object] value
+ * @raise ArgumentError if there is no such edge.
  */
 static VALUE vertex_set_info(VALUE self, VALUE child, VALUE rb_graph, VALUE new_value)
 {
@@ -590,11 +633,10 @@ static VALUE vertex_set_info(VALUE self, VALUE child, VALUE rb_graph, VALUE new_
     return (graph[e].info = new_value);
 }
 
-/*
- * call-seq:
- *   graph.root?(vertex)
+/* @overload root?(vertex)
  *
- * Checks if +vertex+ is a root node in +graph+ (it has no parents)
+ * @param [BGL::Vertex] vertex
+ * @return [Boolean] true if vertex is a root in self
  */
 static VALUE graph_root_p(VALUE graph, VALUE vertex)
 {
@@ -602,11 +644,10 @@ static VALUE graph_root_p(VALUE graph, VALUE vertex)
     return vertex_has_adjacent<false>(1, argv, vertex);
 }
 
-/*
- * call-seq:
- *   graph.leaf?(vertex)
+/* @overload leaf?(vertex)
  *
- * Checks if +vertex+ is a leaf node in +graph+ (it has no parents)
+ * @param [BGL::Vertex] vertex
+ * @return [Boolean] true if vertex is a leaf in self
  */
 static VALUE graph_leaf_p(VALUE graph, VALUE vertex)
 {
@@ -614,25 +655,35 @@ static VALUE graph_leaf_p(VALUE graph, VALUE vertex)
     return vertex_has_adjacent<true>(1, argv, vertex);
 }
 
-/*
- * call-seq:
- *   vertex.root?([graph])
- *
- * Checks if +vertex+ is a root node in +graph+ (it has no parents), or if graph is not given, in all graphs 
+/* @overload root?
+ *   @return [Boolean] true if self is a root in all graphs it is part of
+ * 
+ * @overload root?(graph)
+ *   Tests whether this vertex is a root in the graph
+ *   @param [BGL::Graph] graph
+ *   @return [Boolean]
  */
 static VALUE vertex_root_p(int argc, VALUE* argv, VALUE self)
 { return vertex_has_adjacent<false>(argc, argv, self); }
 
 
-/*
- * call-seq:
- *   vertex.leaf?([graph])
- *
- * Checks if +vertex+ is a root node in +graph+ (it has no children), or if graph is not given, in all graphs 
+/* @overload leaf?
+ *   @return [Boolean] true if self is a leaf in all graphs it is part of
+ * 
+ * @overload leaf?(graph)
+ *   Tests whether this vertex is a leaf in the graph
+ *   @param [BGL::Graph] graph
+ *   @return [Boolean]
  */
 static VALUE vertex_leaf_p(int argc, VALUE* argv, VALUE self)
 { return vertex_has_adjacent<true>(argc, argv, self); }
 
+/* @overload name=(value)
+ *   Set the graph's name (used for debugging purposes)
+ *
+ *   @param [String] value a new name for the graph
+ *   @return [String]
+ */
 static VALUE graph_set_name(VALUE self, VALUE name)
 {
     RubyGraph& graph = graph_wrapped(self);
