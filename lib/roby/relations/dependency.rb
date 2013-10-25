@@ -611,8 +611,8 @@ module Roby::TaskStructure
             defaults = Hash[:model => [[Roby::Task], Hash.new],
                 :success => nil,
                 :failure => nil,
-                :remove_when_done => false,
-                :consider_in_pending => false,
+                :remove_when_done => true,
+                :consider_in_pending => true,
                 :roles => Set.new,
                 :role => nil].merge(defaults)
             Kernel.validate_options options, defaults
