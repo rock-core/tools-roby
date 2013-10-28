@@ -63,7 +63,9 @@ __main_remote_interface__ =
     begin
         remote_url =~ /^(.*):(\d+)$/
         remote_host, remote_port = $1, Integer($2)
-        Roby::Interface::ShellClient.new(remote_host, remote_port)
+        Roby::Interface::ShellClient.new("#{remote_host}:#{remote_port}") do
+            Roby::Interface.connect_with_tcp_to(remote_host, remote_port)
+        end
     rescue Interrupt
         Roby::Interface.warn "Interrupted by user"
         exit(1)
