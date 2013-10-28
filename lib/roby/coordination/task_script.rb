@@ -275,6 +275,10 @@ module Roby
             end
             model.create_script(self, &block)
         end
+
+        def transition!
+            emit :poll_transition
+        end
     end
 end
 

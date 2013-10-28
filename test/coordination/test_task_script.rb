@@ -56,6 +56,9 @@ class TC_Coordination_TaskScript < Test::Unit::TestCase
         task.script do
             poll do
                 counter += 1
+                if counter == 4
+                    transition!
+                end
             end
             emit :success
         end
@@ -64,9 +67,10 @@ class TC_Coordination_TaskScript < Test::Unit::TestCase
         process_events
         process_events
         process_events
+        process_events
         assert_equal 4, counter
         # Make the poll block transition
-        task.emit :poll_transition
+        assert !task.failed?
     end
 
     def test_cancelling_a_poll_operation_deregisters_the_poll_handler
