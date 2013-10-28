@@ -63,6 +63,8 @@ module Roby
                 end
 
                 io.write_packet([:reply, reply])
+            rescue ComError
+                raise
             rescue Exception => e
                 io.write_packet([:bad_call, e])
             end
