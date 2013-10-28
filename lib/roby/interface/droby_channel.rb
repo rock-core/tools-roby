@@ -2,7 +2,7 @@ module Roby
     module Interface
         # A wrapper on top of raw IO that uses droby marshalling to communicate
         class DRobyChannel
-            # @return [#read,#write] the channel that allows us to communicate to clients
+            # @return [#read_nonblock,#write] the channel that allows us to communicate to clients
             attr_reader :io
             # @return [Boolean] true if the local process is the client or the
             #   server
