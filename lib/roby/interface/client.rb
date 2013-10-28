@@ -40,6 +40,28 @@ module Roby
                 actions.find_all { |act| matcher === act.name }
             end
 
+            # Reads what is available on the given IO and processes the message
+            #
+            # @param [#read_packet] io packet-reading object
+            # @return [Boolean] false if no packet has been processed, and true
+            #   otherwise
+            def read_and_process_packet(io)
+                m, *args = io.read_packet
+                if m == :bad_call
+                    raise args.first
+                elsif m == :reply
+                    yield args.first
+                elsif m == :notification
+                    push_notification(*args)
+                elsif m == :exception
+                    push_exception(*args)
+                elsif m
+                    raise ProtocolError, "unexpected reply from #{io}: #{m} (#{args.map(&:to_s).join(",")})"
+                else return false
+                end
+                true
+            end
+
             def poll(expected_count = 0)
                 result = nil
                 timeout = if expected_count > 0 then nil
@@ -47,23 +69,14 @@ module Roby
                           end
 
                 while IO.select([io], [], [], timeout)
-                    while true
-                        m, *args = io.read_packet
-                        if m == :bad_call
-                            raise args.first
-                        elsif m == :reply
+                    done_something = true
+                    while done_something
+                        done_something = read_and_process_packet(io) do |reply_value|
                             if result
                                 raise ArgumentError, "got more than one reply in a single poll call"
                             end
-                            result = args.first
+                            result = reply_value
                             expected_count -= 1
-                        elsif m == :notification
-                            push_notification(*args)
-                        elsif m == :exception
-                            push_exception(*args)
-                        elsif m
-                            raise ProtocolError, "unexpected reply from #{io}: #{m} (#{args.map(&:to_s).join(",")})"
-                        else break
                         end
                     end
                     if expected_count <= 0

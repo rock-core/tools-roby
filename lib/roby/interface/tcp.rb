@@ -21,6 +21,14 @@ module Roby
                 end
             end
 
+            # Creates a server object that will manage the replies on a
+            # particular TCP socket
+            #
+            # @return [Server]
+            def create_server(socket)
+                Server.new(DRobyChannel.new(socket, false), interface)
+            end
+
             # Process all incoming connection requests
             #
             # The new clients are added into the Roby event loop
@@ -30,7 +38,7 @@ module Roby
                     if pending.delete(server)
                         socket = server.accept
                         socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, true)
-                        server = Server.new(DRobyChannel.new(socket, false), interface)
+                        server = create_server(socket)
                         clients << server
                     end
                     pending.delete_if do |client|
