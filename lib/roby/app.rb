@@ -1049,7 +1049,6 @@ module Roby
             end
         end
 
-        # Tears down the shell interface started in #setup_shell_interface
         def stop_drb_service
             begin
                 DRb.current_server
