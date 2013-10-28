@@ -55,9 +55,8 @@ module Roby
                 if path.empty? && respond_to?(m)
                     reply = send(m, *args)
                 else
-                    receiver = interface
-                    receiver = path.inject(interface) do |receiver, subcommand|
-                        receiver.send(subcommand)
+                    receiver = path.inject(interface) do |obj, subcommand|
+                        obj.send(subcommand)
                     end
                     reply = receiver.send(m, *args)
                 end

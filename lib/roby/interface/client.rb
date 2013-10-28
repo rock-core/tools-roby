@@ -117,7 +117,7 @@ module Roby
             def call(path, m, *args)
                 if m.to_s =~ /(.*)!$/
                     action_name = $1
-                    if act = find_action_by_name(action_name)
+                    if find_action_by_name(action_name)
                         call([], :start_job, action_name, *args)
                     else raise ArgumentError, "there is no action called #{action_name}"
                     end
