@@ -203,6 +203,81 @@ module Roby
                 end
                 nil
             end
+
+            # Processes the exception and notification queues, and yields with a
+            # message that summarizes the new ones
+            #
+            # @param [Set] already_summarized the set of IDs of messages that
+            #   have already been summarized. This should be the value returned by
+            #   the last call to {#summarize_pending_messages}
+            # @yieldparam [String] msg the message that summarizes the new
+            #   exception/notification
+            # @return [Set] the set of notifications still in the queues that
+            #   have already been summarized. Pass to the next call to
+            #   {#summarize_exception}
+            def summarize_pending_messages(already_summarized = Set.new)
+                summarized = Set.new
+                client.exception_queue.delete_if do |id, args|
+                    summarized << id
+                    if !already_summarized.include?(id)
+                        msg, complete = summarize_exception(*args)
+                        yield "##{id} #{msg}"
+                        complete
+                    end
+                end
+                client.notification_queue.delete_if do |id, args|
+                    summarized << id
+                    if !already_summarized.include?(id)
+                        msg, complete = summarize_notification(*args)
+                        yield "##{id} #{msg}"
+                        complete
+                    end
+                end
+                summarized
+            end
+
+            # Polls for messages from the remote interface and yields them. It
+            # handles automatic reconnection, when applicable, as well
+            #
+            # It is meant to be called in a separate thread
+            #
+            # @yieldparam [String] msg messages for the user
+            # @param [Float] period the polling period in seconds
+            def notification_loop(period = 0.1)
+                already_summarized = Set.new
+                was_connected = nil
+                while true
+                    mutex.synchronize do
+                        has_valid_connection =
+                            begin
+                                client.poll
+                                true
+                            rescue Exception
+                                begin
+                                    connect(nil)
+                                    true
+                                rescue Exception
+                                end
+                            end
+
+                        already_summarized = 
+                            summarize_pending_messages(already_summarized) do |msg|
+                                yield msg
+                            end
+                        if has_valid_connection
+                            was_connected = true
+                        end
+
+                        if has_valid_connection && !was_connected
+                            Readline.puts "reconnected"
+                        elsif !has_valid_connection && was_connected
+                            Readline.puts "lost connection, reconnecting ..."
+                        end
+                        was_connected = has_valid_connection
+                    end
+                    sleep period
+                end
+            end
         end
     end
 end
