@@ -48,7 +48,7 @@ module Roby
             end
 
             def actions
-                actions = call Hash[:retry => true], [], :actions
+                actions = client.actions
                 actions.each do |action|
                     puts "#{action.name}!(#{action.arguments.map(&:name).sort.join(", ")}): #{action.doc}"
                 end
