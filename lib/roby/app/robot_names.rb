@@ -81,7 +81,9 @@ module Roby
                     end
                     return robot_name, type
                 else
-                    error(ArgumentError, "#{name} is neither a robot name, nor an alias. Known names: #{robots.keys.sort.join(", ")}, known aliases: #{aliases.keys.join(", ")}")
+                    if !robots.empty? || strict?
+                        error(ArgumentError, "#{name} is neither a robot name, nor an alias. Known names: #{robots.keys.sort.join(", ")}, known aliases: #{aliases.keys.join(", ")}")
+                    end
                     return robot_name, (type || robot_name)
                 end
             end
