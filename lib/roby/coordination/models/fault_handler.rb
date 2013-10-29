@@ -19,11 +19,13 @@ module Roby
                 # @return [Boolean] if true, the action location will be retried
                 #   after the fault response table, otherwise whatever should
                 #   happen will happen (other error handling, ...)
-                inherited_single_value_attribute(:__try_again) { false }
+                inherited_single_value_attribute(:__carry_on) { false }
                 # @return [Boolean] if true, the last action of the response
                 #   will be to retry whichever action/missions/tasks have been
                 #   interrupted by the fault
-                def try_again?; !!__try_again end
+                def carry_on?; !!__carry_on end
+                # @deprecated use {#carry_on?}
+                def try_again?; carry_on? end
                 # @return [#instanciate] an object that allows to create the
                 #   toplevel task of the fault response
                 inherited_single_value_attribute :action
@@ -52,10 +54,13 @@ module Roby
                 #
                 # It can be called anytime in the script, but will have an
                 # effect only at the end of the fault handler
-                def try_again
-                    __try_again(true)
+                def carry_on
+                    __carry_on(true)
                     terminal
                 end
+
+                # @deprecated use {#carry_on}
+                def try_again; carry_on end
 
                 # Script element that implements the replacement part of
                 # {#replace_by}
@@ -114,7 +119,7 @@ module Roby
                 #
                 # @raise ArgumentError if there is already a replacement task
                 def replace_by(task, until_event = nil)
-                    __try_again(false)
+                    __carry_on(false)
                     replacement_task = validate_or_create_task(task)
                     start replacement_task
                     instructions << ReplaceBy.new(replacement_task)
