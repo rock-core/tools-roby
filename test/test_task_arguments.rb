@@ -73,3 +73,32 @@ describe Roby::TaskArguments do
 
 end
 
+describe Roby::DelayedArgumentFromObject do
+    it "can be droby-marshalled" do
+	obj = Object.new
+	arg = Roby::DelayedArgumentFromObject.new(obj, false).bla
+
+        dump = arg.droby_dump(nil)
+        dump = Marshal.dump(dump)
+        loaded = Marshal.load(dump).proxy(Roby::Distributed::DumbManager)
+        assert_kind_of Object, arg.instance_variable_get(:@object)
+	assert_equal [:bla], arg.instance_variable_get(:@methods)
+	assert_equal Object, arg.instance_variable_get(:@expected_class)
+	assert !arg.instance_variable_get(:@weak)
+    end
+end
+
+describe Roby::DelayedArgumentFromState do
+    it "can be droby-marshalled" do
+	arg = Roby::DelayedArgumentFromState.new.bla
+
+        dump = arg.droby_dump(nil)
+        dump = Marshal.dump(dump)
+        loaded = Marshal.load(dump).proxy(Roby::Distributed::DumbManager)
+        assert_kind_of Roby::StateSpace, arg.instance_variable_get(:@object)
+	assert_equal [:bla], arg.instance_variable_get(:@methods)
+	assert_equal Object, arg.instance_variable_get(:@expected_class)
+	assert arg.instance_variable_get(:@weak)
+    end
+end
+
