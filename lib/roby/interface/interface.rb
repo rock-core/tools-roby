@@ -43,7 +43,7 @@ module Roby
                         result << act
                     end
                 end
-                result
+                result.sort_by {|act| act.name }
             end
             command :actions, 'lists a summary of the available actions'
 
