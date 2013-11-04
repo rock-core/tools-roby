@@ -862,11 +862,11 @@ module Roby
                 :emit_on_success => true,
                 :callback => proc { }
 
-            Thread.new do
+            worker_thread = Thread.new do
                 begin
                     result = block.call
-                    if executable?
-                        plan.engine.queue_worker_completion_block do |plan|
+                    if engine
+                        engine.queue_worker_completion_block do |plan|
                             begin
                                 options[:callback].call(result)
                                 if options[:emit_on_success]
@@ -879,14 +879,15 @@ module Roby
                     end
 
                 rescue Exception => e
-                    if executable?
-                        plan.engine.queue_worker_completion_block do |plan|
-                            puts "PROCESS #{caller.join("\n  ")}"
+                    if engine
+                        engine.queue_worker_completion_block do |plan|
                             emit_failed(e)
                         end
                     end
                 end
             end
+            engine.register_worker_thread(worker_thread)
+            worker_thread
         end
 
 	# A [time, event] array of past event emitted by this object

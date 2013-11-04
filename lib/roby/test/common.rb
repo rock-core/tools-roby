@@ -209,6 +209,7 @@ module Roby
         end
 
 	def teardown
+            process_events
             flexmock_teardown
 	    timings[:quit] = Time.now
 	    teardown_plan
@@ -309,10 +310,11 @@ module Roby
 
 	# Process pending events
 	def process_events
+            engine.join_all_worker_threads
             if !engine.running?
                 engine.start_new_cycle
                 engine.process_events_synchronous do
-                    engine.gather_external_events
+                    engine.process_workers
                 end
             else
                 engine.wait_one_cycle

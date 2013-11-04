@@ -163,6 +163,8 @@ module Roby
             @additional_errors = nil
             @exception_listeners = Array.new
 
+            @worker_threads_mtx = Mutex.new
+            @worker_threads = Array.new
             @worker_completion_blocks = Queue.new
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
@@ -388,11 +390,39 @@ module Roby
             nil
         end
 
+        # Registers a thread on {#worker_threads}
+        def register_worker_thread(thread)
+            @worker_threads_mtx.synchronize do
+                worker_threads << thread
+            end
+        end
+
+        # Removes the dead workers from {#worker_threads} 
+        def cleanup_worker_threads
+            @worker_threads_mtx.synchronize do
+                worker_threads.delete_if { |t| !t.alive? }
+            end
+        end
+
         # Adds a block to be called at the beginning of the next execution cycle
         #
         # Unlike {#once}, it is thread-safe
         def queue_worker_completion_block(&block)
             worker_completion_blocks << block
+        end
+
+        # Waits for all threads in {#worker_threads} to finish
+        #
+        # It will not reflect the exceptions thrown by the thread
+        def join_all_worker_threads
+            threads = @worker_threads_mtx.synchronize do
+                worker_threads.dup
+            end
+            threads.each do |t|
+                begin t.join
+                rescue Exception
+                end
+            end
         end
 
         # call-seq:
@@ -681,11 +711,20 @@ module Roby
             end
         end
 
+        # Process the pending worker completion blocks
+        def process_workers
+            cleanup_worker_threads
+
+            completion_blocks = []
+            while !worker_completion_blocks.empty?
+                block = worker_completion_blocks.pop
+                completion_blocks << PollBlockDefinition.new("worker completion handler #{block}", block, Hash.new)
+            end
+            call_poll_blocks(completion_blocks)
+        end
+
         # Gather the events that come out of this plan manager
         def gather_external_events
-            while !worker_completion_blocks.empty?
-                once(&worker_completion_blocks.pop)
-            end
             gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
             gather_framework_errors('delayed events')     { execute_delayed_events }
             call_poll_blocks(self.class.external_events_handlers)
@@ -1351,6 +1390,7 @@ module Roby
                     if quitting?
                         garbage_collect([])
                     end
+                    process_workers
                     gather_external_events
                     call_propagation_handlers
 	        end
@@ -1620,6 +1660,13 @@ module Roby
         # #run will raise ExecutionQuitError on this threads if they
         # are still waiting while the control is quitting
         attr_reader :waiting_threads
+
+        # A list of threads that are performing work for the benefit of the
+        # currently running Roby plan
+        #
+        # It is there mostly for the benefit of {#join_all_worker_threads}
+        # during testing
+        attr_reader :worker_threads
 
         # A set of blocks that are called at each cycle end
         attr_reader :at_cycle_end_handlers
