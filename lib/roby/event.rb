@@ -492,9 +492,25 @@ module Roby
 	end
 
 	# A set of blocks called when this event cannot be emitted again
+        #
+        # @return [Array<(Boolean,EventHandler)>]
 	attr_reader :unreachable_handlers
 
 	# Calls +block+ if it is impossible that this event is ever emitted
+        #
+        # @option options [Boolean] :cancel_at_emission (false) if true, the
+        #   block will only be called if the event did not get emitted since the
+        #   handler got installed.
+        # @option options [:drop,:copy] :on_replace (:drop) if set to drop, the
+        #   block will not be passed to events that replace this one. Otherwise,
+        #   the block gets copied
+        #
+        # @yieldparam [Object] reason the unreachability reason (usually an
+        #   exception)
+        # @yieldparam [EventGenerator] generator the event generator that became
+        #   unreachable. This is needed when the :on_replace option is :copy,
+        #   since the generator that became unreachable might be different than
+        #   the one on which the handler got installed
 	def if_unreachable(options = Hash.new, &block)
             if options == true || options == false
                 options = Hash[:cancel_at_emission => options]
