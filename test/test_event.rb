@@ -1289,3 +1289,59 @@ class TC_Event < Test::Unit::TestCase
     end
 end
 
+describe Roby::EventGenerator do
+    include Roby::SelfTest
+
+    describe "#achieve_asynchronously" do
+        attr_reader :ev, :main_thread
+        before do
+            plan.add(@ev = Roby::EventGenerator.new(true))
+            @main_thread = Thread.current
+        end
+        it "should call the provided block in a separate thread" do
+            recorder = flexmock
+            recorder.should_receive(:called).once.with(proc { |thread| thread != main_thread })
+            ev.achieve_asynchronously do
+                recorder.called(Thread.current)
+            end.join
+            process_events
+        end
+        it "should call emit_failed if the block raises" do
+            flexmock(ev).should_receive(:emit_failed).once.
+                with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
+            ev.achieve_asynchronously do
+                raise ArgumentError
+            end.join
+            process_events
+        end
+        it "should call the provided callback with the block's result in the execution engine thread" do
+            recorder, result = flexmock, flexmock
+            recorder.should_receive(:call).with(Thread.current, result)
+            ev.achieve_asynchronously(:callback => recorder) do
+                result
+            end.join
+            inhibit_fatal_messages { process_events }
+        end
+        it "should emit the event if the emit_on_success option is true" do
+            recorder = flexmock
+            recorder.should_receive(:call).ordered
+            flexmock(ev).should_receive(:emit).once.with(proc { |*args| Thread.current == main_thread }).ordered
+            ev.achieve_asynchronously :emit_on_success => true do
+                recorder.call
+            end.join
+            process_events
+        end
+        it "should not emit the event automatically if the emit_on_success option is false" do
+            flexmock(ev).should_receive(:emit).never
+            ev.achieve_asynchronously :emit_on_success => false do
+            end.join
+        end
+        it "should call emit_failed if the callback raises" do
+            flexmock(ev).should_receive(:emit_failed).once.
+                with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
+            ev.achieve_asynchronously(:callback => proc { raise ArgumentError }) do
+            end.join
+            process_events
+        end
+    end
+end

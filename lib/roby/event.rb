@@ -832,6 +832,47 @@ module Roby
 	# For backwards compatibility. Use #achieve_with.
 	def realize_with(task); achieve_with(task) end
 
+        # Declares that the command of this event should be achieved by calling
+        # the provided block
+        #
+        # @option [Boolean] :emit_on_success (true) if true, the event will be
+        #   emitted if the block got called successfully. Otherwise, nothing
+        #   will be done
+        # @option [#call] :callback (nil) if given, it gets called in Roby's
+        #   event thread with the return value of the block as argument if the
+        #   block got called successfully
+        def achieve_asynchronously(options = Hash.new, &block)
+            options = Kernel.validate_options options,
+                :emit_on_success => true,
+                :callback => proc { }
+
+            Thread.new do
+                begin
+                    result = block.call
+                    if executable?
+                        plan.engine.queue_worker_completion_block do |plan|
+                            begin
+                                options[:callback].call(result)
+                                if options[:emit_on_success]
+                                    emit
+                                end
+                            rescue Exception => e
+                                emit_failed(e)
+                            end
+                        end
+                    end
+
+                rescue Exception => e
+                    if executable?
+                        plan.engine.queue_worker_completion_block do |plan|
+                            puts "PROCESS #{caller.join("\n  ")}"
+                            emit_failed(e)
+                        end
+                    end
+                end
+            end
+        end
+
 	# A [time, event] array of past event emitted by this object
 	attr_reader :history
 	# True if this event has been emitted once.

@@ -163,6 +163,8 @@ module Roby
             @additional_errors = nil
             @exception_listeners = Array.new
 
+            @worker_completion_blocks = Queue.new
+
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
 	    @quit        = 0
@@ -188,6 +190,9 @@ module Roby
         # The blocks that are currently listening to exceptions
         # @return [Array<#call>]
         attr_reader :exception_listeners
+        # @return [Queue] blocks queued for execution in the next cycle by
+        #   {#queue_worker_completion_block}
+        attr_reader :worker_completion_blocks
 
         # Internal structure used to store a poll block definition provided to
         # #every or #add_propagation_handler
@@ -381,6 +386,13 @@ module Roby
             propagation_handlers.delete_if { |p| p.id == id }
             external_events_handlers.delete_if { |p| p.id == id }
             nil
+        end
+
+        # Adds a block to be called at the beginning of the next execution cycle
+        #
+        # Unlike {#once}, it is thread-safe
+        def queue_worker_completion_block(&block)
+            worker_completion_blocks << block
         end
 
         # call-seq:
@@ -671,6 +683,9 @@ module Roby
 
         # Gather the events that come out of this plan manager
         def gather_external_events
+            while !worker_completion_blocks.empty?
+                once(&worker_completion_blocks.pop)
+            end
             gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
             gather_framework_errors('delayed events')     { execute_delayed_events }
             call_poll_blocks(self.class.external_events_handlers)
@@ -1146,6 +1161,8 @@ module Roby
 
         # Schedules +block+ to be called at the beginning of the next execution
         # cycle, in propagation context.
+        #
+        # @yieldparam [Plan] plan the plan on which this engine works
         def once(options = Hash.new, &block)
             add_propagation_handler(Hash[:type => :external_events, :once => true].merge(options), &block)
         end

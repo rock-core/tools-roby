@@ -309,12 +309,14 @@ module Roby
 
 	# Process pending events
 	def process_events
-	    Roby.synchronize do
-                if !engine.running?
-                    engine.start_new_cycle
+            if !engine.running?
+                engine.start_new_cycle
+                engine.process_events_synchronous do
+                    engine.gather_external_events
                 end
-		engine.process_events
-	    end
+            else
+                engine.wait_one_cycle
+            end
 	end
 
         # Use to call the original method on a partial mock
