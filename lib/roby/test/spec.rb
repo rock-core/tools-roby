@@ -20,6 +20,12 @@ module Roby
                     engine.remove_propagation_handler(@watch_events_handler_id)
                 end
             end
+
+            def process_events
+                engine.join_all_worker_threads
+                engine.start_new_cycle
+                engine.process_events
+            end
         end
     end
 end

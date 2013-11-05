@@ -827,8 +827,12 @@ module Roby
 	def require_models
 	    # Require all common task models and the task models specific to
 	    # this robot
-            all_files = find_files_in_dirs('models', 'tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/) +
-                find_files_in_dirs('tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/)
+            all_files =
+                if testing? then []
+                else
+                    find_files_in_dirs('models', 'tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/) +
+                    find_files_in_dirs('tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/)
+                end
             all_files.each do |p|
                 require(p)
             end
@@ -851,24 +855,28 @@ module Roby
         # This method is called at the end of require_models, before the
         # plugins' require_models hook is called
         def require_planners
-            main_files =
-                find_files('models', 'actions', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
-                find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
-                find_files('planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first)
-            main_files.each do |path|
-                require path
+            if !testing?
+                main_files =
+                    find_files('models', 'actions', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
+                    find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
+                    find_files('planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first)
+                main_files.each do |path|
+                    require path
+                end
             end
 
             if !defined?(Main)
                 Object.const_set(:Main, Class.new(Roby::Actions::Interface))
             end
 
-            all_files =
-                find_files_in_dirs('models', 'actions', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
-                find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
-                find_files_in_dirs('planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/)
-            all_files.each do |p|
-                require(p)
+            if !testing?
+                all_files =
+                    find_files_in_dirs('models', 'actions', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+                    find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+                    find_files_in_dirs('planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/)
+                all_files.each do |p|
+                    require(p)
+                end
             end
 
 	    call_plugins(:require_planners, self)
@@ -956,16 +964,6 @@ module Roby
 	    # Main is always included in the planner list
             self.planners << Main
 	   
-	    # If we are in test mode, import the test extensions from plugins
-	    if testing?
-		require 'roby/test/testcase'
-		each_plugin do |mod|
-		    if mod.const_defined?(:Test, false)
-			Roby::Test::TestCase.include mod.const_get(:Test)
-		    end
-		end
-	    end
-
             # Attach the global fault tables to the plan
             self.planners.each do |planner|
                 if planner.respond_to?(:each_fault_response_table)

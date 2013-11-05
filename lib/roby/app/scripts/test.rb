@@ -2,7 +2,7 @@ require 'roby'
 require 'optparse'
 
 app = Roby.app
-app.guess_app_dir
+app.require_app_dir
 app.public_logs = false
 
 testrb_args = []
@@ -19,25 +19,26 @@ parser = OptionParser.new do |opt|
     opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
 	testrb_args << "-n" << name
     end
-    opt.on("-r NAME[:TYPE]", String, "the robot name and type") do |name|
-        name, type = name.split(':')
-        app.robot name, (type || name)
-    end
+    Roby::Application.common_optparse_setup(opt)
 end
 
 app.testing = true
 
-parser.parse! ARGV
-Roby.app.setup
-Roby.app.prepare
+remaining_arguments = parser.parse(ARGV)
 
-begin
-    r = Test::Unit::AutoRunner.new(true)
-    r.process_args(ARGV + testrb_args) or
-      abort r.options.banner + " tests..."
+Roby.display_exception do
+    Roby.app.setup
+    Roby.app.prepare
 
-    exit r.run
-ensure
-    Roby.app.cleanup
+    begin
+        remaining_arguments.each do |file|
+            require File.expand_path(file)
+        end
+
+        MiniTest::Unit.new.run
+    ensure
+        Roby.app.cleanup
+    end
 end
+
 
