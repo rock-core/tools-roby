@@ -324,6 +324,10 @@ module Roby
                 robot_name, robot_type = name.split(',')
                 Roby.app.robot(robot_name, robot_type||robot_name)
             end
+            parser.on('--debug', 'run in debug mode') do
+                Roby.app.public_logs = true
+                Roby.app.filter_backtraces = false
+            end
             parser.on_tail('-h', '--help', 'this help message') do
                 STDERR.puts parser
                 exit
