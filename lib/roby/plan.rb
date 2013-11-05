@@ -37,7 +37,12 @@ module Roby
         # The DecisionControl object which is associated with this plan. This
         # object's role is to handle the conflicts that can occur during event
         # propagation.
-        def control; engine.control end
+        def control
+            if engine
+                engine.control
+            else @control ||= DecisionControl.new
+            end
+        end
 
 	# The task index for this plan. This is a TaskIndex object which allows
         # efficient resolving of queries.
