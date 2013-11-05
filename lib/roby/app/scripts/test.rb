@@ -1,43 +1,30 @@
 require 'roby'
-require 'optparse'
 
 app = Roby.app
-app.guess_app_dir
-app.public_logs = false
+app.require_app_dir
+app.public_shell_interface = true
+app.public_logs = true
 
-testrb_args = []
-parser = OptionParser.new do |opt|
-    opt.on("-s", "--sim", "run tests in simulation mode") do |val|
-	Roby.app.simulation = val
-    end
-    opt.on("-k", "--keep-logs", "keep all logs") do |val|
-	Roby.app.public_logs = true
-    end
-    opt.on("-i", "--interactive", "allow user interaction during tests") do |val|
-	Roby.app.automatic_testing = false
-    end
-    opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
-	testrb_args << "-n" << name
-    end
-    opt.on("-r NAME[:TYPE]", String, "the robot name and type") do |name|
-        name, type = name.split(':')
-        app.robot name, (type || name)
-    end
+options = OptionParser.new do |opt|
+    opt.banner = <<-EOD
+roby test [-r ROBOT] FILES
+    EOD
+
+    Roby::Application.common_optparse_setup(opt)
 end
+remaining_arguments = options.parse(ARGV)
 
-app.testing = true
+direct_files, actions = remaining_arguments.partition do |arg|
+    File.file?(arg)
+end
+Roby.app.additional_model_files.concat(direct_files)
 
-parser.parse! ARGV
-Roby.app.setup
-Roby.app.prepare
+Roby.display_exception do
+    app.setup
 
-begin
-    r = Test::Unit::AutoRunner.new(true)
-    r.process_args(ARGV + testrb_args) or
-      abort r.options.banner + " tests..."
-
-    exit r.run
-ensure
-    Roby.app.cleanup
+    remaining_arguments.each do |file|
+        require File.expand_path(file)
+    end
+    MiniTest::Unit.new.run
 end
 

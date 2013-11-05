@@ -3,7 +3,7 @@
 require 'roby'
 
 mode = ARGV.shift
-KNOWN_MODES = %w{init add-robot run shell}
+KNOWN_MODES = %w{init add-robot run shell test}
 
 if !KNOWN_MODES.include?(mode)
     puts "unknown mode #{mode}, available modes are: #{KNOWN_MODES.join(", ")}"
