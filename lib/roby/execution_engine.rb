@@ -1671,10 +1671,23 @@ module Roby
         # A set of blocks that are called at each cycle end
         attr_reader :at_cycle_end_handlers
 
-        # Call +block+ at the end of the execution cycle	
+        # Adds a block to be called at the end of each execution cycle
+        #
+        # @return [Object] an object that allows to identify the block so that
+        #   it can be removed with {#remove_at_cycle_end}
+        #
+        # @yieldparam [Plan] plan the plan on which this engine runs
         def at_cycle_end(&block)
             handler = PollBlockDefinition.new("at_cycle_end #{block}", block, Hash.new)
             at_cycle_end_handlers << handler
+            handler.object_id
+        end
+
+        # Removes a handler added by {#at_cycle_end}
+        #
+        # @param [Object] handler_id the value returned by {#at_cycle_end}
+        def remove_at_cycle_end(handler_id)
+            at_cycle_end_handlers.delete_if { |h| h.object_id == handler_id }
         end
 
         # A set of blocks which are called every cycle
