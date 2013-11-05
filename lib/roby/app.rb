@@ -317,8 +317,6 @@ module Roby
             parser.on("--log=SPEC", String, "configuration specification for text loggers. SPEC is of the form path/to/a/module:LEVEL[:FILE][,path/to/another]") do |log_spec|
                 log_spec.split(',').each do |spec|
                     mod, level, file = spec.split(':')
-                    mod_path = mod.split('/')
-
                     Roby.app.log_setup(mod, level, file)
                 end
             end
@@ -978,7 +976,7 @@ module Roby
             end
             setup_drb_service
 
-        rescue Exception => e
+        rescue Exception
             begin cleanup
             rescue Exception
             end
