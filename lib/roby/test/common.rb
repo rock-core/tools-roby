@@ -643,21 +643,27 @@ module Roby
         end
 
 	module Assertions
-	    # Wait for any event in +positive+ to happen. If +negative+ is
-	    # non-empty, any event happening in this set will make the
-	    # assertion fail. If events in +positive+ are task events, the
-	    # :stop events of the corresponding tasks are added to negative
-	    # automatically.
+	    # Wait for events to be emitted, or for some events to not be
+            # emitted
+            #
+            # It will fail if all waited-for events become unreachable
+            #
+            # If a block is given, it is called after the checks are put in
+            # place. This is required if the code in the block causes the
+            # positive/negative events to be emitted
 	    #
-	    # If a block is given, it is called from within the control thread
-	    # after the checks are in place
-	    #
-	    # So, to check that a task fails, do
-	    #
-	    #	assert_event_emission(task.event(:fail)) do
+	    # @example test a task failure
+	    #	assert_event_emission(task.fail_event) do
 	    #	    task.start!
 	    #	end
-	    #
+            #
+            # @param [Array<EventGenerator>] positive the set of events whose
+            #   emission we are waiting for
+            # @param [Array<EventGenerator>] negative the set of events whose
+            #   emission will cause the assertion to fail
+            # @param [String] msg assertion failure message
+            # @param [Float] timeout timeout in seconds after which the
+            #   assertion fails if none of the positive events got emitted
             def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, &block)
                 error, result, unreachability_reason = watch_events(positive, negative, timeout, &block)
 
