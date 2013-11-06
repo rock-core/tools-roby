@@ -49,6 +49,7 @@ module Roby
 
             def actions
                 actions = client.actions
+                actions = client.actions.sort_by {|act| act.name }
                 actions.each do |action|
                     puts "#{action.name}!(#{action.arguments.map(&:name).sort.join(", ")}): #{action.doc}"
                 end
