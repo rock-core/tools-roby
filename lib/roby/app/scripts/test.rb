@@ -1,5 +1,7 @@
 require 'roby'
+require 'roby/test/spec'
 require 'optparse'
+require 'test/unit'
 
 app = Roby.app
 app.require_app_dir
@@ -26,19 +28,25 @@ app.testing = true
 
 remaining_arguments = parser.parse(ARGV)
 
+result = nil
 Roby.display_exception do
     Roby.app.setup
     Roby.app.prepare
 
     begin
-        remaining_arguments.each do |file|
-            require File.expand_path(file)
+        tests = Test::Unit::AutoRunner.new(true)
+        tests.options.banner.sub!(/\[options\]/, '\& tests...')
+        unless tests.process_args(remaining_arguments)
+            abort tests.options.banner
         end
-
-        MiniTest::Unit.new.run
+        files = tests.to_run
+        $0 = files.size == 1 ? File.basename(files[0]) : files.to_s
+        result = tests.run
     ensure
         Roby.app.cleanup
     end
 end
+
+exit result
 
 

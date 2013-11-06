@@ -1,3 +1,4 @@
+require 'roby/test/common'
 module Roby
     module Test
         class Spec < MiniTest::Spec
