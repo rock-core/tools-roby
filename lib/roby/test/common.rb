@@ -209,7 +209,9 @@ module Roby
         end
 
 	def teardown
-            process_events
+            if engine
+                process_events
+            end
             flexmock_teardown
 	    timings[:quit] = Time.now
 	    teardown_plan
@@ -298,7 +300,9 @@ module Roby
                     plan.clear
                 end
 
-                Roby.logger.level = @original_roby_logger_level
+                if @original_roby_logger_level
+                    Roby.logger.level = @original_roby_logger_level
+                end
                 self.console_logger = false
                 self.event_logger   = false
             rescue Exception => e
