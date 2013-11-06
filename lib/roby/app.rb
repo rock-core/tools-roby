@@ -722,8 +722,8 @@ module Roby
 
 	    # Set up log levels
 	    log['levels'].each do |name, value|
-                mod = Kernel.constant(name)
 		name = name.modulize
+                mod = Kernel.constant(name)
 		if value =~ /^(\w+):(.+)$/
 		    value, file = $1, $2
 		    file = file.gsub('ROBOT', robot_name) if robot_name
