@@ -21,8 +21,8 @@ module Roby
         # that cannot will be noted in their documentation
         class Interface < CommandLibrary
             # @return [#call] the blocks that listen to job notifications. They are
-            # added with {#on_job_notification} and removed with
-            # {#remove_job_listener}
+            #   added with {#on_job_notification} and removed with
+            #   {#remove_job_listener}
             attr_reader :job_listeners
 
             # Creates an interface from an existing Roby application
@@ -102,6 +102,16 @@ module Roby
                 each_job_listener do |listener|
                     listener.call(kind, job_id, job_name, *args)
                 end
+            end
+
+            # (see Application#on_notification)
+            def on_notification(&block)
+                app.on_notification(&block)
+            end
+
+            # (see Application#remove_notification_listener)
+            def remove_notification_listener(&block)
+                app.remove_notification_listener(&block)
             end
 
             # Registers a block to be called when a job changes state

@@ -1,15 +1,11 @@
 require 'utilrb/logger'
 
 module Robot
-    class << self
-	attr_accessor :logger
+    def self.log_formatter(severity, time, progname, msg)
+        Roby.app.notify(progname, severity.to_s, msg)
+        Roby.logger.formatter.call(severity, time, progname, msg)
     end
-    extend Logger::Forward
-
-    @logger = Logger.new(STDOUT)
-    @logger.level = Logger::INFO
-    @logger.formatter = Roby.logger.formatter
-    @logger.progname = "Robot"
+    extend Logger::Root('Robot', Logger::INFO, &method(:log_formatter))
 
     # @deprecated use Roby.app.action_from_model instead
     def self.action_from_model(model)

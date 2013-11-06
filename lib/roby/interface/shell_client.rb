@@ -98,12 +98,20 @@ module Roby
                 end
             end
 
-            def format_notification(kind, job_id, job_name, *args)
+            def format_notification(source, level, message)
+                ["[#{level}] #{source}: #{message}"]
+            end
+
+            def summarize_notification(source, level, message)
+                return format_notification(source, level, message).first, true
+            end
+
+            def format_job_progress(kind, job_id, job_name, *args)
                 ["[#{job_id}] #{job_name}: #{kind}"]
             end
 
-            def summarize_notification(kind, job_id, job_name, *args)
-                return format_notification(kind, job_id, job_name, *args).first, true
+            def summarize_job_progress(kind, job_id, job_name, *args)
+                return format_job_progress(kind, job_id, job_name, *args).first, true
             end
 
             def format_exception(kind, error, *args)
@@ -130,9 +138,14 @@ module Roby
             def wtf?
                 msg = []
                 @mutex.synchronize do
-                    client.notification_queue.each do |id, (kind, job_id, job_name, *args)|
+                    client.notification_queue.each do |id, level, message|
                         msg << Roby.console.color("-- ##{id} (notification) --", :bold)
-                        msg.concat format_notification(kind, job_id, job_name, *args)
+                        msg.concat format_message(kind, level, message)
+                        msg << "\n"
+                    end
+                    client.job_progress_queue.each do |id, (kind, job_id, job_name, *args)|
+                        msg << Roby.console.color("-- ##{id} (job progress) --", :bold)
+                        msg.concat format_job_progress(kind, job_id, job_name, *args)
                         msg << "\n"
                     end
                     client.exception_queue.each do |id, (kind, exception, tasks)|
@@ -140,8 +153,9 @@ module Roby
                         msg.concat format_exception(kind, exception, tasks)
                         msg << "\n"
                     end
-                    client.notification_queue.clear
+                    client.job_progress_queue.clear
                     client.exception_queue.clear
+                    client.notification_queue.clear
                 end
                 puts msg.join("\n")
                 nil
@@ -204,33 +218,30 @@ module Roby
                 nil
             end
 
-            # Processes the exception and notification queues, and yields with a
+            # Processes the exception and job_progress queues, and yields with a
             # message that summarizes the new ones
             #
             # @param [Set] already_summarized the set of IDs of messages that
             #   have already been summarized. This should be the value returned by
             #   the last call to {#summarize_pending_messages}
             # @yieldparam [String] msg the message that summarizes the new
-            #   exception/notification
+            #   exception/job progress
             # @return [Set] the set of notifications still in the queues that
             #   have already been summarized. Pass to the next call to
             #   {#summarize_exception}
             def summarize_pending_messages(already_summarized = Set.new)
                 summarized = Set.new
-                client.exception_queue.delete_if do |id, args|
-                    summarized << id
-                    if !already_summarized.include?(id)
-                        msg, complete = summarize_exception(*args)
-                        yield "##{id} #{msg}"
-                        complete
-                    end
-                end
-                client.notification_queue.delete_if do |id, args|
-                    summarized << id
-                    if !already_summarized.include?(id)
-                        msg, complete = summarize_notification(*args)
-                        yield "##{id} #{msg}"
-                        complete
+                queues = {:exception => client.exception_queue,
+                          :job_progress => client.job_progress_queue,
+                          :notification => client.notification_queue}
+                queues.each do |type, q|
+                    q.delete_if do |id, args|
+                        summarized << id
+                        if !already_summarized.include?(id)
+                            msg, complete = send("summarize_#{type}", *args)
+                            yield "##{id} #{msg}"
+                            complete
+                        end
                     end
                 end
                 summarized

@@ -409,6 +409,7 @@ module Roby
             self.abort_on_application_exception = true
 
             @planners    = []
+            @notification_listeners = Array.new
 	end
 
         # The robot names configuration
@@ -721,30 +722,24 @@ module Roby
 
 	    # Set up log levels
 	    log['levels'].each do |name, value|
+                mod = Kernel.constant(name)
 		name = name.modulize
 		if value =~ /^(\w+):(.+)$/
-		    level, file = $1, $2
-		    level = Logger.const_get(level)
+		    value, file = $1, $2
 		    file = file.gsub('ROBOT', robot_name) if robot_name
-		else
-		    level = Logger.const_get(value)
 		end
+                level = Logger.const_get(value)
 
-		new_logger = if file
-				 path = File.expand_path(file, log_dir)
-				 io   = (log_files[path] ||= File.open(path, 'w'))
-				 Logger.new(io)
-			     else Logger.new(STDOUT)
-			     end
+                io = if file
+                         path = File.expand_path(file, log_dir)
+                         log_files[path] ||= File.open(path, 'w')
+                     else 
+                         STDOUT
+                     end
+                new_logger = Logger.new(io)
 		new_logger.level     = level
-		new_logger.formatter = Roby.logger.formatter
-
-                mod = Kernel.constant(name)
-                if robot_name
-                    new_logger.progname = "#{name} #{robot_name}"
-                else
-                    new_logger.progname = name
-                end
+		new_logger.formatter = mod.logger.formatter
+                new_logger.progname = [name, robot_name].compact.join(" ")
                 mod.logger = new_logger
 	    end
 	end
@@ -1698,6 +1693,47 @@ module Roby
             end
             plan.add(task = m.plan_pattern(arguments))
             return task, task.planning_task
+        end
+
+        # @return [#call] the blocks that listen to notifications. They are
+        #   added with {#on_notification} and removed with
+        #   {#remove_listener}
+        attr_reader :notification_listeners
+
+        # Enumerates the listeners currently registered through
+        # #on_notification
+        #
+        # @yieldparam [#call] the job listener object
+        def each_notification_listener(&block)
+            notification_listeners.each(&block)
+        end
+
+        # Sends a message to all notification listeners
+        def notify(source, level, message)
+            each_notification_listener do |block|
+                block.call(source, level, message)
+            end
+        end
+
+        # Registers a block to be called when a message needs to be
+        # dispatched
+        #
+        # @yieldparam [String] the source of the message
+        # @yieldparam [String] level the log level
+        # @yieldparam [String] message
+        # @return [Object] the listener ID that can be given to
+        #   {#remove_notification}
+        def on_notification(&block)
+            notification_listeners << block
+            block
+        end
+
+        # Removes a notification listener
+        #
+        # @param [Object] listener the listener ID returned by
+        #   {#on_notification}
+        def remove_notification_listener(listener)
+            notification_listeners.delete(listener)
         end
     end
 end
