@@ -47,11 +47,45 @@ module Roby
                 @client = nil
             end
 
-            def actions
-                actions = client.actions
+            def actions(regex = nil, verbose = false)
                 actions = client.actions.sort_by {|act| act.name }
+                if regex
+                    regex = Regexp.new(regex)
+                else
+                    regex = Regexp.new(".*")
+                end
                 actions.each do |action|
-                    puts "#{action.name}!(#{action.arguments.map(&:name).sort.join(", ")}): #{action.doc}"
+                    if regex.match(action.name)
+                        if verbose
+                            puts "\e[1m#{action.name}!\e[0m"
+
+                            arguments = action.arguments.sort_by {|arg| arg.name }
+                            required_arguments = []
+                            optional_arguments = []
+                            arguments.each do |argument|
+                                if argument.required
+                                    required_arguments << argument
+                                else
+                                    optional_arguments << argument
+                                end
+                            end
+                            if !required_arguments.empty?
+                                puts "    required arguments"
+                                required_arguments.each do |argument|
+                                    puts "        #{argument.name}: #{argument.doc} [default: #{argument.default}]"
+                                end
+                            end
+                            if !optional_arguments.empty?
+                                puts "    optional arguments:"
+                                optional_arguments.each do |argument|
+                                    puts "        #{argument.name}: #{argument.doc} [default: #{argument.default}]"
+                                end
+                            end
+                            puts "    doc: #{action.doc}" unless action.doc.empty?
+                        else
+                            puts "\e[1m#{action.name}!\e[0m(#{action.arguments.map(&:name).sort.join(", ")}): #{action.doc}"
+                        end
+                    end
                 end
                 nil
             end
