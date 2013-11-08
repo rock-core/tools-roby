@@ -4,7 +4,6 @@ require 'roby/actions'
 require 'flexmock/test_unit'
 
 class TC_Actions_InterfaceModel < Test::Unit::TestCase
-    include Roby::Planning
     include Roby::SelfTest
     include Roby::SelfTest::Assertions
 

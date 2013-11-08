@@ -2,7 +2,7 @@
 #
 # [Roby] core namespace for the Roby kernel
 # [Roby::Distributed] parts that are very specific to distributed plan management
-# [Roby::Planning] basic tools for plan generation
+# [Roby::Actions] basic tools for plan generation
 # [Roby::Transactions] implementation of transactions. Transactions represent a
 # change in the main plan, and can be distributed among different plan managers.
 # [Roby::EventStructure] main namespace for event relations. The methods listed
@@ -114,5 +114,4 @@ require 'roby/interface/job'
 require 'roby/robot'
 require 'roby/actions'
 require 'roby/coordination'
-require 'roby/planning'
 

@@ -5,7 +5,6 @@ require 'roby/tasks/simple'
 require 'flexmock/test_unit'
 
 class TC_Actions_Task < Test::Unit::TestCase
-    include Roby::Planning
     include Roby::SelfTest
     include Roby::SelfTest::Assertions
 

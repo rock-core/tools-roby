@@ -921,7 +921,6 @@ module Roby
         def base_setup
 	    STDOUT.sync = true
 
-            require 'roby/planning'
             require 'roby/interface'
 	    load_base_config
 
