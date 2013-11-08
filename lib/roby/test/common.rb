@@ -144,9 +144,9 @@ module Roby
 	end
 
 	def teardown_plan
+	    old_gc_roby_logger_level = Roby.logger.level
             return if !engine
 
-	    old_gc_roby_logger_level = Roby.logger.level
 	    if debug_gc?
 		Roby.logger.level = Logger::DEBUG
 	    end
@@ -167,7 +167,7 @@ module Roby
             end
 
 	ensure
-	    Roby.logger.level = old_gc_roby_logger_level
+            Roby.logger.level = old_gc_roby_logger_level
 	end
 
         def assert_raises(exception, &block)
@@ -214,7 +214,7 @@ module Roby
 	    teardown_plan
 	    timings[:teardown_plan] = Time.now
 
-            if @handler_ids
+            if @handler_ids && engine
                 @handler_ids.each do |handler_id|
                     engine.remove_propagation_handler(handler_id)
                 end
@@ -289,11 +289,11 @@ module Roby
 
 	ensure
             begin
+                while engine && engine.running?
+                    engine.quit
+                    engine.join rescue nil
+                end
                 if plan
-                    while engine.running?
-                        engine.quit
-                        engine.join rescue nil
-                    end
                     plan.clear
                 end
 
