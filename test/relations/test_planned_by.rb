@@ -19,6 +19,18 @@ class TC_PlannedBy < Test::Unit::TestCase
 	assert(task.child_object?(p2, PlannedBy))
     end
 
+    def test_it_does_not_assign_the_error_to_any_parent
+        plan.add_permanent(root = Roby::Task.new)
+	task = root.depends_on(Roby::Task.new)
+        planner = task.planned_by(Roby::Test::Tasks::Simple.new)
+	planner.start!
+        inhibit_fatal_messages do
+            assert_raises(PlanningFailedError) { planner.failed! }
+        end
+        assert_equal [], plan.check_structure.first.last
+        plan.remove_object(planner)
+    end
+
     def test_check
 	task = Roby::Task.new
 	planner = Roby::Test::Tasks::Simple.new
