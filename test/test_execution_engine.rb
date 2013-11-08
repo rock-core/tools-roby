@@ -1607,5 +1607,18 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         mock.should_receive(:called).with(a1).never
         engine.propagate_exceptions([[b.to_execution_exception, [a0]]])
     end
+
+    def test_the_propagation_is_robust_to_badly_specified_parents
+        plan.add(parent = Roby::Task.new)
+        child = parent.depends_on(Roby::Task.new)
+        plan.add(task = Roby::Task.new)
+
+        error = LocalizedError.new(child).to_execution_exception
+        result = inhibit_fatal_messages do
+            engine.propagate_exceptions([[error, [task]]])
+        end
+        assert_equal error, result.first.first
+        assert_equal [parent, child].to_set, result.first.last.to_set
+    end
 end
 

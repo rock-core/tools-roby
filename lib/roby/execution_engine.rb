@@ -1082,10 +1082,11 @@ module Roby
             end
 
             exceptions.each do |exception, parents|
+                parents = [] if !parents
                 debug do
                     debug "propagating exception "
                     log_pp :debug, exception
-                    if parents && !parents.empty?
+                    if !parents.empty?
                         debug "  constrained to parents"
                         log_nest(2) do
                             parents.each do |p|
@@ -1097,10 +1098,15 @@ module Roby
                 end
 
                 origin = exception.origin
+                filtered_parents = parents.find_all { |t| t.depends_on?(origin) }
+                if filtered_parents != parents
+                    warn "some parents specified for #{exception.exception} are actually not parents of #{origin}, they got filtered out"
+                end
+                parents = filtered_parents
                 handled_exceptions[exception.exception] = Set.new
                 remaining = TaskStructure::Dependency.reverse.
                     fork_merge_propagation(origin, exception, :vertex_visitor => visitor) do |from, to, e|
-                        if parents && !parents.empty?
+                        if !parents.empty?
                             if from == origin && !parents.include?(to)
                                 TaskStructure::Dependency.prune
                             end
@@ -1159,6 +1165,7 @@ module Roby
         # @param [Array<(ExecutionException,Array<Task>)>] exceptions the set of
         #   exceptions to propagate, as well as the parents that towards which
         #   we should propagate them (if empty, all parents)
+        # @return (see propagate_exception_in_plan)
         def propagate_exceptions(exceptions)
             debug "Filtering inhibited exceptions"
             exceptions = log_nest(2) do
