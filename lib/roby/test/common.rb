@@ -314,9 +314,7 @@ module Roby
             engine.join_all_worker_threads
             if !engine.running?
                 engine.start_new_cycle
-                engine.process_events_synchronous do
-                    engine.process_workers
-                end
+                engine.process_events
             else
                 engine.wait_one_cycle
             end
