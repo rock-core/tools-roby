@@ -730,7 +730,9 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    while !t.stop?; sleep(0.1) end
 	    mock.main_before
 	    assert(t.alive?)
-	    process_events
+            # We use engine.process_events as we are making the engine
+            # believe that it is running while it is not
+	    engine.process_events
 	    mock.main_after
 	    t.join
 
@@ -760,7 +762,10 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
 	# Wait for the thread to block
 	while !t.stop?; sleep(0.1) end
-	process_events
+        assert(t.alive?)
+        # We use engine.process_events as we are making the engine
+        # believe that it is running while it is not
+	engine.process_events
 	t.join
 
 	assert_kind_of(ArgumentError, returned_value)
@@ -782,7 +787,9 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	end
 
 	while !t.stop?; sleep(0.1) end
-	process_events
+        # We use engine.process_events as we are making the engine
+        # believe that it is running while it is not
+	engine.process_events
 	assert_nothing_raised { t.value }
 
     ensure
@@ -809,7 +816,9 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	while !t.stop?; sleep(0.1) end
         # And process the events
         with_log_level(Roby, Logger::FATAL) do
-            process_events
+            # We use engine.process_events as we are making the engine
+            # believe that it is running while it is not
+            engine.process_events
         end
 
 	result = t.value
