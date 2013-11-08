@@ -209,9 +209,6 @@ module Roby
         end
 
 	def teardown
-            if engine
-                process_events
-            end
             flexmock_teardown
 	    timings[:quit] = Time.now
 	    teardown_plan
