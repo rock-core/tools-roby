@@ -567,15 +567,19 @@ module Roby
 		    end
 		end
 
-		plugins << [name, mod]
-		extend mod
-		# If +load+ has already been called, call it on the module
-		if mod.respond_to?(:load) && options
-		    mod.load(self, options)
-		end
-                mod
+                add_plugin(name, mod)
 	    end
 	end
+
+        def add_plugin(name, mod)
+            plugins << [name, mod]
+            extend mod
+            # If +load+ has already been called, call it on the module
+            if mod.respond_to?(:load) && options
+                mod.load(self, options)
+            end
+            mod
+        end
 
         # The robot name
         #
