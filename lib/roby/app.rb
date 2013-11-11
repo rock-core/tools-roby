@@ -1283,21 +1283,39 @@ module Roby
             end
         end
 
-        # call-seq:
-        #   find_dirs('p1', 'p2')
-        #   find_dirs('p1', 'p2', 'ROBOT', :all => true)
+        # @overload find_files_in_dirs(*path, options)
         #
-        # Enumerates the directories matching p1/p2, following the loading rules
-        # for the current robot name and type:
+        # Enumerates the subdirectories of paths in {#search_path} matching the
+        # given path. The subdirectories are resolved using File.join(*path)
+        # If one of the elements of the path is the string 'ROBOT', it gets
+        # replaced by the robot name and type.
         #
-        #  * if one of the element is ROBOT, it gets replaced by the
-        #    robot name and/or the robot type
-        #  * if :all is false, the first directory matching p1/p2/ROBOT is
-        #    returned and others will be ignored.  Otherwise, all the
-        #    matching directories are returned
-        #  * if :order is :specific_first, the enumeration priority starts with the
-        #    robot-specific paths. Otherwise, it starts with the generic paths.
+        # @option options [Boolean] :all (true) if true, all matching
+        #   directories are returned. Otherwise, only the first one is (the
+        #   meaning of 'first' is controlled by the order option below)
+        # @option options [:specific_first,:specific_last] :order if
+        #   :specific_first, the first returned match is the one that is most
+        #   specific. The sorting order is to first sort by ROBOT and then by
+        #   the place in search_dir. From the most specific to the least
+        #   specific, ROBOT is assigned the robot name, the robot type and
+        #   finally an empty string.
+        # @return [Array<String>]
         #
+        # Given a search dir of [app2, app1]
+        #
+        #   app1/models/tasks/goto.rb
+        #   app1/models/tasks/v3/goto.rb
+        #   app2/models/tasks/asguard/goto.rb
+        #
+        # @example
+        #   find_dirs('tasks', 'ROBOT', :all => true, :order => :specific_first)
+        #   # returns [app1/models/tasks/v3,
+        #   #          app2/models/tasks/asguard,
+        #   #          app1/models/tasks/]
+        #
+        # @example
+        #   find_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
+        #   # returns [app1/models/tasks/v3/goto.rb]
         def find_dirs(*dir_path)
             Application.debug "find_dirs(#{dir_path.map(&:inspect).join(", ")})"
             if dir_path.last.kind_of?(Hash)
@@ -1360,33 +1378,39 @@ module Roby
             end
         end
 
-        # call-seq:
-        #   find_files_in_dirs('p1', 'p2')
-        #   find_files_in_dirs('p1', 'p2', 'ROBOT', :all => true)
-        #   find_files_in_dirs('p1', 'p2', :pattern => /\.rb$/)
+        # @overload find_files_in_dirs(*path, options)
         #
-        # Enumerates the files that are present in a directory matching p1/p2,
-        # following the loading rules for the current robot name and type:
+        # Enumerates the files that are present in subdirectories of paths in
+        # {#search_dir}. The subdirectories are resolved using File.join(*path)
+        # If one of the elements of the path is the string 'ROBOT', it gets
+        # replaced by the robot name and type.
         #
-        #  * if one of the element is ROBOT, it gets replaced by the
-        #    robot name and/or the robot type
-        #  * if :all is false, the first directory matching p1/p2/ROBOT will be
-        #    enumerated and others will be ignored.  Otherwise, all the
-        #    directories are enumerated
-        #  * if :order is :specific_first, the enumeration priority starts with the
-        #    robot-specific files. Otherwise, it starts with the generic files.
-        #  * only the files whose name matches :pattern (if given) are
-        #    enumerated
+        # @option (see find_dirs)
+        # @option options [#===] :pattern a filter to apply on the matching
+        #   results
+        # @return [Array<String>]
         #
+        # Given a search dir of [app2, app1]
+        #
+        #   app1/models/tasks/goto.rb
+        #   app1/models/tasks/v3/goto.rb
+        #   app2/models/tasks/asguard/goto.rb
+        #
+        # @example
+        #   find_files_in_dirs('tasks', 'ROBOT', :all => true, :order => :specific_first)
+        #   # returns [app1/models/tasks/v3/goto.rb,
+        #   #          app2/models/tasks/asguard/goto.rb,
+        #   #          app1/models/tasks/goto.rb]
+        #
+        # @example
+        #   find_files_in_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
+        #   # returns [app1/models/tasks/v3/goto.rb,
         def find_files_in_dirs(*dir_path)
             Application.debug "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})"
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
             options = Kernel.validate_options(options || Hash.new, :all, :order, :path, :pattern => Regexp.new(""))
-            if options[:pattern].respond_to?(:to_str)
-                options[:pattern] = Regexp.new("^" + Regexp.quote(options[:pattern]) + "$")
-            end
 
             dir_search = dir_path.dup
             dir_search << { :all => true, :order => options[:order], :path => options[:path] }
@@ -1398,7 +1422,7 @@ module Roby
                 Dir.new(dirname).each do |file_name|
                     file_path = File.join(dirname, file_name)
                     Application.debug "    file: #{file_path}"
-                    if File.file?(file_path) && file_name =~ options[:pattern]
+                    if File.file?(file_path) && options[:pattern] === file_name
                         Application.debug "      added"
                         result << file_path
                     end
@@ -1407,22 +1431,38 @@ module Roby
             return result
         end
 
-        # call-seq:
-        #   find_files('p1', 'ROBOT', 'p2', :all => true, :order => :specific_first)
+        # @overload find_files(*path, options)
         #
-        # Enumerates the files that match p1/ROBOT/p2, following the loading
-        # rules for the current robot name and type:
+        # Enumerates files based on their relative paths in {#search_path}.
+        # The paths are resolved using File.join(*path)
+        # If one of the elements of the path is the string 'ROBOT', it gets
+        # replaced by the robot name and type.
         #
-        #  * if one of the element is ROBOT, it gets replaced by the
-        #    robot name and/or the robot type
-        #  * if :all is false, the first directory matching p1/p2/ROBOT will be
-        #    enumerated and others will be ignored.  Otherwise, all the
-        #    directories are enumerated
-        #  * if :order is :specific_first, the enumeration priority starts with the
-        #    robot-specific files. Otherwise, it starts with the generic files.
+        # @option options [Boolean] :all (true) if true, all matching
+        #   directories are returned. Otherwise, only the first one is (the
+        #   meaning of 'first' is controlled by the order option below)
+        # @option options [:specific_first,:specific_last] :order if
+        #   :specific_first, the first returned match is the one that is most
+        #   specific. The sorting order is to first sort by ROBOT and then by
+        #   the place in search_dir. From the most specific to the least
+        #   specific, ROBOT is assigned the robot name, the robot type and
+        #   finally an empty string.
+        # @return [Array<String>]
         #
-        # If :all is false, the return value is the found file or nil. If it is
-        # true, it is an array of matches
+        # Given a search dir of [app2, app1], a robot name of v3 and a robot
+        # type of asguard,
+        #
+        #   app1/config/v3.rb
+        #   app2/config/asguard.rb
+        #
+        # @example
+        #   find_files('config', 'ROBOT.rb', :all => true, :order => :specific_first)
+        #   # returns [app1/config/v3.rb,
+        #   #          app2/config/asguard.rb]
+        #
+        # @example
+        #   find_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
+        #   # returns [app1/config/v3.rb]
         #
         def find_files(*file_path)
             if file_path.last.kind_of?(Hash)
@@ -1470,8 +1510,7 @@ module Roby
             return result
         end
 
-        # Identical to #find_files, but with the :all option always set to
-        # false, and returning a single value or nil
+        # Returns the first match from {#find_files}, or nil if nothing matches
         def find_file(*args)
             if !args.last.kind_of?(Hash)
                 args.push(Hash.new)
@@ -1481,8 +1520,7 @@ module Roby
             find_files(*args).first
         end
 
-        # Identical to #find_files, but with the :all option always set to
-        # false, and returning a single value or nil
+        # Returns the first match from {#find_dirs}, or nil if nothing matches
         def find_dir(*args)
             if !args.last.kind_of?(Hash)
                 args.push(Hash.new)
