@@ -5,6 +5,8 @@ module Roby
             class Task
                 # The task model
                 attr_reader :model
+                # The task name
+                attr_accessor :name
 
                 def initialize(model)
                     @model = model

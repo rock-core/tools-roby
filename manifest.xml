@@ -18,5 +18,6 @@
   <depend package="state_machine" />
   <depend package="tools/metaruby" />
   <depend package="websocket-gem" />
+  <depend package="binding_of_caller" />
 </package>
 

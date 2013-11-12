@@ -196,6 +196,14 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         end
     end
 
+    def test_it_sets_the_task_names_to_the_name_of_the_local_variables_they_are_assigned_to
+        _, machine = state_machine 'test' do
+            start_state = state(start_task(:id => 10))
+            start(start_state)
+        end
+        assert_equal 'start_state', machine.tasks.first.name
+    end
+
     def test_arbitrary_objects_must_be_converted_using_state_first
         obj = flexmock
         obj.should_receive(:to_action_state)

@@ -19,6 +19,7 @@ module Roby
     end
 end
 
+require 'binding_of_caller'
 require 'roby/coordination/calculus'
 require 'roby/coordination/models/task'
 require 'roby/coordination/models/event'

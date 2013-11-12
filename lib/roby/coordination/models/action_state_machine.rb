@@ -37,6 +37,7 @@ module Roby
 
             # Declares the starting state
             def start(state)
+                parse_task_names
                 @starting_state = validate_task(state)
             end
 
@@ -49,6 +50,20 @@ module Roby
                     raise ArgumentError, "expected a state object, got #{object}. States need to be created from e.g. actions by calling #state before they can be used in the state machine"
                 end
                 object
+            end
+
+            def parse_task_names
+                definition_context = binding.callers.find { |b| b.frame_type == :block }
+                return if !definition_context
+
+                # Assign names to tasks using the local variables
+                vars = definition_context.eval "local_variables"
+                values = definition_context.eval "[#{vars.map { |n| "#{n}" }.join(", ")}]"
+                vars.zip(values).each do |name, object|
+                    if object.kind_of?(Task)
+                        object.name = name.to_s
+                    end
+                end
             end
 
             # Computes the state of states that are used in the transitions but
@@ -98,6 +113,8 @@ module Roby
             #   if the given event is emitted
             #
             def transition(*spec)
+                parse_task_names
+
                 if spec.size == 2
                     state_event, new_state = *spec
                     transition(state_event.task_model, state_event, validate_task(new_state))
