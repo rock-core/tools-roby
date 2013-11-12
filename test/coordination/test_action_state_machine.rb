@@ -209,7 +209,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
             first = state(start_task(:id => 10))
             start(first)
         end
-        assert_equal task_m, machine.find_child_model('first_state')
+        assert_equal task_m, machine.find_child('first_state')
     end
 
     def test_arbitrary_objects_must_be_converted_using_state_first
