@@ -322,7 +322,7 @@ module Roby
             end
             parser.on('-r NAME', '--robot=NAME[,TYPE]', String, 'the robot name and type') do |name|
                 robot_name, robot_type = name.split(',')
-                Roby.app.robot(robot_name, robot_type||robot_name)
+                Roby.app.robot(robot_name, robot_type)
             end
             parser.on('--debug', 'run in debug mode') do
                 Roby.app.public_logs = true
