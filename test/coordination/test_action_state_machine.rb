@@ -196,12 +196,20 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         end
     end
 
-    def test_it_sets_the_task_names_to_the_name_of_the_local_variables_they_are_assigned_to
+    def test_it_sets_the_task_names_to_the_name_of_the_local_variables_they_are_assigned_to_with_a_state_suffix
         _, machine = state_machine 'test' do
-            start_state = state(start_task(:id => 10))
-            start(start_state)
+            first = state(start_task(:id => 10))
+            start(first)
         end
-        assert_equal 'start_state', machine.tasks.first.name
+        assert_equal 'first_state', machine.tasks.first.name
+    end
+
+    def test_it_can_resolve_a_state_model_by_its_child_name
+        _, machine = state_machine 'test' do
+            first = state(start_task(:id => 10))
+            start(first)
+        end
+        assert_equal task_m, machine.find_child_model('first_state')
     end
 
     def test_arbitrary_objects_must_be_converted_using_state_first

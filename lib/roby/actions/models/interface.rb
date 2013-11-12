@@ -170,6 +170,7 @@ module Roby
                     end
                 end
                 coordination_model.parse(&block)
+                action_model.coordination_model = coordination_model
 
                 if name
                     define_method(name) do |*arguments|

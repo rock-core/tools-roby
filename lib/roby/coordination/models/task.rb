@@ -30,15 +30,17 @@ module Roby
                     end
                 end
 
+                def can_resolve_child_models?
+                    model && model.respond_to?(:find_child)
+                end
+
                 def has_child?(role)
-                    if model && model.respond_to?(:find_child)
-                        model.find_child(role)
-                    else true
-                    end
+                    find_child_model(role) ||
+                        !can_resolve_child_models?
                 end
 
                 def find_child_model(role)
-                    if model && model.respond_to?(:find_child)
+                    if can_resolve_child_models?
                         model.find_child(role)
                     end
                 end

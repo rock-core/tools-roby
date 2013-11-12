@@ -6,6 +6,12 @@ module Roby
         class TaskWithDependencies < Task
             attribute(:dependencies) { Set.new }
 
+            def find_child_model(name)
+                if d = dependencies.find { |_, role| role == name }
+                    d[0].model
+                end
+            end
+
             def depends_on(action, options = Hash.new)
                 options = Kernel.validate_options options, :role
                 if !action.kind_of?(Coordination::Models::Task)

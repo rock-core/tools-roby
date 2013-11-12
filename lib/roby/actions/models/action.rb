@@ -58,6 +58,8 @@ module Roby
             #
             # @return [Model<Roby::Task>,Model<Roby::TaskService>]
             attr_reader :returned_type
+            # If this action is actually a coordination model, returns it
+            attr_accessor :coordination_model
 
             # @return [Action] an action using this action model and the given
             #   arguments
@@ -180,6 +182,7 @@ module Roby
                 @action_interface_model = action_interface_model.droby_dump(dest)
                 @returned_type = returned_type.droby_dump(dest)
                 @arguments = arguments.droby_dump(dest)
+                @coordination_model = nil
                 @returned_task_type = nil
             end
 
@@ -221,6 +224,18 @@ module Roby
                             end
                         end
                     end
+                end
+            end
+
+            # Returns the underlying coordination model
+            #
+            # @raise [ArgumentError] if this action is not defined by a
+            #   coordination model
+            # @return [Model<Coordination::Base>]
+            def to_coordination_model
+                if coordination_model
+                    coordination_model
+                else raise ArgumentError, "#{self} does not seem to be based on a coordination model"
                 end
             end
         end

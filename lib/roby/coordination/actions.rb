@@ -45,6 +45,10 @@ module Roby
             end
 
             def dependency_options_for(toplevel, task, roles)
+                roles = roles.dup
+                if task.name
+                    roles << task.name
+                end
                 Hash[:roles => roles,
                     :failure => :stop.or(:start.never),
                     :remove_when_done => true]
