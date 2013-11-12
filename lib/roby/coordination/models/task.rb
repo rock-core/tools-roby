@@ -52,32 +52,8 @@ module Roby
                 end
 
                 def method_missing(m, *args, &block)
-                    case m.to_s
-                    when /^(.*)_event$/
-                        if !args.empty?
-                            raise ArgumentError, "#{m} takes no arguments, #{args.size} given"
-                        end
-
-                        event_name = $1
-                        if event = find_event(event_name)
-                            return event
-                        else
-                            raise NoMethodError.new("#{model.name} has no event called #{event_name}", m)
-                        end
-                    when /^(.*)_child$/
-                        if !args.empty?
-                            raise ArgumentError, "#{m} takes no arguments, #{args.size} given"
-                        end
-
-                        role = $1
-                        if child = find_child(role)
-                            return child
-                        else
-                            raise NoMethodError.new("#{model.name} has no child with the role #{role}", m)
-                        end
-                    else
+                    MetaRuby::DSLs.find_through_method_missing(self, m, args, 'event', 'child') ||
                         super
-                    end
                 end
 
                 def to_coordination_task(task_model = Roby::Task)
