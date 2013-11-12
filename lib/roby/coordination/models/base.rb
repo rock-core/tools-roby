@@ -113,7 +113,7 @@ module Roby
                         raise ArgumentError, "expected zero arguments to #{m}, got #{args.size}"
                     end
                     Variable.new(m)
-                elsif m.to_s =~ /(.*)_event$/ || m.to_s =~ /(.*)_child/
+                elsif m.to_s =~ /(.*)_event$/ || m.to_s =~ /(.*)_child$/
                     return root.send(m, *args, &block)
                 else return super
                 end
