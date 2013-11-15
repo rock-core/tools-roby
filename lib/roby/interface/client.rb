@@ -159,7 +159,7 @@ module Roby
                 if m.to_s =~ /(.*)!$/
                     action_name = $1
                     if act = find_action_by_name(action_name)
-                        call(:start_job, action_name, *args)
+                        call([], :start_job, action_name, *args)
                     else raise ArgumentError, "there are is no action called #{action_name}"
                     end
 
