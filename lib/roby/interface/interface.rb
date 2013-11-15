@@ -196,6 +196,25 @@ module Roby
                 end
             end
 
+            def job_state(task)
+                if !task
+                    return JOB_FINALIZED
+                elsif task.success_event.happened?
+                    return JOB_SUCCESS
+                elsif task.failed_event.happened?
+                    return JOB_FAILED
+                elsif task.running?
+                    return JOB_STARTED
+                elsif planner = task.planning_task
+                    if planner.success?
+                        return JOB_READY
+                    elsif planner.running?
+                        return JOB_STARTED_PLANNING
+                    end
+                elsif task.pending? then return JOB_MONITORED
+                end
+            end
+
             # The jobs currently running on {#app}'s plan
             #
             # @return [Hash<Integer,Roby::Task>]
@@ -206,13 +225,22 @@ module Roby
                     planning_tasks.each do |job_task|
                         job_id = job_task.job_id
                         next if !job_id
-                        job_task = job_task.planned_task || job_task
-                        result[job_id] = job_task
+                        placeholder_job_task = job_task.planned_task || job_task
+                        result[job_id] = [job_state(placeholder_job_task), placeholder_job_task, job_task]
                     end
                 end
                 result
             end
             command :jobs, 'returns the list of non-finished jobs'
+
+            def find_job_info_by_id(id)
+                engine.execute do
+                    if planning_task = plan.find_tasks(Job).with_arguments(:job_id => id).to_a.first
+                        task = planning_task.planned_task || planning_task
+                        return job_state(task), task, planning_task
+                    end
+                end
+            end
 
             # Finds a job task by its ID
             #

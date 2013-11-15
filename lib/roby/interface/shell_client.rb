@@ -90,10 +90,24 @@ module Roby
                 nil
             end
 
+            def format_arguments(hash)
+                hash.keys.map do |k|
+                    v = hash[k]
+                    v = if !v || v.respond_to?(:to_str) then v.inspect
+                        else v
+                        end
+                    "#{k} => #{v}"
+                end.join(", ")
+            end
+
             def jobs
                 jobs = call Hash[:retry => true], [], :jobs
-                jobs.each do |id, name|
-                    puts "[%4d] %s" % [id, name]
+                jobs.each do |id, (state, task, planning_task)|
+                    if planning_task.respond_to?(:action_model) && planning_task.action_model
+                        name = "#{planning_task.action_model.to_s}(#{format_arguments(planning_task.action_arguments)})"
+                    else name = task.to_s
+                    end
+                    puts "[%4d] (%s) %s" % [id, state.to_s, name]
                 end
                 nil
             end
