@@ -9,18 +9,24 @@ module Roby
             attr_reader :interface
             # @return [String] a string that allows the user to identify the client
             attr_reader :client_id
+            # @return [Boolean] whether the messages should be
+            #   forwarded to our clients
+            attr_predicate :notifications_enabled?, true
 
             # @param [DRobyChannel] io a channel to the server
             # @param [Interface] interface the interface object we give remote
             #   access to
             def initialize(io, interface)
+                @notifications_enabled = true
                 @io, @interface = io, interface
                 interface.on_notification do |*args|
-                    begin
-                        io.write_packet([:notification, *args])
-                    rescue ComError
-                        # The disconnection is going to be handled by the caller
-                        # of #poll
+                    if notifications_enabled?
+                        begin
+                            io.write_packet([:notification, *args])
+                        rescue ComError
+                            # The disconnection is going to be handled by the caller
+                            # of #poll
+                        end
                     end
                 end
                 interface.on_job_notification do |*args|
@@ -49,6 +55,14 @@ module Roby
                 @client_id = id
                 Roby::Interface.warn "new interface client: #{id}"
                 return interface.actions, interface.commands
+            end
+
+            def enable_notifications
+                self.notifications_enabled = false
+            end
+
+            def disable_notifications
+                self.notifications_enabled = false
             end
 
             def close

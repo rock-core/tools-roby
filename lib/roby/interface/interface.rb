@@ -303,6 +303,10 @@ module Roby
             # This is implemented on ShellClient directly
             command 'describe', 'gives details about the given action',
                 :action => 'the action itself'
+
+            # This is implemented on Server directly
+            command 'enable_notifications', 'enables the forwarding of notifications'
+            command 'disable_notifications', 'disables the forwarding of notifications'
         end
     end
 end
