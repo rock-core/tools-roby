@@ -120,8 +120,7 @@ module Roby
                     append_to_history(plan_rebuilder.history.last)
                 end
                 @last_cycle = cycle
-                time = Time.at(*plan_rebuilder.stats[:start]) + plan_rebuilder.stats[:real_start]
-                emit liveUpdate(Qt::DateTime.new(time))
+                Time.at(*plan_rebuilder.stats[:start]) + plan_rebuilder.stats[:real_start]
             end
             signals 'liveUpdate(QDateTime)'
 
@@ -234,7 +233,8 @@ module Roby
                 @client = client
                 client.add_listener do |data|
                     needs_snapshot = plan_rebuilder.push_data(data)
-                    push_data(needs_snapshot, data)
+                    time = push_data(needs_snapshot, data)
+                    emit liveUpdate(Qt::DateTime.new(time))
 
                     cycle = plan_rebuilder.cycle_index
                     time = plan_rebuilder.cycle_start_time
