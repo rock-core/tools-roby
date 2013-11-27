@@ -165,7 +165,7 @@ module Roby
             # underlying history widget changed its source
             def updateWindowTitle
                 if parent_title = history_widget.window_title
-                    self.window_title = history_widget.window_title + ": Chronicle"
+                    self.window_title = parent_title + ": Chronicle"
                 else
                     self.window_title = "roby-display: Chronicle"
                 end
@@ -223,7 +223,7 @@ module Roby
             def update_current_time(time)
                 @current_time = time
                 current_tasks = ValueSet.new
-                history_widget.history.each_value do |time, snapshot, _|
+                history_widget.history.each_value do |_, snapshot, _|
                     current_tasks |= snapshot.plan.known_tasks
                 end
                 if filter
