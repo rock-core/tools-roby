@@ -54,7 +54,7 @@ module Roby
                 engine.execute do
                     task, planning_task = app.prepare_action(m, arguments)
                     app.plan.add_mission(task)
-                    planning_task.job_id = Job.allocate_job_id
+                    planning_task.job_id ||= Job.allocate_job_id
 
                     formatted_arguments = []
                     arguments.each do |k, v|
