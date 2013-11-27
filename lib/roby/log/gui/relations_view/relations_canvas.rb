@@ -560,6 +560,7 @@ module Roby
 
 	    def object_of(item)
                 id = item.data(0).to_string
+                return if !id
                 id = Integer(id)
 
 		obj, _ = graphics.find do |obj, obj_item| 
