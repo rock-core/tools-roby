@@ -30,6 +30,12 @@ module Roby
             # @param [Roby::Application] app the application
             def initialize(app)
                 super(app)
+                app.plan.add_trigger Roby::Interface::Job do |task|
+                    if task.job_id && (planned_task = task.planned_task)
+                        monitor_job(task, planned_task)
+                    end
+                end
+
                 @job_listeners = Array.new
             end
 
@@ -52,15 +58,8 @@ module Roby
             # @return [Integer] the job ID
             def start_job(m, arguments = Hash.new)
                 engine.execute do
-                    task, planning_task = app.prepare_action(m, arguments)
+                    task, planning_task = app.prepare_action(m, arguments.merge(:job_id => Job.allocate_job_id))
                     app.plan.add_mission(task)
-                    planning_task.job_id ||= Job.allocate_job_id
-
-                    formatted_arguments = []
-                    arguments.each do |k, v|
-                        formatted_arguments << "#{k} => #{v}"
-                    end
-                    monitor_job(planning_task.job_id, "#{m}(#{formatted_arguments.join(", ")})", task)
                     planning_task.job_id
                 end
             end
@@ -150,7 +149,15 @@ module Roby
             # Monitor the given task as a job
             #
             # It must be called within the Roby execution thread
-            def monitor_job(job_id, job_name, task)
+            def monitor_job(planning_task, task)
+                job_id = planning_task.job_id
+                if planning_task.respond_to?(:action_model) && planning_task.action_model
+                    formatted_arguments = (planning_task.action_arguments || Hash.new).map do |k, v|
+                        "#{k} => #{v}"
+                    end.join(", ")
+                    job_name = "#{planning_task.action_model}(#{formatted_arguments})"
+                else job_name = task.to_s
+                end
                 monitor_active = true
                 job_notify(JOB_MONITORED, job_id, job_name, task)
 
