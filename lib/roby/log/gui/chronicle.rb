@@ -56,6 +56,13 @@ module Roby
             # before the current displayed time: it shows the last active tasks
             # first)
             attr_reader :sort_mode
+            # Information about the plan's jobs
+            #
+            # This is updated when {#update_current_time} is called
+            #
+            # @return [{Task=>Task}] a mapping from job root tasks to the job's
+            #   planning task
+            attr_reader :job_info
             # See #sort_mode
             def sort_mode=(mode)
                 if ![:start_time, :last_event].include?(mode)
@@ -81,6 +88,17 @@ module Roby
                     raise ArgumentError, "sort_mode can be :all, :running or :current, got #{mode}"
                 end
                 @show_mode = mode
+            end
+
+            # @return [Boolean] true if only the action's toplevel tasks are
+            #   shown
+            attr_predicate :restrict_to_jobs?
+
+            # Sets whether only the toplevel job tasks should be shown
+            def restrict_to_jobs=(set)
+                @restrict_to_jobs = set
+                setCurrentTime
+                update
             end
 
             # Inclusion filter on task names
@@ -117,6 +135,7 @@ module Roby
             def initialize(history_widget, parent = nil)
                 super(parent)
 
+                @job_info = Hash.new
                 @history_widget = history_widget
                 @time_scale = 10
                 @task_height = 10
@@ -223,8 +242,28 @@ module Roby
             def update_current_time(time)
                 @current_time = time
                 current_tasks = ValueSet.new
+                job_info.clear
+
                 history_widget.history.each_value do |_, snapshot, _|
-                    current_tasks |= snapshot.plan.known_tasks
+                    # We cannot use #planning_task and #planned_task here:
+                    # the snapshots are messing with the root graphs.
+                    #
+                    # We instead have to access the relation graphs stored
+                    # in the snapshot
+                    snapshot.plan.known_tasks.each do |task|
+                        if task.kind_of?(Roby::Interface::Job)
+                            planned_task = task.enum_parent_objects(snapshot.relations[Roby::TaskStructure::PlannedBy]).first
+                            if planned_task
+                                job_info[planned_task] = task
+                            end
+                        end
+                    end
+                    if !restrict_to_jobs?
+                        current_tasks |= snapshot.plan.known_tasks
+                    end
+                end
+                if restrict_to_jobs?
+                    current_tasks = job_info.keys.to_value_set
                 end
                 if filter
                     current_tasks = current_tasks.find_all { |t| t.to_s =~ filter }
@@ -443,7 +482,7 @@ module Roby
 
                     # Add the text
                     painter.pen = Qt::Pen.new(TASK_NAME_COLOR)
-                    painter.drawText(Qt::Point.new(0, y1 - fm.descent), task.to_s)
+                    painter.drawText(Qt::Point.new(0, y1 - fm.descent), task_timeline_title(task))
 
                     # And finally display the emitted events
                     events.each do |x, y, text|
@@ -465,6 +504,23 @@ module Roby
                 if painter
                     painter.end
                 end
+            end
+
+            def task_timeline_title(task)
+                text = task.to_s
+                if planning_task = job_info[task]
+                    job_text = ["[#{planning_task.job_id}]"]
+                    if planning_task.action_model
+                        job_text << planning_task.action_model.name.to_s
+                    end
+                    if planning_task.action_arguments
+                        job_text << "(" + planning_task.action_arguments.map do |k,v|
+                            "#{k} => #{v}"
+                        end.join(", ") + ")"
+                    end
+                    text = "#{job_text.join(" ")} / #{text}"
+                end
+                text
             end
 
             # The time of the first registered cycle
@@ -533,6 +589,13 @@ module Roby
                 @menu_layout.add_widget(@btn_show)
                 @btn_show.menu = show_options
                 @menu_layout.add_stretch(1)
+                @restrict_to_jobs_btn = Qt::CheckBox.new("Restrict to jobs", self)
+                @restrict_to_jobs_btn.checkable = true
+                @restrict_to_jobs_btn.connect(SIGNAL('toggled(bool)')) do |set|
+                    chronicle.restrict_to_jobs = set
+                end
+                @menu_layout.add_widget(@restrict_to_jobs_btn)
+
                 @filter_lbl = Qt::Label.new("Filter", self)
                 @filter_box = Qt::LineEdit.new(self)
                 @filter_box.connect(SIGNAL('textChanged(QString const&)')) do |text|
@@ -658,6 +721,7 @@ module Roby
                 result['show_mode'] = chronicle.show_mode
                 result['sort_mode'] = chronicle.sort_mode
                 result['time_scale'] = chronicle.time_scale
+                result['restrict_to_jobs'] = chronicle.restrict_to_jobs?
                 result
             end
 
@@ -671,6 +735,9 @@ module Roby
                 end
                 if mode = options['sort_mode']
                     @act_sort[mode].checked = true
+                end
+                if mode = options['restrict_to_jobs']
+                    @restrict_to_jobs_btn.checked = true
                 end
             end
         end
