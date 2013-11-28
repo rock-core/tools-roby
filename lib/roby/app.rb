@@ -388,6 +388,7 @@ module Roby
         }
 
 	def initialize
+            @auto_load_models = true
             @app_dir = nil
             @search_path = nil
 	    @plugins = Array.new
@@ -828,14 +829,13 @@ module Roby
 	def require_models
 	    # Require all common task models and the task models specific to
 	    # this robot
-            all_files =
-                if testing? then []
-                else
+            if auto_load_models?
+                all_files =
                     find_files_in_dirs('models', 'tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/) +
                     find_files_in_dirs('tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/)
+                all_files.each do |p|
+                    require(p)
                 end
-            all_files.each do |p|
-                require(p)
             end
 
 	    # Set up the loaded plugins
@@ -856,7 +856,7 @@ module Roby
         # This method is called at the end of require_models, before the
         # plugins' require_models hook is called
         def require_planners
-            if !testing?
+            if auto_load_models?
                 main_files =
                     find_files('models', 'actions', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
                     find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
@@ -870,7 +870,7 @@ module Roby
                 Object.const_set(:Main, Class.new(Roby::Actions::Interface))
             end
 
-            if !testing?
+            if auto_load_models?
                 all_files =
                     find_files_in_dirs('models', 'actions', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
                     find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
@@ -1554,6 +1554,7 @@ module Roby
 
 	attr_predicate :testing?, true
 	def testing; self.testing = true end
+	attr_predicate :auto_load_models?, true
 	attr_predicate :shell?, true
 	def shell; self.shell = true end
 	def single?; @single end

@@ -7,6 +7,7 @@ app = Roby.app
 app.require_app_dir
 app.public_logs = false
 
+coverage_mode = false
 testrb_args = []
 parser = OptionParser.new do |opt|
     opt.on("-s", "--sim", "run tests in simulation mode") do |val|
@@ -21,14 +22,22 @@ parser = OptionParser.new do |opt|
     opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
 	testrb_args << "-n" << name
     end
+    opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
+        coverage_mode = true
+    end
     Roby::Application.common_optparse_setup(opt)
 end
 
 app.testing = true
-
+app.auto_load_models = false
 remaining_arguments = parser.parse(ARGV)
 
-result = nil
+if coverage_mode
+    app.auto_load_models = true
+    require 'simplecov'
+    SimpleCov.start
+end
+
 Roby.display_exception do
     Roby.app.setup
     Roby.app.prepare
