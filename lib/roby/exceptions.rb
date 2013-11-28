@@ -415,6 +415,8 @@ module Roby
             false
         end
 
+    rescue Interrupt, SystemExit
+        raise
     rescue Exception => e
         do_display_exception(io, e)
         e
