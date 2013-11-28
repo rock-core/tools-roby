@@ -8,7 +8,11 @@ module Roby
             def initialize(runtime_args, runtime_options = Hash.new)
                 super
 
-                given_name = args.shift
+                target_path = args.shift
+                if target_path !~ /^models\/#{model_type}\//
+                    raise ArgumentError, "was expecting a prefix of models/#{model_type} for the #{model_type} generator"
+                end
+                given_name = $'.gsub(/\.rb$/, '')
                 @class_name = Roby.app.app_name.camelize.split("::") +
                     given_name.camelize.split("::")
                 @file_name = *class_name[1..-1].map(&:snakecase)
