@@ -1,0 +1,7 @@
+Generates a new empty action interface. Pass the pass to the 
+
+Example: running the following command in a rock_auv app
+  roby gen models/actions/manipulation/grasping
+
+  will generate a RockAuv::Manipulation::Grasping class as well as the
+  associated test file in test/actions/manipulation/test_grasping.rb
