@@ -6,6 +6,7 @@ require 'utilrb/hash'
 require 'utilrb/module/attr_predicate'
 require 'yaml'
 require 'utilrb/pathname/find_matching_parent'
+require 'roby/app/base'
 
 module Roby
     # Regular expression that matches backtrace paths that are within the
@@ -194,6 +195,15 @@ module Roby
         #
         # It is false by default
         attr_predicate :ignore_all_load_errors?, true
+
+        # Returns the name of the application
+        def app_name
+            if @app_name
+                @app_name
+            else
+                File.basename(app_dir)
+            end
+        end
 
         # Returns the application base directory
         def app_dir
