@@ -15,6 +15,14 @@ module Roby
                 end
             end
 
+            def initialize(runtime_args, runtime_options = Hash.new)
+                super
+                usage if args.empty?
+
+                Roby.app.require_app_dir
+                @destination_root = Roby.app.app_dir
+            end
+
             def record
                 super() do |m|
                     m.extend RecorderExtension
