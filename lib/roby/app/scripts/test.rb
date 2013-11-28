@@ -45,17 +45,14 @@ Roby.display_exception do
     begin
         tests = Test::Unit::AutoRunner.new(true)
         tests.options.banner.sub!(/\[options\]/, '\& tests...')
-        unless tests.process_args(remaining_arguments)
-            abort tests.options.banner
+        has_tests = tests.process_args(testrb_args + remaining_arguments)
+        if has_tests
+            files = tests.to_run
+            $0 = files.size == 1 ? File.basename(files[0]) : files.to_s
+            result = tests.run
         end
-        files = tests.to_run
-        $0 = files.size == 1 ? File.basename(files[0]) : files.to_s
-        result = tests.run
     ensure
         Roby.app.cleanup
     end
 end
-
-exit result
-
 
