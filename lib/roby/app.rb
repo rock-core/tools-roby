@@ -861,6 +861,12 @@ module Roby
 	    call_plugins(:finalize_model_loading, self)
 	end
 
+        def register_generators
+            Roby.app.load_base_config
+            RubiGen::Base.__sources = [RubiGen::PathSource.new(:roby, File.join(Roby::ROBY_ROOT_DIR, "generators"))]
+            call_plugins(:register_generators, self)
+        end
+
         # Loads the planner models
         #
         # This method is called at the end of require_models, before the

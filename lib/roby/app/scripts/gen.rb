@@ -1,6 +1,9 @@
 require 'rubigen'
 require 'rubigen/scripts/generate'
-RubiGen::Base.__sources = [RubiGen::PathSource.new(:roby, File.join(Roby::ROBY_ROOT_DIR, "generators"))]
+
+Roby.app.auto_load_models = false
+Roby.app.setup
+Roby.app.register_generators
 
 gen_name = ARGV.shift
 if !gen_name
