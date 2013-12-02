@@ -9,13 +9,12 @@ module Roby
     #
     # For instance
     #
-    # @example
+    # @example create an openstruct and assign a value in the hierarchy
     #	root = Roby::OpenStruct.new
     #	root.child.value = 42
     #
     # However, you *cannot* check if a value is defined or not with
     #
-    # @example
     #	if (root.child)
     #	    <do something>
     #	end
@@ -23,7 +22,7 @@ module Roby
     # You'll have to test with respond_to? or field_name?. The second one will
     # return true only if the attribute is defined <b>and</b> it is not false
     #
-    # @example
+    # @example test for the presence of a value in the hierarchy
     #	if root.respond_to?(:child)
     #	    <do something if child has been set>
     #	end

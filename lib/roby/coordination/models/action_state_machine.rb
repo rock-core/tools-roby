@@ -44,6 +44,34 @@ module Roby
         # created with {TaskWithDependencies#depends_on} or dependencies of
         # the state machine itself created with {Actions#depends_on}. The events
         # of these task objects can be used in transitions
+        #
+        # Action state machine models are usually created through an action
+        # interface with Interface#action_state_machine. The state machine
+        # model can then be retrieved using
+        # {Actions::Models::Action#coordination_model}.
+        #
+        # @example creating an action state machine model
+        #   class Main < Roby::Actions::Interface
+        #     action_state_machine 'machine' do
+        #       move  = state move(:speed => 0.1)
+        #       stand = state move(:speed => 0)
+        #       # This monitor triggers each time the system moves more than
+        #       # 0.1 meters
+        #       d_monitor = task monitor_movement_threshold(:d => 0.1) 
+        #       # This monitor triggers after 20 seconds
+        #       t_monitor = task monitor_time_threshold(:t => 20) 
+        #       # Make the distance monitor run in the move state
+        #       move.depends_on d_monitor
+        #       # Make the time monitor run in the stand state
+        #       stand.depends_on t_monitor
+        #       start move
+        #       transition move, d_monitor.success_event, stand
+        #       transition stand, t_monitor.success_event, move
+        #     end
+        #   end
+        #
+        # @example retrieving a state machine model from an action
+        #   Main.machine.model.coordination_model
         module ActionStateMachine
             include Actions
 

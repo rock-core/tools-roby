@@ -147,6 +147,7 @@ module Roby
                 result
             end
 
+            # Helper method for {action_state_machine} and {action_script}
             def action_coordination(name, model, &block)
                 if !@current_description
                     raise ArgumentError, "you must describe the action with #describe before calling #action_coordination"
@@ -182,7 +183,17 @@ module Roby
                 return action_model, coordination_model
             end
 
-            # Creates a state machine of actions
+            # Defines an action from an
+            # {Coordination::Models::ActionStateMachine}
+            #
+            # @param [String] name the name of the new action
+            # @yield the action state machine definition
+            # @return [Action,Coordination::Models::ActionStateMachine]
+            #
+            # The action state machine model can later be retrieved using
+            # {Action#coordination_model}
+            #
+            # @example (see Coordination::Models::ActionStateMachine)
             def action_state_machine(name, &block)
                 if !@current_description
                     raise ArgumentError, "you must describe the action with #describe before calling #action_state_machine"
@@ -190,13 +201,20 @@ module Roby
                 action_coordination(name, Coordination::ActionStateMachine, &block)
             end
 
-            # @deprecated
-            # @see action_state_machine
+            # @deprecated use {action_state_machine} instead
             def state_machine(name, &block)
                 action_state_machine(name, &block)
             end
 
-            # Creates a script of actions
+            # Defines an action from an
+            # {Coordination::Models::ActionScript}
+            #
+            # @param [String] name the name of the new action
+            # @yield the action script definition
+            # @return [Action,Coordination::Models::ActionScript]
+            #
+            # The action script model can later be retrieved using
+            # {Action#coordination_model}
             def action_script(name, options = Hash.new, &block)
                 if !@current_description
                     raise ArgumentError, "you must describe the action with #describe before calling #action_script"
