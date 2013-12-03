@@ -50,6 +50,10 @@ Roby.display_exception do
     begin
         tests = Test::Unit::AutoRunner.new(true)
         tests.options.banner.sub!(/\[options\]/, '\& tests...')
+        if remaining_arguments.empty?
+            remaining_arguments = Roby.app.find_files_in_dirs('test', 'ROBOT', :all => true, :order => :specific_first, :pattern => /^(?:suite_|test_).*\.rb$/)
+        end
+
         has_tests = tests.process_args(testrb_args + remaining_arguments)
         if has_tests
             files = tests.to_run
