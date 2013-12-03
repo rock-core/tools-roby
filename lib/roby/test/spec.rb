@@ -26,6 +26,8 @@ module Roby
                 rescue ::Exception => e
                     teardown_failure = e
                 end
+
+                plan.engine.killall
                 if @watch_events_handler_id
                     engine.remove_propagation_handler(@watch_events_handler_id)
                 end
