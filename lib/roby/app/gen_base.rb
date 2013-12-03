@@ -30,6 +30,39 @@ module Roby
                 end
             end
 
+            # Helper to update files whose main purpose is to require other
+            # files in the folder hierarchy.
+            #
+            # @param [RubiGen::Manifest] manifest the manifest we use to
+            #   create/update files
+            # @param [String] relative_source the path to the template used to
+            #   require the sub-files. The file path is available in the
+            #   required_file local variable in the template
+            # @param [String] file the path to the file that should be
+            #   created/updated
+            # @param [String] base_path the path under which we should not
+            #   update/create any file anymore
+            # @param [String] file_patterns the pattern used to create the
+            #   aggregate file. Use %s as placeholder for basename
+            #
+            # @example create/update suite_XXX.rb files to require the tests under subdirectories
+            #   # Creates test/suite_in.rb test/in/suite_a.rb test/in/a/suite_dir.rb
+            #   register_in_aggregate_require_files(m, "require_file.rb", "test/in/a/dir/test_file.rb", "test", "suite_%.rb"
+            #
+            def register_in_aggregate_require_files(manifest, relative_source, file, base_path, file_pattern)
+                file = App.resolve_robot_in_path(file)
+                base_path = App.resolve_robot_in_path(base_path)
+                path = File.dirname(file)
+                while path != base_path
+                    new_basename = file_pattern % [File.basename(path, ".rb")]
+                    new_path = File.dirname(path)
+                    new_file = File.join(new_path, new_basename)
+                    manifest.add_template_to_file(relative_source, new_file, :assigns => Hash['required_file' => file])
+                    file = new_file
+                    path = File.dirname(path)
+                end
+            end
+
             # Helper to handle opening and closing modules
             #
             # @return [(String,String,String)] the indentation string for the
