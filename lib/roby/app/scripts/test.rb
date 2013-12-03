@@ -10,6 +10,9 @@ app.public_logs = false
 coverage_mode = false
 testrb_args = []
 parser = OptionParser.new do |opt|
+    opt.on("--single", "do not access remote systems") do |val|
+	Roby.app.single = val
+    end
     opt.on("-s", "--sim", "run tests in simulation mode") do |val|
 	Roby.app.simulation = val
     end
