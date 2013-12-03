@@ -1573,7 +1573,7 @@ module Roby
 	attr_predicate :auto_load_models?, true
 	attr_predicate :shell?, true
 	def shell; self.shell = true end
-	def single?; @single end
+	attr_predicate :single?, true
 	def single;  @single = true end
 
         def find_data(*name)
