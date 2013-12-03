@@ -209,7 +209,12 @@ module Roby
         end
 
 	def teardown
-            flexmock_teardown
+            begin
+                flexmock_teardown
+            rescue ::Exception => e
+                teardown_failure = e
+            end
+
 	    timings[:quit] = Time.now
 	    teardown_plan
 	    timings[:teardown_plan] = Time.now
@@ -284,7 +289,7 @@ module Roby
             super if defined? super
 
 	rescue Exception => e
-            teardown_failure = e
+            teardown_failure ||= e
             raise
 
 	ensure
@@ -302,6 +307,11 @@ module Roby
                 end
                 self.console_logger = false
                 self.event_logger   = false
+
+                if teardown_failure
+                    raise teardown_failure
+                end
+
             rescue Exception => e
                 if teardown_failure then raise teardown_failure
                 else raise e

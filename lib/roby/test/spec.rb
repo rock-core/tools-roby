@@ -21,9 +21,18 @@ module Roby
             end
 
             def teardown
-                super
+                begin
+                    super
+                rescue ::Exception => e
+                    teardown_failure = e
+                end
                 if @watch_events_handler_id
                     engine.remove_propagation_handler(@watch_events_handler_id)
+                end
+
+            ensure
+                if teardown_failure
+                    raise teardown_failure
                 end
             end
 
