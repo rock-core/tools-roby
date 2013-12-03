@@ -3,6 +3,8 @@ require 'roby/test/spec'
 require 'optparse'
 require 'test/unit'
 
+Robot.logger.level = Logger::WARN
+
 app = Roby.app
 app.require_app_dir
 app.public_logs = false
