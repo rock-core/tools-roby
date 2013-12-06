@@ -2,7 +2,7 @@
 #
 # [Roby] core namespace for the Roby kernel
 # [Roby::Distributed] parts that are very specific to distributed plan management
-# [Roby::Planning] basic tools for plan generation
+# [Roby::Actions] basic tools for plan generation
 # [Roby::Transactions] implementation of transactions. Transactions represent a
 # change in the main plan, and can be distributed among different plan managers.
 # [Roby::EventStructure] main namespace for event relations. The methods listed
@@ -24,6 +24,7 @@ require 'pp'
 require 'thread'
 require 'set'
 require 'yaml'
+require 'metaruby/dsls'
 require 'utilrb/value_set'
 require 'utilrb/object/attribute'
 require 'utilrb/module/ancestor_p'
@@ -62,6 +63,10 @@ require 'roby/relations'
 require 'roby/queries'
 require 'roby/plan-object'
 require 'roby/event'
+require 'roby/event_generator'
+require 'roby/filter_generator'
+require 'roby/and_generator'
+require 'roby/or_generator'
 require 'roby/models/arguments'
 require 'roby/models/task_service'
 require 'roby/models/task'
@@ -114,5 +119,4 @@ require 'roby/interface/job'
 require 'roby/robot'
 require 'roby/actions'
 require 'roby/coordination'
-require 'roby/planning'
 

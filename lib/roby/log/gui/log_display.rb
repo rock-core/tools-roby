@@ -110,17 +110,43 @@ module Roby
                             return
                         end
 
+                log_display = self
                 view = klass.new(@history_widget)
+                view.singleton_class.class_eval do
+                    define_method :closeEvent do |event|
+                        log_display.remove_display(name, id)
+                        event.accept
+                    end
+                end
+                connect_display(history_widget, view)
                 view.setAttribute(Qt::WA_QuitOnClose, false)
 
+                view.show
+                displays[name][id] = view
+            end
+
+            def remove_display(name, id)
+                view = displays[name][id]
+                displays[name][id] = nil
+                disconnect_display(history_widget, view)
+            end
+
+            def connect_display(history_widget, view)
                 Qt::Object.connect(history_widget, SIGNAL('appliedSnapshot(QDateTime)'),
                                    view, SLOT('setCurrentTime(QDateTime)'))
                 Qt::Object.connect(history_widget, SIGNAL('liveUpdate(QDateTime)'),
                                    view, SLOT('live_update(QDateTime)'))
                 Qt::Object.connect(history_widget, SIGNAL('sourceChanged()'),
                                    view, SLOT('updateWindowTitle()'))
-                view.show
-                displays[name][id] = view
+            end
+
+            def disconnect_display(history_widget, view)
+                Qt::Object.disconnect(history_widget, SIGNAL('appliedSnapshot(QDateTime)'),
+                                   view, SLOT('setCurrentTime(QDateTime)'))
+                Qt::Object.disconnect(history_widget, SIGNAL('liveUpdate(QDateTime)'),
+                                   view, SLOT('live_update(QDateTime)'))
+                Qt::Object.disconnect(history_widget, SIGNAL('sourceChanged()'),
+                                   view, SLOT('updateWindowTitle()'))
             end
 
             def info(message)

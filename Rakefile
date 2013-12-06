@@ -84,14 +84,18 @@ rescue LoadError => e
     STDERR.puts "  Ruby reported the following load error: #{e.message}"
 end
 
-if do_doc
+if Utilrb.respond_to?(:doc)
     namespace 'doc' do
         Utilrb.doc 'api', :include => ['lib/**/*.rb', 'ext/**/*.cc'],
             :exclude => ['lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*'],
             :target_dir => 'doc/html/api',
             :title => 'Rock Core',
             :plugins => ['utilrb', 'roby']
+    end
+end
 
+if do_doc
+    namespace 'doc' do
         Webgen::WebgenTask.new('guide') do |website|
             website.clobber_outdir = true
             website.directory = File.join(Dir.pwd, 'doc', 'guide')
@@ -124,3 +128,4 @@ if do_doc
     task 'redocs' => 'doc:redocs'
     task 'clobber_docs' => 'doc:clobber'
 end
+

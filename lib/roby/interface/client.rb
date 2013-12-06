@@ -9,6 +9,11 @@ module Roby
             attr_reader :actions
             # @return [Hash] the set of available commands
             attr_reader :commands
+            # @return [Array<Integer,Array>] list of existing job progress
+            #   information. The integer is an ID that can be used to refer to the
+            #   job progress information.  It is always growing and will never
+            #   collide with a job progress and exception ID
+            attr_reader :job_progress_queue
             # @return [Array<Integer,Array>] list of existing notifications. The
             #   integer is an ID that can be used to refer to the notification.
             #   It is always growing and will never collide with an exception ID
@@ -23,6 +28,7 @@ module Roby
                 @io = io
                 @message_id = 0
                 @notification_queue = Array.new
+                @job_progress_queue = Array.new
                 @exception_queue = Array.new
 
                 @actions, @commands = handshake(id)
@@ -51,6 +57,8 @@ module Roby
                     raise args.first
                 elsif m == :reply
                     yield args.first
+                elsif m == :job_progress
+                    push_job_progress(*args)
                 elsif m == :notification
                     push_notification(*args)
                 elsif m == :exception
@@ -90,8 +98,20 @@ module Roby
                 @message_id += 1
             end
 
-            def push_notification(kind, job_id, job_name, *args)
-                notification_queue.push [allocate_message_id, [kind, job_id, job_name, *args]]
+            def push_job_progress(kind, job_id, job_name, *args)
+                job_progress_queue.push [allocate_message_id, [kind, job_id, job_name, *args]]
+            end
+
+            def has_job_progresss?
+                !job_progress_queue.empty?
+            end
+
+            def pop_job_progress
+                job_progress_queue.pop
+            end
+
+            def push_notification(source, level, message)
+                notification_queue.push [allocate_message_id, [source, level, message]]
             end
 
             def has_notifications?
@@ -139,7 +159,7 @@ module Roby
                 if m.to_s =~ /(.*)!$/
                     action_name = $1
                     if act = find_action_by_name(action_name)
-                        call(:start_job, action_name, *args)
+                        call([], :start_job, action_name, *args)
                     else raise ArgumentError, "there are is no action called #{action_name}"
                     end
 

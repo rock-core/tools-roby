@@ -8,6 +8,15 @@ module Roby
             # @return [Roby::Actions::Action]
             attr_reader :action
 
+            # Returns the coordination model that is used to define the
+            # underlying action
+            #
+            # @return (see Models::Action#to_coordination_model)
+            # @raise (see Models::Action#to_coordination_model)
+            def to_coordination_model
+                action.to_coordination_model
+            end
+
             def initialize(action)
                 @action = action
                 super(action.model.returned_type)

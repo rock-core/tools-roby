@@ -1,12 +1,20 @@
 require 'roby'
+require 'roby/test/spec'
 require 'optparse'
+require 'test/unit'
+
+Robot.logger.level = Logger::WARN
 
 app = Roby.app
-app.guess_app_dir
+app.require_app_dir
 app.public_logs = false
 
+coverage_mode = false
 testrb_args = []
 parser = OptionParser.new do |opt|
+    opt.on("--single", "do not access remote systems") do |val|
+	Roby.app.single = val
+    end
     opt.on("-s", "--sim", "run tests in simulation mode") do |val|
 	Roby.app.simulation = val
     end
@@ -19,25 +27,41 @@ parser = OptionParser.new do |opt|
     opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
 	testrb_args << "-n" << name
     end
-    opt.on("-r NAME[:TYPE]", String, "the robot name and type") do |name|
-        name, type = name.split(':')
-        app.robot name, (type || name)
+    opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
+        coverage_mode = true
     end
+    Roby::Application.common_optparse_setup(opt)
 end
 
 app.testing = true
+app.auto_load_models = false
+remaining_arguments = parser.parse(ARGV)
 
-parser.parse! ARGV
-Roby.app.setup
-Roby.app.prepare
+if coverage_mode
+    app.auto_load_models = true
+    require 'simplecov'
+    SimpleCov.start
+end
 
-begin
-    r = Test::Unit::AutoRunner.new(true)
-    r.process_args(ARGV + testrb_args) or
-      abort r.options.banner + " tests..."
+Roby.display_exception do
+    Roby.app.setup
+    Roby.app.prepare
 
-    exit r.run
-ensure
-    Roby.app.cleanup
+    begin
+        tests = Test::Unit::AutoRunner.new(true)
+        tests.options.banner.sub!(/\[options\]/, '\& tests...')
+        if remaining_arguments.empty?
+            remaining_arguments = Roby.app.find_files_in_dirs('test', 'ROBOT', :all => true, :order => :specific_first, :pattern => /^(?:suite_|test_).*\.rb$/)
+        end
+
+        has_tests = tests.process_args(testrb_args + remaining_arguments)
+        if has_tests
+            files = tests.to_run
+            $0 = files.size == 1 ? File.basename(files[0]) : files.to_s
+            result = tests.run
+        end
+    ensure
+        Roby.app.cleanup
+    end
 end
 

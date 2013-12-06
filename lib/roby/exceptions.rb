@@ -348,7 +348,6 @@ module Roby
 
     def self.log_exception(e, logger, level)
         log_pp(e, logger, level)
-        log_backtrace(e, logger, level)
     end
 
     def self.log_backtrace(e, logger, level)
@@ -416,6 +415,8 @@ module Roby
             false
         end
 
+    rescue Interrupt, SystemExit
+        raise
     rescue Exception => e
         do_display_exception(io, e)
         e

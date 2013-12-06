@@ -20,8 +20,11 @@ class TC_TransactionAsPlan < Test::Unit::TestCase
 	@plan = Transaction.new(real_plan)
     end
     def teardown
-	@plan.discard_transaction
-	real_plan.clear
+        if real_plan
+            @plan.discard_transaction
+            real_plan.clear
+            @real_plan = plan
+        end
 	super
     end
 end
@@ -1190,6 +1193,7 @@ class TC_RecursiveTransaction < Test::Unit::TestCase
     def teardown
         plan.discard_transaction
         real_plan.clear
+        @plan = real_plan
 	super
     end
 

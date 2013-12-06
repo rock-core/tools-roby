@@ -21,8 +21,8 @@ module Roby
         # that cannot will be noted in their documentation
         class Interface < CommandLibrary
             # @return [#call] the blocks that listen to job notifications. They are
-            # added with {#on_job_notification} and removed with
-            # {#remove_job_listener}
+            #   added with {#on_job_notification} and removed with
+            #   {#remove_job_listener}
             attr_reader :job_listeners
 
             # Creates an interface from an existing Roby application
@@ -30,6 +30,12 @@ module Roby
             # @param [Roby::Application] app the application
             def initialize(app)
                 super(app)
+                app.plan.add_trigger Roby::Interface::Job do |task|
+                    if task.job_id && (planned_task = task.planned_task)
+                        monitor_job(task, planned_task)
+                    end
+                end
+
                 @job_listeners = Array.new
             end
 
@@ -43,7 +49,7 @@ module Roby
                         result << act
                     end
                 end
-                result.sort_by {|act| act.name }
+                result
             end
             command :actions, 'lists a summary of the available actions'
 
@@ -52,15 +58,8 @@ module Roby
             # @return [Integer] the job ID
             def start_job(m, arguments = Hash.new)
                 engine.execute do
-                    task, planning_task = app.prepare_action(m, arguments)
+                    task, planning_task = app.prepare_action(m, arguments.merge(:job_id => Job.allocate_job_id))
                     app.plan.add_mission(task)
-                    planning_task.job_id = Job.allocate_job_id
-
-                    formatted_arguments = []
-                    arguments.each do |k, v|
-                        formatted_arguments << "#{k} => #{v}"
-                    end
-                    monitor_job(planning_task.job_id, "#{m}(#{formatted_arguments.join(", ")})", task)
                     planning_task.job_id
                 end
             end
@@ -104,6 +103,16 @@ module Roby
                 end
             end
 
+            # (see Application#on_notification)
+            def on_notification(&block)
+                app.on_notification(&block)
+            end
+
+            # (see Application#remove_notification_listener)
+            def remove_notification_listener(&block)
+                app.remove_notification_listener(&block)
+            end
+
             # Registers a block to be called when a job changes state
             #
             # @yieldparam kind one of the JOB_* constants
@@ -140,7 +149,15 @@ module Roby
             # Monitor the given task as a job
             #
             # It must be called within the Roby execution thread
-            def monitor_job(job_id, job_name, task)
+            def monitor_job(planning_task, task)
+                job_id = planning_task.job_id
+                if planning_task.respond_to?(:action_model) && planning_task.action_model
+                    formatted_arguments = (planning_task.action_arguments || Hash.new).map do |k, v|
+                        "#{k} => #{v}"
+                    end.join(", ")
+                    job_name = "#{planning_task.action_model}(#{formatted_arguments})"
+                else job_name = task.to_s
+                end
                 monitor_active = true
                 job_notify(JOB_MONITORED, job_id, job_name, task)
 
@@ -186,6 +203,25 @@ module Roby
                 end
             end
 
+            def job_state(task)
+                if !task
+                    return JOB_FINALIZED
+                elsif task.success_event.happened?
+                    return JOB_SUCCESS
+                elsif task.failed_event.happened?
+                    return JOB_FAILED
+                elsif task.running?
+                    return JOB_STARTED
+                elsif planner = task.planning_task
+                    if planner.success?
+                        return JOB_READY
+                    elsif planner.running?
+                        return JOB_STARTED_PLANNING
+                    end
+                elsif task.pending? then return JOB_MONITORED
+                end
+            end
+
             # The jobs currently running on {#app}'s plan
             #
             # @return [Hash<Integer,Roby::Task>]
@@ -196,13 +232,22 @@ module Roby
                     planning_tasks.each do |job_task|
                         job_id = job_task.job_id
                         next if !job_id
-                        job_task = job_task.planned_task || job_task
-                        result[job_id] = job_task
+                        placeholder_job_task = job_task.planned_task || job_task
+                        result[job_id] = [job_state(placeholder_job_task), placeholder_job_task, job_task]
                     end
                 end
                 result
             end
             command :jobs, 'returns the list of non-finished jobs'
+
+            def find_job_info_by_id(id)
+                engine.execute do
+                    if planning_task = plan.find_tasks(Job).with_arguments(:job_id => id).to_a.first
+                        task = planning_task.planned_task || planning_task
+                        return job_state(task), task, planning_task
+                    end
+                end
+            end
 
             # Finds a job task by its ID
             #
@@ -265,6 +310,10 @@ module Roby
             # This is implemented on ShellClient directly
             command 'describe', 'gives details about the given action',
                 :action => 'the action itself'
+
+            # This is implemented on Server directly
+            command 'enable_notifications', 'enables the forwarding of notifications'
+            command 'disable_notifications', 'disables the forwarding of notifications'
         end
     end
 end

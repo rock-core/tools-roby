@@ -1082,10 +1082,11 @@ module Roby
             end
 
             exceptions.each do |exception, parents|
+                parents = [] if !parents
                 debug do
                     debug "propagating exception "
                     log_pp :debug, exception
-                    if parents && !parents.empty?
+                    if !parents.empty?
                         debug "  constrained to parents"
                         log_nest(2) do
                             parents.each do |p|
@@ -1097,10 +1098,15 @@ module Roby
                 end
 
                 origin = exception.origin
+                filtered_parents = parents.find_all { |t| t.depends_on?(origin) }
+                if filtered_parents != parents
+                    warn "some parents specified for #{exception.exception} are actually not parents of #{origin}, they got filtered out"
+                end
+                parents = filtered_parents
                 handled_exceptions[exception.exception] = Set.new
                 remaining = TaskStructure::Dependency.reverse.
                     fork_merge_propagation(origin, exception, :vertex_visitor => visitor) do |from, to, e|
-                        if parents && !parents.empty?
+                        if !parents.empty?
                             if from == origin && !parents.include?(to)
                                 TaskStructure::Dependency.prune
                             end
@@ -1159,6 +1165,7 @@ module Roby
         # @param [Array<(ExecutionException,Array<Task>)>] exceptions the set of
         #   exceptions to propagate, as well as the parents that towards which
         #   we should propagate them (if empty, all parents)
+        # @return (see propagate_exception_in_plan)
         def propagate_exceptions(exceptions)
             debug "Filtering inhibited exceptions"
             exceptions = log_nest(2) do
@@ -1671,10 +1678,23 @@ module Roby
         # A set of blocks that are called at each cycle end
         attr_reader :at_cycle_end_handlers
 
-        # Call +block+ at the end of the execution cycle	
+        # Adds a block to be called at the end of each execution cycle
+        #
+        # @return [Object] an object that allows to identify the block so that
+        #   it can be removed with {#remove_at_cycle_end}
+        #
+        # @yieldparam [Plan] plan the plan on which this engine runs
         def at_cycle_end(&block)
             handler = PollBlockDefinition.new("at_cycle_end #{block}", block, Hash.new)
             at_cycle_end_handlers << handler
+            handler.object_id
+        end
+
+        # Removes a handler added by {#at_cycle_end}
+        #
+        # @param [Object] handler_id the value returned by {#at_cycle_end}
+        def remove_at_cycle_end(handler_id)
+            at_cycle_end_handlers.delete_if { |h| h.object_id == handler_id }
         end
 
         # A set of blocks which are called every cycle

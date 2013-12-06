@@ -4,7 +4,6 @@ require 'roby/actions'
 require 'flexmock/test_unit'
 
 class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
-    include Roby::Planning
     include Roby::SelfTest
     include Roby::SelfTest::Assertions
 
@@ -195,6 +194,22 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
                 start(state(start_task(:id => task_id)))
             end
         end
+    end
+
+    def test_it_sets_the_task_names_to_the_name_of_the_local_variables_they_are_assigned_to_with_a_state_suffix
+        _, machine = state_machine 'test' do
+            first = state(start_task(:id => 10))
+            start(first)
+        end
+        assert_equal 'first_state', machine.tasks.first.name
+    end
+
+    def test_it_can_resolve_a_state_model_by_its_child_name
+        _, machine = state_machine 'test' do
+            first = state(start_task(:id => 10))
+            start(first)
+        end
+        assert_equal task_m, machine.find_child('first_state')
     end
 
     def test_arbitrary_objects_must_be_converted_using_state_first

@@ -144,9 +144,9 @@ module Roby
 	end
 
 	def teardown_plan
+	    old_gc_roby_logger_level = Roby.logger.level
             return if !engine
 
-	    old_gc_roby_logger_level = Roby.logger.level
 	    if debug_gc?
 		Roby.logger.level = Logger::DEBUG
 	    end
@@ -167,7 +167,7 @@ module Roby
             end
 
 	ensure
-	    Roby.logger.level = old_gc_roby_logger_level
+            Roby.logger.level = old_gc_roby_logger_level
 	end
 
         def assert_raises(exception, &block)
@@ -209,13 +209,17 @@ module Roby
         end
 
 	def teardown
-            process_events
-            flexmock_teardown
+            begin
+                flexmock_teardown
+            rescue ::Exception => e
+                teardown_failure = e
+            end
+
 	    timings[:quit] = Time.now
 	    teardown_plan
 	    timings[:teardown_plan] = Time.now
 
-            if @handler_ids
+            if @handler_ids && engine
                 @handler_ids.each do |handler_id|
                     engine.remove_propagation_handler(handler_id)
                 end
@@ -285,22 +289,29 @@ module Roby
             super if defined? super
 
 	rescue Exception => e
-            teardown_failure = e
+            teardown_failure ||= e
             raise
 
 	ensure
             begin
+                while engine && engine.running?
+                    engine.quit
+                    engine.join rescue nil
+                end
                 if plan
-                    while engine.running?
-                        engine.quit
-                        engine.join rescue nil
-                    end
                     plan.clear
                 end
 
-                Roby.logger.level = @original_roby_logger_level
+                if @original_roby_logger_level
+                    Roby.logger.level = @original_roby_logger_level
+                end
                 self.console_logger = false
                 self.event_logger   = false
+
+                if teardown_failure
+                    raise teardown_failure
+                end
+
             rescue Exception => e
                 if teardown_failure then raise teardown_failure
                 else raise e
@@ -313,9 +324,7 @@ module Roby
             engine.join_all_worker_threads
             if !engine.running?
                 engine.start_new_cycle
-                engine.process_events_synchronous do
-                    engine.process_workers
-                end
+                engine.process_events
             else
                 engine.wait_one_cycle
             end
@@ -643,21 +652,27 @@ module Roby
         end
 
 	module Assertions
-	    # Wait for any event in +positive+ to happen. If +negative+ is
-	    # non-empty, any event happening in this set will make the
-	    # assertion fail. If events in +positive+ are task events, the
-	    # :stop events of the corresponding tasks are added to negative
-	    # automatically.
+	    # Wait for events to be emitted, or for some events to not be
+            # emitted
+            #
+            # It will fail if all waited-for events become unreachable
+            #
+            # If a block is given, it is called after the checks are put in
+            # place. This is required if the code in the block causes the
+            # positive/negative events to be emitted
 	    #
-	    # If a block is given, it is called from within the control thread
-	    # after the checks are in place
-	    #
-	    # So, to check that a task fails, do
-	    #
-	    #	assert_event_emission(task.event(:fail)) do
+	    # @example test a task failure
+	    #	assert_event_emission(task.fail_event) do
 	    #	    task.start!
 	    #	end
-	    #
+            #
+            # @param [Array<EventGenerator>] positive the set of events whose
+            #   emission we are waiting for
+            # @param [Array<EventGenerator>] negative the set of events whose
+            #   emission will cause the assertion to fail
+            # @param [String] msg assertion failure message
+            # @param [Float] timeout timeout in seconds after which the
+            #   assertion fails if none of the positive events got emitted
             def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, &block)
                 error, result, unreachability_reason = watch_events(positive, negative, timeout, &block)
 

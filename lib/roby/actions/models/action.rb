@@ -58,6 +58,8 @@ module Roby
             #
             # @return [Model<Roby::Task>,Model<Roby::TaskService>]
             attr_reader :returned_type
+            # If this action is actually a coordination model, returns it
+            attr_accessor :coordination_model
 
             # @return [Action] an action using this action model and the given
             #   arguments
@@ -131,7 +133,7 @@ module Roby
                     if !arguments.empty?
                         raise ArgumentError, "#{name} expects no arguments, but #{arguments.size} are given"
                     end
-                    action_interface.send(name).as_plan
+                    result = action_interface.send(name).as_plan
                 else
                     default_arguments = self.arguments.inject(Hash.new) do |h, arg|
                         h[arg.name] = arg.default
@@ -143,8 +145,18 @@ module Roby
                             raise ArgumentError, "required argument #{arg.name} not given to #{name}"
                         end
                     end
-                    action_interface.send(name, arguments).as_plan
+                    result = action_interface.send(name, arguments).as_plan
                 end
+                # Make the planning task inherit the model/argument flags
+                if planning_task = result.planning_task
+                    if planning_task.respond_to?(:action_model=)
+                        planning_task.action_model ||= self
+                    end
+                    if planning_task.respond_to?(:action_arguments=)
+                        result.planning_task.action_arguments ||= arguments
+                    end
+                end
+                result
             end
 
             def rebind(action_interface_model)
@@ -159,10 +171,12 @@ module Roby
 
             # Returns the plan pattern that will deploy this action on the plan
             def plan_pattern(arguments = Hash.new)
+                job_id, arguments = Kernel.filter_options arguments, :job_id
+
                 planner = Roby::Actions::Task.new(
-                    :action_interface_model => action_interface_model,
+                    Hash[:action_interface_model => action_interface_model,
                     :action_model => self,
-                    :action_arguments => arguments)
+                    :action_arguments => arguments].merge(job_id))
                 planner.planned_task
             end
 
@@ -180,6 +194,7 @@ module Roby
                 @action_interface_model = action_interface_model.droby_dump(dest)
                 @returned_type = returned_type.droby_dump(dest)
                 @arguments = arguments.droby_dump(dest)
+                @coordination_model = nil
                 @returned_task_type = nil
             end
 
@@ -221,6 +236,18 @@ module Roby
                             end
                         end
                     end
+                end
+            end
+
+            # Returns the underlying coordination model
+            #
+            # @raise [ArgumentError] if this action is not defined by a
+            #   coordination model
+            # @return [Model<Coordination::Base>]
+            def to_coordination_model
+                if coordination_model
+                    coordination_model
+                else raise ArgumentError, "#{self} does not seem to be based on a coordination model"
                 end
             end
         end

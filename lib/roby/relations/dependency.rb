@@ -242,17 +242,17 @@ module Roby::TaskStructure
             #   [model1, arguments]
             #   [[model1, model2], arguments]
             if !options[:model].respond_to?(:to_ary)
-                options[:model] = [[options[:model]], Hash.new]
+                options[:model] = [Array(options[:model]), Hash.new]
             elsif options[:model].size == 2
                 if !options[:model].first.respond_to?(:to_ary)
                     if options[:model].last.kind_of?(Hash)
-                        options[:model] = [[options[:model].first], options[:model].last]
+                        options[:model] = [Array(options[:model].first), options[:model].last]
                     else
                         options[:model] = [options[:model], Hash.new]
                     end
                 end
             elsif !options[:model].first.respond_to?(:to_ary)
-                options[:model] = [options[:model], Hash.new]
+                options[:model] = [Array(options[:model]), Hash.new]
             end
 
             roles = options[:roles] || ValueSet.new

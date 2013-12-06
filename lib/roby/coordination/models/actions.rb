@@ -9,12 +9,13 @@ module Roby
             # @return [Model<Interface>,Model<Library>]
             attr_accessor :action_interface
 
-            # The set of defined forwards, as (Task,EventName)=>EventName
-            # @return [Array<(StateEvent,TaskEvent)>]
+            # The set of defined forwards
+            #
+            # @return [Array<(Task,Event,Event)>]
             inherited_attribute(:forward, :forwards) { Array.new }
 
-            # A set of tasks that should always be active when this state
-            # machine is running
+            # A set of tasks that should always be active when self is active
+            #
             # @return [Set<Task>]
             inherited_attribute(:dependency, :dependencies) { Set.new }
 
@@ -55,6 +56,13 @@ module Roby
                 end
             end
 
+            # Adds a toplevel dependency
+            #
+            # This declares that the given task should always run while self is
+            # running
+            #
+            # @param [Task] task
+            # @return [Task] the task itself
             def depends_on(task, options = Hash.new)
                 options = Kernel.validate_options options, :role
                 task = validate_task(task)
@@ -63,7 +71,8 @@ module Roby
             end
 
             # Returns the set of actions that should be active when the given
-            # task is active
+            # task is active, as a mapping from the {Task} object to the roles
+            # that this object has (as "dependency roles")
             #
             # It includes task itself, as task should run when it is active
             # @return [{Task=>Set<String>}]

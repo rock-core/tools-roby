@@ -86,13 +86,7 @@ module Roby
         end
     end
 
-    @logger = Logger.new(STDERR)
-    @logger.level = Logger::WARN
-    @logger.progname = "Roby"
-    @logger.formatter = lambda { |severity, time, progname, msg| "#{Roby.format_time(time)} (#{progname}) #{msg}\n" }
-
-    extend Logger::Hierarchy
-    extend Logger::Forward
+    extend Logger::Root('Roby', Logger::WARN) { |severity, time, progname, msg| "#{Roby.format_time(time)} (#{progname}) #{msg}\n" }
 
     class Pool < Queue
 	def initialize(klass)

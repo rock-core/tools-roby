@@ -1,0 +1,7 @@
+Generates a new empty task class. Pass the path to the new file
+
+Example: running the following command in a rock_auv app
+  roby gen models/tasks/control/job
+
+  will generate a RockAuv::Control::Job class as well as the
+  associated test file in test/tasks/control/test_job.rb

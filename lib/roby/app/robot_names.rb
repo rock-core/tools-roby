@@ -72,8 +72,8 @@ module Roby
             def resolve(name, type = nil)
                 robot_name = aliases[name] || name || default_robot_name
                 if !robot_name
-                    error(ArgumentError, "no robot name given and no default name declared in app.yml, defaulting to default:default")
-                    return 'default', 'default'
+                    error(ArgumentError, "no robot name given and no default name declared in app.yml, defaulting to #{DEFAULT_ROBOT_NAME}:#{DEFAULT_ROBOT_TYPE}")
+                    return DEFAULT_ROBOT_NAME, DEFAULT_ROBOT_TYPE
                 elsif robot_type = robots[robot_name]
                     type ||= robot_type
                     if type != robot_type

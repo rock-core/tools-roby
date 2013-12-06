@@ -47,18 +47,67 @@ module Roby
                 @client = nil
             end
 
-            def actions
-                actions = client.actions
+            def actions(regex = nil, verbose = false)
+                actions = client.actions.sort_by {|act| act.name }
+                if regex
+                    regex = Regexp.new(regex)
+                else
+                    regex = Regexp.new(".*")
+                end
                 actions.each do |action|
-                    puts "#{action.name}!(#{action.arguments.map(&:name).sort.join(", ")}): #{action.doc}"
+                    if regex.match(action.name)
+                        if verbose
+                            puts "\e[1m#{action.name}!\e[0m"
+
+                            arguments = action.arguments.sort_by {|arg| arg.name }
+                            required_arguments = []
+                            optional_arguments = []
+                            arguments.each do |argument|
+                                if argument.required
+                                    required_arguments << argument
+                                else
+                                    optional_arguments << argument
+                                end
+                            end
+                            if !required_arguments.empty?
+                                puts "    required arguments"
+                                required_arguments.each do |argument|
+                                    puts "        #{argument.name}: #{argument.doc} [default: #{argument.default}]"
+                                end
+                            end
+                            if !optional_arguments.empty?
+                                puts "    optional arguments:"
+                                optional_arguments.each do |argument|
+                                    puts "        #{argument.name}: #{argument.doc} [default: #{argument.default}]"
+                                end
+                            end
+                            puts "    doc: #{action.doc}" unless action.doc.empty?
+                        else
+                            puts "\e[1m#{action.name}!\e[0m(#{action.arguments.map(&:name).sort.join(", ")}): #{action.doc}"
+                        end
+                    end
                 end
                 nil
             end
 
+            def format_arguments(hash)
+                hash.keys.map do |k|
+                    v = hash[k]
+                    v = if !v || v.respond_to?(:to_str) then v.inspect
+                        else v
+                        end
+                    "#{k} => #{v}"
+                end.join(", ")
+            end
+
             def jobs
                 jobs = call Hash[:retry => true], [], :jobs
-                jobs.each do |id, name|
-                    puts "[%4d] %s" % [id, name]
+                jobs.each do |id, (state, task, planning_task)|
+                    if planning_task.respond_to?(:action_model) && planning_task.action_model
+                        name = "#{planning_task.action_model.to_s}(#{format_arguments(planning_task.action_arguments)})"
+                    else name = task.to_s
+                    end
+                    puts "[%4d] (%s) %s" % [id, state.to_s, name]
                 end
                 nil
             end
@@ -98,12 +147,20 @@ module Roby
                 end
             end
 
-            def format_notification(kind, job_id, job_name, *args)
+            def format_notification(source, level, message)
+                ["[#{level}] #{source}: #{message}"]
+            end
+
+            def summarize_notification(source, level, message)
+                return format_notification(source, level, message).first, true
+            end
+
+            def format_job_progress(kind, job_id, job_name, *args)
                 ["[#{job_id}] #{job_name}: #{kind}"]
             end
 
-            def summarize_notification(kind, job_id, job_name, *args)
-                return format_notification(kind, job_id, job_name, *args).first, true
+            def summarize_job_progress(kind, job_id, job_name, *args)
+                return format_job_progress(kind, job_id, job_name, *args).first, true
             end
 
             def format_exception(kind, error, *args)
@@ -130,9 +187,14 @@ module Roby
             def wtf?
                 msg = []
                 @mutex.synchronize do
-                    client.notification_queue.each do |id, (kind, job_id, job_name, *args)|
+                    client.notification_queue.each do |id, level, message|
                         msg << Roby.console.color("-- ##{id} (notification) --", :bold)
-                        msg.concat format_notification(kind, job_id, job_name, *args)
+                        msg.concat format_message(kind, level, message)
+                        msg << "\n"
+                    end
+                    client.job_progress_queue.each do |id, (kind, job_id, job_name, *args)|
+                        msg << Roby.console.color("-- ##{id} (job progress) --", :bold)
+                        msg.concat format_job_progress(kind, job_id, job_name, *args)
                         msg << "\n"
                     end
                     client.exception_queue.each do |id, (kind, exception, tasks)|
@@ -140,8 +202,9 @@ module Roby
                         msg.concat format_exception(kind, exception, tasks)
                         msg << "\n"
                     end
-                    client.notification_queue.clear
+                    client.job_progress_queue.clear
                     client.exception_queue.clear
+                    client.notification_queue.clear
                 end
                 puts msg.join("\n")
                 nil
@@ -204,33 +267,30 @@ module Roby
                 nil
             end
 
-            # Processes the exception and notification queues, and yields with a
+            # Processes the exception and job_progress queues, and yields with a
             # message that summarizes the new ones
             #
             # @param [Set] already_summarized the set of IDs of messages that
             #   have already been summarized. This should be the value returned by
             #   the last call to {#summarize_pending_messages}
             # @yieldparam [String] msg the message that summarizes the new
-            #   exception/notification
+            #   exception/job progress
             # @return [Set] the set of notifications still in the queues that
             #   have already been summarized. Pass to the next call to
             #   {#summarize_exception}
             def summarize_pending_messages(already_summarized = Set.new)
                 summarized = Set.new
-                client.exception_queue.delete_if do |id, args|
-                    summarized << id
-                    if !already_summarized.include?(id)
-                        msg, complete = summarize_exception(*args)
-                        yield "##{id} #{msg}"
-                        complete
-                    end
-                end
-                client.notification_queue.delete_if do |id, args|
-                    summarized << id
-                    if !already_summarized.include?(id)
-                        msg, complete = summarize_notification(*args)
-                        yield "##{id} #{msg}"
-                        complete
+                queues = {:exception => client.exception_queue,
+                          :job_progress => client.job_progress_queue,
+                          :notification => client.notification_queue}
+                queues.each do |type, q|
+                    q.delete_if do |id, args|
+                        summarized << id
+                        if !already_summarized.include?(id)
+                            msg, complete = send("summarize_#{type}", *args)
+                            yield "##{id} #{msg}"
+                            complete
+                        end
                     end
                 end
                 summarized
