@@ -47,6 +47,21 @@ module Roby
                 Roby.app.abort_on_exception = false
             end
 
+            def assert_raises(klass)
+                super do
+                    begin
+                        inhibit_fatal_messages do
+                            yield
+                        end
+                    rescue Roby::CodeError => code_error
+                        if code_error.error.kind_of?(klass)
+                            raise code_error.error
+                        else raise
+                        end
+                    end
+                end
+            end
+
             end
 
             # Enable this test only on the configurations in which the given
