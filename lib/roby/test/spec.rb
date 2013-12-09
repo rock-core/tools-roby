@@ -62,6 +62,23 @@ module Roby
                 end
             end
 
+            def inhibit_fatal_messages(&block)
+                with_log_level(Roby, Logger::FATAL, &block)
+            end
+
+            def with_log_level(log_object, level)
+                if log_object.respond_to?(:logger)
+                    log_object = log_object.logger
+                end
+                current_level = log_object.level
+                log_object.level = level
+
+                yield
+
+            ensure
+                if current_level
+                    log_object.level = current_level
+                end
             end
 
             # Enable this test only on the configurations in which the given
