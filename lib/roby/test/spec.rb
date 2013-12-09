@@ -39,9 +39,14 @@ module Roby
             end
 
             def process_events
+                Roby.app.abort_on_exception = true
                 engine.join_all_worker_threads
                 engine.start_new_cycle
                 engine.process_events
+            ensure
+                Roby.app.abort_on_exception = false
+            end
+
             end
 
             # Enable this test only on the configurations in which the given

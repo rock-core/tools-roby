@@ -730,7 +730,7 @@ module Roby
                             error, result = result_queue.pop
                         else
                             while result_queue.empty?
-                                engine.process_events
+                                process_events
                                 sleep(0.05)
                             end
                             error, result = result_queue.pop
