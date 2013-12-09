@@ -8,15 +8,19 @@ Robot.logger.level = Logger::WARN
 app = Roby.app
 app.require_app_dir
 app.public_logs = false
+app.single = true
+app.simulation = true
+app.testing = true
+app.auto_load_models = false
 
 coverage_mode = false
 testrb_args = []
 parser = OptionParser.new do |opt|
-    opt.on("--single", "do not access remote systems") do |val|
-	Roby.app.single = val
+    opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
+	Roby.app.single = !val
     end
-    opt.on("-s", "--sim", "run tests in simulation mode") do |val|
-	Roby.app.simulation = val
+    opt.on("-l", "--live", "run tests in live mode") do |val|
+	Roby.app.simulation = !val
     end
     opt.on("-k", "--keep-logs", "keep all logs") do |val|
 	Roby.app.public_logs = true
@@ -33,8 +37,6 @@ parser = OptionParser.new do |opt|
     Roby::Application.common_optparse_setup(opt)
 end
 
-app.testing = true
-app.auto_load_models = false
 remaining_arguments = parser.parse(ARGV)
 
 if coverage_mode
