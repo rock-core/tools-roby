@@ -68,6 +68,9 @@ module Roby
                     manifest.add_template_to_file(relative_source, new_file, :assigns => Hash['required_file' => file])
                     file = new_file
                     path = File.dirname(path)
+                    if path.empty? || path == "."
+                        raise ArgumentError, "#{base_path} is not a parent path for #{file}"
+                    end
                 end
             end
 
