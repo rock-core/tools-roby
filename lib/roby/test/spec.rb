@@ -39,9 +39,46 @@ module Roby
             end
 
             def process_events
+                Roby.app.abort_on_exception = true
                 engine.join_all_worker_threads
                 engine.start_new_cycle
                 engine.process_events
+            ensure
+                Roby.app.abort_on_exception = false
+            end
+
+            def assert_raises(klass)
+                super do
+                    begin
+                        inhibit_fatal_messages do
+                            yield
+                        end
+                    rescue Roby::CodeError => code_error
+                        if code_error.error.kind_of?(klass)
+                            raise code_error.error
+                        else raise
+                        end
+                    end
+                end
+            end
+
+            def inhibit_fatal_messages(&block)
+                with_log_level(Roby, Logger::FATAL, &block)
+            end
+
+            def with_log_level(log_object, level)
+                if log_object.respond_to?(:logger)
+                    log_object = log_object.logger
+                end
+                current_level = log_object.level
+                log_object.level = level
+
+                yield
+
+            ensure
+                if current_level
+                    log_object.level = current_level
+                end
             end
 
             # Enable this test only on the configurations in which the given
