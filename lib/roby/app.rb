@@ -1416,6 +1416,9 @@ module Roby
         # @option (see find_dirs)
         # @option options [#===] :pattern a filter to apply on the matching
         #   results
+        # @option options [Symbol] :all (false) if true, all files from all
+        #   matching directories are returned. Otherwise, only the files from
+        #   the first matching directory is searched
         # @return [Array<String>]
         #
         # Given a search dir of [app2, app1]
@@ -1455,6 +1458,7 @@ module Roby
                         result << file_path
                     end
                 end
+                break if !options[:all]
             end
             return result
         end
