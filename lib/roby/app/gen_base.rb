@@ -60,6 +60,7 @@ module Roby
             def register_in_aggregate_require_files(manifest, relative_source, file, base_path, file_pattern)
                 file = resolve_robot_in_path(file)
                 base_path = resolve_robot_in_path(base_path)
+                base_path = base_path.gsub(/\/$/, '')
                 path = File.dirname(file)
                 while path != base_path
                     new_basename = file_pattern % [File.basename(path, ".rb")]
