@@ -2152,6 +2152,10 @@ module Roby
 
         # Kill all tasks that are currently running in the plan
         def killall(limit = 100)
+            if scheduler
+                scheduler_enabled = scheduler.enabled?
+            end
+
             last_known_tasks = ValueSet.new
             last_quarantine = ValueSet.new
             counter = 0
@@ -2196,6 +2200,10 @@ module Roby
                     break
                 end
                 sleep 0.01
+            end
+        ensure
+            if scheduler
+                scheduler.enabled = scheduler_enabled
             end
         end
 
