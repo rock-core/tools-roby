@@ -403,6 +403,7 @@ module Roby
         }
 
 	def initialize
+            @auto_load_all = false
             @auto_load_models = true
             @app_dir = nil
             @search_path = nil
@@ -845,9 +846,10 @@ module Roby
 	    # Require all common task models and the task models specific to
 	    # this robot
             if auto_load_models?
+                search_path = self.auto_load_search_path
                 all_files =
-                    find_files_in_dirs('models', 'tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/) +
-                    find_files_in_dirs('tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/)
+                    find_files_in_dirs('models', 'tasks', 'ROBOT', :path => search_path, :all => true, :order => :specific_last, :pattern => /\.rb$/) +
+                    find_files_in_dirs('tasks', 'ROBOT', :path => search_path, :all => true, :order => :specific_last, :pattern => /\.rb$/)
                 all_files.each do |p|
                     require(p)
                 end
@@ -877,10 +879,11 @@ module Roby
         # This method is called at the end of require_models, before the
         # plugins' require_models hook is called
         def require_planners
+            search_path = self.auto_load_search_path
             if auto_load_models?
                 main_files =
-                    find_files('models', 'actions', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
-                    find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
+                    find_files('models', 'actions', 'ROBOT', 'main.rb', :path => search_path, :all => true, :order => :specific_first) +
+                    find_files('models', 'planners', 'ROBOT', 'main.rb', :path => search_path, :all => true, :order => :specific_first) +
                     find_files('planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first)
                 main_files.each do |path|
                     require path
@@ -893,9 +896,9 @@ module Roby
 
             if auto_load_models?
                 all_files =
-                    find_files_in_dirs('models', 'actions', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
-                    find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
-                    find_files_in_dirs('planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/)
+                    find_files_in_dirs('models', 'actions', 'ROBOT', :path => search_path, :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+                    find_files_in_dirs('models', 'planners', 'ROBOT', :path => search_path, :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+                    find_files_in_dirs('planners', 'ROBOT', :path => search_path, :all => true, :order => :specific_first, :pattern => /\.rb$/)
                 all_files.each do |p|
                     require(p)
                 end
@@ -1493,7 +1496,7 @@ module Roby
             if file_path.last.kind_of?(Hash)
                 options = file_path.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :all, :order)
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :path)
 
             # Remove the filename from the complete path
             filename = file_path.pop
@@ -1575,11 +1578,28 @@ module Roby
 
 	attr_predicate :testing?, true
 	def testing; self.testing = true end
-	attr_predicate :auto_load_models?, true
 	attr_predicate :shell?, true
 	def shell; self.shell = true end
 	attr_predicate :single?, true
 	def single;  @single = true end
+
+        # @return [Boolean] true if Roby's auto-load feature should load all
+        #   models in {search_path} or only the ones in {app_dir}. It influences
+        #   the return value of {auto_load_search_path}
+	attr_predicate :auto_load_all?, true
+
+        # @return [Boolean] true if Roby should load the available the model
+        #   files automatically in {require_models}
+	attr_predicate :auto_load_models?, true
+
+        # @return [Array<String>] the search path for the auto-load feature. It
+        #   depends on the value of {auto_load_all}
+        def auto_load_search_path
+            if auto_load_all? then search_path
+            elsif app_dir then [app_dir]
+            else []
+            end
+        end
 
         def find_data(*name)
             Application.find_data(*name)
