@@ -4,16 +4,20 @@ module Roby
         class GenBase < RubiGen::Base
             module RecorderExtension
                 def directory(relative_destination)
-                    super(App.resolve_robot_in_path(relative_destination))
+                    super(target.resolve_robot_in_path(relative_destination))
                 end
                 def file(relative_source, relative_destination, file_options = Hash.new, &block)
-                    relative_destination = App.resolve_robot_in_path(relative_destination)
+                    relative_destination = target.resolve_robot_in_path(relative_destination)
                     super(relative_source, relative_destination, file_options, &block)
                 end
                 def template(template, dest, *args, &block)
-                    super(template, App.resolve_robot_in_path(dest), *args, &block)
+                    super(template, target.resolve_robot_in_path(dest), *args, &block)
                 end
             end
+
+            # @return [String] the name of the robot that should be used to
+            #   resolve the ROBOT placeholder
+            attr_reader :robot_name
 
             def initialize(runtime_args, runtime_options = Hash.new)
                 super
@@ -21,6 +25,10 @@ module Roby
 
                 Roby.app.require_app_dir
                 @destination_root = Roby.app.app_dir
+            end
+
+            def resolve_robot_in_path(path)
+                App.resolve_robot_in_path(path, robot_name)
             end
 
             def record
@@ -50,8 +58,8 @@ module Roby
             #   register_in_aggregate_require_files(m, "require_file.rb", "test/in/a/dir/test_file.rb", "test", "suite_%.rb"
             #
             def register_in_aggregate_require_files(manifest, relative_source, file, base_path, file_pattern)
-                file = App.resolve_robot_in_path(file)
-                base_path = App.resolve_robot_in_path(base_path)
+                file = resolve_robot_in_path(file)
+                base_path = resolve_robot_in_path(base_path)
                 path = File.dirname(file)
                 while path != base_path
                     new_basename = file_pattern % [File.basename(path, ".rb")]
@@ -87,6 +95,15 @@ module Roby
                     indent = indent + "    "
                 end
                 return indent, open_code.join("\n"), close_code.join("\n")
+            end
+
+            # Overloaded to add the -r option to the command line
+            #
+            # This is called by rubigen on option parsing
+            def add_options!(opt)
+                opt.on '-r NAME', '--robot NAME' do |name|
+                    @robot_name = name
+                end
             end
         end
     end
