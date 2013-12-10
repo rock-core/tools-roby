@@ -108,6 +108,11 @@ module Roby
                     @robot_name = name
                 end
             end
+
+            # Overloaded to add a proper banner
+            def banner
+                "Usage: roby gen #{spec.name} NAME [options]"
+            end
         end
     end
 end
