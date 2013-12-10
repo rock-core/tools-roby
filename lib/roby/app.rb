@@ -205,6 +205,11 @@ module Roby
             end
         end
 
+        # Returns the name of this app's toplevel module
+        def module_name
+            app_name.camelize
+        end
+
         # Returns the application base directory
         def app_dir
             if defined?(APP_DIR)
