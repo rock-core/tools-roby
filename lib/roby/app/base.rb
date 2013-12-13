@@ -8,8 +8,7 @@ module Roby
         # @param [String] path
         # @param [String] robot_name
         # @return [String]
-        def self.resolve_robot_in_path(path, app = Roby.app)
-            robot_name = app.robot_name
+        def self.resolve_robot_in_path(path, robot_name = Roby.app.robot_name)
             if robot_name == DEFAULT_ROBOT_NAME
                 robot_name = ""
             end
