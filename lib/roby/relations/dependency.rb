@@ -656,9 +656,9 @@ module Roby::TaskStructure
             task_model2 = models2.find { |m| m <= Roby::Task }
             result_model = []
             if task_model1 && task_model2
-                if task_model1 <= task_model2
+                if task_model1.fullfills?(task_model2)
                     result_model << task_model1
-                elsif task_model2 < task_model1
+                elsif task_model2.fullfills?(task_model1)
                     result_model << task_model2
                 else
                     raise Roby::ModelViolation, "incompatible models #{task_model1} and #{task_model2}"

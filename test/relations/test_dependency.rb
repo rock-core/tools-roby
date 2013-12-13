@@ -483,6 +483,16 @@ class TC_Dependency < Test::Unit::TestCase
         assert_equal info, parent[child, Dependency]
     end
 
+    def test_merge_dependency_options_uses_fullfills_to_determine_which_model_to_return
+        root = flexmock(:<= => true)
+        submodel = flexmock(:<= => true)
+        root.should_receive(:fullfills?).with(submodel).and_return(false)
+        submodel.should_receive(:fullfills?).with(root).and_return(true)
+        opt1 = Hash[:model => [[root], Hash.new]]
+        opt2 = Hash[:model => [[submodel], Hash.new]]
+        result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(opt1, opt2)
+        assert_equal [[submodel], Hash.new], result[:model]
+    end
     def test_merging_roles
         parent, child, info, _ = setup_merging_test
 
