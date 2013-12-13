@@ -704,6 +704,8 @@ module Roby::TaskStructure
             result = DependencyGraphClass.merge_dependency_options(opt1, opt2)
             update_triggers_for(parent, child, result)
             result
+        rescue Exception => e
+            raise e, e.message + " while updating the dependency information for #{parent} -> #{child}"
         end
 
         # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
