@@ -493,6 +493,17 @@ class TC_Dependency < Test::Unit::TestCase
         result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(opt1, opt2)
         assert_equal [[submodel], Hash.new], result[:model]
     end
+    def test_merge_dependency_options_raises_ArgumentError_if_the_models_are_not_related
+        m1, m2 = flexmock(:<= => true), flexmock(:<= => true)
+        m1.should_receive(:fullfills?).with(m2).and_return(false)
+        m2.should_receive(:fullfills?).with(m1).and_return(false)
+        opt1 = Hash[:model => [[m1], Hash.new]]
+        opt2 = Hash[:model => [[m2], Hash.new]]
+        assert_raises(Roby::ModelViolation) do
+            Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(opt1, opt2)
+        end
+    end
+
     def test_merging_roles
         parent, child, info, _ = setup_merging_test
 
