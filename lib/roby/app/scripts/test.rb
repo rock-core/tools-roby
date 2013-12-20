@@ -38,6 +38,9 @@ parser = OptionParser.new do |opt|
 end
 
 remaining_arguments = parser.parse(ARGV)
+if Roby.app.public_logs?
+    STDOUT.puts "Test logs are saved in #{Roby.app.log_dir}"
+end
 
 if coverage_mode
     app.auto_load_models = true
