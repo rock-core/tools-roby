@@ -231,7 +231,7 @@ module Roby
         def require_app_dir
             guess_app_dir
             if !@app_dir
-                raise ArgumentError, "this needs to be started from within a Roby application"
+                raise ArgumentError, "your current directory does not seem to be a Roby application directory; did you forget to run 'roby init'?"
             end
         end
 
