@@ -1329,7 +1329,14 @@ module Roby
             simulation_task
         end
 
-        # Returns a PlanService object for this task
+        # Returns an object that will allow to track this task's role in the
+        # plan regardless of replacements
+        #
+        # The returning object will point to the replacing object when self is
+        # replaced by something. In effect, it points to the task's role in the
+        # plan instead of to the actual task itself.
+        #
+        # @return [PlanService]
         def as_service
             @service ||= (plan.find_plan_service(self) || PlanService.new(self))
         end
