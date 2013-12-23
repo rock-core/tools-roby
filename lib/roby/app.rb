@@ -1345,7 +1345,7 @@ module Roby
         #   find_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb]
         def find_dirs(*dir_path)
-            Application.debug "find_dirs(#{dir_path.map(&:inspect).join(", ")})"
+            Application.debug { "find_dirs(#{dir_path.map(&:inspect).join(", ")})" }
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
@@ -1385,13 +1385,13 @@ module Roby
             end
 
             result = []
-            Application.debug "  relative paths: #{relative_paths.inspect}"
+            Application.debug { "  relative paths: #{relative_paths.inspect}" }
             relative_paths.each do |rel_path|
                 root_paths.each do |root|
                     abs_path = File.expand_path(File.join(*rel_path), root)
-                    Application.debug "  absolute path: #{abs_path}"
+                    Application.debug { "  absolute path: #{abs_path}" }
                     if File.directory?(abs_path)
-                        Application.debug "    selected"
+                        Application.debug { "    selected" }
                         result << abs_path 
                     end
                 end
@@ -1437,7 +1437,7 @@ module Roby
         #   find_files_in_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb,
         def find_files_in_dirs(*dir_path)
-            Application.debug "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})"
+            Application.debug { "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})" }
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
@@ -1449,10 +1449,10 @@ module Roby
 
             result = []
             search_path.each do |dirname|
-                Application.debug "  dir: #{dirname}"
+                Application.debug { "  dir: #{dirname}" }
                 Dir.new(dirname).each do |file_name|
                     file_path = File.join(dirname, file_name)
-                    Application.debug "    file: #{file_path}"
+                    Application.debug { "    file: #{file_path}" }
                     if File.file?(file_path) && options[:pattern] === file_name
                         Application.debug "      added"
                         result << file_path
