@@ -1,7 +1,6 @@
 require 'roby'
 require 'roby/test/spec'
 require 'optparse'
-require 'test/unit'
 
 Robot.logger.level = Logger::WARN
 
@@ -53,18 +52,20 @@ Roby.display_exception do
     Roby.app.prepare
 
     begin
-        tests = Test::Unit::AutoRunner.new(true)
-        tests.options.banner.sub!(/\[options\]/, '\& tests...')
+        tests = MiniTest::Unit.new
+        # tests.options.banner.sub!(/\[options\]/, '\& tests...')
         if remaining_arguments.empty?
-            remaining_arguments = Roby.app.find_files_in_dirs('test', 'ROBOT', :path => [Roby.app.app_dir], :all => true, :order => :specific_first, :pattern => /^(?:suite_|test_).*\.rb$/)
+            remaining_arguments = Roby.app.
+                find_files_in_dirs('test', 'ROBOT',
+                                   :path => [Roby.app.app_dir],
+                                   :all => true,
+                                   :order => :specific_first,
+                                   :pattern => /^(?:suite_|test_).*\.rb$/)
         end
-
-        has_tests = tests.process_args(testrb_args + remaining_arguments)
-        if has_tests
-            files = tests.to_run
-            $0 = files.size == 1 ? File.basename(files[0]) : files.to_s
-            result = tests.run
+        remaining_arguments.each do |arg|
+            require arg
         end
+        tests.run(testrb_args)
     ensure
         Roby.app.cleanup
     end
