@@ -560,7 +560,7 @@ module Roby
 	    names.map do |name|
 		name = name.to_s
 		unless plugin = plugin_definition(name)
-		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, *_| n }.join(", ")})"
+		    raise ArgumentError, "#{name} is not a known plugin (available plugins: #{available_plugins.map { |n, *_| n }.join(", ")})"
 		end
 		name, dir, mod, init = *plugin
 		if already_loaded = plugins.find { |n, m| n == name && m == mod }
