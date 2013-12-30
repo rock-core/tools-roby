@@ -49,10 +49,18 @@ module Roby
         end
 
         def teardown
-            super
+            begin
+                super
+            rescue Exception => e
+                teardown_failure = e
+            end
             Roby.app.cleanup
-        end
 
+        ensure
+            if teardown_failure
+                raise teardown_failure
+            end
+        end
     end
     end
     SelfTest = Test::Self
