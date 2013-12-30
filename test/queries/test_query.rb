@@ -1,4 +1,4 @@
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/tasks/simple'
 require 'roby/state/information'
 require 'flexmock'

@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path('.', File.dirname(__FILE__))
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/tasks/simple'
 require 'flexmock'
 
