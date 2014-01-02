@@ -77,6 +77,10 @@ module Roby
                 @model = peer.local_object(model)
                 @arguments = peer.local_object(arguments)
             end
+
+            def to_action
+                self
+            end
         end
     end
 end
