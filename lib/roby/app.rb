@@ -310,12 +310,6 @@ module Roby
 	# True if user interaction is disabled during tests
 	attr_predicate :automatic_testing?, true
 
-	# True if all logs should be kept after testing
-	attr_predicate :testing_keep_logs?, true
-
-	# True if all logs should be kept after testing
-	attr_predicate :testing_overwrites_logs?, true
-
         # True if plugins should be discovered, registered and loaded (true by
         # default)
         attr_predicate :plugins_enabled?, true
@@ -416,7 +410,6 @@ module Roby
             @additional_model_files = []
 
 	    @automatic_testing = true
-	    @testing_keep_logs = false
             @registered_exceptions = []
 
             @filter_out_patterns = [Roby::RX_IN_FRAMEWORK,
