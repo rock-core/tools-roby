@@ -1183,6 +1183,7 @@ module Roby
             planners.clear
             plan.clear
             clear_models
+            clear_config
 
             if !public_logs?
                 @created_log_dirs.each do |dir|
@@ -1643,9 +1644,16 @@ module Roby
             $LOADED_FEATURES.delete_if { |path| patterns.any? { |p| p =~ path } }
         end
 
-        def reload_config
-            unload_features("config", ".*\.rb$")
+        def clear_config
+            Conf.clear
+            call_plugins(:clear_config, self)
+            # Deprecated name for clear_config
             call_plugins(:reload_config, self)
+        end
+
+        def reload_config
+            clear_config
+            unload_features("config", ".*\.rb$")
             require_config
         end
 
