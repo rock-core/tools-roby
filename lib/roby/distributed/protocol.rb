@@ -81,6 +81,19 @@ module Roby
 
         # Dumps a constant by using its name. On reload, #proxy searches for a
         # constant with the same name, and raises ArgumentError if none exists.
+        #
+        # @example dump instances of a class that are registered as constants
+        #   class Klass
+        #     include DRobyConstant::Dump
+        #   end
+        #   # Obj can pass through droby
+        #   Obj = Klass.new
+        #
+        # @example dump classes. You usually would prefer using {DRobyModel}
+        #   # Klass can pass through droby
+        #   class Klass
+        #     extend DRobyConstant::Dump
+        #   end
 	class DRobyConstant
 	    @@valid_constants = Hash.new
 	    def self.valid_constants; @@valid_constants end
@@ -126,10 +139,20 @@ module Roby
 	    include Roby::Distributed::DRobyConstant::Dump
 	end
 
-	# Dumps a model (an event, task or planner class). When unmarshalling,
-	# it tries to search for the same model. If it does not find it, it
-	# rebuilds the same hierarchy using anonymous classes, basing itself on
-	# the less abstract class known to both the remote and local sides.
+        # Dumps a model. When unmarshalling, it tries to search for the same
+        # model in the constant hierarchy using its name. If it does not find
+        # it, it rebuilds the same hierarchy using anonymous classes, basing
+        # itself on the less abstract class known to both the remote and local
+        # sides.
+        #
+        # If what you want to pass through droby is not a model class (i.e. if
+        # the class hierarchy is not important), use {DRobyConstant} instead.
+        #
+        # @example
+        #   class MyModel
+        #     extend Roby::Distributed::DRobyModel
+        #   end
+        #
 	class DRobyModel
 	    @@remote_to_local = Hash.new
 	    @@local_to_remote = Hash.new
