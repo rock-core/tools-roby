@@ -517,31 +517,38 @@ module Roby::TaskStructure
             @fullfilled_model = models
         end
 
+        def implicit_fullfilled_model
+            if !@implicit_fullfilled_model
+                @implicit_fullfilled_model = Array.new
+                ancestors.each do |m|
+                    if m.kind_of?(Class) || (m.kind_of?(Roby::Models::TaskServiceModel) && m != Roby::TaskService)
+                        @implicit_fullfilled_model << m
+                    end
+
+                    if m == Roby::Task
+                        break
+                    end
+                end
+            end
+            @implicit_fullfilled_model
+        end
+
         # Returns the model that all instances of this taks model fullfill
         #
         # (see DependencyGraphClass::Extension#fullfilled_model)
         def fullfilled_model
-            return each_fullfilled_model.to_a
+            if @fullfilled_model
+                return @fullfilled_model
+            else return implicit_fullfilled_model
+            end
         end
         
         # Enumerates the models that all instances of this task model fullfill
         #
         # @yieldparam [Model<Task>,Model<TaskService>] model
         # @return [void]
-        def each_fullfilled_model
-            return enum_for(:each_fullfilled_model) if !block_given?
-            # Do NOT use #fullfilled_model here, as it is using
-            # #each_fullfilled_model for its purposes
-            if @fullfilled_model
-                @fullfilled_model.each { |m| yield(m) }
-            else
-                ancestors.each do |m|
-                    yield(m) if m.kind_of?(Class) || (m.kind_of?(Roby::Models::TaskServiceModel) && m != Roby::TaskService)
-                    if m == Roby::Task
-                        return
-                    end
-                end
-            end
+        def each_fullfilled_model(&block)
+            fullfilled_model.each(&block)
         end
     end
 
