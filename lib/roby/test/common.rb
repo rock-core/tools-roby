@@ -27,6 +27,9 @@ require 'test/unit/testcase'
 require 'minitest/spec'
 require 'flexmock/test_unit'
 
+require 'roby/test/assertion'
+require 'roby/test/error'
+
 module Roby
     # This module is defining common support for tests that need the Roby
     # infrastructure

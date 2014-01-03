@@ -1,4 +1,5 @@
 require 'utilrb/timepoints'
+require 'roby/test/error'
 require 'roby/test/common'
 module Roby
     module Test
@@ -19,6 +20,15 @@ module Roby
                 # Duplicate each method 'repeat' times
                 methods.inject([]) do |list, m|
                     list.concat([m] * Roby.app.test_repeat)
+                end
+            end
+
+            def puke(klass, meth, e)
+                case e
+                when MiniTest::Skip, MiniTest::Assertion
+                    super
+                else
+                    super(klass, method, Error.new(e))
                 end
             end
 
