@@ -196,6 +196,33 @@ module Roby
         # It is false by default
         attr_predicate :ignore_all_load_errors?, true
 
+        # If set to true, tests will show detailed execution timings
+        #
+        # It is false by default
+        attr_predicate :test_show_timings?, true
+
+        # The options passed to Utilrb::Timepoints#format_timepoints if
+        # {#test_show_timings?} is true
+        attr_reader :test_format_timepoints_options
+
+        # How many times each test should be repeated (defaults to 1)
+        #
+        # This is mostly useful when profiling is enabled
+        #
+        # @return [Integer]
+        attr_accessor :test_repeat
+
+        # List of subsystems that should be profiles during testing
+        #
+        # Profiling is done using perftools.rb. All profiles are aggregated
+        # (run the tests separately if you need one profile per test)
+        #
+        # Roby knows 'test', which profiles the test without setup and teardown.
+        # The default is empty (no profiling)
+        #
+        # @return [Array<String>]
+        attr_reader :test_profile
+
         # Returns the name of the application
         def app_name
             if @app_name
@@ -420,6 +447,9 @@ module Roby
 
             @planners    = []
             @notification_listeners = Array.new
+            @test_format_timepoints_options = Hash.new
+            @test_repeat = 1
+            @test_profile = []
 	end
 
         # The robot names configuration
