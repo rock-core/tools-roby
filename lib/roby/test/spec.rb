@@ -32,6 +32,11 @@ module Roby
                 end
             end
 
+            def __full_name__
+                "#{self.class}##{__name__}"
+            end
+
+
             def self.it(*args, &block)
                 super(*args) do
                     if profiling = Roby.app.test_profile.include?('test')
