@@ -1,6 +1,7 @@
 #include "graph.hh"
 #include <boost/bind.hpp>
 #include <functional>
+#include "ruby_allocator.hh"
 
 static ID id_rb_graph_map;
 
@@ -8,6 +9,8 @@ typedef RubyGraph::vertex_iterator	vertex_iterator;
 typedef RubyGraph::vertex_descriptor	vertex_descriptor;
 typedef RubyGraph::edge_iterator	edge_iterator;
 typedef RubyGraph::edge_descriptor	edge_descriptor;
+
+typedef std::set<VALUE, std::less<VALUE>, ruby_allocator<VALUE> > ValueSet;
 
 using namespace boost;
 using namespace std;
@@ -476,6 +479,27 @@ static inline VALUE yield_single_value(VALUE value)
     return rb_yield_values(1, value);
 }
 
+/** Iterates on each adjacent vertex of +v+ in +graph+ which are not yet in +already_seen+ */
+template <typename Graph, bool direct>
+static bool for_each_adjacent_uniq(RubyGraph::vertex_descriptor v, Graph const& graph, ValueSet& already_seen)
+{
+    typedef details::vertex_range<Graph, direct>	getter;
+    typedef typename getter::iterator		        Iterator;
+
+    Iterator it, end;
+    for (boost::tie(it, end) = details::vertex_range<Graph, direct>::get(v, graph); it != end; )
+    {
+	VALUE related_object = graph[*it];
+	bool inserted;
+	boost::tie(boost::tuples::ignore, inserted) = already_seen.insert(related_object);
+	++it;
+
+	if (inserted)
+	    rb_yield_values(1, related_object);
+    }
+    return true;
+}
+
 template <bool directed>
 static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
 {
@@ -484,7 +508,7 @@ static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
 
     if (NIL_P(graph))
     {
-	set<VALUE> already_seen;
+	ValueSet already_seen;
 	for_each_graph(self, bind(for_each_adjacent_uniq<RubyGraph, directed>, _1, _2, ref(already_seen)));
     }
     else

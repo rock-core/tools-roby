@@ -112,26 +112,6 @@ static bool for_each_value(Range range, RubyGraph& graph, F f)
     return true;
 }
 
-/** Iterates on each adjacent vertex of +v+ in +graph+ which are not yet in +already_seen+ */
-template <typename Graph, bool direct>
-static bool for_each_adjacent_uniq(RubyGraph::vertex_descriptor v, Graph const& graph, std::set<VALUE>& already_seen)
-{
-    typedef details::vertex_range<Graph, direct>	getter;
-    typedef typename getter::iterator		        Iterator;
-
-    Iterator it, end;
-    for (boost::tie(it, end) = details::vertex_range<Graph, direct>::get(v, graph); it != end; )
-    {
-	VALUE related_object = graph[*it];
-	bool inserted;
-	boost::tie(boost::tuples::ignore, inserted) = already_seen.insert(related_object);
-	++it;
-
-	if (inserted)
-	    rb_yield_values(1, related_object);
-    }
-    return true;
-}
 
 /* Iterates on all graphs +vertex+ is part of, calling f(RubyGraph&, vertex_descriptor). If the calling
  * function returns false, stop iteration here */
