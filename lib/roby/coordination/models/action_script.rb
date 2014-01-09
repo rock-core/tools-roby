@@ -16,7 +16,7 @@ module Roby
             #
             # @example creating an action script
             #   class Main < Roby::Actions::Interface
-            #     action_script 'script' do
+            #     action_script 'example_action' do
             #       # Start moving at 0.1 m/s until we move more than 0.1m
             #       move_task = task move(:speed => 0.1)
             #       d_monitor = task monitor_movement_threshold(:d => 0.1)
@@ -35,7 +35,7 @@ module Roby
             #   end
             #
             # @example retrieving a script model from an action
-            #   Main.script.model.coordination_model
+            #   Main.find_action_by_name('example_action').coordination_model
             module ActionScript
                 include Models::Actions
                 include Models::Script

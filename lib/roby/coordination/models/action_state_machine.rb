@@ -52,7 +52,7 @@ module Roby
         #
         # @example creating an action state machine model
         #   class Main < Roby::Actions::Interface
-        #     action_state_machine 'machine' do
+        #     action_state_machine 'example_action' do
         #       move  = state move(:speed => 0.1)
         #       stand = state move(:speed => 0)
         #       # This monitor triggers each time the system moves more than
@@ -71,7 +71,7 @@ module Roby
         #   end
         #
         # @example retrieving a state machine model from an action
-        #   Main.machine.model.coordination_model
+        #   Main.find_action_by_name('example_action').coordination_model
         module ActionStateMachine
             include Actions
 
