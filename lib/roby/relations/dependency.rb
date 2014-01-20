@@ -222,6 +222,9 @@ module Roby::TaskStructure
             if task.respond_to?(:as_plan)
                 task = task.as_plan
             end
+            if task == self
+                raise ArgumentError, "cannot add a dependency of a task to itself"
+            end
 
             options = DependencyGraphClass.validate_options options, 
 		:model => [task.provided_models, task.meaningful_arguments], 
@@ -332,29 +335,7 @@ module Roby::TaskStructure
 	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
 	    if relations.include?(Dependency) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
-                events = ValueSet.new
-                if info[:success]
-                    for event_name in info[:success].required_events
-                        events << child.event(event_name)
-                    end
-                end
-
-                if info[:failure]
-                    for event_name in info[:failure].required_events
-                        events << child.event(event_name)
-                    end
-                end
-
-                if !events.empty?
-                    for ev in events
-                        ev.if_unreachable(&DependencyGraphClass.method(:register_interesting_event_if_unreachable))
-                    end
-                    Roby::EventGenerator.gather_events(Dependency.interesting_events, [event(:start)])
-                    Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
-                end
-
-                # Initial triggers
-                Dependency.failing_tasks << child
+                Dependency.update_triggers_for(self, child, info)
 	    end
 	end
 
@@ -536,31 +517,38 @@ module Roby::TaskStructure
             @fullfilled_model = models
         end
 
+        def implicit_fullfilled_model
+            if !@implicit_fullfilled_model
+                @implicit_fullfilled_model = Array.new
+                ancestors.each do |m|
+                    if m.kind_of?(Class) || (m.kind_of?(Roby::Models::TaskServiceModel) && m != Roby::TaskService)
+                        @implicit_fullfilled_model << m
+                    end
+
+                    if m == Roby::Task
+                        break
+                    end
+                end
+            end
+            @implicit_fullfilled_model
+        end
+
         # Returns the model that all instances of this taks model fullfill
         #
         # (see DependencyGraphClass::Extension#fullfilled_model)
         def fullfilled_model
-            return each_fullfilled_model.to_a
+            if @fullfilled_model
+                return @fullfilled_model
+            else return implicit_fullfilled_model
+            end
         end
         
         # Enumerates the models that all instances of this task model fullfill
         #
         # @yieldparam [Model<Task>,Model<TaskService>] model
         # @return [void]
-        def each_fullfilled_model
-            return enum_for(:each_fullfilled_model) if !block_given?
-            # Do NOT use #fullfilled_model here, as it is using
-            # #each_fullfilled_model for its purposes
-            if @fullfilled_model
-                @fullfilled_model.each { |m| yield(m) }
-            else
-                ancestors.each do |m|
-                    yield(m) if m.kind_of?(Class) || (m.kind_of?(Roby::Models::TaskServiceModel) && m != Roby::TaskService)
-                    if m == Roby::Task
-                        return
-                    end
-                end
-            end
+        def each_fullfilled_model(&block)
+            fullfilled_model.each(&block)
         end
     end
 
@@ -573,6 +561,32 @@ module Roby::TaskStructure
 
         def self.register_interesting_event_if_unreachable(reason, ev)
             Dependency.interesting_events << ev
+        end
+
+        def update_triggers_for(parent, child, info)
+            events = ValueSet.new
+            if info[:success]
+                for event_name in info[:success].required_events
+                    events << child.event(event_name)
+                end
+            end
+
+            if info[:failure]
+                for event_name in info[:failure].required_events
+                    events << child.event(event_name)
+                end
+            end
+
+            if !events.empty?
+                for ev in events
+                    ev.if_unreachable(&DependencyGraphClass.method(:register_interesting_event_if_unreachable))
+                end
+                Roby::EventGenerator.gather_events(Dependency.interesting_events, [parent.event(:start)])
+                Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
+            end
+
+            # Initial triggers
+            Dependency.failing_tasks << child
         end
 
         def merge_fullfilled_model(model, required_models, required_arguments)
@@ -604,8 +618,8 @@ module Roby::TaskStructure
             defaults = Hash[:model => [[Roby::Task], Hash.new],
                 :success => nil,
                 :failure => nil,
-                :remove_when_done => false,
-                :consider_in_pending => false,
+                :remove_when_done => true,
+                :consider_in_pending => true,
                 :roles => Set.new,
                 :role => nil].merge(defaults)
             Kernel.validate_options options, defaults
@@ -647,15 +661,14 @@ module Roby::TaskStructure
 
             task_model1 = models1.find { |m| m <= Roby::Task }
             task_model2 = models2.find { |m| m <= Roby::Task }
-
             result_model = []
             if task_model1 && task_model2
-                if task_model1 <= task_model2
+                if task_model1.fullfills?(task_model2)
                     result_model << task_model1
-                elsif task_model2 < task_model1
+                elsif task_model2.fullfills?(task_model1)
                     result_model << task_model2
                 else
-                    raise ModelViolation, "incompatible models #{task_model1} and #{task_model2}"
+                    raise Roby::ModelViolation, "incompatible models #{task_model1} and #{task_model2}"
                 end
             elsif task_model1
                 result_model << task_model1
@@ -695,7 +708,11 @@ module Roby::TaskStructure
         #
         # @see DependencyGraphClass.merge_dependency_options
         def merge_info(parent, child, opt1, opt2)
-            DependencyGraphClass.merge_dependency_options(opt1, opt2)
+            result = DependencyGraphClass.merge_dependency_options(opt1, opt2)
+            update_triggers_for(parent, child, result)
+            result
+        rescue Exception => e
+            raise e, e.message + " while updating the dependency information for #{parent} -> #{child}"
         end
 
         # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
@@ -845,7 +862,7 @@ module Roby
 	end
 
 	def pretty_print(pp) # :nodoc:
-            pp.text "#{child}"
+            pp.text "#{child} failed"
             pp.breakable
             pp.text "child #{relation[:roles].to_a.join(", ")} of #{parent}"
             pp.breakable

@@ -2,7 +2,7 @@
 #
 # [Roby] core namespace for the Roby kernel
 # [Roby::Distributed] parts that are very specific to distributed plan management
-# [Roby::Planning] basic tools for plan generation
+# [Roby::Actions] basic tools for plan generation
 # [Roby::Transactions] implementation of transactions. Transactions represent a
 # change in the main plan, and can be distributed among different plan managers.
 # [Roby::EventStructure] main namespace for event relations. The methods listed
@@ -24,6 +24,7 @@ require 'pp'
 require 'thread'
 require 'set'
 require 'yaml'
+require 'metaruby/dsls'
 require 'utilrb/value_set'
 require 'utilrb/object/attribute'
 require 'utilrb/module/ancestor_p'
@@ -37,11 +38,11 @@ require 'utilrb/exception/full_message'
 require 'utilrb/unbound_method/call'
 require 'metaruby'
 
-require 'roby/config.rb'
-require 'roby/support.rb'
-require 'roby/basic_object.rb'
-require 'roby/standard_errors.rb'
-require 'roby/exceptions.rb'
+require 'roby/config'
+require 'roby/support'
+require 'roby/basic_object'
+require 'roby/standard_errors'
+require 'roby/exceptions'
 
 require 'roby/distributed/base'
 
@@ -56,12 +57,16 @@ rescue LoadError
     exit 1
 end
 
-require 'roby/graph.rb'
-require 'roby/relations.rb'
+require 'roby/graph'
+require 'roby/relations'
 
-require 'roby/queries.rb'
-require 'roby/plan-object.rb'
-require 'roby/event.rb'
+require 'roby/queries'
+require 'roby/plan-object'
+require 'roby/event'
+require 'roby/event_generator'
+require 'roby/filter_generator'
+require 'roby/and_generator'
+require 'roby/or_generator'
 require 'roby/models/arguments'
 require 'roby/models/task_service'
 require 'roby/models/task'
@@ -70,25 +75,25 @@ require 'roby/task_event'
 require 'roby/task_event_generator'
 require 'roby/task_arguments'
 require 'roby/task'
-require 'roby/plan_service.rb'
+require 'roby/plan_service'
 require 'roby/tasks/aggregator'
 require 'roby/tasks/parallel'
 require 'roby/tasks/sequence'
-require 'roby/event_constraints.rb'
+require 'roby/event_constraints'
 
-require 'roby/relations/conflicts.rb'
-require 'roby/relations/ensured.rb'
-require 'roby/relations/error_handling.rb'
-require 'roby/relations/events.rb'
-require 'roby/relations/executed_by.rb'
-require 'roby/relations/dependency.rb'
-require 'roby/relations/influence.rb'
-require 'roby/relations/planned_by.rb'
+require 'roby/relations/conflicts'
+require 'roby/relations/ensured'
+require 'roby/relations/error_handling'
+require 'roby/relations/events'
+require 'roby/relations/executed_by'
+require 'roby/relations/dependency'
+require 'roby/relations/influence'
+require 'roby/relations/planned_by'
 require 'roby/relations/temporal_constraints'
 
-require 'roby/plan.rb'
-require 'roby/transactions/proxy.rb'
-require 'roby/transactions.rb'
+require 'roby/plan'
+require 'roby/transactions/proxy'
+require 'roby/transactions'
 
 begin
     require 'roby_marshalling'
@@ -103,15 +108,15 @@ end
 require 'roby/distributed/peer'
 require 'roby/distributed/protocol'
 
-require 'roby/decision_control.rb'
-require 'roby/execution_engine.rb'
-require 'roby/app.rb'
-require 'roby/state.rb'
+require 'roby/decision_control'
+require 'roby/execution_engine'
+require 'roby/app'
+require 'roby/state'
 require 'roby/singletons'
 require 'roby/log'
 
-require 'roby/robot.rb'
+require 'roby/interface/job'
+require 'roby/robot'
 require 'roby/actions'
 require 'roby/coordination'
-require 'roby/planning.rb'
 

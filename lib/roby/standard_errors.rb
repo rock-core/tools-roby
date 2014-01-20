@@ -88,20 +88,32 @@ module Roby
 
         # Intermediate representation used to marshal/unmarshal a LocalizedError
         class DRoby
-            attr_reader :model, :failure_point, :message
-            def initialize(model, failure_point, message); @model, @failure_point, @message = model, failure_point, message end
+            attr_reader :model, :failure_point, :message, :backtrace, :formatted_message
+            def initialize(model, failure_point, message, backtrace, formatted_message = [])
+                @model, @failure_point, @message, @backtrace, @formatted_message = model, failure_point, message, backtrace, formatted_message
+            end
 
             def proxy(peer)
                 failure_point = peer.local_object(self.failure_point)
-                error = LocalizedError.new(failure_point)
-                error.exception(message)
+                error = UntypedLocalizedError.new(failure_point)
+                error = error.exception(message)
+                error.set_backtrace(backtrace)
+                error.exception_class = model
+                error.formatted_message = formatted_message
                 error
             end
         end
 
         # Returns an intermediate representation of +self+ suitable to be sent to
         # the +dest+ peer.
-        def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), Distributed.format(failure_point, dest), message) end
+        def droby_dump(dest)
+            formatted = Roby.format_exception(self)
+            DRoby.new(self.class.droby_dump(dest),
+                      Distributed.format(failure_point, dest),
+                      message,
+                      backtrace,
+                      formatted)
+        end
 
         # @return [Queries::ExecutionExceptionMatcher]
         def self.to_execution_exception_matcher
@@ -110,6 +122,20 @@ module Roby
         # @return [Queries::LocalizedErrorMatcher]
         def self.match
             Roby::Queries::LocalizedErrorMatcher.new.with_model(self)
+        end
+    end
+
+    # Exception class used on the unmarshalling of LocalizedError for exception
+    # classes that do not have their own marshalling
+    class UntypedLocalizedError < LocalizedError
+        attr_accessor :exception_class
+        attr_accessor :formatted_message
+
+        def pretty_print(pp)
+            formatted_message.each do |line|
+                pp.text line
+                pp.breakable
+            end
         end
     end
 

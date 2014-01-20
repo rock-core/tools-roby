@@ -1,14 +1,25 @@
 require 'roby'
+require 'roby/test/spec'
 require 'optparse'
 
-app = Roby.app
-app.guess_app_dir
-app.public_logs = false
+Robot.logger.level = Logger::WARN
 
+app = Roby.app
+app.require_app_dir
+app.public_logs = false
+app.single = true
+app.simulation = true
+app.testing = true
+app.auto_load_models = false
+
+coverage_mode = false
 testrb_args = []
 parser = OptionParser.new do |opt|
-    opt.on("-s", "--sim", "run tests in simulation mode") do |val|
-	Roby.app.simulation = val
+    opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
+	Roby.app.single = !val
+    end
+    opt.on("-l", "--live", "run tests in live mode") do |val|
+	Roby.app.simulation = !val
     end
     opt.on("-k", "--keep-logs", "keep all logs") do |val|
 	Roby.app.public_logs = true
@@ -19,25 +30,72 @@ parser = OptionParser.new do |opt|
     opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
 	testrb_args << "-n" << name
     end
-    opt.on("-r NAME[:TYPE]", String, "the robot name and type") do |name|
-        name, type = name.split(':')
-        app.robot name, (type || name)
+    opt.on('--timings[=AGGREGATE]', Integer, "show execution timings") do |aggregate|
+        Roby.app.test_show_timings = true
+        if aggregate.respond_to?(:to_int)
+            Roby.app.test_format_timepoints_options[:aggregate] = aggregate
+        end
     end
+    opt.on('--repeat=N', Integer, 'repeat each test N times (usually used with --profile)') do |count|
+        Roby.app.test_repeat = count
+    end
+    opt.on('--profile[=SUBSYSTEM]', String, 'profile the given subsystem. Without arguments, profiles the tests without setup/teardown') do |subsystem|
+        Roby.app.test_profile.clear
+        if !subsystem.respond_to?(:to_str)
+            Roby.app.test_profile << 'test'
+        else
+            Roby.app.test_profile << subsystem
+        end
+    end
+    opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
+        coverage_mode = true
+    end
+    Roby::Application.common_optparse_setup(opt)
 end
 
-app.testing = true
+remaining_arguments = parser.parse(ARGV)
+if Roby.app.public_logs?
+    STDOUT.puts "Test logs are saved in #{Roby.app.log_dir}"
+end
 
-parser.parse! ARGV
-Roby.app.setup
-Roby.app.prepare
+if coverage_mode
+    app.auto_load_models = true
+    require 'simplecov'
+    SimpleCov.start
+end
 
-begin
-    r = Test::Unit::AutoRunner.new(true)
-    r.process_args(ARGV + testrb_args) or
-      abort r.options.banner + " tests..."
+Roby.display_exception do
+    Roby.app.setup
+    Roby.app.prepare
 
-    exit r.run
-ensure
-    Roby.app.cleanup
+    profiling = !Roby.app.test_profile.empty?
+    if profiling
+        STDOUT.puts "Profiling results are saved in #{Roby.app.log_dir}.prof"
+        require 'perftools'
+        PerfTools::CpuProfiler.start "#{Roby.app.log_dir}.prof"
+        PerfTools::CpuProfiler.pause
+    end
+
+    begin
+        tests = MiniTest::Unit.new
+        # tests.options.banner.sub!(/\[options\]/, '\& tests...')
+        if remaining_arguments.empty?
+            remaining_arguments = Roby.app.
+                find_files_in_dirs('test', 'ROBOT',
+                                   :path => [Roby.app.app_dir],
+                                   :all => true,
+                                   :order => :specific_first,
+                                   :pattern => /^(?:suite_|test_).*\.rb$/)
+        end
+        remaining_arguments.each do |arg|
+            require arg
+        end
+        tests.run(testrb_args)
+    ensure
+        if profiling
+            PerfTools::CpuProfiler.stop
+        end
+        Roby.app.cleanup
+    end
 end
 

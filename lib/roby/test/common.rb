@@ -23,9 +23,12 @@ if ENV['TEST_ENABLE_PRY'] != '0'
 end
 
 require 'roby'
-require 'test/unit'
+require 'test/unit/testcase'
 require 'minitest/spec'
 require 'flexmock/test_unit'
+
+require 'roby/test/assertion'
+require 'roby/test/error'
 
 module Roby
     # This module is defining common support for tests that need the Roby
@@ -133,27 +136,8 @@ module Roby
 		DRb.start_service 'druby://localhost:0'
 	    end
 
-	    if defined? Roby::Planning::Planner
-		Roby::Planning::Planner.last_id = 0 
-	    end
-
             plan.engine.gc_warning = false
 
-	    # Save and restore some arrays
-	    save_collection engine.propagation_handlers
-	    save_collection engine.external_events_handlers
-	    save_collection Roby::ExecutionEngine.propagation_handlers
-	    save_collection Roby::ExecutionEngine.external_events_handlers
-	    save_collection plan.structure_checks
-	    save_collection Roby::Plan.structure_checks
-	    save_collection engine.at_cycle_end_handlers
-	    save_collection Roby::EventGenerator.event_gathering
-	    Roby.app.abort_on_exception = false
-	    Roby.app.abort_on_application_exception = true
-
-	    save_collection engine.event_ordering
-	    save_collection engine.delayed_events
-	    save_collection plan.exception_handlers
 	    timings[:setup] = Time.now
 
             @handler_ids = Array.new
@@ -163,9 +147,9 @@ module Roby
 	end
 
 	def teardown_plan
+	    old_gc_roby_logger_level = Roby.logger.level
             return if !engine
 
-	    old_gc_roby_logger_level = Roby.logger.level
 	    if debug_gc?
 		Roby.logger.level = Logger::DEBUG
 	    end
@@ -175,51 +159,7 @@ module Roby
                 engine.join
 	    end
 
-            last_known_tasks = ValueSet.new
-            last_quarantine = ValueSet.new
-            counter = 0
-            loop do
-                plan.permanent_tasks.clear
-                plan.permanent_events.clear
-                plan.missions.clear
-                plan.transactions.each do |trsc|
-                    trsc.discard_transaction!
-                end
-
-                if plan.engine
-                    if plan.engine.scheduler
-                        plan.engine.scheduler.enabled = false
-                    end
-                    plan.engine.quit
-                end
-                # Pre-run garbage collection. The standard runtime behaviour of
-                # process events is to run GC last (would not make sense
-                # otherwise). This teardown procedure is a bit special in this respect
-                process_events
-
-                counter += 1
-                if counter > 100
-                    STDERR.puts "more than #{counter} iterations while trying to shut down the current plan, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
-                    if last_known_tasks != plan.known_tasks
-                        STDERR.puts "Known tasks:"
-                        plan.known_tasks.each do |t|
-                            STDERR.puts "  #{t}"
-                        end
-                        last_known_tasks = plan.known_tasks.dup
-                    end
-                    if last_quarantine != plan.gc_quarantine
-                        STDERR.puts "Known tasks:"
-                        plan.gc_quarantine.each do |t|
-                            STDERR.puts "  #{t}"
-                        end
-                        last_quarantine = plan.gc_quarantine.dup
-                    end
-                end
-                if plan.gc_quarantine.size == plan.known_tasks.size
-                    break
-                end
-                sleep 0.01
-            end
+            plan.engine.killall
             if !plan.empty?
                 STDERR.puts "failed to teardown: plan has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
             end
@@ -230,7 +170,7 @@ module Roby
             end
 
 	ensure
-	    Roby.logger.level = old_gc_roby_logger_level
+            Roby.logger.level = old_gc_roby_logger_level
 	end
 
         def assert_raises(exception, &block)
@@ -272,12 +212,17 @@ module Roby
         end
 
 	def teardown
-            flexmock_teardown
+            begin
+                flexmock_teardown
+            rescue ::Exception => e
+                teardown_failure = e
+            end
+
 	    timings[:quit] = Time.now
 	    teardown_plan
 	    timings[:teardown_plan] = Time.now
 
-            if @handler_ids
+            if @handler_ids && engine
                 @handler_ids.each do |handler_id|
                     engine.remove_propagation_handler(handler_id)
                 end
@@ -347,22 +292,29 @@ module Roby
             super if defined? super
 
 	rescue Exception => e
-            teardown_failure = e
+            teardown_failure ||= e
             raise
 
 	ensure
             begin
+                while engine && engine.running?
+                    engine.quit
+                    engine.join rescue nil
+                end
                 if plan
-                    while engine.running?
-                        engine.quit
-                        engine.join rescue nil
-                    end
                     plan.clear
                 end
 
-                Roby.logger.level = @original_roby_logger_level
+                if @original_roby_logger_level
+                    Roby.logger.level = @original_roby_logger_level
+                end
                 self.console_logger = false
                 self.event_logger   = false
+
+                if teardown_failure
+                    raise teardown_failure
+                end
+
             rescue Exception => e
                 if teardown_failure then raise teardown_failure
                 else raise e
@@ -372,12 +324,13 @@ module Roby
 
 	# Process pending events
 	def process_events
-	    Roby.synchronize do
-                if !engine.running?
-                    engine.start_new_cycle
-                end
-		engine.process_events
-	    end
+            engine.join_all_worker_threads
+            if !engine.running?
+                engine.start_new_cycle
+                engine.process_events
+            else
+                engine.wait_one_cycle
+            end
 	end
 
         # Use to call the original method on a partial mock
@@ -702,21 +655,27 @@ module Roby
         end
 
 	module Assertions
-	    # Wait for any event in +positive+ to happen. If +negative+ is
-	    # non-empty, any event happening in this set will make the
-	    # assertion fail. If events in +positive+ are task events, the
-	    # :stop events of the corresponding tasks are added to negative
-	    # automatically.
+	    # Wait for events to be emitted, or for some events to not be
+            # emitted
+            #
+            # It will fail if all waited-for events become unreachable
+            #
+            # If a block is given, it is called after the checks are put in
+            # place. This is required if the code in the block causes the
+            # positive/negative events to be emitted
 	    #
-	    # If a block is given, it is called from within the control thread
-	    # after the checks are in place
-	    #
-	    # So, to check that a task fails, do
-	    #
-	    #	assert_event_emission(task.event(:fail)) do
+	    # @example test a task failure
+	    #	assert_event_emission(task.fail_event) do
 	    #	    task.start!
 	    #	end
-	    #
+            #
+            # @param [Array<EventGenerator>] positive the set of events whose
+            #   emission we are waiting for
+            # @param [Array<EventGenerator>] negative the set of events whose
+            #   emission will cause the assertion to fail
+            # @param [String] msg assertion failure message
+            # @param [Float] timeout timeout in seconds after which the
+            #   assertion fails if none of the positive events got emitted
             def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, &block)
                 error, result, unreachability_reason = watch_events(positive, negative, timeout, &block)
 
@@ -774,7 +733,7 @@ module Roby
                             error, result = result_queue.pop
                         else
                             while result_queue.empty?
-                                engine.process_events
+                                process_events
                                 sleep(0.05)
                             end
                             error, result = result_queue.pop
@@ -909,41 +868,5 @@ module Roby
         end
     end
 
-    # This module is extending Test to be able to run tests using the normal
-    # testrb command. It is meant to be used to test libraries (e.g. Roby
-    # itself) as, in complex Roby applications, the setup and teardown steps
-    # would be very expensive.
-    #
-    # @see Test
-    module SelfTest
-        include Test
-        if defined? FlexMock
-            include FlexMock::ArgumentTypes
-            include FlexMock::MockContainer
-        end
-
-        def setup
-            Roby.app.log['server'] = false
-            Roby.app.plugins_enabled = false
-            Roby.app.setup
-            Roby.app.prepare
-
-            @plan    = Plan.new
-            @control = DecisionControl.new
-            if !plan.engine
-                ExecutionEngine.new(@plan, @control)
-            end
-
-            Roby.app.public_logs = false
-
-            super
-        end
-
-        def teardown
-            super
-            Roby.app.cleanup
-        end
-
-    end
 end
 

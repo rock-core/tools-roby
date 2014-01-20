@@ -48,6 +48,10 @@ module Roby
                 self
             end
 
+            def to_s
+                "#{exception_matcher}.involving(#{involved_tasks_matchers.map(&:to_s).join(", ")})"
+            end
+
             # @return [Boolean] true if the given execution exception object
             #   matches self, false otherwise
             def ===(exception)

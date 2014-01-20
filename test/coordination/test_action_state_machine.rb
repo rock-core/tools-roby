@@ -1,10 +1,9 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/actions'
 require 'flexmock/test_unit'
 
 class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
-    include Roby::Planning
     include Roby::SelfTest
     include Roby::SelfTest::Assertions
 
@@ -16,11 +15,11 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         end
         description = nil
         @action_m = Actions::Interface.new_submodel do
-            describe("the start task").optional_arg(:id, "the task ID")
+            describe("the start task").returns(task_m).optional_arg(:id, "the task ID")
             define_method(:start_task) { |arg| task_m.new(:id => (arg[:id] || :start)) }
-            describe("the next task")
+            describe("the next task").returns(task_m)
             define_method(:next_task) { task_m.new(:id => :next) }
-            describe("a monitoring task")
+            describe("a monitoring task").returns(task_m)
             define_method(:monitoring_task) { task_m.new(:id => 'monitoring') }
             description = describe("state machine").returns(task_m)
         end
@@ -29,19 +28,33 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
 
     def start_machine(action_name, *args)
         task = action_m.find_action_by_name(action_name).instanciate(plan, *args)
+        plan.add_permanent(task)
         task.start!
         task
     end
 
     def test_it_defines_an_action_with_the_state_machine_name
-        action_m.state_machine('state_machine_action') do
+        state_machine('state_machine_action') do
             start(state(Roby::Task))
         end
         assert action_m.find_action_by_name('state_machine_action')
     end
 
+    def state_machine(name, &block)
+        action_m.state_machine(name) do
+            def start_task(task)
+                tasks = super
+                tasks.each do |t|
+                    t.planning_task.start!
+                end
+                tasks
+            end
+            class_eval(&block)
+        end
+    end
+
     def test_it_starts_the_start_task_when_the_root_task_is_started
-        action_m.state_machine 'test' do
+        state_machine 'test' do
             start = state start_task
             start(start)
         end
@@ -53,7 +66,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
     end
 
     def test_it_can_transition_using_an_event_from_a_globally_defined_dependency
-        action_m.state_machine 'test' do
+        state_machine 'test' do
             depends_on(monitor = state(monitoring_task))
             start_state = state start_task
             next_state  = state next_task
@@ -69,7 +82,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
     end
 
     def test_it_can_transition_using_an_event_from_a_task_level_dependency
-        action_m.state_machine 'test' do
+        state_machine 'test' do
             start_state = state start_task
             start_state.depends_on(monitor = state(monitoring_task))
             next_state  = state next_task
@@ -86,7 +99,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
 
     def test_it_raises_if_a_transition_source_state_is_not_reachable
         assert_raises(Roby::Coordination::Models::UnreachableStateUsed) do
-            action_m.state_machine 'test' do
+            state_machine 'test' do
                 start_state = state start_task
                 start_state.depends_on(monitor = state(monitoring_task))
                 next_state  = state next_task
@@ -97,7 +110,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
     end
 
     def test_it_removes_during_transition_the_dependency_from_the_root_to_the_instanciated_tasks
-        action_m.state_machine 'test' do
+        state_machine 'test' do
             monitor = state(monitoring_task)
             depends_on monitor, :role => 'monitor'
             start_state = state start_task
@@ -112,7 +125,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
     end
 
     def test_it_applies_a_transition_only_for_the_state_it_is_defined_in
-        action_m.state_machine 'test' do
+        state_machine 'test' do
             monitor = state monitoring_task
             depends_on monitor, :role => 'monitor'
             start_state = state start_task
@@ -135,7 +148,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
 
     def test_it_can_forward_events_from_child_to_parent
         task_m.event :next_is_done
-        action_m.state_machine 'test' do
+        state_machine 'test' do
             start_state = state start_task
             next_state  = state next_task
             start(start_state)
@@ -153,7 +166,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
     end
 
     def test_it_sets_up_dependencies_based_on_known_transitions
-        action_m.state_machine 'test' do
+        state_machine 'test' do
             start(state(start_task))
         end
 
@@ -167,7 +180,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
 
     def test_it_passes_given_arguments_to_the_state_machine_block
         description.required_arg(:task_id, "the task ID")
-        action_m.state_machine 'test' do
+        state_machine 'test' do
             start(state(start_task(:id => task_id)))
         end
 
@@ -177,10 +190,26 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
 
     def test_it_raises_if_an_unknown_argument_is_accessed
         assert_raises(NameError) do
-            action_m.state_machine 'test' do
+            state_machine 'test' do
                 start(state(start_task(:id => task_id)))
             end
         end
+    end
+
+    def test_it_sets_the_task_names_to_the_name_of_the_local_variables_they_are_assigned_to_with_a_state_suffix
+        _, machine = state_machine 'test' do
+            first = state(start_task(:id => 10))
+            start(first)
+        end
+        assert_equal 'first_state', machine.tasks.first.name
+    end
+
+    def test_it_can_resolve_a_state_model_by_its_child_name
+        _, machine = state_machine 'test' do
+            first = state(start_task(:id => 10))
+            start(first)
+        end
+        assert_equal task_m, machine.find_child('first_state')
     end
 
     def test_arbitrary_objects_must_be_converted_using_state_first
@@ -220,15 +249,13 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         task_m = self.task_m
 
         description.required_arg(:first_task, 'the first state')
-        action_m.state_machine('test') do
+        state_machine('test') do
             first_state = state(first_task)
             start(first_state)
         end
 
-        obj = flexmock
-        obj.should_receive(:instanciate).and_return(first_task = Roby::Task.new)
-        task = start_machine('test', :first_task => obj)
-        assert_equal first_task, task.current_task_child
+        task = start_machine('test', :first_task => action_m.start_task)
+        assert_equal :start, task.current_task_child.arguments[:id]
     end
 
     def test_it_rebinds_the_action_states_to_the_actual_interface_model
@@ -240,7 +267,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
                 child_task_m.new(:id => (arg[:id] || :start))
             end
         end
-        action_m.state_machine('test') do
+        state_machine('test') do
             start(state(start_task))
         end
 
@@ -293,7 +320,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
             start task
             transition task.success_event, next_task
         end
-        plan.add_permanent(task = task_m.new)
+        plan.add(task = task_m.new)
         state_machine = state_machine_m.new(action_m, task)
 
         task.start!
@@ -311,7 +338,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
             start task
             forward task.success_event, success_event
         end
-        plan.add_permanent(task = task_m.new)
+        plan.add(task = task_m.new)
         state_machine = state_machine_m.new(action_m, task)
 
         task.start!

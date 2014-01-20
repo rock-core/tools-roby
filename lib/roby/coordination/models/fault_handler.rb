@@ -16,6 +16,9 @@ module Roby
                 # @return [:missions,:actions,:origin] the fault response
                 #   location
                 inherited_single_value_attribute(:response_location) { :actions }
+                # @return [Boolean] if true, the action location will be retried
+                #   after the fault response table, otherwise whatever should
+                #   happen will happen (other error handling, ...)
                 inherited_single_value_attribute(:__try_again) { false }
                 # @return [Boolean] if true, the last action of the response
                 #   will be to retry whichever action/missions/tasks have been
@@ -24,6 +27,10 @@ module Roby
                 # @return [#instanciate] an object that allows to create the
                 #   toplevel task of the fault response
                 inherited_single_value_attribute :action
+
+                def to_s
+                    "#{fault_response_table}.on_fault(#{execution_exception_matcher})"
+                end
 
                 def locate_on_missions
                     response_location :missions
@@ -40,9 +47,83 @@ module Roby
                     self
                 end
 
+                # Try the repaired action again when the fault handler
+                # successfully finishes
+                #
+                # It can be called anytime in the script, but will have an
+                # effect only at the end of the fault handler
                 def try_again
                     __try_again(true)
+                    terminal
                 end
+
+                # Script element that implements the replacement part of
+                # {#replace_by}
+                class ReplaceBy < Coordination::ScriptInstruction
+                    attr_reader :replacement_task
+
+                    def initialize(replacement_task)
+                        @replacement_task = replacement_task
+                    end
+
+                    def new(fault_handler)
+                        ReplaceBy.new(fault_handler.instance_for(replacement_task))
+                    end
+
+                    def execute(fault_handler)
+                        response_task = fault_handler.root_task
+                        plan = response_task.plan
+                        replacement_task = self.replacement_task.resolve
+
+                        response_task.each_parent_object(Roby::TaskStructure::ErrorHandling) do |repaired_task|
+                            repaired_task_parents = repaired_task.each_parent_task.map do |parent_task|
+                                [parent_task, parent_task[repaired_task, Roby::TaskStructure::Dependency]]
+                            end
+                            plan.replace(repaired_task, replacement_task)
+                            repaired_task_parents.each do |parent_t, dependency_options|
+                                parent_t.add_child repaired_task, dependency_options
+                            end
+                        end
+                        true
+                    end
+
+                    def to_s; "start(#{task}, #{dependency_options})" end
+                end
+
+                class FinalizeReplacement < Coordination::ScriptInstruction
+                    def new(fault_handler)
+                        self
+                    end
+
+                    def execute(fault_handler)
+                        response_task = fault_handler.root_task
+                        response_task.each_parent_object(Roby::TaskStructure::ErrorHandling) do |repaired_task|
+                            repaired_task_parents = repaired_task.each_parent_task.to_a
+                            repaired_task_parents.each do |parent|
+                                parent.remove_child repaired_task
+                            end
+                        end
+                    end
+                end
+
+                # Replace the response's location by this task when the fault
+                # handler script is finished
+                #
+                # It terminates the script, i.e. no instructions can be added
+                # after it is called
+                #
+                # @raise ArgumentError if there is already a replacement task
+                def replace_by(task, until_event = nil)
+                    __try_again(false)
+                    replacement_task = validate_or_create_task(task)
+                    start replacement_task
+                    instructions << ReplaceBy.new(replacement_task)
+                    wait(until_event || replacement_task.success_event)
+                    instructions << FinalizeReplacement.new
+                    emit success_event
+                    terminal
+                end
+
 
                 def find_response_locations(origin)
                     if response_location == :origin

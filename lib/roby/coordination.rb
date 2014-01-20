@@ -19,6 +19,7 @@ module Roby
     end
 end
 
+require 'binding_of_caller'
 require 'roby/coordination/calculus'
 require 'roby/coordination/models/task'
 require 'roby/coordination/models/event'
@@ -36,6 +37,7 @@ require 'roby/coordination/models/actions'
 require 'roby/coordination/models/action_state_machine'
 require 'roby/coordination/script_instruction'
 require 'roby/coordination/models/script'
+require 'roby/coordination/models/action_script'
 require 'roby/coordination/models/fault_handler'
 require 'roby/coordination/models/fault_response_table'
 

@@ -30,6 +30,14 @@ module Roby
 	    @interruptible	  = nil
 	end
 
+        def to_s
+            result = model.map(&:to_s).join(",")
+            if !arguments.empty?
+                result << ".with_arguments(#{arguments.map { |k, v| ":#{k} => #{v}" }.join(", ")})"
+            end
+            result
+        end
+
 	# Filters on task model and arguments
         #
         # Will match if the task is an instance of +model+ or one of its

@@ -1,5 +1,10 @@
 require 'roby'
 
+app = Roby.app
+app.require_app_dir
+app.public_shell_interface = true
+app.public_logs = true
+
 run_controller = false
 options = OptionParser.new do |opt|
     opt.banner = <<-EOD
@@ -17,11 +22,6 @@ scripts/controllers/ and/or some explicitly given actions
 end
 remaining_arguments = options.parse(ARGV)
 
-app = Roby.app
-app.require_app_dir
-app.public_shell_interface = true
-app.public_logs = true
-
 direct_files, actions = remaining_arguments.partition do |arg|
     File.file?(arg)
 end
@@ -30,11 +30,7 @@ Roby.app.additional_model_files.concat(direct_files)
 Roby.display_exception do
     app.setup
     Roby.engine.once do
-        if defined? RUBY_DESCRIPTION
-            Robot.info "loaded Roby #{Roby::VERSION} on #{RUBY_DESCRIPTION}"
-        else
-            Robot.info "loaded Roby #{Roby::VERSION}"
-        end
+        Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
 
         # Start the requested actions
         actions.each do |act|
@@ -54,7 +50,7 @@ Roby.display_exception do
                 Robot.info "loading controller file #{controller_file}"
                 load controller_file
             else
-                Robot.info "found no controller file to load"
+                Robot.info "found no controller file to load for #{Roby.app.robot_name}:#{Roby.app.robot_type}"
             end
         end
         Robot.info "done initialization"

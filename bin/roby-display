@@ -11,13 +11,14 @@ host = 'localhost'
 port = Roby::Log::Server::DEFAULT_PORT
 sampling_period = Roby::Log::Server::DEFAULT_SAMPLING_PERIOD
 config = 'roby-display.yml'
-display_mode = 'relations'
 
 # Look for a default config file in the Roby app structure
 if Roby.app.app_dir
     config = Roby.app.find_file('config', 'roby-display.yml', :order => :specific_first) ||
         File.join(Roby.app.app_dir, "config", "roby-display.yml")
 end
+display_mode = if !config then 'relations'
+               end
 
 def parse_remote_host(host_spec)
     if !host_spec
@@ -97,7 +98,7 @@ app = Qt::Application.new(ARGV)
 display = Roby::LogReplay::LogDisplay.new
 if display_mode == 'all'
     display.create_all_displays
-else
+elsif display_mode
     display.create_display(display_mode)
 end
 

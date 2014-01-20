@@ -16,6 +16,10 @@ module Roby
                     end
                 end
             end
+
+            def to_s
+                "#{self.class}/#{root_task}"
+            end
         end
     end
 end

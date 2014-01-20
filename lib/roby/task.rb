@@ -1094,10 +1094,10 @@ module Roby
                     poll_block.block.call(self)
                 end
             rescue LocalizedError => e
-                Roby.log_pp(e, Roby.logger, :warn)
+                Roby.log_exception(e, Roby.logger, :warn)
                 emit :internal_error, e
             rescue Exception => e
-                Roby.log_pp(e, Roby.logger, :warn)
+                Roby.log_exception(e, Roby.logger, :warn)
                 emit :internal_error, CodeError.new(e, self)
             end
         end
@@ -1109,7 +1109,7 @@ module Roby
             #  - single class poll_handler add be class method Task#poll
             #  - additional instance poll_handler added by instance method poll
             #  - polling as defined in state of the state_machine, i.e. substates of running
-            if respond_to?(:poll_handler) || !poll_handlers.empty? || respond_to?(:state_machine)
+            if respond_to?(:poll_handler) || !poll_handlers.empty? || state_machine
                 @poll_handler_id = engine.add_propagation_handler(:type => :external_events, &method(:do_poll))
             end
         end
@@ -1329,7 +1329,14 @@ module Roby
             simulation_task
         end
 
-        # Returns a PlanService object for this task
+        # Returns an object that will allow to track this task's role in the
+        # plan regardless of replacements
+        #
+        # The returning object will point to the replacing object when self is
+        # replaced by something. In effect, it points to the task's role in the
+        # plan instead of to the actual task itself.
+        #
+        # @return [PlanService]
         def as_service
             @service ||= (plan.find_plan_service(self) || PlanService.new(self))
         end

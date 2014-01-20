@@ -8,7 +8,33 @@ module Roby
             # See MethodDescription
             Argument = Struct.new :name, :doc, :required, :default do
                 def pretty_print(pp)
-                    pp.text "#{name}: #{doc} (#{if required then 'required' else 'optional' end})"
+                    pp.text "#{name}: #{doc}"
+                    if required then pp.text ' (required)'
+                    else pp.text ' (optional)'
+                    end
+                    if default
+                        pp.text " default=#{default}"
+                    end
+                end
+
+                def droby_dump(peer)
+                    result = self.dup
+                    result.droby_dump!(peer)
+                    result
+                end
+
+                def droby_dump!(peer)
+                    self.default = Distributed.format(default, peer)
+                end
+
+                def proxy(peer)
+                    result = dup
+                    result.proxy!(peer)
+                    result
+                end
+
+                def proxy!(peer)
+                    self.default = peer.local_object(default)
                 end
             end
 
@@ -32,11 +58,13 @@ module Roby
             #
             # @return [Model<Roby::Task>,Model<Roby::TaskService>]
             attr_reader :returned_type
+            # If this action is actually a coordination model, returns it
+            attr_accessor :coordination_model
 
             # @return [Action] an action using this action model and the given
             #   arguments
             def new(arguments = Hash.new)
-                Actions::Action.new(self, arguments)
+                Actions::Action.new(self, normalize_arguments(arguments))
             end
 
             # Task model that can be used to represent this action in a plan
@@ -90,6 +118,10 @@ module Roby
                 self
             end
 
+            def normalize_arguments(arguments)
+                Kernel.validate_options arguments, self.arguments.map(&:name)
+            end
+
             # Instanciate this action on the given plan
             def instanciate(plan, arguments = Hash.new)
                 run(action_interface_model.new(plan), arguments)
@@ -101,7 +133,7 @@ module Roby
                     if !arguments.empty?
                         raise ArgumentError, "#{name} expects no arguments, but #{arguments.size} are given"
                     end
-                    action_interface.send(name).as_plan
+                    result = action_interface.send(name).as_plan
                 else
                     default_arguments = self.arguments.inject(Hash.new) do |h, arg|
                         h[arg.name] = arg.default
@@ -113,23 +145,43 @@ module Roby
                             raise ArgumentError, "required argument #{arg.name} not given to #{name}"
                         end
                     end
-                    action_interface.send(name, arguments).as_plan
+                    result = action_interface.send(name, arguments).as_plan
                 end
+                # Make the planning task inherit the model/argument flags
+                if planning_task = result.planning_task
+                    if planning_task.respond_to?(:action_model=)
+                        planning_task.action_model ||= self
+                    end
+                    if planning_task.respond_to?(:action_arguments=)
+                        result.planning_task.action_arguments ||= arguments
+                    end
+                end
+                result
             end
 
             def rebind(action_interface_model)
                 m = dup
-                m.action_interface_model = action_interface_model
+                # We rebind only if the new interface model is a submodel of the
+                # old one
+                if action_interface_model <= self.action_interface_model
+                    m.action_interface_model = action_interface_model
+                end
                 m
             end
 
             # Returns the plan pattern that will deploy this action on the plan
             def plan_pattern(arguments = Hash.new)
+                job_id, arguments = Kernel.filter_options arguments, :job_id
+
                 planner = Roby::Actions::Task.new(
-                    :action_interface_model => action_interface_model,
+                    Hash[:action_interface_model => action_interface_model,
                     :action_model => self,
-                    :action_arguments => arguments)
+                    :action_arguments => arguments].merge(job_id))
                 planner.planned_task
+            end
+
+            def as_plan(arguments = Hash.new)
+                plan_pattern(arguments)
             end
 
             def droby_dump(dest)
@@ -141,6 +193,8 @@ module Roby
             def droby_dump!(dest)
                 @action_interface_model = action_interface_model.droby_dump(dest)
                 @returned_type = returned_type.droby_dump(dest)
+                @arguments = arguments.droby_dump(dest)
+                @coordination_model = nil
                 @returned_task_type = nil
             end
 
@@ -151,13 +205,14 @@ module Roby
                 end
 
                 result = self.dup
-                result.proxy!(peer, interface_model)
+                result.proxy!(peer, interface_model, arguments)
                 result
             end
 
-            def proxy!(peer, interface_model)
+            def proxy!(peer, interface_model, arguments)
                 @action_interface_model = interface_model
                 @returned_type = returned_type.proxy(peer)
+                @arguments = arguments.proxy(peer)
             end
 
             def to_s
@@ -177,12 +232,31 @@ module Roby
                         pp.text "Arguments:"
                         pp.nest(2) do
                             pp.seplist(arguments.sort_by(&:name)) do |arg|
-                                pp.breakable
                                 arg.pretty_print(pp)
                             end
                         end
                     end
                 end
+            end
+
+            # Returns the underlying coordination model
+            #
+            # @raise [ArgumentError] if this action is not defined by a
+            #   coordination model
+            # @return [Model<Coordination::Base>]
+            def to_coordination_model
+                if coordination_model
+                    coordination_model
+                else raise ArgumentError, "#{self} does not seem to be based on a coordination model"
+                end
+            end
+
+            def to_action_model
+                self
+            end
+
+            def to_action
+                new
             end
         end
         end

@@ -1,0 +1,15 @@
+Generates a new empty action interface class (subclass of
+Roby::Actions::Interface) and associated test file. It must
+be given the new class name either in CamelCase or snake_case
+form. Namespaces can also be given, either in/this/form or
+In::This::Form.
+
+If a robot name is specified with the -r option, the files will be created in
+this robot's specific folders
+
+Example: running the following command in a rock_auv app
+  roby gen actions manipulation/grasping
+
+  will generate a RockAuv::Manipulation::Grasping class in
+  models/actions/manipulation/grasping.rb as well as the
+  associated test file in test/actions/manipulation/test_grasping.rb

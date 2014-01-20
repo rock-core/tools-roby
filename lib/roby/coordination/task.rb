@@ -30,6 +30,10 @@ module Roby
                     end
                 end
 
+                def name
+                    model.name
+                end
+
                 def to_s; "Task[#{model.model}]" end
             end
     end

@@ -1,10 +1,9 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/actions'
 require 'flexmock/test_unit'
 
 class TC_Actions_Library < Test::Unit::TestCase
-    include Roby::Planning
     include Roby::SelfTest
     include Roby::SelfTest::Assertions
 

@@ -1,5 +1,5 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'queries/test_task_matcher'
 require 'queries/test_or_matcher'
 require 'queries/test_any'

@@ -157,24 +157,32 @@ module Roby
             end
             handlers = matching_handlers.sort_by { |_, handler| handler.priority }
 
-            table, handler = handlers.first
-            if handler
-                handler.activate(error, table.arguments)
-            else
-                error.each_involved_task.
-                    find_all { |t| mission?(t) && t != error.origin }.
-                    each do |m|
-                        add_error(MissionFailedError.new(m, error.exception))
+            while !handlers.empty?
+                table, handler = handlers.shift
+                if handler
+                    begin
+                        handler.activate(error, table.arguments)
+                        return
+                    rescue Exception => e
+                        Robot.warn "ignored exception handler #{handler} because of exception"
+                        Roby.log_exception_with_backtrace(e, Robot, :warn)
                     end
-
-                error.each_involved_task.
-                    find_all { |t| permanent?(t) && t != error.origin }.
-                    each do |m|
-                        add_error(PermanentTaskError.new(m, error.exception))
-                    end
-
-                pass_exception
+                end
             end
+
+            error.each_involved_task.
+                find_all { |t| mission?(t) && t != error.origin }.
+                each do |m|
+                    add_error(MissionFailedError.new(m, error.exception))
+                end
+
+            error.each_involved_task.
+                find_all { |t| permanent?(t) && t != error.origin }.
+                each do |m|
+                    add_error(PermanentTaskError.new(m, error.exception))
+                end
+
+            pass_exception
         end
 
         # Enables a fault response table on this plan

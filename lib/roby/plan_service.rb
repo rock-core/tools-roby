@@ -7,21 +7,23 @@ module Roby
     # It forwards method calls to the underlying task
     class PlanService
         # The underlying task
+        #
+        # @return [Roby::Task]
         attr_reader :task
         # Set of blocks that will be called when the service itself is finalized
         #
-        # See #when_finalized
+        # @see #when_finalized
         attr_reader :finalization_handlers
         # The set of event handlers that have been defined for this service
         #
         # It is a mapping from a symbol (that represents the event name) to a
         # set of procs that represent the handlers themselves
         #
-        # See #on
+        # @see #on
         attr_reader :event_handlers
         # The set of handlers for replacments
         #
-        # @see on_replacement
+        # @see #on_replacement
         attr_reader :replacement_handlers
 
         def initialize(task)
@@ -141,11 +143,15 @@ module Roby
             super || task.respond_to?(name, *args)
         end
 
+        # Forwards all calls to {task}
         def method_missing(*args, &block) # :nodoc:
             task.send(*args, &block)
         end
 
-        def to_task # :nodoc:
+        # Returns the underlying task
+        #
+        # @see task
+        def to_task
             task
         end
 

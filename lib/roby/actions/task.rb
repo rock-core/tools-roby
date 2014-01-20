@@ -4,6 +4,8 @@ module Roby
         class Task < Roby::Task
             terminates
 
+            provides Roby::Interface::Job
+
             # Once the task has been started, this is the interface object that
             # is being used / has been used to generate the action in the plan
             # @return [Interface]

@@ -141,7 +141,7 @@ module Roby
         # decision control object
         #
         # See Roby::Plan and Roby::DecisionControl
-        def initialize(plan, control)
+        def initialize(plan, control = Roby::DecisionControl.new)
             @plan = plan
             plan.engine = self
             @control = control
@@ -161,6 +161,11 @@ module Roby
             @emitted_events  = Array.new
             @disabled_handlers = ValueSet.new
             @additional_errors = nil
+            @exception_listeners = Array.new
+
+            @worker_threads_mtx = Mutex.new
+            @worker_threads = Array.new
+            @worker_completion_blocks = Queue.new
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -181,10 +186,15 @@ module Roby
         attr_accessor :control
         # A numeric ID giving the count of the current propagation cycle
         attr_reader :propagation_id
-
         # The set of events that have been emitted in the current execution
         # cycle
         attr_reader :emitted_events
+        # The blocks that are currently listening to exceptions
+        # @return [Array<#call>]
+        attr_reader :exception_listeners
+        # @return [Queue] blocks queued for execution in the next cycle by
+        #   {#queue_worker_completion_block}
+        attr_reader :worker_completion_blocks
 
         # Internal structure used to store a poll block definition provided to
         # #every or #add_propagation_handler
@@ -215,8 +225,8 @@ module Roby
         
             def to_s; "#<PollBlockDefinition: #{description} #{handler} on_error:#{on_error}>" end
 
-            def call(engine)
-                handler.call(engine.plan)
+            def call(engine, *args)
+                handler.call(*args)
                 true
 
             rescue Exception => e
@@ -228,6 +238,8 @@ module Roby
                     Roby.display_exception(ExecutionEngine.logger.io(:warn), e)
                     return false
                 elsif on_error == :ignore
+                    ExecutionEngine.warn "ignored error from propagation handler #{description}"
+                    Roby.display_exception(ExecutionEngine.logger.io(:warn), e)
                     return true
                 end
             end
@@ -248,8 +260,6 @@ module Roby
             # they would call or emit are injected in the propagation process
             # itself.
             #
-            # See also ExecutionEngine#remove_propagation_handler
-            #
             # @option options [:external_events,:propagation] type defines when
             #   this block should be called. If :external_events, it is called
             #   only once at the beginning of each execution cycle. If
@@ -267,6 +277,8 @@ module Roby
             #   :ignore, it is completely ignored. If :disable, the handler
             #   will be disabled, i.e. not called anymore until #disabled?
             #   is set to false.
+            #
+            # @see ExecutionEngine.remove_propagation_handler
             def add_propagation_handler(options = Hash.new, &block)
                 if options.respond_to?(:call) # for backward compatibility
                     block, options = options, Hash.new
@@ -318,21 +330,31 @@ module Roby
         # itself.
         attr_reader :external_events_handlers
         
-        # call-seq:
-        #   engine.add_propagation_handler { |plan| ... }
+        # The propagation handlers are blocks that should be called at
+        # various places during propagation for all plans. These objects
+        # are called in propagation context, which means that the events
+        # they would call or emit are injected in the propagation process
+        # itself.
         #
-        # The propagation handlers are a set of block objects that have to be
-        # called at the beginning of every propagation phase for all plans.
-        # These objects are called in propagation context, which means that the
-        # events they would call or emit are injected in the propagation
-        # process itself.
+        # @option options [:external_events,:propagation] type defines when
+        #   this block should be called. If :external_events, it is called
+        #   only once at the beginning of each execution cycle. If
+        #   :propagation, it is called once at the beginning of each cycle,
+        #   as well as after each propagation step. The :late option also
+        #   gives some control over when the handler is called when in
+        #   propagation mode
+        # @option options [Boolean] once (false) if true, this handler will
+        #   be removed just after its first execution
+        # @option options [Boolean] late (false) if true, the handler is
+        #   called only when there are no events to propagate anymore.
+        # @option options [:raise,:ignore,:disable] on_error (:raise)
+        #   controls what happens when the block raises an exception. If
+        #   :raise, the error is registered as a framework error. If
+        #   :ignore, it is completely ignored. If :disable, the handler
+        #   will be disabled, i.e. not called anymore until #disabled?
+        #   is set to false.
         #
-        # This method adds a new propagation handler. In its first form, the
-        # argument is the proc object to be added. In the second form, the
-        # block is taken the handler. In both cases, the method returns a value
-        # which can be used to remove the propagation handler later.
-        #
-        # See also #remove_propagation_handler
+        # @see ExecutionEngine#remove_propagation_handler
         def add_propagation_handler(options = Hash.new, &block)
             if options.respond_to?(:call) # for backward compatibility
                 block, options = options, Hash.new
@@ -366,6 +388,41 @@ module Roby
             propagation_handlers.delete_if { |p| p.id == id }
             external_events_handlers.delete_if { |p| p.id == id }
             nil
+        end
+
+        # Registers a thread on {#worker_threads}
+        def register_worker_thread(thread)
+            @worker_threads_mtx.synchronize do
+                worker_threads << thread
+            end
+        end
+
+        # Removes the dead workers from {#worker_threads} 
+        def cleanup_worker_threads
+            @worker_threads_mtx.synchronize do
+                worker_threads.delete_if { |t| !t.alive? }
+            end
+        end
+
+        # Adds a block to be called at the beginning of the next execution cycle
+        #
+        # Unlike {#once}, it is thread-safe
+        def queue_worker_completion_block(&block)
+            worker_completion_blocks << block
+        end
+
+        # Waits for all threads in {#worker_threads} to finish
+        #
+        # It will not reflect the exceptions thrown by the thread
+        def join_all_worker_threads
+            threads = @worker_threads_mtx.synchronize do
+                worker_threads.dup
+            end
+            threads.each do |t|
+                begin t.join
+                rescue Exception
+                end
+            end
         end
 
         # call-seq:
@@ -647,11 +704,23 @@ module Roby
                     next
                 end
 
-                if !handler.call(self)
+                if !handler.call(self, plan)
                     handler.disabled = true
                 end
                 handler.once?
             end
+        end
+
+        # Process the pending worker completion blocks
+        def process_workers
+            cleanup_worker_threads
+
+            completion_blocks = []
+            while !worker_completion_blocks.empty?
+                block = worker_completion_blocks.pop
+                completion_blocks << PollBlockDefinition.new("worker completion handler #{block}", block, Hash.new)
+            end
+            call_poll_blocks(completion_blocks)
         end
 
         # Gather the events that come out of this plan manager
@@ -968,7 +1037,10 @@ module Roby
 
         # The core exception propagation algorithm
         #
-        # @yield exception, task
+        # @param [Array<(ExecutionException,Array<Task>)>] exceptions the set of
+        #   exceptions to propagate, as well as the parents that towards which
+        #   we should propagate them (if empty, all parents)
+        #
         # @yieldparam [ExecutionException] exception the exception that is being
         #   propagated
         # @yieldparam [Task,Plan] handling_object the object we want to test
@@ -1010,10 +1082,11 @@ module Roby
             end
 
             exceptions.each do |exception, parents|
+                parents = [] if !parents
                 debug do
                     debug "propagating exception "
                     log_pp :debug, exception
-                    if parents && !parents.empty?
+                    if !parents.empty?
                         debug "  constrained to parents"
                         log_nest(2) do
                             parents.each do |p|
@@ -1025,10 +1098,15 @@ module Roby
                 end
 
                 origin = exception.origin
+                filtered_parents = parents.find_all { |t| t.depends_on?(origin) }
+                if filtered_parents != parents
+                    warn "some parents specified for #{exception.exception} are actually not parents of #{origin}, they got filtered out"
+                end
+                parents = filtered_parents
                 handled_exceptions[exception.exception] = Set.new
                 remaining = TaskStructure::Dependency.reverse.
                     fork_merge_propagation(origin, exception, :vertex_visitor => visitor) do |from, to, e|
-                        if parents && !parents.empty?
+                        if !parents.empty?
                             if from == origin && !parents.include?(to)
                                 TaskStructure::Dependency.prune
                             end
@@ -1083,6 +1161,11 @@ module Roby
 
         # Propagation exception phase, checking if tasks and/or the main plan
         # are handling the exceptions
+        #
+        # @param [Array<(ExecutionException,Array<Task>)>] exceptions the set of
+        #   exceptions to propagate, as well as the parents that towards which
+        #   we should propagate them (if empty, all parents)
+        # @return (see propagate_exception_in_plan)
         def propagate_exceptions(exceptions)
             debug "Filtering inhibited exceptions"
             exceptions = log_nest(2) do
@@ -1124,6 +1207,8 @@ module Roby
 
         # Schedules +block+ to be called at the beginning of the next execution
         # cycle, in propagation context.
+        #
+        # @yieldparam [Plan] plan the plan on which this engine works
         def once(options = Hash.new, &block)
             add_propagation_handler(Hash[:type => :external_events, :once => true].merge(options), &block)
         end
@@ -1251,24 +1336,33 @@ module Roby
                     end
                 end
 
+                if next_steps.empty? && errors.empty?
+                    next_steps = gather_propagation do
+                        error_handling_phase_synchronous(stats, errors)
+                    end
+                end
+
                 while !next_steps.empty? || !errors.empty?
                     errors.concat(event_propagation_phase(next_steps))
                     next_steps = gather_propagation do
-                        kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
+                        error_handling_phase_synchronous(stats, errors)
                         errors.clear
-
-                        if fatal_errors
-                            fatal_errors.each do |e, _|
-                                Roby.display_exception(Roby.logger.io(:warn), e.exception)
-                            end
-                            if fatal_errors.size == 1
-                                e = fatal_errors.first.first.exception
-                                raise e.dup, e.message, e.backtrace
-                            elsif !fatal_errors.empty?
-                                raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
-                            end
-                        end
                     end
+                end
+            end
+        end
+
+        def error_handling_phase_synchronous(stats, errors)
+            kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
+            if fatal_errors
+                fatal_errors.each do |e, _|
+                    Roby.display_exception(Roby.logger.io(:warn), e.exception)
+                end
+                if fatal_errors.size == 1
+                    e = fatal_errors.first.first.exception
+                    raise e.dup, e.message, e.backtrace
+                elsif !fatal_errors.empty?
+                    raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
                 end
             end
         end
@@ -1303,6 +1397,7 @@ module Roby
                     if quitting?
                         garbage_collect([])
                     end
+                    process_workers
                     gather_external_events
                     call_propagation_handlers
 	        end
@@ -1358,6 +1453,7 @@ module Roby
             Roby.format_exception(error.exception).each do |line|
                 ExecutionEngine.warn line
             end
+	    notify_exception(EXCEPTION_NONFATAL, error, tasks)
         end
 
         # Hook called when a set of tasks is being killed because of an exception
@@ -1366,10 +1462,14 @@ module Roby
             Roby.format_exception(error.exception).each do |line|
                 ExecutionEngine.warn line
             end
+	    notify_exception(EXCEPTION_FATAL, error, tasks)
         end
 
         # Hook called when an exception +e+ has been handled by +task+
-        def handled_exception(e, task); super if defined? super end
+        def handled_exception(error, task)
+	    super if defined? super
+	    notify_exception(EXCEPTION_HANDLED, error, task)
+	end
 
         def unmark_finished_missions_and_permanent_tasks
             to_unmark = plan.task_index.by_predicate[:finished?] | plan.task_index.by_predicate[:failed?]
@@ -1551,7 +1651,7 @@ module Roby
                 # Check if the nearest timepoint is the beginning of
                 # this cycle or of the next cycle
                 if !last_call || (duration - (now - last_call)) < length / 2
-                    if !block.call(engine)
+                    if !block.call(engine, engine.plan)
                         next
                     end
 
@@ -1568,12 +1668,33 @@ module Roby
         # are still waiting while the control is quitting
         attr_reader :waiting_threads
 
+        # A list of threads that are performing work for the benefit of the
+        # currently running Roby plan
+        #
+        # It is there mostly for the benefit of {#join_all_worker_threads}
+        # during testing
+        attr_reader :worker_threads
+
         # A set of blocks that are called at each cycle end
         attr_reader :at_cycle_end_handlers
 
-        # Call +block+ at the end of the execution cycle	
+        # Adds a block to be called at the end of each execution cycle
+        #
+        # @return [Object] an object that allows to identify the block so that
+        #   it can be removed with {#remove_at_cycle_end}
+        #
+        # @yieldparam [Plan] plan the plan on which this engine runs
         def at_cycle_end(&block)
-            at_cycle_end_handlers << block
+            handler = PollBlockDefinition.new("at_cycle_end #{block}", block, Hash.new)
+            at_cycle_end_handlers << handler
+            handler.object_id
+        end
+
+        # Removes a handler added by {#at_cycle_end}
+        #
+        # @param [Object] handler_id the value returned by {#at_cycle_end}
+        def remove_at_cycle_end(handler_id)
+            at_cycle_end_handlers.delete_if { |h| h.object_id == handler_id }
         end
 
         # A set of blocks which are called every cycle
@@ -1588,7 +1709,7 @@ module Roby
             handler = PollBlockDefinition.new("periodic handler #{block}", block, options)
 
             once do
-                if handler.call(self)
+                if handler.call(self, plan)
                     process_every << [handler, cycle_start, duration]
                 end
             end
@@ -1916,7 +2037,7 @@ module Roby
 
 	    at_cycle_end_handlers.each do |handler|
 		begin
-		    handler.call
+		    handler.call(self)
 		rescue Exception => e
 		    add_framework_error(e, "during cycle end handler #{handler}")
 		end
@@ -2028,6 +2149,98 @@ module Roby
                 end
             end
         end
+
+        # Kill all tasks that are currently running in the plan
+        def killall(limit = 100)
+            if scheduler
+                scheduler_enabled = scheduler.enabled?
+            end
+
+            last_known_tasks = ValueSet.new
+            last_quarantine = ValueSet.new
+            counter = 0
+            loop do
+                plan.permanent_tasks.clear
+                plan.permanent_events.clear
+                plan.missions.clear
+                plan.transactions.each do |trsc|
+                    trsc.discard_transaction!
+                end
+
+                if scheduler
+                    scheduler.enabled = false
+                end
+                quit
+                join
+
+                if !running?
+                    start_new_cycle
+                    process_events
+                end
+
+                counter += 1
+                if counter > limit
+                    Roby.warn "more than #{counter} iterations while trying to shut down #{plan}, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
+                    if last_known_tasks != plan.known_tasks
+                        Roby.warn "Known tasks:"
+                        plan.known_tasks.each do |t|
+                            Roby.warn "  #{t}"
+                        end
+                        last_known_tasks = plan.known_tasks.dup
+                    end
+                    if last_quarantine != plan.gc_quarantine
+                        Roby.warn "Quarantined tasks:"
+                        plan.gc_quarantine.each do |t|
+                            Roby.warn "  #{t}"
+                        end
+                        last_quarantine = plan.gc_quarantine.dup
+                    end
+                end
+                if plan.gc_quarantine.size == plan.known_tasks.size
+                    break
+                end
+                sleep 0.01
+            end
+        ensure
+            if scheduler
+                scheduler.enabled = scheduler_enabled
+            end
+        end
+
+	EXCEPTION_NONFATAL = :nonfatal
+	EXCEPTION_FATAL    = :fatal
+	EXCEPTION_HANDLED  = :handled
+
+	# Registers a callback that will be called when exceptions are
+	# propagated in the plan
+	#
+        # @yieldparam [Object] kind one of the EXCEPTION_* constants
+        # @yieldparam [Roby::ExecutionException] error the exception
+        # @yieldparam [Array<Roby::Task>] tasks the tasks that are being killed
+        #   because of this exception
+        # @return [Object] an ID that can be used as argument to
+	#   {#remove_exception_listener}
+	def on_exception(&block)
+            handler = PollBlockDefinition.new("exception listener #{block}", block, :on_error => :disable)
+	    exception_listeners << handler
+	    handler
+	end
+
+	# Removes an exception listener registered with {#on_exception}
+	#
+	# @param [Object] the value returned by {#on_exception}
+	# @return [void]
+	def remove_exception_listener(handler)
+	    exception_listeners.delete(handler)
+	end
+
+	# Call to notify the listeners registered with {#on_exception} of the
+	# occurence of an exception
+	def notify_exception(kind, error, tasks)
+	    exception_listeners.each do |listener|
+		listener.call(self, kind, error, tasks)
+	    end
+	end
     end
 
     # Execute the given block in the main plan's propagation context, but don't

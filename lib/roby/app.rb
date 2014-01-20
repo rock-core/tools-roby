@@ -1,10 +1,12 @@
 require 'roby/support'
 require 'roby/robot'
+require 'roby/app/robot_names'
 require 'singleton'
 require 'utilrb/hash'
 require 'utilrb/module/attr_predicate'
 require 'yaml'
 require 'utilrb/pathname/find_matching_parent'
+require 'roby/app/base'
 
 module Roby
     # Regular expression that matches backtrace paths that are within the
@@ -194,6 +196,47 @@ module Roby
         # It is false by default
         attr_predicate :ignore_all_load_errors?, true
 
+        # If set to true, tests will show detailed execution timings
+        #
+        # It is false by default
+        attr_predicate :test_show_timings?, true
+
+        # The options passed to Utilrb::Timepoints#format_timepoints if
+        # {#test_show_timings?} is true
+        attr_reader :test_format_timepoints_options
+
+        # How many times each test should be repeated (defaults to 1)
+        #
+        # This is mostly useful when profiling is enabled
+        #
+        # @return [Integer]
+        attr_accessor :test_repeat
+
+        # List of subsystems that should be profiles during testing
+        #
+        # Profiling is done using perftools.rb. All profiles are aggregated
+        # (run the tests separately if you need one profile per test)
+        #
+        # Roby knows 'test', which profiles the test without setup and teardown.
+        # The default is empty (no profiling)
+        #
+        # @return [Array<String>]
+        attr_reader :test_profile
+
+        # Returns the name of the application
+        def app_name
+            if @app_name
+                @app_name
+            else
+                File.basename(app_dir)
+            end
+        end
+
+        # Returns the name of this app's toplevel module
+        def module_name
+            app_name.camelize
+        end
+
         # Returns the application base directory
         def app_dir
             if defined?(APP_DIR)
@@ -294,12 +337,6 @@ module Roby
 	# True if user interaction is disabled during tests
 	attr_predicate :automatic_testing?, true
 
-	# True if all logs should be kept after testing
-	attr_predicate :testing_keep_logs?, true
-
-	# True if all logs should be kept after testing
-	attr_predicate :testing_overwrites_logs?, true
-
         # True if plugins should be discovered, registered and loaded (true by
         # default)
         attr_predicate :plugins_enabled?, true
@@ -312,17 +349,20 @@ module Roby
         # Defines common configuration options valid for all Roby-oriented
         # scripts
         def self.common_optparse_setup(parser)
+            Roby.app.load_config_yaml
             parser.on("--log=SPEC", String, "configuration specification for text loggers. SPEC is of the form path/to/a/module:LEVEL[:FILE][,path/to/another]") do |log_spec|
                 log_spec.split(',').each do |spec|
                     mod, level, file = spec.split(':')
-                    mod_path = mod.split('/')
-
                     Roby.app.log_setup(mod, level, file)
                 end
             end
             parser.on('-r NAME', '--robot=NAME[,TYPE]', String, 'the robot name and type') do |name|
                 robot_name, robot_type = name.split(',')
-                Roby.app.robot(robot_name, robot_type||robot_name)
+                Roby.app.robot(robot_name, robot_type)
+            end
+            parser.on('--debug', 'run in debug mode') do
+                Roby.app.public_logs = true
+                Roby.app.filter_backtraces = false
             end
             parser.on_tail('-h', '--help', 'this help message') do
                 STDERR.puts parser
@@ -384,6 +424,8 @@ module Roby
         }
 
 	def initialize
+            @auto_load_all = false
+            @auto_load_models = true
             @app_dir = nil
             @search_path = nil
 	    @plugins = Array.new
@@ -395,7 +437,6 @@ module Roby
             @additional_model_files = []
 
 	    @automatic_testing = true
-	    @testing_keep_logs = false
             @registered_exceptions = []
 
             @filter_out_patterns = [Roby::RX_IN_FRAMEWORK,
@@ -405,7 +446,20 @@ module Roby
             self.abort_on_application_exception = true
 
             @planners    = []
+            @notification_listeners = Array.new
+            @test_format_timepoints_options = Hash.new
+            @test_repeat = 1
+            @test_profile = []
 	end
+
+        # The robot names configuration
+        #
+        # @return [App::RobotNames]
+        def robots
+            robots = App::RobotNames.new(options['robots'] || Hash.new)
+            robots.strict = !!options['robots']
+            robots
+        end
 
         # Looks into subdirectories of +dir+ for files called app.rb and
         # registers them as Roby plugins
@@ -488,14 +542,11 @@ module Roby
 
 	    if robot_name && (robot_config = options['robots'])
 		if robot_config = robot_config[robot_name]
-		    robot_config.each do |section, values|
-			if options[section]
+		    robot_config.delete_if do |section, values|
+			if section != "robots" && options[section]
 			    options[section].merge! values
-			else
-			    options[section] = values
 			end
 		    end
-		    options.delete('robots')
 		end
 	    end
             options = options.map_value do |k, val|
@@ -532,7 +583,7 @@ module Roby
 	    names.map do |name|
 		name = name.to_s
 		unless plugin = plugin_definition(name)
-		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, *_| n }.join(", ")})"
+		    raise ArgumentError, "#{name} is not a known plugin (available plugins: #{available_plugins.map { |n, *_| n }.join(", ")})"
 		end
 		name, dir, mod, init = *plugin
 		if already_loaded = plugins.find { |n, m| n == name && m == mod }
@@ -556,31 +607,50 @@ module Roby
 		    end
 		end
 
-		plugins << [name, mod]
-		extend mod
-		# If +load+ has already been called, call it on the module
-		if mod.respond_to?(:load) && options
-		    mod.load(self, options)
-		end
-                mod
+                add_plugin(name, mod)
 	    end
 	end
 
+        def add_plugin(name, mod)
+            plugins << [name, mod]
+            extend mod
+            # If +load+ has already been called, call it on the module
+            if mod.respond_to?(:load) && options
+                mod.load(self, options)
+            end
+            mod
+        end
+
         # The robot name
-	attr_reader :robot_name
+        #
+        # @return [String,nil]
+	def robot_name
+            if @robot_name then @robot_name
+            else robots.default_robot_name
+            end
+        end
+
         # The robot type
-        attr_reader :robot_type
+        #
+        # @return [String,nil]
+        def robot_type
+            if @robot_type then @robot_type
+            else robots.default_robot_type
+            end
+        end
+
         # Sets up the name and type of the robot. This can be called only once
         # in a given Roby controller.
-	def robot(name, type = name)
+	def robot(name, type = nil)
+            name, type = robots.resolve(name, type)
+
 	    if @robot_name
 		if name != @robot_name && type != @robot_type
 		    raise ArgumentError, "the robot is already set to #{name}, of type #{type}"
 		end
 		return
 	    end
-	    @robot_name = name
-	    @robot_type = type
+	    @robot_name, @robot_type = name, type
 	end
 
         # The base directory in which logs should be saved
@@ -697,29 +767,23 @@ module Roby
 	    # Set up log levels
 	    log['levels'].each do |name, value|
 		name = name.modulize
-		if value =~ /^(\w+):(.+)$/
-		    level, file = $1, $2
-		    level = Logger.const_get(level)
-		    file = file.gsub('ROBOT', robot_name) if robot_name
-		else
-		    level = Logger.const_get(value)
-		end
-
-		new_logger = if file
-				 path = File.expand_path(file, log_dir)
-				 io   = (log_files[path] ||= File.open(path, 'w'))
-				 Logger.new(io)
-			     else Logger.new(STDOUT)
-			     end
-		new_logger.level     = level
-		new_logger.formatter = Roby.logger.formatter
-
                 mod = Kernel.constant(name)
-                if robot_name
-                    new_logger.progname = "#{name} #{robot_name}"
-                else
-                    new_logger.progname = name
-                end
+		if value =~ /^(\w+):(.+)$/
+		    value, file = $1, $2
+		    file = file.gsub('ROBOT', robot_name) if robot_name
+		end
+                level = Logger.const_get(value)
+
+                io = if file
+                         path = File.expand_path(file, log_dir)
+                         log_files[path] ||= File.open(path, 'w')
+                     else 
+                         STDOUT
+                     end
+                new_logger = Logger.new(io)
+		new_logger.level     = level
+		new_logger.formatter = mod.logger.formatter
+                new_logger.progname = [name, robot_name].compact.join(" ")
                 mod.logger = new_logger
 	    end
 	end
@@ -804,10 +868,14 @@ module Roby
 	def require_models
 	    # Require all common task models and the task models specific to
 	    # this robot
-            all_files = find_files_in_dirs('models', 'tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/) +
-                find_files_in_dirs('tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/)
-            all_files.each do |p|
-                require(p)
+            if auto_load_models?
+                search_path = self.auto_load_search_path
+                all_files =
+                    find_files_in_dirs('models', 'tasks', 'ROBOT', :path => search_path, :all => true, :order => :specific_last, :pattern => /\.rb$/) +
+                    find_files_in_dirs('tasks', 'ROBOT', :path => search_path, :all => true, :order => :specific_last, :pattern => /\.rb$/)
+                all_files.each do |p|
+                    require(p)
+                end
             end
 
 	    # Set up the loaded plugins
@@ -823,32 +891,40 @@ module Roby
 	    call_plugins(:finalize_model_loading, self)
 	end
 
+        def register_generators
+            Roby.app.load_base_config
+            RubiGen::Base.__sources = [RubiGen::PathSource.new(:roby, File.join(Roby::ROBY_ROOT_DIR, "generators"))]
+            call_plugins(:register_generators, self)
+        end
+
         # Loads the planner models
         #
         # This method is called at the end of require_models, before the
         # plugins' require_models hook is called
         def require_planners
-            main_files =
-                find_files('models', 'actions', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
-                find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
-                find_files('planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first)
-            main_files.each do |path|
-                require path
+            search_path = self.auto_load_search_path
+            if auto_load_models?
+                main_files =
+                    find_files('models', 'actions', 'ROBOT', 'main.rb', :path => search_path, :all => true, :order => :specific_first) +
+                    find_files('models', 'planners', 'ROBOT', 'main.rb', :path => search_path, :all => true, :order => :specific_first) +
+                    find_files('planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first)
+                main_files.each do |path|
+                    require path
+                end
             end
 
-            if !defined?(MainPlanner) # For backward compatibility reasons
-                Object.const_set(:MainPlanner, Class.new(Roby::Planning::Planner))
-            end
             if !defined?(Main)
                 Object.const_set(:Main, Class.new(Roby::Actions::Interface))
             end
 
-            all_files =
-                find_files_in_dirs('models', 'actions', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
-                find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
-                find_files_in_dirs('planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/)
-            all_files.each do |p|
-                require(p)
+            if auto_load_models?
+                all_files =
+                    find_files_in_dirs('models', 'actions', 'ROBOT', :path => search_path, :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+                    find_files_in_dirs('models', 'planners', 'ROBOT', :path => search_path, :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+                    find_files_in_dirs('planners', 'ROBOT', :path => search_path, :all => true, :order => :specific_first, :pattern => /\.rb$/)
+                all_files.each do |p|
+                    require(p)
+                end
             end
 
 	    call_plugins(:require_planners, self)
@@ -896,7 +972,6 @@ module Roby
         def base_setup
 	    STDOUT.sync = true
 
-            require 'roby/planning'
             require 'roby/interface'
 	    load_base_config
 
@@ -933,19 +1008,9 @@ module Roby
 	    require_models
             require_config
 
-	    # MainPlanner is always included in the planner list
-            self.planners << MainPlanner << Main
+	    # Main is always included in the planner list
+            self.planners << Main
 	   
-	    # If we are in test mode, import the test extensions from plugins
-	    if testing?
-		require 'roby/test/testcase'
-		each_plugin do |mod|
-		    if mod.const_defined?(:Test, false)
-			Roby::Test::TestCase.include mod.const_get(:Test)
-		    end
-		end
-	    end
-
             # Attach the global fault tables to the plan
             self.planners.each do |planner|
                 if planner.respond_to?(:each_fault_response_table)
@@ -957,11 +1022,10 @@ module Roby
 
             if public_shell_interface?
                 setup_shell_interface
-            else
-                DRb.start_service "druby://localhost:0"
             end
+            setup_drb_service
 
-        rescue Exception => e
+        rescue Exception
             begin cleanup
             rescue Exception
             end
@@ -983,7 +1047,7 @@ module Roby
             call_plugins(:require_config, self)
         end
 
-        # Publishes a shell interface on DRb
+        # Publishes a shell interface
         #
         # This method publishes a Roby::Interface object as the front object of
         # the local DRb server. The port on which this object is published can
@@ -1002,25 +1066,34 @@ module Roby
         def setup_shell_interface
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
-	    if host !~ /:\d+$/
-		host << ":#{Distributed::DEFAULT_DROBY_PORT}"
+            if host =~ /:(\d+)$/
+                port = Integer($1)
+            else
+		port = Distributed::DEFAULT_DROBY_PORT
 	    end
 
-	    if single? || !robot_name
-		host =~ /:(\d+)$/
-		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(plan.engine)
-	    else
-		DRb.start_service "druby://#{host}", Interface.new(plan.engine)
-            end
+            @shell_server = Interface::TCPServer.new(self, port)
+        end
 
-            # Consistency check: DRb.here?(DRbObject.new(obj).__drburi) should
-            # be true
-            if DRb.uri != DRb.current_server.uri
-                raise RuntimeError, "problem in DRb configuration: DRb.uri != DRb.current_server.uri (#{DRb.uri} != #{DRb.current_server.uri})"
+        def stop_shell_interface
+            if @shell_server
+                @shell_server.close
             end
         end
 
-        # Tears down the shell interface started in #setup_shell_interface
+        def setup_drb_service
+	    host = droby['host'] || ""
+            if host !~ /:\d+$/
+                host = host + ":0"
+            end
+	    if single? || !robot_name
+		host =~ /:(\d+)$/
+		DRb.start_service "druby://:#{$1 || '0'}"
+	    else
+		DRb.start_service "druby://#{host}"
+            end
+        end
+
         def stop_drb_service
             begin
                 DRb.current_server
@@ -1054,8 +1127,12 @@ module Roby
 		end
 	    end
 
-	    @robot_name ||= 'common'
-	    @robot_type ||= 'common'
+            if !robot_name
+                @robot_name = 'common'
+            end
+            if !robot_type
+                @robot_type = 'common'
+            end
 
 	    if log['events'] && public_logs?
 		require 'roby/log/file'
@@ -1066,6 +1143,8 @@ module Roby
 
                 start_log_server(logfile)
 	    end
+
+            call_plugins(:prepare, self)
         end
 
 	def run(&block)
@@ -1127,19 +1206,24 @@ module Roby
         # The inverse of #setup. It gets called either at the end of #run or at
         # the end of #setup if there is an error during loading
         def cleanup
+            call_plugins(:cleanup, self)
+            # Deprecated version of #cleanup
+            call_plugins(:reset, self)
+
+            planners.clear
+            plan.clear
+            clear_models
+            clear_config
+
             if !public_logs?
                 @created_log_dirs.each do |dir|
                     FileUtils.rm_rf dir
                 end
             end
 
-            clear_models
             stop_log_server
+            stop_shell_interface
             stop_drb_service
-            planners.clear
-            plan.clear
-            call_plugins(:cleanup, self)
-            call_plugins(:reset, self)
         end
 
 	def stop; call_plugins(:stop, self) end
@@ -1251,23 +1335,41 @@ module Roby
             end
         end
 
-        # call-seq:
-        #   find_dirs('p1', 'p2')
-        #   find_dirs('p1', 'p2', 'ROBOT', :all => true)
+        # @overload find_files_in_dirs(*path, options)
         #
-        # Enumerates the directories matching p1/p2, following the loading rules
-        # for the current robot name and type:
+        # Enumerates the subdirectories of paths in {#search_path} matching the
+        # given path. The subdirectories are resolved using File.join(*path)
+        # If one of the elements of the path is the string 'ROBOT', it gets
+        # replaced by the robot name and type.
         #
-        #  * if one of the element is ROBOT, it gets replaced by the
-        #    robot name and/or the robot type
-        #  * if :all is false, the first directory matching p1/p2/ROBOT is
-        #    returned and others will be ignored.  Otherwise, all the
-        #    matching directories are returned
-        #  * if :order is :specific_first, the enumeration priority starts with the
-        #    robot-specific paths. Otherwise, it starts with the generic paths.
+        # @option options [Boolean] :all (true) if true, all matching
+        #   directories are returned. Otherwise, only the first one is (the
+        #   meaning of 'first' is controlled by the order option below)
+        # @option options [:specific_first,:specific_last] :order if
+        #   :specific_first, the first returned match is the one that is most
+        #   specific. The sorting order is to first sort by ROBOT and then by
+        #   the place in search_dir. From the most specific to the least
+        #   specific, ROBOT is assigned the robot name, the robot type and
+        #   finally an empty string.
+        # @return [Array<String>]
         #
+        # Given a search dir of [app2, app1]
+        #
+        #   app1/models/tasks/goto.rb
+        #   app1/models/tasks/v3/goto.rb
+        #   app2/models/tasks/asguard/goto.rb
+        #
+        # @example
+        #   find_dirs('tasks', 'ROBOT', :all => true, :order => :specific_first)
+        #   # returns [app1/models/tasks/v3,
+        #   #          app2/models/tasks/asguard,
+        #   #          app1/models/tasks/]
+        #
+        # @example
+        #   find_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
+        #   # returns [app1/models/tasks/v3/goto.rb]
         def find_dirs(*dir_path)
-            Application.debug "find_dirs(#{dir_path.map(&:inspect).join(", ")})"
+            Application.debug { "find_dirs(#{dir_path.map(&:inspect).join(", ")})" }
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
@@ -1307,13 +1409,13 @@ module Roby
             end
 
             result = []
-            Application.debug "  relative paths: #{relative_paths.inspect}"
+            Application.debug { "  relative paths: #{relative_paths.inspect}" }
             relative_paths.each do |rel_path|
                 root_paths.each do |root|
                     abs_path = File.expand_path(File.join(*rel_path), root)
-                    Application.debug "  absolute path: #{abs_path}"
+                    Application.debug { "  absolute path: #{abs_path}" }
                     if File.directory?(abs_path)
-                        Application.debug "    selected"
+                        Application.debug { "    selected" }
                         result << abs_path 
                     end
                 end
@@ -1328,33 +1430,42 @@ module Roby
             end
         end
 
-        # call-seq:
-        #   find_files_in_dirs('p1', 'p2')
-        #   find_files_in_dirs('p1', 'p2', 'ROBOT', :all => true)
-        #   find_files_in_dirs('p1', 'p2', :pattern => /\.rb$/)
+        # @overload find_files_in_dirs(*path, options)
         #
-        # Enumerates the files that are present in a directory matching p1/p2,
-        # following the loading rules for the current robot name and type:
+        # Enumerates the files that are present in subdirectories of paths in
+        # {#search_dir}. The subdirectories are resolved using File.join(*path)
+        # If one of the elements of the path is the string 'ROBOT', it gets
+        # replaced by the robot name and type.
         #
-        #  * if one of the element is ROBOT, it gets replaced by the
-        #    robot name and/or the robot type
-        #  * if :all is false, the first directory matching p1/p2/ROBOT will be
-        #    enumerated and others will be ignored.  Otherwise, all the
-        #    directories are enumerated
-        #  * if :order is :specific_first, the enumeration priority starts with the
-        #    robot-specific files. Otherwise, it starts with the generic files.
-        #  * only the files whose name matches :pattern (if given) are
-        #    enumerated
+        # @option (see find_dirs)
+        # @option options [#===] :pattern a filter to apply on the matching
+        #   results
+        # @option options [Symbol] :all (false) if true, all files from all
+        #   matching directories are returned. Otherwise, only the files from
+        #   the first matching directory is searched
+        # @return [Array<String>]
         #
+        # Given a search dir of [app2, app1]
+        #
+        #   app1/models/tasks/goto.rb
+        #   app1/models/tasks/v3/goto.rb
+        #   app2/models/tasks/asguard/goto.rb
+        #
+        # @example
+        #   find_files_in_dirs('tasks', 'ROBOT', :all => true, :order => :specific_first)
+        #   # returns [app1/models/tasks/v3/goto.rb,
+        #   #          app2/models/tasks/asguard/goto.rb,
+        #   #          app1/models/tasks/goto.rb]
+        #
+        # @example
+        #   find_files_in_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
+        #   # returns [app1/models/tasks/v3/goto.rb,
         def find_files_in_dirs(*dir_path)
-            Application.debug "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})"
+            Application.debug { "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})" }
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
             options = Kernel.validate_options(options || Hash.new, :all, :order, :path, :pattern => Regexp.new(""))
-            if options[:pattern].respond_to?(:to_str)
-                options[:pattern] = Regexp.new("^" + Regexp.quote(options[:pattern]) + "$")
-            end
 
             dir_search = dir_path.dup
             dir_search << { :all => true, :order => options[:order], :path => options[:path] }
@@ -1362,41 +1473,58 @@ module Roby
 
             result = []
             search_path.each do |dirname|
-                Application.debug "  dir: #{dirname}"
+                Application.debug { "  dir: #{dirname}" }
                 Dir.new(dirname).each do |file_name|
                     file_path = File.join(dirname, file_name)
-                    Application.debug "    file: #{file_path}"
-                    if File.file?(file_path) && file_name =~ options[:pattern]
+                    Application.debug { "    file: #{file_path}" }
+                    if File.file?(file_path) && options[:pattern] === file_name
                         Application.debug "      added"
                         result << file_path
                     end
                 end
+                break if !options[:all]
             end
             return result
         end
 
-        # call-seq:
-        #   find_files('p1', 'ROBOT', 'p2', :all => true, :order => :specific_first)
+        # @overload find_files(*path, options)
         #
-        # Enumerates the files that match p1/ROBOT/p2, following the loading
-        # rules for the current robot name and type:
+        # Enumerates files based on their relative paths in {#search_path}.
+        # The paths are resolved using File.join(*path)
+        # If one of the elements of the path is the string 'ROBOT', it gets
+        # replaced by the robot name and type.
         #
-        #  * if one of the element is ROBOT, it gets replaced by the
-        #    robot name and/or the robot type
-        #  * if :all is false, the first directory matching p1/p2/ROBOT will be
-        #    enumerated and others will be ignored.  Otherwise, all the
-        #    directories are enumerated
-        #  * if :order is :specific_first, the enumeration priority starts with the
-        #    robot-specific files. Otherwise, it starts with the generic files.
+        # @option options [Boolean] :all (true) if true, all matching
+        #   directories are returned. Otherwise, only the first one is (the
+        #   meaning of 'first' is controlled by the order option below)
+        # @option options [:specific_first,:specific_last] :order if
+        #   :specific_first, the first returned match is the one that is most
+        #   specific. The sorting order is to first sort by ROBOT and then by
+        #   the place in search_dir. From the most specific to the least
+        #   specific, ROBOT is assigned the robot name, the robot type and
+        #   finally an empty string.
+        # @return [Array<String>]
         #
-        # If :all is false, the return value is the found file or nil. If it is
-        # true, it is an array of matches
+        # Given a search dir of [app2, app1], a robot name of v3 and a robot
+        # type of asguard,
+        #
+        #   app1/config/v3.rb
+        #   app2/config/asguard.rb
+        #
+        # @example
+        #   find_files('config', 'ROBOT.rb', :all => true, :order => :specific_first)
+        #   # returns [app1/config/v3.rb,
+        #   #          app2/config/asguard.rb]
+        #
+        # @example
+        #   find_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
+        #   # returns [app1/config/v3.rb]
         #
         def find_files(*file_path)
             if file_path.last.kind_of?(Hash)
                 options = file_path.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :all, :order)
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :path)
 
             # Remove the filename from the complete path
             filename = file_path.pop
@@ -1438,8 +1566,7 @@ module Roby
             return result
         end
 
-        # Identical to #find_files, but with the :all option always set to
-        # false, and returning a single value or nil
+        # Returns the first match from {#find_files}, or nil if nothing matches
         def find_file(*args)
             if !args.last.kind_of?(Hash)
                 args.push(Hash.new)
@@ -1449,8 +1576,7 @@ module Roby
             find_files(*args).first
         end
 
-        # Identical to #find_files, but with the :all option always set to
-        # false, and returning a single value or nil
+        # Returns the first match from {#find_dirs}, or nil if nothing matches
         def find_dir(*args)
             if !args.last.kind_of?(Hash)
                 args.push(Hash.new)
@@ -1482,8 +1608,26 @@ module Roby
 	def testing; self.testing = true end
 	attr_predicate :shell?, true
 	def shell; self.shell = true end
-	def single?; @single end
+	attr_predicate :single?, true
 	def single;  @single = true end
+
+        # @return [Boolean] true if Roby's auto-load feature should load all
+        #   models in {search_path} or only the ones in {app_dir}. It influences
+        #   the return value of {auto_load_search_path}
+	attr_predicate :auto_load_all?, true
+
+        # @return [Boolean] true if Roby should load the available the model
+        #   files automatically in {require_models}
+	attr_predicate :auto_load_models?, true
+
+        # @return [Array<String>] the search path for the auto-load feature. It
+        #   depends on the value of {auto_load_all}
+        def auto_load_search_path
+            if auto_load_all? then search_path
+            elsif app_dir then [app_dir]
+            else []
+            end
+        end
 
         def find_data(*name)
             Application.find_data(*name)
@@ -1530,9 +1674,16 @@ module Roby
             $LOADED_FEATURES.delete_if { |path| patterns.any? { |p| p =~ path } }
         end
 
-        def reload_config
-            unload_features("config", ".*\.rb$")
+        def clear_config
+            Conf.clear
+            call_plugins(:clear_config, self)
+            # Deprecated name for clear_config
             call_plugins(:reload_config, self)
+        end
+
+        def reload_config
+            clear_config
+            unload_features("config", ".*\.rb$")
             require_config
         end
 
@@ -1585,6 +1736,122 @@ module Roby
                 planner_model.clear_model
             end
             require_planners
+        end
+
+        # Find an action on the planning interface that can generate the given task
+        # model
+        #
+        # Raises ArgumentError if there either none or more than one. Otherwise,
+        # returns the action name.
+        def action_from_model(model)
+            candidates = []
+            planners.each do |planner_model|
+                planner_model.find_all_actions_by_type(model).each do |action|
+                    candidates << [planner_model, action]
+                end
+            end
+            candidates = candidates.uniq
+                
+            if candidates.empty?
+                raise ArgumentError, "cannot find an action to produce #{model}"
+            elsif candidates.size > 1
+                raise ArgumentError, "more than one actions available produce #{model}: #{candidates.map { |pl, m| "#{pl}.#{m.name}" }.sort.join(", ")}"
+            else
+                candidates.first
+            end
+        end
+        
+        # Find an action with the given name on the action interfaces registered on
+        # {#planners}
+        #
+        # @raise [ArgumentError] if more than one action interface provide an
+        #   action with this name
+        def find_action_from_name(name)
+            candidates = []
+            planners.each do |planner_model|
+                if m = planner_model.find_action_by_name(name)
+                    candidates << [planner_model, m]
+                end
+            end
+            candidates = candidates.uniq
+
+            if candidates.size > 1
+                raise ArgumentError, "more than one action interface provide the #{name} action: #{candidates.map { |pl, m| "#{pl}" }.sort.join(", ")}"
+            else candidates.first
+            end
+        end
+
+        def action_from_name(name)
+            action = find_action_from_name(name)
+            if !action
+                available_actions = planners.map do |planner_model|
+                    planner_model.each_action.map(&:name)
+                end.flatten
+                if available_actions.empty?
+                    raise ArgumentError, "cannot find an action named #{name}, there are no actions defined"
+                else
+                    raise ArgumentError, "cannot find an action named #{name}, available actions are: #{available_actions.sort.join(", ")}"
+                end
+            end
+            action
+        end
+
+        # Generate the plan pattern that will call the required action on the
+        # planning interface, with the given arguments.
+        #
+        # This returns immediately, and the action is not yet deployed at that
+        # point.
+        #
+        # @return task, planning_task
+        def prepare_action(name, arguments = Hash.new)
+            if name.kind_of?(Class)
+                planner_model, m = action_from_model(name)
+            else
+                planner_model, m = action_from_name(name)
+            end
+            plan.add(task = m.plan_pattern(arguments))
+            return task, task.planning_task
+        end
+
+        # @return [#call] the blocks that listen to notifications. They are
+        #   added with {#on_notification} and removed with
+        #   {#remove_listener}
+        attr_reader :notification_listeners
+
+        # Enumerates the listeners currently registered through
+        # #on_notification
+        #
+        # @yieldparam [#call] the job listener object
+        def each_notification_listener(&block)
+            notification_listeners.each(&block)
+        end
+
+        # Sends a message to all notification listeners
+        def notify(source, level, message)
+            each_notification_listener do |block|
+                block.call(source, level, message)
+            end
+        end
+
+        # Registers a block to be called when a message needs to be
+        # dispatched
+        #
+        # @yieldparam [String] the source of the message
+        # @yieldparam [String] level the log level
+        # @yieldparam [String] message
+        # @return [Object] the listener ID that can be given to
+        #   {#remove_notification}
+        def on_notification(&block)
+            notification_listeners << block
+            block
+        end
+
+        # Removes a notification listener
+        #
+        # @param [Object] listener the listener ID returned by
+        #   {#on_notification}
+        def remove_notification_listener(listener)
+            notification_listeners.delete(listener)
         end
     end
 end

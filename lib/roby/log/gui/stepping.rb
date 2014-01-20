@@ -23,7 +23,9 @@ module Roby
                 @stream = stream
                 PlanRebuilderWidget.analyze(plan_rebuilder, stream, starting_cycle - 1)
 
-                @main_widget.update(Qt::DateTime.new(plan_rebuilder.cycle_end_time))
+                plan_rebuilder.clear_integrated
+                @plan_rebuilder.plan.clear_integrated
+                @main_widget.redraw
 
                 @current_cycle_data = []
 
@@ -70,7 +72,7 @@ module Roby
                 end
             ensure
                 display_current_position
-                @main_widget.update(Qt::DateTime.new(plan_rebuilder.current_time))
+                @main_widget.redraw
             end
             slots 'step_forward()'
         end

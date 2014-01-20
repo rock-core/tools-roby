@@ -1,5 +1,5 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/tasks/simple'
 
 describe Roby::Coordination::Models::FaultHandler do
@@ -79,6 +79,7 @@ describe Roby::Coordination::Models::FaultHandler do
             repair_task = repairs.first
             assert_kind_of Roby::Coordination::FaultHandlingTask, repair_task
             assert_equal handler, repair_task.fault_handler
+            plan.remove_object t2
         end
     end
 end

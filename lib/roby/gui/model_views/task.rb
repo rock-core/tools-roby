@@ -38,6 +38,8 @@ module Roby
                     end
                     page.push('Roby Task Model', TEMPLATE.result(binding), push_options)
                 end
+
+                signals 'updated()'
             end
         end
     end

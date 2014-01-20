@@ -61,6 +61,10 @@ module Roby
                 true
             end
 
+            def to_s
+                "#{model}.with_origin(#{failure_point_matcher})"
+            end
+
             def matches_task?(task)
                 if failure_point_matcher.respond_to?(:task_matcher)
                     failure_point_matcher.task_matcher == task

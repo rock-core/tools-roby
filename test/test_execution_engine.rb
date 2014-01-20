@@ -1,5 +1,5 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'flexmock'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
@@ -730,7 +730,9 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    while !t.stop?; sleep(0.1) end
 	    mock.main_before
 	    assert(t.alive?)
-	    process_events
+            # We use engine.process_events as we are making the engine
+            # believe that it is running while it is not
+	    engine.process_events
 	    mock.main_after
 	    t.join
 
@@ -760,7 +762,10 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
 	# Wait for the thread to block
 	while !t.stop?; sleep(0.1) end
-	process_events
+        assert(t.alive?)
+        # We use engine.process_events as we are making the engine
+        # believe that it is running while it is not
+	engine.process_events
 	t.join
 
 	assert_kind_of(ArgumentError, returned_value)
@@ -782,7 +787,9 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	end
 
 	while !t.stop?; sleep(0.1) end
-	process_events
+        # We use engine.process_events as we are making the engine
+        # believe that it is running while it is not
+	engine.process_events
 	assert_nothing_raised { t.value }
 
     ensure
@@ -809,7 +816,9 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	while !t.stop?; sleep(0.1) end
         # And process the events
         with_log_level(Roby, Logger::FATAL) do
-            process_events
+            # We use engine.process_events as we are making the engine
+            # believe that it is running while it is not
+            engine.process_events
         end
 
 	result = t.value
@@ -1606,6 +1615,19 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         mock.should_receive(:called).with(a0).once
         mock.should_receive(:called).with(a1).never
         engine.propagate_exceptions([[b.to_execution_exception, [a0]]])
+    end
+
+    def test_the_propagation_is_robust_to_badly_specified_parents
+        plan.add(parent = Roby::Task.new)
+        child = parent.depends_on(Roby::Task.new)
+        plan.add(task = Roby::Task.new)
+
+        error = LocalizedError.new(child).to_execution_exception
+        result = inhibit_fatal_messages do
+            engine.propagate_exceptions([[error, [task]]])
+        end
+        assert_equal error, result.first.first
+        assert_equal [parent, child].to_set, result.first.last.to_set
     end
 end
 

@@ -1,10 +1,9 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/actions'
 require 'flexmock/test_unit'
 
 class TC_Actions_InterfaceModel < Test::Unit::TestCase
-    include Roby::Planning
     include Roby::SelfTest
     include Roby::SelfTest::Assertions
 
@@ -48,8 +47,8 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         m = Actions::Interface.new_submodel
         description = m.describe('an action').
             optional_arg('test', nil, 10)
-        m.class_eval { def an_action(args = Hash.new); end }
-        flexmock(m).new_instances.should_receive(:an_action).with(:test => 10).once
+        m.class_eval { def an_action(args = Hash.new); self.class::AnAction.new end }
+        flexmock(m).new_instances.should_receive(:an_action).with(:test => 10).pass_thru.once
         m.an_action.instanciate(plan)
     end
 
@@ -57,8 +56,8 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         m = Actions::Interface.new_submodel
         description = m.describe('an action').
             optional_arg('test', nil, 10)
-        m.class_eval { def an_action(args = Hash.new); end }
-        flexmock(m).new_instances.should_receive(:an_action).with(:test => 20).once
+        m.class_eval { def an_action(args = Hash.new); self.class::AnAction.new end }
+        flexmock(m).new_instances.should_receive(:an_action).with(:test => 20).pass_thru.once
         m.an_action.instanciate(plan, :test => 20)
     end
 
@@ -100,11 +99,11 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         actions = Actions::Interface.new_submodel do
             m = describe('an action').
                 required_arg('test')
-            def an_action(arguments); end
+            def an_action(arguments); AnAction.new end
         end
         act = actions.an_action('test' => 10)
         assert_same m, act.model
-        assert_equal Hash['test' => 10], act.arguments
+        assert_equal Hash[:test => 10], act.arguments
     end
 
     def test_action_libraries_are_not_registered_as_submodels
@@ -119,7 +118,7 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
             Actions::Interface.new_submodel do
                 m = describe('an action').
                     required_arg('test')
-                def an_action; end
+                def an_action; AnAction.new end
             end
         end
     end

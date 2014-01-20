@@ -13,6 +13,8 @@ class Exception
     def involved_plan_object?(obj)
         false
     end
+
+    # DRoby-marshalling is done in distributed/protocol
 end
 
 module Roby
@@ -144,6 +146,32 @@ module Roby
                     exception.pretty_print(pp)
                 end
             end
+        end
+
+        class DRoby
+            attr_reader :trace
+            attr_reader :exception
+            attr_reader :handled
+
+            def initialize(trace, exception, handled)
+                @trace, @exception, @handled = trace, exception, handled
+            end
+
+            def proxy(peer)
+                trace     = peer.local_object(self.trace)
+                exception = peer.local_object(self.exception)
+                result = ExecutionException.new(exception)
+                result.trace.clear
+                result.trace.concat(trace)
+                result.handled = self.handled
+                result
+            end
+        end
+
+        def droby_dump(peer = nil)
+            DRoby.new(trace.droby_dump(peer),
+                      exception.droby_dump(peer),
+                      handled)
         end
     end
 
@@ -387,6 +415,8 @@ module Roby
             false
         end
 
+    rescue Interrupt, SystemExit
+        raise
     rescue Exception => e
         do_display_exception(io, e)
         e

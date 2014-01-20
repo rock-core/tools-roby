@@ -1,11 +1,6 @@
 #include <ruby.h>
-#ifdef RUBY_IS_19
 #include <ruby/intern.h>
 #include <ruby/st.h>
-#else
-#include <intern.h>
-#include <st.h>
-#endif
 #include <set>
 
 static VALUE mRoby;

@@ -54,17 +54,24 @@ module Roby
                     @poll_handler_id = root_task.poll do
                         root_task.instance_eval(&block)
                     end
-                    event.resolve.on do |context|
-                        if !disabled?
+                    event = self.event.resolve
+                    event.on do |ev|
+                        if ev.generator == self.event.resolve && !disabled?
                             cancel
                             script.step
                         end
                     end
-                    event.resolve.when_unreachable(true) do |reason, generator|
-                        if !disabled?
-                            raise Script::DeadInstruction.new(script.root_task), "the 'until' condition of #{self} will never be reached: #{reason}"
+
+                    if event.task != script.root_task
+                        script.root_task.depends_on event.task, :success => event.symbol
+                    else
+                        event.when_unreachable(true) do |reason, generator|
+                            if !disabled?
+                                raise Script::DeadInstruction.new(script.root_task), "the 'until' condition of #{self} will never be reached: #{reason}"
+                            end
                         end
                     end
+
                     false
                 end
             end
@@ -103,6 +110,7 @@ module Roby
                             end
                         end
                     end
+                    true
                 end
             end
 
@@ -116,6 +124,7 @@ module Roby
 
                 def execute(script)
                     timeout_start.cancel
+                    true
                 end
             end
 
@@ -151,6 +160,10 @@ module Roby
             end
 
             def step
+                if current_instruction && !current_instruction.disabled?
+                    return
+                end
+
                 while @current_instruction = instructions.shift
                     if !current_instruction.disabled?
                         if !current_instruction.execute(self)

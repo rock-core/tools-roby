@@ -1,6 +1,13 @@
 require 'roby'
 require 'roby/distributed'
 require 'optparse'
+require 'utilrb/readline'
+
+app = Roby.app
+app.guess_app_dir
+app.shell
+app.single
+app.load_config_yaml
 
 require 'pp'
 
@@ -12,13 +19,6 @@ opt = OptionParser.new do |opt|
 end
 opt.parse! ARGV
 
-app = Roby.app
-app.guess_app_dir
-app.shell
-app.single
-
-robot_name = ARGV.shift
-app.robot robot_name, (ARGV.shift || robot_name)
 error = Roby.display_exception do
     app.base_setup
 
@@ -43,6 +43,7 @@ require 'irb/ext/save-history'
 IRB.setup(remote_url)
 IRB.conf[:INSPECT_MODE] = false
 IRB.conf[:IRB_NAME]     = remote_url
+IRB.conf[:USE_READLINE] = true
 IRB.conf[:PROMPT_MODE]  = :ROBY
 IRB.conf[:AUTO_INDENT] = true
 if Roby.app.app_dir
@@ -57,11 +58,16 @@ IRB.conf[:PROMPT][:ROBY] = {
     :RETURN => "=> %s\n"
 }
 
+Roby::Distributed::DRobyModel.add_anonmodel_to_names = false
 __main_remote_interface__ = 
     begin
-        Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
-    rescue DRb::DRbConnError
-        STDERR.puts "cannot connect to a Roby controller at #{remote_url}, is the controller started ?"
+        remote_url =~ /^(.*):(\d+)$/
+        remote_host, remote_port = $1, Integer($2)
+        Roby::Interface::ShellClient.new("#{remote_host}:#{remote_port}") do
+            Roby::Interface.connect_with_tcp_to(remote_host, remote_port)
+        end
+    rescue Interrupt
+        Roby::Interface.warn "Interrupted by user"
         exit(1)
     end
 
@@ -75,56 +81,20 @@ begin
     context.save_history = 100
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
+    Thread.new do
+        begin
+            __main_remote_interface__.notification_loop(0.1) do |msg|
+                Readline.puts msg
+            end
+        rescue Exception => e
+            puts e
+            puts e.backtrace.join("\n")
+        end
+    end
+
     trap("SIGINT") do
 	irb.signal_handle
     end
-
-    # Create a thread which reads the remote messages and display them if needed
-    Thread.new do
-	begin
-	    loop do
-		sleep(1)
-		
-		msgs = begin
-			  __main_remote_interface__.poll_messages
-		      rescue DRb::DRbConnError
-			  []
-		      end
-
-                if !msgs.empty?
-                    STDERR.puts
-                end
-
-                msgs.each do |level, lines|
-                    if !lines.respond_to?(:to_ary)
-                        lines = [lines]
-                    end
-
-                    first_line = lines.shift
-                    if !lines.empty?
-                        first_line = "= #{first_line}"
-                        lines = lines.map do |str|
-                            "| #{str}"
-                        end
-                        lines << ""
-                    end
-
-                    if level == :error
-                        first_line = Roby.color(first_line, :red, :bold)
-                    elsif level == :info
-                        first_line = Roby.color(first_line, :bold)
-                    end
-                    STDERR.puts first_line
-                    lines.each do |l|
-                        STDERR.puts l
-                    end
-                end
-	    end
-	rescue Exception => e
-	    STDERR.puts $!.full_message
-	end
-    end
-
     catch(:IRB_EXIT) do
 	irb.eval_input
     end

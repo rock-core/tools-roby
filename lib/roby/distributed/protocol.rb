@@ -81,6 +81,19 @@ module Roby
 
         # Dumps a constant by using its name. On reload, #proxy searches for a
         # constant with the same name, and raises ArgumentError if none exists.
+        #
+        # @example dump instances of a class that are registered as constants
+        #   class Klass
+        #     include DRobyConstant::Dump
+        #   end
+        #   # Obj can pass through droby
+        #   Obj = Klass.new
+        #
+        # @example dump classes. You usually would prefer using {DRobyModel}
+        #   # Klass can pass through droby
+        #   class Klass
+        #     extend DRobyConstant::Dump
+        #   end
 	class DRobyConstant
 	    @@valid_constants = Hash.new
 	    def self.valid_constants; @@valid_constants end
@@ -126,10 +139,20 @@ module Roby
 	    include Roby::Distributed::DRobyConstant::Dump
 	end
 
-	# Dumps a model (an event, task or planner class). When unmarshalling,
-	# it tries to search for the same model. If it does not find it, it
-	# rebuilds the same hierarchy using anonymous classes, basing itself on
-	# the less abstract class known to both the remote and local sides.
+        # Dumps a model. When unmarshalling, it tries to search for the same
+        # model in the constant hierarchy using its name. If it does not find
+        # it, it rebuilds the same hierarchy using anonymous classes, basing
+        # itself on the less abstract class known to both the remote and local
+        # sides.
+        #
+        # If what you want to pass through droby is not a model class (i.e. if
+        # the class hierarchy is not important), use {DRobyConstant} instead.
+        #
+        # @example
+        #   class MyModel
+        #     extend Roby::Distributed::DRobyModel
+        #   end
+        #
 	class DRobyModel
 	    @@remote_to_local = Hash.new
 	    @@local_to_remote = Hash.new
@@ -202,7 +225,12 @@ module Roby
 		    ancestors == other.ancestors
 	    end
 
-            def self.anon_model_factory(parent_model, name, add_anonmodel = true)
+            class << self
+                attr_predicate :add_anonmodel_to_names?, true
+            end
+            @add_anonmodel_to_names = true
+
+            def self.anon_model_factory(parent_model, name, add_anonmodel = DRobyModel.add_anonmodel_to_names?)
                 Class.new(parent_model) do
                     singleton_class.class_eval do
                         define_method(:remote_name) { name }
@@ -330,15 +358,17 @@ class Exception
     # An intermediate representation of Exception objects suitable to
     # be sent to our peers.
     class DRoby
-	attr_reader :model, :message
-	def initialize(model, message); @model, @message = model, message end
+	attr_reader :model, :message, :backtrace
+	def initialize(model, message, backtrace); @model, @message, @backtrace = model, message, backtrace end
 
         # Returns a local representation of the exception object +self+
         # describes. If the real exception message is not available, it reuses
         # the more-specific exception class which is available.
 	def proxy(peer)
 	    error_model = model.proxy(peer)
-	    error_model.exception(self.message)
+	    error = error_model.exception(self.message)
+            error.set_backtrace(backtrace)
+            error
 
 	rescue Exception
 	    # try to get a less-specific error model which does allow a simple
@@ -349,7 +379,9 @@ class Exception
 	    for model in error_model.ancestors
 		next unless model.kind_of?(Class)
 		begin
-		    return model.exception(message)
+		    error = model.exception(message)
+                    error.set_backtrace(backtrace)
+                    return error
 		rescue ArgumentError
 		end
 	    end
@@ -358,6 +390,6 @@ class Exception
 
     # Returns an intermediate representation of +self+ suitable to be sent to
     # the +dest+ peer.
-    def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), message) end
+    def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), message, backtrace) end
 end
 

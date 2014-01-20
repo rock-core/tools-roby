@@ -1,5 +1,5 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/tasks/simple'
 
 describe Roby::ExecutionException do
@@ -61,6 +61,11 @@ describe Roby::ExecutionException do
             e.merge(s)
             assert [task, t1, t2], e.trace
         end
+    end
+
+    it "should be droby-marshallable" do
+        task = prepare_plan :add => 1
+        verify_is_droby_marshallable_object(create_exception_from(task))
     end
 end
 

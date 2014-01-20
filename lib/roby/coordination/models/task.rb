@@ -5,6 +5,8 @@ module Roby
             class Task
                 # The task model
                 attr_reader :model
+                # The task name
+                attr_accessor :name
 
                 def initialize(model)
                     @model = model
@@ -28,15 +30,17 @@ module Roby
                     end
                 end
 
+                def can_resolve_child_models?
+                    model && model.respond_to?(:find_child)
+                end
+
                 def has_child?(role)
-                    if model && model.respond_to?(:find_child)
-                        model.find_child(role)
-                    else true
-                    end
+                    find_child_model(role) ||
+                        !can_resolve_child_models?
                 end
 
                 def find_child_model(role)
-                    if model && model.respond_to?(:find_child)
+                    if can_resolve_child_models?
                         model.find_child(role)
                     end
                 end
@@ -48,32 +52,8 @@ module Roby
                 end
 
                 def method_missing(m, *args, &block)
-                    case m.to_s
-                    when /^(.*)_event$/
-                        if !args.empty?
-                            raise ArgumentError, "#{m} takes no arguments, #{args.size} given"
-                        end
-
-                        event_name = $1
-                        if event = find_event(event_name)
-                            return event
-                        else
-                            raise NoMethodError.new("#{model.name} has no event called #{event_name}", m)
-                        end
-                    when /^(.*)_child$/
-                        if !args.empty?
-                            raise ArgumentError, "#{m} takes no arguments, #{args.size} given"
-                        end
-
-                        role = $1
-                        if child = find_child(role)
-                            return child
-                        else
-                            raise NoMethodError.new("#{model.name} has no child with the role #{role}", m)
-                        end
-                    else
+                    MetaRuby::DSLs.find_through_method_missing(self, m, args, 'event', 'child') ||
                         super
-                    end
                 end
 
                 def to_coordination_task(task_model = Roby::Task)

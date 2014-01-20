@@ -269,6 +269,25 @@ module Roby
             @weak = weak
         end
 
+        class DRoby
+            def initialize(klass, object, methods, weak)
+                @klass, @object, @methods, @weak = klass, object, methods, weak
+            end
+            def proxy(peer)
+                base = @klass.new(peer.local_object(@object), @weak)
+                @methods.inject(base) do |delayed_arg, m|
+                    delayed_arg.send(m)
+                end
+            end
+        end      
+
+        def droby_dump(peer)
+            DRoby.new(self.class,
+                Distributed.format(@object, peer),
+                @methods,
+                @weak)
+        end
+
         def of_type(expected_class)
             @expected_class = expected_class
             self

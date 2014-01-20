@@ -20,27 +20,35 @@ module Roby
                 @task_info = resolve_task_info
             end
 
+            def task_info_for(task)
+                required_tasks  = model.required_tasks_for(task).map do |t, roles|
+                    [instance_for(t), roles]
+                end
+
+                forwards = Set.new
+                model.each_forward do |in_task, event, target|
+                    if in_task == task
+                        event  = instance_for(event)
+                        target = instance_for(target)
+                        forwards << [event, target]
+                    end
+                end
+                TaskInfo.new(required_tasks, forwards)
+            end
+
             def resolve_task_info
                 result = Hash.new
                 model.each_task do |task|
-                    required_tasks  = model.required_tasks_for(task).map do |t, roles|
-                        [instance_for(t), roles]
-                    end
-
-                    forwards = Set.new
-                    model.each_forward do |in_task, event, target|
-                        if in_task == task
-                            event  = instance_for(event)
-                            target = instance_for(target)
-                            forwards << [event, target]
-                        end
-                    end
-                    result[instance_for(task)] = TaskInfo.new(required_tasks, forwards)
+                    result[instance_for(task)] = task_info_for(task)
                 end
                 result
             end
 
             def dependency_options_for(toplevel, task, roles)
+                roles = roles.dup
+                if task.name
+                    roles << task.name
+                end
                 Hash[:roles => roles,
                     :failure => :stop.or(:start.never),
                     :remove_when_done => true]
@@ -49,11 +57,12 @@ module Roby
             def start_task(toplevel)
                 task_info = self.task_info[toplevel]
                 tasks, forwards = task_info.required_tasks, task_info.forwards
-                tasks.each do |task, roles|
+                instanciated_tasks = tasks.map do |task, roles|
                     action_task = task.model.instanciate(root_task.plan, arguments)
                     root_task.depends_on(action_task, dependency_options_for(toplevel, task, roles))
                     bind_coordination_task_to_instance(task, action_task, :on_replace => :copy)
                     task.model.setup_instanciated_task(self, action_task, arguments)
+                    action_task
                 end
 
                 @current_task = toplevel
@@ -64,6 +73,8 @@ module Roby
                         end
                     end
                 end
+
+                instanciated_tasks
             end
 
             def remove_current_task

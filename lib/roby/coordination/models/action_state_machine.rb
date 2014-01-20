@@ -23,20 +23,70 @@ module Roby
                 end
             end
 
-        # Definition of model-level functionality for StateMachine models
+        # Definition of model-level functionality for action state machines
+        #
+        # In an action state machine, each state is represented by a single Roby
+        # task. At the model level, they get represented by a {Task} object, and
+        # more specifically very often by a {TaskFromAction} object. One
+        # important bit to understand is that a given Task object represents
+        # always the same state (i.e. task0 == task1 if task0 and task1
+        # represent the same state). It is for instance possible that task0 !=
+        # task1 even if task0 and task1 are issued by the same action.
+        #
+        # Transitions are stored as ({Task},{Event},{Task}) triplets, specifying
+        # the origin state, the triggering event and the target state.
+        # {Event#task} is often the same than the origin state, but not
+        # always (see below)
+        #
+        # Note that because some states are subclasses of
+        # {TaskWithDependencies}, it is possible that some {Task} objects
+        # are not states, only tasks that are dependencies of other states
+        # created with {TaskWithDependencies#depends_on} or dependencies of
+        # the state machine itself created with {Actions#depends_on}. The events
+        # of these task objects can be used in transitions
+        #
+        # Action state machine models are usually created through an action
+        # interface with Interface#action_state_machine. The state machine
+        # model can then be retrieved using
+        # {Actions::Models::Action#coordination_model}.
+        #
+        # @example creating an action state machine model
+        #   class Main < Roby::Actions::Interface
+        #     action_state_machine 'machine' do
+        #       move  = state move(:speed => 0.1)
+        #       stand = state move(:speed => 0)
+        #       # This monitor triggers each time the system moves more than
+        #       # 0.1 meters
+        #       d_monitor = task monitor_movement_threshold(:d => 0.1) 
+        #       # This monitor triggers after 20 seconds
+        #       t_monitor = task monitor_time_threshold(:t => 20) 
+        #       # Make the distance monitor run in the move state
+        #       move.depends_on d_monitor
+        #       # Make the time monitor run in the stand state
+        #       stand.depends_on t_monitor
+        #       start move
+        #       transition move, d_monitor.success_event, stand
+        #       transition stand, t_monitor.success_event, move
+        #     end
+        #   end
+        #
+        # @example retrieving a state machine model from an action
+        #   Main.machine.model.coordination_model
         module ActionStateMachine
             include Actions
 
             # The starting state
-            # @return [State]
+            # @return [Task]
             attr_reader :starting_state
 
-            # The set of defined transitions, as (State,EventName)=>State
-            # @return [Array<(StateEvent,State)>]
+            # The set of defined transitions
+            #
+            # @return [Array<(Task,Event,Task)>]
             inherited_attribute(:transition, :transitions) { Array.new }
 
             # Declares the starting state
             def start(state)
+                parse_task_names '_state'
                 @starting_state = validate_task(state)
             end
 
@@ -51,8 +101,10 @@ module Roby
                 object
             end
 
-            # Computes the state of states that are used in the transitions but
+            # Computes the set of states that are used in the transitions but
             # are actually not reachable
+            #
+            # @return [Array<Task>]
             def compute_unreachable_states
                 queue = [starting_state].to_set
                 transitions = self.each_transition.to_a.dup
@@ -72,6 +124,9 @@ module Roby
             end
 
             # Overloaded from Actions to validate the state machine definition
+            #
+            # @raise [UnreachableStateUsed] if some transitions are using events
+            #   from states that cannot be reached from the start state
             def parse(&block)
                 super
 
@@ -98,6 +153,8 @@ module Roby
             #   if the given event is emitted
             #
             def transition(*spec)
+                parse_task_names '_state'
+
                 if spec.size == 2
                     state_event, new_state = *spec
                     transition(state_event.task_model, state_event, validate_task(new_state))

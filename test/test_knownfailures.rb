@@ -1,4 +1,4 @@
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby'
 
 class TC_KnownFailures < Test::Unit::TestCase

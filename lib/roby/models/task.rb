@@ -647,7 +647,10 @@ module Roby
             end
 
             def fullfills?(models)
-                models = Array(models)
+                if models.respond_to?(:each)
+                    models = models.to_a
+                else models = [models]
+                end
                 models = models.inject([]) do |models, m|
                     if m.respond_to?(:each_fullfilled_model)
                         models.concat(m.each_fullfilled_model.to_a)

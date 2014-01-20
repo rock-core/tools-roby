@@ -1,5 +1,5 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/tasks/simple'
 
 describe Roby::Coordination::ActionScript do
@@ -7,14 +7,14 @@ describe Roby::Coordination::ActionScript do
 
     attr_reader :task_model, :root_task, :script_task, :script_model
     before do
-        @script_model = Roby::Coordination::ActionScript.new_submodel(:action_interface => flexmock(:find_action_by_name => nil))
         @task_model = Class.new(Roby::Tasks::Simple) do
             event :intermediate
         end
+        @script_model = Roby::Coordination::ActionScript.new_submodel(:action_interface => flexmock(:find_action_by_name => nil), :root => task_model)
         @script_task =
             flexmock(Roby::Coordination::Models::TaskWithDependencies.new(task_model))
         script_model.tasks << script_task
-        plan.add(@root_task = Roby::Tasks::Simple.new)
+        plan.add(@root_task = task_model.new)
     end
 
     describe "#wait" do
@@ -52,7 +52,7 @@ describe Roby::Coordination::ActionScript do
             root_task.start!
             action_task.start!
             inhibit_fatal_messages do
-                assert_raises(Roby::Coordination::Script::DeadInstruction) { action_task.intermediate_event.unreachable! }
+                assert_raises(Roby::ChildFailedError) { action_task.intermediate_event.unreachable! }
             end
         end
 
@@ -67,10 +67,19 @@ describe Roby::Coordination::ActionScript do
             action_task.start!
             action_task.second_event.unreachable!
             inhibit_fatal_messages do
-                assert_raises(Roby::Coordination::Script::DeadInstruction) do
+                assert_raises(Roby::ChildFailedError) do
                     action_task.intermediate_event.emit
                 end
             end
+        end
+
+        it "can wait for one of its own events" do
+            script_model.instructions.clear
+            script_model.wait script_model.intermediate_event
+            script = script_model.new(script_model.action_interface, root_task)
+            root_task.start!
+            root_task.intermediate_event.emit
+            assert script.finished?
         end
 
         it "is robust to replacement in the error case" do
@@ -90,7 +99,7 @@ describe Roby::Coordination::ActionScript do
             child.start!
             child.success_event.emit
             inhibit_fatal_messages do
-                assert_raises(Roby::Coordination::Models::Script::DeadInstruction) do
+                assert_raises(Roby::ChildFailedError) do
                     new_child.failed_to_start!(nil)
                 end
             end
@@ -107,7 +116,7 @@ describe Roby::Coordination::ActionScript do
             end
             root_task = action_model.test.instanciate(plan)
             root_task.start!
-            plan.force_replace(root_task.test_child, new_child = Roby::Tasks::Simple.new)
+            plan.force_replace(root_task.test_child, new_child = Roby::Tasks::Simple.new(:id => root_task.test_child.id))
             new_child.start!
             new_child.success_event.emit
             assert root_task.success?

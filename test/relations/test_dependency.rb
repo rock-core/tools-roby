@@ -1,5 +1,5 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/tasks/simple'
 require 'flexmock/test_unit'
 
@@ -483,6 +483,27 @@ class TC_Dependency < Test::Unit::TestCase
         assert_equal info, parent[child, Dependency]
     end
 
+    def test_merge_dependency_options_uses_fullfills_to_determine_which_model_to_return
+        root = flexmock(:<= => true)
+        submodel = flexmock(:<= => true)
+        root.should_receive(:fullfills?).with(submodel).and_return(false)
+        submodel.should_receive(:fullfills?).with(root).and_return(true)
+        opt1 = Hash[:model => [[root], Hash.new]]
+        opt2 = Hash[:model => [[submodel], Hash.new]]
+        result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(opt1, opt2)
+        assert_equal [[submodel], Hash.new], result[:model]
+    end
+    def test_merge_dependency_options_raises_ArgumentError_if_the_models_are_not_related
+        m1, m2 = flexmock(:<= => true), flexmock(:<= => true)
+        m1.should_receive(:fullfills?).with(m2).and_return(false)
+        m2.should_receive(:fullfills?).with(m1).and_return(false)
+        opt1 = Hash[:model => [[m1], Hash.new]]
+        opt2 = Hash[:model => [[m2], Hash.new]]
+        assert_raises(Roby::ModelViolation) do
+            Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(opt1, opt2)
+        end
+    end
+
     def test_merging_roles
         parent, child, info, _ = setup_merging_test
 
@@ -657,6 +678,19 @@ class TC_Dependency < Test::Unit::TestCase
         options = Roby::TaskStructure::DependencyGraphClass.validate_options(Hash.new)
         result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(options, options)
         assert !result.has_key?(:failure)
+    end
+
+    def test_watches_are_updated_on_merges
+        parent, child = prepare_plan :add => 2, :model => Roby::Tasks::Simple
+        plan.add_permanent(parent)
+        parent.start!
+        child.start!
+        parent.depends_on child, :success => :stop
+        process_events # we clear the initial triggers added by #depends_on
+        parent.depends_on child, :success => :success
+        inhibit_fatal_messages do
+            assert_raises(Roby::ChildFailedError) { child.success_event.unreachable! }
+        end
     end
 end
 

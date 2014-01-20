@@ -137,7 +137,7 @@ module Roby
                 MetaRuby::ModelAsModule.create_and_register_submodel(self, name, TaskService, &block)
             end
         end
-        Module.extend TaskServiceDefinitionDSL
+        Module.include TaskServiceDefinitionDSL
     end
 end
 

@@ -4,6 +4,8 @@ module Roby
         module Models
             # The metamodel for all script-based coordination models
             module Script
+                extend MetaRuby::Attributes
+
                 class DeadInstruction < Roby::LocalizedError; end
 
                 # Script element that implements {Script#start}
@@ -41,12 +43,19 @@ module Roby
                     #   instruction should generate an error
                     attr_reader :timeout
 
+                    # @return [Boolean] true if {#execute} has been called once
+                    attr_predicate :initialized?
+
+                    # @return [Boolean] true if the watched event got emitted
+                    attr_predicate :done?
+
                     # @option options [Float] :timeout (nil) value for {#timeout}
                     # @option options [Time] :after (nil) value for
                     #   {#time_barrier}
                     def initialize(event, options = Hash.new)
                         options = Kernel.validate_options options, :after => nil
                         @event = event
+                        @done = false
                         @time_barrier = options[:after]
                     end
 
@@ -58,24 +67,34 @@ module Roby
                         event = self.event.resolve
 
                         if time_barrier
-                            if event.history.find { |ev| ev.time > time_barrier }
+                            last_event = event.history.last
+                            if last_event && last_event.time > time_barrier
                                 return true
                             end
                         end
-                        if event.unreachable?
-                            raise DeadInstruction.new(script.root_task), "#{self} is locked: #{event.unreachability_reason}"
+
+                        if event.task != script.root_task
+                            script.root_task.depends_on event.task, :success => event.symbol
+                        else
+                            if event.unreachable?
+                                raise DeadInstruction.new(script.root_task), "#{self} is locked: #{event.unreachability_reason}"
+                            end
+                            event.if_unreachable(:cancel_at_emission => true) do |reason, generator|
+                                if !disabled?
+                                    raise DeadInstruction.new(script.root_task), "#{self} is locked: #{reason}"
+                                end
+                            end
                         end
 
-                        event.if_unreachable(:cancel_at_emission => true, :on_replace => :copy) do |reason, generator|
-                            if generator == self.event.resolve && !disabled?
-                                raise DeadInstruction.new(script.root_task), "#{self} is locked: #{reason}"
-                            end
-                        end
                         event.on :on_replace => :copy do |event|
                             if event.generator == self.event.resolve && !disabled?
-                                script.step
+                                if !time_barrier || event.time > time_barrier
+                                    cancel
+                                    script.step
+                                end
                             end
                         end
+
                         false
                     end
 
@@ -135,6 +154,23 @@ module Roby
                     end
                 end
 
+                inherited_single_value_attribute('__terminal') { false }
+
+                # Marks this script has being terminated, i.e. that no new
+                # instructions can be added to it
+                #
+                # Once this is called, adding new instructions will raise
+                # ArgumentError
+                def terminal
+                    __terminal(true)
+                end
+
+                # @return [Boolean] if true, this script cannot get new
+                #   instructions (a terminal instruction has been added)
+                def terminal?
+                    __terminal
+                end
+
                 # The list of instructions in this script
                 # @return [Array]
                 attribute(:instructions) { Array.new }
@@ -146,8 +182,8 @@ module Roby
                 # @param [Hash] options the dependency relation options. See
                 #   {Roby::TaskStructure::DependencyGraphClass::Extension#depends_on}
                 def start(task, options = Hash.new)
-                    validate_task task
-                    instructions << Start.new(task, options)
+                    task = validate_or_create_task task
+                    add Start.new(task, options)
                     wait(task.start_event)
                 end
 
@@ -158,7 +194,7 @@ module Roby
                 # @param [Hash] options the dependency relation options. See
                 #   {Roby::TaskStructure::DependencyGraphClass::Extension#depends_on}
                 def execute(task, options = Hash.new)
-                    validate_task task
+                    task = validate_or_create_task task
                     start(task, options)
                     wait(task.success_event)
                 end
@@ -190,10 +226,10 @@ module Roby
                     wait = Wait.new(event, wait_options)
                     if options[:timeout]
                         timeout(options[:timeout]) do
-                            instructions << wait
+                            add wait
                         end
                     else
-                        instructions << wait
+                        add wait
                     end
                     wait
                 end
@@ -203,7 +239,7 @@ module Roby
                 # @param [Event] event
                 def emit(event)
                     validate_event event
-                    instructions << Emit.new(event)
+                    add Emit.new(event)
                 end
 
                 # Execute another script at this point in the execution
@@ -213,14 +249,21 @@ module Roby
 
                 def timeout_start(delay, options = Hash.new)
                     ins = TimeoutStart.new(delay, options)
-                    instructions << ins
+                    add ins
                     ins
                 end
 
                 def timeout_stop(timeout_start)
                     ins = TimeoutStop.new(timeout_start)
-                    instructions << ins
+                    add ins
                     ins
+                end
+
+                def add(instruction)
+                    if terminal?
+                        raise ArgumentError, "a terminal command has been called on this script, cannot add anything further"
+                    end
+                    instructions << instruction
                 end
             end
         end

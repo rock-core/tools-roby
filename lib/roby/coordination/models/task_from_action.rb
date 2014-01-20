@@ -8,13 +8,22 @@ module Roby
             # @return [Roby::Actions::Action]
             attr_reader :action
 
+            # Returns the coordination model that is used to define the
+            # underlying action
+            #
+            # @return (see Models::Action#to_coordination_model)
+            # @raise (see Models::Action#to_coordination_model)
+            def to_coordination_model
+                action.to_coordination_model
+            end
+
             def initialize(action)
                 @action = action
                 super(action.model.returned_type)
             end
 
             def new(coordination_model)
-                if coordination_model.action_interface_model != action.model.action_interface_model
+                if coordination_model.action_interface_model < action.model.action_interface_model
                     TaskFromAction.new(action.rebind(coordination_model.action_interface_model)).new(coordination_model)
                 else
                     return super
@@ -30,7 +39,7 @@ module Roby
                     else value
                     end
                 end
-                action.instanciate(plan, arguments)
+                action.as_plan(arguments)
             end
 
             def to_s; "action(#{action})[#{model}]" end

@@ -1,0 +1,74 @@
+module Roby
+    module Interface
+        # Objects that hold a set of commands
+        class CommandLibrary
+            class << self
+                extend MetaRuby::Attributes
+                inherited_attribute(:command, :commands, :map => true) { Hash.new }
+                inherited_attribute(:subcommand, :subcommands, :map => true) { Hash.new }
+
+                # Declares a command for this interface
+                def command(name, *info)
+                    arguments = if info.last.kind_of?(Hash) then info.pop
+                                else Hash.new
+                                end
+
+                    arguments = arguments.map_key do |name, _|
+                        name.to_sym
+                    end
+                    arguments = arguments.map_value do |name, description|
+                        CommandArgument.new(name.to_sym, Array(description))
+                    end
+                    commands[name.to_sym] = Command.new(name.to_sym, info, arguments)
+                end
+
+                # Adds another interface object a subcommand of this command
+                # interface
+                #
+                # @param [String] name the subcommand name. The commands will be
+                #   available as name.command_name
+                # @param [Model<CommandInterface>] interface the command interface model
+                def subcommand(name, interface, *description)
+                    subcommands[name] = [interface, description]
+                    define_method name do
+                        subcommands[name]
+                    end
+                end
+            end
+
+            # @return [Roby::Application] the application
+            attr_reader :app
+            # @return [Roby::Plan] the {#app}'s plan
+            def plan; app.plan end
+            # @return [Roby::ExecutionEngine] the {#plan}'s engine
+            def engine; plan.engine end
+            # @return [Hash<String,CommandInterface>] the set of command subcommands
+            #   attached to this command interface
+            attr_reader :subcommands
+
+            def initialize(app)
+                @app = app
+                @subcommands = Hash.new
+
+                self.class.each_subcommand do |name, (interface_model, description)|
+                    subcommands[name] = interface_model.new(app)
+                end
+            end
+
+            InterfaceCommands = Struct.new :name, :description, :commands
+
+            # The set of commands that exist on self and on its subcommands
+            #
+            # @return [Hash<String,InterfaceCommands>] the set of commands of
+            #   self (with key '') and of its subcommands (where the key is not
+            #   empty)
+            def commands
+                result = Hash['' => InterfaceCommands.new('', nil, self.class.commands)]
+                self.subcommands.each do |name, subcommand|
+                    result[name] = InterfaceCommands.new(name, self.class.find_subcommand(name).last, subcommand.commands)
+                end
+                result
+            end
+        end
+    end
+end

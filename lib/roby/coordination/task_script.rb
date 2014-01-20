@@ -25,7 +25,7 @@ module Roby
             end
 
             def bind(task)
-                result_model = self.class.superclass.new_submodel(:root => task.model)
+                result_model = self.class.superclass.new_submodel(:root => model.root.model)
                 result = result_model.new(task)
                 result.parse(&definition_block)
                 result.prepare
