@@ -1100,7 +1100,10 @@ module Roby
                 origin = exception.origin
                 filtered_parents = parents.find_all { |t| t.depends_on?(origin) }
                 if filtered_parents != parents
-                    warn "some parents specified for #{exception.exception} are actually not parents of #{origin}, they got filtered out"
+                    warn "some parents specified for #{exception.exception}(#{exception.exception.class}) are actually not parents of #{origin}, they got filtered out"
+                    (parents - filtered_parents).each do |task|
+                        warn "  #{task}"
+                    end
                 end
                 parents = filtered_parents
                 handled_exceptions[exception.exception] = Set.new
