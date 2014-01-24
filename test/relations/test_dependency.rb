@@ -689,7 +689,42 @@ class TC_Dependency < Test::Unit::TestCase
         process_events # we clear the initial triggers added by #depends_on
         parent.depends_on child, :success => :success
         inhibit_fatal_messages do
-            assert_raises(Roby::ChildFailedError) { child.success_event.unreachable! }
+            assert_raises(Roby::ChildFailedError) do
+                child.success_event.unreachable!
+            end
+        end
+    end
+
+    def test_direct_child_failure_due_to_grandchild_is_assigned_to_the_direct_child
+        parent, child, grandchild = prepare_plan :add => 3, :model => Roby::Tasks::Simple
+        plan.add_permanent(parent)
+        plan.add_permanent(grandchild)
+        parent.depends_on child, :failure => :failed
+        grandchild.stop_event.forward_to child.aborted_event
+        parent.start!
+        child.start!
+        grandchild.start!
+        begin grandchild.stop!
+            assert(false, 'expected ChildFailedError to be raised, but got not exceptions')
+        rescue Roby::ChildFailedError => e
+            assert_equal(child, e.failed_task)
+        end
+    end
+
+    def test_unreachability_child_failure_due_to_grandchild_is_assigned_to_the_direct_child
+        parent, child, grandchild = prepare_plan :add => 3, :model => Roby::Tasks::Simple
+        plan.add_permanent(parent)
+        plan.add_permanent(grandchild)
+        parent.depends_on child, :failure => :start.never
+        grandchild.start!
+        parent.start!
+        inhibit_fatal_messages do
+            begin
+                child.start_event.unreachable!(grandchild.start_event.last)
+                assert(false, 'expected ChildFailedError to be raised, but got not exceptions')
+            rescue Roby::ChildFailedError => e
+                assert_equal(child, e.failed_task)
+            end
         end
     end
 end

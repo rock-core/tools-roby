@@ -835,7 +835,7 @@ module Roby
                     base_event = events.first || generators.first
                     if explanation.value.nil? # unreachability
                         reason = base_event.unreachability_reason
-                        if reason.kind_of?(Event)
+                        if reason.respond_to?(:task) && reason.task == child
                             reason
                         else
                             base_event
