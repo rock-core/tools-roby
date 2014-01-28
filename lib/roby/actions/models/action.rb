@@ -250,6 +250,14 @@ module Roby
                 else raise ArgumentError, "#{self} does not seem to be based on a coordination model"
                 end
             end
+
+            def to_action_model
+                self
+            end
+
+            def to_action
+                new
+            end
         end
         end
     end

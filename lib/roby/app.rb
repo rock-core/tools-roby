@@ -196,6 +196,33 @@ module Roby
         # It is false by default
         attr_predicate :ignore_all_load_errors?, true
 
+        # If set to true, tests will show detailed execution timings
+        #
+        # It is false by default
+        attr_predicate :test_show_timings?, true
+
+        # The options passed to Utilrb::Timepoints#format_timepoints if
+        # {#test_show_timings?} is true
+        attr_reader :test_format_timepoints_options
+
+        # How many times each test should be repeated (defaults to 1)
+        #
+        # This is mostly useful when profiling is enabled
+        #
+        # @return [Integer]
+        attr_accessor :test_repeat
+
+        # List of subsystems that should be profiles during testing
+        #
+        # Profiling is done using perftools.rb. All profiles are aggregated
+        # (run the tests separately if you need one profile per test)
+        #
+        # Roby knows 'test', which profiles the test without setup and teardown.
+        # The default is empty (no profiling)
+        #
+        # @return [Array<String>]
+        attr_reader :test_profile
+
         # Returns the name of the application
         def app_name
             if @app_name
@@ -247,7 +274,7 @@ module Roby
         def require_app_dir
             guess_app_dir
             if !@app_dir
-                raise ArgumentError, "this needs to be started from within a Roby application"
+                raise ArgumentError, "your current directory does not seem to be a Roby application directory; did you forget to run 'roby init'?"
             end
         end
 
@@ -309,12 +336,6 @@ module Roby
 
 	# True if user interaction is disabled during tests
 	attr_predicate :automatic_testing?, true
-
-	# True if all logs should be kept after testing
-	attr_predicate :testing_keep_logs?, true
-
-	# True if all logs should be kept after testing
-	attr_predicate :testing_overwrites_logs?, true
 
         # True if plugins should be discovered, registered and loaded (true by
         # default)
@@ -416,7 +437,6 @@ module Roby
             @additional_model_files = []
 
 	    @automatic_testing = true
-	    @testing_keep_logs = false
             @registered_exceptions = []
 
             @filter_out_patterns = [Roby::RX_IN_FRAMEWORK,
@@ -427,6 +447,9 @@ module Roby
 
             @planners    = []
             @notification_listeners = Array.new
+            @test_format_timepoints_options = Hash.new
+            @test_repeat = 1
+            @test_profile = []
 	end
 
         # The robot names configuration
@@ -560,7 +583,7 @@ module Roby
 	    names.map do |name|
 		name = name.to_s
 		unless plugin = plugin_definition(name)
-		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, *_| n }.join(", ")})"
+		    raise ArgumentError, "#{name} is not a known plugin (available plugins: #{available_plugins.map { |n, *_| n }.join(", ")})"
 		end
 		name, dir, mod, init = *plugin
 		if already_loaded = plugins.find { |n, m| n == name && m == mod }
@@ -1190,6 +1213,7 @@ module Roby
             planners.clear
             plan.clear
             clear_models
+            clear_config
 
             if !public_logs?
                 @created_log_dirs.each do |dir|
@@ -1345,7 +1369,7 @@ module Roby
         #   find_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb]
         def find_dirs(*dir_path)
-            Application.debug "find_dirs(#{dir_path.map(&:inspect).join(", ")})"
+            Application.debug { "find_dirs(#{dir_path.map(&:inspect).join(", ")})" }
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
@@ -1385,13 +1409,13 @@ module Roby
             end
 
             result = []
-            Application.debug "  relative paths: #{relative_paths.inspect}"
+            Application.debug { "  relative paths: #{relative_paths.inspect}" }
             relative_paths.each do |rel_path|
                 root_paths.each do |root|
                     abs_path = File.expand_path(File.join(*rel_path), root)
-                    Application.debug "  absolute path: #{abs_path}"
+                    Application.debug { "  absolute path: #{abs_path}" }
                     if File.directory?(abs_path)
-                        Application.debug "    selected"
+                        Application.debug { "    selected" }
                         result << abs_path 
                     end
                 end
@@ -1437,7 +1461,7 @@ module Roby
         #   find_files_in_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb,
         def find_files_in_dirs(*dir_path)
-            Application.debug "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})"
+            Application.debug { "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})" }
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
@@ -1449,10 +1473,10 @@ module Roby
 
             result = []
             search_path.each do |dirname|
-                Application.debug "  dir: #{dirname}"
+                Application.debug { "  dir: #{dirname}" }
                 Dir.new(dirname).each do |file_name|
                     file_path = File.join(dirname, file_name)
-                    Application.debug "    file: #{file_path}"
+                    Application.debug { "    file: #{file_path}" }
                     if File.file?(file_path) && options[:pattern] === file_name
                         Application.debug "      added"
                         result << file_path
@@ -1650,9 +1674,16 @@ module Roby
             $LOADED_FEATURES.delete_if { |path| patterns.any? { |p| p =~ path } }
         end
 
-        def reload_config
-            unload_features("config", ".*\.rb$")
+        def clear_config
+            Conf.clear
+            call_plugins(:clear_config, self)
+            # Deprecated name for clear_config
             call_plugins(:reload_config, self)
+        end
+
+        def reload_config
+            clear_config
+            unload_features("config", ".*\.rb$")
             require_config
         end
 

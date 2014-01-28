@@ -1,5 +1,5 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/common'
+require 'roby/test/self'
 
 describe Roby::App::RobotNames do
     include Roby::SelfTest

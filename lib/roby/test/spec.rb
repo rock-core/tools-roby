@@ -1,8 +1,11 @@
+require 'utilrb/timepoints'
+require 'roby/test/error'
 require 'roby/test/common'
 module Roby
     module Test
         class Spec < MiniTest::Spec
             include Test::Assertions
+            include Utilrb::Timepoints
 
             class << self
                 extend MetaRuby::Attributes
@@ -11,6 +14,43 @@ module Roby
 
             def plan; Roby.plan end
             def engine; Roby.plan.engine end
+
+            def self.test_methods
+                methods = super
+                # Duplicate each method 'repeat' times
+                methods.inject([]) do |list, m|
+                    list.concat([m] * Roby.app.test_repeat)
+                end
+            end
+
+            def puke(klass, meth, e)
+                case e
+                when MiniTest::Skip, MiniTest::Assertion
+                    super
+                else
+                    super(klass, method, Error.new(e))
+                end
+            end
+
+            def __full_name__
+                "#{self.class}##{__name__}"
+            end
+
+
+            def self.it(*args, &block)
+                super(*args) do
+                    if profiling = Roby.app.test_profile.include?('test')
+                        PerfTools::CpuProfiler.resume
+                    end
+                    begin
+                        instance_eval(&block)
+                    ensure
+                        if profiling
+                            PerfTools::CpuProfiler.pause
+                        end
+                    end
+                end
+            end
 
             def setup
                 super
@@ -25,6 +65,15 @@ module Roby
                     super
                 rescue ::Exception => e
                     teardown_failure = e
+                end
+
+                if Roby.app.test_show_timings?
+                    puts __full_name__
+                    timepoints = format_timepoints(Roby.app.test_format_timepoints_options)
+                    timepoints.each do |timing, name|
+                        puts "  %.3f %s" % [timing, name.join(" ")]
+                    end
+                    clear_timepoints
                 end
 
                 plan.engine.killall

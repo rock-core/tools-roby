@@ -1,4 +1,4 @@
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/tasks/simple'
 
 class TC_Queries_NotMatcher < Test::Unit::TestCase

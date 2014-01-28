@@ -1,6 +1,12 @@
 require 'roby/app/installer'
 
-Roby.app.require_app_dir
+begin
+    Roby.app.require_app_dir
+rescue Exception => e
+    STDERR.puts Roby.console.color(e.message, :red)
+    exit 1
+end
+
 unless robotname = ARGV.shift
     STDERR.puts "No robot name given on command line"
     STDERR.puts parser

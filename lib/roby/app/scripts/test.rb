@@ -1,7 +1,6 @@
 require 'roby'
 require 'roby/test/spec'
 require 'optparse'
-require 'test/unit'
 
 Robot.logger.level = Logger::WARN
 
@@ -31,6 +30,23 @@ parser = OptionParser.new do |opt|
     opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
 	testrb_args << "-n" << name
     end
+    opt.on('--timings[=AGGREGATE]', Integer, "show execution timings") do |aggregate|
+        Roby.app.test_show_timings = true
+        if aggregate.respond_to?(:to_int)
+            Roby.app.test_format_timepoints_options[:aggregate] = aggregate
+        end
+    end
+    opt.on('--repeat=N', Integer, 'repeat each test N times (usually used with --profile)') do |count|
+        Roby.app.test_repeat = count
+    end
+    opt.on('--profile[=SUBSYSTEM]', String, 'profile the given subsystem. Without arguments, profiles the tests without setup/teardown') do |subsystem|
+        Roby.app.test_profile.clear
+        if !subsystem.respond_to?(:to_str)
+            Roby.app.test_profile << 'test'
+        else
+            Roby.app.test_profile << subsystem
+        end
+    end
     opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
         coverage_mode = true
     end
@@ -38,6 +54,9 @@ parser = OptionParser.new do |opt|
 end
 
 remaining_arguments = parser.parse(ARGV)
+if Roby.app.public_logs?
+    STDOUT.puts "Test logs are saved in #{Roby.app.log_dir}"
+end
 
 if coverage_mode
     app.auto_load_models = true
@@ -49,20 +68,33 @@ Roby.display_exception do
     Roby.app.setup
     Roby.app.prepare
 
-    begin
-        tests = Test::Unit::AutoRunner.new(true)
-        tests.options.banner.sub!(/\[options\]/, '\& tests...')
-        if remaining_arguments.empty?
-            remaining_arguments = Roby.app.find_files_in_dirs('test', 'ROBOT', :path => [Roby.app.app_dir], :all => true, :order => :specific_first, :pattern => /^(?:suite_|test_).*\.rb$/)
-        end
+    profiling = !Roby.app.test_profile.empty?
+    if profiling
+        STDOUT.puts "Profiling results are saved in #{Roby.app.log_dir}.prof"
+        require 'perftools'
+        PerfTools::CpuProfiler.start "#{Roby.app.log_dir}.prof"
+        PerfTools::CpuProfiler.pause
+    end
 
-        has_tests = tests.process_args(testrb_args + remaining_arguments)
-        if has_tests
-            files = tests.to_run
-            $0 = files.size == 1 ? File.basename(files[0]) : files.to_s
-            result = tests.run
+    begin
+        tests = MiniTest::Unit.new
+        # tests.options.banner.sub!(/\[options\]/, '\& tests...')
+        if remaining_arguments.empty?
+            remaining_arguments = Roby.app.
+                find_files_in_dirs('test', 'ROBOT',
+                                   :path => [Roby.app.app_dir],
+                                   :all => true,
+                                   :order => :specific_first,
+                                   :pattern => /^(?:suite_|test_).*\.rb$/)
         end
+        remaining_arguments.each do |arg|
+            require arg
+        end
+        tests.run(testrb_args)
     ensure
+        if profiling
+            PerfTools::CpuProfiler.stop
+        end
         Roby.app.cleanup
     end
 end
