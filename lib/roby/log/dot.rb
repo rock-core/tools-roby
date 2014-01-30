@@ -278,16 +278,16 @@ module Roby
 		full_line = ""
 		dot_layout.each do |line|
 		    line.chomp!
-		    full_line << line
-		    if line[-1] == ?\\
-			full_line.chop!
+		    full_line << line.strip
+		    if line[-1] == ?\\ or line[-1] == ?,
+			full_line.chomp!
 			next
 		    end
 
-		    case full_line
-		    when /(\w+) \[.*pos="(#{FLOAT_VALUE}),(#{FLOAT_VALUE})"/
+                    case full_line
+		    when /(\w+).*\[.*pos="(#{FLOAT_VALUE}),(#{FLOAT_VALUE})"/
 			object_pos[$1] = Qt::PointF.new(Float($2) * scale_x, Float($3) * scale_y)
-		    when /subgraph cluster_(\w+)/
+                    when /subgraph cluster_(\w+)/
 			current_graph_id = $1
 		    when /bb="(#{FLOAT_VALUE}),(#{FLOAT_VALUE}),(#{FLOAT_VALUE}),(#{FLOAT_VALUE})"/
 			bb = [$1, $2, $3, $4].map { |c| Float(c) }
