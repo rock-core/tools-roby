@@ -14,6 +14,9 @@ module Roby
 
             def depends_on(action, options = Hash.new)
                 options = Kernel.validate_options options, :role
+                if options[:role].nil?
+                    raise ArgumentError, "You have to pass a role for the depending child"
+                end
                 if !action.kind_of?(Coordination::Models::Task)
                     raise ArgumentError, "expected a task, got #{action}. You probably forgot to convert it using #task or #state"
                 end

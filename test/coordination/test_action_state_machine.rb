@@ -19,6 +19,8 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
             define_method(:start_task) { |arg| task_m.new(:id => (arg[:id] || :start)) }
             describe("the next task").returns(task_m)
             define_method(:next_task) { task_m.new(:id => :next) }
+            describe("a depending task").returns(task_m)
+            define_method(:depending_task) { task_m.new(:id => :depending) }
             describe("a monitoring task").returns(task_m)
             define_method(:monitoring_task) { task_m.new(:id => 'monitoring') }
             description = describe("state machine").returns(task_m)
@@ -84,7 +86,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
     def test_it_can_transition_using_an_event_from_a_task_level_dependency
         state_machine 'test' do
             start_state = state start_task
-            start_state.depends_on(monitor = state(monitoring_task))
+            start_state.depends_on(monitor = state(monitoring_task), :role => 'monitor')
             next_state  = state next_task
             start(start_state)
             transition(start_state, monitor.success_event, next_state)
@@ -101,7 +103,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         assert_raises(Roby::Coordination::Models::UnreachableStateUsed) do
             state_machine 'test' do
                 start_state = state start_task
-                start_state.depends_on(monitor = state(monitoring_task))
+                start_state.depends_on(monitor = state(monitoring_task), :role => 'monitor')
                 next_state  = state next_task
                 start(start_state)
                 transition(monitor.success_event, next_state)
@@ -122,6 +124,33 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         assert_equal Hash[:id => :start], task.current_task_child.arguments
         assert_equal 2, task.children.to_a.size
         assert_equal([task.current_task_child, task.monitor_child].to_set, task.children.to_set)
+    end
+
+    def test_it_removes_during_transition_the_dependency_from_the_root_to_the_instanciated_tasks_if_root_uses_depends_on
+        state_machine 'test' do
+            monitor = state(monitoring_task)
+            depends_on monitor, :role => 'monitor'
+            start_state = state start_task
+            depending_state = state depending_task
+            next_state  = state next_task
+            start_state.depends_on depending_state, :role => "depending"
+            #start_state.depends_on depending_state
+            start(start_state)
+            transition(start_state, monitor.success_event, next_state)
+            transition(next_state, next_state.success_event, depending_state)
+        end
+        task = start_machine('test')
+#        assert_equal 3, task.children.to_a.size
+        assert_equal Hash[:id => :start], task.current_task_child.arguments
+        STDOUT.puts "Alles okay bis hier"
+        task.monitor_child.start!
+        task.monitor_child.emit :success
+        assert_equal Hash[:id => :next], task.current_task_child.arguments
+#        STDOUT.puts "Children: #{task.children.to_a}"
+        assert_equal([task.current_task_child, task.monitor_child].to_set, task.children.to_set)
+
+#        STDOUT.puts "Children: #{task.children}"
+#        assert_equal([task.current_task_child, task.monitor_child,task.current_task_child.depending_child].to_set, task.children.to_set)
     end
 
     def test_it_applies_a_transition_only_for_the_state_it_is_defined_in
