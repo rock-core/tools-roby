@@ -59,6 +59,15 @@ module Roby
                 end
             end
 
+            #Return the possible following states for the given state,
+            #if state is nil, then the followup states from the current one are returned
+            def possible_following_states(task=nil)
+                task = current_task if task.nil?
+                #When we are not running then we have no following states
+                return nil if task.nil?
+
+                model.transitions.reject{|t| t[0] != task.model}.collect{|t| t[2]}
+            end
             def instanciate_state_transition(task, new_state)
                 remove_current_task
                 instanciate_state(new_state)
