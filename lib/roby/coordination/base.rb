@@ -1,5 +1,11 @@
 module Roby
     module Coordination
+
+        @instances = Array.new
+        def self.instances
+            @instances
+        end
+
         # Context for all the execution objects that can be attached to the
         # action interface and/or tasks, such as state machines and scripts
         class Base
@@ -71,6 +77,8 @@ module Roby
                         end
                     end
                 end
+
+                Roby::Coordination.instances << self
             end
 
             def attach_fault_response_tables_to(task)
