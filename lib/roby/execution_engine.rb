@@ -1521,6 +1521,13 @@ module Roby
             while did_something
                 did_something = false
 
+                Roby::TaskStructure::PlannedBy.each_vertex do |t|
+                    if t.respond_to?(:job_id) && !t.job_id && t.parents.empty?
+                        ExecutionEngine.debug { "GC: removing dangling / unconnected task #{t}" }
+                        plan.garbage(t)
+                    end
+                end
+
                 tasks = plan.unneeded_tasks | plan.force_gc
                 local_tasks  = plan.local_tasks & tasks
                 remote_tasks = tasks - local_tasks
