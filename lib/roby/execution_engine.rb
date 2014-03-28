@@ -1522,9 +1522,11 @@ module Roby
                 did_something = false
 
                 Roby::TaskStructure::PlannedBy.each_vertex do |t|
-                    if t.respond_to?(:job_id) && !t.job_id && t.parents.empty?
-                        ExecutionEngine.debug { "GC: removing dangling / unconnected task #{t}" }
-                        plan.garbage(t)
+                    if t.respond_to?(:action_model) && !t.action_model
+                        if t.respond_to?(:job_id) && !t.job_id && t.parents.empty?
+                            ExecutionEngine.debug { "GC: removing dangling / unconnected task #{t}" }
+                            plan.garbage(t)
+                        end
                     end
                 end
 
