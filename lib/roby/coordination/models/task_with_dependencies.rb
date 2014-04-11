@@ -4,7 +4,15 @@ module Roby
         # Generic representation of an execution context task that can be
         # instanciated 
         class TaskWithDependencies < Task
-            attribute(:dependencies) { Set.new }
+            # @return [Set<(Task,String)>] set of dependencies needed for this
+            #   task, as a (task,role) pair
+            attr_reader :dependencies
+
+            # (see Task#initialize)
+            def initialize(model)
+                super
+                @dependencies = Set.new
+            end
 
             def find_child_model(name)
                 if d = dependencies.find { |_, role| role == name }

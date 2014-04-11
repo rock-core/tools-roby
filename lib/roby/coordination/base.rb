@@ -85,6 +85,19 @@ module Roby
                 end
             end
 
+            # Binds a task instance to the coordination task
+            #
+            # This method binds a task instance to the coordination task it
+            # represents, and optionally installs the handlers necessary to
+            # track replacement
+            #
+            # @param [Coordination::Task] coordination_task the coordination task
+            # @param [Roby::Task] instance the task
+            # @option options [Symbol] :on_replace (:drop) what should be done
+            #   if the task instance is replaced by another task. If :drop, the
+            #   coordination task will be reset to nil. If :copy, it will track
+            #   the new task
+            # @return [void]
             def bind_coordination_task_to_instance(coordination_task, instance, options = Hash.new)
                 options = Kernel.validate_options options, :on_replace => :drop
 
@@ -96,6 +109,20 @@ module Roby
                 end
             end
 
+            # Returns the instance-level coordination task that is used to
+            # represent a model-level coordination task
+            #
+            # Coordination models are built using instances of
+            # {Coordination::Models::Task} (or its subclasses). When they get
+            # instanciated into actual coordination objects, these are
+            # uniquely associated with instances of {Coordination::Task} (or its
+            # subclasses).
+            #
+            # This method can be used to retrieve the unique object associated
+            # with a given model-level coordination task
+            #
+            # @param [Coordination::Models::Task] object the model-level coordination task
+            # @return [Coordination::Task] object the instance-level coordination task
             def instance_for(object)
                 if !(ins = instances[object])
                     if !parent || !(ins = parent.instances[object])
