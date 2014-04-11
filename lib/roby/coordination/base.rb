@@ -106,6 +106,8 @@ module Roby
                     instance.as_service.on_replacement do |old_task, new_task|
                         coordination_task.bind(new_task)
                     end
+                else
+                    coordination_task.reset
                 end
             end
 
