@@ -114,6 +114,7 @@ module Roby
                 def find_child_model(role)
                     if can_resolve_child_models?
                         model.find_child(role)
+                    else Roby::Task
                     end
                 end
 
