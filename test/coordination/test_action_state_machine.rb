@@ -3,18 +3,17 @@ require 'roby/test/self'
 require 'roby/actions'
 require 'flexmock/test_unit'
 
-class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
+describe Roby::Coordination::ActionStateMachine do
     include Roby::SelfTest
     include Roby::SelfTest::Assertions
 
     attr_reader :task_m, :action_m, :description
-    def setup
-        super
+    before do
         task_m = @task_m = Roby::Task.new_submodel(:name => 'TaskModel') do
             terminates
         end
         description = nil
-        @action_m = Actions::Interface.new_submodel do
+        @action_m = Roby::Actions::Interface.new_submodel do
             describe("the start task").returns(task_m).optional_arg(:id, "the task ID")
             define_method(:start_task) { |arg| task_m.new(:id => (arg[:id] || :start)) }
             describe("the next task").returns(task_m)
@@ -33,13 +32,6 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         task
     end
 
-    def test_it_defines_an_action_with_the_state_machine_name
-        state_machine('state_machine_action') do
-            start(state(Roby::Task))
-        end
-        assert action_m.find_action_by_name('state_machine_action')
-    end
-
     def state_machine(name, &block)
         action_m.state_machine(name) do
             def start_task(task)
@@ -53,7 +45,19 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         end
     end
 
-    def test_it_starts_the_start_task_when_the_root_task_is_started
+    describe "instanciation" do
+        it "passes instanciation arguments to the generated tasks" do
+            description.required_arg(:task_id, "the task ID")
+            state_machine 'test' do
+                start(state(start_task(:id => task_id)))
+            end
+
+            task = start_machine('test', :task_id => 10)
+            assert_equal 10, task.current_task_child.arguments[:id]
+        end
+    end
+
+    it "gets into the start state when the root task is started" do
         state_machine 'test' do
             start = state start_task
             start(start)
@@ -65,88 +69,77 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         assert_equal Hash[:id => :start], start.arguments
     end
 
-    def test_it_can_transition_using_an_event_from_a_globally_defined_dependency
-        state_machine 'test' do
-            depends_on(monitor = state(monitoring_task))
-            start_state = state start_task
-            next_state  = state next_task
-            start(start_state)
-            transition(start_state, monitor.success_event, next_state)
+    describe "transitions" do
+        it "can transition using an event from a globally defined dependency" do
+            state_machine 'test' do
+                depends_on(monitor = state(monitoring_task))
+                start_state = state start_task
+                next_state  = state next_task
+                start(start_state)
+                transition(start_state, monitor.success_event, next_state)
+            end
+
+            task = start_machine('test')
+            monitor = plan.find_tasks.with_arguments(:id => 'monitoring').first
+            monitor.start!
+            monitor.emit :success
+            assert_equal Hash[:id => :next], task.current_task_child.arguments
         end
 
-        task = start_machine('test')
-        monitor = plan.find_tasks.with_arguments(:id => 'monitoring').first
-        monitor.start!
-        monitor.emit :success
-        assert_equal Hash[:id => :next], task.current_task_child.arguments
-    end
-
-    def test_it_can_transition_using_an_event_from_a_task_level_dependency
-        state_machine 'test' do
-            start_state = state start_task
-            start_state.depends_on(monitor = state(monitoring_task))
-            next_state  = state next_task
-            start(start_state)
-            transition(start_state, monitor.success_event, next_state)
-        end
-
-        task = start_machine('test')
-        monitor = plan.find_tasks.with_arguments(:id => 'monitoring').first
-        monitor.start!
-        monitor.emit :success
-        assert_equal Hash[:id => :next], task.current_task_child.arguments
-    end
-
-    def test_it_raises_if_a_transition_source_state_is_not_reachable
-        assert_raises(Roby::Coordination::Models::UnreachableStateUsed) do
+        it "can transition using an event from a state-local dependency" do
             state_machine 'test' do
                 start_state = state start_task
                 start_state.depends_on(monitor = state(monitoring_task))
                 next_state  = state next_task
                 start(start_state)
-                transition(monitor.success_event, next_state)
+                transition(start_state, monitor.success_event, next_state)
             end
+
+            task = start_machine('test')
+            monitor = plan.find_tasks.with_arguments(:id => 'monitoring').first
+            monitor.start!
+            monitor.emit :success
+            assert_equal Hash[:id => :next], task.current_task_child.arguments
+        end
+
+        it "removes the dependency from the root task to the current state's task" do
+            state_machine 'test' do
+                monitor = state(monitoring_task)
+                depends_on monitor, :role => 'monitor'
+                start_state = state start_task
+                next_state  = state next_task
+                start(start_state)
+                transition(start_state, monitor.start_event, next_state)
+            end
+            task = start_machine('test')
+            assert_equal Hash[:id => :start], task.current_task_child.arguments
+            assert_equal 2, task.children.to_a.size
+            assert_equal([task.current_task_child, task.monitor_child].to_set, task.children.to_set)
+        end
+
+        it "transitions because of an event only in the source state" do
+            state_machine 'test' do
+                monitor = state monitoring_task
+                depends_on monitor, :role => 'monitor'
+                start_state = state start_task
+                next_state  = state next_task
+                start(start_state)
+                transition(next_state, monitor.start_event, start_state)
+                transition(start_state, monitor.success_event, next_state)
+            end
+
+            task = start_machine('test')
+            assert_equal Hash[:id => :start], task.current_task_child.arguments
+            task.monitor_child.start!
+            assert_equal Hash[:id => :start], task.current_task_child.arguments
+            task.monitor_child.emit :success
+            assert_equal Hash[:id => :next], task.current_task_child.arguments
+            task.monitor_child.start!
+            assert_equal Hash[:id => :start], task.current_task_child.arguments
         end
     end
 
-    def test_it_removes_during_transition_the_dependency_from_the_root_to_the_instanciated_tasks
-        state_machine 'test' do
-            monitor = state(monitoring_task)
-            depends_on monitor, :role => 'monitor'
-            start_state = state start_task
-            next_state  = state next_task
-            start(start_state)
-            transition(start_state, monitor.start_event, next_state)
-        end
-        task = start_machine('test')
-        assert_equal Hash[:id => :start], task.current_task_child.arguments
-        assert_equal 2, task.children.to_a.size
-        assert_equal([task.current_task_child, task.monitor_child].to_set, task.children.to_set)
-    end
-
-    def test_it_applies_a_transition_only_for_the_state_it_is_defined_in
-        state_machine 'test' do
-            monitor = state monitoring_task
-            depends_on monitor, :role => 'monitor'
-            start_state = state start_task
-            next_state  = state next_task
-            start(start_state)
-            transition(next_state, monitor.start_event, start_state)
-            transition(start_state, monitor.success_event, next_state)
-        end
-
-        task = start_machine('test')
-        assert_equal Hash[:id => :start], task.current_task_child.arguments
-        task.monitor_child.start!
-        assert_equal Hash[:id => :start], task.current_task_child.arguments
-        task.monitor_child.emit :success
-        assert_equal Hash[:id => :next], task.current_task_child.arguments
-        task.monitor_child.start!
-        assert_equal Hash[:id => :start], task.current_task_child.arguments
-    end
-
-
-    def test_it_can_forward_events_from_child_to_parent
+    it "applies the declared forwardings" do
         task_m.event :next_is_done
         state_machine 'test' do
             start_state = state start_task
@@ -165,7 +158,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         assert task.next_is_done_event.happened?
     end
 
-    def test_it_sets_up_dependencies_based_on_known_transitions
+    it "sets known transitions and only them as 'success' in the dependency" do
         state_machine 'test' do
             start(state(start_task))
         end
@@ -173,79 +166,12 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         task = start_machine('test')
         task.current_task_child.start!
         inhibit_fatal_messages do
-            assert_raises(ChildFailedError) { task.current_task_child.emit :success }
+            assert_raises(Roby::ChildFailedError) { task.current_task_child.emit :success }
         end
         plan.remove_object(task.children.first)
     end
 
-    def test_it_passes_given_arguments_to_the_state_machine_block
-        description.required_arg(:task_id, "the task ID")
-        state_machine 'test' do
-            start(state(start_task(:id => task_id)))
-        end
-
-        task = start_machine('test', :task_id => 10)
-        assert_equal 10, task.current_task_child.arguments[:id]
-    end
-
-    def test_it_raises_if_an_unknown_argument_is_accessed
-        assert_raises(NameError) do
-            state_machine 'test' do
-                start(state(start_task(:id => task_id)))
-            end
-        end
-    end
-
-    def test_it_sets_the_task_names_to_the_name_of_the_local_variables_they_are_assigned_to_with_a_state_suffix
-        _, machine = state_machine 'test' do
-            first = state(start_task(:id => 10))
-            start(first)
-        end
-        assert_equal 'first_state', machine.tasks.first.name
-    end
-
-    def test_it_can_resolve_a_state_model_by_its_child_name
-        _, machine = state_machine 'test' do
-            first = state(start_task(:id => 10))
-            start(first)
-        end
-        assert_equal task_m, machine.find_child('first_state')
-    end
-
-    def test_arbitrary_objects_must_be_converted_using_state_first
-        obj = flexmock
-        obj.should_receive(:to_action_state)
-        task_m = self.task_m
-        assert_raises(ArgumentError) do
-            Actions::Interface.new_submodel do
-                describe('state machine').
-                    required_arg(:first_state, 'the first state').
-                    returns(task_m)
-                state_machine('test') do
-                    start(obj)
-                end
-            end
-        end
-    end
-
-    def test_it_can_use_any_object_responding_to_to_action_state
-        obj = flexmock
-        obj.should_receive(:to_action_state).and_return(task = Roby::Task.new)
-        task_m = self.task_m
-        assert_raises(ArgumentError) do
-            Actions::Interface.new_submodel do
-                describe('state machine').
-                    required_arg(:first_state, 'the first state').
-                    returns(task_m)
-                state_machine('test') do
-                    state = state(obj)
-                    start(state)
-                end
-            end
-        end
-    end
-
-    def test_it_can_handle_variables_as_state_definitions
+    it "can be passed actual state models as arguments" do
         task_m = self.task_m
 
         description.required_arg(:first_task, 'the first state')
@@ -258,7 +184,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         assert_equal :start, task.current_task_child.arguments[:id]
     end
 
-    def test_it_rebinds_the_action_states_to_the_actual_interface_model
+    it "rebinds the action states to the actual interface model" do
         task_m = self.task_m
         child_task_m = task_m.new_submodel(:name => "TaskChildModel")
 
@@ -312,7 +238,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         assert_equal Hash[:arg => 10], table.arguments
     end
 
-    def test_it_does_not_instanciates_transitions_if_the_root_task_is_finished
+    it "does not instanciate transitions if the root task is finished" do
         task_m = self.task_m
         _, state_machine_m = action_m.action_state_machine 'test' do
             task = state(task_m)
@@ -331,7 +257,7 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         task.current_task_child.success_event.emit
     end
 
-    def test_it_removes_forwarding_to_the_root_task_if_it_is_finished
+    it "removes forwarding to the root task if it is finished" do
         task_m = self.task_m
         _, state_machine_m = action_m.action_state_machine 'test' do
             task = state(task_m)
@@ -345,6 +271,8 @@ class TC_Coordination_ActionStateMachine < Test::Unit::TestCase
         task.current_task_child.start!
         task.stop!
         task.current_task_child.success_event.emit
+    end
+    it "adds state-local dependencies as children of the state task" do
     end
 end
 
