@@ -9,7 +9,6 @@
   </copyright>
   <license>CeCILL-B (BSD-like)</license>
 
-  <depend package="utilmm" />
   <depend package="utilrb" />
   <depend package="facets" />
   <depend package="qtruby" optional='1' />
