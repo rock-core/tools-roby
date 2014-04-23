@@ -661,6 +661,8 @@ end
 
 
 describe BGL::Graph do
+    include Roby::Test::Self
+
     attr_reader :graph, :vertex_m, :vertex, :visitor
     before do
         @graph = BGL::Graph.new
