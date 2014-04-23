@@ -20,11 +20,6 @@ module Roby
                     @task = task
                 end
 
-                # Resets the associated roby task to nil
-                def reset
-                    @task = nil
-                end
-
                 # Resolves this to the actual task object
                 #
                 # @return [Roby::Task]
