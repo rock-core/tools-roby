@@ -1,6 +1,7 @@
 <package>
   <description brief="advanced supervision framework">
   </description>
+  <maintainer>Sylvain Joyeux/sylvain.joyeux@m4x.org</maintainer>
   <author>Sylvain Joyeux/sylvain.joyeux@m4x.org</author>
   <copyright>
       LAAS-CNRS/openrobots@laas.fr
