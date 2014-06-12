@@ -16,9 +16,19 @@ module Roby
             def initialize(action_interface_model, root_task, arguments = Hash.new)
                 super(action_interface_model, root_task, arguments)
                 @task_info = resolve_state_info
+
+
+                start_state = model.starting_state
+                if arguments[:start_state]
+                    start_state = model.find_state_by_name(arguments[:start_state])
+                    if !start_state
+                        raise ArgumentError, "The starting state #{arguments[:start_state]} is unkown, make sure its definied in the statemachine #{self}"
+                    end
+                end
+
                 root_task.execute do
-                    if model.starting_state
-                        instanciate_state(instance_for(model.starting_state))
+                    if start_state
+                        instanciate_state(instance_for(start_state))
                     end
                 end
             end

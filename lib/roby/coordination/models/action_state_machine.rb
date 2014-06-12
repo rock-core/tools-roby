@@ -94,6 +94,13 @@ module Roby
                 task(object, task_model)
             end
 
+            # Returns the state for the given name, if found, nil otherwise
+            #
+            # @return Roby::Coordination::Models::TaskFromAction
+            def find_state_by_name(name)
+                find_task_by_name("#{name}_state")
+            end
+
             def validate_task(object)
                 if !object.kind_of?(Coordination::Models::Task)
                     raise ArgumentError, "expected a state object, got #{object}. States need to be created from e.g. actions by calling #state before they can be used in the state machine"

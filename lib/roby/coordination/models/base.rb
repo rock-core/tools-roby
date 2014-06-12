@@ -56,7 +56,7 @@ module Roby
             # @return Roby::Coordination::Models::TaskFromAction
             def find_task_by_name(name)
                 tasks.find do |m|
-                    m.name == "#{name}_state"
+                    m.name == name.to_s
                 end
             end
 

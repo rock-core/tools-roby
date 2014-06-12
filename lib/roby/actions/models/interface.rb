@@ -163,6 +163,7 @@ module Roby
                 root_m = action_model.returned_type
                 arguments = action_model.arguments.map(&:name)
                 coordination_model = model.new_submodel(:action_interface => self, :root => root_m)
+
                 action_model.arguments.each do |arg|
                     if !arg.required
                         coordination_model.argument arg.name, :default => arg.default
@@ -198,6 +199,9 @@ module Roby
                 if !@current_description
                     raise ArgumentError, "you must describe the action with #describe before calling #action_state_machine"
                 end
+
+                #Define user-possible starting states, this will override the default starting state
+                @current_description.optional_arg("start_state", :default => nil)
                 action_coordination(name, Coordination::ActionStateMachine, &block)
             end
 

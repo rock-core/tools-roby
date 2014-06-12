@@ -69,6 +69,19 @@ describe Roby::Coordination::ActionStateMachine do
         assert_equal Hash[:id => :start], start.arguments
     end
 
+    it "starting state can be overridden by passing start_state argument" do
+        state_machine 'test' do
+            start = state start_task
+            second = state next_task
+            start(start)
+        end
+
+        task = start_machine('test', :start_state => "second")
+        start = task.current_task_child
+        assert_kind_of task_m, start
+        assert_equal Hash[:id => :next], start.arguments
+    end
+
     describe "transitions" do
         it "can transition using an event from a globally defined dependency" do
             state_machine 'test' do
