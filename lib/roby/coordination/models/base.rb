@@ -51,6 +51,15 @@ module Roby
                 end
             end
 
+            # Returns the task for the given name, if found, nil otherwise
+            #
+            # @return Roby::Coordination::Models::TaskFromAction
+            def find_task_by_name(name)
+                tasks.find do |m|
+                    m.name == "#{name}_state"
+                end
+            end
+
             # The set of defined tasks
             # @return [Array<Task>]
             inherited_attribute(:task, :tasks) { Array.new }
