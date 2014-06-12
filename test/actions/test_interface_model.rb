@@ -52,6 +52,20 @@ class TC_Actions_InterfaceModel < Test::Unit::TestCase
         m.an_action.instanciate(plan)
     end
 
+    def test_that_arguments_are_known_as_string_thought_has_arg_on_the_model
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action').
+            optional_arg('test')
+        assert description.has_arg?("test")
+    end
+
+    def test_that_arguments_are_known_as_symbol_thought_has_arg_on_the_model
+        m = Actions::Interface.new_submodel
+        description = m.describe('an action').
+            optional_arg('test')
+        assert description.has_arg?(:test)
+    end
+
     def test_it_allows_to_override_default_arguments
         m = Actions::Interface.new_submodel
         description = m.describe('an action').

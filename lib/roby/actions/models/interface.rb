@@ -201,6 +201,9 @@ module Roby
                 end
 
                 #Define user-possible starting states, this will override the default starting state
+                if @current_description.has_arg?("start_state")
+                    raise ArgumentError, "A argument \"start_state\" has defined for the statemachine, but this keyword is reseved"
+                end
                 @current_description.optional_arg("start_state", :default => nil)
                 action_coordination(name, Coordination::ActionStateMachine, &block)
             end

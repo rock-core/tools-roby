@@ -82,6 +82,16 @@ describe Roby::Coordination::ActionStateMachine do
         assert_equal Hash[:id => :next], start.arguments
     end
 
+    it "state_machines check for accidentally given arg \"start_state\"" do
+        description.optional_arg("start_state")
+        assert_raises(ArgumentError) {
+            state_machine 'test' do
+                start_state = state start_task
+                start(start_state)
+            end
+        }
+    end
+
     describe "transitions" do
         it "can transition using an event from a globally defined dependency" do
             state_machine 'test' do

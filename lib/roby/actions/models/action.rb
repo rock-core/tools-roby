@@ -102,6 +102,14 @@ module Roby
                 arguments << arg
                 self
             end
+
+            # Return true if a argument with the given name is specified
+            def has_arg?(name)
+                !!arguments.find do |arg|
+                    arg.name.to_sym == name.to_sym
+                end
+            end
+
             # Sets the advanced flag to true. See #advanced?
             def advanced
                 @advanced = true 
