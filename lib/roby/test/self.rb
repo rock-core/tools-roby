@@ -55,6 +55,10 @@ module Roby
                 teardown_failure = e
             end
             Roby.app.cleanup
+            State.clear
+            State.clear_model
+            Conf.clear
+            Conf.clear_model
 
         ensure
             if teardown_failure

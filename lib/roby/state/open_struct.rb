@@ -89,6 +89,10 @@ module Roby
             @aliases         = Hash.new
 	end
 
+        def clear_model
+            @model = nil
+        end
+
         def pretty_print(pp)
             pp.seplist(@members) do |child|
                 child_name, child_obj = *child
