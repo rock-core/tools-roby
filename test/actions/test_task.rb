@@ -1,13 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/actions'
 require 'roby/tasks/simple'
-require 'flexmock/test_unit'
 
-class TC_Actions_Task < Test::Unit::TestCase
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
+class TC_Actions_Task < Minitest::Test
     class TaskModel < Roby::Task; end
 
     attr_reader :iface_m, :task

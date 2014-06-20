@@ -1,11 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/tasks/simple'
-require 'flexmock'
 
-class TC_DistributedRobyProtocol < Test::Unit::TestCase
-    include Roby::Distributed::Test
-    
+class TC_DistributedRobyProtocol < Minitest::Test
     def test_remote_id
 	remote = remote_server do
 	    def remote_object
@@ -65,13 +61,13 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal(Roby::TaskStructure::Hierarchy.object_id, array[5].proxy(nil).object_id)
 
 	assert_kind_of(Task::DRoby, array[6])
-	assert_not_equal(Task, array[6].model.proxy(remote_peer))
+	refute_equal(Task, array[6].model.proxy(remote_peer))
 
 	array.each do |element|
-	    assert_nothing_raised(element.to_s) { Marshal.dump(element) }
+	    Marshal.dump(element)
 	end
 	dumped = nil
-	assert_nothing_raised { dumped = Marshal.dump(array) }
+	dumped = Marshal.dump(array)
     
 	if recursive
 	    check_undumped_array(Marshal.load(dumped), false)
@@ -172,7 +168,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal(Tasks::Simple, remote_peer.call(:model).proxy(remote_peer))
 
 	anonymous = remote_peer.call(:anonymous_model).proxy(remote_peer)
-	assert_not_same(anonymous, Tasks::Simple)
+	refute_same(anonymous, Tasks::Simple)
 	assert(anonymous < Tasks::Simple)
 	assert(remote_peer.call(:check_anonymous_model, anonymous))
     end
@@ -197,13 +193,13 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_kind_of(Plan::DRoby, remote_task.plan)
 	assert_equal("Roby::Test::Tasks::Simple",  remote_task.model.ancestors[1].first)
 	assert_equal([42, remote_task.model], remote_task.data)
-	assert_nothing_raised { Marshal.dump(remote_task) }
+	Marshal.dump(remote_task)
 	assert_equal(remote_task_id, remote_task.remote_siblings[remote_peer.droby_dump(nil)], remote_task.remote_siblings)
 	assert(!remote_task.remote_siblings[Roby::Distributed.droby_dump(nil)])
 
 	plan.add_permanent(local_proxy = remote_peer.local_object(remote_task))
 	assert_kind_of(Tasks::Simple,  local_proxy)
-	assert_not_same(Tasks::Simple, local_proxy.class)
+	refute_same(Tasks::Simple, local_proxy.class)
 	assert_equal([42, local_proxy.class], local_proxy.data)
 
 	assert_equal([remote_peer],  local_proxy.owners)
@@ -230,7 +226,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 	formatted = Distributed.format(e)
 	assert_kind_of(Exception::DRoby, formatted)
-	assert_nothing_raised { Marshal.dump(formatted) }
+	Marshal.dump(formatted)
 
 	peer2peer do |remote|
 	    def remote.exception
@@ -253,7 +249,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	m_e = remote.exception
 	e   = remote_peer.local_object(m_e)
 	assert_kind_of(Exception, e)
-	assert_not_same(Exception, e.class)
+	refute_same(Exception, e.class)
 	assert_equal("test", e.message)
 
 	m_e = remote.exception_with_arguments
@@ -313,7 +309,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	end
 
 	# Test that it is fine to receive the #added_sibling message now
-	assert_nothing_raised { remote_peer.synchro_point }
+	remote_peer.synchro_point
     end
 
     class FinalizedRemoteTaskRaceTask < Tasks::Simple
@@ -345,7 +341,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert(!task.plan)
 
 	new_task = remote_peer.local_object(remote.send_task_update)
-	assert_not_same(task, new_task)
+	refute_same(task, new_task)
 	assert_equal('tested', new_task.arguments[:newarg])
 
     ensure
@@ -370,7 +366,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	m = m_model.proxy(remote_peer)
 
 	m_task = remote_peer.call(:task)
-	assert_nothing_raised { Marshal.dump(m_task) }
+	Marshal.dump(m_task)
 	assert_equal(m_model.ancestors, m_task.arguments[:model].ancestors)
 	assert_equal(m_model.tags, m_task.arguments[:model].tags)
 	t = remote_peer.local_object(m_task)
@@ -389,7 +385,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	end
 
 	remote_event = remote_peer.call(:task_event)
-	assert_nothing_raised { Marshal.dump(remote_event) }
+	Marshal.dump(remote_event)
 	assert_kind_of(TaskEventGenerator::DRoby, remote_event)
 	task = remote_peer.call(:task)
 	assert_equal(task.remote_siblings, remote_event.task.remote_siblings)
@@ -426,7 +422,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert(tagged_task_model.has_ancestor?(CommonTaskModelTag), tagged_task_model.ancestors)
 
 	anonymous_tag = remote_peer.call(:anonymous_tag).proxy(remote_peer)
-	assert_not_equal(CommonTaskModelTag, anonymous_tag)
+	refute_equal(CommonTaskModelTag, anonymous_tag)
 	assert(anonymous_tag.has_ancestor?(CommonTaskModelTag), anonymous_tag.ancestors)
 	assert_equal(anonymous_tag, remote_peer.call(:anonymous_tag).proxy(remote_peer))
 
@@ -442,7 +438,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	    t.event(:start).forward_to(ev = EventGenerator.new(false))
 	    t.signals(:start, (ev = EventGenerator.new { }))
 	    PeerServer.class_eval do
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		define_method(:events) { plan.free_events }
 	    end
 	end
@@ -510,7 +506,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	p = t1+t2
 
 	formatted = Distributed.format(p)
-	assert_nothing_raised(formatted.to_s) { Marshal.dump(formatted) }
+	Marshal.dump(formatted)
     end
 
     def test_dump_parallel
@@ -519,7 +515,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	p = t1|t2
 
 	formatted = Distributed.format(p)
-	assert_nothing_raised(formatted.to_s) { Marshal.dump(formatted) }
+	Marshal.dump(formatted)
     end
 end
 

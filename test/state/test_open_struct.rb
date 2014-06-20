@@ -1,11 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock/test_unit'
 require 'roby/state'
 
-class TC_OpenStruct < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_OpenStruct < Minitest::Test
     def test_openstruct_behavior
 	s = OpenStruct.new
 	assert( s.respond_to?(:value=) )
@@ -62,7 +58,7 @@ class TC_OpenStruct < Test::Unit::TestCase
     def test_pending_subfields_behaviour
 	s = OpenStruct.new
 	child = s.child
-	assert_not_equal(child, s.child)
+	refute_equal(child, s.child)
 	child = s.child
 	child.send(:attach)
 	assert_equal(child, s.child)
@@ -76,7 +72,7 @@ class TC_OpenStruct < Test::Unit::TestCase
 	assert( !child.send(:attach_as) )
 
 	child.test = 20
-	assert_not_equal(child, s.child)
+	refute_equal(child, s.child)
 	assert_equal(10, s.child)
     end
 
@@ -202,8 +198,8 @@ class TC_OpenStruct < Test::Unit::TestCase
         assert_raises(NoMethodError) { s.test }
         assert_raises(NoMethodError) { s.test = 10 }
 	assert(! s.respond_to?(:test=))
-	assert_nothing_raised { s.other.test }
-	assert_nothing_raised { s.other.test = 10 }
+	assert !s.other.test.attached?
+	s.other.test = 10
 
         s.stable!(true)
        	assert(s.stable?)
@@ -211,25 +207,25 @@ class TC_OpenStruct < Test::Unit::TestCase
 	assert_raises(NoMethodError) { s.test = 10 }
 	assert(s.other.stable?)
 	assert_raises(NoMethodError) { s.other.another_test }
-	assert_nothing_raised { s.other.test }
+	assert_equal 10, s.other.test
         assert_raises(NoMethodError) { s.other.test = 10 }
 	
         s.stable!(false, false)
        	assert(!s.stable?)
-        assert_nothing_raised { s.test }
-        assert_nothing_raised { s.test = 10 }
+        assert !s.test.attached?
+        s.test = 10
 	assert(s.other.stable?)
 	assert_raises(NoMethodError) { s.other.another_test }
-	assert_nothing_raised { s.other.test }
+	s.other.test
         assert_raises(NoMethodError) { s.other.test = 10 }
 	
         s.stable!(true, false)
        	assert(!s.stable?)
 	assert(!s.other.stable?)
-        assert_nothing_raised { s.test }
-        assert_nothing_raised { s.test = 10 }
-	assert_nothing_raised { s.other.test }
-        assert_nothing_raised { s.other.test = 10 }
+        s.test
+        s.test = 10
+	s.other.test
+        s.other.test = 10
     end
 
     def test_filter
@@ -415,7 +411,7 @@ class TC_OpenStruct < Test::Unit::TestCase
     def test_forbidden_names
 	s = OpenStruct.new
 	assert_raises(NoMethodError) { s.each_blah }
-	assert_nothing_raised { s.blato }
+	s.blato
 	assert_raises(NoMethodError) { s.enum_blah }
 	assert_raises(NoMethodError) { s.to_blah }
     end

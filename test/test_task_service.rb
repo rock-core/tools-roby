@@ -1,9 +1,6 @@
 require 'roby/test/self'
-require 'roby/tasks/simple'
 
 describe Roby::TaskService do
-    include Roby::SelfTest
-
     describe "#match" do
         it "creates an object that does not match tasks that do not provide the service" do
             srv_m = Roby::TaskService.new_submodel

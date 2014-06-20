@@ -1,17 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock'
-require 'roby/tasks/simple'
-require 'roby/test/tasks/empty_task'
-require 'mockups/tasks'
-require 'flexmock'
+require './test/mockups/tasks'
 require 'utilrb/hash/slice'
-require 'roby/log'
 
-class TC_ExecutionEngine < Test::Unit::TestCase
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
+class TC_ExecutionEngine < Minitest::Test
     def setup
 	super
 	Roby::Log.add_logger(@finalized_tasks_recorder = FinalizedTaskRecorder.new)
@@ -167,7 +158,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
             engine.add_propagation_handler { |plan, failure| mock.called(plan) }
         end
 
-        assert_nothing_raised { process_events }
+        process_events
     end
 
     def test_propagation_handlers_raises_on_error
@@ -480,7 +471,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 		    end
 
 	Roby.app.abort_on_application_exception = false
-	assert_nothing_raised { engine.add_framework_error(exception, :exceptions) }
+	engine.add_framework_error(exception, :exceptions)
 
 	Roby.app.abort_on_application_exception = true
 	assert_raises(RuntimeError) { engine.add_framework_error(exception, :exceptions) }
@@ -790,7 +781,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         # We use engine.process_events as we are making the engine
         # believe that it is running while it is not
 	engine.process_events
-	assert_nothing_raised { t.value }
+	t.value
 
     ensure
 	engine.thread = nil
@@ -1109,9 +1100,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	error = Roby::Plan.check_failed_missions(plan).first.exception
 	assert_kind_of(Roby::MissionFailedError, error)
 	assert_equal(task.event(:specialized_failure).last, error.failure_point)
-        assert_nothing_raised do
-            Roby.format_exception error
-        end
+        Roby.format_exception error
 
 	# Makes teardown happy
 	plan.remove_object(task)
@@ -1442,18 +1431,14 @@ class TC_ExecutionEngine < Test::Unit::TestCase
             Task.new_submodel.on_exception(RuntimeError) do |a, b|
             end
         end
-        assert_nothing_raised do
-            Task.new_submodel.on_exception(RuntimeError) do |_|
-            end
+        Task.new_submodel.on_exception(RuntimeError) do |_|
         end
 
         assert_raises(ArgumentError) do |a, b|
             plan.on_exception(RuntimeError) do |_|
             end
         end
-        assert_nothing_raised do
-            plan.on_exception(RuntimeError) do |_, _|
-            end
+        plan.on_exception(RuntimeError) do |_, _|
         end
     end
 

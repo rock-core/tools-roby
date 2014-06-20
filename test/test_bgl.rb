@@ -1,10 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'enumerator'
-require 'flexmock'
 
-class TC_BGL < Test::Unit::TestCase
-    include Roby::SelfTest
+class TC_BGL < Minitest::Test
     class Vertex
 	include BGL::Vertex
     end
@@ -284,7 +280,7 @@ class TC_BGL < Test::Unit::TestCase
 	graph.link v2, v4, nil
 
 	copy = graph.dup
-	assert_not_same(copy, graph)
+	refute_same(copy, graph)
 	assert(copy.same_graph?(graph))
 
 	vertices.each do |v|

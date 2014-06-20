@@ -1,4 +1,3 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/tasks/simple'
 
@@ -14,9 +13,7 @@ require 'roby/tasks/simple'
 # the transaction (propose then build or build then propose)
 #
 # The transaction is always built locally
-class TC_DistributedMixedPlan < Test::Unit::TestCase
-    include Roby::Distributed::Test
-
+class TC_DistributedMixedPlan < Minitest::Test
     # Creates in +plan+ a task which is a child in a depends_on relation and a parent
     # in a planned_by relation. All tasks have an ID of "#{name}-#{number}", with
     # 2 for the central task, 1 for its parent task and 3 for its planning task.
@@ -330,10 +327,8 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	remote.add_task(Distributed.format(trsc))
 	trsc.edit
 	
-	assert_nothing_raised do
-	    trsc.commit_transaction
-	    process_events
-	end
+        trsc.commit_transaction
+        process_events
 	assert(remote_peer.connected?)
     end
 end

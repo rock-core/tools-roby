@@ -1,15 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
-require 'roby/test/self'
 require 'roby/test/distributed'
-require 'roby/tasks/simple'
 
-require 'roby'
-require 'roby/log'
-require 'flexmock'
-
-class TC_Log < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_Log < Minitest::Test
     def teardown
 	super
 	Log.clear_loggers
@@ -20,11 +11,11 @@ class TC_Log < Test::Unit::TestCase
 	    mock.should_receive(:close).once
 	    Log.add_logger mock
 	    assert(Log.logging?)
-	    assert_nothing_raised { Log.start_logging }
+	    Log.start_logging
 
 	    Log.remove_logger mock
 	    assert(!Log.logging?)
-	    assert_nothing_raised { Log.stop_logging }
+	    Log.stop_logging
 	end
     end
 

@@ -1,10 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 require 'roby/tasks/simple'
 
 describe Roby::Coordination::Models::FaultHandler do
-    include Roby::SelfTest
-
     attr_reader :m0, :m1, :m2, :t0, :t1, :t2, :handler
     before do
         @m0, @m1, @m2, @t0, @t1, @t2 = prepare_plan :add => 6, :model => Roby::Tasks::Simple

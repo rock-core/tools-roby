@@ -1,12 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/actions'
-require 'flexmock/test_unit'
 
 describe Roby::Coordination::Models::ActionStateMachine do
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
     attr_reader :task_m, :action_m, :description
     before do
         task_m = @task_m = Roby::Task.new_submodel(:name => 'TaskModel') do

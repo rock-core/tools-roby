@@ -1,11 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/tasks/simple'
 
 # This testcase tests local views of remote plans
-class TC_DistributedRemotePlan < Test::Unit::TestCase
-    include Roby::Distributed::Test
-
+class TC_DistributedRemotePlan < Minitest::Test
     def test_distributed_update
 	objects = (1..10).map { |i| Tasks::Simple.new(:id => i) }
 	obj = Object.new
@@ -80,21 +77,19 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(!r_simple_task.read_write?, r_simple_task.plan)
 	Distributed.update(r_simple_task) do
 	    assert(r_simple_task.read_write?)
-	    assert_nothing_raised do
-		r_simple_task.depends_on task
-		r_simple_task.remove_child task
-		task.depends_on r_simple_task
-		task.remove_child r_simple_task
-	    end
+            r_simple_task.depends_on task
+            r_simple_task.remove_child task
+            task.depends_on r_simple_task
+            task.remove_child r_simple_task
 	end
 	assert(!r_simple_task.read_write?)
 
 	assert_raises(OwnershipError) { r_simple_task.depends_on task }
 	assert_raises(OwnershipError) { task.depends_on r_simple_task }
 	Distributed.update(r_simple_task) { r_simple_task.depends_on task }
-	assert_nothing_raised { r_simple_task.remove_child task }
+	r_simple_task.remove_child task
 	Distributed.update(r_simple_task) { task.depends_on r_simple_task }
-	assert_nothing_raised { task.remove_child r_simple_task }
+	task.remove_child r_simple_task
 
 	assert_raises(OwnershipError) { r_simple_task.depends_on r_other_task }
 	assert_raises(OwnershipError) { r_other_task.depends_on r_simple_task }
@@ -186,11 +181,11 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    remote.plan.add_mission(next_mission)
 
 	    remote.singleton_class.class_eval do
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		def check_local_updated(m_task)
 		    task    = local_peer.local_object(m_task)
 		    sibling = nil
-		    assert_nothing_raised { sibling = task.sibling_on(local_peer) }
+		    sibling = task.sibling_on(local_peer)
 		    assert(!task.subscribed?)
 		    assert(task.updated?)
 		    assert(task.update_on?(local_peer))
@@ -320,7 +315,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    right.depends_on middle
 
 	    remote.singleton_class.class_eval do
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		define_method(:remove_last_link) do
 		    assert(left.update_on?(local_peer))
 		    assert(middle.update_on?(local_peer))
@@ -484,7 +479,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(remote_peer.connected?)
 
 	remote.remove_relations
-	assert_nothing_raised { process_events }
+	process_events
 	assert(remote_peer.connected?)
     end
 end

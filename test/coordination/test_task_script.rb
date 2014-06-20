@@ -1,15 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
-require 'flexmock'
 require 'roby/test/self'
 require 'roby/tasks/simple'
-require 'flexmock/test_unit'
-require 'roby/log'
 require 'roby/schedulers/temporal'
 
-class TC_Coordination_TaskScript < Test::Unit::TestCase
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
+class TC_Coordination_TaskScript < Minitest::Test
     def setup
         super
         engine.scheduler = Roby::Schedulers::Temporal.new(true, true, plan)

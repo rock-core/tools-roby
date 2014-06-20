@@ -1,10 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock'
 
-class TC_EnsuredEvent < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_EnsuredEvent < Minitest::Test
     def test_ensure
 	setup = lambda do |mock|
 	    e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)

@@ -1,13 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
-require 'roby/test/tasks/empty_task'
-
 require 'roby/log/gui/relations'
 
-class TC_Task < Test::Unit::TestCase 
-    include Roby::SelfTest
-
+class TC_Task < Minitest::Test 
     def test_index_handling
         model = Ui::RelationConfigModel.new(nil)
         [-1, 0, 222].each do |id|

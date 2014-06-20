@@ -1,4 +1,6 @@
 require 'roby/test/common'
+require 'roby/tasks/simple'
+require 'roby/test/tasks/empty_task'
 
 module Roby
     module Test
@@ -9,11 +11,13 @@ module Roby
     #
     # @see Test
     module Self
-        include Test
         if defined? FlexMock
             include FlexMock::ArgumentTypes
             include FlexMock::MockContainer
         end
+
+        include Roby::Test
+        include Roby::Test::Assertions
 
         def setup
             Roby.app.log['server'] = false
@@ -69,4 +73,16 @@ module Roby
     end
     SelfTest = Test::Self
 end
+
+module Minitest
+    class Spec
+        include Roby::Test::Self
+    end
+    class Test
+        include Roby::Test::Self
+    end
+end
+
+
+
 

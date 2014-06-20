@@ -1,12 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock'
 require 'roby/state/events'
 require 'roby/state/pos'
 
-class TC_StateEvents < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_StateEvents < Minitest::Test
     def test_pos_euler3d
 	p = Pos::Euler3D.new(30)
 	assert_equal(30, p.x)

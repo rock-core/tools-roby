@@ -1,11 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
 require 'roby/schedulers/basic'
-require 'flexmock/test_unit'
 
-class TC_Schedulers_Basic < Test::Unit::TestCase
-    include Roby::SelfTest
+class TC_Schedulers_Basic < Minitest::Test
 
     attr_reader :scheduler
 

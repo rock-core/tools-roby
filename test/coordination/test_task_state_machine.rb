@@ -1,14 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
-require 'roby/tasks/simple'
-require 'flexmock/test_unit'
 
-class TC_TaskStateMachine < Test::Unit::TestCase
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
+class TC_TaskStateMachine < Minitest::Test
     class TestTask < Roby::Task
         refine_running_state do
             on :one do 
@@ -170,7 +164,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         task.state_machine.status = 'exception'
         assert(task.state_machine.respond_to?(:do_poll))
 
-        assert_raise(ArgumentError) do
+        assert_raises(ArgumentError) do
             task.state_machine.do_poll(task)
         end
     end

@@ -1,11 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/tasks/simple'
-require 'flexmock'
 
-class TC_DistributedExecution < Test::Unit::TestCase
-    include Roby::Distributed::Test
-
+class TC_DistributedExecution < Minitest::Test
     def setup
         super
         Roby.app.filter_backtraces = false
@@ -142,7 +138,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	Roby.app.abort_on_exception = false
 	peer2peer do |remote|
 	    class << remote
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		attr_reader :task
 		def create_task
 		    plan.clear
@@ -187,7 +183,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	peer2peer do |remote|
 	    remote.plan.add_mission(task = Tasks::Simple.new(:id => 1))
 	    remote.class.class_eval do
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		define_method(:start_task) do
 		    events = plan.free_events.to_a
 		    assert_equal(2, events.size)

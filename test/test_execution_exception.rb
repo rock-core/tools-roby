@@ -1,10 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
 
 describe Roby::ExecutionException do
-    include Roby::SelfTest
-
     def create_exception_from(object)
         Roby::ExecutionException.new(Roby::LocalizedError.new(object))
     end

@@ -1,15 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock'
-require 'roby/tasks/simple'
 
-require 'roby'
-require 'roby/event_constraints'
-
-class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
+class TC_EventConstraints_UnboundPredicate < Minitest::Test
     class TaskModel < Roby::Tasks::Simple
         event :first, :controlable => true
         event :second, :controlable => true
@@ -42,7 +33,7 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
         assert(predicate.explain_static(task))
     end
 
-    def assert_not_static(predicate, task)
+    def refute_static(predicate, task)
         assert(!predicate.static?(task), "#{predicate} is static but should not be")
         assert_equal(nil, predicate.explain_static(task))
     end
@@ -169,9 +160,9 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
         pred = :first.followed_by(:second)
 
         plan.add(task = TaskModel.new)
-        assert_not_static(pred, task)
+        refute_static(pred, task)
         task.start!
-        assert_not_static(pred, task)
+        refute_static(pred, task)
         task.stop!
         assert(!pred.evaluate(task))
         assert_static(nil, pred, [task.first_event], task)
@@ -179,7 +170,7 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
         plan.add(task = TaskModel.new)
         task.start!
         task.first!
-        assert_not_static(pred, task)
+        refute_static(pred, task)
         task.stop!
         assert(!pred.evaluate(task))
         assert_static(nil, pred, [task.second_event], task)
@@ -188,9 +179,9 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
         task.start!
         task.first!
         task.second!
-        assert_not_static(pred, task)
+        refute_static(pred, task)
         task.first!
-        assert_not_static(pred, task)
+        refute_static(pred, task)
         task.stop!
         assert(!pred.evaluate(task))
         assert(pred.static?(task))
@@ -244,7 +235,7 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
         pred = :first.not_followed_by(:second)
 
         plan.add(task = TaskModel.new)
-        assert_not_static(pred, task)
+        refute_static(pred, task)
 
         task.start!
         task.stop!
@@ -262,11 +253,11 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
         plan.add(task = TaskModel.new)
         task.start!
         task.first!
-        assert_not_static(pred, task)
+        refute_static(pred, task)
         task.second!
-        assert_not_static(pred, task)
+        refute_static(pred, task)
         task.second_event.unreachable!
-        assert_not_static(pred, task)
+        refute_static(pred, task)
         task.first_event.unreachable!
         assert(!pred.evaluate(task))
         assert_static(nil, pred, task.first_event, task)
@@ -276,7 +267,7 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
         pred = :first.not_followed_by(:second)
 
         plan.add(task = TaskModel.new)
-        assert_not_static(pred, task)
+        refute_static(pred, task)
 
         task.start!
         task.first!

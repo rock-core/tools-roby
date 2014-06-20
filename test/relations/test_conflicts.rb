@@ -1,13 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
-
 require 'roby/test/self'
 require 'roby/tasks/simple'
 require 'roby/relations/conflicts'
-require 'flexmock'
 
-class TC_Conflicts < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_Conflicts < Minitest::Test
     def test_model_relations
 	m1, m2 = (1..2).map do
 	    Tasks::Simple.new_submodel

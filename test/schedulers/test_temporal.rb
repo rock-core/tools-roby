@@ -1,13 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
-require 'roby/relations/temporal_constraints'
 require 'roby/schedulers/temporal'
-require 'flexmock/test_unit'
 
-class TC_Schedulers_Temporal < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_Schedulers_Temporal < Minitest::Test
     attr_reader :scheduler
 
     def scheduler_initial_events

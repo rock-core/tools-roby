@@ -1,3 +1,7 @@
+require 'minitest/autorun'
+require 'minitest/spec'
+require 'flexmock/test_unit'
+
 # simplecov must be loaded FIRST. Only the files required after it gets loaded
 # will be profiled !!!
 if ENV['TEST_ENABLE_COVERAGE'] == '1'
@@ -23,9 +27,6 @@ if ENV['TEST_ENABLE_PRY'] != '0'
 end
 
 require 'roby'
-require 'test/unit/testcase'
-require 'minitest/spec'
-require 'flexmock/test_unit'
 
 require 'roby/test/assertion'
 require 'roby/test/error'
@@ -40,7 +41,6 @@ module Roby
     # @see SelfTest
     module Test
 	include Roby
-	Unit = ::Test::Unit
 
 	BASE_PORT     = 1245
 	DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
@@ -490,15 +490,14 @@ module Roby
 	def assert_original_error(klass, localized_error_type = LocalizedError)
 	    old_level = Roby.logger.level
 	    Roby.logger.level = Logger::FATAL
-	    assert_nothing_raised do
-		begin
-		    yield
-		rescue Exception => e
-                    assert_kind_of(localized_error_type, e)
-		    assert_respond_to(e, :error)
-		    assert_kind_of(klass, e.error)
-		end
-	    end
+
+            begin
+                yield
+            rescue Exception => e
+                assert_kind_of(localized_error_type, e)
+                assert_respond_to(e, :error)
+                assert_kind_of(klass, e.error)
+            end
 	ensure
 	    Roby.logger.level = old_level
 	end
@@ -867,6 +866,14 @@ module Roby
             end
         end
     end
+end
 
+# Workaround a problem with flexmock and minitest not being compatible with each
+# other (currently). See github.com/jimweirich/flexmock/issues/15.
+if defined?(FlexMock) && !FlexMock::TestUnitFrameworkAdapter.method_defined?(:assertions)
+    class FlexMock::TestUnitFrameworkAdapter
+        attr_accessor :assertions
+    end
+    FlexMock.framework_adapter.assertions = 0
 end
 

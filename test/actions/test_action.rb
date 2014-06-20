@@ -1,10 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 require 'roby/tasks/simple'
 
 describe Roby::Actions::Action do
-    include Roby::SelfTest
-
     it "can be droby-marshalled" do
         task_m = Roby::Task.new_submodel
         interface_m = Roby::Actions::Interface.new_submodel do

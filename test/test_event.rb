@@ -1,13 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock/test_unit'
-require 'roby/tasks/simple'
 
-require 'roby'
-class TC_Event < Test::Unit::TestCase
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
+class TC_Event < Minitest::Test
     def setup
         super
         Roby.app.filter_backtraces = false
@@ -434,7 +427,7 @@ class TC_Event < Test::Unit::TestCase
 	a, b = EventGenerator.new(true), EventGenerator.new
 	plan.add([a, b])
 	assert_raises(EventNotControlable) { a.signals b }
-	assert_nothing_raised { a.forward_to b }
+	a.forward_to b
 
 	a, b = EventGenerator.new(true), EventGenerator.new(true)
 	plan.add([a, b])
@@ -442,7 +435,7 @@ class TC_Event < Test::Unit::TestCase
 	def b.controlable?; false end
 
         with_log_level(Roby, Logger::FATAL) do
-            assert_raise(EmissionFailed) { a.call(nil) }
+            assert_raises(EmissionFailed) { a.call(nil) }
         end
     end
 

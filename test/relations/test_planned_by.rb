@@ -1,10 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
 
-class TC_PlannedBy < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_PlannedBy < Minitest::Test
     PlannedBy = Roby::TaskStructure::PlannedBy
     def test_replace
 	task, p1, p2 = prepare_plan :add => 3
@@ -14,7 +10,7 @@ class TC_PlannedBy < Test::Unit::TestCase
 	assert(task.child_object?(p1, PlannedBy))
 	assert(!task.child_object?(p2, PlannedBy))
 
-	assert_nothing_raised { task.planned_by p2, :replace => true }
+	task.planned_by p2, :replace => true
 	assert(!task.child_object?(p1, PlannedBy))
 	assert(task.child_object?(p2, PlannedBy))
     end

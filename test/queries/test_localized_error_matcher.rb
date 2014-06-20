@@ -2,8 +2,6 @@ require 'roby/test/self'
 require 'roby/tasks/simple'
 
 describe Roby::Queries::LocalizedErrorMatcher do
-    include Roby::SelfTest
-
     describe "#===" do
         attr_reader :task_model, :task
         before do

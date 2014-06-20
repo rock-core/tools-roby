@@ -1,18 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 require 'roby/test/testcase'
-require 'roby/tasks/simple'
-require 'flexmock'
 
-class TC_Test_TestCase < Test::Unit::TestCase 
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
-    Assertion = if defined?(MiniTest::Assertion)
-                    MiniTest::Assertion
-                else
-                    Test::Unit::AssertionFailedError
-                end
+class TC_Test_TestCase < Minitest::Test 
+    Assertion = MiniTest::Assertion
     
     def test_assert_event_emission
 	plan.add(t = Tasks::Simple.new)
@@ -50,12 +40,10 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	## Same test, but check that the assertion succeeds since we *are*
 	## checking that +failed+ happens
 	plan.add_permanent(t = Tasks::Simple.new)
-	assert_nothing_raised do
-	    assert_event_emission(t.event(:failed)) do
-		t.start!
-		t.failed!
-	    end
-	end
+        assert_event_emission(t.event(:failed)) do
+            t.start!
+            t.failed!
+        end
     end
 
     def test_assert_event_emission_events_given_by_block
@@ -72,9 +60,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	task = Tasks::Simple.new_submodel do
 	    forward :start => :success
 	end.new
-	assert_nothing_raised do
-	    assert_succeeds(task)
-	end
+        assert_succeeds(task)
 
 	task = Tasks::Simple.new_submodel do
 	    forward :start => :failed

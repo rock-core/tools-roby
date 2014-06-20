@@ -1,11 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
-require 'flexmock'
 
-class TC_ExecutedBy < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_ExecutedBy < Minitest::Test
     class ExecutionAgentModel < Tasks::Simple
 	event :ready
 	forward :start => :ready
@@ -49,7 +44,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	end
 
 	task.stop!
-	assert_nothing_raised { exec.stop! }
+	exec.stop!
     end
 
     def test_agent_fails
@@ -190,7 +185,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	first.execution_agent.stop!
 	assert(first.event(:aborted).happened?)
 	assert(first_agent.finished?)
-	assert_not_same(first_agent, second.execution_agent)
+	refute_same(first_agent, second.execution_agent)
 	assert(second.execution_agent.pending?)
 
         second.start!

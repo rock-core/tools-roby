@@ -1,11 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock/test_unit'
 require 'roby/state'
 
-class TC_StateModel < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_StateModel < Minitest::Test
     class Position
     end
 
@@ -64,7 +60,7 @@ class TC_StateModel < Test::Unit::TestCase
 
         parent_model.pose.position = Position
         child_field = child_model.pose
-        assert_not_same parent_model.pose, child_field
+        refute_same parent_model.pose, child_field
         assert_same parent_model.pose, child_field.superclass
     end
 

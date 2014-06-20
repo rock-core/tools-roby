@@ -1,9 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 
 describe Roby::App::RobotNames do
-    include Roby::SelfTest
-
     describe "#initialize" do
         it "should get the robot list from the 'robots' field" do
             conf = Roby::App::RobotNames.new('robots' => Hash['a' => 'b'])

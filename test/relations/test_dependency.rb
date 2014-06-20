@@ -1,11 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
-require 'flexmock/test_unit'
 
-class TC_Dependency < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_Dependency < Minitest::Test
     # Set to true to have the tests display the pretty-printed errors.
     DISPLAY_FORMATTED_ERRORS = false
 
@@ -46,7 +41,7 @@ class TC_Dependency < Test::Unit::TestCase
 
 	plan.add(child = klass.new(:id => 'good'))
 	assert_raises(ArgumentError) { t1.depends_on child, :model => [klass, {:id => 'bad'}] }
-	assert_nothing_raised { t1.depends_on child, :model => [klass, {:id => 'good'}] }
+	t1.depends_on child, :model => [klass, {:id => 'good'}]
 	assert_equal([[klass], { :id => 'good' }], t1[child, TaskStructure::Dependency][:model])
 
 	# Check edge annotation

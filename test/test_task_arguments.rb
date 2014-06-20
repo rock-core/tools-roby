@@ -1,9 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 
 describe Roby::TaskArguments do
-    include Roby::SelfTest
-
     attr_reader :task_m, :task
     before do
         @task_m = Roby::Task.new_submodel { argument :arg }

@@ -1,15 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
-require 'roby/test/tasks/empty_task'
-require 'roby/tasks/simple'
-require 'roby/tasks/group'
-require 'roby/tasks/virtual'
-require 'flexmock/test_unit'
 
 describe Roby::Models::TaskEvent do
-    include Roby::SelfTest
-
     describe "#match" do
         it "should allow matching the corresponding generator" do
             plan.add(task = Roby::Task.new)

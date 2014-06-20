@@ -1,11 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/tasks/simple'
-require 'flexmock'
 
-class TC_DistributedQuery < Test::Unit::TestCase
-    include Roby::Distributed::Test
-
+class TC_DistributedQuery < Minitest::Test
     def test_ownership
 	DRb.start_service
 	FlexMock.use do |fake_peer|

@@ -1,8 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/log/server'
 
-class TC_LogServer < Test::Unit::TestCase
+class TC_LogServer < Minitest::Test
     include Roby::Distributed::Test
     include Roby::Log
 

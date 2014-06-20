@@ -1,10 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock'
-require 'roby/tasks/simple'
 
-require 'roby'
-class TC_Application < Test::Unit::TestCase
+class TC_Application < Minitest::Test
     def test_make_relative
         app = Roby::Application.new
         app.search_path = %w{/bla/blo /bli/blu}

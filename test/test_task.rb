@@ -1,15 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
-require 'roby/test/tasks/empty_task'
-require 'roby/tasks/simple'
 require 'roby/tasks/group'
 require 'roby/tasks/virtual'
-require 'flexmock/test_unit'
 
-class TC_Task < Test::Unit::TestCase 
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
+class TC_Task < Minitest::Test 
     def setup
         super
         Roby.app.filter_backtraces = false
@@ -575,13 +568,13 @@ class TC_Task < Test::Unit::TestCase
 
         # Test modifications to the class hierarchy
         my_event = nil
-        assert_nothing_raised   { my_event = klass.const_get(:EvContingent) }
-        assert_raise(NameError) { klass.superclass.const_get(:EvContingent) }
+        my_event = klass.const_get(:EvContingent)
+        assert_raises(NameError) { klass.superclass.const_get(:EvContingent) }
         assert_equal( TaskEvent, my_event.superclass )
         assert_equal( :ev_contingent, my_event.symbol )
         assert( klass.has_event?(:ev_contingent) )
     
-        assert_nothing_raised   { my_event = klass.const_get(:EvTerminal) }
+        my_event = klass.const_get(:EvTerminal)
         assert_equal( :ev_terminal, my_event.symbol )
 
         # Check properties on EvContingent
@@ -605,7 +598,7 @@ class TC_Task < Test::Unit::TestCase
         assert( !klass::EvNotControlable.controlable? )
 
         # Check validation of options[:command]
-        assert_raise(ArgumentError) { klass.event :try_event, :command => "bla" }
+        assert_raises(ArgumentError) { klass.event :try_event, :command => "bla" }
 
         plan.add(task = EmptyTask.new)
 	start_event = task.event(:start)
@@ -770,28 +763,22 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_inheritance_overloading
-        base = Roby::Task.new_submodel do 
-            extend Test::Unit::Assertions
-            event :ctrl, :command => true
-	    event :stop
-            assert(!find_event_model(:stop).controlable?)
-        end
+        base = Roby::Task.new_submodel
+        base.event :ctrl, :command => true
+        base.event :stop
+        assert(!base.find_event_model(:stop).controlable?)
 
-        base.new_submodel do
-            extend Test::Unit::Assertions
+        sub = base.new_submodel
+        sub.event :start, :command => true
+        assert_raises(ArgumentError) { sub.event :ctrl, :command => false }
+        assert_raises(ArgumentError) { sub.event :failed, :terminal => false }
+        assert_raises(ArgumentError) { sub.event :failed }
 
-            assert_nothing_raised { event :start, :command => true }
-            assert_raises(ArgumentError) { event :ctrl, :command => false }
-            assert_raises(ArgumentError) { event :failed, :terminal => false }
-            assert_raises(ArgumentError) { event :failed }
+        sub.event(:stop) { |context| }
+        assert(sub.find_event_model(:stop).controlable?)
 
-            assert_nothing_raised { event(:stop) { |context| } }
-            assert(find_event_model(:stop).controlable?)
-        end
-
-	base.new_submodel do
-	    assert_nothing_raised { event(:start) { |context| } }
-	end
+	sub = base.new_submodel
+        sub.event(:start) { |context| }
     end
 
     def test_singleton
@@ -825,8 +812,8 @@ class TC_Task < Test::Unit::TestCase
             assert_raises(EmissionFailed) { task.emit(:inter) }
             assert(!task.event(:inter).pending)
             task.start!
-            assert_raise(CommandFailed) { task.start! }
-            assert_nothing_raised { task.inter! }
+            assert_raises(CommandFailed) { task.start! }
+            task.inter!
             task.stop!
 
             assert_raises(TaskEventNotExecutable) { task.emit(:inter) }
@@ -845,7 +832,7 @@ class TC_Task < Test::Unit::TestCase
             end
 	end
 	plan.add(task = model.new)
-	assert_nothing_raised { task.start! }
+	task.start!
     end
 
     def test_finished
@@ -1610,7 +1597,7 @@ class TC_Task < Test::Unit::TestCase
 	start, success = EventGenerator.new(true), EventGenerator.new
 	plan.add(success)
 	plan.add(task = VirtualTask.create(start, success))
-	assert_nothing_raised { success.emit }
+	success.emit
     end
 
     def test_dup
@@ -1622,7 +1609,7 @@ class TC_Task < Test::Unit::TestCase
         task.emit :intermediate
 
 	new = task.dup
-	assert_not_same(new.event(:stop), task.event(:stop))
+	refute_same(new.event(:stop), task.event(:stop))
 	assert_same(new, new.event(:stop).task)
 
 	assert(!plan.include?(new))

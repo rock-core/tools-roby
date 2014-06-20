@@ -1,9 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock/test_unit'
 require 'roby/state'
 
-class TC_StateInTask < Test::Unit::TestCase
+class TC_StateInTask < Minitest::Test
     def test_state_model_gets_inherited
         task_model = Roby::Task.new_submodel
         assert_same Roby::Task.state, task_model.state.superclass

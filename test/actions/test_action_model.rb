@@ -1,11 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/actions'
-require 'flexmock/test_unit'
 
 describe Roby::Actions::Models::Action do
-    include Roby::SelfTest
-
     it "can be dumped and then reloaded" do
         task_m = Roby::Task.new_submodel
         interface_m = Roby::Actions::Interface.new_submodel do

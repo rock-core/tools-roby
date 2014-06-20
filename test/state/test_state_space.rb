@@ -1,11 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock/test_unit'
 require 'roby/state'
 
-class TC_StateSpace < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_StateSpace < Minitest::Test
     class Position
     end
 

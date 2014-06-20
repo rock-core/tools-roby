@@ -1,9 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
-require 'test_relations'
-require 'relations/test_dependency'
-require 'relations/test_executed_by'
-require 'relations/test_planned_by'
-require 'relations/test_conflicts'
-require 'relations/test_ensured'
-require 'relations/test_temporal_constraints'
+require './test/test_relations'
+require './test/relations/test_dependency'
+require './test/relations/test_executed_by'
+require './test/relations/test_planned_by'
+require './test/relations/test_conflicts'
+require './test/relations/test_ensured'
+require './test/relations/test_temporal_constraints'
 

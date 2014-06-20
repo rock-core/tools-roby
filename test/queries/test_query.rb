@@ -1,11 +1,8 @@
 require 'roby/test/self'
 require 'roby/tasks/simple'
 require 'roby/state/information'
-require 'flexmock'
 
-class TC_Queries_Query < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_Queries_Query < Minitest::Test
     TaskMatcher = Queries::TaskMatcher
 
     def check_matches_fullfill(task_model, plan, t0, t1, t2)

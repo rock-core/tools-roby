@@ -1,10 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
 
-class TC_TransactionsProxy < Test::Unit::TestCase
-    include Roby::SelfTest
-
+class TC_TransactionsProxy < Minitest::Test
     attr_reader :transaction
     def setup
 	super
@@ -129,8 +125,8 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	plan.add(task)
 	proxy = transaction[task]
 
-	assert_nothing_raised { task.event(:start).emit(nil) }
-	assert_nothing_raised { task.intermediate!(nil) }
+	task.event(:start).emit(nil)
+	task.intermediate!(nil)
 	assert(!proxy.executable?)
 	assert(!proxy.event(:start).executable?)
 	assert_raises(TaskEventNotExecutable) { proxy.event(:start).emit(nil) }

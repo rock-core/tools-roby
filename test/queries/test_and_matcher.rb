@@ -1,8 +1,7 @@
 require 'roby/test/self'
 require 'roby/tasks/simple'
 
-class TC_Queries_AndMatcher < Test::Unit::TestCase
-    include Roby::SelfTest
+class TC_Queries_AndMatcher < Minitest::Test
     TaskMatcher = Queries::TaskMatcher
 
     def test_it_should_be_marshallable_through_droby

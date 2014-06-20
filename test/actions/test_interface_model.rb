@@ -1,12 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/actions'
-require 'flexmock/test_unit'
 
-class TC_Actions_InterfaceModel < Test::Unit::TestCase
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
+class TC_Actions_InterfaceModel < Minitest::Test
     def test_it_allows_to_create_description_objects
         doc = 'this is an action'
         m = Actions::Interface.new_submodel

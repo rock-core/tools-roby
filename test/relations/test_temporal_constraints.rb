@@ -1,12 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
-require 'roby/relations/temporal_constraints'
 require 'roby/schedulers/temporal'
-require 'flexmock'
 
-class TC_TemporalConstraints < Test::Unit::TestCase
-    include Roby::SelfTest
+class TC_TemporalConstraints < Minitest::Test
     TemporalConstraints = EventStructure::TemporalConstraints
 
     def test_empty_constraints

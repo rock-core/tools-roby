@@ -1,11 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/tasks/simple'
-require 'flexmock'
 
-class TC_DistributedPlanNotifications < Test::Unit::TestCase
-    include Roby::Distributed::Test
-
+class TC_DistributedPlanNotifications < Minitest::Test
     def test_triggers
 	peer2peer do |remote|
 	    def remote.new_task(kind, args)

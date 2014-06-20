@@ -1,12 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 require 'roby/tasks/thread'
-require 'roby/tasks/simple'
-require 'roby/test/tasks/empty_task'
 
-class TC_ThreadTask < Test::Unit::TestCase 
-    include Roby::SelfTest
-
+class TC_ThreadTask < Minitest::Test 
     # Starts +task+ and waits for the thread to end
     def wait_thread_end(task)
         task.start!

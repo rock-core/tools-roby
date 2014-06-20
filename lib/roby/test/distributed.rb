@@ -1,10 +1,10 @@
-require 'roby/test/common'
+require 'roby/test/self'
 require 'roby/distributed'
 
 module Roby
     module Distributed
 	module Test
-	    include ::Roby::Test
+	    include ::Roby::Test::Self
 	    include ::Roby::Distributed
 
 	    def setup

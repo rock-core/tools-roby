@@ -2,8 +2,6 @@ require 'roby/test/self'
 require 'roby/tasks/simple'
 
 describe Roby::Queries::TaskEventGeneratorMatcher do
-    include Roby::SelfTest
-
     describe "in not generalized mode" do
         describe "#===" do
             attr_reader :task_matcher, :task, :generator

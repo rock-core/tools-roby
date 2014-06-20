@@ -1,13 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
-require 'test/unit'
-require 'roby/distributed'
 require 'roby/test/distributed'
-require 'flexmock'
+require 'roby/distributed'
 
-class TC_DistributedCommunication < Test::Unit::TestCase
-    include Roby
-    include Roby::Distributed::Test
-
+class TC_DistributedCommunication < Minitest::Test
     attr_reader :local_peer
     module FakePeerServerMethods
 	def reply(mock, value)

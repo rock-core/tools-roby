@@ -1,6 +1,5 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
-require 'actions/test_interface_model'
-require 'actions/test_task'
-require 'actions/test_action'
-require 'actions/test_action_model'
-require 'actions/test_library'
+require './test/actions/test_interface_model'
+require './test/actions/test_task'
+require './test/actions/test_action'
+require './test/actions/test_action_model'
+require './test/actions/test_library'

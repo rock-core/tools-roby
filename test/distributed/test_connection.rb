@@ -1,9 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/tasks/simple'
-require 'flexmock'
 
-class TC_DistributedConnection < Test::Unit::TestCase
+class TC_DistributedConnection < Minitest::Test
     include Rinda
     include Roby
     include Distributed
@@ -227,7 +225,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	Roby.logger.level = Logger::FATAL
 	peer2peer do |remote|
 	    class << remote
-		include Test::Unit::Assertions
 		def assert_demux_raises
 		    peer = peers.find { true }[1]
 		    peer.transmit(:whatever)

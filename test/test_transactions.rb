@@ -1,13 +1,10 @@
-$LOAD_PATH.unshift File.expand_path('.', File.dirname(__FILE__))
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 require 'roby/tasks/simple'
-require 'flexmock'
 
-require 'test_plan'
+require './test/test_plan'
 
 # Check that a transaction behaves like a plan
-class TC_TransactionAsPlan < Test::Unit::TestCase
+class TC_TransactionAsPlan < Minitest::Test
     include TC_PlanStatic
     include Roby::SelfTest
 
@@ -103,7 +100,7 @@ module TC_TransactionBehaviour
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p1.depends_on(t3)
 	    trsc.remove_object(p1)
-            assert_not_same p1, trsc[t1]
+            refute_same p1, trsc[t1]
 	end
 	assert(plan.include?(t1))
 	assert_equal([t2], t1.children.to_a)
@@ -166,7 +163,7 @@ module TC_TransactionBehaviour
 	    plan.add(o) unless o.plan
 
 	    p = trsc[o]
-	    assert_not_equal(p, o)
+	    refute_equal(p, o)
 	    p
 	end
 	yield(trsc, *proxies)
@@ -229,7 +226,7 @@ module TC_TransactionBehaviour
 	t.abstract = false
         sequence.each do |value|
             original = t.abstract?
-            assert_not_equal(value, original)
+            refute_equal(value, original)
             transaction_commit(plan, t) do |trsc, p|
                 assert_equal(original, p.abstract?)
                 p.abstract = value
@@ -914,7 +911,7 @@ module TC_TransactionBehaviour
 
 end
 
-class TC_Transactions < Test::Unit::TestCase
+class TC_Transactions < Minitest::Test
     include TC_TransactionBehaviour
     include Roby::SelfTest
 
@@ -1179,9 +1176,8 @@ class TC_Transactions < Test::Unit::TestCase
     end
 end
 
-class TC_RecursiveTransaction < Test::Unit::TestCase
+class TC_RecursiveTransaction < Minitest::Test
     include TC_TransactionBehaviour
-    include Roby::SelfTest
 
     attr_reader :real_plan
     def engine; (real_plan || plan).engine end

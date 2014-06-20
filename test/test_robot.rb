@@ -1,14 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock'
-require 'roby/tasks/simple'
-require 'flexmock/test_unit'
 
-require 'roby'
-class TC_Robot < Test::Unit::TestCase
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
+class TC_Robot < Minitest::Test
     def setup
         super
         @plan = Roby.app.plan # The Robot interface can only work on the singleton Roby app

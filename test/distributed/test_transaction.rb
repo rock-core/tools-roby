@@ -1,10 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/tasks/simple'
 
-class TC_DistributedTransaction < Test::Unit::TestCase
-    include Roby::Distributed::Test
-
+class TC_DistributedTransaction < Minitest::Test
     def test_marshal_transactions
 	peer2peer do |remote|
 	    PeerServer.class_eval do
@@ -32,7 +29,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_transaction_create
 	peer2peer do |remote|
 	    PeerServer.class_eval do
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		def check_transaction(marshalled_trsc, trsc_drbobject)
 		    assert(trsc = peer.local_object(marshalled_trsc))
 		    assert_equal(trsc_drbobject, trsc.remote_siblings[peer])
@@ -66,7 +63,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_transaction_proxies
 	peer2peer do |remote|
 	    PeerServer.class_eval do
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		def marshalled_transaction_proxy(trsc, task)
 		    task = peer.local_object(task)
 		    trsc = peer.local_object(trsc)
@@ -134,7 +131,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_edition
 	peer2peer do |remote|
 	    class << remote
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		def edit_transaction(trsc)
 		    trsc = local_peer.local_object(trsc)
 		    trsc.edit
@@ -236,7 +233,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    remote.plan.add_mission(task)
 
 	    remote.singleton_class.class_eval do
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		define_method(:check_execution_agent) do
 		    remote_connection_tasks = plan.find_tasks.
 			with_model(ConnectionTask).
@@ -288,7 +285,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	t_task = trsc[r_task]
 	trsc.release(false)
-	assert_nothing_raised { remote.set_argument(Distributed.format(t_task)) }
+	remote.set_argument(Distributed.format(t_task))
 
 	trsc.edit
 	assert_equal(:bar, t_task.arguments[:foo], t_task.name)
@@ -355,7 +352,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    root.depends_on(child = Tasks::Simple.new(:id => 'remote-2'))
 
 	    PeerServer.class_eval do
-		include Test::Unit::Assertions
+		include Minitest::Assertions
 		define_method(:check_transaction) do |trsc|
 		    trsc = peer.local_object(trsc)
 		    testcase.check_resulting_plan(trsc)

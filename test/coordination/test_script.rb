@@ -1,10 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 require 'roby/tasks/simple'
 
 describe Roby::Coordination::Script do
-    include Roby::SelfTest
-
     attr_reader :script
 
     before do

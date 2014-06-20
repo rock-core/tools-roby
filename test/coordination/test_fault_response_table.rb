@@ -1,10 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 require 'roby/tasks/simple'
 
 describe Roby::Coordination::FaultResponseTable do
-    include Roby::SelfTest
-
     it "is triggered whenever an exception reaches toplevel" do
         fault_handler = nil
         fault_table = Roby::Coordination::FaultResponseTable.new_submodel do

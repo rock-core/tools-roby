@@ -1,12 +1,8 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby'
 require 'roby/interface'
 require 'roby/tasks/simple'
 
 describe Roby::Interface::Interface do
-    include Roby::SelfTest
-
     attr_reader :plan
     attr_reader :app
     attr_reader :interface

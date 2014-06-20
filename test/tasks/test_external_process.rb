@@ -1,13 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
 require 'roby/tasks/external_process'
-require 'roby/tasks/simple'
-require 'roby/test/tasks/empty_task'
 
-class TC_Tasks_ExternalProcess < Test::Unit::TestCase 
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
-
+class TC_Tasks_ExternalProcess < Minitest::Test 
     MOCKUP = File.expand_path(
         File.join("..", "mockups", "external_process"),
         File.dirname(__FILE__))

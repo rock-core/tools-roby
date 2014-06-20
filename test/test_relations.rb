@@ -1,11 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'flexmock'
 
-class TC_Relations < Test::Unit::TestCase
-    include Roby::SelfTest
-
-
+class TC_Relations < Minitest::Test
     def test_definition
 	klass = Class.new
 

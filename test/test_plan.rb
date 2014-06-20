@@ -1,14 +1,7 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/tasks/simple'
-
-require 'flexmock/test_unit'
-
 
 module TC_PlanStatic
     include Roby
-    include Roby::SelfTest
-
     def assert_task_state(task, state)
         assert_planobject_state(task, state)
         if state == :removed
@@ -462,7 +455,7 @@ module TC_PlanStatic
         assert_same(service1, PlanService.get(t1))
 
         service2 = PlanService.get(t2)
-        assert_not_same(service1, service2)
+        refute_same(service1, service2)
 
         plan.replace(t1, t2)
         assert_equal(t2, service1.task)
@@ -507,7 +500,7 @@ module TC_PlanStatic
     end
 end
 
-class TC_Plan < Test::Unit::TestCase
+class TC_Plan < Minitest::Test
     include TC_PlanStatic
 
     def test_transaction_stack
@@ -667,7 +660,6 @@ class TC_Plan < Test::Unit::TestCase
 end
 
 describe Roby::Plan do
-    include Roby::SelfTest
 
     describe "#add_trigger" do
         it "yields new tasks that match the given object" do

@@ -1,11 +1,6 @@
-$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/self'
-require 'roby/test/tasks/empty_task'
-require 'flexmock/test_unit'
 
-class TC_PlanObject < Test::Unit::TestCase 
-    include Roby::SelfTest
-    include Roby::SelfTest::Assertions
+class TC_PlanObject < Minitest::Test 
     def setup
         super
         Roby.app.filter_backtraces = false
