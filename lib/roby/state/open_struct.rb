@@ -293,16 +293,16 @@ module Roby
 	    raise TypeError, "#{self} is stable" if stable?
 	    if name
 		name = name.to_s
-		if child = @members.delete(name)
-		    child.instance_variable_set(:@__parent_struct, nil)
-		    child.instance_variable_set(:@__parent_name, nil)
-		elsif child = @pending.delete(name)
-		    child.instance_variable_set(:@attach_as, nil)
-		elsif child = @aliases.delete(name)
-		    # nothing to do here
-		else
+                child = @members.delete(name) ||
+                    @pending.delete(name)
+                if child && child.respond_to?(:detached!)
+                    child.detached!
+                end
+
+                # We don't detach aliases
+                if !child && !@aliases.delete(name)
 		    raise ArgumentError, "no such child #{name}"
-		end
+                end
 
 		# and remove aliases that point to +name+
 		@aliases.delete_if { |_, pointed_to| pointed_to == name }
@@ -316,6 +316,10 @@ module Roby
 		end
 	    end
 	end
+
+        def detached!
+            @__parent_struct, @__parent_name, @attach_as = nil
+        end
 
         # Define a filter for the +name+ attribute on self. The given block is
         # called when the attribute is written with both the attribute name and
