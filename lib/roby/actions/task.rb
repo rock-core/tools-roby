@@ -36,6 +36,12 @@ module Roby
                 action_model.action_interface_model
             end
                 
+            def job_name
+                formatted_arguments = (action_arguments || Hash.new).map do |k, v|
+                    "#{k} => #{v}"
+                end.join(", ")
+                "#{action_model}(#{formatted_arguments})"
+            end
 
             def to_s
                 if action_model

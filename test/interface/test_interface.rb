@@ -90,6 +90,7 @@ describe Roby::Interface::Interface do
             plan.add(@job_task = job_task_m.new(:job_id => 10))
             plan.add(@task = Roby::Tasks::Simple.new)
             task.planned_by job_task
+            flexmock(job_task).should_receive(:job_name).and_return("the job")
             @recorder = flexmock
             @job_listener = interface.on_job_notification do |event, id, name, *args|
                 recorder.called(event, id, name, *args)

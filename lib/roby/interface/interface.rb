@@ -150,14 +150,8 @@ module Roby
             #
             # It must be called within the Roby execution thread
             def monitor_job(planning_task, task)
-                job_id = planning_task.job_id
-                if planning_task.respond_to?(:action_model) && planning_task.action_model
-                    formatted_arguments = (planning_task.action_arguments || Hash.new).map do |k, v|
-                        "#{k} => #{v}"
-                    end.join(", ")
-                    job_name = "#{planning_task.action_model}(#{formatted_arguments})"
-                else job_name = task.to_s
-                end
+                job_id   = planning_task.job_id
+                job_name = planning_task.job_name
                 monitor_active = true
                 job_notify(JOB_MONITORED, job_id, job_name, task)
 

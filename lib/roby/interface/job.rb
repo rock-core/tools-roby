@@ -12,6 +12,12 @@ module Roby
                 self.job_id ||= Job.allocate_job_id
             end
 
+            # @return [String] the job name as should be displayed by the job
+            #   management API
+            def job_name
+                to_s
+            end
+
             def initialize(arguments = Hash.new)
                 super
                 if Conf.app.auto_allocate_job_ids? && !job_id
