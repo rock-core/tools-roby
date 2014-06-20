@@ -60,16 +60,16 @@ describe Roby::Interface::Interface do
     describe "#jobs" do
         it "should return the set of job tasks existing in the plan" do
             plan.add(job_task = job_task_m.new(:job_id => 10))
-            assert_equal Hash[10 => job_task], interface.jobs
+            assert_equal Hash[10 => [:ready, job_task, job_task]], interface.jobs
         end
         it "should return the planned task if the job task has one" do
             plan.add(job_task = job_task_m.new(:job_id => 10))
             plan.add(planned_task = Roby::Task.new)
             planned_task.planned_by job_task
-            assert_equal Hash[10 => planned_task], interface.jobs
+            assert_equal Hash[10 => [:planning_ready, planned_task, job_task]], interface.jobs
         end
         it "should not return job tasks that have no job ID" do
-            plan.add(job_task = job_task_m.new)
+            plan.add(job_task_m.new)
             assert_equal Hash[], interface.jobs
         end
     end

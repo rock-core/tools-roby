@@ -227,7 +227,9 @@ module Roby
 
             # The jobs currently running on {#app}'s plan
             #
-            # @return [Hash<Integer,Roby::Task>]
+            # @return [Hash<Integer,(Symbol,Roby::Task,Roby::Task)>] the mapping
+            #   from job ID to the job's state (as returned by {job_state}), the
+            #   placeholder job task and the job task itself
             def jobs
                 result = Hash.new
                 engine.execute do
