@@ -19,6 +19,20 @@ module Roby
         #
         # Most methods can be accessed outside of the Roby execution thread. Methods
         # that cannot will be noted in their documentation
+        #
+        # == About job management
+        # One of the tasks of this class is to do job management. Jobs are the
+        # unit that is used to interact with a running Roby instance at a high
+        # level, as e.g. through a shell or a GUI. In Roby, jobs are represented
+        # by tasks that provide the {Interface::Job} task service and have a
+        # non-nil job ID. Up to two tasks can be associated with the job. The
+        # first is obviously the job task itself, i.e. the task that provides
+        # {Interface::Job}. Quite often, the job task will be a planning task
+        # (actually, one can see that {Actions::Task} provides
+        # {Interface::Job}). In this case, the planned task will be also
+        # associated with the job as its placeholder: while the job task
+        # represents the job's deployment status, the placeholder task will
+        # represent the job's execution status.
         class Interface < CommandLibrary
             # @return [#call] the blocks that listen to job notifications. They are
             #   added with {#on_job_notification} and removed with
@@ -90,11 +104,6 @@ module Roby
             end
 
             # Dispatch the given job-related notification to all listeners
-            #
-            # Additional arguments are given in some cases:
-            # 
-            # JOB_MONITORED: the job task is given
-            # JOB_REPLACED: the new job task is given
             #
             # Listeners are registered with {#on_job_notification}
             def job_notify(kind, job_id, job_name, *args)
