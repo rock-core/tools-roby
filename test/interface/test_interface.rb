@@ -103,13 +103,14 @@ describe Roby::Interface::Interface do
 
         it "should notify of job state changes" do
             recorder.should_receive(:called).with(Roby::Interface::JOB_MONITORED, 10, "the job", task).once.ordered
-            recorder.should_receive(:called).with(Roby::Interface::JOB_STARTED_PLANNING, 10, "the job").once.ordered
+            recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_READY, 10, "the job").once.ordered
+            recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING, 10, "the job").once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_READY, 10, "the job").once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_STARTED, 10, "the job").once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_SUCCESS, 10, "the job").once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_FINALIZED, 10, "the job").once.ordered
 
-            interface.monitor_job(10, "the job", task)
+            interface.monitor_job(task.planning_task, task)
             job_task.start!
             job_task.success_event.emit
             task.start!
@@ -121,18 +122,20 @@ describe Roby::Interface::Interface do
             plan.add(new_task = Roby::Tasks::Simple.new(:id => task.id))
             new_task.planned_by job_task
             recorder.should_receive(:called).with(Roby::Interface::JOB_MONITORED, 10, "the job", task).once.ordered
+            recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_READY, 10, "the job").once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_REPLACED, 10, "the job", new_task).once.ordered
 
-            interface.monitor_job(10, "the job", task)
+            interface.monitor_job(task.planning_task, task)
             plan.replace_task(task, new_task)
         end
 
         it "disable notifications if the replacement task has not the same job ID" do
             plan.add(new_task = Roby::Tasks::Simple.new(:id => task.id))
             recorder.should_receive(:called).with(Roby::Interface::JOB_MONITORED, 10, "the job", task).once.ordered
+            recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_READY, 10, "the job").once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_STARTED, 10, "the job").never
 
-            interface.monitor_job(10, "the job", task)
+            interface.monitor_job(task.planning_task, task)
             plan.replace(task, new_task)
             task.start!
             new_task.start!
@@ -140,8 +143,9 @@ describe Roby::Interface::Interface do
 
         it "allows to remove a listener completely" do
             recorder.should_receive(:called).with(Roby::Interface::JOB_MONITORED, 10, "the job", task).once.ordered
+            recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_READY, 10, "the job").once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_STARTED, 10, "the job").never
-            interface.monitor_job(10, "the job", task)
+            interface.monitor_job(task.planning_task, task)
             interface.remove_job_listener(job_listener)
             task.start!
         end

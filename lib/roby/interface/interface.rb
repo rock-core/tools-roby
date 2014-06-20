@@ -3,14 +3,20 @@ module Roby
     #
     # This is the implementation of e.g. the Roby shell
     module Interface
-        JOB_MONITORED        = :monitored
-        JOB_REPLACED         = :replaced
-        JOB_STARTED_PLANNING = :started_planning
+        JOB_PLANNING_READY   = :planning_ready
+        JOB_PLANNING         = :planning
+        JOB_PLANNING_FAILED  = :planning_failed
         JOB_READY            = :ready
         JOB_STARTED          = :started
         JOB_SUCCESS          = :success
         JOB_FAILED           = :failed
+        JOB_FINISHED         = :finished
         JOB_FINALIZED        = :finalized
+
+        # In addition to the states above, the following constants are used
+        # by job notification
+        JOB_MONITORED        = :monitored
+        JOB_REPLACED         = :replaced
 
         # The server-side implementation of the command-based interface
         #
@@ -163,16 +169,23 @@ module Roby
                 job_name = planning_task.job_name
                 monitor_active = true
                 job_notify(JOB_MONITORED, job_id, job_name, task)
+                job_notify(job_state(task), job_id, job_name)
 
                 if planner = task.planning_task
                     planner.on :start do |ev|
                         if monitor_active
-                            job_notify(JOB_STARTED_PLANNING, job_id, job_name)
+                            job_notify(JOB_PLANNING, job_id, job_name)
                         end
                     end
                     planner.on :success do |ev|
                         if monitor_active
                             job_notify(JOB_READY, job_id, job_name)
+                        end
+                    end
+
+                    planner.on :stop do |ev|
+                        if monitor_active && !ev.task.success?
+                            job_notify(JOB_PLANNING_FAILED, job_id, job_name)
                         end
                     end
                 end
@@ -213,15 +226,23 @@ module Roby
                     return JOB_SUCCESS
                 elsif task.failed_event.happened?
                     return JOB_FAILED
+                elsif task.stop_event.happened?
+                    return JOB_FINISHED
                 elsif task.running?
                     return JOB_STARTED
-                elsif planner = task.planning_task
-                    if planner.success?
-                        return JOB_READY
-                    elsif planner.running?
-                        return JOB_STARTED_PLANNING
+                elsif task.pending?
+                    if planner = task.planning_task
+                        if planner.success?
+                            return JOB_READY
+                        elsif planner.stop?
+                            return JOB_PLANNING_FAILED
+                        elsif planner.running?
+                            return JOB_PLANNING
+                        else
+                            return JOB_PLANNING_READY
+                        end
+                    else return JOB_READY
                     end
-                elsif task.pending? then return JOB_MONITORED
                 end
             end
 
