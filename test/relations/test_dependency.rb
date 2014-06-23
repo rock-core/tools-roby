@@ -227,24 +227,24 @@ class TC_Dependency < Minitest::Test
 
     def test_failure_on_pending_child_failed_to_start
         Roby::ExecutionEngine.logger.level = Logger::FATAL
+        _, child = create_pair :success => [], :failure => [:stop], :start => false
         FlexMock.use do |mock|
             decision_control = Roby::DecisionControl.new
             decision_control.singleton_class.class_eval do
-                define_method(:pending_dependency_failed) do |parent, child, reason|
+                define_method(:pending_dependency_failed) do |_, _, _|
                     mock.decision_control_called
                     true
                 end
             end
 
             plan.engine.control = decision_control
-            parent, child = create_pair :success => [], :failure => [:stop], :start => false
-
-            mock.should_receive(:decision_control_called).once
-
-            child.failed_to_start!(nil)
-            assert_child_failed(child, child.start_event, plan) 
-            plan.remove_object(child)
+            # Called once for the initial error handling and once for the
+            # post-recovery check
+            mock.should_receive(:decision_control_called).twice
+            assert_raises(ChildFailedError) { child.failed_to_start!(nil) }
         end
+        assert_child_failed(child, child.start_event, plan) 
+        plan.remove_object(child)
     end
 
     def test_failure_on_failed_start
