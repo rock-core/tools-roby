@@ -65,6 +65,26 @@ class TC_TaskStateMachine < Minitest::Test
         @testTask = TestTask.new
     end
 
+    def test_state_machine_definition_does_not_leak
+        recorder = flexmock
+        recorder.should_receive(:called).with(:init1).never
+
+        Task.new_submodel do
+            terminates
+            refine_running_state do
+                poll_in_state :running do |task|
+                    recorder.called(:init1)
+                end
+            end
+        end
+        m2 = Task.new_submodel do
+            terminates
+            refine_running_state do
+            end
+        end
+        plan.add(t = m2.new)
+        t.start!
+    end
 
     def test_responds_to_state_machine
         assert( @testTask.respond_to?("state_machine") )
@@ -96,7 +116,7 @@ class TC_TaskStateMachine < Minitest::Test
         assert(twoTask.state_machine.status == 'running')
         assert(scndTask.state_machine.status == 'running')
         
-        scndTask.state_machine.firstly!
+        scndTask.state_machine.firstly_test!
         assert(oneTask.state_machine.status == 'one')
         assert(twoTask.state_machine.status == 'running')
         assert(scndTask.state_machine.status == 'first')
@@ -272,4 +292,41 @@ class TC_TaskStateMachine < Minitest::Test
         process_events
         assert_equal [:start, :running_poll, :intermediate, :one_poll, :running_poll], task.history.map(&:symbol)
     end
+
+    def test_script_in_state_progresses_through_the_script
+        mock = flexmock
+        mock.should_receive(:execute).once
+        mock.should_receive(:poll).at_least.twice
+        model = Roby::Task.new_submodel do
+            terminates
+            refine_running_state do
+                script_in_state :running do
+                    execute { mock.execute }
+                    poll { mock.poll }
+                end
+            end
+        end
+
+        task = prepare_plan :permanent => 1, :model => model
+        task.start!
+        process_events
+    end
+
+    def test_script_in_state_calls_the_script_back
+        mock = flexmock
+        mock.should_receive(:poll).twice
+        model = Roby::Task.new_submodel do
+            terminates
+            refine_running_state do
+                script_in_state :running do
+                    poll { mock.poll }
+                end
+            end
+        end
+
+        task = prepare_plan :permanent => 1, :model => model
+        task.start!
+        process_events
+    end
 end
+

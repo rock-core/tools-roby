@@ -247,7 +247,7 @@ module Roby
             if parent_model = self.superclass.state_machine
                 proxy_model = Class.new(parent_model.owner_class)
             else
-                proxy_model = Proxy
+                proxy_model = Class.new(Proxy)
             end
 
             # Create the state machine instance that will serve as base model
