@@ -1,4 +1,3 @@
-require 'minitest/autorun'
 require 'minitest/spec'
 require 'flexmock/test_unit'
 

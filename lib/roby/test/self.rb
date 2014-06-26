@@ -1,3 +1,4 @@
+require 'minitest/autorun'
 require 'roby/test/common'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
