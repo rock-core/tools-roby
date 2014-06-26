@@ -30,6 +30,9 @@ parser = OptionParser.new do |opt|
     opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
 	testrb_args << "-n" << name
     end
+    opt.on('-v', '--verbose', String, "run tests in verbose mode") do |verbose|
+        testrb_args << '-v'
+    end
     opt.on('--timings[=AGGREGATE]', Integer, "show execution timings") do |aggregate|
         Roby.app.test_show_timings = true
         if aggregate.respond_to?(:to_int)
