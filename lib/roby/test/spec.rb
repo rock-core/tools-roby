@@ -33,7 +33,7 @@ module Roby
             end
 
             def __full_name__
-                "#{self.class}##{__name__}"
+                "#{self.class}##{name}"
             end
 
 
@@ -189,18 +189,18 @@ module Roby
             # @return [Boolean]
             def self.roby_should_run(test, app)
                 if each_run_mode.find { true } && each_run_mode.all? { |blk| !blk.call(app) }
-                    test.skip("#{test.__name__} cannot run in this roby test configuration")
+                    test.skip("#{test.name} cannot run in this roby test configuration")
                 end
             end
 
             # Filters out the test suites that are not enabled by the current
             # Roby configuration
-            def run runner
+            def run
                 begin
                     self.class.roby_should_run(self, Roby.app)
                     super
                 rescue MiniTest::Skip => e
-                    runner.puke self.class, self.__name__, e
+                    puke self.class, self.name, e
                 end
             end
         end

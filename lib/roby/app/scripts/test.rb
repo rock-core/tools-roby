@@ -77,7 +77,6 @@ Roby.display_exception do
     end
 
     begin
-        tests = MiniTest::Unit.new
         # tests.options.banner.sub!(/\[options\]/, '\& tests...')
         if remaining_arguments.empty?
             remaining_arguments = Roby.app.
@@ -90,7 +89,7 @@ Roby.display_exception do
         remaining_arguments.each do |arg|
             require arg
         end
-        tests.run(testrb_args)
+        Minitest.run testrb_args
     ensure
         if profiling
             PerfTools::CpuProfiler.stop
