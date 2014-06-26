@@ -76,9 +76,6 @@ module Roby
 end
 
 module Minitest
-    class Spec
-        include Roby::Test::Self
-    end
     class Test
         include Roby::Test::Self
     end
