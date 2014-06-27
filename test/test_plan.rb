@@ -43,11 +43,6 @@ module TC_PlanStatic
         other_plan = Plan.new
         assert_raises(ModelViolation) { other_plan.add(t) }
     end
-    def test_add_task_deprecated_discover
-        t = Task.new
-	deprecated_feature { plan.discover(t) }
-        assert_task_state(t, :normal)
-    end
     def test_remove_task
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
 	t1.depends_on t2
@@ -83,22 +78,6 @@ module TC_PlanStatic
         assert_task_state(t, :removed)
     end
 
-    def test_add_mission_deprecated_insert
-        t = Task.new
-        deprecated_feature { plan.insert(t) }
-        assert_task_state(t, :mission)
-    end
-    def test_unmark_mission_deprecated_discard
-	plan.add_mission(t = Task.new)
-	deprecated_feature { plan.discard(t) }
-        assert_task_state(t, :normal)
-    end
-    def test_unmark_mission_deprecated_remove_mission
-	plan.add_mission(t = Task.new)
-	deprecated_feature { plan.remove_mission(t) }
-        assert_task_state(t, :normal)
-    end
-
     def test_add_permanent
 	plan.add_permanent(t = Task.new)
         assert_task_state(t, :permanent)
@@ -112,17 +91,6 @@ module TC_PlanStatic
 	plan.add_permanent(t = Task.new)
 	plan.remove_object(t)
         assert_task_state(t, :removed)
-    end
-
-    def test_add_permanent_deprecated_permanent
-        t = Task.new
-	deprecated_feature { plan.permanent(t) }
-        assert_task_state(t, :permanent)
-    end
-    def test_unmark_permanent_deprecated_auto
-	plan.add_permanent(t = Task.new)
-	deprecated_feature { plan.auto(t) }
-        assert_task_state(t, :normal)
     end
 
     def test_add_event
@@ -141,16 +109,6 @@ module TC_PlanStatic
     def test_unmark_permanent_event
 	plan.add_permanent(ev = EventGenerator.new)
 	plan.unmark_permanent(ev)
-        assert_planobject_state(ev, :normal)
-    end
-    def test_permanent_event_deprecated_permanent
-        ev = EventGenerator.new
-	deprecated_feature { plan.permanent(ev) }
-        assert_planobject_state(ev, :permanent)
-    end
-    def test_unmark_permanent_event_deprecated_auto
-	plan.add_permanent(ev = EventGenerator.new)
-	deprecated_feature { plan.unmark_permanent(ev) }
         assert_planobject_state(ev, :normal)
     end
 

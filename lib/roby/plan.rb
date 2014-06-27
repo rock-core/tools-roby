@@ -414,10 +414,6 @@ module Roby
 	    added_mission(task)
 	    self
 	end
-        def insert(task) # :nodoc:
-            Roby.warn_deprecated "#insert has been replaced by #add_mission"
-            add_mission(task)
-        end
 	# Hook called when +tasks+ have been inserted in this plan
 	def added_mission(tasks)
             super if defined? super 
@@ -429,11 +425,6 @@ module Roby
 	# Checks if +task+ is a mission of this plan
 	def mission?(task); @missions.include?(task.to_task) end
 
-        def remove_mission(task) # :nodoc:
-            Roby.warn_deprecated "#remove_mission renamed #unmark_mission"
-            unmark_mission(task)
-        end
-
 	# Removes the task in +tasks+ from the list of missions
 	def unmark_mission(task)
             task = task.to_task
@@ -443,6 +434,7 @@ module Roby
 	    unmarked_mission(task)
 	    self
 	end
+
 	# Hook called when +tasks+ have been discarded from this plan
 	def unmarked_mission(task)
             super if defined? super
@@ -454,10 +446,6 @@ module Roby
                 Roby.warn_deprecated "the #discarded hook has been replaced by #unmarked_mission"
                 discarded(task)
             end
-        end
-        def discard(task) # :nodoc:
-            Roby.warn_deprecated "#discard has been replaced by #unmark_mission"
-            unmark_mission(task)
         end
 
 	# Adds +object+ in the list of permanent tasks. Permanent tasks are
@@ -487,11 +475,6 @@ module Roby
             self
 	end
 
-        def permanent(object) # :nodoc:
-            Roby.warn_deprecated "#permanent has been replaced by #add_permanent"
-            add_permanent(object)
-        end
-
 	# Removes +object+ from the list of permanent objects. Permanent objects
         # are protected from the plan's garbage collection. This does not remove
         # the task/event itself from the plan.
@@ -505,11 +488,6 @@ module Roby
             else
                 raise ArgumentError, "expected a task or event and got #{object}"
             end
-        end
-
-        def auto(obj) # :nodoc:
-            Roby.warn_deprecated "#auto has been replaced by #unmark_permanent"
-            unmark_permanent(obj)
         end
 
         # True if +obj+ is neither a permanent task nor a permanent object.
