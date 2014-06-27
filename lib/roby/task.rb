@@ -113,7 +113,12 @@ module Roby
 
 	# The task name
 	def name
-	    @name ||= "#{model.name || self.class.name}:0x#{address.to_s(16)}"
+            return @name if @name
+            name = "#{model.name || self.class.name}:0x#{address.to_s(16)}"
+            if !frozen?
+                @name = name
+            end
+            name
 	end
 	
 	# This predicate is true if this task is a mission for its owners. If
