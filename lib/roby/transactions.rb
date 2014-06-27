@@ -28,50 +28,65 @@ module Roby
         # @see #committed?
 	def finalized?; !plan end
 
-        def create_proxy(proxy, object, klass = nil)
-            proxy ||= object.dup
-            klass ||= object.class
+        def setup_proxy(proxy, object, klass = object.class)
             proxy.extend Roby::Transaction::Proxying.proxying_module_for(klass)
             proxy.setup_proxy(object, self)
             proxy
         end
 
-        def register_proxy(proxy, object, do_include = false)
+        def setup_and_register_proxy(proxy, object)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
 
-            proxy = create_proxy(proxy, object)
-            proxy_objects[object] = proxy
+            if proxy.root_object?
+                if proxy.class == Roby::PlanService
+                elsif proxy.respond_to?(:to_task)
+                    add_task(proxy)
+                else add_event(proxy)
+                end
+            end
 
-	    if do_include && object.root_object?
-		proxy.plan = self
-		add(proxy)
-	    end
+            proxy = setup_proxy(proxy, object)
+            proxy_objects[object] = proxy
 	    copy_object_relations(object, proxy)
 
             if services = plan.plan_services[object]
                 services.each do |original_srv|
-                    srv = create_proxy(nil, original_srv)
-                    srv.task = proxy
-                    add_plan_service(srv)
+                    create_and_register_plan_service_proxy(original_srv)
                 end
             end
 
 	    proxy
         end
 
-	def do_wrap(object, do_include = false) # :nodoc:
+        def create_and_register_plan_service_proxy(object)
+            proxy = object.dup
+
+            if !underlying_proxy = proxy_objects[object.to_task]
+                raise InternalError, "no proxy for #{object.to_task}, there should be one at this point"
+            end
+            proxy.task = underlying_proxy
+            add_plan_service(proxy)
+            setup_proxy(proxy, object)
+        end
+
+        def create_and_register_proxy(object)
+            proxy = object.dup
+            setup_and_register_proxy(proxy, object)
+        end
+
+	def do_wrap(object) # :nodoc:
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
 
 	    if proxy = proxy_objects[object]
                 return proxy
             elsif !object.root_object?
-                do_wrap(object.root_object, do_include)
+                do_wrap(object.root_object)
                 if !(proxy = proxy_objects[object])
                     raise InternalError, "#{object} should have been wrapped but is not"
                 end
-                register_proxy(proxy, object, do_include)
+                return proxy
             else
-                register_proxy(object.dup, object, do_include)
+                create_and_register_proxy(object)
             end
 	end
 
@@ -119,11 +134,15 @@ module Roby
 			raise ArgumentError, "#{object} is in #{object.plan}, this transaction #{self} applies on #{self.plan}"
                     end
 
-                    wrapped = do_wrap(object, true)
+                    wrapped = do_wrap(object)
                     if object.respond_to?(:to_task) && plan.mission?(object)
-                        add_mission(wrapped)
+                        add_mission_task(wrapped)
                     elsif plan.permanent?(object)
-                        add_permanent(wrapped)
+                        if object.respond_to?(:to_task)
+                            add_permanent_task(wrapped)
+                        else
+                            add_permanent_event(wrapped)
+                        end
                     end
                     return wrapped
 		end
@@ -301,18 +320,24 @@ module Roby
 	    super(from, to)
 	end
 
-	def add_mission(t)
+	def add_mission_task(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
-            t = t.as_plan
 	    if proxy = self[t, false]
 		discarded_tasks.delete(may_unwrap(proxy))
 	    end
 	    super(t)
 	end
 
-	def add_permanent(t)
+	def add_permanent_task(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
-            t = t.as_plan
+	    if proxy = self[t, false]
+		auto_tasks.delete(may_unwrap(proxy))
+	    end
+	    super(t)
+	end
+
+	def add_permanent_event(t)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
 	    if proxy = self[t, false]
 		auto_tasks.delete(may_unwrap(proxy))
 	    end
@@ -420,10 +445,11 @@ module Roby
 
             discover_tasks  = ValueSet.new
             discover_events  = ValueSet.new
-            insert    = ValueSet.new
-            permanent = ValueSet.new
+            new_missions    = ValueSet.new
+            new_permanent_tasks  = ValueSet.new
+            new_permanent_events = ValueSet.new
             known_tasks.dup.each do |t|
-                unwrapped = if t.kind_of?(Transaction::Proxying)
+                unwrapped = if t.transaction_proxy?
                                 finalized_task(t)
                                 t.__getobj__
                             else
@@ -433,10 +459,10 @@ module Roby
 
                 if missions.include?(t) && t.self_owned?
                     missions.delete(t)
-                    insert << unwrapped
+                    new_missions << unwrapped
                 elsif permanent_tasks.include?(t) && t.self_owned?
                     permanent_tasks.delete(t)
-                    permanent << unwrapped
+                    new_permanent_tasks << unwrapped
                 end
 
                 discover_tasks << unwrapped
@@ -453,7 +479,7 @@ module Roby
 
                 if permanent_events.include?(ev) && ev.self_owned?
                     permanent_events.delete(ev)
-                    permanent << unwrapped
+                    new_permanent_events << unwrapped
                 end
 
                 discover_events << unwrapped
@@ -499,8 +525,9 @@ module Roby
                 end
             end
 
-            insert.each    { |t| plan.add_mission(t) }
-            permanent.each { |t| plan.add_permanent(t) }
+            new_missions.each    { |t| plan.add_mission_task(t) }
+            new_permanent_tasks.each { |t| plan.add_permanent_task(t) }
+            new_permanent_events.each { |e| plan.add_permanent_event(e) }
 
             active_fault_response_tables.each do |tbl|
                 plan.use_fault_response_table tbl.model, tbl.arguments

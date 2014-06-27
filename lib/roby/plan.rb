@@ -405,13 +405,9 @@ module Roby
             if task.respond_to?(:as_plan)
                 task = task.as_plan
             end
-
 	    return if @missions.include?(task)
-
-	    @missions << task
 	    add(task)
-	    task.mission = true if task.self_owned?
-	    added_mission(task)
+            add_mission_task(task)
 	    self
 	end
 	# Hook called when +tasks+ have been inserted in this plan
@@ -465,13 +461,13 @@ module Roby
             if object.respond_to?(:as_plan)
                 object = object.as_plan
             end
+            add(object)
 
             if object.kind_of?(Task)
-                @permanent_tasks << object
+                add_permanent_task(object)
             else
-                @permanent_events << object
+                add_permanent_event(object)
             end
-	    add(object)
             self
 	end
 
@@ -655,6 +651,60 @@ module Roby
         def discover(objects) # :nodoc:
             Roby.warn_deprecated "#discover has been replaced by #add"
             add(objects)
+        end
+
+        def add_mission_task(task)
+	    return if missions.include?(task)
+            add_task(task)
+	    missions << task
+	    task.mission = true if task.self_owned?
+	    added_mission(task)
+	    true
+        end
+
+        def add_permanent_task(task)
+            return if permanent_tasks.include?(task)
+            add_task(task)
+            permanent_tasks << task
+            true
+        end
+
+        def add_permanent_event(event)
+            return if permanent_events.include?(event)
+            add_event(event)
+            permanent_events << event
+            true
+        end
+        
+        # Add a single task in the plan
+        def add_task(task)
+            return if include?(task)
+
+            if !task.kind_of?(Roby::Task)
+                raise ArgumentError, "can only add task objects in a plan with #add_task (got object of class #{task.class})"
+            elsif task.to_task != task
+                raise ArgumentError, "can only add task objects (not services) in a plan with #add_task (got object of class #{task.class})"
+            elsif task.frozen?
+                raise ArgumentError, "attempting to add a commited transaction proxy to the plan"
+            end
+
+            add_task_set([task])
+            for ev in task.bound_events.values
+                task_events << ev
+            end
+        end
+
+        # Add a free event to the plan
+        def add_event(event)
+            return if include?(event)
+
+            if !event.kind_of?(Roby::EventGenerator)
+                raise ArgumentError, "can only add event objects in a plan with #add_event"
+            elsif !event.root_object?
+                raise ArgumentError, "can only add root events in a plan with #add_event"
+            end
+
+            add_event_set([event])
         end
 
 	# call-seq:

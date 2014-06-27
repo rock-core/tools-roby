@@ -345,7 +345,7 @@ module Roby
 	    end
 
             each_event do |ev|
-                transaction.register_proxy(ev, object.event(ev.symbol))
+                transaction.setup_and_register_proxy(ev, object.event(ev.symbol))
             end
 	end
 
