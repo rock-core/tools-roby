@@ -74,7 +74,15 @@ Roby.display_exception do
     profiling = !Roby.app.test_profile.empty?
     if profiling
         STDOUT.puts "Profiling results are saved in #{Roby.app.log_dir}.prof"
-        require 'perftools'
+        begin
+            require 'perftools'
+        rescue LoadError => perftools_error
+            begin
+                require 'stackprof/perftools'
+            rescue LoadError => stackprof_error
+                raise LoadError, "can load neither perftools (#{perftools_error}) nor stackprof (#{stackprof_error})"
+            end
+        end
         PerfTools::CpuProfiler.start "#{Roby.app.log_dir}.prof"
         PerfTools::CpuProfiler.pause
     end
