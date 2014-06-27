@@ -1240,7 +1240,7 @@ module Roby
 	    super if defined? super
 
 	    arguments.dup.each do |key, value|
-		if value.kind_of?(Roby::Transaction::Proxying)
+                if value.respond_to?(:transaction_proxy?) && value.transaction_proxy?
 		    arguments.update!(key, value.__getobj__)
 		end
 	    end
