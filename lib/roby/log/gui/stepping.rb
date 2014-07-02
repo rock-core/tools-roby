@@ -10,6 +10,10 @@ module Roby
             attr_reader :stream
             attr_reader :plan_rebuilder
 
+            def plan
+                plan_rebuilder.plan
+            end
+
             def initialize(main_widget, plan, stream, starting_cycle)
                 super(main_widget)
 
@@ -64,7 +68,9 @@ module Roby
                         end
                         @current_cycle_position += 1
 
-                        if plan_rebuilder.process(data)
+                        plan_rebuilder.process(data)
+                        if plan_rebuilder.has_event_propagation_updates?(plan) ||
+                            plan_rebuilder.has_structure_updates?(plan)
                             plan_rebuilder.clear_changes
                             return
                         end

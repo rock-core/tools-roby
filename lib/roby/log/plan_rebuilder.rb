@@ -268,7 +268,7 @@ module Roby
                 end
                 Distributed.disable_ownership
                 @history = Array.new
-                @changes = Hash.new
+                clear_changes
                 @event_filters = Array.new
                 @filter_matches = Array.new
                 @filter_exclusions = Array.new
@@ -453,9 +453,11 @@ module Roby
 
 	    def clear_integrated
                 clear_changes
-                if plans.any? { |p| !p.garbaged_objects.empty? }
-                    announce_structure_update
-                    announce_state_update
+                if modified_plans = plans.find_all { |p| !p.garbaged_objects.empty? }
+                    modified_plans.each do |p|
+                        announce_structure_update(p)
+                        announce_state_update(p)
+                    end
                 end
                 plans.each(&:clear_integrated)
                 filter_matches.clear
@@ -463,7 +465,10 @@ module Roby
 	    end
 
             def clear_changes
-                @changes.clear
+                @changes =
+                    Hash[:state => Hash.new,
+                     :structure => Hash.new,
+                     :event_propagation => Hash.new]
             end
 
 	    def inserted_tasks(time, plan, task)
@@ -471,15 +476,16 @@ module Roby
                 task = local_object(task)
 		plan.add_mission( task )
                 task.addition_time = time
-                announce_structure_update
+                announce_structure_update(plan)
 	    end
 	    def discarded_tasks(time, plan, task)
 		plan = local_object(plan)
 		plan.remove_mission(local_object(task))
-                announce_structure_update
+                announce_structure_update(plan)
 	    end
 	    def replaced_tasks(time, plan, from, to)
-                announce_structure_update
+		plan = local_object(plan)
+                announce_structure_update(plan)
 	    end
 	    def added_events(time, plan, events)
 		plan = local_object(plan)
@@ -488,7 +494,7 @@ module Roby
 		    plan.add(ev)
                     ev.addition_time = ev
                     if ev.root_object?
-                        announce_structure_update
+                        announce_structure_update(plan)
                     end
 		end
 	    end
@@ -506,7 +512,7 @@ module Roby
                     task.addition_time = time
                     task.extend ReplayTask
 		end
-                announce_structure_update
+                announce_structure_update(plan)
 	    end
 	    def garbage(time, plan, object)
                 plan = local_object(plan)
@@ -520,7 +526,7 @@ module Roby
                 if !plan.garbaged_objects.include?(event) && event.root_object?
                     plan.finalized_events << event
                     plan.remove_object(event)
-                    announce_structure_update
+                    announce_structure_update(plan)
                 end
                 manager.removed_sibling(event_id)
 	    end
@@ -531,7 +537,7 @@ module Roby
                 if !plan.garbaged_objects.include?(task)
                     plan.finalized_tasks << task
                     plan.remove_object(task)
-                    announce_structure_update
+                    announce_structure_update(plan)
                 end
                 manager.removed_sibling(task_id)
 	    end
@@ -556,7 +562,7 @@ module Roby
                 reason = local_object(reason)
                 task.plan.failed_to_start << [task, reason]
                 task.failed_to_start!(reason, time)
-                announce_event_propagation_update
+                announce_event_propagation_update(task.plan)
             end
 
             def task_arguments_updated(time, task, key, value)
@@ -575,7 +581,7 @@ module Roby
 		rel    = local_object(rel)
 		parent.add_child_object(child, rel, info)
                 all_relations << rel
-                announce_structure_update
+                announce_structure_update(parent.plan)
                 return parent, rel, child
 	    end
 
@@ -586,7 +592,7 @@ module Roby
 		rel    = local_object(rel)
                 if !plan.garbaged_objects.include?(parent) && !plan.garbaged_objects.include?(child)
                     parent.remove_child_object(child, rel)
-                    announce_structure_update
+                    announce_structure_update(parent.plan)
                 end
                 return parent, rel, child
 	    end
@@ -612,6 +618,7 @@ module Roby
                 all_relations << rel
 		parent.add_child_object(child, rel, info)
 	    end
+
 	    def removed_event_child(time, parent, rel, child)
 		parent = local_object(parent)
 		child  = local_object(child)
@@ -633,15 +640,19 @@ module Roby
                 @state = timings.delete(:state)
                 @stats = timings
                 @start_time ||= self.cycle_start_time
-                announce_state_update
+                announce_state_update(plan)
             end
 
             def self.update_type(type)
-                define_method("announce_#{type}_update") do
-                    @changes[type] = true
+                define_method("announce_#{type}_update") do |plan|
+                    @changes[type][plan] = true
                 end
-                define_method("has_#{type}_updates?") do
-                    !!@changes[type]
+                define_method("has_#{type}_updates?") do |plan = nil|
+                    if plan
+                        !!@changes[type][plan]
+                    else
+                        !!@changes[type].each_value.any? { |b| b }
+                    end
                 end
             end
             ##
@@ -659,17 +670,6 @@ module Roby
             ##
             # :method: has_event_propagation_updates?
             update_type :event_propagation
-
-
-            def announce_structure_update
-                @changes[:structure] = true
-            end
-            def announce_state_update
-                @changes[:state] = true
-            end
-            def announce_event_propagation_update
-                @changes[:event_propagation] = true
-            end
 
             PROPAG_SIGNAL   = 1
             PROPAG_FORWARD  = 2
@@ -724,7 +724,7 @@ module Roby
                 source_filtering = source_generators.map { |ev| filter_event(ev) }
                 if filtering_result.any? { |res| res != :ignored } ||
                    (filtering_result.empty? && source_filtering.any? { |res| res != :ignored })
-                    announce_event_propagation_update
+                    announce_event_propagation_update(generator.plan)
                     filter_matches << [time, generator, filtering_result]
                 else
                     filter_exclusions << generator
@@ -745,7 +745,7 @@ module Roby
 
                 if filtering_result.any? { |res| res != :ignored } ||
                    (filtering_result.empty? &&  source_filtering.any? { |res| res != :ignored })
-                    announce_event_propagation_update
+                    announce_event_propagation_update(generator.plan)
                     filter_matches << [time, generator, filtering_result]
                 else
                     filter_exclusions << generator
@@ -757,7 +757,7 @@ module Roby
 		from.plan.propagated_events << [PROPAG_SIGNAL, [from], to]
 
                 if !filter_exclusions.include?(from) && !filter_exclusions.include?(to)
-                    announce_event_propagation_update
+                    announce_event_propagation_update(from.plan)
                 end
 	    end
 	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
@@ -765,7 +765,7 @@ module Roby
                 to   = local_object(to)
 		from.plan.propagated_events << [PROPAG_FORWARD, [from], to]
                 if !filter_exclusions.include?(from) && !filter_exclusions.include?(to)
-                    announce_event_propagation_update
+                    announce_event_propagation_update(from.plan)
                 end
 	    end
 
@@ -774,7 +774,7 @@ module Roby
 		generator.plan.emitted_events << [EVENT_CALLED, generator]
                 filtering_result = filter_event(generator)
                 if filtering_result.any? { |res| res != :ignored }
-                    announce_event_propagation_update
+                    announce_event_propagation_update(generator.plan)
                     filter_matches << [time, generator, filtering_result]
                 else
                     filter_exclusions << generator
@@ -795,19 +795,19 @@ module Roby
                     generator.task.update_task_status(event)
                 end
 		generator.plan.emitted_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]
-                announce_event_propagation_update
+                announce_event_propagation_update(generator.plan)
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
                 generator = local_object(generator)
 		generator.plan.postponed_events << [generator, local_object(until_generator)]
-                announce_event_propagation_update
+                announce_event_propagation_update(generator.plan)
 	    end
 
             def generator_emit_failed(time, generator, error)
                 generator = local_object(generator)
                 error = local_object(error)
                 generator.plan.failed_emissions << [generator, error]
-                announce_event_propagation_update
+                announce_event_propagation_update(generator.plan)
             end
 
             class FilterLabel
