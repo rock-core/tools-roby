@@ -217,13 +217,13 @@ static VALUE graph_do_generated_subgraphs(int argc, VALUE* argv, Graph const& g,
 		make_filter_iterator(
 		    bind(
 			vertex_has_adjacent_i<Graph, false>, 
-			_1, ref(g)
+			_1, boost::ref(g)
 		    ), it, end
 		),
 		make_filter_iterator(
 		    bind(
 			vertex_has_adjacent_i<Graph, false>, 
-			_1, ref(g)
+			_1, boost::ref(g)
 		    ), end, end
 		), with_singletons
 	    );
@@ -238,10 +238,10 @@ static VALUE graph_do_generated_subgraphs(int argc, VALUE* argv, Graph const& g,
 	// call graph_components_i with all vertices given in as argument
 	graph_components_i(result, g, 
 		make_transform_iterator(begin, 
-		    bind(graph_components_root_descriptor, ref(result), _1, self, with_singletons)
+		    bind(graph_components_root_descriptor, boost::ref(result), _1, self, with_singletons)
 		),
 		make_transform_iterator(end,
-		    bind(graph_components_root_descriptor, ref(result), _1, self, with_singletons)
+		    bind(graph_components_root_descriptor, boost::ref(result), _1, self, with_singletons)
 		), with_singletons);
     }
 

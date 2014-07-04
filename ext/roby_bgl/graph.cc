@@ -485,7 +485,7 @@ static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
     if (NIL_P(graph))
     {
 	set<VALUE> already_seen;
-	for_each_graph(self, bind(for_each_adjacent_uniq<RubyGraph, directed>, _1, _2, ref(already_seen)));
+	for_each_graph(self, bind(for_each_adjacent_uniq<RubyGraph, directed>, _1, _2, boost::ref(already_seen)));
     }
     else
     {
