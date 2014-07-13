@@ -105,6 +105,7 @@ module Roby
 
 	def setup
             Roby.app.reload_config
+            @log_levels = Hash.new
 
             @timings = Hash.new
             if !@plan
@@ -193,6 +194,21 @@ module Roby
 
         def inhibit_fatal_messages(&block)
             with_log_level(Roby, Logger::FATAL, &block)
+        end
+
+        def set_log_level(log_object, level)
+            if log_object.respond_to?(:logger)
+                log_object = log_object.logger
+            end
+            @log_levels[log_object] ||= log_object.level
+            log_object.level = level
+        end
+
+        def reset_log_levels
+            @log_levels.each do |log_object, level|
+                log_object.level = level
+            end
+            @log_levels.clear
         end
 
         def with_log_level(log_object, level)
@@ -295,6 +311,7 @@ module Roby
             raise
 
 	ensure
+            reset_log_levels
             begin
                 while engine && engine.running?
                     engine.quit
