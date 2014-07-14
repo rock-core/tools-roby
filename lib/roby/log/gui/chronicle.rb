@@ -684,7 +684,7 @@ module Roby
                 if chronicle.current_time == chronicle.history_widget.current_time
                     return
                 end
-
+                chronicle.current_time = chronicle.history_widget.current_time if !chronicle.current_time
                 new_time = chronicle.current_time + PLAY_STEP
                 if new_time >= chronicle.history_widget.current_time
                     new_time = chronicle.history_widget.current_time
