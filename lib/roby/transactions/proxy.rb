@@ -64,6 +64,7 @@ module Roby
             result = Module.new do
                 attr_accessor :__getobj__
                 def transaction_proxy?; true end
+                next if mod.name.nil?
                 for name in mod.instance_methods(false)
                     next if name =~ /^__.*__$/
                     next if name == :object_id
