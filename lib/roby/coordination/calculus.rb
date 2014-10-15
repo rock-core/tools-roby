@@ -27,7 +27,15 @@ module Roby
             end
             Binary = Struct.new :op, :left, :right do
                 def evaluate(variables)
-                    left.evaluate(variables).send(op, right.evaluate(variables))
+                    if right.respond_to?(:evaluate) and left.respond_to?(:evaluate)
+                        left.evaluate(variables).send(op, right.evaluate(variables))
+                    elsif right.respond_to?(:evaluate)
+                        left.send(op, right.evaluate(variables))
+                    elsif left.respond_to?(:evaluate)
+                        left.evaluate(variables).send(op, right)
+                    else
+                        left.send(op,right)
+                    end
                 end
                 include Build
             end
