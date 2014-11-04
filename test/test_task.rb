@@ -23,6 +23,11 @@ class TC_Task < Minitest::Test
         assert Roby::Task.each_submodel.to_a.include?(subclass)
     end
 
+    def test_that_new_tasks_do_not_have_a_coordination_object
+        task = Roby::Task.new
+        assert_equal task.coordination_objects, []
+    end
+
     def test_task_service_model
         tag1 = TaskService.new_submodel { argument :model_tag_1 }
         assert tag1.has_argument?(:model_tag_1)
