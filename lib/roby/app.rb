@@ -1586,6 +1586,14 @@ module Roby
             find_dirs(*args).first
         end
 
+        def setup_for_minimal_tooling
+            self.public_logs = false
+            self.auto_load_models = false
+            self.single = true
+            self.modelling_only = true
+            setup
+        end
+
         # If set to true, this Roby application will publish a public shell
         # interface. Otherwise, no shell interface is going to be published at
         # all
@@ -1610,6 +1618,9 @@ module Roby
 	def shell; self.shell = true end
 	attr_predicate :single?, true
 	def single;  @single = true end
+
+        attr_predicate :modelling_only?, true
+        def modelling_only; self.modelling_only = true end
 
         # @return [Boolean] true if Roby's auto-load feature should load all
         #   models in {search_path} or only the ones in {app_dir}. It influences
