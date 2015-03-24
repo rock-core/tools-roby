@@ -16,7 +16,7 @@ scripts/controllers/ and/or some explicitly given actions
 
     Roby::Application.common_optparse_setup(opt)
 
-    opt.on '-c', "--controller", "run the controller file"  do
+    opt.on '-c', "--controller", "run the controller files and blocks"  do
         run_controller = true
     end
 end
@@ -49,8 +49,14 @@ Roby.display_exception do
             if controller_file
                 Robot.info "loading controller file #{controller_file}"
                 load controller_file
-            else
-                Robot.info "found no controller file to load for #{Roby.app.robot_name}:#{Roby.app.robot_type}"
+            end
+
+            Roby.app.controllers.each do |c|
+                c.call
+            end
+
+            if Roby.app.controllers.empty? && !controller_file
+                Robot.info "no controller block registered, and found no controller file to load for #{Roby.app.robot_name}:#{Roby.app.robot_type}"
             end
         end
         Robot.info "done initialization"

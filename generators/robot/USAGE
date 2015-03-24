@@ -1,0 +1,8 @@
+Generates a new empty robot configuration file. It expects a robot name and
+creates the corresponding file in config/robots/
+
+Example: running the following command in a rock_auv app
+  roby gen robot asguard
+
+  will generate a template for the 'asguard' robot configuration file in
+  config/robot/asguard.rb

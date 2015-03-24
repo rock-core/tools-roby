@@ -55,5 +55,25 @@ module Robot
 
 	return task, planner
     end
+
+    def self.init(&block)
+        Roby.app.on_init(&block)
+    end
+
+    def self.requires(&block)
+        Roby.app.on_require(&block)
+    end
+
+    def self.config(&block)
+        Roby.app.on_config(&block)
+    end
+
+    def self.controller(&block)
+        Roby.app.controller(&block)
+    end
+
+    def self.actions(&block)
+        Roby.app.actions(&block)
+    end
 end
 
