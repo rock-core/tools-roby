@@ -3,7 +3,7 @@ require 'roby/test/error'
 require 'roby/test/common'
 module Roby
     module Test
-        class Spec < MiniTest::Spec
+        class Spec < Minitest::Spec
             include Test::Assertions
             include Utilrb::Timepoints
 
@@ -12,6 +12,7 @@ module Roby
                 inherited_attribute(:run_mode, :run_modes) { Array.new }
             end
 
+            def app; Roby.app end
             def plan; Roby.plan end
             def engine; Roby.plan.engine end
 
