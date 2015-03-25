@@ -1706,12 +1706,21 @@ module Roby
             false
         end
 
-        def clear_models
+        def root_models
             [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
-             Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript].each do |root_model|
+             Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript]
+        end
+
+        def clear_model?(m)
+            !m.permanent_model? ||
+                (!testing? && model_defined_in_app?(m))
+        end
+
+        def clear_models
+            root_models.each do |root_model|
                 submodels = root_model.each_submodel.to_a.dup
                 submodels.each do |m|
-                    if model_defined_in_app?(m) || !m.permanent_model?
+                    if clear_model?(m)
                         m.clear_model
                     end
                     next if m.permanent_model?

@@ -53,7 +53,23 @@ module Roby
                 end
             end
 
+            # Set of models present during {setup}
+            #
+            # This is used to clear all the models created during the test in
+            # {teardown}
+            attr_reader :models_present_in_setup
+
             def setup
+                # Mark every app-defined model as permanent, so that the tests can define
+                # their own and get cleanup up properly on teardown
+                @models_present_in_setup = Set.new
+                Roby.app.root_models.each do |root_model|
+                    models_present_in_setup << root_model
+                    root_model.each_submodel do |m|
+                        models_present_in_setup << m
+                    end
+                end
+
                 super
 
                 @watch_events_handler_id = engine.add_propagation_handler(:type => :external_events) do |plan|
@@ -80,6 +96,15 @@ module Roby
                 plan.engine.killall
                 if @watch_events_handler_id
                     engine.remove_propagation_handler(@watch_events_handler_id)
+                end
+
+                Roby.app.root_models.each do |root_model|
+                    ([root_model] + root_model.each_submodel.to_a).each do |m|
+                        if !models_present_in_setup.include?(m)
+                            m.permanent_model = false
+                            m.clear_model
+                        end
+                    end
                 end
 
             ensure
