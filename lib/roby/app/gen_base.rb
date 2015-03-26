@@ -72,7 +72,8 @@ module Roby
                     new_basename = file_pattern % [File.basename(path, ".rb")]
                     new_path = File.dirname(path)
                     new_file = File.join(new_path, new_basename)
-                    manifest.add_template_to_file(relative_source, new_file, :assigns => Hash['required_file' => file])
+                    required_file = File.join(File.dirname(file), File.basename(file, '.rb'))
+                    manifest.add_template_to_file(relative_source, new_file, :assigns => Hash['required_file' => required_file])
                     file = new_file
                     path = File.dirname(path)
                     if path.empty? || path == "."
