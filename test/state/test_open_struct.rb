@@ -498,5 +498,17 @@ class TC_OpenStruct < Minitest::Test
 
         s.pose.position = Object.new
     end
+
+    def test_it_allows_to_test_for_the_presence_of_a_non_method
+        s = Roby::OpenStruct.new
+        assert !s.send("not:a:method?")
+    end
+
+    def test_it_raises_if_trying_to_access_a_non_method
+        s = Roby::OpenStruct.new
+        assert_raises(NoMethodError) do 
+            s.send("not:a:method")
+        end
+    end
 end
 
