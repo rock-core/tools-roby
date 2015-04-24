@@ -19,7 +19,13 @@ module Roby
             #   resolve the ROBOT placeholder
             attr_reader :robot_name
 
+            # @return [Boolean] whether the generator should generate tests
+            #   even if they are disabled by default
+            attr_predicate :force_tests?, true
+
             def initialize(runtime_args, runtime_options = Hash.new)
+                self.force_tests = false
+
                 super
                 usage if args.empty?
 
@@ -66,7 +72,8 @@ module Roby
                     new_basename = file_pattern % [File.basename(path, ".rb")]
                     new_path = File.dirname(path)
                     new_file = File.join(new_path, new_basename)
-                    manifest.add_template_to_file(relative_source, new_file, :assigns => Hash['required_file' => file])
+                    required_file = File.join(File.dirname(file), File.basename(file, '.rb'))
+                    manifest.add_template_to_file(relative_source, new_file, :assigns => Hash['required_file' => required_file])
                     file = new_file
                     path = File.dirname(path)
                     if path.empty? || path == "."
@@ -105,6 +112,9 @@ module Roby
             #
             # This is called by rubigen on option parsing
             def add_options!(opt)
+                opt.on '--with-tests', 'for generators that do not generate tests by default, force adding a test file' do
+                    @force_tests = true
+                end
                 opt.on '-r NAME', '--robot NAME' do |name|
                     @robot_name = name
                 end

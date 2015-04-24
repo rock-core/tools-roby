@@ -4,7 +4,8 @@ module Roby
         class RobotNames
             # @return [String,nil] the default robot name
             attr_reader :default_robot_name
-            # @return [Hash<(String,String)>] the set of declared robots
+            # @return [Hash<(String,String)>] the set of declared robots, as
+            #   robot_name => robot_type
             attr_reader :robots
             # @return [Hash<String,String>] a set of aliases, i.e. short names
             #   for robots
@@ -74,7 +75,8 @@ module Roby
                 if !robot_name
                     error(ArgumentError, "no robot name given and no default name declared in app.yml, defaulting to #{DEFAULT_ROBOT_NAME}:#{DEFAULT_ROBOT_TYPE}")
                     return DEFAULT_ROBOT_NAME, DEFAULT_ROBOT_TYPE
-                elsif robot_type = robots[robot_name]
+                elsif robots.has_key?(robot_name)
+                    robot_type = robots[robot_name]
                     type ||= robot_type
                     if type != robot_type
                         error(ArgumentError, "invalid robot type when resolving #{name}:#{type}, #{name} is declared to be of type #{robot_type}")
@@ -82,7 +84,7 @@ module Roby
                     return robot_name, type
                 else
                     if !robots.empty? || strict?
-                        error(ArgumentError, "#{name} is neither a robot name, nor an alias. Known names: #{robots.keys.sort.join(", ")}, known aliases: #{aliases.keys.join(", ")}")
+                        error(Application::NoSuchRobot, "#{name} is neither a robot name, nor an alias. Known names: #{robots.keys.sort.join(", ")}, known aliases: #{aliases.keys.join(", ")}")
                     end
                     return robot_name, (type || robot_name)
                 end

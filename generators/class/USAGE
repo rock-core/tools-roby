@@ -1,0 +1,18 @@
+Generates a new empty class within the models/ hierarchy. The name must include
+the toplevel namespace in the model hierarchy as such:
+
+  roby gen class compositions/a/helper_class
+  roby gen class Compositions::A::HelperClass
+
+If a robot name is specified with the -r option, the files will be created in
+this robot's specific folders
+
+Example: running the following command in a rock_auv app
+  roby gen compositions/control/net_gen
+
+  will generate a RockAUV::Compositions::Control::NetGen class in
+  models/compositions/control/net_gen.rb as well as the associated test file in
+  test/compositions/control/net_gen.rb. The files in the hierarchy
+  (models/compositions.rb, models/compositions/control.rb,
+  test/compositions/suite_control.rb, ...) are updated to require the new
+  file(s)

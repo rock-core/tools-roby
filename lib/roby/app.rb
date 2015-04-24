@@ -232,6 +232,12 @@ module Roby
             end
         end
 
+        # Allows to override the app name
+        #
+        # The default is to convert the app dir's basename to camelcase, but
+        # that fails in some cases (mostly, when there are acronyms in the name)
+        attr_writer :app_name
+
         # Returns the name of this app's toplevel module
         def module_name
             app_name.camelize
@@ -249,8 +255,9 @@ module Roby
         # Tests if the given directory looks like the root of a Roby app
         def self.is_app_dir?(test_dir)
             File.file?(File.join(test_dir, 'config', 'app.yml')) ||
-                File.directory?(File.join(test_dir, 'model')) ||
-                File.file?(File.join(test_dir, 'scripts', 'controllers'))
+                File.directory?(File.join(test_dir, 'models')) ||
+                File.directory?(File.join(test_dir, 'scripts', 'controllers')) ||
+                File.directory?(File.join(test_dir, 'config', 'robots'))
         end
 
         # Guess the app directory based on the current directory. It will not do
@@ -345,6 +352,34 @@ module Roby
         #   contain some models. This is mainly used by the command-line tools
         #   so that the user can load separate "model-based scripts" files.
         attr_reader :additional_model_files
+
+        # @return [Array<#call>] list of objects called when the app gets
+        #   initialized (i.e. just after init.rb is loaded)
+        attr_reader :init_handlers
+
+        # @return [Array<#call>] list of objects called when the app gets
+        #   initialized (i.e. in {setup} after {base_setup})
+        attr_reader :setup_handlers
+
+        # @return [Array<#call>] list of objects called when the app gets
+        #   to require its models (i.e. after {require_models})
+        attr_reader :require_handlers
+
+        # @return [Array<#call>] list of objects called when the app loaded
+        #   its configuration (i.e. after {require_config})
+        attr_reader :config_handlers
+
+        # @return [Array<#call>] list of objects called when the app cleans up
+        #   (it is the opposite of setup)
+        attr_reader :cleanup_handlers
+
+        # @return [Array<#call>] list of blocks that should be executed once the
+        #   application is started
+        attr_reader :controllers
+
+        # @return [Array<#call>] list of blocks that should be executed once the
+        #   application is started
+        attr_reader :action_handlers
 
         # Defines common configuration options valid for all Roby-oriented
         # scripts
@@ -450,15 +485,56 @@ module Roby
             @test_format_timepoints_options = Hash.new
             @test_repeat = 1
             @test_profile = []
+
+            @init_handlers = Array.new
+            @setup_handlers = Array.new
+            @require_handlers = Array.new
+            @config_handlers = Array.new
+            @cleanup_handlers = Array.new
+            @controllers = Array.new
+            @action_handlers = Array.new
 	end
 
         # The robot names configuration
         #
         # @return [App::RobotNames]
         def robots
-            robots = App::RobotNames.new(options['robots'] || Hash.new)
-            robots.strict = !!options['robots']
-            robots
+            if !@robots
+                robots = App::RobotNames.new(options['robots'] || Hash.new)
+                robots.strict = !!options['robots']
+                @robots = robots
+            end
+            @robots
+        end
+
+        # Declares a block that should be executed when the Roby app gets
+        # initialized (i.e. just after init.rb gets loaded)
+        def on_init(&block)
+            init_handlers << block
+        end
+
+        # Declares a block that should be executed when the Roby app loads
+        # models (i.e. in {require_models})
+        def on_require(&block)
+            require_handlers << block
+        end
+
+        # Declares a block that should be executed when the Roby app sets itself
+        # up (i.e. in {setup})
+        def on_config(&block)
+            config_handlers << block
+        end
+
+        # Declares that the following block should be used as the robot
+        # controller
+        def controller(&block)
+            controllers << block
+        end
+
+        # Declares that the following block should be used to setup the main
+        # action interface
+        def actions(&block)
+            action_handlers << block
         end
 
         # Looks into subdirectories of +dir+ for files called app.rb and
@@ -645,7 +721,7 @@ module Roby
             name, type = robots.resolve(name, type)
 
 	    if @robot_name
-		if name != @robot_name && type != @robot_type
+		if name != @robot_name && (@robot_type && type != @robot_type)
 		    raise ArgumentError, "the robot is already set to #{name}, of type #{type}"
 		end
 		return
@@ -880,6 +956,7 @@ module Roby
 
 	    # Set up the loaded plugins
 	    call_plugins(:require_models, self)
+            require_handlers.each(&:call)
 
             require_planners
 
@@ -890,6 +967,17 @@ module Roby
 	    # Set up the loaded plugins
 	    call_plugins(:finalize_model_loading, self)
 	end
+
+        # Helper to the robot config files to load the root files in models/
+        # (e.g. models/tasks.rb)
+        def load_default_models
+            ['tasks.rb', 'actions.rb'].each do |root_type|
+                if path = app.find_file('models', root_type)
+                    require path
+                end
+            end
+	    call_plugins(:load_default_models, self)
+        end
 
         def register_generators
             Roby.app.load_base_config
@@ -915,6 +1003,9 @@ module Roby
 
             if !defined?(Main)
                 Object.const_set(:Main, Class.new(Roby::Actions::Interface))
+            end
+            action_handlers.each do |act|
+                Main.class_eval(&act)
             end
 
             if auto_load_models?
@@ -973,7 +1064,11 @@ module Roby
 	    STDOUT.sync = true
 
             require 'roby/interface'
+
+            setup_robot_names_from_config_dir
 	    load_base_config
+            require_robot_file
+            init_handlers.each(&:call)
 
             if !Roby.control
                 Roby.control = DecisionControl.new
@@ -989,6 +1084,36 @@ module Roby
 	    call_plugins(:base_setup, self)
         end
 
+        class NoSuchRobot < ArgumentError; end
+
+        def setup_robot_names_from_config_dir
+            robot_config_files = find_files_in_dirs 'config', 'robots', 
+                all: true,
+                order: :specific_first,
+                pattern: lambda { |p| File.extname(p) == ".rb" }
+
+            robots.strict = !robot_config_files.empty?
+            robot_config_files.each do |path|
+                robot_name = File.basename(path, ".rb")
+                robots.robots[robot_name] = robot_name
+            end
+        end
+
+        def require_robot_file
+            p = find_file('config', 'robots', "#{robot_name}.rb", order: :specific_first) ||
+                find_file('config', 'robots', "#{robot_type}.rb", order: :specific_first)
+
+            if p
+                self.auto_load_models = false
+                require p
+                if !robot_type
+                    robot(robot_name, robot_name)
+                end
+            elsif robots.strict? && find_dir('config', 'robots')
+                raise NoSuchRobot, "cannot find config file for robot #{robot_name} of type #{robot_type} in config/robots/"
+            end
+        end
+
         # Does basic setup of the Roby environment. It loads configuration files
         # and sets up singleton objects.
         #
@@ -1001,9 +1126,10 @@ module Roby
         # The #cleanup method is the reverse of #setup
 	def setup
             base_setup
-
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
+            # And run the setup handlers
+            setup_handlers.each(&:call)
 
 	    require_models
             require_config
@@ -1045,6 +1171,7 @@ module Roby
             end
 
             call_plugins(:require_config, self)
+            config_handlers.each(&:call)
         end
 
         # Publishes a shell interface
