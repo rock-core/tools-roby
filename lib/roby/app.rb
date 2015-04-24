@@ -1586,6 +1586,14 @@ module Roby
             find_dirs(*args).first
         end
 
+        def setup_for_minimal_tooling
+            self.public_logs = false
+            self.auto_load_models = false
+            self.single = true
+            self.modelling_only = true
+            setup
+        end
+
         # If set to true, this Roby application will publish a public shell
         # interface. Otherwise, no shell interface is going to be published at
         # all
@@ -1610,6 +1618,9 @@ module Roby
 	def shell; self.shell = true end
 	attr_predicate :single?, true
 	def single;  @single = true end
+
+        attr_predicate :modelling_only?, true
+        def modelling_only; self.modelling_only = true end
 
         # @return [Boolean] true if Roby's auto-load feature should load all
         #   models in {search_path} or only the ones in {app_dir}. It influences
@@ -1695,12 +1706,21 @@ module Roby
             false
         end
 
-        def clear_models
+        def root_models
             [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
-             Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript].each do |root_model|
+             Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript]
+        end
+
+        def clear_model?(m)
+            !m.permanent_model? ||
+                (!testing? && model_defined_in_app?(m))
+        end
+
+        def clear_models
+            root_models.each do |root_model|
                 submodels = root_model.each_submodel.to_a.dup
                 submodels.each do |m|
-                    if model_defined_in_app?(m) || !m.permanent_model?
+                    if clear_model?(m)
                         m.clear_model
                     end
                     next if m.permanent_model?

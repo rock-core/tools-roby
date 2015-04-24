@@ -534,6 +534,14 @@ module Roby
         end
 
         def method_missing(name, *args, &update) # :nodoc:
+            if name !~ /^\w+(?:\?|=|!)?$/
+                if name[-1, 1] == '?'
+                    return false
+                else
+                    super
+                end
+            end
+
 	    name = name.to_s
 
             if name =~ FORBIDDEN_NAMES_RX

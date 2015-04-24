@@ -1,8 +1,7 @@
 require 'rubigen'
 require 'rubigen/scripts/generate'
 
-Roby.app.auto_load_models = false
-Roby.app.setup
+Roby.app.setup_for_minimal_tooling
 Roby.app.register_generators
 
 gen_name = ARGV.shift
