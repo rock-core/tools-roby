@@ -197,6 +197,12 @@ module Roby
         # It is false by default
         attr_predicate :ignore_all_load_errors?, true
 
+        # If set to true, the app will enable backward-compatible behaviour
+        # related to naming schemes, file placements and so on
+        #
+        # The default is true
+        attr_predicate :backward_compatible_naming?
+
         # If set to true, tests will show detailed execution timings
         #
         # It is false by default
@@ -242,6 +248,11 @@ module Roby
         # Returns the name of this app's toplevel module
         def module_name
             app_name.camelcase(:upper)
+        end
+
+        # Returns this app's toplevel module
+        def app_module
+            constant("::#{module_name}")
         end
 
         # Returns the application base directory
@@ -1002,11 +1013,19 @@ module Roby
                 end
             end
 
-            if !defined?(Main)
-                Object.const_set(:Main, Class.new(Roby::Actions::Interface))
+            if !app_module.const_defined_here?(:Actions)
+                app_module.const_set(:Actions, Module.new)
             end
+            if !app_module::Actions.const_defined_here?(:Main)
+                app_module::Actions.const_set(:Main, Class.new(Roby::Actions::Interface))
+            end
+
+            if backward_compatible_naming?
+                Object.const_set(:Main, app_module::Actions::Main)
+            end
+
             action_handlers.each do |act|
-                Main.class_eval(&act)
+                app_module::Actions::Main.class_eval(&act)
             end
 
             if auto_load_models?
@@ -1083,6 +1102,10 @@ module Roby
 
 	    # Set up the loaded plugins
 	    call_plugins(:base_setup, self)
+
+            if !Object.const_defined_here?(module_name)
+                Object.const_set(module_name, Module.new)
+            end
         end
 
         class NoSuchRobot < ArgumentError; end
@@ -1136,7 +1159,7 @@ module Roby
             require_config
 
 	    # Main is always included in the planner list
-            self.planners << Main
+            self.planners << app_module::Actions::Main
 	   
             # Attach the global fault tables to the plan
             self.planners.each do |planner|
