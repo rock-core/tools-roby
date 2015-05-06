@@ -1,3 +1,4 @@
+require 'facets/string/camelcase'
 require 'roby/support'
 require 'roby/robot'
 require 'roby/app/robot_names'
@@ -240,7 +241,7 @@ module Roby
 
         # Returns the name of this app's toplevel module
         def module_name
-            app_name.camelize
+            app_name.camelcase(:upper)
         end
 
         # Returns the application base directory
