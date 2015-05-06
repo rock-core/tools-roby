@@ -1885,8 +1885,13 @@ module Roby
         end
 
         def root_models
-            [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
+            models = [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
              Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript]
+
+	    each_responding_plugin(:root_models) do |config_extension|
+		models.concat(config_extension.root_models)
+	    end
+            models
         end
 
         def clear_model?(m)
