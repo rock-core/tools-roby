@@ -1160,7 +1160,7 @@ module Roby
                 if !robot_type
                     robot(robot_name, robot_name)
                 end
-            elsif robots.strict? && find_dir('config', 'robots')
+            elsif robots.strict? && find_dir('config', 'robots', order: :specific_first)
                 raise NoSuchRobot, "cannot find config file for robot #{robot_name} of type #{robot_type} in config/robots/"
             end
         end
