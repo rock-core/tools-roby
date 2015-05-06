@@ -30,6 +30,11 @@ module Roby
             # The set of tasks that failed to start since the last call to
             # #clear_integrated
             attribute(:failed_to_start) { Array.new }
+            # The list of scheduler states since the last call to
+            # #clear_integrated
+            #
+            # @return [Array<Schedulers::State>]
+            attribute(:scheduler_states) { Array.new }
 
             def self_owned?; true end
 
@@ -41,7 +46,7 @@ module Roby
                 [:finalized_events, :finalized_tasks,
                     :emitted_events,
                     :propagated_events, :postponed_events,
-                    :failed_emissions, :failed_to_start].each do |m|
+                    :failed_emissions, :failed_to_start, :scheduler_states].each do |m|
                     copy.send("#{m}=", send(m).dup)
                 end
             end
@@ -59,6 +64,29 @@ module Roby
                 clear_integrated
             end
 
+            # A consolidated representation of the states in {#scheduler_states}
+            #
+            # It removes duplicates, and removes "non-scheduled" reports for
+            # tasks that have in fine been scheduled
+            def consolidated_scheduler_state
+                state = Schedulers::State.new
+                scheduler_states.each do |s|
+                    state.pending_non_executable_tasks = s.pending_non_executable_tasks
+                    s.called_generators.each do |g|
+                        state.non_scheduled_tasks.delete(g.task)
+                        state.called_generators << g
+                    end
+                    s.non_scheduled_tasks.each do |task, reports|
+                        reports.each do |report|
+                            if !state.non_scheduled_tasks[task].include?(report)
+                                state.non_scheduled_tasks[task] << report
+                            end
+                        end
+                    end
+                end
+                state
+            end
+
             def clear_integrated
                 emitted_events.clear
                 finalized_tasks.clear
@@ -67,6 +95,7 @@ module Roby
                 postponed_events.clear
                 failed_emissions.clear
                 failed_to_start.clear
+                scheduler_states.clear
 
                 garbaged_objects.each do |object|
                     # Do remove the GCed object. We use object.finalization_time
@@ -809,6 +838,16 @@ module Roby
                 error = local_object(error)
                 generator.plan.failed_emissions << [generator, error]
                 announce_event_propagation_update(generator.plan)
+            end
+
+            def report_scheduler_state(time, plan, pending_non_executable_tasks, called_generators, non_scheduled_tasks)
+                plan = local_object(plan)
+                state = Schedulers::State.new
+                state.pending_non_executable_tasks = local_object(pending_non_executable_tasks)
+                state.called_generators = local_object(called_generators)
+                state.non_scheduled_tasks = local_object(non_scheduled_tasks)
+
+                plan.scheduler_states << state
             end
 
             class FilterLabel

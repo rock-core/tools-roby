@@ -20,7 +20,7 @@ module Roby
                 if task.running?
                     return true
                 elsif !can_start?(task)
-                    Schedulers.debug { "Temporal: won't schedule #{task} as it cannot be started" }
+                    report_holdoff "cannot be started", task
                     return false
                 end
 
@@ -37,16 +37,11 @@ module Roby
 
                 meets_constraints = start_event.meets_temporal_constraints?(time, &event_filter)
                 if !meets_constraints
-                    Schedulers.debug do
-                        if failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter)
-                            Schedulers.debug "Temporal: won't schedule #{task} as its temporal constraints are not met"
-                            Schedulers.debug "  #{failed_temporal[0]}: #{failed_temporal[1]}"
-                        end
-                        if failed_occurence = start_event.find_failed_occurence_constraint(true, &event_filter)
-                            Schedulers.debug "Temporal: won't schedule #{task} as its occurence constraints are not met"
-                            Schedulers.debug "  #{failed_occurence.map(&:to_s).join(", ")}"
-                        end
-                        break
+                    if failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter)
+                        report_holdoff "temporal constraints not met (%2: %3)", task, failed_temporal[0], failed_temporal[1]
+                    end
+                    if failed_occurence = start_event.find_failed_occurence_constraint(true, &event_filter)
+                        report_holdoff "occurence constraints not met (%2)", task, failed_occurence
                     end
                     return false
                 end
@@ -55,7 +50,7 @@ module Roby
                     begin
                         stack.push task
                         if !can_schedule?(parent.task, time, stack)
-                            Schedulers.debug { "Temporal: won't schedule #{task} as #{parent} cannot be scheduled and #{task}.schedule_as(#{parent})" }
+                            report_holdoff "%2 cannot be scheduled and %1.schedule_as(%2)", task, parent
                             return false
                         end
                     ensure

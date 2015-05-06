@@ -4,6 +4,7 @@ require 'roby/log/gui/relations_view/relations_canvas'
 
 require 'roby/log/gui/plan_rebuilder_widget'
 require 'roby/log/gui/object_info_view'
+require 'roby/log/gui/scheduler_view'
 
 module Roby
     module LogReplay
@@ -12,6 +13,7 @@ module Roby
         class RelationsView < Qt::Widget
             attr_reader :ui
             attr_reader :view
+            attr_reader :scheduler_view
             attr_reader :history_widget
 
             # In remote connections, this is he period between checking if
@@ -22,6 +24,10 @@ module Roby
                 super(parent)
                 @ui = Ui::RelationsView.new
                 ui.setupUi(self)
+                @scheduler_view = SchedulerView.new(ui.scheduler_view_holder)
+                @scheduler_view_layout = Qt::VBoxLayout.new(ui.scheduler_view_holder)
+                @scheduler_view_layout.add_widget scheduler_view
+                scheduler_view.show
 
                 @history_widget = history_widget
                 @view = RelationsDisplay::RelationsCanvas.new([history_widget.current_plan])
@@ -43,6 +49,7 @@ module Roby
             slots 'updateWindowTitle()'
 
             def setCurrentTime(time)
+                scheduler_view.display(history_widget.current_plan.consolidated_scheduler_state)
                 view.update(time)
             end
             slots 'setCurrentTime(QDateTime)'

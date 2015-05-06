@@ -170,7 +170,7 @@ module Roby::Log
     Roby::EventGenerator.include EventGeneratorHooks
 
     module ExecutionHooks
-	HOOKS = %w{cycle_end fatal_exception handled_exception nonfatal_exception}
+	HOOKS = %w{cycle_end fatal_exception handled_exception nonfatal_exception report_scheduler_state}
 
 	def cycle_end(timings)
 	    super if defined? super
@@ -189,6 +189,10 @@ module Roby::Log
         def handled_exception(error, task)
             super if defined? super
             Roby::Log.log(:handled_exception) { [error.exception, task] }
+        end
+        def report_scheduler_state(state)
+            super if defined? super
+            Roby::Log.log(:report_scheduler_state) { [plan, state.pending_non_executable_tasks, state.called_generators, state.non_scheduled_tasks] }
         end
     end
     Roby::ExecutionEngine.include ExecutionHooks

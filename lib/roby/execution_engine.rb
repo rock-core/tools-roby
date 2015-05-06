@@ -733,7 +733,11 @@ module Roby
 
         def call_propagation_handlers
             if scheduler && scheduler.enabled?
-                gather_framework_errors('scheduler') { scheduler.initial_events }
+                gather_framework_errors('scheduler') do
+                    report_scheduler_state(scheduler.state)
+                    scheduler.clear_reports
+                    scheduler.initial_events
+                end
             end
             call_poll_blocks(self.class.propagation_handlers, false)
             call_poll_blocks(self.propagation_handlers, false)
@@ -742,6 +746,11 @@ module Roby
                 call_poll_blocks(self.class.propagation_handlers, true)
                 call_poll_blocks(self.propagation_handlers, true)
             end
+        end
+
+        # Called whenever the scheduler did something, to report about its state
+        def report_scheduler_state(state)
+            super if defined? super
         end
 
         # Executes the given block while gathering errors, and returns the
