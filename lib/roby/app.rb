@@ -272,18 +272,28 @@ module Roby
                 File.directory?(File.join(test_dir, 'config', 'robots'))
         end
 
-        # Guess the app directory based on the current directory. It will not do
-        # anything if the current directory is not in a Roby app. Moreover, it
-        # does nothing if #app_dir is already set
+        # Guess the app directory based on the current directory
+        #
+        # @return [String,nil] the base of the app, or nil if the current
+        #   directory is not within an app
+        def self.guess_app_dir
+            path = Pathname.new(Dir.pwd).find_matching_parent do |test_dir|
+                Application.is_app_dir?(test_dir.to_s)
+            end
+            if path
+                path.to_s
+            end
+        end
+
+        # Guess the app directory based on the current directory, and sets
+        # {@app_dir} It will not do anything if the current directory is not in
+        # a Roby app. Moreover, it does nothing if #app_dir is already set
         #
         # @return [String] the selected app directory
         def guess_app_dir
             return if @app_dir
-            app_dir = Pathname.new(Dir.pwd).find_matching_parent do |test_dir|
-                Application.is_app_dir?(test_dir.to_s)
-            end
-            if app_dir
-                @app_dir = app_dir.to_s
+            if app_dir = self.class.guess_app_dir
+                @app_dir = app_dir
             end
         end
 
@@ -294,6 +304,23 @@ module Roby
             guess_app_dir
             if !@app_dir
                 raise ArgumentError, "your current directory does not seem to be a Roby application directory; did you forget to run 'roby init'?"
+            end
+        end
+
+        class NotInCurrentApp < UserError
+        end
+
+        # Call to check whether the current directory is within {#app_dir}. If
+        # not, raises
+        #
+        # This is called by tools for which being in another app than the
+        # currently selected would be really too confusing
+        def needs_to_be_in_current_app(allowed_outside: true)
+            guessed_dir = self.class.guess_app_dir
+            if guessed_dir && (@app_dir != guessed_dir)
+                raise NotInCurrentApp, "#{@app_dir} is currently selected, but the current directory is within #{guessed_dir}"
+            elsif !guessed_dir && !allowed_outside
+                raise NotInCurrentApp, "not currently within an app dir"
             end
         end
 
