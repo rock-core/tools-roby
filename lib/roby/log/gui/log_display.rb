@@ -1,3 +1,6 @@
+require 'roby/log/gui/relations_view/relations_view'
+require 'roby/log/gui/chronicle'
+
 module Roby
     module LogReplay
         # Main UI for log display

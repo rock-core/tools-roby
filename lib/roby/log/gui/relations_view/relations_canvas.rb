@@ -1,10 +1,11 @@
+require 'roby/log/gui/qt4_toMSecsSinceEpoch'
+require 'roby/log/gui/task_display_configuration'
+
 require 'utilrb/module/attr_predicate'
 require 'roby/distributed/protocol'
 
 require 'roby/log/dot'
 require 'roby/log/gui/styles'
-require 'roby/log/plan_rebuilder'
-require 'roby/log/gui/relations_view/relations_view'
 
 module Roby
     module LogReplay
@@ -1103,20 +1104,5 @@ module Roby
 	end
     end
     end
-end
-
-
-if $0 == __FILE__
-    require 'roby/log/file'
-    include Roby::Log
-    app     = Qt::Application.new(ARGV)
-    builder = PlanRebuild.new
-    rel     = RelationsCanvas.new(builder)
-    rel.main_widget.show
-    Roby::Log.replay(ARGV[0]) do |method_name, method_args|
-	builder.send(method_name, *method_args) if builder.respond_to?(method_name)
-	rel.send(method_name, *method_args) if rel.respond_to?(method_name)
-    end
-    app.exec
 end
 

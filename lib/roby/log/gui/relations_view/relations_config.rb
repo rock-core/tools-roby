@@ -1,4 +1,3 @@
-require 'roby/log/gui/relations_view/relations_canvas'
 require 'roby/log/gui/relations_view/relations_ui'
 
 module Ui

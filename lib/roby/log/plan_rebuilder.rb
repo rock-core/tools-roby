@@ -1,5 +1,6 @@
 require 'roby/distributed'
 require 'stringio'
+require 'roby/schedulers/state'
 
 module Roby
     module LogReplay

@@ -1,5 +1,4 @@
 require 'roby/log/logger'
-require 'roby'
 
 module Roby::Log
     module BasicObjectHooks

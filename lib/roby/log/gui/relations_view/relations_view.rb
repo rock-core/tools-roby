@@ -1,7 +1,9 @@
-require 'roby/log/plan_rebuilder'
+require 'roby/log/gui/relations_view/relations_config'
+require 'roby/log/gui/relations_view/relations_view_ui'
+require 'roby/log/gui/relations_view/relations_canvas'
+
 require 'roby/log/gui/plan_rebuilder_widget'
 require 'roby/log/gui/object_info_view'
-require 'roby/log/gui/relations_view/relations_config'
 
 module Roby
     module LogReplay
@@ -119,12 +121,6 @@ class Ui::RelationsView
 
             display.update
         end
-    end
-
-    def setupUi(view)
-        @verticalLayout = Qt::VBoxLayout.new(view)
-        @graphics = Qt::GraphicsView.new(view)
-        @verticalLayout.add_widget(@graphics)
     end
 
     ZOOM_STEP = 0.25
