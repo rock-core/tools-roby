@@ -395,12 +395,6 @@ module Roby
                     end
                     plan.clear
                     self.plan.copy_to(plan)
-                    [:finalized_events, :finalized_tasks,
-                        :emitted_events,
-                        :propagated_events, :postponed_events,
-                        :failed_emissions, :failed_to_start].each do |m|
-                        plan.send("#{m}=", self.plan.send(m).dup)
-                    end
                 end
             end
 
