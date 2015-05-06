@@ -1151,6 +1151,10 @@ module Roby
         end
 
         def require_robot_file
+            if !robot_name && !robot_type
+                return
+            end
+
             p = find_file('config', 'robots', "#{robot_name}.rb", order: :specific_first) ||
                 find_file('config', 'robots', "#{robot_type}.rb", order: :specific_first)
 
