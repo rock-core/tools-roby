@@ -1904,11 +1904,10 @@ module Roby
                 submodels = root_model.each_submodel.to_a.dup
                 submodels.each do |m|
                     if clear_model?(m)
+                        m.permanent_model = false
                         m.clear_model
+                        Roby::Transaction::Proxying.proxying_modules.delete(m)
                     end
-                    next if m.permanent_model?
-
-                    Roby::Transaction::Proxying.proxying_modules.delete(m)
                 end
             end
             call_plugins(:clear_models, self)
