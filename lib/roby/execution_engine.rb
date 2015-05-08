@@ -329,6 +329,13 @@ module Roby
         # events they would call or emit are injected in the propagation process
         # itself.
         attr_reader :external_events_handlers
+
+        # Add a handler that is called at the beginning of the execution cycle
+        #
+        # @see #add_propagation_handler
+        def at_cycle_begin(**options, &block)
+            add_propagation_handler(**options.merge(type: :external_events), &block)
+        end
         
         # The propagation handlers are blocks that should be called at
         # various places during propagation for all plans. These objects
