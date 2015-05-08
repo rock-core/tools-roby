@@ -139,12 +139,6 @@ module Roby
 	    @plan = new_plan
 	end
 
-        # The propagation engine object for this. For PlanObject instances, it
-        # is always the plan itself.
-        def propagation_engine
-            plan
-        end
-
         # Used in plan management as a way to extract a plan object from any
         # object
         def as_plan; self end
