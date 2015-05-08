@@ -65,8 +65,9 @@ end
 
 module Roby
     module Distributed
-	DISCOVERY_RING_PORT = 48901
-	DEFAULT_DROBY_PORT  = 48902
+	DEFAULT_DROBY_PORT  = 48900
+        DEFAULT_RING_PORT   = 48901
+        DEFAULT_TUPLESPACE_PORT = 48901
 
 	class InvalidRemoteOperation < RuntimeError; end
 
