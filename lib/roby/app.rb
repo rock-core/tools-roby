@@ -234,8 +234,9 @@ module Roby
         def app_name
             if @app_name
                 @app_name
-            else
+            elsif app_dir
                 File.basename(app_dir)
+            else 'default'
             end
         end
 
