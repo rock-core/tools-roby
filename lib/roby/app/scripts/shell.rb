@@ -1,7 +1,7 @@
 require 'roby'
 require 'roby/distributed'
 require 'optparse'
-require 'utilrb/readline'
+require 'readline'
 
 app = Roby.app
 app.guess_app_dir
