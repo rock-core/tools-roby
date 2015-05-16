@@ -369,6 +369,14 @@ module Roby
         logger.send level, color("= ", :bold, :red)
     end
 
+    def self.log_error(e, logger, level, with_backtrace: true)
+        if e.respond_to?(:backtrace) && with_backtrace
+            log_exception_with_backtrace(e, logger, level)
+        else
+            log_pp(e, logger, level)
+        end
+    end
+
     class BacktraceFormatter
         def initialize(exception)
             @exception = exception

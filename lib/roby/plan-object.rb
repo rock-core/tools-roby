@@ -11,6 +11,14 @@ module Roby
         # It is always self.class
         def concrete_model; self.class end
 
+        def execution_engine
+            plan.execution_engine
+        end
+
+        def connection_space
+            plan.connection_space
+        end
+
         # Generic handling object for blocks that are stored on tasks (event
         # handlers,poll, ...)
         #

@@ -13,6 +13,10 @@ module Roby
 	# The Peer object we are associated to
 	attr_reader :peer
 
+        def connection_space
+            peer.connection_space
+        end
+
         # The set of triggers our peer has added to our plan
 	attr_reader :triggers
 
