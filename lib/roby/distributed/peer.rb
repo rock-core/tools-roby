@@ -3,366 +3,7 @@ require 'utilrb/array/to_s'
 require 'utilrb/socket/tcp_socket'
 
 module Roby
-    class ExecutionEngine; include DRbUndumped end
-end
-
-module Roby::Distributed
-    class ConnectionSpace
-	def add_owner(object, peer)
-	    object.add_owner(peer, false)
-	end
-	def remove_owner(object, peer)
-	    object.remove_owner(peer, false)
-	end
-	def prepare_remove_owner(object, peer)
-	    object.prepare_remove_owner(peer)
-	rescue Exception => e
-	    e
-	end
-    end
-
-    class ConnectionTask < Roby::Task
-	local_only
-
-	argument :peer
-	event :ready
-
-	event :aborted, :terminal => true do |context|
-	    peer.disconnected!
-	end
-	forward :aborted => :failed
-
-	event :failed, :terminal => true do |context| 
-	    peer.disconnect
-	end
-	interruptible
-    end
-
-    # Base class for all communication errors
-    class ConnectionError   < RuntimeError; end
-    # Raised when a connection attempt has failed
-    class ConnectionFailedError < RuntimeError
-	def initialize(peer); @peer = peer end
-    end
-    # The peer is connected but connection is not alive
-    class NotAliveError     < ConnectionError; end
-    # The peer is disconnected
-    class DisconnectedError < ConnectionError; end
-
-    class << self
-        # This method will call PeerServer#trigger on all peers, for the
-        # objects in +objects+ which are eligible for triggering.
-        #
-        # The same task cannot match the same trigger twice. To allow that,
-        # call #clean_triggered.
-	def trigger(*objects)
-	    return unless Roby::Distributed.state 
-	    objects.delete_if do |o| 
-		o.plan != Roby::Distributed.state.plan ||
-		    !o.distribute? ||
-		    !o.self_owned?
-	    end
-	    return if objects.empty?
-
-	    # If +object+ is a trigger, send the :triggered event but do *not*
-	    # act as if +object+ was subscribed
-	    peers.each_value do |peer|
-		peer.local_server.trigger(*objects)
-	    end
-	end
-        # Remove +objects+ from the sets of already-triggered objects. So, next
-        # time +object+ will be tested for triggers, it will re-match the
-        # triggers it has already matched.
-	def clean_triggered(object)
-	    peers.each_value do |peer|
-		peer.local_server.triggers.each_value do |_, triggered|
-		    triggered.delete object
-		end
-	    end
-	end
-    end
-
-    # PeerServer objects are the objects which act as servers for the plan
-    # managers we are connected on, i.e. it will process the messages sent by
-    # those remote plan managers.
-    #
-    # The client part, that is the part which actually send the messages, is
-    # a Peer object accessible through the Peer#peer attribute.
-    class PeerServer
-	include DRbUndumped
-
-	# The Peer object we are associated to
-	attr_reader :peer
-
-        # The set of triggers our peer has added to our plan
-	attr_reader :triggers
-
-        # Create a PeerServer object for the given peer
-	def initialize(peer)
-	    @peer	    = peer 
-	    @triggers	    = Hash.new
-	end
-
-	def to_s # :nodoc:
-            "PeerServer:#{remote_name}" 
-        end
-
-        # Activate any trigger that may exist on +objects+
-        # It sends the PeerServer#triggered message for each objects that are
-        # actually matching a registered trigger.
-	def trigger(*objects)
-	    triggers.each do |id, (matcher, triggered)|
-		objects.each do |object|
-		    if !triggered.include?(object) && matcher === object
-			triggered << object
-			peer.transmit(:triggered, id, object)
-		    end
-		end
-	    end
-	end
-
-	# The name of the local ConnectionSpace object we are acting on
-	def local_name; peer.local_name end
-	# The name of the remote peer
-	def remote_name; peer.remote_name end
-	
-	# The plan object which is used as a facade for our peer
-	def plan; peer.connection_space.plan end
-
-	# Applies +matcher+ on the local plan and sends back the result
-	def query_result_set(query)
-	    plan.query_result_set(peer.local_object(query)).
-		delete_if { |obj| !obj.distribute? }
-	end
-
-	# The peers asks to be notified if a plan object which matches
-	# +matcher+ changes
-	def add_trigger(id, matcher)
-	    triggers[id] = [matcher, (triggered = ValueSet.new)]
-	    Roby::Distributed.info "#{remote_name} wants notification on #{matcher} (#{id})"
-
-	    peer.queueing do
-		matcher.each(plan) do |task|
-		    if !triggered.include?(task)
-			triggered << task
-			peer.transmit(:triggered, id, task)
-		    end
-		end
-	    end
-	    nil
-	end
-
-	# Remove the trigger +id+ defined by this peer
-	def remove_trigger(id)
-	    Roby::Distributed.info "#{remote_name} removed #{id} notification"
-	    triggers.delete(id)
-	    nil
-	end
-
-        # Message received when +task+ has matched the trigger referenced by +id+
-	def triggered(id, task)
-	    peer.triggered(id, task) 
-	    nil
-	end
-
-	# Send the neighborhood of +distance+ hops around +object+ to the peer
-	def discover_neighborhood(object, distance)
-	    object = peer.local_object(object)
-	    edges = object.neighborhood(distance)
-	    if object.respond_to?(:each_plan_child)
-		object.each_plan_child do |plan_child|
-		    edges += plan_child.neighborhood(distance)
-		end
-	    end
-
-	    # Replace the relation graphs by their name
-	    edges.delete_if do |rel, from, to, info|
-		!(rel.distribute? && from.distribute? && to.distribute?)
-	    end
-	    edges
-	end
-    end
-
-    # This object manages the RemoteID sent by the remote peers, making sure
-    # that there is at most one proxy task locally for each ID received
-    class RemoteObjectManager
-        # The main plan managed by this plan manager. Main plans are mapped to
-        # one another across dRoby connections
-        attr_reader :plan
-	# The set of proxies for object from this remote peer
-	attr_reader :proxies
-	# The set of proxies we are currently removing. See BasicObject#forget_peer
-	attr_reader :removing_proxies
-        # This method is used by Distributed.format to determine the dumping
-        # policy for +object+. If the method returns true, then only the
-        # RemoteID object of +object+ will be sent to the peer. Otherwise,
-        # an intermediate object describing +object+ is sent.
-	def incremental_dump?(object)
-	    object.respond_to?(:remote_siblings) && object.remote_siblings[self] 
-	end
-
-        # If true, the manager will use the remote_siblings hash in the
-        # marshalled data to determine which proxy #local_object should return.
-        #
-        # If false, it won't
-        #
-        # It is true by default. Only logging needs to disable it as the logger
-        # is not a dRoby peer
-        attr_predicate :use_local_sibling?, true
-
-        def initialize(plan)
-            @plan = plan
-	    @proxies	  = Hash.new
-	    @removing_proxies = Hash.new { |h, k| h[k] = Array.new }
-            @use_local_sibling = true
-        end
-
-	# Returns the remote object for +object+. +object+ can be either a
-	# DRbObject, a marshalled object or a local proxy. In the latter case,
-	# a RemotePeerMismatch exception is raised if the local proxy is not
-	# known to this peer.
-	def remote_object(object)
-	    if object.kind_of?(RemoteID)
-		object
-	    else object.sibling_on(self)
-	    end
-	end
-	
-	# Returns the remote_object, local_object pair for +object+. +object+
-	# can be either a marshalled object or a local proxy. Raises
-	# ArgumentError if it is none of the two. In the latter case, a
-	# RemotePeerMismatch exception is raised if the local proxy is not
-	# known to this peer.
-	def objects(object, create_local = true)
-	    if object.kind_of?(RemoteID)
-		if local_proxy = proxies[object]
-		    proxy_setup(local_proxy)
-		    return [object, local_proxy]
-		end
-		raise ArgumentError, "got a RemoteID which has no proxy"
-	    elsif object.respond_to?(:proxy)
-		[object.remote_object, local_object(object, create_local)]
-	    else
-		[object.sibling_on(self), object]
-	    end
-	end
-
-	def proxy_setup(local_object)
-	    local_object
-	end
-
-	# Returns the local object for +object+. +object+ can be either a
-	# marshalled object or a local proxy. Raises ArgumentError if it is
-	# none of the two. In the latter case, a RemotePeerMismatch exception
-	# is raised if the local proxy is not known to this peer.
-	def local_object(marshalled, create = true)
-	    if marshalled.kind_of?(RemoteID)
-		return marshalled.to_local(self, create)
-	    elsif !marshalled.respond_to?(:proxy)
-		return marshalled
-	    elsif marshalled.respond_to?(:remote_siblings)
-		# 1/ try any local RemoteID reference registered in the marshalled object
-		local_id  = marshalled.remote_siblings[Roby::Distributed.droby_dump]
-		if use_local_sibling? && local_id
-		    local_object = local_id.local_object rescue nil
-		    local_object = nil if local_object.finalized?
-		end
-
-		# 2/ try the #proxies hash
-		if !local_object 
-                    marshalled.remote_siblings.each_value do |remote_id|
-                        if local_object = proxies[remote_id]
-                            break
-                        end
-                    end
-
-                    if !local_object
-			if !create
-                            return
-                        end
-
-			# remove any local ID since we are re-creating it
-                        if use_local_sibling?
-                            marshalled.remote_siblings.delete(Roby::Distributed.droby_dump)
-                        end
-			local_object = marshalled.proxy(self)
-
-                        # NOTE: the proxies[] hash is updated by the BasicObject
-                        # and BasicObject::DRoby classes, mostly in #update()
-                        #
-                        # This is so as we have to distinguish between "register
-                        # proxy locally" (#add_sibling_for) and "register proxy
-                        # locally and announce it to our peer" (#sibling_of)
-		    end
-		end
-
-		if !local_object
-		    raise "no remote siblings for #{remote_name} in #{marshalled} (#{marshalled.remote_siblings})"
-		end
-
-		if marshalled.respond_to?(:update)
-		    Roby::Distributed.update(local_object) do
-			marshalled.update(self, local_object) 
-		    end
-		end
-		proxy_setup(local_object)
-	    else
-		local_object = marshalled.proxy(self)
-	    end
-
-	    local_object
-	end
-	alias proxy local_object
-
-        # Copies the state of this object manager, using +mappings+ to convert
-        # the local objects
-        #
-        # If mappings is not given, an identity is used
-        def copy_to(other_manager, mappings = nil)
-            mappings ||= Hash.new { |h, k| k }
-            proxies.each do |sibling, local_object|
-                if mappings.has_key?(local_object)
-                    other_manager.proxies[sibling] = mappings[local_object]
-                end
-            end
-        end
-
-        # Returns a new local model named +name+ created by this remote object
-        # manager
-        #
-        # This is used to customize the anonymous model building process based
-        # on the RemoteObjectManager instance that is being provided
-        def local_model(parent_model, name)
-            Roby::Distributed::DRobyModel.anon_model_factory(parent_model, name)
-        end
-
-        # Returns a new local task tag named +name+ created by this remote
-        # object manager
-        #
-        # This is used to customize the anonymous task tag building process
-        # based on the RemoteObjectManager instance that is being provided
-        def local_task_tag(name)
-            Roby::Models::TaskServiceModel::DRoby.anon_tag_factory(name)
-        end
-
-        # Called when +remote_object+ is a sibling that should be "forgotten"
-        #
-        # It is usually called by Roby::BasicObject#remove_sibling_for
-        def removed_sibling(remote_object)
-            if remote_object.respond_to?(:remote_siblings)
-                remote_object.remote_siblings.each_value do |remote_id|
-                    proxies.delete(remote_id)
-                end
-            else
-                proxies.delete(remote_object)
-            end
-        end
-
-        def clear
-            proxies.clear
-            removing_proxies.clear
-        end
-    end
+    module Distributed
 
     # A Peer object is the client part of a connection with a remote plan
     # manager. The server part, i.e. the object which actually receives
@@ -462,22 +103,13 @@ module Roby::Distributed
 	    @dead	  = false
 	    @disabled_rx  = 0
 	    @disabled_tx  = 0
-	    connection_space.pending_sockets << [socket, self]
+            local_server.state_update remote_state
 
 	    @connection_state = :connected
 	    @send_queue       = Queue.new
 	    @completion_queue = Queue.new
 	    @current_cycle    = Array.new
-
-	    Roby::Distributed.peers[remote_id]   = self
-	    local_server.state_update remote_state
-
-	    @task = ConnectionTask.new :peer => self
-	    connection_space.plan.engine.once do
-		connection_space.plan.add_permanent(task)
-		task.start!
-		task.emit(:ready)
-	    end
+            @task = ConnectionTask.new(peer: self)
 
 	    @send_thread      = Thread.new(&method(:communication_loop))
 	end
@@ -620,8 +252,788 @@ module Roby::Distributed
 		objects.each { |obj| Roby::Distributed.keep.deref(obj) }
 	    end
 	end
+
+        class << self
+            private :new
+        end
+
+        # ConnectionToken objects are used to sort out concurrent
+        # connections, i.e. cases where two peers are trying to initiate a
+        # connection with each other at the same time.
+        #
+        # When this situation appears, each peer compares its own token
+        # with the one sent by the remote peer. The greatest token wins and
+        # is considered the initiator of the connection.
+        #
+        # See #initiate_connection
+        class ConnectionToken
+            attr_reader :time, :value
+            def initialize
+                @time  = Time.now
+                @value = rand
+            end
+            def <=>(other)
+                result = (time <=> other.time)
+                if result == 0
+                    value <=> other.value
+                else
+                    result
+                end
+            end
+            include Comparable
+        end
+
+        # A value indicating the current status of the connection. It can
+        # be one of :connected, :disconnecting, :disconnected
+        attr_reader :connection_state
+
+        # Connect to +neighbour+ and return the corresponding peer. It is a
+        # blocking method, so it is an error to call it from within the control thread
+        def self.connect(neighbour, connection_space = Distributed.state)
+            Roby.condition_variable(true) do |cv, mutex|
+                peer = nil
+                mutex.synchronize do
+                    thread = initiate_connection(connection_space, neighbour) do |peer|
+                        return peer unless thread
+                    end
+
+                    begin
+                        mutex.unlock
+                        thread.value
+                    rescue Exception => e
+                        connection_space.synchronize do
+                            connection_space.pending_connections.delete(neighbour.remote_id)
+                        end
+                        raise ConnectionFailed.new(neighbour), e.message
+                    ensure
+                        mutex.lock
+                    end
+                end
+            end
+        end
+        
+        # Start connecting to +neighbour+ in an another thread and yield
+        # the corresponding Peer object. This is safe to call if we have
+        # already connected to +neighbour+, in which case the already
+        # existing peer is returned.
+        #
+        # The Peer object is yield from within the control thread, only
+        # when the :ready event of the peer's ConnectionTask has been
+        # emitted
+        #
+        # Returns the connection thread
+        def self.initiate_connection(connection_space, neighbour, &block)
+            connection_space.synchronize do
+                if peer = connection_space.peers[neighbour.remote_id]
+                    # already connected
+                    yield(peer) if block_given?
+                    return
+                end
+
+                local_token = ConnectionToken.new
+                call = [:connect, local_token,
+                    connection_space.name,
+                    connection_space.remote_id, 
+                    Distributed.format(Roby::State)]
+                send_connection_request(connection_space, neighbour, call, local_token, &block)
+            end
+        end
+
+        def self.abort_connection_thread(connection_space, remote_id, lock = true)
+            if lock
+                connection_space.synchronize do
+                    abort_connection_thread(connection_space, remote_id, false)
+                end
+            end
+
+            connection_space.pending_connections.delete(remote_id)
+            if peer = connection_space.peers[remote_id]
+                begin
+                    connection_space.mutex.unlock
+                    peer.disconnected(:aborted)
+                ensure
+                    connection_space.mutex.lock
+                end
+            end
+        end
+
+        def self.send_connection_thread(connection_space, neighbour, call, local_token, &block)
+            remote_id = neighbour.remote_id
+            Thread.current.abort_on_exception = false
+
+            begin
+                socket = TCPSocket.new(remote_id.uri, remote_id.ref)
+            rescue Errno::ECONNRESET, Errno::ECONNREFUSED
+                abort_connection_thread(connection_space, remote_id)
+                return
+            end
+
+            begin
+                socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
+                Distributed.debug "#{call[0]}: #{neighbour} on #{socket.peer_info}"
+
+                # Send the connection request
+                call = Marshal.dump(call)
+                socket.write [call.size].pack("N")
+                socket.write call
+
+                reply_size = socket.read(4)
+                if !reply_size
+                    raise "peer disconnected"
+                end
+                reply = Marshal.load(socket.read(*reply_size.unpack("N")))
+            rescue Errno::ECONNRESET, Errno::ENOTCONN
+                abort_connection_thread(connection_space, remote_id)
+                return
+            end
+
+            connection_space.synchronize do
+                connection_space.pending_connections.delete(remote_id)
+                m = reply.shift
+                Roby::Distributed.debug "remote peer #{m}"
+
+                # if the remote peer is also connecting, and if its
+                # token is better than our own, m will be nil and thus
+                # the thread will finish without doing anything
+
+                case m
+                when :connected
+                    peer = new(connection_space, socket, *reply)
+                when :reconnected
+                    peer = connection_space.peers[remote_id]
+                    peer.reconnected(socket)
+                when :aborted
+                    abort_connection_thread(connection_space, remote_id, false)
+                    return
+                when :already_connecting, :already_connected
+                    peer = connection_space.peers[remote_id]
+                end
+
+                yield(peer) if peer && block_given?
+                peer
+            end
+        end
+
+        # Generic handling of connection/reconnection initiated by this side
+        def self.send_connection_request(connection_space, neighbour, call, local_token, &block) # :nodoc:
+            remote_id = neighbour.remote_id
+            token, connecting_thread = connection_space.pending_connections[remote_id]
+            if token
+                # we are already connecting to the peer, check the connection token
+                peer = begin
+                           connection_space.mutex.unlock
+                           connecting_thread.value
+                       ensure
+                           connection_space.mutex.lock
+                       end
+
+                if token < local_token
+                    if !peer
+                        raise "something went wrong during connection: got nil peer with better token"
+                    end
+                    yield(peer) if block_given?
+                    return
+                end
+            end
+
+
+            connecting_thread = Thread.new do
+                send_connection_thread(connection_space, neighbour, call, local_token, &block)
+            end
+            connection_space.pending_connections[remote_id] = [local_token, connecting_thread]
+            connecting_thread
+        end
+        
+        # Reconnect to the given peer after the socket closed
+        def reconnect
+            local_token = ConnectionToken.new
+
+            connection_space.synchronize do
+                call = [:reconnect, local_token, connection_space.name, connection_space.remote_id]
+                Peer.send_connection_request(connection_space, self, call, local_token)
+            end
+        end
+
+        # Called when we managed to reconnect to our peer. +socket+ is the new communication socket
+        def reconnected(socket)
+            Roby::Distributed.debug "new socket for #{self}: #{socket.peer_info}"
+            connection_space.pending_sockets << [socket, self]
+            @socket = socket
+        end
+
+        # Normal disconnection procedure. 
+        #
+        # The procedure is as follows:
+        # * we set the connection state as 'disconnecting'. This disables all
+        #   notifications for this peer (see for instance
+        #   Distributed.each_subscribed_peer)
+        # * we queue the :disconnected message
+        #
+        # At this point, we are waiting for the remote peer to do the same:
+        # send us 'disconnected'. When we receive that message, we put the
+        # connection into the disconnected state and all transmission is
+        # forbidden. We make the transmission thread quit then, and the
+        # 'failed' event is emitted on the ConnectionTask task
+        #
+        # Note that once the connection leaves the connected state, the only
+        # messages allowed by #queue_call are 'completed' and 'disconnected'
+        def disconnect
+            synchronize do
+                Roby::Distributed.info "disconnecting from #{self}"
+                @connection_state = :disconnecting
+            end
+            queue_call false, :disconnect
+        end
+
+        # +error+ has been raised while we were processing +msg+(*+args+)
+        # This error cannot be recovered, and the connection to the peer
+        # will be closed.
+        #
+        # This sends the PeerServer#fatal_error message to our peer
+        def fatal_error(error, msg, args)
+            synchronize do
+                Roby::Distributed.fatal "fatal error '#{error.message}' while processing #{msg}(#{args.join(", ")})"
+                Roby::Distributed.fatal Roby.filter_backtrace(error.backtrace).join("\n  ")
+                @connection_state = :disconnecting
+            end
+            queue_call false, :fatal_error, [error, msg, args]
+        end
+
+        # Called when the peer acknowledged the fact that we disconnected
+        def disconnected(event = :failed) # :nodoc:
+            Roby::Distributed.info "#{remote_name} disconnected (#{event})"
+
+            connection_space.synchronize do
+                Distributed.peers.delete(remote_id)
+            end
+
+            synchronize do
+                @connection_state = :disconnected
+
+                if @send_thread && @send_thread != Thread.current
+                    begin
+                        @send_queue.clear
+                        @send_queue.push nil
+                        mutex.unlock
+                        @send_thread.join
+                    ensure
+                        mutex.lock
+                    end
+                end
+                @send_thread = nil
+
+                proxies.each_value do |obj|
+                    obj.remote_siblings.delete(self)
+                end
+                proxies.clear
+                removing_proxies.clear
+
+                socket.close unless socket.closed?
+            end
+
+            engine.once do
+                task.emit(event)
+            end
+        end
+
+        # Call to disconnect outside of the normal protocol.
+        def disconnected!
+            connection_space.synchronize do
+                connection_space.aborted_connections[remote_id] = self
+            end
+            disconnected(:aborted)
+        end
+
+        # Returns true if the connection has been established. See also #link_alive?
+        def connected?; connection_state == :connected end
+        # Returns true if the we disconnected on our side but the peer did not
+        # acknowledge it yet
+        def disconnecting?; connection_state == :disconnecting end
+        # Returns true if the connection with this peer has been removed
+        def disconnected?; connection_state == :disconnected end
+
+        # Mark the link as dead regardless of the last neighbour discovery. This
+        # will be reset during the next neighbour discovery
+        def link_dead!; @dead = true end
+        
+        # Disables the sending part of the communication link. It is an
+        # accumulator: if #disable_tx is called twice, then TX will be
+        # reenabled only when #enable_tx is also called twice.
+        def disable_tx; @disabled_tx += 1 end
+        # Enables the sending part of the communication link. It is an
+        # accumulator: if #enable_tx is called twice, then TX will be
+        # disabled only when #disable_tx is also called twice.
+        def enable_tx; @disabled_tx -= 1 end
+        # True if TX is currently disabled
+        def disabled_tx?; @disabled_tx > 0 end
+        # Disables the receiving part of the communication link. It is an
+        # accumulator: if #disable_rx is called twice, then RX will be
+        # reenabled only when #enable_rx is also called twice.
+        def disable_rx; @disabled_rx += 1 end
+        # Enables the receiving part of the communication link. It is an
+        # accumulator: if #enable_rx is called twice, then RX will be
+        # disabled only when #disable_rx is also called twice.
+        def enable_rx; @disabled_rx -= 1 end
+        # True if RX is currently disabled
+        def disabled_rx?; @disabled_rx > 0 end
+
+        # Checks if the connection is currently alive, i.e. if we can send
+        # data on the link. This does not mean that we currently have no
+        # interaction with the peer: it only means that we cannot currently
+        # communicate with it.
+        def link_alive?
+            return false if socket.closed? || @dead || @disabled_tx > 0
+            return false unless !remote_id || connection_space.neighbours.find { |n| n.remote_id == remote_id }
+            true
+        end
+
+        # The main synchronization mutex to access the peer. See also
+        # Peer#synchronize
+        attr_reader :mutex
+        def synchronize; @mutex.synchronize { yield } end
+
+        # The transmission thread
+        attr_reader :send_thread
+        # The queue which holds all calls to the remote peer. Calls are
+        # saved as CallSpec objects
+        attr_reader :send_queue
+        # The queue of calls that have been sent to our peer, but for which
+        # a +completed+ message has not been received. This is a queue of
+        # CallSpec objects
+        attr_reader :completion_queue
+        # The cycle data which is being gathered before queueing it into #send_queue
+        attr_reader :current_cycle
+
+        @@message_id = 0
+
+        # Checks that +object+ is marshallable. If +object+ is a
+        # collection, it will check that each of its elements is
+        # marshallable first. This is automatically called for all
+        # messages if DEBUG_MARSHALLING is set to true.
+        def check_marshallable(object, stack = ValueSet.new)
+            if !object.kind_of?(DRbObject) && object.respond_to?(:each) && !object.kind_of?(String)
+                if stack.include?(object)
+                    Roby::Distributed.warn "recursive marshalling of #{obj}"
+                    raise "recursive marshalling"
+                end
+
+                stack << object
+                begin
+                    object.each do |obj|
+                        marshalled = begin
+                                         check_marshallable(obj, stack)
+                                     rescue Exception
+                                         raise TypeError, "cannot dump #{obj}(#{obj.class}): #{$!.message}"
+                                     end
+
+                            
+                        if Marshal.load(marshalled).kind_of?(DRb::DRbUnknown)
+                            raise TypeError, "cannot load #{obj}(#{obj.class})"
+                        end
+                    end
+                ensure
+                    stack.delete(object)
+                end
+            end
+            Marshal.dump(object)
+        end
+
+        # This set of calls mark the end of a cycle. When one of these is
+        # encountered, the calls gathered in #current_cycle are moved into
+        # #send_queue
+        CYCLE_END_CALLS = [:connect, :disconnect, :fatal_error, :state_update]
+
+        attr_predicate :sync?, true
+        
+        # Add a CallSpec object in #send_queue. Do not use that method
+        # directly, but use #transmit and #call instead.
+        #
+        # The message to be sent is m(*args).  +on_completion+ is either
+        # nil or a block object which should be called once the message has
+        # been processed by our remote peer. +waiting_thread+ is a Thread
+        # object of a thread waiting for the message to be processed.
+        # #raise will be called on it if an error has occured during the
+        # remote processing.
+        #
+        # If +is_callback+ is true, it means that the message is being
+        # queued during the processing of another message. In that case, we
+        # will receive the completion message only when all callbacks have
+        # also been processed. Queueing callbacks while processing another
+        # callback is forbidden and the communication layer raises
+        # RecursiveCallbacksError if it happens.
+        #
+        # #queueing allow to queue normal messages when they would have
+        # been marked as callbacks.
+        def queue_call(is_callback, m, args = [], on_completion = nil, waiting_thread = nil)
+            # Do some sanity checks
+            if !m.respond_to?(:to_sym)
+                raise ArgumentError, "method argument should be a symbol, was #{m.class}"
+            end
+
+            # Check the connection state
+            if (disconnecting? && m != :disconnect && m != :fatal_error) || disconnected?
+                raise DisconnectedError, "cannot queue #{m}(#{args.join(", ")}), we are not currently connected to #{remote_name}"
+            end
+
+            # Marshal DRoby-dumped objects now, since the object may be
+            # modified between now and the time it is sent
+            formatted_args = Distributed.format(args, self)
+
+            if Roby::Distributed::DEBUG_MARSHALLING
+                check_marshallable(formatted_args)
+            end
+            
+            call_spec = CallSpec.new(is_callback, 
+                                     m, formatted_args, args, 
+                                     on_completion, caller(2), waiting_thread)
+
+            synchronize do
+                # No return message for 'completed' (of course)
+                if call_spec.method != :completed
+                    @@message_id += 1
+                    call_spec.message_id = @@message_id
+                    completion_queue << call_spec
+
+                elsif !current_cycle.empty? && !(args[0] || args[1])
+                    # Try to merge empty completed messages
+                    last_call = current_cycle.last
+                    last_method, last_args = last_call[1], last_call[2]
+
+                    case last_method
+                    when :completed
+                        if !(last_args[0] || last_args[1])
+                            Distributed.debug "merging two completion messages"
+                            current_cycle.pop
+                            call_spec.method = :completion_group
+                            call_spec.formatted_args = [last_args[2], args[2]]
+                        end
+                    when :completion_group
+                        Distributed.debug "extending a completion group"
+                        current_cycle.pop
+                        call_spec.method = :completion_group
+                        call_spec.formatted_args = [last_args[0], args[2]]
+                    end
+                end
+
+                Distributed.debug { "#{call_spec.is_callback ? 'adding callback' : 'queueing'} [#{call_spec.message_id}]#{remote_name}.#{call_spec.method}" }
+                current_cycle    << [call_spec.is_callback, call_spec.method, call_spec.formatted_args, !waiting_thread, call_spec.message_id]
+                if sync? || CYCLE_END_CALLS.include?(m)
+                    Distributed.debug "transmitting #{@current_cycle.size} calls"
+                    send_queue << current_cycle
+                    @current_cycle = Array.new
+                end
+            end
+        end
+
+        # If #transmit calls are done in the block given to #queueing, they
+        # will queue the call normally, instead of marking it as callback
+        def queueing
+            old_processing = local_server.processing?
+
+            local_server.processing = false
+            yield
+
+        ensure
+            local_server.processing = old_processing
+        end
+
+        # call-seq:
+        #   peer.transmit(method, arg1, arg2, ...) { |ret| ... }
+        #
+        # Asynchronous call to the remote host. If a block is given, it is
+        # called in the communication thread when the call succeeds, with
+        # the returned value as argument.
+        def transmit(m, *args, &block)
+            is_callback = engine.inside_control? && local_server.processing?
+            if is_callback && local_server.processing_callback?
+                raise RecursiveCallbacksError, "cannot queue callback #{m}(#{args.join(", ")}) while serving one"
+            end
+            
+            queue_call is_callback, m, args, block
+        end
+
+        # call-seq:
+        #	peer.call(method, arg1, arg2)	    => result
+        #
+        # Calls a method synchronously and returns the value returned by
+        # the remote server. If we disconnect before this call is
+        # processed, raises DisconnectedError. If the remote server returns
+        # an exception, this exception is raised in the calling thread as
+        # well.
+        #
+        # Note that it is forbidden to use this method in control or
+        # communication threads, as it would make the application deadlock
+        def call(m, *args, &block)
+            if !engine.outside_control? || Roby.taken_global_lock?
+                raise "cannot use Peer#call in control thread or while taking the Roby global lock"
+            end
+
+            result = nil
+            Roby.condition_variable(true) do |cv, mt|
+                mt.synchronize do
+                    Distributed.debug do
+                        "calling #{remote_name}.#{m}"
+                    end
+
+                    called = false
+                    callback = Proc.new do |return_value|
+                        mt.synchronize do
+                            result = return_value
+                            block.call(return_value) if block
+                            called = true
+                            cv.broadcast
+                        end
+                    end
+
+                    queue_call false, m, args, callback, Thread.current
+                    until called
+                        cv.wait(mt)
+                    end
+                end
+            end
+
+            result
+        end
+
+        # Main loop of the thread which communicates with the remote peer
+        def communication_loop
+            Thread.current.priority = 2
+            id = 0
+            data   = nil
+            buffer = StringIO.new(" " * 8, 'w')
+
+            Roby::Distributed.debug "starting communication loop to #{self}"
+
+            loop do
+                data ||= send_queue.shift
+                return if disconnected?
+
+                # Wait for the link to be alive before sending anything
+                while !link_alive?
+                    return if disconnected?
+                    Roby::Distributed.info "#{self} is out of reach. Waiting before transmitting"
+                    connection_space.wait_next_discovery
+                end
+                return if disconnected?
+
+                buffer.truncate(8)
+                buffer.seek(8)
+                Marshal.dump(data, buffer)
+                buffer.string[0, 8] = [id += 1, buffer.size - 8].pack("NN")
+
+                begin
+                    size = buffer.string.size
+                    Roby::Distributed.debug { "sending #{size}B to #{self}" }
+                    stats.tx += size
+                    socket.write(buffer.string)
+
+                    data = nil
+                rescue Errno::EPIPE
+                    @dead = true
+                    # communication error, retry sending the data (or, if we are disconnected, return)
+                end
+            end
+
+        rescue Interrupt
+        rescue Exception
+            Distributed.fatal do
+                "While sending #{data.inspect}\n" +
+                "Communication thread dies with\n#{$!.full_message}"
+            end
+
+            disconnected!
+
+        ensure
+            Distributed.info "communication thread quitting for #{self}. Rx: #{stats.rx}B, Tx: #{stats.tx}B"
+            calls = []
+            while !completion_queue.empty?
+                calls << completion_queue.shift
+            end
+
+            calls.each do |call_spec|
+                next unless call_spec
+                if thread = call_spec.waiting_thread
+                    thread.raise DisconnectedError
+                end
+            end
+
+            Distributed.info "communication thread quit for #{self}"
+        end
+
+        # Formats an error message because +error+ has been reported by +call+
+        def report_remote_error(call, error)
+            error_message = error.full_message { |msg| msg !~ /drb\/[\w+]\.rb/ }
+            if call
+                "#{remote_name} reports an error on #{call}:\n#{error_message}\n" +
+                "call was initiated by\n  #{call.trace.join("\n  ")}"
+            else
+                "#{remote_name} reports an error on:\n#{error_message}"
+            end
+        end
+
+        # Calls the completion block that has been given to #transmit when
+        # +call+ is completed (the +on_completion+ parameter of
+        # #queue_call). A remote call is completed when it has been
+        # processed remotely *and* the callbacks returned by the remote
+        # server (if any) have been processed as well. +result+ is the
+        # value returned by the remote server.
+        def call_attached_block(call, result)
+            if block = call.on_completion
+                begin
+                    Roby::Distributed.debug "calling completion block #{block} for #{call}"
+                    block.call(result)
+                rescue Exception => e
+                    Roby.application_error(:droby_callbacks, block, e)
+                end
+            end
+        end
+
+        def synchro_point; call(:synchro_point) end
+
+        # An intermediate representation of Peer objects suitable to be
+        # sent to our peers.
+        class DRoby # :nodoc:
+            attr_reader :name, :peer_id
+            def initialize(name, peer_id); @name, @peer_id = name, peer_id end
+            def hash; peer_id.hash end
+            def eql?(obj); obj.respond_to?(:peer_id) && peer_id == obj.peer_id end
+            alias :== :eql?
+
+            def to_s; "#<dRoby:Peer #{name} #{peer_id}>" end 
+            def proxy(peer)
+                if peer = Distributed.peer(peer_id)
+                    peer
+                else
+                    raise "unknown peer ID #{peer_id}, known peers are #{Distributed.peers}"
+                end
+            end
+        end
+    
+        # Returns an intermediate representation of +self+ suitable to be sent
+        # to the +dest+ peer.
+        def droby_dump(dest = nil)
+            @__droby_marshalled__ ||= DRoby.new(remote_name, remote_id)
+        end
+
+        # Creates a sibling for +object+ on the peer, and returns the corresponding
+        # DRbObject
+        def create_sibling(object)
+            unless object.kind_of?(DistributedObject)
+                raise TypeError, "cannot create a sibling for a non-distributed object"
+            end
+
+            call(:create_sibling, object)
+            subscriptions << object.sibling_on(self)
+            Roby.synchronize do
+                local_server.subscribe(object)
+            end
+
+            synchro_point
+        end
+
+        # The set of remote objects we *want* notifications on, as
+        # RemoteID objects. This does not include automatically susbcribed
+        # objects, but only those explicitely subscribed to by calling
+        # Peer#subscribe
+        #
+        # See also #subscribe, #subscribed? and #unsubscribe
+        #
+        #--
+        # DO NOT USE a ValueSet here. RemoteIDs must be compared using #==
+        #++
+        attribute(:subscriptions) { Set.new }
+
+        # Explicitely subscribe to #object
+        #
+        # See also #subscriptions, #subscribed? and #unsubscribe
+        def subscribe(object)
+            while object.respond_to?(:__getobj__)
+                object = object.__getobj__
+            end
+
+            if remote_object = (remote_object(object) rescue nil)
+                if !subscriptions.include?(remote_object)
+                    remote_object = nil
+                end
+            end
+
+            unless remote_object
+                remote_sibling = object.sibling_on(self)
+                remote_object = call(:subscribe, remote_sibling)
+                synchro_point
+            end
+            local_object = local_object(remote_object)
+        end
+
+        # Make our peer subscribe to +object+
+        def push_subscription(object)
+            local_server.subscribe(object)
+            synchro_point
+        end
+
+        # The RemoteID for the peer main plan
+        attr_accessor :remote_plan
+
+        # Subscribe to the remote plan
+        def subscribe_plan
+            call(:subscribe_plan, connection_space.plan.remote_id)
+            synchro_point
+        end
+
+        # Unsubscribe from the remote plan
+        def unsubscribe_plan
+            proxies.delete(remote_plan)
+            subscriptions.delete(remote_plan)
+            if connected?
+                call(:removed_sibling, @remote_plan, connection_space.plan.remote_id)
+            end
+        end
+        
+        def subscribed_plan?; remote_plan && subscriptions.include?(remote_plan) end
+
+        # True if we are explicitely subscribed to +object+. Automatically
+        # subscribed objects will not be included here, but
+        # BasicObject#updated? will return true for them
+        #
+        # See also #subscriptions, #subscribe and #unsubscribe
+        def subscribed?(object)
+            subscriptions.include?(remote_object(object))
+        rescue RemotePeerMismatch
+            false
+        end
+
+        # Remove an explicit subscription. See also #subscriptions,
+        # #subscribe and #subscribed?
+        #
+        # See also #subscriptions, #subscribe and #subscribed?
+        def unsubscribe(object)
+            subscriptions.delete(remote_object(object))
+        end
+
+        # Send the information related to the given transaction in the
+        # remote plan manager.
+        def transaction_propose(trsc)
+            synchro_point
+            create_sibling(trsc)
+            nil
+        end
+
+        # Give the edition token on +trsc+ to the given peer.
+        # +needs_edition+ is a flag which, if true, requests that the token
+        # is given back at least once to the local plan manager.
+        #
+        # Do not use this directly, it is part of the multi-robot
+        # communication protocol. Use the edition-related methods on
+        # Distributed::Transaction instead.
+        def transaction_give_token(trsc, needs_edition)
+            call(:transaction_give_token, trsc, needs_edition)
+        end
+
+        def once(&block)
+            execution_engine.once(&block)
+        end
+    end
+
     end
 end
-
-require 'roby/distributed/subscription'
 

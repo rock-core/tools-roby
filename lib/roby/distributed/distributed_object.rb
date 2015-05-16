@@ -142,65 +142,6 @@ module Roby
 	    end
 	    Roby.return_condition_variable(synchro, mutex)
 	end
-
-	class PeerServer
-            # Message sent when our remote peer requests that we create a local
-            # representation for one of its objects. It therefore creates a
-            # sibling for +marshalled_object+, which is a representation of a
-            # distributed object present on our peer.
-            #
-            # It calls #created_sibling on +marshalled_object+ with the new
-            # created sibling, to allow for specific operations to be done on
-            # it.
-	    def create_sibling(marshalled_object)
-		object_remote_id = peer.remote_object(marshalled_object)
-		if sibling = peer.proxies[object_remote_id]
-		    raise ArgumentError, "#{marshalled_object} has already a sibling (#{sibling})"
-		end
-
-		sibling = marshalled_object.sibling(peer)
-		peer.subscriptions << object_remote_id
-		marshalled_object.created_sibling(peer, sibling)
-		nil
-	    end
-
-            # Message received when +owner+ is a peer which now owns +object+
-	    def add_owner(object, owner)
-		peer.local_object(object).add_owner(peer.local_object(owner), false)
-		nil
-	    end
-            # Message received when +owner+ does not own +object+ anymore
-	    def remove_owner(object, owner)
-		peer.local_object(object).remove_owner(peer.local_object(owner), false)
-		nil
-	    end
-            # Message received before #remove_owner, to verify if the removal
-            # operation can be done or not.
-	    def prepare_remove_owner(object, owner)
-		peer.local_object(object).prepare_remove_owner(peer.local_object(owner))
-		nil
-	    rescue
-		$!
-	    end
-	end
-
-	class Peer
-	    # Creates a sibling for +object+ on the peer, and returns the corresponding
-	    # DRbObject
-	    def create_sibling(object)
-		unless object.kind_of?(DistributedObject)
-		    raise TypeError, "cannot create a sibling for a non-distributed object"
-		end
-
-		call(:create_sibling, object)
-		subscriptions << object.sibling_on(self)
-		Roby.synchronize do
-		    local_server.subscribe(object)
-		end
-
-		synchro_point
-	    end
-	end
     end
 end
 
