@@ -29,6 +29,13 @@ module Roby
             end
         end
 
+	class InvalidRemoteOperation < RuntimeError; end
+
+	class InvalidRemoteTaskOperation < InvalidRemoteOperation
+	    attr_reader :task
+	    def initialize(task); @task = task end
+	end
+
         # Exception raised when a remote peer sends us remote sibling
         # information that is inconsistent with the one we know
         class SiblingMismatchError < ProtocolError

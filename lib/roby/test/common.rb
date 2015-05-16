@@ -60,6 +60,8 @@ module Roby
         attr_reader :control
         def engine; plan.engine if plan end
 
+        attr_reader :connection_spaces
+
         def execute(&block)
             engine.execute(&block)
         end
@@ -75,6 +77,22 @@ module Roby
             yield
         ensure
             Roby.enable_deprecation_warnings = true
+        end
+
+        def create_connection_space(port, plan: nil)
+            if !plan
+                register_plan(plan = Plan.new)
+            end
+            if !plan.execution_engine
+                ExecutionEngine.new(plan)
+            end
+            space = Distributed::ConnectionSpace.new(plan: plan, listen_at: port)
+            register_connection_space(space)
+            space
+        end
+
+        def register_connection_space(space)
+            @connection_spaces << space
         end
 
 	# a [collection, collection_backup] array of the collections saved
@@ -103,14 +121,18 @@ module Roby
             original_collections.clear
 	end
 
+        attr_reader :registered_plans
+
 	def setup
             Roby.app.reload_config
             @log_levels = Hash.new
+            @connection_spaces = Array.new
 
             @timings = Hash.new
             if !@plan
                 @plan = Roby.plan
             end
+            @registered_plans = [@plan]
 
             super if defined? super
 
@@ -146,27 +168,60 @@ module Roby
             end
 	end
 
-	def teardown_plan
+        def register_plan(plan)
+            @registered_plans << plan
+        end
+
+	def teardown_plans
 	    old_gc_roby_logger_level = Roby.logger.level
-            return if !engine
+
+            plans = self.registered_plans.map do |p|
+                if p.execution_engine
+                    [p, p.execution_engine, p.known_tasks.to_set, p.gc_quarantine.to_set]
+                end
+            end.compact
+
+            counter = 0
+            while !plans.empty?
+                plans = plans.map do |plan, engine, last_known_tasks, last_quarantine|
+                    if counter > 100
+                        Roby.warn "more than #{counter} iterations while trying to shut down #{plan}, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
+                        if last_known_tasks != plan.known_tasks
+                            Roby.warn "Known tasks:"
+                            plan.known_tasks.each do |t|
+                                Roby.warn "  #{t}"
+                            end
+                            last_known_tasks = plan.known_tasks.dup
+                        end
+                        if last_quarantine != plan.gc_quarantine
+                            Roby.warn "Quarantined tasks:"
+                            plan.gc_quarantine.each do |t|
+                                Roby.warn "  #{t}"
+                            end
+                            last_quarantine = plan.gc_quarantine.dup
+                        end
+                    end
+                    engine.killall
+                    
+                    if plan.gc_quarantine.size != plan.known_tasks.size
+                        [plan, engine, last_known_tasks, last_quarantine]
+                    end
+                end.compact
+                sleep 0.1
+                counter += 1
+            end
 
 	    if debug_gc?
 		Roby.logger.level = Logger::DEBUG
 	    end
 
-	    if engine.running?
-                engine.quit
-                engine.join
-	    end
-
-            plan.engine.killall
-            if !plan.empty?
-                STDERR.puts "failed to teardown: plan has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
-            end
-	    plan.clear
-            if plan.engine
-                plan.engine.clear
-                plan.engine.emitted_events.clear
+            registered_plans.each do |plan|
+                if !plan.empty?
+                    Roby.warn "failed to teardown: #{plan} has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
+                end
+                plan.clear
+                engine.clear
+                engine.emitted_events.clear
             end
 
 	ensure
@@ -234,7 +289,8 @@ module Roby
             end
 
 	    timings[:quit] = Time.now
-	    teardown_plan
+            teardown_plans
+            registered_plans.clear
 	    timings[:teardown_plan] = Time.now
 
             if @handler_ids && engine
@@ -244,6 +300,10 @@ module Roby
             end
             Test.verify_watched_events
 
+            # Plan teardown would have disconnected the peers already
+            connection_spaces.each do |space|
+                space.close
+            end
 	    stop_remote_processes
 	    DRb.stop_service if DRb.thread
 

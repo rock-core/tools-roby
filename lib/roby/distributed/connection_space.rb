@@ -91,170 +91,165 @@ module Roby
 	    include DRbUndumped
 
 	    # List of discovered neighbours
-	    def neighbours; synchronize { @neighbours.dup } end
+	    attr_reader :neighbours
 	    # A queue containing all new neighbours
 	    attr_reader :new_neighbours
 	    # A remote_id => Peer map of the connected peers
 	    attr_reader :peers
-	    # A remote_id => thread of the connection threads
-	    #
-	    # See Peer.connection_request and Peer.initiate_connection
-	    attr_reader :pending_connections
-	    # A remote_id => thread of the connection threads
-	    #
-	    # See Peer.connection_request, Peer.initiate_connection and Peer#reconnect
-	    attr_reader :aborted_connections
-	    # The set of peers for which we have lost the link
-	    attr_reader :pending_reconnections
-	    # The period at which we do discovery
-	    attr_reader :discovery_period
-	    # The discovery thread
-	    attr_reader :discovery_thread
 
-	    # If we are doing discovery based on Rinda::RingFinger
-	    def ring_discovery?; @ring_discovery end
-	    # The list of broadcasting addresses to search for plan databases
-	    attr_reader :ring_broadcast
-	    # If we are doing discovery based on a central tuplespace
-	    def central_discovery?; !!@discovery_tuplespace end
-	    # The central tuplespace where neighbours are announced
-	    attr_reader :discovery_tuplespace
-	    # Last time a discovery finished
-	    attr_reader :last_discovery
-	    # A condition variable which is signalled to start a new discovery
-	    attr_reader :start_discovery
-	    # A condition variable which is signalled when discovery finishes
-	    attr_reader :finished_discovery
+            # The discovery management object
+            #
+            # @return [Discovery]
+            attr_reader :discovery
 
-	    # The main mutex which is used for synchronization with the discovery
-	    # thread
-	    attr_reader :mutex
-	    def synchronize; mutex.synchronize { yield } end
 	    # The plan we are publishing, usually Roby.plan
 	    attr_reader :plan
             # The execution engine tied to +plan+, or nil if there is none
-            def engine; plan.engine end
+            def execution_engine; plan.execution_engine end
+            # The state object
+            attr_reader :state
 
 	    # Our name on the network
 	    attr_reader :name
 	    # The socket on which we listen for incoming connections
 	    attr_reader :server_socket
 
-            # Create a new ConnectionSpace objects. The following options can be provided:
-            #
-            # name:: the name of this plan manager. Defaults to <hostname>-<PID>
-            # period:: the discovery period [default: nil]
-            # ring_discovery:: whether or not ring discovery should be attempted [default: true]
-            # ring_broadcast:: the broadcast address for ring discovery
-            # discovery_tuplespace:: the DRbObject referencing the remote tuplespace which holds references to plan managers [default: nil]
-            # plan:: the plan this ConnectionSpace acts on. [default: Roby.plan]
-            # listen_at:: the port at which we should listen for incoming connections [default: 0]
-	    def initialize(options = {})
+            # Queue of just-received cycles to process from our peers. This is
+            # only a communication channel between the com thread and the event
+            # thread
+            attr_reader :cycles_rx
+            # List of [peer, data] cycles remaining to process
+            attr_reader :pending_cycles
+            # The set of peers whose link just closed
+            attr_reader :closed_links
+
+	    # An array of procs called at the end of the neighbour discovery,
+	    # after #neighbours have been updated
+	    attr_reader :connection_listeners
+
+	    # Define #droby_dump for Peer-like behaviour
+	    def droby_dump(dest = nil); @__droby_marshalled__ ||= Peer::DRoby.new(name, remote_id) end
+
+
+            # Create a new ConnectionSpace objects
+	    def initialize(name: "#{Socket.gethostname}-#{Process.pid}", plan: Roby.plan, listen_at: 0, state: Roby::State)
 		super()
 
-		options = validate_options options, 
-		    :name => "#{Socket.gethostname}-#{Process.pid}", # the name of this host
-		    :period => nil,				     # the discovery period
-		    :ring_discovery => true,			     # wether we should do discovery based on Rinda::RingFinger
-		    :ring_broadcast => '',			     # the broadcast address for discovery
-		    :discovery_tuplespace => nil,		     # a central tuplespace which lists hosts (including ourselves)
-		    :plan => nil, 				     # the plan we publish, uses Roby.plan if nil
-		    :listen_at => 0				     # the port at which we listen for incoming connections
-
-		if options[:ring_discovery] && !options[:period]
-		    raise ArgumentError, "you must provide a discovery period when using ring discovery"
-		end
-
-		@name                 = options[:name]
+		@name                 = name
 		@neighbours           = Array.new
 		@peers                = Hash.new
-		@plan                 = options[:plan] || Roby.plan
-		@discovery_period     = options[:period]
-		@ring_discovery       = options[:ring_discovery]
-		@ring_broadcast       = options[:ring_broadcast]
-		@discovery_tuplespace = options[:discovery_tuplespace]
-		@port		      = options[:port]
-		@pending_sockets = Queue.new
-		@pending_connections = Hash.new
-		@aborted_connections = Hash.new
-		@pending_reconnections = Array.new
-		@quit_neighbour_thread = false
+		@plan                 = plan
+                @state                = state
+                plan.connection_space = self
 
-		@mutex		      = Mutex.new
-		@start_discovery      = ConditionVariable.new
-		@finished_discovery   = ConditionVariable.new
-		@new_neighbours	      = Queue.new
                 @new_neighbours_observers = Array.new
-
 		@connection_listeners = Array.new
 
-		yield(self) if block_given?
+                @cycles_rx             = Queue.new
+                @pending_cycles        = Array.new
+                @closed_links          = Queue.new
 
-		listen(options[:listen_at])
-		@remote_id = RemoteID.new(Socket.gethostname, server_socket.port)
-
-		if central_discovery?
-		    if (discovery_tuplespace.write([:droby, name, remote_id]) rescue nil)
-			if discovery_tuplespace.kind_of?(DRbObject)
-			    Distributed.info "published #{name}(#{remote_id}) on #{discovery_tuplespace.__drburi}"
-			else
-			    Distributed.info "published #{name}(#{remote_id}) on local tuplespace"
-			end
-		    else
-			Distributed.warn "cannot connect to #{discovery_tuplespace.__drburi}, disabling centralized discovery"
-			discovery_tuplespace = nil
-		    end
-		end
-
-		if ring_discovery?
-		    Distributed.info "doing ring discovery on #{ring_broadcast}"
-		end
-
-		synchronize do
-		    # Start the discovery thread and wait for it to be initialized
-		    @discovery_thread = Thread.new(&method(:neighbour_discovery))
-                    until last_discovery
-                        finished_discovery.wait(mutex)
-                    end
-		end
-		start_neighbour_discovery(true)
-
-                @discovery_start_handler = engine.add_propagation_handler do |plan|
-                    start_neighbour_discovery
-                    notify_new_neighbours
+                if block_given?
+                    raise ArgumentError, "passing a block to ConnectionSpace#initialize has been discontinued"
                 end
-		engine.finalizers << method(:quit)
-                engine.at_cycle_end do
+
+		listen(listen_at)
+		@remote_id = RemoteID.new(Socket.ip_address_list.first.getnameinfo[0], server_socket.port)
+
+                @discovery = Discovery.new
+                @at_cycle_begin_handler = execution_engine.at_cycle_begin do
+                    discovery.start
+                    process_pending
+                end
+                @at_cycle_end_handler = execution_engine.at_cycle_end do
                     peers.each_value do |peer|
                         if peer.connected?
                             peer.transmit(:state_update, Roby::State) 
                         end
                     end
                 end
+		execution_engine.finalizers << method(:quit)
 
                 # Finally, start the reception thread
                 receive
 	    end
 
+            def each_peer(&block)
+                peers.each_value(&block)
+            end
+
 	    # Sets up a separate thread which listens for connection
 	    def listen(port)
 		@server_socket = TCPServer.new(nil, port)
+                server_socket.close_on_exec = true
 		server_socket.listen(10)
-		Thread.new do
-		    begin
-			while new_connection = server_socket.accept
-			    begin
-				Peer.connection_request(self, new_connection)
-			    rescue Exception => e
-				Roby::Distributed.fatal "failed to handle connection request on #{new_connection}"
-				Roby::Distributed.fatal e.full_message
-				new_connection.close
-			    end
-			end
-		    rescue Exception
-		    end
+
+                @listen_trigger = IO.pipe
+		@listen_thread = Thread.new do
+                    begin
+                        while true
+                            pending = IO.select([server_socket, @listen_trigger[0]], nil, nil)
+                            if pending && (new_connection = server_socket.accept)
+                                begin
+                                    handle_connection_request(new_connection)
+                                rescue Exception => e
+                                    Roby::Distributed.fatal "failed to handle connection request on #{new_connection}"
+                                    Roby::Distributed.fatal e.full_message
+                                    new_connection.close
+                                end
+                            end
+                        end
+                    rescue IOError
+                    ensure
+                        @listen_trigger.each(&:close)
+                        @server_socket, @listen_trigger = nil
+                    end
 		end
 	    end
+
+            def close
+                server_socket.close
+                @listen_trigger[1].write "Q"
+                @receive_trigger[1].write "Q"
+                @listen_thread.join
+                @listen_thread = nil
+                @receive_thread.join
+                @receive_thread = nil
+            end
+
+            class RemoteNameMismatch < RuntimeError; end
+
+            def handle_connection_request(socket)
+		socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
+
+		# read connection info from +socket+
+		info_size = socket.read(4).unpack("N").first
+		m, remote_token, remote_name, remote_id, remote_state = 
+		    Marshal.load(socket.read(info_size))
+
+		Distributed.debug { "connection attempt from #{socket.peer_info}: #{m} #{remote_name} #{remote_id}" }
+
+                once do
+                    if !(peer = peers[remote_id])
+                        Distributed.debug { "creating new peer for #{m.inspect} from #{socket.peer_info}" }
+                        peer = Peer.new(self, remote_name, remote_id)
+                        register_peer(peer)
+                    end
+
+                    reply, transferred_socket_ownership =
+                        peer.handle_connection_request(socket, m, remote_name, remote_token, remote_state)
+		    reply = Marshal.dump(Distributed.format(reply))
+		    socket.write [reply.size].pack("N")
+		    socket.write reply
+                    if !transferred_socket_ownership
+                        socket.close
+                    end
+                end
+            end
+
+            def once(&block)
+                execution_engine.once(&block)
+            end
 
             # The RemoteID object which allows to reference this ConnectionSpace on the network
 	    attr_reader :remote_id
@@ -267,61 +262,56 @@ module Roby
 	    
 	    # Starts the reception thread
 	    def receive # :nodoc:
-		sockets = Hash.new
-		Thread.new do
+                @pending_sockets = Queue.new
+                @receive_trigger = IO.pipe
+		@receive_thread = Thread.new do
+                    sockets = Hash.new
 		    while true
 			begin
-			    while !pending_sockets.empty?
-				socket, peer = pending_sockets.shift
-				sockets[socket] = peer
-                                begin
-                                    Roby::Distributed.info "listening to #{socket.peer_info} for #{peer}"
-                                rescue IOError
+                            sockets.delete_if do |s, p|
+                                if s.closed?
+                                    sockets.delete(s)
+                                    closed_links << p
+                                    true
                                 end
+                            end
+
+			    while !pending_sockets.empty?
+				peer, socket = pending_sockets.shift
+				sockets[socket] = peer
+                                Roby::Distributed.info "listening to #{socket.peer_info} for #{peer}"
 			    end
 
 			    begin
-				sockets.delete_if { |s, p| s.closed? && p.disconnected? }
-				read, _, errors = select(sockets.keys, nil, nil, 0.1)
+				read, _ = IO.select([@receive_trigger[0], *sockets.keys])
 			    rescue IOError
+                                next
 			    end
-			    next if !read
-			    
-			    closed_sockets = []
-			    for socket in read
-				if socket.closed?
-				    closed_sockets << socket
-				    next
-				end
 
+                            if read.delete(@receive_trigger[0])
+                                cmd = @receive_trigger[0].read(1)
+                                if cmd == "Q"
+                                    @receive_trigger.each(&:close)
+                                    break
+                                end
+                            end
+			    
+                            Roby::Distributed.info "got data on #{read.size} peers"
+
+			    for socket in read
                                 begin
                                     header = socket.read(8)
-                                    unless header && header.size == 8
-                                        closed_sockets << socket
-                                        next
-                                    end
+                                    next if !header || header.size < 8
 
                                     id, size = header.unpack("NN")
                                     data     = socket.read(size)
+                                    next if !data || data.size < size
 
                                     p = sockets[socket]
                                     p.stats.rx += (size + 8)
-                                    Roby::Distributed.cycles_rx << [p, Marshal.load(data)]
+                                    cycles_rx << [p, Marshal.load(data)]
                                 rescue Errno::ECONNRESET, IOError
-                                    closed_sockets << socket
                                 end
-			    end
-
-			    for socket in closed_sockets
-				p = sockets[socket]
-				if p.connected?
-				    Roby::Distributed.info "lost connection with #{p}"
-				    p.reconnect
-				    sockets.delete socket
-				elsif p.disconnecting?
-				    Roby::Distributed.info "#{p} disconnected"
-				    p.disconnected
-				end
 			    end
 
 			rescue Exception
@@ -331,172 +321,42 @@ module Roby
 		end
 	    end
 
-	    def discovering?
-	       	synchronize do 
-                    @last_discovery != @discovery_start
-		end
-	    end
-
 	    def owns?(object); object.owners.include?(Roby::Distributed) end
 
-	    # An array of procs called at the end of the neighbour discovery,
-	    # after #neighbours have been updated
-	    attr_reader :connection_listeners
+            def register_peer(peer)
+                peers[peer.remote_id] = peer
 
-	    def discovery_port
-		if Distributed.server
-		    Distributed.server.port
-		else DISCOVERY_RING_PORT
-		end
-	    end
-
-	    # Loop which does neighbour_discovery
-	    def neighbour_discovery
-		Thread.current.priority = 2
-
-		discovered = []
-
-		# Initialize so that @discovery_start == discovery_start
-		@discovery_start = nil
-		discovery_start = nil
-		finger	    = nil
-		loop do
-		    return if @quit_neighbour_thread
-
-		    Roby.synchronize do
-			old_neighbours, @neighbours = @neighbours, []
-			for new in discovered
-			    unless new.remote_id == remote_id || @neighbours.include?(new)
-				@neighbours << new
-				unless old_neighbours.include?(new)
-				    new_neighbours << [self, new]
-				end
-			    end
-			end
-			discovered.clear
-		    end
-
-		    connection_listeners.each { |listen| listen.call(self) }
-		    synchronize do
-			@last_discovery = discovery_start
-			finished_discovery.broadcast
-
-			while @discovery_start == @last_discovery
-			    start_discovery.wait(mutex)
-			end
-			return if @quit_neighbour_thread
-			discovery_start = @discovery_start
-		    end
-
-		    from = Time.now
-                    if ring_discovery? && (!finger || (finger.port != discovery_port))
-                        finger = Rinda::RingFinger.new(ring_broadcast, discovery_port)
-                    end
-		    if central_discovery?
-			discovery_tuplespace.read_all([:droby, nil, nil]).
-			    each do |n| 
-				next if n[2] == remote_id
-				n = Neighbour.new(n[1], n[2]) 
-				discovered << n
-			    end
-		    end
-
-		    if ring_discovery?
-                        if discovery_period
-                            remaining = (@discovery_start + discovery_period) - Time.now
-                        end
-
-			finger.lookup_ring(remaining) do |cs|
-			    next if cs == self
-
-			    discovered << Neighbour.new(cs.name, cs.remote_id)
-			end
-		    end
-		end
-
-	    rescue Interrupt
-	    rescue Exception => e
-		Distributed.fatal "neighbour discovery died with\n#{e.full_message}"
-		Distributed.fatal "Peers are: #{Distributed.peers.map { |id, peer| "#{id.inspect} => #{peer}" }.join(", ")}"
-
-	    ensure
-		Distributed.info "quit neighbour thread"
-		neighbours.clear
-		new_neighbours.clear
-
-		# Force disconnection in case something got wrong in the normal
-		# disconnection process
-		Distributed.peers.values.each do |peer|
-		    peer.disconnected! unless peer.disconnected?
-		end
-
-		synchronize do
-		    @discovery_thread = nil
-		    finished_discovery.broadcast
-		end
-	    end
-
-	    # Starts one neighbour discovery loop
-	    def start_neighbour_discovery(block = false)
-		synchronize do
-		    unless discovery_thread && discovery_thread.alive?
-			raise "no discovery thread"
-		    end
-
-		    @discovery_start = Time.now
-		    start_discovery.broadcast
-		end
-		wait_discovery if block
-	    end
-
-	    def wait_discovery
-                synchronize do 
-                    while last_discovery != discovery_start
-                        finished_discovery.wait(mutex)
-                    end
-		end
+                task = peer.task
+                plan.add_permanent(task)
+                task.start!
             end
 
-	    def wait_next_discovery
-		synchronize do
-		    unless discovery_thread && discovery_thread.alive?
-			raise "no discovery thread"
-		    end
-                    current_discovery = @last_discovery
-                    while @last_discovery == current_discovery
-                        finished_discovery.wait(mutex)
-                    end
-		end
-	    end
+            def register_link(peer, socket)
+                pending_sockets << [peer, socket]
+                @receive_trigger[1].write "N"
+            end
 
-	    # Define #droby_dump for Peer-like behaviour
-	    def droby_dump(dest = nil); @__droby_marshalled__ ||= Peer::DRoby.new(name, remote_id) end
+            class PeerTaskNotFinished < RuntimeError; end
+            def deregister_peer(peer)
+                peers.delete(peer.remote_id)
+            end
 
             # Make the ConnectionSpace quit
 	    def quit
 		Distributed.debug "ConnectionSpace #{self} quitting"
-                if @discovery_start_handler
-                    engine.remove_propagation_handler(@discovery_start_handler)
-                end
+                execution_engine.remove_propagation_handler(@at_cycle_begin_handler)
+                execution_engine.remove_propagation_handler(@at_cycle_end_handler)
+                execution_engine.finalizers.delete(method(:quit))
 
-		# Remove us from the central tuplespace
-		if central_discovery?
-		    begin
-			discovery_tuplespace.take [:droby, nil, remote_id], 0
-		    rescue DRb::DRbConnError, Rinda::RequestExpiredError
-		    end
-		end
-
-		# Make the neighbour discovery thread quit as well
-		thread = synchronize do
-		    if thread = @discovery_thread
-			thread.raise Interrupt, "forcing discovery thread quit"
-		    end
-		    thread
-		end
-		if thread 
-		    thread.join
-		end
+                (ring_discovery_publishers.values + ring_discovery_listeners.values).
+                    each do |d|
+                        if d.listening?
+                            d.stop_listening
+                        end
+                        if d.registered?
+                            d.deregister
+                        end
+                    end
 
 	    ensure
 		if server_socket
@@ -506,10 +366,7 @@ module Roby
 		    end
 		end
 
-		plan.engine.finalizers.delete(method(:quit))
-		if Distributed.state == self
-		    Distributed.state = nil
-		end
+		execution_engine.finalizers.delete(method(:quit))
 	    end
 
 	    # Disable the keeper thread, we will do cleanup ourselves
@@ -534,7 +391,7 @@ module Roby
 
             def on_neighbour
 		current = neighbours.dup
-		engine.once { current.each { |n| yield(n) } }
+		execution_engine.once { current.each { |n| yield(n) } }
 		new_neighbours_observers << lambda { |_, n| yield(n) }
 	    end
 
@@ -555,58 +412,176 @@ module Roby
 		end
 	    end
 
-	end
-
-	class << self
-            # The RingServer object through which we publish this plan manager
-            # on the network
-	    attr_reader :server
-
-            # True if we are published on the network.
+            # This method will call {PeerServer#trigger} on all peers, for the
+            # objects in +objects+ which are eligible for triggering.
             #
-            # See #server, #publish and #unpublish
-	    def published?; !!@server end
-            
-            # Enable ring discovery on our part. A RingServer object is set up
-            # to listen to connections on the port given as a :port option (or
-            # DISCOVERY_RING_PORT if none is specified).
+            # The same task cannot match the same trigger twice. To allow that,
+            # call {#clean_triggered}
+            def trigger(*objects)
+                objects.delete_if do |o| 
+                    o.plan != plan ||
+                        !o.distribute? ||
+                        !o.self_owned?
+                end
+                return if objects.empty?
+
+                # If +object+ is a trigger, send the :triggered event but do *not*
+                # act as if +object+ was subscribed
+                peers.each_value do |peer|
+                    peer.local_server.trigger(*objects)
+                end
+            end
+
+            # Remove +objects+ from the sets of already-triggered objects. So, next
+            # time +object+ will be tested for triggers, it will re-match the
+            # triggers it has already matched.
+            def clean_triggered(object)
+                peers.each_value do |peer|
+                    peer.local_server.triggers.each_value do |_, triggered|
+                        triggered.delete object
+                    end
+                end
+            end
+
+            def add_owner(object, peer)
+                object.add_owner(peer, false)
+            end
+            def remove_owner(object, peer)
+                object.remove_owner(peer, false)
+            end
+            def prepare_remove_owner(object, peer)
+                object.prepare_remove_owner(peer)
+            rescue Exception => e
+                e
+            end
+
+            # Yields the peers which are interested in at least one of the
+            # objects in +objects+.
+            def each_updated_peer(*objects)
+                for obj in objects
+                    return if !obj.distribute?
+                end
+
+                for _, peer in peers
+                    next unless peer.connected?
+                    for obj in objects
+                        if obj.update_on?(peer)
+                            yield(peer)
+                            break
+                        end
+                    end
+                end
+            end
+
+            # Extract data received so far from our peers and replays it if
+            # possible. Data can be ignored if RX is disabled with this peer
+            # (through Peer#disable_rx), or delayed if there is event propagation
+            # involved. In that last case, the events will be fired at the
+            # beginning of the next execution cycle and the remaining messages at
+            # the end of that same cycle.
+            def process_pending
+                delayed_cycles = []
+                while !(pending_cycles.empty? && cycles_rx.empty?)
+                    peer, calls = if pending_cycles.empty?
+                                      cycles_rx.pop
+                                  else pending_cycles.shift
+                                  end
+
+                    if peer.disabled_rx?
+                        Distributed.debug { "delaying #{calls.size} calls on #{peer}: RX is disabled" }
+                        delayed_cycles.push [peer, calls]
+                    else
+                        Distributed.debug { "processing #{calls.size} calls on #{peer}" }
+                        if remaining = process_cycle(peer, calls)
+                            delayed_cycles.push [peer, remaining]
+                        end
+                    end
+                end
+
+                while !closed_links.empty?
+                    p = closed_links.pop
+                    if p.connected?
+                        Roby::Distributed.info "lost connection with #{p}"
+                        p.reconnect
+                    elsif p.disconnecting?
+                        Roby::Distributed.info "#{p} disconnected"
+                        p.disconnected
+                    end
+                end
+
+            ensure
+                @pending_cycles = delayed_cycles
+            end
+
+            # @api private
             #
-            # Note that all plan managers must use the same discovery port.
-	    def publish(options = {})
-		options[:port] ||= DISCOVERY_RING_PORT
-		@server = RingServer.new(state, options) 
-		Distributed.info "listening for distributed discovery on #{options[:port]}"
-	    end
+            # Process once cycle worth of data from the given peer.
+            def process_cycle(peer, calls)
+                from = Time.now
+                calls_size = calls.size
 
-            # Disable the ring discovery on our part.
-	    def unpublish
-		if server 
-		    server.close
-		    @server = nil
-		    Distributed.info "disabled distributed discovery"
-		end
-	    end
+                peer_server = peer.local_server
+                peer_server.processing = true
 
-	    # The list of known neighbours. See ConnectionSpace#neighbours
-	    def neighbours
-		if state then state.neighbours
-		else []
-		end
-	    end
+                if peer.disconnected?
+                    Distributed.debug "peer #{peer} disconnected, ignoring #{calls_size} calls"
+                    return
+                end
 
-            # The list of neighbours that have been found since the last
-            # execution cycle
-	    def new_neighbours
-		if state then state.new_neighbours
-		else []
-		end
-	    end
-            
-            # Defines a block which should be called when a new neighbour is
-            # detected
-            #
-            # See ConnectionSpace#on_neighbour
-            def on_neighbour(&block); Roby::Distributed.state.on_neighbour(&block) end
+                while call_spec = calls.shift
+                    return unless call_spec
+
+                    is_callback, method, args, critical, message_id = *call_spec
+                    Distributed.debug do 
+                        args_s = args.map { |obj| obj ? obj.to_s : 'nil' }
+                        "processing #{is_callback ? 'callback' : 'method'} [#{message_id}]#{method}(#{args_s.join(", ")})"
+                    end
+
+                    result = catch(:ignore_this_call) do
+                        peer_server.queued_completion = false
+                        peer_server.current_message_id = message_id
+                        peer_server.processing_callback = !!is_callback
+
+                        result = begin
+                                     peer_server.send(method, *args)
+                                 rescue Exception => e
+                                     if critical
+                                         peer.fatal_error e, method, args
+                                     else
+                                         peer_server.completed!(e, true)
+                                     end
+                                 end
+
+                        if peer.disconnected?
+                            return
+                        end
+                        result
+                    end
+
+                    if method != :completed && method != :completion_group && peer.connected?
+                        if peer_server.queued_completion?
+                            Distributed.debug "done and already queued the completion message"
+                        else
+                            Distributed.debug { "done, returns #{result || 'nil'}" }
+                            peer.queue_call false, :completed, [result, false, message_id]
+                        end
+                    end
+
+                    if peer.disabled_rx?
+                        return calls
+                    end
+                end
+
+                Distributed.debug "successfully served #{calls_size} calls in #{Time.now - from} seconds"
+                nil
+
+            rescue Exception => e
+                Distributed.info "error in dRoby processing: #{e.full_message}"
+                peer.disconnect if !peer.disconnected?
+
+            ensure
+                peer_server.processing = false
+            end
 	end
     end
 end

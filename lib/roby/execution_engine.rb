@@ -134,6 +134,9 @@ module Roby
     #   #garbage_collect, so that they get killed and removed from the plan.
     #
     class ExecutionEngine
+        # Required by Roby::Distributed
+        include DRbUndumped
+
         extend Logger::Hierarchy
         include Logger::Hierarchy
 
@@ -734,7 +737,6 @@ module Roby
 
         # Gather the events that come out of this plan manager
         def gather_external_events
-            gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
             gather_framework_errors('delayed events')     { execute_delayed_events }
             call_poll_blocks(self.class.external_events_handlers)
             call_poll_blocks(self.external_events_handlers)
@@ -2169,56 +2171,28 @@ module Roby
         end
 
         # Kill all tasks that are currently running in the plan
-        def killall(limit = 100)
+        def killall
             if scheduler
                 scheduler_enabled = scheduler.enabled?
             end
 
-            last_known_tasks = ValueSet.new
-            last_quarantine = ValueSet.new
-            counter = 0
-            loop do
-                plan.permanent_tasks.clear
-                plan.permanent_events.clear
-                plan.missions.clear
-                plan.transactions.each do |trsc|
-                    trsc.discard_transaction!
-                end
-
-                if scheduler
-                    scheduler.enabled = false
-                end
-                quit
-                join
-
-                if !running?
-                    start_new_cycle
-                    process_events
-                end
-
-                counter += 1
-                if counter > limit
-                    Roby.warn "more than #{counter} iterations while trying to shut down #{plan}, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
-                    if last_known_tasks != plan.known_tasks
-                        Roby.warn "Known tasks:"
-                        plan.known_tasks.each do |t|
-                            Roby.warn "  #{t}"
-                        end
-                        last_known_tasks = plan.known_tasks.dup
-                    end
-                    if last_quarantine != plan.gc_quarantine
-                        Roby.warn "Quarantined tasks:"
-                        plan.gc_quarantine.each do |t|
-                            Roby.warn "  #{t}"
-                        end
-                        last_quarantine = plan.gc_quarantine.dup
-                    end
-                end
-                if plan.gc_quarantine.size == plan.known_tasks.size
-                    break
-                end
-                sleep 0.01
+            plan.permanent_tasks.clear
+            plan.permanent_events.clear
+            plan.missions.clear
+            plan.transactions.each do |trsc|
+                trsc.discard_transaction!
             end
+
+            if scheduler
+                scheduler.enabled = false
+            end
+            quit
+            join
+
+            start_new_cycle
+            process_events
+            cycle_end(Hash.new)
+
         ensure
             if scheduler
                 scheduler.enabled = scheduler_enabled
