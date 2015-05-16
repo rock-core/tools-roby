@@ -1,21 +1,28 @@
 require 'roby'
 require 'stringio'
-require 'roby/distributed/peer'
-require 'roby/distributed/drb'
-require 'roby/distributed/protocol'
+
 require 'roby/distributed/base'
+require 'roby/distributed/protocol'
 require 'roby/distributed/exceptions'
 
+require 'roby/distributed/neighbour'
+require 'roby/distributed/remote_id'
+require 'roby/distributed/connection_request'
+require 'roby/distributed/connection_task'
+require 'roby/distributed/peer'
+require 'roby/distributed/peer_server'
+require 'roby/distributed/remote_object_manager'
+require 'roby/distributed/connection_space'
+require 'roby/distributed/call_spec'
+
 require 'roby/distributed/discovery'
+require 'roby/distributed/ring_server'
 require 'roby/distributed/ring_discovery'
 require 'roby/distributed/central_discovery'
 
-require 'roby/distributed/proxy'
-require 'roby/distributed/connection_space'
 require 'roby/distributed/notifications'
 require 'roby/distributed/distributed_object'
 require 'roby/distributed/transaction'
-require 'roby/distributed/communication'
 
 # == Communication protocol (and code namespace structure)
 # == Getting remote objects

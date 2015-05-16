@@ -2,7 +2,7 @@ require 'rinda/rinda'
 require 'rinda/ring'
 require 'rinda/tuplespace'
 
-#  This file contains extension to dRuby and Rinda classes which are needed to 
+# This file contains extension to dRuby and Rinda classes which are needed to 
 # make Distributed Roby work
 #
 # Some are direct modification of the standard library (through reopening classes),
@@ -20,7 +20,9 @@ module Rinda
     end
 end
 
-module Roby::Distributed
+module Roby
+    module Distributed
+
     # Reimplements Rinda::RingServer, removing the tuplespace intermediate and
     # the creation of most threads. This is done for performance reasons.
     class RingServer < Rinda::RingServer
@@ -57,6 +59,8 @@ module Roby::Distributed
 	    @service.raise Interrupt, "interrupting RingServer"
 	    @soc.close
 	end
+    end
+
     end
 end
 

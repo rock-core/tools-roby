@@ -1,5 +1,16 @@
 module Roby
     module Distributed
+        # Base class for all communication errors
+        class ConnectionError   < RuntimeError; end
+        # Raised when a connection attempt has failed
+        class ConnectionFailedError < RuntimeError
+            def initialize(peer); @peer = peer end
+        end
+        # The peer is connected but connection is not alive
+        class NotAliveError     < ConnectionError; end
+        # The peer is disconnected
+        class DisconnectedError < ConnectionError; end
+
         # Base class for all errors in the dRoby protocol
         class ProtocolError < RuntimeError
         end
@@ -54,5 +65,21 @@ module Roby
                 end
             end
         end
+
+        # Error raised when a connection attempt failed on the given neighbour
+	class ConnectionFailed < RuntimeError
+	    attr_reader :neighbour
+
+	    def initialize(neighbour)
+		@neighbour = neighbour
+	    end
+	end
+        
+        # Error raised when a communication callback is queueing another
+        # communication callback
+	class RecursiveCallbacksError < RuntimeError; end
+        # Error raised when a callback has failed.
+	class CallbackProcessingError < RuntimeError; end
+
     end
 end
