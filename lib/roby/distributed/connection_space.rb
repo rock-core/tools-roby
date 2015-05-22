@@ -507,7 +507,7 @@ module Roby
                 delayed_cycles = []
                 while !(pending_cycles.empty? && cycles_rx.empty?)
                     peer, calls = if pending_cycles.empty?
-                                      cycles_rx.pop
+                                      cycles_rx.shift
                                   else pending_cycles.shift
                                   end
 
