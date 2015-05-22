@@ -1413,12 +1413,11 @@ module Roby
 	    events_errors = nil
             next_steps = gather_propagation do
 	        events_errors = gather_errors do
-                    if quitting?
-                        garbage_collect([])
+                    if !quitting? || !garbage_collect([])
+                        process_workers
+                        gather_external_events
+                        call_propagation_handlers
                     end
-                    process_workers
-                    gather_external_events
-                    call_propagation_handlers
 	        end
             end
 
@@ -1512,6 +1511,9 @@ module Roby
         # whose garbage-collection must be performed, even though those tasks
         # are actually useful for the system. This is used to properly kill
         # tasks for which errors have been detected.
+        #
+        # @return [Boolean] true if events have been called (thus requiring
+        #   some propagation) and false otherwise
         def garbage_collect(force_on = nil)
             if force_on && !force_on.empty?
                 ExecutionEngine.info "GC: adding #{force_on.size} tasks in the force_gc set"
@@ -1643,6 +1645,8 @@ module Roby
             plan.unneeded_events.each do |event|
                 plan.garbage(event)
             end
+
+            !finishing.empty?
         end
 
 	# Do not sleep or call Thread#pass if there is less that

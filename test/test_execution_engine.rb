@@ -1614,5 +1614,35 @@ class TC_ExecutionEngine < Minitest::Test
         assert_equal error, result.first.first
         assert_equal [parent, child].to_set, result.first.last.to_set
     end
+
+    def test_garbage_collection_calls_are_propagated_first_while_quitting
+        obj = Class.new do
+            def stopped?; @stop end
+            def stop; @stop = true end
+        end.new
+        flexmock(obj).should_receive(:stop).once.
+            pass_thru
+
+        task_model = Class.new(Roby::Task) do
+            argument :obj
+
+            event :start, controlable: true
+            event :stop do |_|
+                obj.stop
+                emit :stop
+            end
+        end
+        plan.add(task = task_model.new(obj: obj))
+        task.start!
+        plan.execution_engine.at_cycle_begin do
+            if !obj.stopped?
+                obj.stop
+            end
+        end
+        plan.execution_engine.quit
+        while task.running?
+            plan.execution_engine.process_events
+        end
+    end
 end
 
