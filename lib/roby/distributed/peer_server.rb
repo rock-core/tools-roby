@@ -371,6 +371,7 @@ module Roby
                     call_spec = nil
                 end
             end
+
             if error
                 if call_spec && thread = call_spec.waiting_thread
                     result = peer.local_object(result)
@@ -380,7 +381,7 @@ module Roby
                     Roby::Distributed.fatal "disconnecting ..."
                     if peer.connected?
                         peer.disconnect
-                    else
+                    elsif !peer.disconnected?
                         peer.disconnected!
                     end
                 end
