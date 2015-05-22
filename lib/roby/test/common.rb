@@ -400,14 +400,30 @@ module Roby
 
 	# Process pending events
 	def process_events
-            engine.join_all_worker_threads
-            if !engine.running?
-                engine.start_new_cycle
-                engine.process_events
-            else
-                engine.wait_one_cycle
+            registered_plans.each do |p|
+                engine = p.execution_engine
+
+                engine.join_all_worker_threads
+                if !engine.running?
+                    engine.start_new_cycle
+                    engine.process_events
+                    engine.cycle_end(Hash.new)
+                else
+                    engine.wait_one_cycle
+                end
             end
 	end
+
+        def process_events_until(timeout = 5)
+            start = Time.now
+            while !yield
+                process_events
+                Thread.pass
+                if Time.now - start > timeout
+                    flunk("failed to reach expected condition")
+                end
+            end
+        end
 
         # Use to call the original method on a partial mock
         #

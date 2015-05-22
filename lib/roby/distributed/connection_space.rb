@@ -210,7 +210,7 @@ module Roby
             def close
                 server_socket.close
                 @listen_trigger[1].write "Q"
-                @receive_trigger[1].write "Q"
+                trigger_receive_loop("Q")
                 @listen_thread.join
                 @listen_thread = nil
                 @receive_thread.join
@@ -236,12 +236,18 @@ module Roby
                         register_peer(peer)
                     end
 
-                    reply, transferred_socket_ownership =
-                        peer.handle_connection_request(socket, m, remote_name, remote_token, remote_state)
-		    reply = Marshal.dump(Distributed.format(reply))
-		    socket.write [reply.size].pack("N")
-		    socket.write reply
-                    if !transferred_socket_ownership
+                    begin
+                        reply, transferred_socket_ownership =
+                            peer.handle_connection_request(socket, m, remote_name, remote_token, remote_state)
+                        reply = Marshal.dump(Distributed.format(reply))
+                        socket.write [reply.size].pack("N")
+                        socket.write reply
+                        if !transferred_socket_ownership
+                            socket.close
+                        end
+                    rescue Exception => e
+                        Distributed.fatal "#{peer}: failed to handle connection request on #{socket}"
+                        Distributed.fatal e.full_message
                         socket.close
                     end
                 end
@@ -268,49 +274,63 @@ module Roby
                     sockets = Hash.new
 		    while true
 			begin
-                            sockets.delete_if do |s, p|
-                                if s.closed?
-                                    sockets.delete(s)
-                                    closed_links << p
+                            sockets.delete_if do |socket, read_state|
+                                if socket.closed?
+                                    peer = read_state.peer
+                                    sockets.delete(socket)
+                                    closed_links << [read_state.peer, socket]
                                     true
                                 end
                             end
 
 			    while !pending_sockets.empty?
 				peer, socket = pending_sockets.shift
-				sockets[socket] = peer
-                                Roby::Distributed.info "listening to #{socket.peer_info} for #{peer}"
+				sockets[socket] = PeerReadState.new(peer)
+                                Distributed.info "#{peer}: listening to #{socket}"
 			    end
 
+                            receive_trigger_r = @receive_trigger[0]
 			    begin
-				read, _ = IO.select([@receive_trigger[0], *sockets.keys])
+				read, _ = IO.select([receive_trigger_r, *sockets.keys])
 			    rescue IOError
                                 next
 			    end
 
-                            if read.delete(@receive_trigger[0])
-                                cmd = @receive_trigger[0].read(1)
+                            if read.delete(receive_trigger_r)
+                                cmd = receive_trigger_r.read(1)
                                 if cmd == "Q"
                                     @receive_trigger.each(&:close)
                                     break
                                 end
                             end
 			    
-                            Roby::Distributed.info "got data on #{read.size} peers"
+                            Distributed.debug do
+                                if !read.empty?
+                                    Distributed.info "got data on #{read.size} peers"
+                                    read.each do |socket|
+                                        state =
+                                            begin
+                                                if socket.closed? then "closed"
+                                                elsif socket.eof? then "eof"
+                                                end
+                                            rescue Errno::ECONNRESET
+                                                "reset"
+                                            end
+                                        Distributed.info "  #{sockets[socket].peer}: #{sockets} #{state}"
+                                    end
+                                end
+                                break
+                            end
 
 			    for socket in read
                                 begin
-                                    header = socket.read(8)
-                                    next if !header || header.size < 8
-
-                                    id, size = header.unpack("NN")
-                                    data     = socket.read(size)
-                                    next if !data || data.size < size
-
-                                    p = sockets[socket]
-                                    p.stats.rx += (size + 8)
-                                    cycles_rx << [p, Marshal.load(data)]
-                                rescue Errno::ECONNRESET, IOError
+                                    read_state = sockets[socket]
+                                    payload = read_state.read_nonblock(socket)
+                                    cycles_rx << [read_state.peer, payload]
+                                rescue IO::WaitReadable
+                                rescue Errno::ECONNRESET, IOError, EOFError
+                                    Distributed.fatal "#{read_state.peer}: error reading #{socket}: #{$!.full_message}"
+                                    socket.close if !socket.closed?
                                 end
 			    end
 
@@ -320,6 +340,10 @@ module Roby
 		    end
 		end
 	    end
+
+            def trigger_receive_loop(cmd)
+                @receive_trigger[1].write cmd
+            end
 
 	    def owns?(object); object.owners.include?(Roby::Distributed) end
 
@@ -333,7 +357,7 @@ module Roby
 
             def register_link(peer, socket)
                 pending_sockets << [peer, socket]
-                @receive_trigger[1].write "N"
+                trigger_receive_loop("N")
             end
 
             class PeerTaskNotFinished < RuntimeError; end
@@ -499,18 +523,19 @@ module Roby
                 end
 
                 while !closed_links.empty?
-                    p = closed_links.pop
-                    if p.connected?
-                        Roby::Distributed.info "lost connection with #{p}"
-                        p.reconnect
-                    elsif p.disconnecting?
-                        Roby::Distributed.info "#{p} disconnected"
-                        p.disconnected
+                    peer, socket = closed_links.pop
+                    next if peer.socket != socket
+
+                    if peer.connected?
+                        peer.link_lost
+                        peer.reestablish_link
+                    elsif peer.disconnecting?
+                        peer.disconnected
                     end
                 end
 
             ensure
-                @pending_cycles = delayed_cycles
+                @pending_cycles.concat(delayed_cycles)
             end
 
             # @api private
@@ -577,7 +602,7 @@ module Roby
 
             rescue Exception => e
                 Distributed.info "error in dRoby processing: #{e.full_message}"
-                peer.disconnect if !peer.disconnected?
+                peer.disconnect if peer.connected?
 
             ensure
                 peer_server.processing = false
