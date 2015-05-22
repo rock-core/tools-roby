@@ -68,7 +68,8 @@ module Roby
             # beforehand
 	    def added_mission(task)
 		super if defined? super
-		return unless task.distribute? && task.self_owned?
+                return if !connection_space
+		return if !task.distribute? || !task.self_owned?
 
 		unless Distributed.updating?(self) || Distributed.updating?(task)
 		    connection_space.each_updated_peer(self, task) do |peer|
@@ -82,7 +83,8 @@ module Roby
             # PeerServer#plan_set_mission message to the remote host.
 	    def unmarked_mission(task)
 		super if defined? super
-		return unless task.distribute? && task.self_owned?
+                return if !connection_space
+		return if !task.distribute? || !task.self_owned?
 
 		unless Distributed.updating?(self) || Distributed.updating?(task)
 		    connection_space.each_updated_peer(self, task) do |peer|
@@ -95,7 +97,9 @@ module Roby
             # #added_tasks hooks. It sends PeerServer#plan_add for
             # all tasks which can be shared among plan managers
 	    def self.added_objects(plan, objects)
-		unless Distributed.updating?(plan)
+                return if !plan.connection_space
+
+		if !Distributed.updating?(plan)
 		    relations = nil
 		    plan.connection_space.each_updated_peer(plan) do |peer|
 			# Compute +objects+ and +relations+ only if there is a
@@ -129,9 +133,11 @@ module Roby
             # It sends a PeerServer#plan_replace message
 	    def replaced(from, to)
 		super if defined? super
+                return if !connection_space
+
 		if (from.distribute? && to.distribute?) && (to.self_owned? || from.self_owned?)
 		    unless Distributed.updating?(self) || (Distributed.updating?(from) && Distributed.updating?(to))
-			plan.connection_space.each_updated_peer(from) do |peer|
+			connection_space.each_updated_peer(from) do |peer|
 			    peer.transmit(:plan_replace, self, from, to)
 			end
 		    end
@@ -141,6 +147,7 @@ module Roby
             # Common implementation for the #finalized_task and
             # PeerServer#finalized_event hooks. It sends the plan_remove_object message.
 	    def self.finalized_object(plan, object)
+                return if !plan.connection_space
 		return unless object.distribute? && object.root_object?
 
 		Distributed.keep.delete(object)
@@ -189,8 +196,8 @@ module Roby
             # PeerServer#update_relation message.
 	    def added_child_object(child, relations, info)
 		super if defined? super
-
                 return if !connection_space
+
 		return if Distributed.updating?(plan)
 		return if Distributed.updating?(self.root_object) && Distributed.updating?(child.root_object)
 
@@ -237,6 +244,8 @@ module Roby
             # PeerServer#event_fired message.
 	    def fired(event)
 		super if defined? super
+                return if !connection_space
+
 		if self_owned? && !Distributed.updating?(root_object)
 		    connection_space.each_updated_peer(root_object) do |peer|
 			peer.transmit(:event_fired, self, event.object_id, event.time, event.context)
@@ -247,6 +256,8 @@ module Roby
             # PeerServer#event_add_propagation message.
 	    def forwarding(event, to)
 		super if defined? super
+                return if !connection_space
+
 		if self_owned? && !Distributed.updating?(root_object)
 		    connection_space.each_updated_peer(root_object, to.root_object) do |peer|
 			peer.transmit(:event_add_propagation, true, self, to, event.object_id, event.time, event.context)
@@ -257,6 +268,8 @@ module Roby
             # PeerServer#event_add_propagation message.
 	    def signalling(event, to)
 		super if defined? super
+                return if !connection_space
+
 		if self_owned? && !Distributed.updating?(root_object)
 		    connection_space.each_updated_peer(root_object, to.root_object) do |peer|
 			peer.transmit(:event_add_propagation, false, self, to, event.object_id, event.time, event.context)
@@ -276,6 +289,8 @@ module Roby
                 # PeerServer#event_add_propagation
                 def finalized_event(generator)
                     super if defined? super
+                    return if !connection_space
+
                     connection_space.each_peer do |peer|
                         if peer.local_server
                             peer.local_server.pending_events.delete(generator)
@@ -293,6 +308,7 @@ module Roby
             # PeerServer#updated_data
 	    def updated_data
 		super if defined? super
+                return if !connection_space
 
 		if task.plan && !Distributed.updating?(self)
 		    connection_space.each_updated_peer(self) do |peer|
@@ -309,6 +325,7 @@ module Roby
             # the PeerServer#updated_arguments message.
 	    def updated(key, value)
 		super if defined? super
+                return if !task.connection_space
 
 		if task.plan && !Distributed.updating?(task)
 		    task.connection_space.each_updated_peer(task) do |peer|
