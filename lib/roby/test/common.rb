@@ -220,8 +220,10 @@ module Roby
                     Roby.warn "failed to teardown: #{plan} has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
                 end
                 plan.clear
-                engine.clear
-                engine.emitted_events.clear
+                if engine = plan.execution_engine
+                    engine.clear
+                    engine.emitted_events.clear
+                end
             end
 
 	ensure
