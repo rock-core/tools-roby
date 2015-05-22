@@ -359,11 +359,17 @@ module Roby
         # returned by the method, +error+ an exception object (if an error
         # occured).
         def completed(result, error, id)
-            call_spec = peer.completion_queue.pop
-            if call_spec.message_id != id
-                result = Exception.exception("something fishy: ID mismatch in completion queue (#{call_spec.message_id} != #{id}")
+            if peer.completion_queue.empty?
+                result = Exception.exception("something fishy: got completion message for ID=#{id} but the completion queue is empty")
                 error  = true
                 call_spec = nil
+            else
+                call_spec = peer.completion_queue.pop
+                if call_spec.message_id != id
+                    result = Exception.exception("something fishy: ID mismatch in completion queue (#{call_spec.message_id} != #{id}")
+                    error  = true
+                    call_spec = nil
+                end
             end
             if error
                 if call_spec && thread = call_spec.waiting_thread
