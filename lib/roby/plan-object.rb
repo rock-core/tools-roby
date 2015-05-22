@@ -16,7 +16,9 @@ module Roby
         end
 
         def connection_space
-            plan.connection_space
+            if plan
+                plan.connection_space
+            end
         end
 
         # Generic handling object for blocks that are stored on tasks (event
