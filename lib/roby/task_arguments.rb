@@ -373,6 +373,11 @@ module Roby
     #     argument :goal, :default => from(State).pose.position
     #   end
     #
+    # If the provided object is nil, the receiver will be the task itself.
+    #
+    # @example initialize an argument from the task's parent
+    #   MyTaskModel.new(arg: Task.from(:parent_task).parent_arg)
+    #
     def self.from(object)
         DelayedArgumentFromObject.new(object)
     end
