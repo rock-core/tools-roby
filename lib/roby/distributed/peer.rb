@@ -524,7 +524,7 @@ module Roby
         # interaction with the peer: it only means that we cannot currently
         # communicate with it.
         def link_alive?
-            !!socket && !@dead && @disabled_tx == 0
+            !!socket && !socket.closed? && !@dead && @disabled_tx == 0
         end
 
         # The main synchronization mutex to access the peer. See also
