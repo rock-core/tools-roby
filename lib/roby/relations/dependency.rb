@@ -720,23 +720,33 @@ module Roby::TaskStructure
         # relations. It returns an array of ChildFailedError for all failed
         # hierarchy relations
         def check_structure(plan)
-            result = []
+            # The ValueSet in #interesting_events is also referenced
+            # *separately* in EventStructure.gather_events. We therefore have to
+            # keep it (and can't use #partition). Yuk
+            events = Array.new
+            interesting_events.delete_if do |ev|
+                if ev.plan == plan
+                    events << ev
+                    true
+                end
+            end
+            tasks = Set.new
+            failing_tasks.delete_if do |task|
+                if task.plan == plan
+                    tasks << task
+                    true
+                end
+            end
+            return Array.new if events.empty? && tasks.empty?
 
-            events = Dependency.interesting_events
-            return result if events.empty? && failing_tasks.empty?
+            result = []
 
             # Get the set of tasks for which a possible failure has been
             # registered The tasks that are failing the hierarchy requirements
             # are registered in Hierarchy.failing_tasks. The interesting_events
-            # set is cleared at cycle end (see below)
-            tasks, @failing_tasks = failing_tasks, ValueSet.new
+            # set is cleared when the events are finalized
             events.each do |event|
-                task =
-                    if event.respond_to?(:generator)
-                        event.generator.task
-                    else
-                        event.task
-                    end
+                task = event.task
                 tasks << task
 
                 if event.symbol == :start # also add the children
@@ -794,7 +804,6 @@ module Roby::TaskStructure
                 end
             end
 
-            events.clear
             result
         end
     end

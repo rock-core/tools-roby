@@ -1526,7 +1526,7 @@ module Roby
                     end
                 end
                 if !mismatching_plan.empty?
-                    raise ArgumentError, "#{mismatching_plan.map(&:to_s).join(", ")} have been given to #garbage_collect, but they are not tasks in #{plan}"
+                    raise ArgumentError, "#{mismatching_plan.map { |t| "#{t}(plan=#{t.plan})" }.join(", ")} have been given to #{self}.garbage_collect, but they are not tasks in #{plan}"
                 end
             end
 
