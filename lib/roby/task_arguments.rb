@@ -327,11 +327,11 @@ module Roby
         end
 
         def to_s
-            "default(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
+            "delayed_argument_from(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
         end
 
         def pretty_print(pp)
-            pp.text "delayed_argument_from(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
+            pp.text to_s
         end
     end
 
