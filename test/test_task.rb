@@ -2304,5 +2304,21 @@ class TC_Task < Minitest::Test
         plan.add(task = task_m.new(:arg => delayed_arg))
         assert !task.has_argument?(:arg)
     end
+
+    def test_it_does_not_call_the_setters_for_delayed_arguments
+        task_m = Roby::Task.new_submodel { argument :arg }
+        flexmock(task_m).new_instances.should_receive(:arg=).never
+        plan.add(task_m.new(arg: flexmock(:evaluate_delayed_argument)))
+    end
+
+    def test_it_calls_the_setters_when_delayed_arguments_are_resolved
+        task_m = Roby::Task.new_submodel { argument :arg }
+        flexmock(task_m).new_instances.should_receive(:arg=).once.with(10)
+        arg = Class.new do
+            def evaluate_delayed_argument(task); 10 end
+        end.new
+        plan.add(task = task_m.new(arg: arg))
+        task.freeze_delayed_arguments
+    end
 end
 
