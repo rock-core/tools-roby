@@ -318,29 +318,8 @@ module Roby
 
 	    restore_collections
 
-	    # Clear all relation graphs in TaskStructure and EventStructure
-	    spaces = []
-	    if defined? Roby::TaskStructure
-		spaces << Roby::TaskStructure
-	    end
-	    if defined? Roby::EventStructure
-		spaces << Roby::EventStructure
-	    end
-	    spaces.each do |space|
-		space.relations.each do |rel| 
-		    vertices = rel.enum_for(:each_vertex).to_a
-		    if !vertices.empty?
-			Roby.warn "  the following vertices are still present in #{rel}: #{vertices.to_a}"
-			vertices.each { |v| v.clear_vertex }
-		    end
-                    if rel.respond_to?(:task_graph) && !rel.task_graph.empty?
-			Roby.warn "  the task graph for #{rel} is not empty while its corresponding relation graph is"
-			rel.task_graph.clear
-                    end
-		end
-	    end
+            clear_relation_spaces
 
-	    Roby::TaskStructure::Hierarchy.interesting_events.clear
 	    if defined? Roby::Application
 		Roby.app.abort_on_exception = false
 		Roby.app.abort_on_application_exception = false
@@ -400,6 +379,25 @@ module Roby
                 end
             end
 	end
+        
+        def clear_relation_spaces
+	    # Clear all relation graphs in TaskStructure and EventStructure
+	    [TaskStructure, EventStructure].each do |space|
+		space.relations.each do |rel| 
+		    vertices = rel.enum_for(:each_vertex).to_a
+		    if !vertices.empty?
+			Roby.warn "  the following vertices are still present in #{rel}: #{vertices.to_a}"
+			vertices.each { |v| v.clear_vertex }
+		    end
+                    if rel.respond_to?(:task_graph) && !rel.task_graph.empty?
+			Roby.warn "  the task graph for #{rel} is not empty while its corresponding relation graph is"
+			rel.task_graph.clear
+                    end
+		end
+	    end
+
+	    TaskStructure::Dependency.interesting_events.clear
+        end
 
 	# Process pending events
 	def process_events
