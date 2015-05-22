@@ -82,8 +82,8 @@ module Roby
         # The execution engine associated to #plan
         def execution_engine; connection_space.plan.execution_engine end
 
-        # Synchronization primitives for {#wait_alive_link}
-        attr_reader :wait_alive_sync, :wait_alive_cond
+        # Synchronization primitives for {#wait_link_alive}
+        attr_reader :wait_link_alive_sync, :wait_link_alive_cond
 
 	# Creates a Peer object for the peer connected at +socket+. This peer
 	# is to be managed by +connection_space+ If a block is given, it is
@@ -94,8 +94,8 @@ module Roby
 	    @remote_name = remote_name
 	    @remote_id   = remote_id
 
-            @wait_alive_sync = Mutex.new
-            @wait_alive_cond = ConditionVariable.new
+            @wait_link_alive_sync = Mutex.new
+            @wait_link_alive_cond = ConditionVariable.new
 
 	    @connection_space = connection_space
 	    @local_server = PeerServer.new(self)
@@ -152,7 +152,7 @@ module Roby
 	    call(:query_result_set, query) do |marshalled_set|
 		for task in marshalled_set
 		    task = local_object(task)
-		    Roby::Distributed.keep.ref(task)
+		    Distributed.keep.ref(task)
 		    result << task
 		end
 	    end
@@ -174,7 +174,7 @@ module Roby
 	    Roby.synchronize do
 		if result_set
 		    result_set.each do |task|
-			Roby::Distributed.keep.deref(task)
+			Distributed.keep.deref(task)
 		    end
 		end
 	    end
@@ -209,18 +209,19 @@ module Roby
 	# matched the trigger
 	def triggered(id, task) # :nodoc:
 	    task = local_object(task)
-	    Roby::Distributed.keep.ref(task)
-	    Thread.new do
-		begin
-		    if trigger = triggers[id]
-			trigger.last.call(task)
-		    end
-		rescue Exception
-		    Roby::Distributed.warn "trigger handler #{trigger.last} failed with #{$!.full_message}"
-		ensure
-		    Roby::Distributed.keep.deref(task)
-		end
-	    end
+	    Distributed.keep.ref(task)
+
+            once do
+                begin
+                    if trigger = triggers[id]
+                        trigger.last.call(task)
+                    end
+                rescue Exception
+                    Distributed.warn "#{self}: trigger handler #{trigger.last} failed with #{$!.full_message}"
+                ensure
+                    Distributed.keep.deref(task)
+                end
+            end
 	end
 
 	# Returns true if this peer owns +object+
@@ -238,13 +239,13 @@ module Roby
 			edges.each do |rel, from, to, info|
 			    objects << from.root_object << to.root_object
 			end
-			Roby::Distributed.update_all(objects) do
+			Distributed.update_all(objects) do
 			    edges.each do |rel, from, to, info|
 				from.add_child_object(to, rel, info)
 			    end
 			end
 
-			objects.each { |obj| Roby::Distributed.keep.ref(obj) }
+			objects.each { |obj| Distributed.keep.ref(obj) }
 			
                         done = true
 			synchro.broadcast
@@ -258,7 +259,7 @@ module Roby
 	    yield(local_object(remote_object(object)))
 
 	    Roby.synchronize do
-		objects.each { |obj| Roby::Distributed.keep.deref(obj) }
+		objects.each { |obj| Distributed.keep.deref(obj) }
 	    end
 	end
 
@@ -325,11 +326,11 @@ module Roby
                 end
             end
 
-            if m == :connect || m == :reconnect
+            if m == :connect || m == :reestablish_link
                 @connection_state = :connected
                 @remote_name = remote_name
                 reply = if m == :connect then :connected
-                        else :reconnected
+                        else :link_reestablished
                         end
                 send(reply, socket, remote_state)
                 return [reply, remote_id.uri, remote_id.ref, connection_space.state], true
@@ -355,27 +356,30 @@ module Roby
             end
         end
 
-        def reestablish_connection(&block)
+        def reestablish_link
             if connection_state == :disconnected
                 raise StateMismatch, "trying to reestablish connection on a peer that is not connected"
-            elsif connection_state != :link_dead
+            elsif connection_state != :link_lost
                 raise StateMismatch, "connection is not broken"
             end
 
             @connection_state = :connecting
             ConnectionRequest.reconnect(self) do |request, socket, remote_uri, remote_port, remote_state|
                 if @pending_connection_request == request
-                    reestablished_connection(socket, remote_state)
+                    link_reestablished(socket, remote_state)
                     yield if block_given?
                 end
             end
         end
 
         # Wait for the link to become alive
-        def wait_alive_link
-            wait_alive_sync.synchronize do
-                return if connection_state == :connected
-                wait_alive_cond.wait(wait_alive_sync)
+        def wait_link_alive
+            wait_link_alive_sync.synchronize do
+                while !disconnected? && !link_alive?
+                    Distributed.warn "#{self}: link lost, waiting"
+                    wait_link_alive_cond.wait(wait_link_alive_sync)
+                end
+                socket
             end
         end
 
@@ -388,7 +392,7 @@ module Roby
 	    @send_thread = Thread.new(&method(:communication_loop))
         end
 
-        def reestablished_connection(socket, remote_state)
+        def link_reestablished(socket, remote_state)
             Distributed.debug { "#{self}: link reestablished" }
             register_link(socket)
             local_server.state_update remote_state
@@ -399,14 +403,20 @@ module Roby
                 @pending_connection_request = nil
             end
 
-	    @socket      = socket
-            @connection_state = :connected
-            connection_space.register_link(self, socket)
-
-            wait_alive_sync.synchronize do
+            wait_link_alive_sync.synchronize do
+                @socket      = socket
                 @connection_state = :connected
-                wait_alive_cond.broadcast
+                connection_space.register_link(self, socket)
+
+                wait_link_alive_cond.broadcast
             end
+            Distributed.debug { "#{self}: registered link #{socket} local:#{socket.local_address.ip_unpack} remote:#{socket.remote_address.ip_unpack}" }
+        end
+
+        def link_lost
+            Distributed.info "#{self}: link lost"
+            @socket = nil
+            @connection_state = :link_lost
         end
 
         # Normal disconnection procedure. 
@@ -426,6 +436,10 @@ module Roby
         # Note that once the connection leaves the connected state, the only
         # messages allowed by #queue_call are 'completed' and 'disconnected'
         def disconnect
+            if !connected?
+                raise StateMismatch, "attempting to disconnect a non-connected peer"
+            end
+
             Distributed.info "#{self}: disconnecting"
             @connection_state = :disconnecting
             queue_call false, :disconnect
@@ -445,22 +459,23 @@ module Roby
 
         # Called when the peer acknowledged the fact that we disconnected
         def disconnected(event = :failed) # :nodoc:
-            Roby::Distributed.info "#{remote_name} disconnected (#{event})"
-
-            self.clear
-
-            @connection_state = :disconnected
-            if @send_thread && @send_thread != Thread.current
-                @send_queue.clear
-                @send_queue.push nil
-                @send_queue = nil
-            end
-            @send_thread = nil
-            socket.close if !socket.closed?
-            @socket = nil
-
             task.emit(event)
             connection_space.deregister_peer(self)
+
+            wait_link_alive_sync.synchronize do
+                @connection_state = :disconnected
+                @send_queue.clear
+                @send_queue.push nil
+                @send_thread.join
+                @send_queue, @send_thread = nil
+                socket.close if !socket.closed?
+                @socket = nil
+
+                wait_link_alive_cond.broadcast
+            end
+
+            self.clear
+            Distributed.info "#{self}: disconnected (#{event})"
         end
 
         # Call to disconnect outside of the normal protocol.
@@ -509,9 +524,7 @@ module Roby
         # interaction with the peer: it only means that we cannot currently
         # communicate with it.
         def link_alive?
-            return false if socket.closed? || @dead || @disabled_tx > 0
-            return false if remote_id && connection_space.neighbours.find { |n| n.remote_id == remote_id }
-            true
+            !!socket && !@dead && @disabled_tx == 0
         end
 
         # The main synchronization mutex to access the peer. See also
@@ -725,38 +738,40 @@ module Roby
         # Main loop of the thread which communicates with the remote peer
         def communication_loop
             id = 0
-            data   = nil
+            marshalled_data = String.new
             buffer = StringIO.new(" " * 8, 'w')
 
             Distributed.debug "#{self}: starting communication loop"
 
             loop do
-                data ||= send_queue.shift
-                return if disconnected?
+                socket = wait_link_alive
+                if disconnected?
+                    return
+                elsif marshalled_data.empty?
+                    data = send_queue.shift
+                    return if !data
 
-                # Wait for the link to be alive before sending anything
-                while !link_alive?
-                    return if disconnected?
-                    Roby::Distributed.info "#{self} is out of reach. Waiting before transmitting"
-                    wait_alive_link
+                    buffer.truncate(8)
+                    buffer.seek(8)
+                    Marshal.dump(data, buffer)
+                    buffer.string[0, 8] = [id += 1, buffer.size - 8].pack("NN")
+                    marshalled_data = buffer.string.dup
                 end
-                return if disconnected?
 
-                buffer.truncate(8)
-                buffer.seek(8)
-                Marshal.dump(data, buffer)
-                buffer.string[0, 8] = [id += 1, buffer.size - 8].pack("NN")
+                size = marshalled_data.size
+                Distributed.debug { "#{self}: sending ID=#{id} #{size}B" }
 
                 begin
-                    size = buffer.string.size
-                    Roby::Distributed.debug { "sending #{size}B to #{self}" }
-                    stats.tx += size
-                    socket.write(buffer.string)
+                    written_bytes = socket.write_nonblock(marshalled_data)
+                    stats.tx += written_bytes
+                    marshalled_data = marshalled_data[written_bytes..-1]
 
-                    data = nil
-                rescue Errno::EPIPE
-                    @dead = true
-                    # communication error, retry sending the data (or, if we are disconnected, return)
+                rescue IO::WaitWritable
+                rescue Errno::EPIPE, Errno::ECONNRESET, IOError
+                    # communication error. We leave the handling of this to the
+                    # read thread
+                    socket.close if !socket.closed?
+                    connection_space.trigger_receive_loop("N")
                 end
             end
 

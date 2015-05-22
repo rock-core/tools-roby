@@ -91,7 +91,7 @@ module Roby
             def initiate
                 return if !peer.register_connection_request(self)
 
-                m = if reconnecting? then :reconnect
+                m = if reconnecting? then :reestablish_link
                     else :connect
                     end
 
@@ -130,7 +130,7 @@ module Roby
 
                 peer.once do
                     reply, *info = *reply
-                    if reply == :connected || reply == :reconnected
+                    if reply == :connected || reply == :link_reestablished
                         callbacks.each do |callback|
                             callback.call(self, socket, *reply)
                         end

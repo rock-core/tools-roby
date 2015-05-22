@@ -12,6 +12,7 @@ require 'roby/distributed/connection_task'
 require 'roby/distributed/peer'
 require 'roby/distributed/peer_server'
 require 'roby/distributed/remote_object_manager'
+require 'roby/distributed/peer_read_state'
 require 'roby/distributed/connection_space'
 require 'roby/distributed/call_spec'
 
