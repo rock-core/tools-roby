@@ -193,8 +193,8 @@ module Roby
                                 begin
                                     handle_connection_request(new_connection)
                                 rescue Exception => e
-                                    Roby::Distributed.fatal "failed to handle connection request on #{new_connection}"
-                                    Roby::Distributed.fatal e.full_message
+                                    Distributed.fatal "#{new_connection}: failed to handle connection request"
+                                    Distributed.fatal e.full_message
                                     new_connection.close
                                 end
                             end
@@ -227,11 +227,11 @@ module Roby
 		m, remote_token, remote_name, remote_id, remote_state = 
 		    Marshal.load(socket.read(info_size))
 
-		Distributed.debug { "connection attempt from #{socket.peer_info}: #{m} #{remote_name} #{remote_id}" }
+		Distributed.debug { "#{socket}: connection request local:#{socket.local_address.ip_unpack} remote:#{socket.remote_address.ip_unpack}: #{m} #{remote_name} #{remote_id}" }
 
                 once do
                     if !(peer = peers[remote_id])
-                        Distributed.debug { "creating new peer for #{m.inspect} from #{socket.peer_info}" }
+                        Distributed.debug { "#{socket}: creating new peer for #{m.inspect}" }
                         peer = Peer.new(self, remote_name, remote_id)
                         register_peer(peer)
                     end
@@ -488,10 +488,10 @@ module Roby
                                   end
 
                     if peer.disabled_rx?
-                        Distributed.debug { "delaying #{calls.size} calls on #{peer}: RX is disabled" }
+                        Distributed.debug { "#{peer}: delaying #{calls.size} calls, RX is disabled" }
                         delayed_cycles.push [peer, calls]
                     else
-                        Distributed.debug { "processing #{calls.size} calls on #{peer}" }
+                        Distributed.debug { "#{peer}: processing #{calls.size} calls" }
                         if remaining = process_cycle(peer, calls)
                             delayed_cycles.push [peer, remaining]
                         end
@@ -524,7 +524,7 @@ module Roby
                 peer_server.processing = true
 
                 if peer.disconnected?
-                    Distributed.debug "peer #{peer} disconnected, ignoring #{calls_size} calls"
+                    Distributed.debug "#{peer}: peer disconnected, ignoring #{calls_size} calls"
                     return
                 end
 
@@ -534,7 +534,7 @@ module Roby
                     is_callback, method, args, critical, message_id = *call_spec
                     Distributed.debug do 
                         args_s = args.map { |obj| obj ? obj.to_s : 'nil' }
-                        "processing #{is_callback ? 'callback' : 'method'} [#{message_id}]#{method}(#{args_s.join(", ")})"
+                        "#{peer}: processing #{is_callback ? 'callback' : 'method'} [#{message_id}]#{method}(#{args_s.join(", ")})"
                     end
 
                     result = catch(:ignore_this_call) do
@@ -560,9 +560,9 @@ module Roby
 
                     if method != :completed && method != :completion_group && peer.connected?
                         if peer_server.queued_completion?
-                            Distributed.debug "done and already queued the completion message"
+                            Distributed.debug "#{peer}: done and already queued the completion message"
                         else
-                            Distributed.debug { "done, returns #{result || 'nil'}" }
+                            Distributed.debug { "#{peer}: done, returns #{result || 'nil'}" }
                             peer.queue_call false, :completed, [result, false, message_id]
                         end
                     end

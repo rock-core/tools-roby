@@ -115,6 +115,10 @@ module Roby
             super(plan)
 	end
 
+        def pretty_print(pp)
+            pp.text "Peer:#{remote_name}@#{remote_id} #{connection_state}"
+        end
+
         def connecting?
             connection_state == :connecting
         end
@@ -310,7 +314,7 @@ module Roby
         #   peer, and a boolean that says whether this object took ownership of
         #   the socket (true) or not (false).
         def handle_connection_request(socket, m, remote_name, remote_token, remote_state)
-            Distributed.debug { "#{self}: handling connection request #{m.inspect} from #{remote_name} on socket #{socket.peer_info}" }
+            Distributed.debug { "#{self}: handling connection request #{m.inspect} from #{remote_name} on local:#{socket.local_address.ip_unpack} remote:#{socket.remote_address.ip_unpack}" }
             if connection_state == :connected
                 return [:already_connected], false
             elsif @pending_connection_request 
@@ -377,7 +381,7 @@ module Roby
 
         # Called when we managed to reconnect to our peer. +socket+ is the new communication socket
         def connected(socket, remote_state)
-            Roby::Distributed.debug "new socket for #{self}: #{socket.peer_info}"
+            Distributed.debug { "#{self}: connected" }
             register_link(socket)
             local_server.state_update remote_state
             @send_queue = Queue.new
@@ -385,7 +389,7 @@ module Roby
         end
 
         def reestablished_connection(socket, remote_state)
-            Roby::Distributed.debug "reconnected to #{self}: new socket #{socket.peer_info}"
+            Distributed.debug { "#{self}: link reestablished" }
             register_link(socket)
             local_server.state_update remote_state
         end
@@ -422,7 +426,7 @@ module Roby
         # Note that once the connection leaves the connected state, the only
         # messages allowed by #queue_call are 'completed' and 'disconnected'
         def disconnect
-            Roby::Distributed.info "disconnecting from #{self}"
+            Distributed.info "#{self}: disconnecting"
             @connection_state = :disconnecting
             queue_call false, :disconnect
         end
@@ -433,8 +437,8 @@ module Roby
         #
         # This sends the PeerServer#fatal_error message to our peer
         def fatal_error(error, msg, args)
-            Roby::Distributed.fatal "fatal error '#{error.message}' while processing #{msg}(#{args.join(", ")})"
-            Roby::Distributed.fatal Roby.filter_backtrace(error.backtrace).join("\n  ")
+            Distributed.fatal "#{self}: fatal error '#{error.message}' while processing #{msg}(#{args.join(", ")})"
+            Distributed.fatal Roby.filter_backtrace(error.backtrace).join("\n  ")
             @connection_state = :disconnecting
             queue_call false, :fatal_error, [error, msg, args]
         end
@@ -536,7 +540,7 @@ module Roby
         def check_marshallable(object, stack = ValueSet.new)
             if !object.kind_of?(DRbObject) && object.respond_to?(:each) && !object.kind_of?(String)
                 if stack.include?(object)
-                    Roby::Distributed.warn "recursive marshalling of #{obj}"
+                    Distributed.warn "recursive marshalling of #{obj}"
                     raise "recursive marshalling"
                 end
 
@@ -625,23 +629,23 @@ module Roby
                     case last_method
                     when :completed
                         if !(last_args[0] || last_args[1])
-                            Distributed.debug "merging two completion messages"
+                            Distributed.debug "#{self}: merging two completion messages"
                             current_cycle.pop
                             call_spec.method = :completion_group
                             call_spec.formatted_args = [last_args[2], args[2]]
                         end
                     when :completion_group
-                        Distributed.debug "extending a completion group"
+                        Distributed.debug "#{self}: extending a completion group"
                         current_cycle.pop
                         call_spec.method = :completion_group
                         call_spec.formatted_args = [last_args[0], args[2]]
                     end
                 end
 
-                Distributed.debug { "#{call_spec.is_callback ? 'adding callback' : 'queueing'} [#{call_spec.message_id}]#{remote_name}.#{call_spec.method}" }
+                Distributed.debug { "#{self}: #{call_spec.is_callback ? 'adding callback' : 'queueing'} [#{call_spec.message_id}]#{remote_name}.#{call_spec.method}" }
                 current_cycle    << [call_spec.is_callback, call_spec.method, call_spec.formatted_args, !waiting_thread, call_spec.message_id]
                 if sync? || CYCLE_END_CALLS.include?(m)
-                    Distributed.debug "transmitting #{@current_cycle.size} calls"
+                    Distributed.debug "#{self}: transmitting #{@current_cycle.size} calls"
                     send_queue << current_cycle
                     @current_cycle = Array.new
                 end
@@ -695,7 +699,7 @@ module Roby
             Roby.condition_variable(true) do |cv, mt|
                 mt.synchronize do
                     Distributed.debug do
-                        "calling #{remote_name}.#{m}"
+                        "#{self}: calling #{m}"
                     end
 
                     called = false
@@ -724,7 +728,7 @@ module Roby
             data   = nil
             buffer = StringIO.new(" " * 8, 'w')
 
-            Roby::Distributed.debug "starting communication loop to #{self}"
+            Distributed.debug "#{self}: starting communication loop"
 
             loop do
                 data ||= send_queue.shift
@@ -756,17 +760,16 @@ module Roby
                 end
             end
 
-        rescue Interrupt
-        rescue Exception
+        rescue Exception => e
             Distributed.fatal do
-                "While sending #{data.inspect}\n" +
-                "Communication thread dies with\n#{$!.full_message}"
+                "#{self}: While sending #{data.inspect}\n" +
+                "#{self}: Communication thread dies with\n#{e.full_message}"
             end
 
             disconnected!
 
         ensure
-            Distributed.info "communication thread quitting for #{self}. Rx: #{stats.rx}B, Tx: #{stats.tx}B"
+            Distributed.info "#{self}: communication thread quitting. Rx: #{stats.rx}B, Tx: #{stats.tx}B"
             calls = []
             while !completion_queue.empty?
                 calls << completion_queue.shift
@@ -779,7 +782,7 @@ module Roby
                 end
             end
 
-            Distributed.info "communication thread quit for #{self}"
+            Distributed.info "#{self}: communication thread quit"
         end
 
         # Formats an error message because +error+ has been reported by +call+
@@ -802,7 +805,7 @@ module Roby
         def call_attached_block(call, result)
             if block = call.on_completion
                 begin
-                    Roby::Distributed.debug "calling completion block #{block} for #{call}"
+                    Distributed.debug "#{self}: calling completion block #{block} for #{call}"
                     block.call(result)
                 rescue Exception => e
                     Roby.application_error(:droby_callbacks, block, e)
