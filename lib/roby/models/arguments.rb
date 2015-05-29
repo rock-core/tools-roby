@@ -4,8 +4,16 @@ module Roby
         # and tasks)
         module Arguments
             extend MetaRuby::Attributes
+
+            # The set of knwon argument names
+            #
+            # @return [Set<Symbol>]
             inherited_attribute("argument_set", "argument_set") { ValueSet.new }
-            inherited_attribute("argument_default", "argument_defaults", :map => true) { Hash.new }
+
+            # The set of known argument default values
+            #
+            # @return [Set<#evaluate_delayed_argument>]
+            inherited_attribute("argument_default", "argument_defaults", map: true) { Hash.new }
 
             # @return [Boolean] returns if the given name is a known argument of
             #   this task

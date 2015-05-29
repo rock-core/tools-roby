@@ -100,7 +100,7 @@ module Roby
 	end
 
         # Called when the start event get called, to resolve the delayed
-        # arguments (if there is any)
+        # arguments (if there are any)
         def freeze_delayed_arguments
             if !arguments.static?
                 arguments.dup.each do |key, value|

@@ -382,7 +382,11 @@ module Roby
             !respond_to?(:plan)
         end
 
-        # Returns the set of stacked transaction, starting at +self+
+        # Returns the set of stacked transaction
+        #
+        # @return [Array] the list of plans in the transaction stack, the first
+        #   element being the most-nested transaction and the last element the
+        #   underlying real plan (equal to {#real_plan})
         def transaction_stack
             plan_chain = [self]
             while plan_chain.last.respond_to?(:plan)
