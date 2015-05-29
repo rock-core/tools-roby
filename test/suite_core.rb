@@ -17,6 +17,7 @@ require './test/test_execution_engine'
 require './test/test_execution_exception'
 
 require './test/test_plan'
+require './test/test_plan_service'
 require './test/test_transactions'
 require './test/test_transactions_proxy'
 

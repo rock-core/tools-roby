@@ -60,13 +60,13 @@ module Roby
 
         def create_and_register_plan_service_proxy(object)
             proxy = object.dup
+            setup_proxy(proxy, object)
 
             if !underlying_proxy = proxy_objects[object.to_task]
                 raise InternalError, "no proxy for #{object.to_task}, there should be one at this point"
             end
             proxy.task = underlying_proxy
             add_plan_service(proxy)
-            setup_proxy(proxy, object)
         end
 
         def create_and_register_proxy(object)
