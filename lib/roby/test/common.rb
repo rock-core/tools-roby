@@ -29,6 +29,7 @@ require 'roby'
 
 require 'roby/test/assertion'
 require 'roby/test/error'
+require 'roby/test/teardown_plans'
 
 module Roby
     # This module is defining common support for tests that need the Roby
@@ -40,6 +41,7 @@ module Roby
     # @see SelfTest
     module Test
 	include Roby
+        include TeardownPlans
 
 	BASE_PORT     = 1245
 	DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
@@ -121,8 +123,6 @@ module Roby
             original_collections.clear
 	end
 
-        attr_reader :registered_plans
-
 	def setup
             Roby.app.reload_config
             @log_levels = Hash.new
@@ -132,7 +132,7 @@ module Roby
             if !@plan
                 @plan = Roby.plan
             end
-            @registered_plans = [@plan]
+            register_plan(@plan)
 
             super if defined? super
 
@@ -166,75 +166,6 @@ module Roby
             @handler_ids << engine.add_propagation_handler(:type => :external_events) do |plan|
                 Test.verify_watched_events
             end
-	end
-
-        def register_plan(plan)
-            @registered_plans << plan
-        end
-
-	def teardown_plans
-	    old_gc_roby_logger_level = Roby.logger.level
-
-            plans = self.registered_plans.map do |p|
-                if p.execution_engine
-                    [p, p.execution_engine, p.known_tasks.to_set, p.gc_quarantine.to_set]
-                end
-            end.compact
-
-            counter = 0
-            while !plans.empty?
-                plans = plans.map do |plan, engine, last_known_tasks, last_quarantine|
-                    if counter > 100
-                        Roby.warn "more than #{counter} iterations while trying to shut down #{plan}, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
-                        if last_known_tasks != plan.known_tasks
-                            Roby.warn "Known tasks:"
-                            plan.known_tasks.each do |t|
-                                Roby.warn "  #{t}"
-                            end
-                            last_known_tasks = plan.known_tasks.dup
-                        end
-                        if last_quarantine != plan.gc_quarantine
-                            Roby.warn "Quarantined tasks:"
-                            plan.gc_quarantine.each do |t|
-                                Roby.warn "  #{t}"
-                            end
-                            last_quarantine = plan.gc_quarantine.dup
-                        end
-                    end
-                    engine.killall
-                    
-                    if plan.gc_quarantine.size != plan.known_tasks.size
-                        [plan, engine, last_known_tasks, last_quarantine]
-                    end
-                end.compact
-                sleep 0.1
-                counter += 1
-            end
-
-	    if debug_gc?
-		Roby.logger.level = Logger::DEBUG
-	    end
-
-            registered_plans.each do |plan|
-                if !plan.empty?
-                    Roby.warn "failed to teardown: #{plan} has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
-                end
-                plan.clear
-                if engine = plan.execution_engine
-                    engine.clear
-                    engine.emitted_events.clear
-                end
-
-                if !plan.transactions.empty?
-                    Roby.warn "  #{plan.transactions.size} transactions left attached to the plan"
-                    plan.transactions.each do |trsc|
-                        trsc.discard_transaction
-                    end
-                end
-            end
-
-	ensure
-            Roby.logger.level = old_gc_roby_logger_level
 	end
 
         def assert_raises(exception, &block)
@@ -298,8 +229,7 @@ module Roby
             end
 
 	    timings[:quit] = Time.now
-            teardown_plans
-            registered_plans.clear
+            teardown_registered_plans
 	    timings[:teardown_plan] = Time.now
 
             if @handler_ids && engine
@@ -355,13 +285,7 @@ module Roby
 	ensure
             reset_log_levels
             begin
-                while engine && engine.running?
-                    engine.quit
-                    engine.join rescue nil
-                end
-                if plan
-                    plan.clear
-                end
+                clear_registered_plans
 
                 if @original_roby_logger_level
                     Roby.logger.level = @original_roby_logger_level
