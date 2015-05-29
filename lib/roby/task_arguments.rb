@@ -295,7 +295,20 @@ module Roby
 
         def evaluate_delayed_argument(task)
             result = @methods.inject(@object || task) do |v, m|
-                if v.respond_to?(m)
+                if v.kind_of?(Roby::Task) && v.model.has_argument?(m)
+                    # We are trying to access a task argument, throw no_value if the
+                    # argument is not set
+                    if !v.arguments.has_key?(m)
+                        throw :no_value
+                    end
+
+                    argument = v.arguments.values[m]
+                    if argument.respond_to?(:evaluate_delayed_argument)
+                        argument.evaluate_delayed_argument(task)
+                    else
+                        argument
+                    end
+                elsif v.respond_to?(m)
                     v.send(m)
                 elsif @weak
                     throw :no_value

@@ -105,7 +105,9 @@ module Roby
             if !arguments.static?
                 arguments.dup.each do |key, value|
                     if value.respond_to?(:evaluate_delayed_argument)
-                        __assign_argument__(key, value.evaluate_delayed_argument(self))
+                        catch(:no_value) do
+                            __assign_argument__(key, value.evaluate_delayed_argument(self))
+                        end
                     end
                 end
             end
