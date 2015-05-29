@@ -20,5 +20,6 @@
   <depend package="websocket-gem" />
   <depend package="binding_of_caller" />
   <depend package="tools/rubigen" optional="1" />
+  <depend package="rb-readline" />
 </package>
 
