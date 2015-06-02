@@ -147,8 +147,47 @@ module Roby
                 end
             end
 
+            class BatchContext < BasicObject
+                def initialize(context)
+                    @context = context
+                    @calls = Array.new
+                end
+
+                def __calls
+                    @calls
+                end
+
+                def push(path, m, *args)
+                    @calls << [path, m, *args]
+                end
+
+                def method_missing(m, *args)
+                    if m.to_s =~ /(.*)!$/
+                        action_name = $1
+                        if @context.find_action_by_name(action_name)
+                            push([], :start_job, action_name, *args)
+                        else raise ArgumentError, "there is no action called #{action_name}"
+                        end
+                    else
+                        push([], m, *args)
+                    end
+                end
+
+                def process
+                    @context.process_batch(self)
+                end
+            end
+
+            def create_batch
+                BatchContext.new(self)
+            end
+
+            def process_batch(batch)
+                call([], :process_batch, batch.__calls)
+            end
+
             def reload_actions
-                @actions = call(:reload_actions)
+                @actions = call([], :reload_actions)
             end
 
             def find_subcommand_by_name(name)

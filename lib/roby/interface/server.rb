@@ -69,20 +69,30 @@ module Roby
                 io.close
             end
 
+            def process_call(path, m, *args)
+                if path.empty? && respond_to?(m)
+                    send(m, *args)
+                else
+                    receiver = path.inject(interface) do |obj, subcommand|
+                        obj.send(subcommand)
+                    end
+                    receiver.send(m, *args)
+                end
+            end
+
             # Process one command from the client, and send the reply
             def poll
                 path, m, *args = io.read_packet
                 return if !m
 
-                if path.empty? && respond_to?(m)
-                    reply = send(m, *args)
-                else
-                    receiver = path.inject(interface) do |obj, subcommand|
-                        obj.send(subcommand)
+                if m == :process_batch
+                    reply = Array.new
+                    args.first.each do |p, m, *a|
+                        reply << process_call(path + p, m, *a)
                     end
-                    reply = receiver.send(m, *args)
+                else
+                    reply = process_call(path, m, *args)
                 end
-
                 io.write_packet([:reply, reply])
             rescue ComError
                 raise
