@@ -177,7 +177,7 @@ module Roby
                     job_monitors.clear
 
                     if client
-                        client.close
+                        client.close if !client.closed?
                         @client = nil
                         run_hook :on_unreachable
                     end
