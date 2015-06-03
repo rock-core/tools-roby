@@ -34,6 +34,10 @@ module Roby
                 @actions, @commands = handshake(id)
             end
 
+            def closed?
+                io.closed?
+            end
+
             def close
                 io.close
             end
