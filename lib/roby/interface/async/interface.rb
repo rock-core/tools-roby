@@ -125,8 +125,8 @@ module Roby
                         end
 
                         if monitors = job_monitors[job_id]
-                            monitors.dup.each do |j|
-                                j.update(job_state)
+                            monitors.dup.each do |m|
+                                m.update_state(job_state)
                             end
                         end
                         run_hook :on_job_progress, job_state, job_id, job_name, args
@@ -171,10 +171,9 @@ module Roby
                 end
 
                 def unreachable!
-                    job_monitors.each do |j|
+                    job_monitors.dup.each do |j|
                         j.update :finalized, j.task
                     end
-                    job_monitors.clear
 
                     if client
                         client.close if !client.closed?
@@ -288,8 +287,12 @@ module Roby
                         job_monitors.delete(job.job_id)
                     end
                 end
+
+                def connect_to_ui(widget, &block)
+                    UIConnector.new(self, widget).instance_eval(&block)
                 end
             end
         end
     end
+end
 
