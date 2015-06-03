@@ -22,7 +22,7 @@ module Roby
                 def initialize(interface, job_id, state: nil, task: nil)
                     @interface = interface
                     @job_id = job_id
-                    @state = state
+                    @state = state || :reachable
                     @task = task
                 end
 
@@ -30,13 +30,16 @@ module Roby
                     "#<JobMonitor #{interface} job_id=#{job_id} state=#{state} task=#{task}>"
                 end
 
-                def update(state)
+                def update_state(state)
                     @state = state
+                    run_hook :on_progress, state
                     if state == :finalized
                         stop
                     end
+                end
 
-                    run_hook :on_progress, state
+                def terminated?
+                    Roby::Interface.terminal_state?(state)
                 end
 
                 def running?
@@ -45,6 +48,10 @@ module Roby
 
                 # Start monitoring this job's state
                 def start
+                    update_state(state)
+                    interface.on_unreachable do
+                        update_state(:unreachable)
+                    end
                     interface.add_job_monitor(self)
                 end
 
