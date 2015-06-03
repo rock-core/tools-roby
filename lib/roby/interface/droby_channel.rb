@@ -28,6 +28,14 @@ module Roby
                 io.close
             end
 
+            def closed?
+                io.closed?
+            end
+
+            def eof?
+                io.eof?
+            end
+
             # Read one packet from {#io} and unmarshal it
             #
             # It is non-blocking

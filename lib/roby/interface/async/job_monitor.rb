@@ -26,6 +26,10 @@ module Roby
                     @task = task
                 end
 
+                def inspect
+                    "#<JobMonitor #{interface} job_id=#{job_id} state=#{state} task=#{task}>"
+                end
+
                 def update(state)
                     @state = state
                     if state == :finalized

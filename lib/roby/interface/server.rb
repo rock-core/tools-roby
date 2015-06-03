@@ -53,7 +53,7 @@ module Roby
 
             def handshake(id)
                 @client_id = id
-                Roby::Interface.warn "new interface client: #{id}"
+                Roby::Interface.info "new interface client: #{id}"
                 return interface.actions, interface.commands
             end
 
@@ -63,6 +63,10 @@ module Roby
 
             def disable_notifications
                 self.notifications_enabled = false
+            end
+
+            def closed?
+                io.closed?
             end
 
             def close
