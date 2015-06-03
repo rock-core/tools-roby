@@ -65,9 +65,9 @@ module Roby
                 marshalled = Marshal.dump(object.droby_dump(nil))
                 packet =
                     if client?
-                        WebSocket::Frame::Outgoing::Client.new(:data => marshalled, :type => :binary)
+                        WebSocket::Frame::Outgoing::Client.new(data: marshalled, type: :binary)
                     else
-                        WebSocket::Frame::Outgoing::Server.new(:data => marshalled, :type => :binary)
+                        WebSocket::Frame::Outgoing::Server.new(data: marshalled, type: :binary)
                     end
 
                 io.write(packet.to_s)
