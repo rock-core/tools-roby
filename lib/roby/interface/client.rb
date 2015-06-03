@@ -34,6 +34,10 @@ module Roby
                 @actions, @commands = handshake(id)
             end
 
+            def close
+                io.close
+            end
+
             def to_io
                 io.to_io
             end
@@ -70,6 +74,10 @@ module Roby
                 true
             end
 
+            # Polls for new data on the IO channel
+            #
+            # @raise [ComError] if the link seem to be broken
+            # @return [Object] a call reply
             def poll(expected_count = 0)
                 result = nil
                 timeout = if expected_count > 0 then nil

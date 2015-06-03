@@ -4,6 +4,9 @@ module Roby
             # An interface client using TCP that provides reconnection capabilities
             # as well as proper formatting of the information
             class Interface < BasicObject
+                extend Logger::Hierarchy
+                extend Logger::Forward
+
                 include Hooks
                 include Hooks::InstanceHooks
 
@@ -44,14 +47,16 @@ module Roby
 
                 DEFAULT_REMOTE_NAME = "localhost"
 
-                def initialize(remote_name = DEFAULT_REMOTE_NAME, &connection_method)
+                def initialize(remote_name = DEFAULT_REMOTE_NAME, connect: true, &connection_method)
                     @connection_method = connection_method || lambda {
                         Roby::Interface.connect_with_tcp_to('localhost', Distributed::DEFAULT_DROBY_PORT)
                     }
 
                     @remote_name = remote_name
                     @first_connection_attempt = true
-                    attempt_connection
+                    if connect
+                        attempt_connection
+                    end
 
                     @job_monitors = Hash.new
                     @new_job_listeners = Array.new
@@ -76,6 +81,7 @@ module Roby
                     if connection_future.completed?
                         case e = connection_future.reason
                         when ConnectionError, ComError
+                            Interface.info "failed connection attempt: #{e}"
                             attempt_connection
                             if @first_connection_attempt
                                 @first_connection_attempt = false
@@ -83,12 +89,14 @@ module Roby
                             end
                             nil
                         when NilClass
+                            Interface.info "successfully connected"
                             @client, jobs = connection_future.value
-                            run_hook :on_reachable, jobs
                             jobs = jobs.map do |job_id, (job_state, _, job_task)|
                                 JobMonitor.new(self, job_id, state: job_state, task: job_task)
                             end
+                            run_hook :on_reachable, jobs
                             new_job_listeners.each do |listener|
+                                listener.reset
                                 run_initial_new_job_hooks_events(listener, jobs)
                             end
                         else
@@ -107,8 +115,19 @@ module Roby
                     client.notification_queue.clear
 
                     client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
-                        job_monitors[job_id].dup.each do |j|
-                            j.update(job_state)
+                        new_job_listeners.each do |listener|
+                            if listener.seen_job_with_id?(job_id)
+                                job = monitor_job(job_id, start: false)
+                                if listener.matches?(job)
+                                    listener.call(job)
+                                end
+                            end
+                        end
+
+                        if monitors = job_monitors[job_id]
+                            monitors.dup.each do |j|
+                                j.update(job_state)
+                            end
                         end
                         run_hook :on_job_progress, job_state, job_id, job_name, args
                     end
@@ -138,9 +157,14 @@ module Roby
                         poll_connection_attempt
                         !!client
                     end
+                rescue ComError
+                    Interface.info "link closed, trying to reconnect"
+                    unreachable!
+                    attempt_connection
+                    false
                 rescue Exception => e
-                    pp e
-                    @client = nil
+                    Interface.warn "error while polling connection, trying to reconnect"
+                    Roby.log_exception_with_backtrace(e, Interface, :warn)
                     unreachable!
                     attempt_connection
                     false
@@ -151,12 +175,15 @@ module Roby
                         j.update :finalized, j.task
                     end
                     job_monitors.clear
-                    run_hook :on_unreachable
+
+                    if client
+                        client.close
+                        @client = nil
+                        run_hook :on_unreachable
+                    end
                 end
 
                 def close
-                    client.close
-                    @client = nil
                     unreachable!
                 end
 
@@ -174,7 +201,7 @@ module Roby
                 def jobs
                     return Array.new if !reachable?
 
-                    client.jobs.values.map do |job_id, job_state, job_task|
+                    client.jobs.map do |job_id, (job_state, _, job_task)|
                         JobMonitor.new(self, job_id, task: job_task, state: job_state)
                     end
                 end
@@ -204,15 +231,20 @@ module Roby
                     listener = NewJobListener.new(self, action_name, block)
                     listener.start
                     if reachable?
-                        run_initial_new_job_hooks_events(listener, jobs)
+                        run_initial_new_job_hooks_events(listener, self.jobs)
                     end
                     listener
                 end
 
-                def monitor_job(job_id)
+                # Create a monitor on a job based on its ID
+                #
+                # The monitor is already started
+                def monitor_job(job_id, start: true)
                     job_state, _, job_task = client.find_job_info_by_id(job_id)
                     job = JobMonitor.new(self, job_id, state: job_state, task: job_task)
-                    job.start
+                    if start
+                        job.start
+                    end
                     job
                 end
 
