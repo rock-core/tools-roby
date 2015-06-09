@@ -171,8 +171,10 @@ module Roby
                 end
 
                 def unreachable!
-                    job_monitors.dup.each do |j|
-                        j.update :finalized, j.task
+                    job_monitors.dup.each_value do |monitors|
+                        monitors.dup.each do |j|
+                            j.update_state(:finalized)
+                        end
                     end
 
                     if client
