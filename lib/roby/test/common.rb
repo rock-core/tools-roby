@@ -74,6 +74,12 @@ module Roby
 	    plan
 	end
 
+        def create_transaction
+            t = Roby::Transaction.new(plan)
+            @transactions << t
+            t
+        end
+
         def deprecated_feature
             Roby.enable_deprecation_warnings = false
             yield
@@ -127,6 +133,7 @@ module Roby
             Roby.app.reload_config
             @log_levels = Hash.new
             @connection_spaces = Array.new
+            @transactions = Array.new
 
             @timings = Hash.new
             if !@plan
@@ -229,6 +236,11 @@ module Roby
             end
 
 	    timings[:quit] = Time.now
+            @transactions.each do |trsc|
+                if !trsc.finalized?
+                    trsc.discard_transaction
+                end
+            end
             teardown_registered_plans
 	    timings[:teardown_plan] = Time.now
 
