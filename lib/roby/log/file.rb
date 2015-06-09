@@ -438,7 +438,7 @@ module Roby::Log
             end
         end
 
-	Roby::Log.each_hook do |klass, m|
+        def self.define_hook(m)
 	    define_method(m) { |time, args| dump_method(m, time, args) }
 	end
 
@@ -570,5 +570,7 @@ module Roby::Log
 	    input.close if input && !input.closed?
 	end
     end
+
+    self.register_generic_logger(FileLogger)
 end
 

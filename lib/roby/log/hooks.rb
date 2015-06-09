@@ -207,13 +207,49 @@ module Roby::Log
     end
     Roby::TaskArguments.include TaskArgumentsHooks
 
+    class << self
+        # Hooks that need to be registered for the benefit of generic loggers
+        # such as {FileLogger}
+        attr_reader :additional_hooks
+
+        # Generic logging classes, e.g. that should log all log messages
+        attr_reader :generic_loggers
+    end
+    @generic_loggers = Array.new
+    @additional_hooks = Array.new
+
+    def self.register_generic_logger(klass)
+        each_hook do |m|
+            klass.define_hook m
+        end
+        generic_loggers << klass
+    end
+
+    # Define a new logging hook (logging method) that should be logged on all
+    # generic loggers
+    def self.define_hook(m)
+        additional_hooks << m
+        generic_loggers.each do |l|
+            l.define_hook(m)
+        end
+    end
+
     def self.each_hook
+        # Note: in ruby 2.1+, we can get rid of this by having a decorator API
+        #
+        #   Log.define_hook def cycle_end(timings)
+        #      ...
+        #   end
 	[TransactionHooks, BasicObjectHooks, TaskHooks,
 	    PlanHooks, EventGeneratorHooks, ExecutionHooks, TaskArgumentsHooks].each do |klass|
 		klass::HOOKS.each do |m|
-		    yield(klass, m.to_sym)
+		    yield(m.to_sym)
 		end
 	    end
+
+        additional_hooks.each do |m|
+            yield(m)
+        end
     end
 end
 
