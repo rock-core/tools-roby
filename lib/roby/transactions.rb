@@ -116,6 +116,19 @@ module Roby
 	    end
 	end
 
+        # Tests whether a plan object has a proxy in self
+        #
+        # Unlike {#wrap}, the provided object must be a plan object from the
+        # transaction's underlying plan
+        #
+        # @param [Roby::PlanObject] object the object to test for
+        def has_proxy_for?(object)
+            if object.plan != self.plan
+                raise ArgumentError, "#{object} is not in #{self}.plan (#{plan})"
+            end
+            proxy_objects.has_key?(object)
+        end
+
 	# Get the transaction proxy for +object+
 	def wrap(object, create = true)
 	    if object.kind_of?(PlanObject)
