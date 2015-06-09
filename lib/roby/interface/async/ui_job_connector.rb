@@ -44,7 +44,7 @@ module Roby
                         update_progress_monitors
                     end
                     interface.on_unreachable do
-                        update_progress_monitors
+                        unreachable!
                     end
                     interface.on_job(action_name: action_name) do |job|
                         if !self.async || self.job_id != job.job_id || terminated?
@@ -73,6 +73,11 @@ module Roby
                     else
                         :unreachable
                     end
+                end
+
+                def unreachable!
+                    @async = nil
+                    update_progress_monitors
                 end
 
                 def async=(async)
