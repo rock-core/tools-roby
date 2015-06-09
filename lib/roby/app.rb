@@ -112,6 +112,12 @@ module Roby
         # @see #register_exception #clear_exceptions
         attr_reader :registered_exceptions
 
+        # Whether the app should run in development mode
+        #
+        # Some expensive tests are disabled when not in development mode. This
+        # is the default
+        attr_predicate :development_mode?
+
         # Allows to attribute configuration keys to override configuration
         # parameters stored in config/app.yml
         #
@@ -502,6 +508,7 @@ module Roby
             @auto_load_all = false
             @auto_load_models = true
             @app_dir = nil
+            @development_mode = true
             @search_path = nil
 	    @plugins = Array.new
             @plugins_enabled = true
