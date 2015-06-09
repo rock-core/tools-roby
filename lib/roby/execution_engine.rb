@@ -1403,6 +1403,8 @@ module Roby
         # Process the pending events. The time at each event loop step
         # is saved into +stats+.
         def process_events(stats = {:start => Time.now})
+            @emitted_events = Array.new
+
             if @application_exceptions
                 raise "recursive call to process_events"
             end
