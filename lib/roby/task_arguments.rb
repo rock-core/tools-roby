@@ -295,7 +295,20 @@ module Roby
 
         def evaluate_delayed_argument(task)
             result = @methods.inject(@object || task) do |v, m|
-                if v.respond_to?(m)
+                if v.kind_of?(Roby::Task) && v.model.has_argument?(m)
+                    # We are trying to access a task argument, throw no_value if the
+                    # argument is not set
+                    if !v.arguments.has_key?(m)
+                        throw :no_value
+                    end
+
+                    argument = v.arguments.values[m]
+                    if argument.respond_to?(:evaluate_delayed_argument)
+                        argument.evaluate_delayed_argument(task)
+                    else
+                        argument
+                    end
+                elsif v.respond_to?(m)
                     v.send(m)
                 elsif @weak
                     throw :no_value
@@ -327,11 +340,11 @@ module Roby
         end
 
         def to_s
-            "default(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
+            "delayed_argument_from(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
         end
 
         def pretty_print(pp)
-            pp.text "delayed_argument_from(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
+            pp.text to_s
         end
     end
 
@@ -372,6 +385,11 @@ module Roby
     #   class MyTask < Roby::Task
     #     argument :goal, :default => from(State).pose.position
     #   end
+    #
+    # If the provided object is nil, the receiver will be the task itself.
+    #
+    # @example initialize an argument from the task's parent
+    #   MyTaskModel.new(arg: Task.from(:parent_task).parent_arg)
     #
     def self.from(object)
         DelayedArgumentFromObject.new(object)

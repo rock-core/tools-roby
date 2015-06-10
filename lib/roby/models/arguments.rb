@@ -4,8 +4,16 @@ module Roby
         # and tasks)
         module Arguments
             extend MetaRuby::Attributes
+
+            # The set of knwon argument names
+            #
+            # @return [Set<Symbol>]
             inherited_attribute("argument_set", "argument_set") { ValueSet.new }
-            inherited_attribute("argument_default", "argument_defaults", :map => true) { Hash.new }
+
+            # The set of known argument default values
+            #
+            # @return [Set<#evaluate_delayed_argument>]
+            inherited_attribute("argument_default", "argument_defaults", map: true) { Hash.new }
 
             # @return [Boolean] returns if the given name is a known argument of
             #   this task
@@ -19,15 +27,8 @@ module Roby
             end
 
             # @return [Array<String>] the list of arguments required by this task model
-            def arguments(*new_arguments)
-                if new_arguments.empty?
-                    return(@argument_enumerator ||= enum_for(:each_argument_set))
-                end
-
-                Roby.warn_deprecated "Roby::Task.arguments(:arg1, :arg2) is deprecated. Use argument(:arg1); argument(:arg2) instead.", 2
-                new_arguments.each do |arg_name|
-                    argument(arg_name)
-                end
+            def arguments
+                return(@argument_enumerator ||= enum_for(:each_argument_set))
             end
 
             # @overload argument(argument_name, options)
@@ -43,31 +44,22 @@ module Roby
             #   argument :target_point, :default => from_conf.target_position
             # @example defining 'nil' as a default value
             #   argument :main_direction, :default => nil
-            def argument(*new_arguments)
-                if new_arguments.last.kind_of?(Hash)
-                    options = new_arguments.pop
+            def argument(arg_name, **options)
+                options = Kernel.validate_options options, default: nil
+
+                arg_name = arg_name.to_sym
+                argument_set << arg_name
+                unless method_defined?(arg_name)
+                    define_method(arg_name) { arguments[arg_name] }
+                    define_method("#{arg_name}=") { |value| arguments[arg_name] = value }
                 end
-                if (new_arguments.size == 2 && !options) || new_arguments.size > 2
-                    Roby.warn_deprecated "Roby::Task.argument(:arg1, :arg2) is deprecated. Use argument(:arg1); argument(:arg2) instead."
-                end
 
-                options = Kernel.validate_options(options || Hash.new, :default => nil)
-
-                new_arguments.each do |arg_name|
-                    arg_name = arg_name.to_sym
-                    argument_set << arg_name
-                    unless method_defined?(arg_name)
-                        define_method(arg_name) { arguments[arg_name] }
-                        define_method("#{arg_name}=") { |value| arguments[arg_name] = value }
-                    end
-
-                    if options.has_key?(:default)
-                        defval = options[:default]
-                        if !defval.respond_to?(:evaluate_delayed_argument)
-                            argument_defaults[arg_name] = DefaultArgument.new(defval)
-                        else
-                            argument_defaults[arg_name] = defval
-                        end
+                if options.has_key?(:default)
+                    defval = options[:default]
+                    if !defval.respond_to?(:evaluate_delayed_argument)
+                        argument_defaults[arg_name] = DefaultArgument.new(defval)
+                    else
+                        argument_defaults[arg_name] = defval
                     end
                 end
             end

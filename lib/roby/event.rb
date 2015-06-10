@@ -12,6 +12,10 @@ module Roby
             @sources = ValueSet.new
 	end
 
+        def plan
+            generator.plan
+        end
+
 	attr_accessor :propagation_id, :context, :time
 	protected :propagation_id=, :context=, :time=
 

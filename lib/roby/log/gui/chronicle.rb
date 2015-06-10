@@ -1,6 +1,6 @@
+require 'Qt4'
+require 'roby/log/gui/qt4_toMSecsSinceEpoch'
 require 'utilrb/module/attr_predicate'
-require 'roby/distributed/protocol'
-
 require 'roby/log/gui/styles'
 
 module Roby

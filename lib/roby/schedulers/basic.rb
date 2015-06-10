@@ -1,3 +1,5 @@
+require 'roby/schedulers/reporting'
+
 module Roby
     # The namespace in which Roby's default schedulers are defined
     #
@@ -34,7 +36,7 @@ module Roby
         #    started if and only if it has at least one parent that is running
         #    (i.e. children are started after their parents).
         #
-	class Basic
+	class Basic < Reporting
             # The plan on which the scheduler applies
             attr_reader :plan
             # The Roby::Query which is used to get the set of tasks that might
@@ -52,6 +54,8 @@ module Roby
             #
             # If +plan+ is set to nil, the scheduler will use Roby.plan
 	    def initialize(include_children = false, plan = nil)
+                super()
+
                 @plan = plan || Roby.plan
                 @include_children = include_children
 		@query = self.plan.find_tasks.
@@ -68,18 +72,18 @@ module Roby
             def can_start?(task)
                 start_event = task.start_event
                 if !start_event.controlable?
-                    Roby::Schedulers.debug { "Basic: not scheduling #{task} as its start event is not controlable" }
+                    report_holdoff "start event not controlable", task
                     return false
                 end
 
                 if !start_event.root?(EventStructure::CausalLink)
-                    Roby::Schedulers.debug { "Basic: not scheduling #{task} as its start event is not root in the causal link relation" }
+                    report_holdoff "start event not root in the causal link relation", task
                     return false
                 end
 
                 task.each_relation do |r|
                     if r.respond_to?(:scheduling?) && !r.scheduling? && !task.root?(r)
-                        Roby::Schedulers.debug { "#{self}: not scheduling #{task} as it is not root in #{r}, which forbids scheduling" }
+                        report_holdoff "not root in %2, which forbids scheduling", task, r
                         return false 
                     end
                 end
@@ -88,7 +92,7 @@ module Roby
 
             def can_schedule?(task, time = Time.now, stack = [])
                 if !can_start?(task)
-                    Schedulers.debug { "Basic: won't schedule #{task} as it cannot be started" }
+                    report_holdoff "cannot be started", task
                     return false
                 end
 
@@ -102,13 +106,11 @@ module Roby
                     end
 
                 if root_task
-                    Schedulers.debug { "Basic: #{task} is root, scheduling" }
                     true
                 elsif include_children && task.parents.any? { |t| t.running? }
-                    Schedulers.debug { "Basic: there is a parent of #{task} that is running, scheduling" }
                     true
                 else
-                    Schedulers.debug { "Basic: #{task} is both not root and has no running parent, not scheduling" }
+                    report_holdoff "not root, and has no running parent", task
                     false
                 end
             end
@@ -118,20 +120,21 @@ module Roby
 	    def initial_events
                 @can_schedule_cache.clear
                 time = Time.now
-                Schedulers.debug do
-                    not_executable = self.plan.find_tasks.
-                        not_executable.
-                        pending.
-                        self_owned.
-                        to_a
 
-                    if !not_executable.empty?
-                        Schedulers.debug "#{not_executable.size} tasks are pending but not executable"
-                        for task in not_executable
-                            Schedulers.debug "  #{task}"
-                        end
+                not_executable = self.plan.find_tasks.
+                    not_executable.
+                    pending.
+                    self_owned
+
+                not_executable.each do |task|
+                    # Try to figure out why ...
+                    if task.execution_agent && !task.execution_agent.ready?
+                        report_pending_non_executable_task("execution agent %2 not ready", task, task.execution_agent)
+                    elsif task.partially_instanciated?
+                        report_pending_non_executable_task("partially instanciated", task)
+                    else
+                        report_pending_non_executable_task("not executable", task)
                     end
-                    break
                 end
 
                 scheduled_tasks = []
@@ -143,11 +146,9 @@ module Roby
                         end
 
                     if result
-                        Schedulers.debug { "#{self}: scheduled #{task}" }
                         task.start!
+                        report_trigger task.start_event
                         scheduled_tasks << task
-                    else
-                        Schedulers.debug { "#{self}: cannot schedule #{task}" }
                     end
 		end
                 scheduled_tasks

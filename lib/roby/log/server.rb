@@ -50,7 +50,11 @@ module Roby
             end
 
             def exec
-                @server = TCPServer.new(nil, port)
+                @server =
+                    begin TCPServer.new(port)
+                    rescue TypeError # Workaround for https://bugs.ruby-lang.org/issues/10203
+                        raise Errno::EADDRINUSE, "Address already in use - bind(2) for \"0.0.0.0\" port #{port}"
+                    end
                 server.fcntl(Fcntl::FD_CLOEXEC, 1)
 
                 raise_level = (port != DEFAULT_PORT || sampling_period != DEFAULT_SAMPLING_PERIOD)

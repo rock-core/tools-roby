@@ -89,7 +89,7 @@ end
 require 'Qt'
 require 'roby/log/event_stream'
 require 'roby/log/plan_rebuilder'
-require 'roby/log/gui'
+require 'roby/log/gui/log_display'
 
 DRb.start_service "druby://localhost:0"
 

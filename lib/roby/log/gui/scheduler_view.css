@@ -1,0 +1,21 @@
+section {
+    display: block;
+    margin-bottom: 2em;
+}
+section title {
+    display: block;
+    font-size: 110%;
+}
+section non_scheduled_tasks title {
+    display: block;
+}
+called_generators, non_scheduled_tasks, reasons {
+    display: block;
+    left-border: solid;
+    margin-left: .5em;
+    padding-left: .5em;
+}
+item {
+    display: block;
+    margin-left: 1em;
+}

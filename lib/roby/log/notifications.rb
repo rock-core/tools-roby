@@ -1,4 +1,3 @@
-require 'roby/log/data_stream'
 require 'qtwebkit'
 
 class Roby::Task::DRoby

@@ -1,3 +1,4 @@
+require 'facets/string/camelcase'
 require 'roby/support'
 require 'roby/robot'
 require 'roby/app/robot_names'
@@ -111,6 +112,12 @@ module Roby
         # @see #register_exception #clear_exceptions
         attr_reader :registered_exceptions
 
+        # Whether the app should run in development mode
+        #
+        # Some expensive tests are disabled when not in development mode. This
+        # is the default
+        attr_predicate :development_mode?
+
         # Allows to attribute configuration keys to override configuration
         # parameters stored in config/app.yml
         #
@@ -196,6 +203,12 @@ module Roby
         # It is false by default
         attr_predicate :ignore_all_load_errors?, true
 
+        # If set to true, the app will enable backward-compatible behaviour
+        # related to naming schemes, file placements and so on
+        #
+        # The default is true
+        attr_predicate :backward_compatible_naming?
+
         # If set to true, tests will show detailed execution timings
         #
         # It is false by default
@@ -227,8 +240,9 @@ module Roby
         def app_name
             if @app_name
                 @app_name
-            else
+            elsif app_dir
                 File.basename(app_dir)
+            else 'default'
             end
         end
 
@@ -240,7 +254,12 @@ module Roby
 
         # Returns the name of this app's toplevel module
         def module_name
-            app_name.camelize
+            app_name.camelcase(:upper)
+        end
+
+        # Returns this app's toplevel module
+        def app_module
+            constant("::#{module_name}")
         end
 
         # Returns the application base directory
@@ -260,18 +279,28 @@ module Roby
                 File.directory?(File.join(test_dir, 'config', 'robots'))
         end
 
-        # Guess the app directory based on the current directory. It will not do
-        # anything if the current directory is not in a Roby app. Moreover, it
-        # does nothing if #app_dir is already set
+        # Guess the app directory based on the current directory
+        #
+        # @return [String,nil] the base of the app, or nil if the current
+        #   directory is not within an app
+        def self.guess_app_dir
+            path = Pathname.new(Dir.pwd).find_matching_parent do |test_dir|
+                Application.is_app_dir?(test_dir.to_s)
+            end
+            if path
+                path.to_s
+            end
+        end
+
+        # Guess the app directory based on the current directory, and sets
+        # {@app_dir} It will not do anything if the current directory is not in
+        # a Roby app. Moreover, it does nothing if #app_dir is already set
         #
         # @return [String] the selected app directory
         def guess_app_dir
             return if @app_dir
-            app_dir = Pathname.new(Dir.pwd).find_matching_parent do |test_dir|
-                Application.is_app_dir?(test_dir.to_s)
-            end
-            if app_dir
-                @app_dir = app_dir.to_s
+            if app_dir = self.class.guess_app_dir
+                @app_dir = app_dir
             end
         end
 
@@ -282,6 +311,23 @@ module Roby
             guess_app_dir
             if !@app_dir
                 raise ArgumentError, "your current directory does not seem to be a Roby application directory; did you forget to run 'roby init'?"
+            end
+        end
+
+        class NotInCurrentApp < UserError
+        end
+
+        # Call to check whether the current directory is within {#app_dir}. If
+        # not, raises
+        #
+        # This is called by tools for which being in another app than the
+        # currently selected would be really too confusing
+        def needs_to_be_in_current_app(allowed_outside: true)
+            guessed_dir = self.class.guess_app_dir
+            if guessed_dir && (@app_dir != guessed_dir)
+                raise NotInCurrentApp, "#{@app_dir} is currently selected, but the current directory is within #{guessed_dir}"
+            elsif !guessed_dir && !allowed_outside
+                raise NotInCurrentApp, "not currently within an app dir"
             end
         end
 
@@ -462,6 +508,7 @@ module Roby
             @auto_load_all = false
             @auto_load_models = true
             @app_dir = nil
+            @development_mode = true
             @search_path = nil
 	    @plugins = Array.new
             @plugins_enabled = true
@@ -1001,11 +1048,19 @@ module Roby
                 end
             end
 
-            if !defined?(Main)
-                Object.const_set(:Main, Class.new(Roby::Actions::Interface))
+            if !app_module.const_defined_here?(:Actions)
+                app_module.const_set(:Actions, Module.new)
             end
+            if !app_module::Actions.const_defined_here?(:Main)
+                app_module::Actions.const_set(:Main, Class.new(Roby::Actions::Interface))
+            end
+
+            if backward_compatible_naming?
+                Object.const_set(:Main, app_module::Actions::Main)
+            end
+
             action_handlers.each do |act|
-                Main.class_eval(&act)
+                app_module::Actions::Main.class_eval(&act)
             end
 
             if auto_load_models?
@@ -1082,6 +1137,10 @@ module Roby
 
 	    # Set up the loaded plugins
 	    call_plugins(:base_setup, self)
+
+            if !Object.const_defined_here?(module_name)
+                Object.const_set(module_name, Module.new)
+            end
         end
 
         class NoSuchRobot < ArgumentError; end
@@ -1100,6 +1159,10 @@ module Roby
         end
 
         def require_robot_file
+            if !robot_name && !robot_type
+                return
+            end
+
             p = find_file('config', 'robots', "#{robot_name}.rb", order: :specific_first) ||
                 find_file('config', 'robots', "#{robot_type}.rb", order: :specific_first)
 
@@ -1109,7 +1172,7 @@ module Roby
                 if !robot_type
                     robot(robot_name, robot_name)
                 end
-            elsif robots.strict? && find_dir('config', 'robots')
+            elsif robots.strict? && find_dir('config', 'robots', order: :specific_first)
                 raise NoSuchRobot, "cannot find config file for robot #{robot_name} of type #{robot_type} in config/robots/"
             end
         end
@@ -1135,7 +1198,7 @@ module Roby
             require_config
 
 	    # Main is always included in the planner list
-            self.planners << Main
+            self.planners << app_module::Actions::Main
 	   
             # Attach the global fault tables to the plan
             self.planners.each do |planner|
@@ -1834,8 +1897,13 @@ module Roby
         end
 
         def root_models
-            [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
+            models = [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
              Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript]
+
+	    each_responding_plugin(:root_models) do |config_extension|
+		models.concat(config_extension.root_models)
+	    end
+            models
         end
 
         def clear_model?(m)
@@ -1848,11 +1916,10 @@ module Roby
                 submodels = root_model.each_submodel.to_a.dup
                 submodels.each do |m|
                     if clear_model?(m)
+                        m.permanent_model = false
                         m.clear_model
+                        Roby::Transaction::Proxying.proxying_modules.delete(m)
                     end
-                    next if m.permanent_model?
-
-                    Roby::Transaction::Proxying.proxying_modules.delete(m)
                 end
             end
             call_plugins(:clear_models, self)

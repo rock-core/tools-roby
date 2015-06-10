@@ -329,6 +329,13 @@ module Roby
         # events they would call or emit are injected in the propagation process
         # itself.
         attr_reader :external_events_handlers
+
+        # Add a handler that is called at the beginning of the execution cycle
+        #
+        # @see #add_propagation_handler
+        def at_cycle_begin(**options, &block)
+            add_propagation_handler(**options.merge(type: :external_events), &block)
+        end
         
         # The propagation handlers are blocks that should be called at
         # various places during propagation for all plans. These objects
@@ -733,7 +740,11 @@ module Roby
 
         def call_propagation_handlers
             if scheduler && scheduler.enabled?
-                gather_framework_errors('scheduler') { scheduler.initial_events }
+                gather_framework_errors('scheduler') do
+                    report_scheduler_state(scheduler.state)
+                    scheduler.clear_reports
+                    scheduler.initial_events
+                end
             end
             call_poll_blocks(self.class.propagation_handlers, false)
             call_poll_blocks(self.propagation_handlers, false)
@@ -742,6 +753,11 @@ module Roby
                 call_poll_blocks(self.class.propagation_handlers, true)
                 call_poll_blocks(self.propagation_handlers, true)
             end
+        end
+
+        # Called whenever the scheduler did something, to report about its state
+        def report_scheduler_state(state)
+            super if defined? super
         end
 
         # Executes the given block while gathering errors, and returns the
@@ -1387,6 +1403,8 @@ module Roby
         # Process the pending events. The time at each event loop step
         # is saved into +stats+.
         def process_events(stats = {:start => Time.now})
+            @emitted_events = Array.new
+
             if @application_exceptions
                 raise "recursive call to process_events"
             end
@@ -1397,12 +1415,11 @@ module Roby
 	    events_errors = nil
             next_steps = gather_propagation do
 	        events_errors = gather_errors do
-                    if quitting?
-                        garbage_collect([])
+                    if !quitting? || !garbage_collect([])
+                        process_workers
+                        gather_external_events
+                        call_propagation_handlers
                     end
-                    process_workers
-                    gather_external_events
-                    call_propagation_handlers
 	        end
             end
 
@@ -1496,6 +1513,9 @@ module Roby
         # whose garbage-collection must be performed, even though those tasks
         # are actually useful for the system. This is used to properly kill
         # tasks for which errors have been detected.
+        #
+        # @return [Boolean] true if events have been called (thus requiring
+        #   some propagation) and false otherwise
         def garbage_collect(force_on = nil)
             if force_on && !force_on.empty?
                 ExecutionEngine.info "GC: adding #{force_on.size} tasks in the force_gc set"
@@ -1508,7 +1528,7 @@ module Roby
                     end
                 end
                 if !mismatching_plan.empty?
-                    raise ArgumentError, "#{mismatching_plan.map(&:to_s).join(", ")} have been given to #garbage_collect, but they are not tasks in #{plan}"
+                    raise ArgumentError, "#{mismatching_plan.map { |t| "#{t}(plan=#{t.plan})" }.join(", ")} have been given to #{self}.garbage_collect, but they are not tasks in #{plan}"
                 end
             end
 
@@ -1627,6 +1647,8 @@ module Roby
             plan.unneeded_events.each do |event|
                 plan.garbage(event)
             end
+
+            !finishing.empty?
         end
 
 	# Do not sleep or call Thread#pass if there is less that

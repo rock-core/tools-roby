@@ -83,6 +83,39 @@ describe Roby::DelayedArgumentFromObject do
 	assert_equal Object, arg.instance_variable_get(:@expected_class)
 	assert !arg.instance_variable_get(:@weak)
     end
+
+    describe "#evaluate_delayed_argument" do
+        attr_reader :task, :arg
+        before do
+            task_m = Roby::Task.new_submodel { argument(:arg) }
+            @task = prepare_plan add: 1, model: task_m
+            @arg = Roby::DelayedArgumentFromObject.new(task).arg.field
+        end
+
+        it "resolves to a task's arguments" do
+            task.arg = Struct.new(:field).new(10)
+            assert_equal 10, arg.evaluate_delayed_argument(task)
+        end
+        it "throws no_value if trying to access an unassigned argument" do
+            assert_throws(:no_value) do
+                arg.evaluate_delayed_argument(task)
+            end
+        end
+        it "recursively resolves task arguments" do
+            task.arg = Class.new do
+                def evaluate_delayed_argument(task); Struct.new(:field).new(10) end
+            end.new
+            assert_equal 10, arg.evaluate_delayed_argument(task)
+        end
+        it "throws no_value if trying to access a delayed task argument that cannot be resolved" do
+            task.arg = Class.new do
+                def evaluate_delayed_argument(task); throw :no_value end
+            end.new
+            assert_throws(:no_value) do
+                arg.evaluate_delayed_argument(task)
+            end
+        end
+    end
 end
 
 describe Roby::DelayedArgumentFromState do

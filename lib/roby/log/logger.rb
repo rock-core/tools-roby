@@ -1,3 +1,4 @@
+require 'utilrb/logger'
 require 'roby/log/hooks'
 require 'roby/log/file'
 

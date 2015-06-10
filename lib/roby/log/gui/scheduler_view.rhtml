@@ -1,0 +1,39 @@
+<html>
+<head>
+    <link rel="stylesheet" href="file://<%= scheduler_view_css %>" type="text/css" />
+</head>
+
+<body>
+    <section>
+        <title>Called <%= state.called_generators.size %> generators</title>
+        <called_generators>
+        <% state.called_generators.each do |gen| %>
+            <item><%= gen %></item>
+        <% end %>
+        </called_generators>
+    </section>
+
+    <section>
+        <title><%= state.pending_non_executable_tasks.size %> tasks are pending but not executable</title>
+        <pending_non_executable_tasks>
+            <% state.pending_non_executable_tasks.each do |msg, task, args| %>
+                <item><%= task.to_s + ": " + format_msg_string(msg, task, *args) %></item>
+            <% end %>
+        </pending_non_executable_tasks>
+    </section>
+
+    <section>
+        <title><%= state.non_scheduled_tasks.size %> tasks have been considered for scheduling, but did not get scheduled</title>
+        <non_scheduled_tasks>
+            <% state.non_scheduled_tasks.each do |task, reasons| %>
+                <title><%= task %></title>
+                <reasons>
+                    <% reasons.each do |msg, args| %>
+                        <item><%= format_msg_string(msg, task, *args) %></item>
+                    <% end %>
+                </reasons>
+            <% end %>
+        </non_scheduled_tasks>
+    </div>
+</body>
+</html>

@@ -1,5 +1,5 @@
 require 'utilrb/time/to_hms'
-require 'roby/log/logger'
+require 'roby/log/hooks'
 
 module Roby::Log
     # A logger object which dumps events in a human-readable form to an IO object. 

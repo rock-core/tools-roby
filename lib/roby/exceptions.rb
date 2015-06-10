@@ -14,10 +14,16 @@ class Exception
         false
     end
 
+    def user_error?; false end
+
     # DRoby-marshalling is done in distributed/protocol
 end
 
+
 module Roby
+    class UserError < RuntimeError
+        def user_error?; true end
+    end
     class ConfigError < RuntimeError; end
     class ModelViolation < RuntimeError; end
     class InternalError < RuntimeError; end
@@ -418,7 +424,11 @@ module Roby
     rescue Interrupt, SystemExit
         raise
     rescue Exception => e
-        do_display_exception(io, e)
+        if e.user_error?
+            io.print color(e.message, :bold, :red)
+        else
+            do_display_exception(io, e)
+        end
         e
 
     ensure

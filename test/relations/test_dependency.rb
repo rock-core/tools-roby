@@ -96,8 +96,8 @@ class TC_Dependency < Minitest::Test
         end
 
 	child_model = Tasks::Simple.new_submodel do
-	    event :first, :command => true
-	    event :second, :command => true
+	    event :first, controlable: true
+	    event :second, controlable: true
 	end
 
 	p1 = Tasks::Simple.new
@@ -124,6 +124,9 @@ class TC_Dependency < Minitest::Test
         if result.empty?
             flunk("no error detected")
         elsif result.size > 1
+            result.each do |err, _|
+                pp err
+            end
             flunk("expected one error, got #{result.size}")
         end
         error = result.find { true }[0].exception
@@ -133,7 +136,7 @@ class TC_Dependency < Minitest::Test
         error
     end
 
-    def test_success
+    def test_it_keeps_the_relation_on_success_if_remove_when_done_is_false
         parent, child = create_pair :success => [:first], 
             :failure => [:stop],
             :remove_when_done => false
@@ -144,7 +147,7 @@ class TC_Dependency < Minitest::Test
         assert(parent.depends_on?(child))
     end
 
-    def test_success_removal
+    def test_it_removes_the_relation_on_success_if_remove_when_done_is_true
         parent, child = create_pair :success => [:first], 
             :failure => [:stop],
             :remove_when_done => true

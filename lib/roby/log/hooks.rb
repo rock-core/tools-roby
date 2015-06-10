@@ -1,5 +1,4 @@
 require 'roby/log/logger'
-require 'roby'
 
 module Roby::Log
     module BasicObjectHooks
@@ -171,7 +170,7 @@ module Roby::Log
     Roby::EventGenerator.include EventGeneratorHooks
 
     module ExecutionHooks
-	HOOKS = %w{cycle_end fatal_exception handled_exception nonfatal_exception}
+	HOOKS = %w{cycle_end fatal_exception handled_exception nonfatal_exception report_scheduler_state}
 
 	def cycle_end(timings)
 	    super if defined? super
@@ -191,6 +190,10 @@ module Roby::Log
             super if defined? super
             Roby::Log.log(:handled_exception) { [error.exception, task] }
         end
+        def report_scheduler_state(state)
+            super if defined? super
+            Roby::Log.log(:report_scheduler_state) { [plan, state.pending_non_executable_tasks, state.called_generators, state.non_scheduled_tasks] }
+        end
     end
     Roby::ExecutionEngine.include ExecutionHooks
 
@@ -204,13 +207,49 @@ module Roby::Log
     end
     Roby::TaskArguments.include TaskArgumentsHooks
 
+    class << self
+        # Hooks that need to be registered for the benefit of generic loggers
+        # such as {FileLogger}
+        attr_reader :additional_hooks
+
+        # Generic logging classes, e.g. that should log all log messages
+        attr_reader :generic_loggers
+    end
+    @generic_loggers = Array.new
+    @additional_hooks = Array.new
+
+    def self.register_generic_logger(klass)
+        each_hook do |m|
+            klass.define_hook m
+        end
+        generic_loggers << klass
+    end
+
+    # Define a new logging hook (logging method) that should be logged on all
+    # generic loggers
+    def self.define_hook(m)
+        additional_hooks << m
+        generic_loggers.each do |l|
+            l.define_hook(m)
+        end
+    end
+
     def self.each_hook
+        # Note: in ruby 2.1+, we can get rid of this by having a decorator API
+        #
+        #   Log.define_hook def cycle_end(timings)
+        #      ...
+        #   end
 	[TransactionHooks, BasicObjectHooks, TaskHooks,
 	    PlanHooks, EventGeneratorHooks, ExecutionHooks, TaskArgumentsHooks].each do |klass|
 		klass::HOOKS.each do |m|
-		    yield(klass, m.to_sym)
+		    yield(m.to_sym)
 		end
 	    end
+
+        additional_hooks.each do |m|
+            yield(m)
+        end
     end
 end
 

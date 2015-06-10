@@ -100,12 +100,14 @@ module Roby
 	end
 
         # Called when the start event get called, to resolve the delayed
-        # arguments (if there is any)
+        # arguments (if there are any)
         def freeze_delayed_arguments
             if !arguments.static?
                 arguments.dup.each do |key, value|
                     if value.respond_to?(:evaluate_delayed_argument)
-                        __assign_argument__(key, value.evaluate_delayed_argument(self))
+                        catch(:no_value) do
+                            __assign_argument__(key, value.evaluate_delayed_argument(self))
+                        end
                     end
                 end
             end
@@ -140,10 +142,16 @@ module Roby
         # if there is one, or direct access to the @arguments instance variable
         def __assign_argument__(key, value) # :nodoc:
             key = key.to_sym
-            if self.respond_to?("#{key}=")
-                self.send("#{key}=", value)
-            else
+            if value.respond_to?(:evaluate_delayed_argument)
                 @arguments[key] = value
+            else
+                if self.respond_to?("#{key}=")
+                    self.send("#{key}=", value)
+                end
+                if @arguments.writable?(key, value)
+                    # The accessor did not write the argument. That's alright
+                    @arguments[key] = value
+                end
             end
         end
 

@@ -60,13 +60,13 @@ module Roby
 
         def create_and_register_plan_service_proxy(object)
             proxy = object.dup
+            setup_proxy(proxy, object)
 
             if !underlying_proxy = proxy_objects[object.to_task]
                 raise InternalError, "no proxy for #{object.to_task}, there should be one at this point"
             end
             proxy.task = underlying_proxy
             add_plan_service(proxy)
-            setup_proxy(proxy, object)
         end
 
         def create_and_register_proxy(object)
@@ -115,6 +115,19 @@ module Roby
 		end
 	    end
 	end
+
+        # Tests whether a plan object has a proxy in self
+        #
+        # Unlike {#wrap}, the provided object must be a plan object from the
+        # transaction's underlying plan
+        #
+        # @param [Roby::PlanObject] object the object to test for
+        def has_proxy_for?(object)
+            if object.plan != self.plan
+                raise ArgumentError, "#{object} is not in #{self}.plan (#{plan})"
+            end
+            proxy_objects.has_key?(object)
+        end
 
 	# Get the transaction proxy for +object+
 	def wrap(object, create = true)
