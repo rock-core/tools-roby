@@ -64,8 +64,8 @@ module Roby
 
                 class SetArgumentAction < JobAction
                     attr_reader :argument_name
-                    def initialize(connector, job, argument_name)
-                        super(connector, job, Hash.new)
+                    def initialize(connector, job, argument_name, getter: nil)
+                        super(connector, job, getter: nil)
                         @argument_name = argument_name.to_sym
                     end
 
