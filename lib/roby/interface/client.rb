@@ -155,7 +155,11 @@ module Roby
                     end
                 else
                     io.write_packet([path, m, *args])
-                    poll(1)
+                    result = poll(1)
+                    if m == :start_job
+                        push_job_progress(:queued, result, nil)
+                    end
+                    result
                 end
             end
 
@@ -195,7 +199,13 @@ module Roby
             end
 
             def process_batch(batch)
-                call([], :process_batch, batch.__calls)
+                result = call([], :process_batch, batch.__calls)
+                result.each_with_index do |ret, idx|
+                    if batch.__calls[idx][1] == :start_job
+                        push_job_progress(:queued, ret, nil)
+                    end
+                end
+                result
             end
 
             def reload_actions
