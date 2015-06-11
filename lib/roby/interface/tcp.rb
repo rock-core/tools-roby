@@ -55,7 +55,15 @@ module Roby
 
             # Closes this server
             def close
-                server.close
+                clients.each do |c|
+                    if !c.closed?
+                        c.close
+                    end
+                end
+                clients.clear
+                if server && !server.closed?
+                    server.close
+                end
                 interface.engine.remove_propagation_handler(@propagation_handler_id)
             end
         end

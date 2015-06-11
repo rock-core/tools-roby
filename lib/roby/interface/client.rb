@@ -34,6 +34,14 @@ module Roby
                 @actions, @commands = handshake(id)
             end
 
+            def closed?
+                io.closed?
+            end
+
+            def close
+                io.close
+            end
+
             def to_io
                 io.to_io
             end
@@ -70,6 +78,10 @@ module Roby
                 true
             end
 
+            # Polls for new data on the IO channel
+            #
+            # @raise [ComError] if the link seem to be broken
+            # @return [Object] a call reply
             def poll(expected_count = 0)
                 result = nil
                 timeout = if expected_count > 0 then nil
@@ -143,12 +155,61 @@ module Roby
                     end
                 else
                     io.write_packet([path, m, *args])
-                    poll(1)
+                    result = poll(1)
+                    if m == :start_job
+                        push_job_progress(:queued, result, nil)
+                    end
+                    result
                 end
             end
 
+            class BatchContext < BasicObject
+                def initialize(context)
+                    @context = context
+                    @calls = Array.new
+                end
+
+                def __calls
+                    @calls
+                end
+
+                def push(path, m, *args)
+                    @calls << [path, m, *args]
+                end
+
+                def method_missing(m, *args)
+                    if m.to_s =~ /(.*)!$/
+                        action_name = $1
+                        if @context.find_action_by_name(action_name)
+                            push([], :start_job, action_name, *args)
+                        else raise ArgumentError, "there is no action called #{action_name}"
+                        end
+                    else
+                        push([], m, *args)
+                    end
+                end
+
+                def process
+                    @context.process_batch(self)
+                end
+            end
+
+            def create_batch
+                BatchContext.new(self)
+            end
+
+            def process_batch(batch)
+                result = call([], :process_batch, batch.__calls)
+                result.each_with_index do |ret, idx|
+                    if batch.__calls[idx][1] == :start_job
+                        push_job_progress(:queued, ret, nil)
+                    end
+                end
+                result
+            end
+
             def reload_actions
-                @actions = call(:reload_actions)
+                @actions = call([], :reload_actions)
             end
 
             def find_subcommand_by_name(name)
@@ -156,15 +217,7 @@ module Roby
             end
 
             def method_missing(m, *args)
-                if m.to_s =~ /(.*)!$/
-                    action_name = $1
-                    if act = find_action_by_name(action_name)
-                        call([], :start_job, action_name, *args)
-                    else raise ArgumentError, "there are is no action called #{action_name}"
-                    end
-
-                else call([], m, *args)
-                end
+                call([], m, *args)
             end
         end
     end

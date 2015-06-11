@@ -1,10 +1,12 @@
 require 'utilrb/timepoints'
 require 'roby/test/error'
 require 'roby/test/common'
+require 'roby/test/teardown_plans'
 module Roby
     module Test
         class Spec < Minitest::Spec
             include Test::Assertions
+            include Test::TeardownPlans
             include Utilrb::Timepoints
 
             class << self
@@ -69,6 +71,7 @@ module Roby
                         models_present_in_setup << m
                     end
                 end
+                register_plan(Roby.plan)
 
                 super
 
@@ -93,7 +96,7 @@ module Roby
                     clear_timepoints
                 end
 
-                plan.engine.killall
+                teardown_registered_plans
                 if @watch_events_handler_id
                     engine.remove_propagation_handler(@watch_events_handler_id)
                 end
@@ -108,6 +111,7 @@ module Roby
                 end
 
             ensure
+                clear_registered_plans
                 if teardown_failure
                     raise teardown_failure
                 end

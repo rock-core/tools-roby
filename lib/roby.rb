@@ -107,6 +107,7 @@ rescue LoadError
     STDERR.puts "and try again"
     exit 1
 end
+require 'roby/distributed/remote_object_manager'
 require 'roby/distributed/peer'
 require 'roby/distributed/protocol'
 

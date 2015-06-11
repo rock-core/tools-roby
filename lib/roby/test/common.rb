@@ -29,6 +29,7 @@ require 'roby'
 
 require 'roby/test/assertion'
 require 'roby/test/error'
+require 'roby/test/teardown_plans'
 
 module Roby
     # This module is defining common support for tests that need the Roby
@@ -40,6 +41,7 @@ module Roby
     # @see SelfTest
     module Test
 	include Roby
+        include TeardownPlans
 
 	BASE_PORT     = 1245
 	DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
@@ -60,6 +62,8 @@ module Roby
         attr_reader :control
         def engine; plan.engine if plan end
 
+        attr_reader :connection_spaces
+
         def execute(&block)
             engine.execute(&block)
         end
@@ -70,11 +74,33 @@ module Roby
 	    plan
 	end
 
+        def create_transaction
+            t = Roby::Transaction.new(plan)
+            @transactions << t
+            t
+        end
+
         def deprecated_feature
             Roby.enable_deprecation_warnings = false
             yield
         ensure
             Roby.enable_deprecation_warnings = true
+        end
+
+        def create_connection_space(port, plan: nil)
+            if !plan
+                register_plan(plan = Plan.new)
+            end
+            if !plan.execution_engine
+                ExecutionEngine.new(plan)
+            end
+            space = Distributed::ConnectionSpace.new(plan: plan, listen_at: port)
+            register_connection_space(space)
+            space
+        end
+
+        def register_connection_space(space)
+            @connection_spaces << space
         end
 
 	# a [collection, collection_backup] array of the collections saved
@@ -106,11 +132,14 @@ module Roby
 	def setup
             Roby.app.reload_config
             @log_levels = Hash.new
+            @connection_spaces = Array.new
+            @transactions = Array.new
 
             @timings = Hash.new
             if !@plan
                 @plan = Roby.plan
             end
+            register_plan(@plan)
 
             super if defined? super
 
@@ -144,33 +173,6 @@ module Roby
             @handler_ids << engine.add_propagation_handler(:type => :external_events) do |plan|
                 Test.verify_watched_events
             end
-	end
-
-	def teardown_plan
-	    old_gc_roby_logger_level = Roby.logger.level
-            return if !engine
-
-	    if debug_gc?
-		Roby.logger.level = Logger::DEBUG
-	    end
-
-	    if engine.running?
-                engine.quit
-                engine.join
-	    end
-
-            plan.engine.killall
-            if !plan.empty?
-                STDERR.puts "failed to teardown: plan has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
-            end
-	    plan.clear
-            if plan.engine
-                plan.engine.clear
-                plan.engine.emitted_events.clear
-            end
-
-	ensure
-            Roby.logger.level = old_gc_roby_logger_level
 	end
 
         def assert_raises(exception, &block)
@@ -234,7 +236,12 @@ module Roby
             end
 
 	    timings[:quit] = Time.now
-	    teardown_plan
+            @transactions.each do |trsc|
+                if !trsc.finalized?
+                    trsc.discard_transaction
+                end
+            end
+            teardown_registered_plans
 	    timings[:teardown_plan] = Time.now
 
             if @handler_ids && engine
@@ -244,40 +251,17 @@ module Roby
             end
             Test.verify_watched_events
 
+            # Plan teardown would have disconnected the peers already
+            connection_spaces.each do |space|
+                space.close
+            end
 	    stop_remote_processes
 	    DRb.stop_service if DRb.thread
 
 	    restore_collections
 
-	    # Clear all relation graphs in TaskStructure and EventStructure
-	    spaces = []
-	    if defined? Roby::TaskStructure
-		spaces << Roby::TaskStructure
-	    end
-	    if defined? Roby::EventStructure
-		spaces << Roby::EventStructure
-	    end
-            if !plan.transactions.empty?
-                Roby.warn "  #{plan.transactions.size} transactions left attached to the plan"
-                plan.transactions.each do |trsc|
-                    trsc.discard_transaction
-                end
-            end
-	    spaces.each do |space|
-		space.relations.each do |rel| 
-		    vertices = rel.enum_for(:each_vertex).to_a
-		    if !vertices.empty?
-			Roby.warn "  the following vertices are still present in #{rel}: #{vertices.to_a}"
-			vertices.each { |v| v.clear_vertex }
-		    end
-                    if rel.respond_to?(:task_graph) && !rel.task_graph.empty?
-			Roby.warn "  the task graph for #{rel} is not empty while its corresponding relation graph is"
-			rel.task_graph.clear
-                    end
-		end
-	    end
+            clear_relation_spaces
 
-	    Roby::TaskStructure::Hierarchy.interesting_events.clear
 	    if defined? Roby::Application
 		Roby.app.abort_on_exception = false
 		Roby.app.abort_on_application_exception = false
@@ -313,13 +297,7 @@ module Roby
 	ensure
             reset_log_levels
             begin
-                while engine && engine.running?
-                    engine.quit
-                    engine.join rescue nil
-                end
-                if plan
-                    plan.clear
-                end
+                clear_registered_plans
 
                 if @original_roby_logger_level
                     Roby.logger.level = @original_roby_logger_level
@@ -337,17 +315,52 @@ module Roby
                 end
             end
 	end
+        
+        def clear_relation_spaces
+	    # Clear all relation graphs in TaskStructure and EventStructure
+	    [TaskStructure, EventStructure].each do |space|
+		space.relations.each do |rel| 
+		    vertices = rel.enum_for(:each_vertex).to_a
+		    if !vertices.empty?
+			Roby.warn "  the following vertices are still present in #{rel}: #{vertices.to_a}"
+			vertices.each { |v| v.clear_vertex }
+		    end
+                    if rel.respond_to?(:task_graph) && !rel.task_graph.empty?
+			Roby.warn "  the task graph for #{rel} is not empty while its corresponding relation graph is"
+			rel.task_graph.clear
+                    end
+		end
+	    end
+
+	    TaskStructure::Dependency.interesting_events.clear
+        end
 
 	# Process pending events
 	def process_events
-            engine.join_all_worker_threads
-            if !engine.running?
-                engine.start_new_cycle
-                engine.process_events
-            else
-                engine.wait_one_cycle
+            registered_plans.each do |p|
+                engine = p.execution_engine
+
+                engine.join_all_worker_threads
+                if !engine.running?
+                    engine.start_new_cycle
+                    engine.process_events
+                    engine.cycle_end(Hash.new)
+                else
+                    engine.wait_one_cycle
+                end
             end
 	end
+
+        def process_events_until(timeout = 5)
+            start = Time.now
+            while !yield
+                process_events
+                Thread.pass
+                if Time.now - start > timeout
+                    flunk("failed to reach expected condition")
+                end
+            end
+        end
 
         # Use to call the original method on a partial mock
         #

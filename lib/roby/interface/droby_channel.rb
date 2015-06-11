@@ -28,6 +28,14 @@ module Roby
                 io.close
             end
 
+            def closed?
+                io.closed?
+            end
+
+            def eof?
+                io.eof?
+            end
+
             # Read one packet from {#io} and unmarshal it
             #
             # It is non-blocking
@@ -65,9 +73,9 @@ module Roby
                 marshalled = Marshal.dump(object.droby_dump(nil))
                 packet =
                     if client?
-                        WebSocket::Frame::Outgoing::Client.new(:data => marshalled, :type => :binary)
+                        WebSocket::Frame::Outgoing::Client.new(data: marshalled, type: :binary)
                     else
-                        WebSocket::Frame::Outgoing::Server.new(:data => marshalled, :type => :binary)
+                        WebSocket::Frame::Outgoing::Server.new(data: marshalled, type: :binary)
                     end
 
                 io.write(packet.to_s)
