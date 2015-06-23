@@ -53,6 +53,9 @@ parser = OptionParser.new do |opt|
     opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
         coverage_mode = true
     end
+    opt.on('--server PORT', Integer, 'the minitest server port') do |server_port|
+        testrb_args << "--server" << server_port.to_s
+    end
     Roby::Application.common_optparse_setup(opt)
 end
 
