@@ -92,10 +92,10 @@ Roby.display_exception do
         if remaining_arguments.empty?
             remaining_arguments = Roby.app.
                 find_files_in_dirs('test', 'ROBOT',
-                                   :path => [Roby.app.app_dir],
-                                   :all => true,
-                                   :order => :specific_first,
-                                   :pattern => /^(?:suite_|test_).*\.rb$/)
+                                   path: [Roby.app.app_dir],
+                                   all: true,
+                                   order: :specific_first,
+                                   pattern: /^(?:suite_|test_).*\.rb$/)
         end
         remaining_arguments.each do |arg|
             require arg
