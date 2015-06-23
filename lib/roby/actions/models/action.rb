@@ -224,7 +224,11 @@ module Roby
             end
 
             def to_s
-                "#{action_interface_model.name}.#{name}"
+                if action_interface_model
+                    "#{action_interface_model.name}.#{name}"
+                else
+                    "<anonymous>.#{name}"
+                end
             end
 
             def pretty_print(pp)
