@@ -26,15 +26,6 @@ module Roby
                 end
             end
 
-            def puke(klass, meth, e)
-                case e
-                when MiniTest::Skip, MiniTest::Assertion
-                    super
-                else
-                    super(klass, method, Error.new(e))
-                end
-            end
-
             def __full_name__
                 "#{self.class}##{name}"
             end
@@ -226,12 +217,11 @@ module Roby
             # Filters out the test suites that are not enabled by the current
             # Roby configuration
             def run
-                begin
+                capture_exceptions do
                     self.class.roby_should_run(self, Roby.app)
                     super
-                rescue MiniTest::Skip => e
-                    puke self.class, self.name, e
                 end
+                self
             end
         end
     end
