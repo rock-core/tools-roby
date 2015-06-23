@@ -99,6 +99,10 @@ Roby.display_exception do
                                    all: true,
                                    order: :specific_first,
                                    pattern: /^(?:suite_|test_).*\.rb$/)
+
+            Roby.app.each_responding_plugin(:filter_test_files) do |plugin|
+                remaining_arguments = plugin.filter_test_files(Roby.app, remaining_arguments)
+            end
         end
         remaining_arguments.each do |arg|
             require arg
