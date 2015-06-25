@@ -217,12 +217,15 @@ module Roby
             # Filters out the test suites that are not enabled by the current
             # Roby configuration
             def run
-                capture_exceptions do
-                    self.class.roby_should_run(self, Roby.app)
-                    super
+                time_it do
+                    capture_exceptions do
+                        self.class.roby_should_run(self, Roby.app)
+                        super
+                    end
                 end
                 self
             end
+
             def assert_raises(*exp, &block)
                 # Avoid having it displayed by the execution engine. We're going
                 # to display any unexpected exception anyways
