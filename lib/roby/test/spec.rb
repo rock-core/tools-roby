@@ -223,6 +223,43 @@ module Roby
                 end
                 self
             end
+            def assert_raises(*exp, &block)
+                # Avoid having it displayed by the execution engine. We're going
+                # to display any unexpected exception anyways
+                display_exceptions_enabled, plan.execution_engine.display_exceptions =
+                    plan.execution_engine.display_exceptions?, false
+
+                msg = exp.pop if String === exp.last
+                if exp.any? { |e| !e.kind_of?(LocalizedError) }
+                    # The caller expects a non-Roby exception. It is going to be
+                    # wrapped in a LocalizedError, so make sure we properly
+                    # process it
+                    exception = super(*([Roby::UserExceptionWrapper] + exp), &block)
+                    if exception.kind_of?(Roby::UserExceptionWrapper) && exception.original_exception
+                        assert_raises(*exp) { raise exception.original_exception }
+                    else exception
+                    end
+                else
+                    super
+                end
+
+            ensure
+                plan.execution_engine.display_exceptions =
+                    display_exceptions_enabled
+            end
+
+            def exception_details e, msg
+                [
+                    "#{msg}",
+                    "Class: <#{e.class}>",
+                    "Message: <#{e.message.inspect}>",
+                    "Pretty-print:",
+                    *Roby.format_exception(e),
+                    "---Backtrace---",
+                    "#{Minitest.filter_backtrace(e.backtrace).join("\n")}",
+                    "---------------",
+                ].join "\n"
+            end
         end
     end
 end

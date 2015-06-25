@@ -1,4 +1,11 @@
 module Roby
+    # Module used to tag exceptions that "wrap" an original error from the user
+    # code
+    #
+    # All such exceptions must give access to the original error by defining an
+    # original_exception accessor
+    module UserExceptionWrapper; end
+
     # This kind of errors are generated during the plan execution, allowing to
     # blame a fault on a plan object (#failure_point). The precise failure
     # point is categorized in the #failed_event, #failed_generator and
@@ -226,8 +233,12 @@ module Roby
     # outside of Roby's plan management algorithms) has raised. This includes:
     # event commands, event handlers, task polling blocks, ...
     class CodeError < LocalizedError
+        include UserExceptionWrapper
+
         # The original exception object
-	attr_reader :error
+	attr_reader :original_exception
+        # @deprecated use {#original_exception} instead
+        def error; original_exception end
         # Create a CodeError object from the given original exception object, and
         # with the given failure point
 	def initialize(error, *args)
@@ -235,7 +246,7 @@ module Roby
 		raise TypeError, "#{error} should be an exception"
 	    end
 	    super(*args)
-	    @error = error
+	    @original_exception = error
 	end
 
 	def pretty_print(pp) # :nodoc:
@@ -408,12 +419,21 @@ module Roby
     
     # Exception raised when a mission has failed
     class ToplevelTaskError < LocalizedError
+        include UserExceptionWrapper
+
+        # If non-nil, this exception has been generated because of another, and
+        # this is the original one
+        attr_reader :original_exception
+        
         attr_reader :reason
 
         # Create a new MissionFailedError for the given mission
 	def initialize(task, reason = nil)
 	    super(task.failure_event || task)
             @reason = reason || task.failure_reason
+            if reason.kind_of?(Exception)
+                @original_exception = reason
+            end
 	end
 
         def pretty_print(pp)
