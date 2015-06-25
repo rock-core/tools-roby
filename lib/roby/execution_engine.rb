@@ -2262,8 +2262,8 @@ module Roby
 	# Call to notify the listeners registered with {#on_exception} of the
 	# occurence of an exception
 	def notify_exception(kind, error, tasks)
-	    exception_listeners.each do |listener|
-		listener.call(self, kind, error, tasks)
+	    exception_listeners.delete_if do |listener|
+		!listener.call(self, kind, error, tasks)
 	    end
 	end
     end
