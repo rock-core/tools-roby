@@ -178,6 +178,8 @@ module Roby
 	    @last_stop_count = 0
             @finalizers = []
             @gc_warning = true
+
+            self.display_exceptions = true
 	end
 
         # The Plan this engine is acting on
@@ -1374,9 +1376,6 @@ module Roby
         def error_handling_phase_synchronous(stats, errors)
             kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
             if fatal_errors
-                fatal_errors.each do |e, _|
-                    Roby.display_exception(Roby.logger.io(:warn), e.exception)
-                end
                 if fatal_errors.size == 1
                     e = fatal_errors.first.first.exception
                     raise e.dup, e.message, e.backtrace
@@ -1470,18 +1469,12 @@ module Roby
         # Hook called when an unhandled nonfatal exception has been found
         def nonfatal_exception(error, tasks)
             super if defined? super
-            Roby.format_exception(error.exception).each do |line|
-                ExecutionEngine.warn line
-            end
 	    notify_exception(EXCEPTION_NONFATAL, error, tasks)
         end
 
         # Hook called when a set of tasks is being killed because of an exception
         def fatal_exception(error, tasks)
             super if defined? super
-            Roby.format_exception(error.exception).each do |line|
-                ExecutionEngine.warn line
-            end
 	    notify_exception(EXCEPTION_FATAL, error, tasks)
         end
 
@@ -2246,10 +2239,49 @@ module Roby
         # @return [Object] an ID that can be used as argument to
 	#   {#remove_exception_listener}
 	def on_exception(&block)
-            handler = PollBlockDefinition.new("exception listener #{block}", block, :on_error => :disable)
+            handler = PollBlockDefinition.new("exception listener #{block}", block, on_error: :disable)
 	    exception_listeners << handler
 	    handler
 	end
+
+        # Controls whether this engine should indiscriminately display all fatal
+        # exceptions
+        #
+        # This is on by default
+        def display_exceptions=(flag)
+            if flag
+                @exception_display_handler ||= on_exception do |kind, error, tasks|
+                    level = if kind == EXCEPTION_HANDLED then :debug
+                            else :warn
+                            end
+
+                    send(level) do
+                        lines = Roby.format_exception(error.exception).to_a
+                        lines[0] = "encountered a #{kind} exception: #{lines[0]}"
+                        lines.each do |line|
+                            send(level, line)
+                        end
+                        if kind == EXCEPTION_HANDLED
+                            send(level, "the exception was handled by #{tasks}")
+                        else
+                            send(level, "the exception involved")
+                            tasks.each do |t|
+                                send(level, "  #{t}")
+                            end
+                        end
+                    end
+                end
+            else
+                remove_exception_listener(@exception_display_handler)
+                @exception_display_handler = nil
+            end
+        end
+
+        # whether this engine should indiscriminately display all fatal
+        # exceptions
+        def display_exceptions?
+            !!@exception_display_handler
+        end
 
 	# Removes an exception listener registered with {#on_exception}
 	#
