@@ -12,6 +12,7 @@ module Roby
             class << self
                 extend MetaRuby::Attributes
                 inherited_attribute(:run_mode, :run_modes) { Array.new }
+                inherited_attribute(:enabled_robot, :enabled_robots) { Set.new }
             end
 
             def app; Roby.app end
@@ -168,6 +169,11 @@ module Roby
                 run_modes << lambda(&block)
             end
 
+            # Enable this test only on the given robot
+            def self.run_on_robot(robot_name)
+                enabled_robots << robot_name
+            end
+
             # Enable this test in single mode
             #
             # By default, the tests are enabled in all modes. As soon as one of
@@ -209,8 +215,12 @@ module Roby
             # @param [Roby::Application] app
             # @return [Boolean]
             def self.roby_should_run(test, app)
-                if each_run_mode.find { true } && each_run_mode.all? { |blk| !blk.call(app) }
+                run_modes = all_run_mode
+                enabled_robots = all_enabled_robot
+                if !run_modes.empty? && run_modes.all? { |blk| !blk.call(app) }
                     test.skip("#{test.name} cannot run in this roby test configuration")
+                elsif !enabled_robots.empty? && !enabled_robots.include?(app.robot_name)
+                    test.skip("#{test.name} can only be run on robots #{enabled_robots.sort.join(", ")}")
                 end
             end
 
