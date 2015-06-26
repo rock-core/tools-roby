@@ -39,17 +39,13 @@ module Roby::TaskStructure
         #
         # If there is more than one parent or no parent at all, raise an exception
         def parent_task
-            result = nil
-            each_parent_task do |p|
-                if result
-                    raise ArgumentError, "#{self} has more than one parent. A single parent was expected"
-                end
-                result = p
-            end
-            if !result
+            parents = each_parent_task.to_a
+            if parents.size > 1
+                raise ArgumentError, "#{self} has #{parents.size} parents (#{parents.map(&:to_s).join(", ")}. A single parent was expected"
+            elsif parents.empty?
                 raise ArgumentError, "#{self} has no parents. A single parent was expected"
             end
-            result
+            parents.first
         end
 
         # Returns the set of roles that +child+ has
