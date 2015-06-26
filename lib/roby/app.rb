@@ -959,18 +959,15 @@ module Roby
         end
 
         def isolate_load_errors(message, logger = Application, level = :warn)
-            begin
-                yield
-            rescue Interrupt
-                raise
-            rescue ::Exception => e
-                register_exception(e, message)
-                if ignore_all_load_errors?
-                    Robot.warn message
-                    Roby.log_exception(e, logger, level)
-                    Roby.log_backtrace(e, logger, level)
-                else raise
-                end
+            yield
+        rescue Interrupt
+            raise
+        rescue ::Exception => e
+            register_exception(e, message)
+            if ignore_all_load_errors?
+                Robot.warn message
+                Roby.log_exception_with_backtrace(e, logger, level)
+            else raise
             end
         end
 
