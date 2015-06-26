@@ -143,7 +143,7 @@ module Roby
                         end
                     end
                 rescue Exception => e
-                    Roby.fatal e.message
+                    Roby.log_exception_with_backtrace(e, Roby, :error)
                     w.write("#{KO_REDIRECTION}")
                     return
                 end
@@ -159,7 +159,7 @@ module Roby
                 rescue Errno::ENOENT
                     w.write("#{KO_NO_SUCH_FILE}")
                 rescue Exception => e
-                    Roby.fatal e.message
+                    Roby.log_exception_with_backtrace(e, Roby, :error)
                     w.write("#{KO_EXEC}")
                 end
             end

@@ -1107,10 +1107,10 @@ module Roby
                     poll_block.block.call(self)
                 end
             rescue LocalizedError => e
-                Roby.log_exception(e, Roby.logger, :warn)
+                Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
                 emit :internal_error, e
             rescue Exception => e
-                Roby.log_exception(e, Roby.logger, :warn)
+                Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
                 emit :internal_error, CodeError.new(e, self)
             end
         end
@@ -1387,7 +1387,7 @@ module Roby
                     # mechanisms.
                     Robot.fatal "putting #{self} in quarantine: #{self} failed to emit"
                     Robot.fatal "the error is:"
-                    Roby.log_exception(error, Robot, :fatal)
+                    Roby.log_exception_with_backtrace(error, Robot, :fatal)
 
                     plan.quarantine(self)
                     add_error(TaskEmergencyTermination.new(self, error, true))

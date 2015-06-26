@@ -860,7 +860,7 @@ module Roby
             planner = options[:planner_model].new(plan)
             planner.send(method_name, args)
         rescue Roby::Planning::NotFound => e
-            Roby.log_exception(e, Roby, :fatal)
+            Roby.log_exception_with_backtrace(e, Roby, :fatal)
             raise
         end
 
