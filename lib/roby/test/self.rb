@@ -1,4 +1,5 @@
 require 'minitest/autorun'
+require 'flexmock/minitest'
 require 'roby/test/common'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
@@ -12,11 +13,6 @@ module Roby
     #
     # @see Test
     module Self
-        if defined? FlexMock
-            include FlexMock::ArgumentTypes
-            include FlexMock::MockContainer
-        end
-
         include Roby::Test
         include Roby::Test::Assertions
 

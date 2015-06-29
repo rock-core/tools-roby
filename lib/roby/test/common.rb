@@ -1,5 +1,5 @@
 require 'minitest/spec'
-require 'flexmock/test_unit'
+require 'flexmock/minitest'
 
 # simplecov must be loaded FIRST. Only the files required after it gets loaded
 # will be profiled !!!
@@ -43,13 +43,15 @@ module Roby
 	include Roby
         include TeardownPlans
 
+        extend Logger::Hierarchy
+        extend Logger::Forward
+
 	BASE_PORT     = 1245
 	DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
 	REMOTE_PORT    = BASE_PORT + 1
 	LOCAL_PORT     = BASE_PORT + 2
 	REMOTE_SERVER  = "druby://localhost:#{BASE_PORT + 3}"
 	LOCAL_SERVER   = "druby://localhost:#{BASE_PORT + 4}"
-
 
 	attr_reader :timings
 	class << self
@@ -229,12 +231,6 @@ module Roby
         end
 
 	def teardown
-            begin
-                flexmock_teardown
-            rescue ::Exception => e
-                teardown_failure = e
-            end
-
 	    timings[:quit] = Time.now
             @transactions.each do |trsc|
                 if !trsc.finalized?
@@ -290,30 +286,15 @@ module Roby
 
             super if defined? super
 
-	rescue Exception => e
-            teardown_failure ||= e
-            raise
-
 	ensure
             reset_log_levels
-            begin
-                clear_registered_plans
+            clear_registered_plans
 
-                if @original_roby_logger_level
-                    Roby.logger.level = @original_roby_logger_level
-                end
-                self.console_logger = false
-                self.event_logger   = false
-
-                if teardown_failure
-                    raise teardown_failure
-                end
-
-            rescue Exception => e
-                if teardown_failure then raise teardown_failure
-                else raise e
-                end
+            if @original_roby_logger_level
+                Roby.logger.level = @original_roby_logger_level
             end
+            self.console_logger = false
+            self.event_logger   = false
 	end
         
         def clear_relation_spaces
@@ -363,10 +344,14 @@ module Roby
         end
 
         # Use to call the original method on a partial mock
-        #
-        # This should be in flexmock, but is not ...
         def flexmock_call_original(object, method, *args, &block)
-            object.class.instance_method(method).bind(object).call(*args, &block)
+            Test.warn "#flexmock_call_original is deprecated, use #flexmock_invoke_original instead"
+            flexmock_invoke_original(object, method, *args, &block)
+        end
+
+        # Use to call the original method on a partial mock
+        def flexmock_invoke_original(object, method, *args, &block)
+            object.instance_variable_get(:@flexmock_proxy).flexmock_invoke_original(method, args, &block)
         end
 
 	# The list of children started using #remote_process
@@ -895,14 +880,5 @@ module Roby
             end
         end
     end
-end
-
-# Workaround a problem with flexmock and minitest not being compatible with each
-# other (currently). See github.com/jimweirich/flexmock/issues/15.
-if defined?(FlexMock) && !FlexMock::TestUnitFrameworkAdapter.method_defined?(:assertions)
-    class FlexMock::TestUnitFrameworkAdapter
-        attr_accessor :assertions
-    end
-    FlexMock.framework_adapter.assertions = 0
 end
 
