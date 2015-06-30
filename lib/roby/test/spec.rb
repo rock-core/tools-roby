@@ -170,8 +170,15 @@ module Roby
             end
 
             # Enable this test only on the given robot
-            def self.run_on_robot(robot_name)
-                enabled_robots << robot_name
+            def self.run_on_robot(*robot_names, &block)
+                if block
+                    describe "in interactive mode" do
+                        run_on_robot(*robot_names)
+                        class_eval(&block)
+                    end
+                else
+                    enabled_robots.merge(robot_names)
+                end
             end
 
             # Enable this test in single mode
@@ -179,8 +186,15 @@ module Roby
             # By default, the tests are enabled in all modes. As soon as one of
             # the run_ methods gets called, it is restricted to this particular
             # mode
-            def self.run_single
-                run_if { |app| app.single? }
+            def self.run_single(&block)
+                if block
+                    describe "in single mode" do
+                        run_single
+                        class_eval(&block)
+                    end
+                else
+                    run_if { |app| app.single? }
+                end
             end
 
             # Enable this test in simulated mode
@@ -188,8 +202,15 @@ module Roby
             # By default, the tests are enabled in all modes. As soon as one of
             # the run_ methods gets called, it is restricted to this particular
             # mode
-            def self.run_simulated
-                run_if { |app| app.simulation? }
+            def self.run_simulated(&block)
+                if block
+                    describe "in simulation mode" do
+                        run_simulated
+                        class_eval(&block)
+                    end
+                else
+                    run_if { |app| app.simulation? }
+                end
             end
 
             # Enable this test in live (non-simulated mode)
@@ -197,8 +218,15 @@ module Roby
             # By default, the tests are enabled in all modes. As soon as one of
             # the run_ methods gets called, it is restricted to this particular
             # mode
-            def self.run_live
-                run_if { |app| !app.simulation? }
+            def self.run_live(&block)
+                if block
+                    describe "in live mode" do
+                        run_live
+                        class_eval(&block)
+                    end
+                else
+                    run_if { |app| !app.simulation? }
+                end
             end
 
             # Enable this test in interactive mode
@@ -206,8 +234,15 @@ module Roby
             # By default, the tests are enabled in all modes. As soon as one of
             # the run_ methods gets called, it is restricted to this particular
             # mode
-            def self.run_interactive
-                run_if { |app| !app.automatic_testing? }
+            def self.run_interactive(&block)
+                if block
+                    describe "in interactive mode" do
+                        run_interactive
+                        class_eval(&block)
+                    end
+                else
+                    run_if { |app| !app.automatic_testing? }
+                end
             end
 
             # Tests whether self should run on the given app configuration
