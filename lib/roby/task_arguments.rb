@@ -64,6 +64,12 @@ module Roby
 	    values.dup
 	end
 
+        # Tests if a given argument has been assigned, that is either has a
+        # static value or has a delayed value object
+        def assigned?(key)
+            has_key?(key)
+        end
+
         # Tests if a given argument has been set with a proper value (not a
         # delayed value object)
 	def set?(key)
