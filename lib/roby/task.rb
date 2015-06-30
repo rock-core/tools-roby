@@ -104,7 +104,7 @@ module Roby
         def freeze_delayed_arguments
             if !arguments.static?
                 arguments.dup.each do |key, value|
-                    if value.respond_to?(:evaluate_delayed_argument)
+                    if TaskArguments.delayed_argument?(value)
                         catch(:no_value) do
                             __assign_argument__(key, value.evaluate_delayed_argument(self))
                         end
@@ -142,7 +142,7 @@ module Roby
         # if there is one, or direct access to the @arguments instance variable
         def __assign_argument__(key, value) # :nodoc:
             key = key.to_sym
-            if value.respond_to?(:evaluate_delayed_argument)
+            if TaskArguments.delayed_argument?(value)
                 @arguments[key] = value
             else
                 if self.respond_to?("#{key}=")
