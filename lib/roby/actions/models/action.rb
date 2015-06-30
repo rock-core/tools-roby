@@ -232,7 +232,7 @@ module Roby
             end
 
             def pretty_print(pp)
-                pp.text "Action #{name} defined on #{action_interface_model.name}"
+                pp.text "Action #{to_s}"
                 pp.nest(2) do
                     pp.breakable
                     pp.text "Returns "
