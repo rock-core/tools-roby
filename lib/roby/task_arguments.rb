@@ -304,7 +304,7 @@ module Roby
 
                     argument = v.arguments.values[m]
                     if argument.respond_to?(:evaluate_delayed_argument)
-                        argument.evaluate_delayed_argument(task)
+                        argument.evaluate_delayed_argument(v)
                     else
                         argument
                     end
