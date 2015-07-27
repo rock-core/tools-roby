@@ -296,6 +296,23 @@ module Roby
                     display_exceptions_enabled
             end
 
+            def to_s
+                if !error?
+                    super
+                else
+                    failures.map { |failure|
+                        bt = Minitest.filter_backtrace(failure.backtrace).join "\n    "
+                        if failure.kind_of?(Minitest::UnexpectedError)
+                            msg = Roby.format_exception(failure.exception).join("\n") +
+                                "\n    #{bt}"
+                        else
+                            msg = failure.message
+                        end
+                        "#{failure.result_label}:\n#{self.location}:\n#{msg}\n"
+                    }.join "\n"
+                end
+            end
+
             def exception_details e, msg
                 [
                     "#{msg}",
