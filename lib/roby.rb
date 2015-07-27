@@ -112,6 +112,7 @@ require 'roby/distributed/peer'
 require 'roby/distributed/protocol'
 
 require 'roby/decision_control'
+require 'roby/schedulers/null'
 require 'roby/execution_engine'
 require 'roby/app'
 require 'roby/state'

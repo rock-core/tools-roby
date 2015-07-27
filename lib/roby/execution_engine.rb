@@ -148,6 +148,7 @@ module Roby
             @plan = plan
             plan.engine = self
             @control = control
+            @scheduler = Schedulers::Null.new
 
             @propagation = nil
             @propagation_id = 0
@@ -459,7 +460,14 @@ module Roby
         # events.
         #
         # See Schedulers::Basic
-        attr_accessor :scheduler
+        attr_reader :scheduler
+
+        def scheduler=(scheduler)
+            if !scheduler
+                raise ArgumentError, "cannot set the scheduler to nil. You can disable the current scheduler with .enabled = false instead, or set it to Schedulers::Null.new"
+            end
+            @scheduler = scheduler
+        end
 
         # True if we are currently in the propagation stage
         def gathering?; !!@propagation end
@@ -743,7 +751,7 @@ module Roby
         end
 
         def call_propagation_handlers
-            if scheduler && scheduler.enabled?
+            if scheduler.enabled?
                 gather_framework_errors('scheduler') do
                     report_scheduler_state(scheduler.state)
                     scheduler.clear_reports
@@ -2175,9 +2183,7 @@ module Roby
 
         # Kill all tasks that are currently running in the plan
         def killall
-            if scheduler
-                scheduler_enabled = scheduler.enabled?
-            end
+            scheduler_enabled = scheduler.enabled?
 
             plan.permanent_tasks.clear
             plan.permanent_events.clear
@@ -2186,9 +2192,7 @@ module Roby
                 trsc.discard_transaction!
             end
 
-            if scheduler
-                scheduler.enabled = false
-            end
+            scheduler.enabled = false
             quit
             join
 
@@ -2197,9 +2201,7 @@ module Roby
             cycle_end(Hash.new)
 
         ensure
-            if scheduler
-                scheduler.enabled = scheduler_enabled
-            end
+            scheduler.enabled = scheduler_enabled
         end
 
 	EXCEPTION_NONFATAL = :nonfatal

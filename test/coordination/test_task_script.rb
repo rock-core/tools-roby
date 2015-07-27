@@ -394,7 +394,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_model_level_script
-        engine.scheduler = nil
+        engine.scheduler.enabled = false
         mock = flexmock
         model = Roby::Tasks::Simple.new_submodel do
             event :do_it
