@@ -104,7 +104,7 @@ module Roby
         def freeze_delayed_arguments
             if !arguments.static?
                 arguments.dup.each do |key, value|
-                    if value.respond_to?(:evaluate_delayed_argument)
+                    if TaskArguments.delayed_argument?(value)
                         catch(:no_value) do
                             __assign_argument__(key, value.evaluate_delayed_argument(self))
                         end
@@ -142,7 +142,7 @@ module Roby
         # if there is one, or direct access to the @arguments instance variable
         def __assign_argument__(key, value) # :nodoc:
             key = key.to_sym
-            if value.respond_to?(:evaluate_delayed_argument)
+            if TaskArguments.delayed_argument?(value)
                 @arguments[key] = value
             else
                 if self.respond_to?("#{key}=")
@@ -1107,10 +1107,10 @@ module Roby
                     poll_block.block.call(self)
                 end
             rescue LocalizedError => e
-                Roby.log_exception(e, Roby.logger, :warn)
+                Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
                 emit :internal_error, e
             rescue Exception => e
-                Roby.log_exception(e, Roby.logger, :warn)
+                Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
                 emit :internal_error, CodeError.new(e, self)
             end
         end
@@ -1387,7 +1387,7 @@ module Roby
                     # mechanisms.
                     Robot.fatal "putting #{self} in quarantine: #{self} failed to emit"
                     Robot.fatal "the error is:"
-                    Roby.log_exception(error, Robot, :fatal)
+                    Roby.log_exception_with_backtrace(error, Robot, :fatal)
 
                     plan.quarantine(self)
                     add_error(TaskEmergencyTermination.new(self, error, true))

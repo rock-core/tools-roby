@@ -134,6 +134,9 @@ module Roby
     #   #garbage_collect, so that they get killed and removed from the plan.
     #
     class ExecutionEngine
+        # Required by Roby::Distributed
+        include DRbUndumped
+
         extend Logger::Hierarchy
         include Logger::Hierarchy
 
@@ -145,6 +148,7 @@ module Roby
             @plan = plan
             plan.engine = self
             @control = control
+            @scheduler = Schedulers::Null.new
 
             @propagation = nil
             @propagation_id = 0
@@ -178,6 +182,8 @@ module Roby
 	    @last_stop_count = 0
             @finalizers = []
             @gc_warning = true
+
+            self.display_exceptions = true
 	end
 
         # The Plan this engine is acting on
@@ -454,7 +460,14 @@ module Roby
         # events.
         #
         # See Schedulers::Basic
-        attr_accessor :scheduler
+        attr_reader :scheduler
+
+        def scheduler=(scheduler)
+            if !scheduler
+                raise ArgumentError, "cannot set the scheduler to nil. You can disable the current scheduler with .enabled = false instead, or set it to Schedulers::Null.new"
+            end
+            @scheduler = scheduler
+        end
 
         # True if we are currently in the propagation stage
         def gathering?; !!@propagation end
@@ -732,14 +745,13 @@ module Roby
 
         # Gather the events that come out of this plan manager
         def gather_external_events
-            gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
             gather_framework_errors('delayed events')     { execute_delayed_events }
             call_poll_blocks(self.class.external_events_handlers)
             call_poll_blocks(self.external_events_handlers)
         end
 
         def call_propagation_handlers
-            if scheduler && scheduler.enabled?
+            if scheduler.enabled?
                 gather_framework_errors('scheduler') do
                     report_scheduler_state(scheduler.state)
                     scheduler.clear_reports
@@ -1337,7 +1349,8 @@ module Roby
         # to Roby's error handling mechanisms), the method will raise
         # SynchronousEventProcessingMultipleErrors to wrap all the exceptions
         # into one.
-        def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new)
+        def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new, enable_scheduler: false)
+            scheduler_was_enabled, scheduler.enabled = scheduler.enabled?, enable_scheduler
             gather_framework_errors("process_events_simple") do
                 stats = Hash[:start => Time.now]
                 next_steps = seeds.dup
@@ -1369,14 +1382,13 @@ module Roby
                     end
                 end
             end
+        ensure
+            scheduler.enabled = scheduler_was_enabled
         end
 
         def error_handling_phase_synchronous(stats, errors)
             kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
             if fatal_errors
-                fatal_errors.each do |e, _|
-                    Roby.display_exception(Roby.logger.io(:warn), e.exception)
-                end
                 if fatal_errors.size == 1
                     e = fatal_errors.first.first.exception
                     raise e.dup, e.message, e.backtrace
@@ -1470,18 +1482,12 @@ module Roby
         # Hook called when an unhandled nonfatal exception has been found
         def nonfatal_exception(error, tasks)
             super if defined? super
-            Roby.format_exception(error.exception).each do |line|
-                ExecutionEngine.warn line
-            end
 	    notify_exception(EXCEPTION_NONFATAL, error, tasks)
         end
 
         # Hook called when a set of tasks is being killed because of an exception
         def fatal_exception(error, tasks)
             super if defined? super
-            Roby.format_exception(error.exception).each do |line|
-                ExecutionEngine.warn line
-            end
 	    notify_exception(EXCEPTION_FATAL, error, tasks)
         end
 
@@ -2176,60 +2182,26 @@ module Roby
         end
 
         # Kill all tasks that are currently running in the plan
-        def killall(limit = 100)
-            if scheduler
-                scheduler_enabled = scheduler.enabled?
+        def killall
+            scheduler_enabled = scheduler.enabled?
+
+            plan.permanent_tasks.clear
+            plan.permanent_events.clear
+            plan.missions.clear
+            plan.transactions.each do |trsc|
+                trsc.discard_transaction!
             end
 
-            last_known_tasks = ValueSet.new
-            last_quarantine = ValueSet.new
-            counter = 0
-            loop do
-                plan.permanent_tasks.clear
-                plan.permanent_events.clear
-                plan.missions.clear
-                plan.transactions.each do |trsc|
-                    trsc.discard_transaction!
-                end
+            scheduler.enabled = false
+            quit
+            join
 
-                if scheduler
-                    scheduler.enabled = false
-                end
-                quit
-                join
+            start_new_cycle
+            process_events
+            cycle_end(Hash.new)
 
-                if !running?
-                    start_new_cycle
-                    process_events
-                end
-
-                counter += 1
-                if counter > limit
-                    Roby.warn "more than #{counter} iterations while trying to shut down #{plan}, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.known_tasks.size} tasks"
-                    if last_known_tasks != plan.known_tasks
-                        Roby.warn "Known tasks:"
-                        plan.known_tasks.each do |t|
-                            Roby.warn "  #{t}"
-                        end
-                        last_known_tasks = plan.known_tasks.dup
-                    end
-                    if last_quarantine != plan.gc_quarantine
-                        Roby.warn "Quarantined tasks:"
-                        plan.gc_quarantine.each do |t|
-                            Roby.warn "  #{t}"
-                        end
-                        last_quarantine = plan.gc_quarantine.dup
-                    end
-                end
-                if plan.gc_quarantine.size == plan.known_tasks.size
-                    break
-                end
-                sleep 0.01
-            end
         ensure
-            if scheduler
-                scheduler.enabled = scheduler_enabled
-            end
+            scheduler.enabled = scheduler_enabled
         end
 
 	EXCEPTION_NONFATAL = :nonfatal
@@ -2246,10 +2218,49 @@ module Roby
         # @return [Object] an ID that can be used as argument to
 	#   {#remove_exception_listener}
 	def on_exception(&block)
-            handler = PollBlockDefinition.new("exception listener #{block}", block, :on_error => :disable)
+            handler = PollBlockDefinition.new("exception listener #{block}", block, on_error: :disable)
 	    exception_listeners << handler
 	    handler
 	end
+
+        # Controls whether this engine should indiscriminately display all fatal
+        # exceptions
+        #
+        # This is on by default
+        def display_exceptions=(flag)
+            if flag
+                @exception_display_handler ||= on_exception do |kind, error, tasks|
+                    level = if kind == EXCEPTION_HANDLED then :debug
+                            else :warn
+                            end
+
+                    send(level) do
+                        lines = Roby.format_exception(error.exception).to_a
+                        lines[0] = "encountered a #{kind} exception: #{lines[0]}"
+                        lines.each do |line|
+                            send(level, line)
+                        end
+                        if kind == EXCEPTION_HANDLED
+                            send(level, "the exception was handled by #{tasks}")
+                        else
+                            send(level, "the exception involved")
+                            tasks.each do |t|
+                                send(level, "  #{t}")
+                            end
+                        end
+                    end
+                end
+            else
+                remove_exception_listener(@exception_display_handler)
+                @exception_display_handler = nil
+            end
+        end
+
+        # whether this engine should indiscriminately display all fatal
+        # exceptions
+        def display_exceptions?
+            !!@exception_display_handler
+        end
 
 	# Removes an exception listener registered with {#on_exception}
 	#
@@ -2262,8 +2273,8 @@ module Roby
 	# Call to notify the listeners registered with {#on_exception} of the
 	# occurence of an exception
 	def notify_exception(kind, error, tasks)
-	    exception_listeners.each do |listener|
-		listener.call(self, kind, error, tasks)
+	    exception_listeners.delete_if do |listener|
+		!listener.call(self, kind, error, tasks)
 	    end
 	end
     end

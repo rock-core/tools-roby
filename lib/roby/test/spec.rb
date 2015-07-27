@@ -1,15 +1,18 @@
 require 'utilrb/timepoints'
 require 'roby/test/error'
 require 'roby/test/common'
+require 'roby/test/teardown_plans'
 module Roby
     module Test
         class Spec < Minitest::Spec
             include Test::Assertions
+            include Test::TeardownPlans
             include Utilrb::Timepoints
 
             class << self
                 extend MetaRuby::Attributes
                 inherited_attribute(:run_mode, :run_modes) { Array.new }
+                inherited_attribute(:enabled_robot, :enabled_robots) { Set.new }
             end
 
             def app; Roby.app end
@@ -21,15 +24,6 @@ module Roby
                 # Duplicate each method 'repeat' times
                 methods.inject([]) do |list, m|
                     list.concat([m] * Roby.app.test_repeat)
-                end
-            end
-
-            def puke(klass, meth, e)
-                case e
-                when MiniTest::Skip, MiniTest::Assertion
-                    super
-                else
-                    super(klass, method, Error.new(e))
                 end
             end
 
@@ -69,6 +63,7 @@ module Roby
                         models_present_in_setup << m
                     end
                 end
+                register_plan(Roby.plan)
 
                 super
 
@@ -93,7 +88,7 @@ module Roby
                     clear_timepoints
                 end
 
-                plan.engine.killall
+                teardown_registered_plans
                 if @watch_events_handler_id
                     engine.remove_propagation_handler(@watch_events_handler_id)
                 end
@@ -108,6 +103,7 @@ module Roby
                 end
 
             ensure
+                clear_registered_plans
                 if teardown_failure
                     raise teardown_failure
                 end
@@ -173,13 +169,32 @@ module Roby
                 run_modes << lambda(&block)
             end
 
+            # Enable this test only on the given robot
+            def self.run_on_robot(*robot_names, &block)
+                if block
+                    describe "in interactive mode" do
+                        run_on_robot(*robot_names)
+                        class_eval(&block)
+                    end
+                else
+                    enabled_robots.merge(robot_names)
+                end
+            end
+
             # Enable this test in single mode
             #
             # By default, the tests are enabled in all modes. As soon as one of
             # the run_ methods gets called, it is restricted to this particular
             # mode
-            def self.run_single
-                run_if { |app| app.single? }
+            def self.run_single(&block)
+                if block
+                    describe "in single mode" do
+                        run_single
+                        class_eval(&block)
+                    end
+                else
+                    run_if { |app| app.single? }
+                end
             end
 
             # Enable this test in simulated mode
@@ -187,8 +202,15 @@ module Roby
             # By default, the tests are enabled in all modes. As soon as one of
             # the run_ methods gets called, it is restricted to this particular
             # mode
-            def self.run_simulated
-                run_if { |app| app.simulation? }
+            def self.run_simulated(&block)
+                if block
+                    describe "in simulation mode" do
+                        run_simulated
+                        class_eval(&block)
+                    end
+                else
+                    run_if { |app| app.simulation? }
+                end
             end
 
             # Enable this test in live (non-simulated mode)
@@ -196,8 +218,15 @@ module Roby
             # By default, the tests are enabled in all modes. As soon as one of
             # the run_ methods gets called, it is restricted to this particular
             # mode
-            def self.run_live
-                run_if { |app| !app.simulation? }
+            def self.run_live(&block)
+                if block
+                    describe "in live mode" do
+                        run_live
+                        class_eval(&block)
+                    end
+                else
+                    run_if { |app| !app.simulation? }
+                end
             end
 
             # Enable this test in interactive mode
@@ -205,8 +234,15 @@ module Roby
             # By default, the tests are enabled in all modes. As soon as one of
             # the run_ methods gets called, it is restricted to this particular
             # mode
-            def self.run_interactive
-                run_if { |app| !app.automatic_testing? }
+            def self.run_interactive(&block)
+                if block
+                    describe "in interactive mode" do
+                        run_interactive
+                        class_eval(&block)
+                    end
+                else
+                    run_if { |app| !app.automatic_testing? }
+                end
             end
 
             # Tests whether self should run on the given app configuration
@@ -214,20 +250,80 @@ module Roby
             # @param [Roby::Application] app
             # @return [Boolean]
             def self.roby_should_run(test, app)
-                if each_run_mode.find { true } && each_run_mode.all? { |blk| !blk.call(app) }
+                run_modes = all_run_mode
+                enabled_robots = all_enabled_robot
+                if !run_modes.empty? && run_modes.all? { |blk| !blk.call(app) }
                     test.skip("#{test.name} cannot run in this roby test configuration")
+                elsif !enabled_robots.empty? && !enabled_robots.include?(app.robot_name)
+                    test.skip("#{test.name} can only be run on robots #{enabled_robots.sort.join(", ")}")
                 end
             end
 
             # Filters out the test suites that are not enabled by the current
             # Roby configuration
             def run
-                begin
-                    self.class.roby_should_run(self, Roby.app)
-                    super
-                rescue MiniTest::Skip => e
-                    puke self.class, self.name, e
+                time_it do
+                    capture_exceptions do
+                        self.class.roby_should_run(self, Roby.app)
+                        super
+                    end
                 end
+                self
+            end
+
+            def assert_raises(*exp, &block)
+                # Avoid having it displayed by the execution engine. We're going
+                # to display any unexpected exception anyways
+                display_exceptions_enabled, plan.execution_engine.display_exceptions =
+                    plan.execution_engine.display_exceptions?, false
+
+                msg = exp.pop if String === exp.last
+                if exp.any? { |e| !e.kind_of?(LocalizedError) }
+                    # The caller expects a non-Roby exception. It is going to be
+                    # wrapped in a LocalizedError, so make sure we properly
+                    # process it
+                    exception = super(*([Roby::UserExceptionWrapper] + exp), &block)
+                    if exception.kind_of?(Roby::UserExceptionWrapper) && exception.original_exception
+                        assert_raises(*exp) { raise exception.original_exception }
+                    else exception
+                    end
+                else
+                    super
+                end
+
+            ensure
+                plan.execution_engine.display_exceptions =
+                    display_exceptions_enabled
+            end
+
+            def to_s
+                if !error?
+                    super
+                else
+                    failures.map { |failure|
+                        bt = Minitest.filter_backtrace(failure.backtrace).join "\n    "
+                        if failure.kind_of?(Minitest::UnexpectedError)
+                            msg = Roby.format_exception(failure.exception).join("\n") +
+                                "\n    #{bt}"
+                        else
+                            msg = failure.message
+                        end
+                        "#{failure.result_label}:\n#{self.location}:\n#{msg}\n"
+                    }.join "\n"
+                end
+            end
+
+            def exception_details e, msg
+                [
+                    "#{msg}",
+                    "Class: <#{e.class}>",
+                    "Message: <#{e.message.inspect}>",
+                    "Pretty-print:",
+                    *Roby.format_exception(e),
+                    "---Backtrace---",
+                    "#{Minitest.filter_backtrace(e.backtrace).join("\n")}",
+                    "---------------",
+                ].join "\n"
             end
         end
     end

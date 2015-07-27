@@ -37,6 +37,12 @@ class IO
     end
 end
 
+class Set
+    def difference!(other_set)
+        substract(other_set)
+    end
+end
+
 module Enumerable
     def empty?
 	for i in self

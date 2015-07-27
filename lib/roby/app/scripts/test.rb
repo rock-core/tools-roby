@@ -53,6 +53,9 @@ parser = OptionParser.new do |opt|
     opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
         coverage_mode = true
     end
+    opt.on('--server PORT', Integer, 'the minitest server port') do |server_port|
+        testrb_args << "--server" << server_port.to_s
+    end
     Roby::Application.common_optparse_setup(opt)
 end
 
@@ -92,10 +95,14 @@ Roby.display_exception do
         if remaining_arguments.empty?
             remaining_arguments = Roby.app.
                 find_files_in_dirs('test', 'ROBOT',
-                                   :path => [Roby.app.app_dir],
-                                   :all => true,
-                                   :order => :specific_first,
-                                   :pattern => /^(?:suite_|test_).*\.rb$/)
+                                   path: [Roby.app.app_dir],
+                                   all: true,
+                                   order: :specific_first,
+                                   pattern: /^(?:suite_|test_).*\.rb$/)
+
+            Roby.app.each_responding_plugin(:filter_test_files) do |plugin|
+                remaining_arguments = plugin.filter_test_files(Roby.app, remaining_arguments)
+            end
         end
         remaining_arguments.each do |arg|
             require arg

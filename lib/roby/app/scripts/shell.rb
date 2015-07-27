@@ -1,7 +1,7 @@
 require 'roby'
 require 'roby/distributed'
 require 'optparse'
-require 'readline'
+require 'rb-readline'
 
 app = Roby.app
 app.guess_app_dir
@@ -71,6 +71,27 @@ __main_remote_interface__ =
         exit(1)
     end
 
+module RbReadline
+    def self.puts(msg)
+        if needs_save_and_restore = rl_isstate(RL_STATE_READCMD)
+            saved_point = rl_point
+            rl_maybe_save_line
+            rl_save_prompt
+            rl_kill_full_line(nil, nil)
+            rl_redisplay
+        end
+
+        Kernel.puts msg
+
+        if needs_save_and_restore
+            rl_restore_prompt
+            rl_maybe_replace_line
+            @rl_point = saved_point
+            rl_redisplay
+        end
+    end
+end
+
 begin
     # Make __main_remote_interface__ the top-level object
     bind = __main_remote_interface__.instance_eval { binding }
@@ -84,7 +105,7 @@ begin
     Thread.new do
         begin
             __main_remote_interface__.notification_loop(0.1) do |msg|
-                Readline.puts msg
+                RbReadline.puts(msg)
             end
         rescue Exception => e
             puts e

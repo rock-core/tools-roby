@@ -16,6 +16,10 @@ module Roby
 	    super()
 	end
 
+        def self.delayed_argument?(obj)
+            obj.respond_to?(:evaluate_delayed_argument)
+        end
+
         # True if none of the argument values are delayed objects
         def static?
             @static
@@ -40,7 +44,7 @@ module Roby
 	def writable?(key, value)
             if has_key?(key)
                 !task.model.arguments.include?(key) ||
-                    values[key].respond_to?(:evaluate_delayed_argument) && !value.respond_to?(:evaluate_delayed_argument)
+                    TaskArguments.delayed_argument?(values[key]) && !TaskArguments.delayed_argument?(value)
             else
                 true
             end
@@ -60,10 +64,16 @@ module Roby
 	    values.dup
 	end
 
+        # Tests if a given argument has been assigned, that is either has a
+        # static value or has a delayed value object
+        def assigned?(key)
+            has_key?(key)
+        end
+
         # Tests if a given argument has been set with a proper value (not a
         # delayed value object)
 	def set?(key)
-	    has_key?(key) && !values.fetch(key).respond_to?(:evaluate_delayed_argument)
+            has_key?(key) && !TaskArguments.delayed_argument?(values.fetch(key))
 	end
 
         # True if the arguments are equal
@@ -110,7 +120,7 @@ module Roby
 	def each_assigned_argument
             return assigned_arguments if !block_given?
 	    each do |key, value|
-		if !value.respond_to?(:evaluate_delayed_argument)
+                if !TaskArguments.delayed_argument?(value)
 		    yield(key, value)
 		end
 	    end
@@ -145,9 +155,9 @@ module Roby
 		    raise OwnershipError, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
 		end
 
-                if value.respond_to?(:evaluate_delayed_argument)
+                if TaskArguments.delayed_argument?(value)
                     @static = false
-                elsif values.has_key?(key) && values[key].respond_to?(:evaluate_delayed_argument)
+                elsif values.has_key?(key) && TaskArguments.delayed_argument?(values[key])
                     update_static = true
                 end
 
@@ -156,7 +166,7 @@ module Roby
 		updated(key, value)
 
                 if update_static
-                    @static = values.all? { |k, v| !v.respond_to?(:evaluate_delayed_argument) }
+                    @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
                 end
                 value
 	    else
@@ -169,7 +179,7 @@ module Roby
         def [](key)
             key = key.to_sym if key.respond_to?(:to_str)
             value = values[key]
-            if !value.respond_to?(:evaluate_delayed_argument)
+            if !TaskArguments.delayed_argument?(value)
                 value
             end
         end
@@ -180,7 +190,7 @@ module Roby
         def evaluate_delayed_arguments
             result = Hash.new
             values.each do |key, val|
-                if val.respond_to?(:evaluate_delayed_argument)
+                if TaskArguments.delayed_argument?(val)
                     catch(:no_value) do
                         result[key] = val.evaluate_delayed_argument(task)
                     end
@@ -303,8 +313,8 @@ module Roby
                     end
 
                     argument = v.arguments.values[m]
-                    if argument.respond_to?(:evaluate_delayed_argument)
-                        argument.evaluate_delayed_argument(task)
+                    if TaskArguments.delayed_argument?(argument)
+                        argument.evaluate_delayed_argument(v)
                     else
                         argument
                     end

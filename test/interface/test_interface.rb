@@ -12,6 +12,7 @@ describe Roby::Interface::Interface do
         @app = Roby::Application.new
         Roby::ExecutionEngine.new(app.plan)
         @plan = app.plan
+        register_plan(plan)
         @interface = Roby::Interface::Interface.new(app)
         @job_task_m = Roby::Task.new_submodel
         job_task_m.provides Roby::Interface::Job

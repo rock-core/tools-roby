@@ -356,8 +356,13 @@ module Roby
         log_pp(e, logger, level)
     end
 
-    def self.log_backtrace(e, logger, level)
-        format_exception(BacktraceFormatter.new(e)).each do |line|
+    def self.log_backtrace(e, logger, level, filter: Roby.app.filter_backtraces?)
+        backtrace = e.backtrace
+        if filter
+            backtrace = filter_backtrace(backtrace)
+        else
+        end
+        format_exception(BacktraceFormatter.new(e, backtrace)).each do |line|
             logger.send(level, line)
         end
     end
@@ -369,16 +374,26 @@ module Roby
         logger.send level, color("= ", :bold, :red)
     end
 
+    def self.log_error(e, logger, level, with_backtrace: true)
+        if e.respond_to?(:backtrace) && with_backtrace
+            log_exception_with_backtrace(e, logger, level)
+        else
+            log_pp(e, logger, level)
+        end
+    end
+
     class BacktraceFormatter
-        def initialize(exception)
+        attr_reader :backtrace
+        def initialize(exception, backtrace = exception.backtrace)
             @exception = exception
+            @backtrace = backtrace
         end
         def full_message
             @exception.full_message
         end
 
         def pretty_print(pp)
-            Roby.pretty_print_backtrace(pp, @exception.backtrace)
+            Roby.pretty_print_backtrace(pp, backtrace)
         end
     end
     def self.do_display_exception(io, e)

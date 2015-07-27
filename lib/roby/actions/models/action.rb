@@ -224,11 +224,15 @@ module Roby
             end
 
             def to_s
-                "#{action_interface_model.name}.#{name}"
+                if action_interface_model
+                    "#{action_interface_model.name}.#{name}"
+                else
+                    "<anonymous>.#{name}"
+                end
             end
 
             def pretty_print(pp)
-                pp.text "Action #{name} defined on #{action_interface_model.name}"
+                pp.text "Action #{to_s}"
                 pp.nest(2) do
                     pp.breakable
                     pp.text "Returns "
