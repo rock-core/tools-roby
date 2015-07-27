@@ -1341,7 +1341,8 @@ module Roby
         # to Roby's error handling mechanisms), the method will raise
         # SynchronousEventProcessingMultipleErrors to wrap all the exceptions
         # into one.
-        def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new)
+        def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new, enable_scheduler: false)
+            scheduler_was_enabled, scheduler.enabled = scheduler.enabled?, enable_scheduler
             gather_framework_errors("process_events_simple") do
                 stats = Hash[:start => Time.now]
                 next_steps = seeds.dup
@@ -1373,6 +1374,8 @@ module Roby
                     end
                 end
             end
+        ensure
+            scheduler.enabled = scheduler_was_enabled
         end
 
         def error_handling_phase_synchronous(stats, errors)
