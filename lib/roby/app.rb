@@ -207,7 +207,7 @@ module Roby
         # related to naming schemes, file placements and so on
         #
         # The default is true
-        attr_predicate :backward_compatible_naming?
+        attr_predicate :backward_compatible_naming?, true
 
         # If set to true, tests will show detailed execution timings
         #
@@ -508,6 +508,7 @@ module Roby
             @auto_load_all = false
             @auto_load_models = true
             @app_dir = nil
+            @backward_compatible_naming = true
             @development_mode = true
             @search_path = nil
 	    @plugins = Array.new
