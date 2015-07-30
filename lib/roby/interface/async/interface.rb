@@ -25,15 +25,15 @@ module Roby
                 #
                 # The hook is called with the jobs information as returned by
                 # {Interface#jobs}
-                define_hooks :on_reachable, call_procs_in_original_context: true
+                define_hooks :on_reachable
                 # Hooks called when we got disconnected
-                define_hooks :on_unreachable, call_procs_in_original_context: true
+                define_hooks :on_unreachable
                 # Hooks called when there is an upcoming notification
-                define_hooks :on_notification, call_procs_in_original_context: true
+                define_hooks :on_notification
                 # Hooks called when there is an upcoming notification
-                define_hooks :on_job_progress, call_procs_in_original_context: true
+                define_hooks :on_job_progress
                 # Hooks called when there is an upcoming notification
-                define_hooks :on_exception, call_procs_in_original_context: true
+                define_hooks :on_exception
 
                 # The set of JobMonitor objects currently registered on self
                 #

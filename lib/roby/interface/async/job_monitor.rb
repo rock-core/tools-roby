@@ -8,11 +8,11 @@ module Roby
             # these two methods are already listening for the job's progress.
             # Call {#stop} to remove the monitor.
             class JobMonitor
-                include Hooks
-                include Hooks::InstanceHooks
+                include Roby::Hooks
+                include Roby::Hooks::InstanceHooks
 
                 # Hooks called when there is an upcoming notification
-                define_hooks :on_progress, call_procs_in_original_context: true
+                define_hooks :on_progress
 
                 attr_reader :interface
                 attr_reader :job_id
