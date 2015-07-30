@@ -78,7 +78,7 @@ module Roby
                 def poll_connection_attempt
                     return if client
 
-                    if connection_future.completed?
+                    if connection_future.complete?
                         case e = connection_future.reason
                         when ConnectionError, ComError
                             Interface.info "failed connection attempt: #{e}"

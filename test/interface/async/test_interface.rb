@@ -2,7 +2,7 @@ require 'roby/test/self'
 require 'roby/interface/async'
 require 'roby/interface/tcp'
 
-Concurrent.configuration.auto_terminate = false
+Concurrent.disable_at_exit_handlers!
 
 module Roby
     module Interface
@@ -35,7 +35,7 @@ module Roby
                     server ||= create_server
                     client = create_client(*args, **options)
                     yield(client) if block_given?
-                    while !client.connection_future.completed?
+                    while !client.connection_future.complete?
                         server.process_pending_requests
                     end
                     client.poll
@@ -47,7 +47,7 @@ module Roby
                                Concurrent::Future.new { @interfaces.each(&:poll) }]
                     result = futures.map do |future|
                         future.execute
-                        while !future.completed?
+                        while !future.complete?
                             @interface_servers.each do |s|
                                 s.process_pending_requests
                                 s.clients.each(&:poll)
@@ -78,7 +78,7 @@ module Roby
                         # The unreachable event will be received on teardown
                         recorder.should_receive(:unreachable).once.ordered
                         interface.on_unreachable { recorder.unreachable }
-                        while !interface.connection_future.completed?
+                        while !interface.connection_future.complete?
                             server.process_pending_requests
                         end
                         interface.poll
