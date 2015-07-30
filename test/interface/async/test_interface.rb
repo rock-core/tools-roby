@@ -61,7 +61,7 @@ module Roby
 
                 describe "reachability hooks" do
                     it "calls on_unreachable once when there are no remote server" do
-                        interface = connect
+                        interface = create_client
                         recorder.should_receive(:reachable).never
                         interface.on_reachable { recorder.reachable }
                         recorder.should_receive(:unreachable).once
@@ -71,18 +71,12 @@ module Roby
                         interface.poll
                     end
                     it "calls on_reachable callback when connected to the remote server" do
-                        server    = create_server
-                        interface = create_client
-                        recorder.should_receive(:reachable).once.ordered
-                        interface.on_reachable { recorder.reachable }
-                        # The unreachable event will be received on teardown
-                        recorder.should_receive(:unreachable).once.ordered
-                        interface.on_unreachable { recorder.unreachable }
-                        while !interface.connection_future.complete?
-                            server.process_pending_requests
+                        connect do |interface|
+                            recorder.should_receive(:reachable).once.ordered
+                            interface.on_reachable { recorder.reachable }
+                            recorder.should_receive(:unreachable).never
+                            interface.on_unreachable { recorder.unreachable }
                         end
-                        interface.poll
-                        interface.poll
                     end
                     it "passes the current list of jobs as argument to #on_reachable" do
                         server = create_server
