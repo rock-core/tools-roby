@@ -25,10 +25,10 @@ Robot.requires do
     Roby.app.load_default_models
 end
 
-# Block evaluated to configure the system, that is set up values in Config and
-# State
+# Block evaluated to configure the system, that is set up values in Roby's Conf
+# and State
 Robot.config do
-    Config.ready = true
+    Conf.ready = true
 end
 
 # Block evaluated when the Roby app is fully setup, and the robot ready to
