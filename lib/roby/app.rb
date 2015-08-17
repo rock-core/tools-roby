@@ -1052,9 +1052,10 @@ module Roby
             if !app_module::Actions.const_defined_here?(:Main)
                 app_module::Actions.const_set(:Main, Class.new(Roby::Actions::Interface))
             end
-
             if backward_compatible_naming?
-                Object.const_set(:Main, app_module::Actions::Main)
+                if !Object.const_defined_here?(:Main)
+                    Object.const_set(:Main, app_module::Actions::Main)
+                end
             end
 
             action_handlers.each do |act|
