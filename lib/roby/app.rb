@@ -1017,7 +1017,7 @@ module Roby
         # (e.g. models/tasks.rb)
         def load_default_models
             ['tasks.rb', 'actions.rb'].each do |root_type|
-                if path = app.find_file('models', root_type)
+                if path = find_file('models', root_type, order: :specific_first)
                     require path
                 end
             end
@@ -1137,8 +1137,18 @@ module Roby
 	    # Set up the loaded plugins
 	    call_plugins(:base_setup, self)
 
-            if !Object.const_defined_here?(module_name)
-                Object.const_set(module_name, Module.new)
+            # Define the app module if there is none, and define a root logger
+            # on it
+            app_module =
+                begin self.app_module
+                rescue NameError
+                    Object.const_set(module_name, Module.new)
+                end
+            if !app_module.respond_to?(:logger)
+                module_name = self.module_name
+                app_module.class_eval do
+                    extend ::Logger::Root(module_name, Logger::INFO)
+                end
             end
         end
 
