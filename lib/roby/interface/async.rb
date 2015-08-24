@@ -1,5 +1,6 @@
 require 'roby'
 require 'roby/interface'
+require 'hooks'
 require 'roby/hooks'
 require 'concurrent'
 
