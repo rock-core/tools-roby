@@ -72,6 +72,36 @@ module Roby::TaskStructure
             !!find_child_from_role(role_name)
         end
 
+        # Remove a given role this task's child
+        #
+        # @param [Task] child the child task
+        # @param [Array<String>] roles the roles that should be removed
+        # @param [Boolean] remove_child_when_empty if true (the default), the
+        #   child will be removed from this task's children if the set of roles
+        #   is empty
+        # @raise [ArgumentError] if the child does not have the expected role
+        # @return [Boolean] true if the child is still a child of this task
+        #   after the call, and false otherwise
+        def remove_roles(child, *roles, remove_child_when_empty: true)
+            dependency_info = self[child, Dependency].dup
+            child_roles = dependency_info[:roles].dup
+            roles.each do |r|
+                if !child_roles.include?(r)
+                    raise ArgumentError, "#{r} is not a role of #{child} with respect to #{self}"
+                end
+                child_roles.delete(r)
+            end
+
+            if child_roles.empty? && remove_child_when_empty
+                remove_child(child)
+                false
+            else
+                dependency_info[:roles] = child_roles
+                self[child, Dependency] = dependency_info
+                true
+            end
+        end
+
         # Returns the child whose role is +role_name+
         #
         # @return [nil,Task] the task if a dependency with the given role is
