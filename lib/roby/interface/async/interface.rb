@@ -1,8 +1,19 @@
 module Roby
     module Interface
         module Async
-            # An interface client using TCP that provides reconnection capabilities
-            # as well as proper formatting of the information
+            # An event-based client to for the Roby interface
+            #
+            # This class provides an asynchronous (event-based) API to the Roby
+            # interface, it allows for job and task discovery and tracking, and
+            # is robust to disconnections and reconnections.
+            #
+            # It is meant for the implementations of GUIs that interface with a
+            # Roby system. The {#poll} method must be called regularly from a
+            # main event loop (e.g. from a Qt timer)
+            #
+            # Notification callbacks can be registered with one of the on_
+            # methods (on_job, ...). A Qt-oriented declarative approach to
+            # binding jobs to a UI can be found in {UIConnector}
             class Interface < BasicObject
                 extend Logger::Hierarchy
                 extend Logger::Forward
@@ -21,19 +32,72 @@ module Roby
                 # the main event loop
                 attr_reader :connection_future
 
-                # Hooks called when we successfully connected
+                # @!group Hooks
+
+                # @!method on_reachable()
+                #   Hooks called when we successfully connected
                 #
-                # The hook is called with the jobs information as returned by
-                # {Interface#jobs}
+                #   @param [Array<JobMonitor>] list of currently active jobs, as
+                #     returned by {#jobs}
+                #   @return [void]
                 define_hooks :on_reachable
-                # Hooks called when we got disconnected
+                # @!method on_unreachable()
+                #
+                #   Hooks called when we got disconnected
+                #   @return [void]
                 define_hooks :on_unreachable
-                # Hooks called when there is an upcoming notification
+                # @!method on_notification
+                #
+                #   Hooks called for generic notifications
+                #
+                #   @yieldparam [Symbol] level message level
+                #   @yieldparam [String] message a text message explaining the
+                #     notification
+                #   @return [void]
                 define_hooks :on_notification
-                # Hooks called when there is an upcoming notification
+                # @!method on_job_progress
+                #
+                #   Hooks called for job progress notifications
+                #
+                #   @yieldparam [Symbol] state the new job state, as one of the
+                #     JOB constants defined on {Roby::Interface}
+                #   @yieldparam [Integer] job_id the job ID
+                #   @yieldparam [String] job_name the job name
+                #   @yieldparam [Array<Object>] args additional information
+                #     specific to this progress message
+                #   @return [void]
                 define_hooks :on_job_progress
-                # Hooks called when there is an upcoming notification
+                # @!method on_exception
+                #
+                #   Hooks called for exceptions
+                #
+                #   @yieldparam (see Roby::Interface::Interface#on_exception)
+                #   @return [void]
                 define_hooks :on_exception
+
+                # Registers a callback that should be called for each new job
+                #
+                # The callback gets called, on registration, with all the
+                # existing jobs. It is then called with new jobs as they get
+                # created.
+                #
+                # @param [String,nil] action_name limit notifications to actions
+                #   with this name. No filtering is performed if nil.
+                # @yieldparam [JobMonitor] job_monitor a monitor for a job that is just
+                #   created. It is not monitoring the job yet, call
+                #   {JobMonitor#start} to get it to start monitoring.
+                # @return [NewJobListener]
+                def on_job(action_name: nil, jobs: jobs, &block)
+                    listener = NewJobListener.new(self, action_name, block)
+                    listener.start
+                    if reachable?
+                        run_initial_new_job_hooks_events(listener, self.jobs)
+                    end
+                    listener
+                end
+
+
+                # @!endgroup Hooks
 
                 # The set of JobMonitor objects currently registered on self
                 #
@@ -73,8 +137,9 @@ module Roby
 
                 # Verify the state of the last connection attempt
                 #
-                # It checks on the last connection attempt, and sets {client} if it
-                # was successful, as well as call the {on_connection} hook
+                # It checks on the last connection attempt, and sets {#client}
+                # if it was successful, as well as call the callbacks registered
+                # with {#on_reachable}
                 def poll_connection_attempt
                     return if client
 
@@ -107,7 +172,7 @@ module Roby
 
                 # @private
                 #
-                # Process the message queues from {client}
+                # Process the message queues from {#client}
                 def process_message_queues
                     client.notification_queue.each do |id, level, message|
                         run_hook :on_notification, level, message
@@ -196,7 +261,7 @@ module Roby
                 # Returns all the existing jobs on this interface
                 #
                 # The returned monitors are not started, you have to call
-                # {#start} explicitely on them before you use them
+                # {JobMonitor#start} explicitely on them before you use them
                 #
                 # @return [Array<JobMonitor>]
                 def jobs
@@ -210,7 +275,7 @@ module Roby
                 # Find the jobs that have been created from a given action
                 #
                 # The returned monitors are not started, you have to call
-                # {#start} explicitely on them before you use them
+                # {JobMonitor#start} explicitely on them before you use them
                 #
                 # @param [String] action_name the action name
                 # @return [Array<JobMonitor>] the matching jobs
@@ -218,23 +283,6 @@ module Roby
                     jobs.find_all do |job|
                         job.task.action_model.name == action_name
                     end
-                end
-
-                # Registers a callback that should be called for each new job
-                #
-                # It gets called, on registration, with all the existing jobs
-                #
-                # The {JobMonitor} objects used for notification are not started
-                # yet, you have to call {JobMonitor#start} explicitely.
-                #
-                # @return [NewJobListener]
-                def on_job(action_name: nil, jobs: jobs, &block)
-                    listener = NewJobListener.new(self, action_name, block)
-                    listener.start
-                    if reachable?
-                        run_initial_new_job_hooks_events(listener, self.jobs)
-                    end
-                    listener
                 end
 
                 # Create a monitor on a job based on its ID

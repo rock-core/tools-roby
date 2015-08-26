@@ -11,12 +11,23 @@ module Roby
                 include Roby::Hooks
                 include Roby::Hooks::InstanceHooks
 
-                # Hooks called when there is an upcoming notification
+                # @!method on_progress
+                #   Hook called when there is an upcoming notification
+                #
+                #   @yieldparam [Symbol] state the new job state
+                #   @return [void]
                 define_hooks :on_progress
 
+                # @return [Interface] the async interface we are bound to
                 attr_reader :interface
+
+                # @return [Integer] the job ID
                 attr_reader :job_id
+
+                # @return [Roby::Task] the job's main task
                 attr_reader :task
+
+                # @return [Symbol] the job's current state
                 attr_reader :state
 
                 def initialize(interface, job_id, state: nil, task: nil)
@@ -26,10 +37,16 @@ module Roby
                     @task = task
                 end
 
+                # @api private
                 def inspect
                     "#<JobMonitor #{interface} job_id=#{job_id} state=#{state} task=#{task}>"
                 end
 
+                # @api private
+                #
+                # @api private
+                #
+                # Called by {Interface} to update the job's state
                 def update_state(state)
                     @state = state
                     run_hook :on_progress, state
@@ -38,10 +55,12 @@ module Roby
                     end
                 end
 
+                # Tests whether this job is terminated
                 def terminated?
                     Roby::Interface.terminal_state?(state)
                 end
 
+                # Tests whether this job is running
                 def running?
                     state == :started
                 end

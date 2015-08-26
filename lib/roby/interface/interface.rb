@@ -46,12 +46,12 @@ module Roby
         # One of the tasks of this class is to do job management. Jobs are the
         # unit that is used to interact with a running Roby instance at a high
         # level, as e.g. through a shell or a GUI. In Roby, jobs are represented
-        # by tasks that provide the {Interface::Job} task service and have a
+        # by tasks that provide the {Job} task service and have a
         # non-nil job ID. Up to two tasks can be associated with the job. The
         # first is obviously the job task itself, i.e. the task that provides
-        # {Interface::Job}. Quite often, the job task will be a planning task
+        # {Job}. Quite often, the job task will be a planning task
         # (actually, one can see that {Actions::Task} provides
-        # {Interface::Job}). In this case, the planned task will be also
+        # {Job}). In this case, the planned task will be also
         # associated with the job as its placeholder: while the job task
         # represents the job's deployment status, the placeholder task will
         # represent the job's execution status.
@@ -118,7 +118,7 @@ module Roby
                 :job_id => 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
 
             # Enumerates the job listeners currently registered through
-            # #on_job_notification
+            # {#on_job_notification}
             #
             # @yieldparam [#call] the job listener object
             def each_job_listener(&block)
@@ -139,16 +139,39 @@ module Roby
                 app.on_notification(&block)
             end
 
-            # (see Application#remove_notification_listener)
-            def remove_notification_listener(&block)
-                app.remove_notification_listener(&block)
+            # @param (see Application#remove_notification_listener)
+            def remove_notification_listener(&listener)
+                app.remove_notification_listener(&listener)
             end
 
             # Registers a block to be called when a job changes state
             #
-            # @yieldparam kind one of the JOB_* constants
-            # @yieldparam [Integer] job_id the job ID (unique)
-            # @yieldparam [String] job_name the job name (non-unique)
+            # All callbacks will be called with at minimum
+            #
+            # @overload on_job_notification
+            #   @yieldparam kind one of the JOB_* constants
+            #   @yieldparam [Integer] job_id the job ID (unique)
+            #   @yieldparam [String] job_name the job name (non-unique)
+            #
+            #   Generic interface. Some of the notifications, detailed below,
+            #   have additional parameters (after the job_name argument) 
+            #
+            # @overload on_job_notification
+            #   @yieldparam JOB_MONITORED
+            #   @yieldparam [Integer] job_id the job ID (unique)
+            #   @yieldparam [String] job_name the job name (non-unique)
+            #   @yieldparam [Task] job_task the job task
+            #
+            #   Interface for JOB_MONITORED notifications
+            #
+            # @overload on_job_notification
+            #   @yieldparam JOB_REPLACED
+            #   @yieldparam [Integer] job_id the job ID (unique)
+            #   @yieldparam [String] job_name the job name (non-unique)
+            #   @yieldparam [Task] task the new task this job is now tracking
+            #
+            #   Interface for JOB_REPLACED notifications
+            #
             # @return [Object] the listener ID that can be given to
             #   {#remove_job_listener}
             def on_job_notification(&block)
@@ -156,7 +179,7 @@ module Roby
                 block
             end
 
-            # Remove a job listener
+            # Remove a job listener added with {#on_job_notification}
             #
             # @param [Object] listener the listener ID returned by
             #   {#on_job_notification}
@@ -334,7 +357,7 @@ module Roby
             end
             command :reload_actions, 'reloads the files in models/actions/'
 
-            # @see ExecutionEngine#on_exception
+            # (see ExecutionEngine#on_exception)
             def on_exception(&block)
                 engine.execute do
                     engine.on_exception(&block)

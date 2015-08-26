@@ -110,6 +110,10 @@ module Roby
                 @message_id += 1
             end
 
+            # Push a job notification to {#job_progress_queue}
+            #
+            # See the yield parameters of {Interface#on_job_notification} for
+            # the overall argument format.
             def push_job_progress(kind, job_id, job_name, *args)
                 job_progress_queue.push [allocate_message_id, [kind, job_id, job_name, *args]]
             end

@@ -2059,9 +2059,9 @@ module Roby
         # Registers a block to be called when a message needs to be
         # dispatched
         #
-        # @yieldparam [String] the source of the message
+        # @yieldparam [String] source the source of the message
         # @yieldparam [String] level the log level
-        # @yieldparam [String] message
+        # @yieldparam [String] message the message itself
         # @return [Object] the listener ID that can be given to
         #   {#remove_notification}
         def on_notification(&block)
@@ -2069,7 +2069,7 @@ module Roby
             block
         end
 
-        # Removes a notification listener
+        # Removes a notification listener added with {#on_notification}
         #
         # @param [Object] listener the listener ID returned by
         #   {#on_notification}

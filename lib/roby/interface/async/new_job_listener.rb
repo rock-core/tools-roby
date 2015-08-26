@@ -3,8 +3,12 @@ module Roby
         module Async
             # Listener object for {Interface#on_job}
             class NewJobListener
+                # @return [Interface] the interface we are connected to
                 attr_reader :interface
+                # @return [String,nil] the name of the action whose job we are
+                #   tracking. If nil, tracks all actions.
                 attr_reader :action_name
+                # @return [#call] the notification callback
                 attr_reader :block
 
                 # The last ID of the jobs received by this listener.
@@ -51,10 +55,12 @@ module Roby
                     block.call(job)
                 end
 
+                # Start listening for jobs
                 def start
                     interface.add_new_job_listener(self)
                 end
 
+                # Stop listening for jobs
                 def stop
                     interface.remove_new_job_listener(self)
                 end
