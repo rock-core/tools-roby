@@ -8,64 +8,59 @@ module Roby
             # based on a given action (as long as they differ by their
             # arguments), but a given job can be started by the GUI only once.
             #
-            # @example create a new job
-            #   job = <name_of_action>!(x: 10)
+            # @example represent an action with some argument(s) set
+            #   action = <name_of_action>!(x: 10)
             #
-            # @example start the job when a button is pressed
-            #   connect widget, SIGNAL('clicked()'), START(job)
+            # @example start a job from an action when a button is pressed
+            #   connect widget, SIGNAL('clicked()'), START(action)
             #
-            # @example allow a job to be restarted (otherwise the job must be killed first)
-            #   connect widget, SIGNAL('clicked()'), START(job), restart: true
+            # @example allow a job to be restarted (otherwise an existing job must be manually killed first)
+            #   connect widget, SIGNAL('clicked()'), START(action), restart: true
             #
             # @example kill the job when a button is pressed
-            #   connect widget, SIGNAL('clicked()'), KILL(job)
+            #   connect widget, SIGNAL('clicked()'), KILL(action)
             #
             # @example call a block with a job monitoring object when its state changes
-            #   connect PROGRESS(job) do |job|
-            #      # 'job' is a UIJobConnector
+            #   connect PROGRESS(job) do |action|
+            #      # 'action' is an ActionMonitor
             #   end
             #
-            # @example set a job's argument from a signal (by default, requires the user to press the 'start' button afterwards)
-            #   connect widget, SIGNAL('textChanged(QString)'), ARGUMENT(job,:z),
+            # @example set an action's argument from a signal (by default, requires the user to press the 'start' button afterwards)
+            #   connect widget, SIGNAL('textChanged(QString)'), ARGUMENT(action,:z),
             #      getter: ->(z) { Integer(z) }
             #
-            # @example set a job's argument from a signal, and restart the job right away
-            #   connect widget, SIGNAL('textChanged(QString)'), ARGUMENT(job,:z),
+            # @example set an action's argument from a signal, and restart the action right away
+            #   connect widget, SIGNAL('textChanged(QString)'), ARGUMENT(action,:z),
             #      getter: ->(z) { Integer(z) },
             #      auto_apply: true
             class UIConnector
-                JobAction = Struct.new :connector, :job, :options do
+                ActionConnector = Struct.new :connector, :action, :options do
                     def interface
                         connector.interface
                     end
                 end
 
-                class StartAction < JobAction
+                class StartCommand < ActionConnector
                     def run
-                        batch = interface.client.create_batch
-                        if job.exists? && !job.terminated?
-                            return if !options[:restart]
-                            batch.kill_job(job.job_id)
+                        if !options[:restart] && action.exists? && !action.terminated?
+                            return
                         end
-
-                        batch.send("#{job.action_name}!", job.static_arguments.merge(job.arguments))
-                        job_id = batch.process.last
-                        job.async = interface.monitor_job(job_id)
+                        action.restart
                     end
                 end
 
-                class KillAction < JobAction
+                class KillCommand < ActionConnector
                     def run
-                        if job.exists? && !job.terminated?
-                            job.kill
+                        if action.exists? && !action.terminated?
+                            action.kill
                         end
                     end
                 end
 
-                class SetArgumentAction < JobAction
+                class SetArgumentCommand < ActionConnector
                     attr_reader :argument_name
-                    def initialize(connector, job, argument_name, getter: nil)
-                        super(connector, job, getter: nil)
+                    def initialize(connector, action, argument_name, getter: nil)
+                        super(connector, action, getter: nil)
                         @argument_name = argument_name.to_sym
                     end
 
@@ -73,26 +68,28 @@ module Roby
                         if getter = options[:getter]
                             arg = getter.call(arg)
                             if !arg
-                                Interface.warn "not setting argument #{job}.#{argument_name}: getter returned nil"
+                                Interface.warn "not setting argument #{action}.#{argument_name}: getter returned nil"
                                 return
                             end
                         end
-                        job.arguments[argument_name] = arg
+                        action.arguments[argument_name] = arg
                         if options[:auto_apply]
-                            StartAction.new(connector, job, restart: true).run
+                            StartAction.new(connector, action, restart: true).run
                         end
                     end
                 end
 
-                class ProgressMonitor < JobAction
+                class ProgressMonitorCommand < ActionConnector
                     attr_accessor :callback
 
                     def connect
-                        job.progress_monitors << self
+                        action.on_progress do
+                            update
+                        end
                     end
 
                     def update
-                        callback.call(job)
+                        callback.call(action)
                     end
                 end
 
@@ -134,20 +131,20 @@ module Roby
                     end
                 end
 
-                def START(job)
-                    StartAction.new(self, job)
+                def START(action)
+                    StartCommand.new(self, action)
                 end
 
-                def KILL(job)
-                    KillAction.new(self, job)
+                def KILL(action)
+                    KillCommand.new(self, action)
                 end
 
-                def PROGRESS(job)
-                    ProgressMonitor.new(self, job)
+                def PROGRESS(action)
+                    ProgressMonitorCommand.new(self, action)
                 end
 
-                def ARGUMENT(job, argument_name)
-                    SetArgumentAction.new(self, job, argument_name)
+                def ARGUMENT(action, argument_name)
+                    SetArgumentCommand.new(self, action, argument_name)
                 end
 
                 def respond_to_missing?(m, include_private = false)
@@ -157,7 +154,7 @@ module Roby
                 def method_missing(m, *args, &block)
                     m = m.to_s
                     if m =~ /!$/
-                        UIJobConnector.new(self, m[0..-2], *args)
+                        ActionMonitor.new(interface, m[0..-2], *args)
                     elsif widget.respond_to?(m)
                         widget.send(m, *args, &block)
                     else

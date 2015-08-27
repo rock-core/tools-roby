@@ -1,47 +1,69 @@
 module Roby
     module Interface
         module Async
-            class UIJobConnector
-                # The underlying UI connector
-                attr_reader :connector
+            # An action definition
+            #
+            # While {JobMonitor} represents a running / instanciated job, this
+            # represents just an action with a set of argument. It binds
+            # automatically to a matching running job if there is one.
+            class ActionMonitor
+                # The underlying Async::Interface
+                attr_reader :interface
                 # The action name
                 attr_reader :action_name
                 # The arguments that are part of the job definition itself
                 attr_reader :static_arguments
-                # The arguments that are set through the GUI
+                # The arguments that have been set to override the static
+                # arguments, or set arguments not yet set in {#static_arguments}
                 attr_reader :arguments
-                # The underlying {JobMonitor} object
+                # The underlying {JobMonitor} object if we're tracking a job
                 attr_reader :async
 
-                # The list of progress monitors
+                include Hooks
+                include Hooks::InstanceHooks
+
+                # @!method on_progress
                 #
-                # @return [Array<UIConnector::ProgressMonitor>]
-                attr_reader :progress_monitors
+                #   Hooks called when self got updated
+                #
+                #   @return [void]
+                define_hooks :on_progress
 
-                def interface
-                    connector.interface
-                end
-
+                # Whether there is a job matching this action monitor running
                 def exists?
                     !!async
                 end
 
+                # If at least one job ran and is terminated
                 def terminated?
                     async && async.terminated?
                 end
 
+                # The job ID of the last job that ran
                 def job_id
                     async && async.job_id
                 end
 
-                def initialize(connector, action_name, static_arguments = Hash.new)
-                    @connector, @action_name, @static_arguments =
-                        connector, action_name, static_arguments
+                # Start or restart a job based on this action
+                def restart
+                    # Note: we cannot use JobMonitor#restart as the arguments
+                    # might have changed in the meantime
+                    batch = interface.client.create_batch
+                    if async && !async.terminated?
+                        batch.kill_job(async.job_id)
+                    end
+                    batch.send("#{action_name}!", static_arguments.merge(arguments))
+                    job_id = batch.process.last
+                    self.async = interface.monitor_job(job_id)
+                end
+
+                def initialize(interface, action_name, static_arguments = Hash.new)
+                    @interface, @action_name, @static_arguments =
+                        interface, action_name, static_arguments
                     @arguments = Hash.new
-                    @progress_monitors = Array.new
 
                     interface.on_reachable do
-                        update_progress_monitors
+                        run_hook :on_progress
                     end
                     interface.on_unreachable do
                         unreachable!
@@ -77,23 +99,17 @@ module Roby
 
                 def unreachable!
                     @async = nil
-                    update_progress_monitors
+                    run_hook :on_progress
                 end
 
                 def async=(async)
                     @async = async
                     async.on_progress do
                         if self.async == async
-                            update_progress_monitors
+                            run_hook :on_progress
                         end
                     end
-                    update_progress_monitors
-                end
-
-                def update_progress_monitors
-                    progress_monitors.each do |monitor|
-                        monitor.update
-                    end
+                    run_hook :on_progress
                 end
 
                 def kill
