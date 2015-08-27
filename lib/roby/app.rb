@@ -787,7 +787,15 @@ module Roby
         # provided value, it is interpreted relative to the application
         # directory. It defaults to "data".
         def log_base_dir
-            File.expand_path(log['dir'] || 'logs', app_dir || Dir.pwd)
+            maybe_relative_dir =
+                if local_conf = log['dir']
+                    local_conf
+                elsif global_base_dir = ENV['ROBY_BASE_LOG_DIR']
+                    File.join(global_base_dir, app_name)
+                else
+                    'logs'
+                end
+            File.expand_path(maybe_relative_dir, app_dir || Dir.pwd)
         end
 
 	# The directory in which logs are to be saved
