@@ -1,6 +1,7 @@
 require 'socket'
 require 'fcntl'
 require 'stringio'
+require 'roby/interface/exceptions'
 
 module Roby
     module Log
@@ -229,7 +230,7 @@ module Roby
                 @socket =
                     begin TCPSocket.new(host, port)
                     rescue Errno::ECONNREFUSED => e
-                        raise e.class, "cannot contact Roby log server at '#{host}:#{port}': #{e.message}"
+                        raise Interface::ConnectionError, "cannot contact Roby log server at '#{host}:#{port}': #{e.message}"
                     end
                 socket.fcntl(Fcntl::FD_CLOEXEC, 1)
                 socket.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
@@ -258,7 +259,11 @@ module Roby
             end
 
             def read_and_process_pending
-                buffer = @buffer + socket.read_nonblock(Server::DATA_CHUNK_SIZE)
+                begin
+                    buffer = @buffer + socket.read_nonblock(Server::DATA_CHUNK_SIZE)
+                rescue EOFError, Errno::ECONNRESET, Errno::EPIPE => e
+                    raise Interface::ComError, e.message, e.backtrace
+                end
                 Log.debug "#{buffer.size} bytes of data in buffer"
 
                 while true
