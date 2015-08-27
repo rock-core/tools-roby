@@ -240,6 +240,14 @@ module Roby
             def disconnect
                 @socket.close
             end
+        
+            def close
+                @socket.close
+            end
+
+            def closed?
+                @socket.closed?
+            end
 
             def add_listener(&block)
                 @listeners << block

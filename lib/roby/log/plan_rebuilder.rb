@@ -207,6 +207,10 @@ module Roby
                 false
             end
 
+            def remote_siblings
+                Hash.new
+            end
+
             def transmit(*args)
             end
 
@@ -346,8 +350,10 @@ module Roby
             end
 
             # The starting time of the last processed cycle
+            #
+            # @return [Time]
             def cycle_start_time
-                Time.at(*stats[:start])
+                Time.at(*stats[:start]) + stats[:real_start]
             end
 
             # The time of the last processed log item

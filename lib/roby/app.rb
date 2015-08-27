@@ -1520,6 +1520,8 @@ module Roby
 	    call_plugins(:stop_server, self)
 	end
 
+        attr_reader :log_server_port
+
         def start_log_server(logfile)
 	    # Start a log server if needed, and poll the log directory for new
 	    # data sources
@@ -1537,6 +1539,7 @@ module Roby
                 @log_server = fork do
                     exec("roby-display#{" --debug" if debug} --server=#{port} --sampling=#{sampling_period} #{logfile}-events.log")
                 end
+                @log_server_port = port
 	    end
         end
 
@@ -1544,6 +1547,7 @@ module Roby
             if @log_server
                 Process.kill('INT', @log_server)
                 @log_server = nil
+                @log_server_port = nil
             end
         end
 

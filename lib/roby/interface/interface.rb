@@ -75,6 +75,15 @@ module Roby
                 @job_listeners = Array.new
             end
 
+            # Returns the port of the log server
+            #
+            # @return [Integer,nil] the port, or nil if there is no log server
+            def log_server_port
+                app.log_server_port
+            end
+            command :log_port, 'returns the port of the log server',
+                advanced: true
+
             # The set of actions available on {#app}
             #
             # @return [Array<Roby::Actions::Models::Action>]
