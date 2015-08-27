@@ -71,7 +71,7 @@ module Roby
                 #   and false otherwise
                 def poll
                     if connected?
-                        client.read_and_process_pending
+                        client.read_and_process_pending(max: 0.1)
                         true
                     elsif !closed?
                         poll_connection_attempt

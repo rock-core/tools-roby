@@ -18,7 +18,7 @@ module Roby
 
             DEFAULT_PORT  = 20200
             DEFAULT_SAMPLING_PERIOD = 0.05
-            DATA_CHUNK_SIZE = 1024*16
+            DATA_CHUNK_SIZE = 16 * 1024
 
             # The port we are listening on
             attr_reader :port
@@ -258,7 +258,25 @@ module Roby
                 @alive
             end
 
-            def read_and_process_pending
+            # Read and process data
+            #
+            # @param [Numeric] max max time we can spend processing. The method
+            #   will at least process one cycle worth of data regardless of this
+            #   parameter
+            # @return [Boolean] true if the last call processed something and
+            #   false otherwise. It is an indicator of whether there could be
+            #   still some data pending
+            def read_and_process_pending(max: 0)
+                start = Time.now
+                while (processed_something_last = read_and_process_one_pending_chunk) && (Time.now - start) < max
+                end
+                processed_something_last
+            end
+
+            # @api private
+            #
+            # Reads the socket and processes at most one chunk of data
+            def read_and_process_one_pending_chunk
                 begin
                     buffer = @buffer + socket.read_nonblock(Server::DATA_CHUNK_SIZE)
                 rescue EOFError, Errno::ECONNRESET, Errno::EPIPE => e
@@ -288,8 +306,10 @@ module Roby
                 end
 
                 @buffer = buffer
+                !buffer.empty?
             rescue Errno::EAGAIN
             end
         end
     end
 end
+

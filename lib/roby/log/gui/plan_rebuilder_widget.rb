@@ -246,7 +246,7 @@ module Roby
                 @connection_pull = timer = Qt::Timer.new(self)
                 timer.connect(SIGNAL('timeout()')) do
                     begin
-                        client.read_and_process_pending
+                        client.read_and_process_pending(max: 0.1)
                     rescue Exception => e
                         disconnect
                         emit warn("Disconnected: #{e.message}")
