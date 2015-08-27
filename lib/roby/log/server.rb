@@ -100,6 +100,7 @@ module Roby
                             @pending_data[socket] = split_in_chunks(all_data)
                         else
                             Server.debug "  log file is empty, not queueing any data"
+                            @pending_data[socket] = Array.new
                         end
                     end
 
