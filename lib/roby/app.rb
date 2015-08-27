@@ -1348,7 +1348,12 @@ module Roby
 		logger.stats_mode = (log['events'] == 'stats')
 		Roby::Log.add_logger logger
 
-                start_log_server(logfile)
+                Robot.info "logs are in #{log_dir}"
+                if start_log_server(logfile)
+                    Robot.info "log server running on port #{log_server_port}"
+                else
+                    Robot.info "log server disabled"
+                end
 	    end
 
             call_plugins(:prepare, self)
