@@ -37,6 +37,25 @@ module Roby
                     @task = task
                 end
 
+                # The job's action model
+                #
+                # @return [Roby::Actions::Model::Action,nil]
+                def action_model
+                    task && task.action_model
+                end
+
+                # Returns the job's action name
+                #
+                # @return [String,nil]
+                def action_name
+                    task && task.action_model.name
+                end
+
+                # Returns the arguments that were passed to the action
+                def action_arguments
+                    task && task.action_arguments
+                end
+
                 # @api private
                 def inspect
                     "#<JobMonitor #{interface} job_id=#{job_id} state=#{state} task=#{task}>"

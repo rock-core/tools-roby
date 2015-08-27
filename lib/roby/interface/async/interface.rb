@@ -135,6 +135,14 @@ module Roby
                     connection_future.execute
                 end
 
+                # The set of known actions
+                #
+                # This is available only after we got a successful connection to
+                # the remote side
+                def actions
+                    client.actions
+                end
+
                 # Verify the state of the last connection attempt
                 #
                 # It checks on the last connection attempt, and sets {#client}
