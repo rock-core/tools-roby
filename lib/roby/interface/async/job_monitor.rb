@@ -37,6 +37,20 @@ module Roby
                     @task = task
                 end
 
+                # Kill this job and start an equivalent one
+                #
+                # @return [JobMonitor] the monitor object for the new job. It is
+                #   not listening to the new job yet, call {#start} for that
+                def restart
+                    batch = interface.client.create_batch
+                    if !terminated?
+                        batch.kill_job(job_id)
+                    end
+                    batch.send("#{action_name}!", action_arguments)
+                    job_id = batch.process.last
+                    interface.monitor_job(job_id)
+                end
+
                 # The job's action model
                 #
                 # @return [Roby::Actions::Model::Action,nil]
