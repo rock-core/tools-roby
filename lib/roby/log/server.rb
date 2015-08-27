@@ -64,6 +64,7 @@ module Roby
                         end
 
                 Server.send(level, "Roby log server listening on port #{port}, sampling period=#{sampling_period}")
+                Server.send(level, "watching #{event_file_path}")
 
                 while true
                     sockets_with_pending_data = pending_data.find_all do |socket, chunks|
