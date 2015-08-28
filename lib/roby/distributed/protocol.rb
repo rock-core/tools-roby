@@ -490,8 +490,7 @@ module Roby
 
 	    def proxy(peer)
                 generator = peer.local_object(self.generator)
-
-                context = peer.local_object(context)
+                context   = peer.local_object(self.context)
                 generator.new(context, propagation_id, time)
             end
         end
