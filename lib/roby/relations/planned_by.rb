@@ -65,16 +65,18 @@ module Roby
 	def initialize(planned_task, planning_task)
             @planning_task = planning_task
 	    super(planned_task)
+            report_exceptions_from(failure_reason)
 	end
+
         def pretty_print(pp)
             pp.text "failed to plan "
             planned_task.pretty_print(pp)
             pp.breakable
-
             planning_task.pretty_print(pp)
             pp.breakable
             pp.text " failed with "
-            pp_failure_reason(pp, planning_task.failure_reason)
+            failure_reason.pretty_print(pp)
+        end
         end
     end
 end

@@ -381,6 +381,12 @@ module Roby
         else
             do_display_exception_raw(io, e)
         end
+
+        if e.respond_to?(:original_exceptions)
+            e.original_exceptions.each do |original_e|
+                do_display_exception(io, original_e)
+            end
+        end
     end
 
     def self.do_display_exception_raw(io, e)
