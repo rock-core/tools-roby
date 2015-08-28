@@ -291,8 +291,8 @@ module Roby
                 def jobs
                     return Array.new if !reachable?
 
-                    client.jobs.map do |job_id, (job_state, _, job_task)|
-                        JobMonitor.new(self, job_id, task: job_task, state: job_state)
+                    client.jobs.map do |job_id, (job_state, placeholder_task, job_task)|
+                        JobMonitor.new(self, job_id, placeholder_task: placeholder_task, task: job_task, state: job_state)
                     end
                 end
 
@@ -313,8 +313,8 @@ module Roby
                 #
                 # The monitor is already started
                 def monitor_job(job_id, start: true)
-                    job_state, _, job_task = client.find_job_info_by_id(job_id)
-                    job = JobMonitor.new(self, job_id, state: job_state, task: job_task)
+                    job_state, placeholder_task, job_task = client.find_job_info_by_id(job_id)
+                    job = JobMonitor.new(self, job_id, state: job_state, placeholder_task: placeholder_task, task: job_task)
                     if start
                         job.start
                     end

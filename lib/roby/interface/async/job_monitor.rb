@@ -27,14 +27,18 @@ module Roby
                 # @return [Roby::Task] the job's main task
                 attr_reader :task
 
+                # @return [Roby::Task] the job's placeholder task
+                attr_reader :placeholder_task
+
                 # @return [Symbol] the job's current state
                 attr_reader :state
 
-                def initialize(interface, job_id, state: nil, task: nil)
+                def initialize(interface, job_id, state: nil, task: nil, placeholder_task: task)
                     @interface = interface
                     @job_id = job_id
                     @state = state || :reachable
                     @task = task
+                    @placeholder_task = placeholder_task
                 end
 
                 # Kill this job and start an equivalent one
@@ -68,6 +72,15 @@ module Roby
                 # Returns the arguments that were passed to the action
                 def action_arguments
                     task && task.action_arguments
+                end
+
+                # @api private
+                #
+                # Called when the placeholder task got replaced
+                #
+                # @param [Roby::Task] new_task the new task
+                def replaced(new_task)
+                    @placeholder_task = new_task
                 end
 
                 # @api private

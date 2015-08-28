@@ -169,6 +169,7 @@ module Roby
             #   @yieldparam JOB_MONITORED
             #   @yieldparam [Integer] job_id the job ID (unique)
             #   @yieldparam [String] job_name the job name (non-unique)
+            #   @yieldparam [Task] task the job's placeholder task
             #   @yieldparam [Task] job_task the job task
             #
             #   Interface for JOB_MONITORED notifications
@@ -216,7 +217,7 @@ module Roby
                 job_id   = planning_task.job_id
                 job_name = planning_task.job_name
                 monitor_active = true
-                job_notify(JOB_MONITORED, job_id, job_name, task)
+                job_notify(JOB_MONITORED, job_id, job_name, task, planning_task)
                 job_notify(job_state(task), job_id, job_name)
 
                 if planner = task.planning_task
