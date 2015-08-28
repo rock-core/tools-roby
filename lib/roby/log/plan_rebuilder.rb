@@ -458,6 +458,8 @@ module Roby
                         if respond_to?(m)
                             send(m, time, *args)
                         end
+                    rescue Interrupt
+                        raise
                     rescue Exception => e
                         display_args = args.map do |obj|
                             case obj

@@ -77,6 +77,10 @@ module Roby
                         poll_connection_attempt
                         !!client
                     end
+                rescue Interrupt
+                    close
+                    raise
+
                 rescue ComError
                     Interface.info "link closed, trying to reconnect"
                     unreachable!
