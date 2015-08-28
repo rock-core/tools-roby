@@ -595,8 +595,8 @@ module Roby
 	    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
 		      Distributed.format(model, dest), Distributed.format(plan, dest), 
 		      Distributed.format(meaningful_arguments, dest), Distributed.format(data, dest),
-		      :mission => mission?, :started => started?, 
-		      :finished => finished?, :success => success?)
+		      mission: mission?, started: started?,
+		      finished: finished?, success: success?)
 	end
 
         # An intermediate representation of Task objects suitable

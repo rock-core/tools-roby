@@ -489,10 +489,10 @@ module Roby
 	    end
 
             def clear_changes
-                @changes =
-                    Hash[:state => Hash.new,
-                     :structure => Hash.new,
-                     :event_propagation => Hash.new]
+                @changes = Hash[
+                    state: Hash.new,
+                    structure: Hash.new,
+                    event_propagation: Hash.new]
             end
 
 	    def inserted_tasks(time, plan, task)

@@ -198,7 +198,6 @@ module Roby
                             job_notify(JOB_READY, job_id, job_name)
                         end
                     end
-
                     planner.on :stop do |ev|
                         if monitor_active && !ev.task.success?
                             job_notify(JOB_PLANNING_FAILED, job_id, job_name)
@@ -284,7 +283,7 @@ module Roby
 
             def find_job_info_by_id(id)
                 engine.execute do
-                    if planning_task = plan.find_tasks(Job).with_arguments(:job_id => id).to_a.first
+                    if planning_task = plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
                         task = planning_task.planned_task || planning_task
                         return job_state(task), task, planning_task
                     end
