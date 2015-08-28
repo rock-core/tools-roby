@@ -14,7 +14,11 @@ module Roby
             # @param [Integer] port
             def initialize(app, port = Roby::Distributed::DEFAULT_DROBY_PORT)
                 @interface = Interface.new(app)
-                @server = ::TCPServer.new(port)
+                @server =
+                    begin ::TCPServer.new(port)
+                    rescue TypeError
+                        raise Errno::EADDRINUSE, "#{port} already in use"
+                    end
                 @clients = Array.new
                 @propagation_handler_id = interface.engine.add_propagation_handler(:on_error => :ignore) do
                     process_pending_requests
