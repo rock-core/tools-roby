@@ -277,6 +277,17 @@ module Roby
         def self.to_execution_exception_matcher
             match.to_execution_exception_matcher
         end
+
+        def pretty_print(pp)
+            pp.text "#{message} (#{self.class.name})"
+        end
+        
+        # True if +obj+ is involved in this error
+        def involved_plan_object?(obj)
+            false
+        end
+
+        def user_error?; false end
     end
 
     # Raised if a command block has raised an exception

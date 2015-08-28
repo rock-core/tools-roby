@@ -1,22 +1,3 @@
-class Exception
-    def pretty_print(pp)
-        if backtrace && !backtrace.empty?
-            pp.text "#{backtrace[0]}: #{message} (#{self.class.name})"
-        else
-            pp.text "#{message} (#{self.class.name})"
-        end
-    end
-    
-    # True if +obj+ is involved in this error
-    def involved_plan_object?(obj)
-        false
-    end
-
-    def user_error?; false end
-
-    # DRoby-marshalling is done in distributed/protocol
-end
-
 
 module Roby
     class UserError < RuntimeError
