@@ -164,8 +164,8 @@ module Roby
                         when NilClass
                             Interface.info "successfully connected"
                             @client, jobs = connection_future.value
-                            jobs = jobs.map do |job_id, (job_state, _, job_task)|
-                                JobMonitor.new(self, job_id, state: job_state, task: job_task)
+                            jobs = jobs.map do |job_id, (job_state, placeholder_task, job_task)|
+                                JobMonitor.new(self, job_id, state: job_state, placeholder_task: placeholder_task, task: job_task)
                             end
                             run_hook :on_reachable, jobs
                             new_job_listeners.each do |listener|
@@ -190,7 +190,16 @@ module Roby
                     client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
                         new_job_listeners.each do |listener|
                             if listener.seen_job_with_id?(job_id)
-                                job = monitor_job(job_id, start: false)
+                                job =
+                                    if job_state == JOB_MONITORED
+                                        JobMonitor.new(
+                                            self, job_id,
+                                            state: job_state,
+                                            placeholder_task: args[0],
+                                            task: args[1])
+                                    else
+                                        monitor_job(job_id, start: false)
+                                    end
                                 if listener.matches?(job)
                                     listener.call(job)
                                 end
@@ -198,8 +207,11 @@ module Roby
                         end
 
                         if monitors = job_monitors[job_id]
-                            monitors.dup.each do |m|
+                            monitors.each do |m|
                                 m.update_state(job_state)
+                                if job_state == JOB_REPLACED
+                                    m.replaced(args.first)
+                                end
                             end
                         end
                         run_hook :on_job_progress, job_state, job_id, job_name, args
@@ -223,8 +235,11 @@ module Roby
                 #   and false otherwise
                 def poll
                     if connected?
-                        client.poll
+                        _, has_cycle_end = client.poll
                         process_message_queues
+                        if has_cycle_end
+                            cleanup_dead_monitors
+                        end
                         true
                     else
                         poll_connection_attempt
@@ -244,11 +259,12 @@ module Roby
                 end
 
                 def unreachable!
-                    job_monitors.dup.each_value do |monitors|
-                        monitors.dup.each do |j|
+                    job_monitors.each_value do |monitors|
+                        monitors.each do |j|
                             j.update_state(:finalized)
                         end
                     end
+                    job_monitors.clear
 
                     if client
                         client.close if !client.closed?
@@ -336,6 +352,15 @@ module Roby
                 def add_job_monitor(job)
                     set = (job_monitors[job.job_id] ||= Set.new)
                     job_monitors[job.job_id] << job
+                end
+
+                def cleanup_dead_monitors
+                    job_monitors.delete_if do |job_id, monitors|
+                        monitors.delete_if do |job|
+                            job.finalized?
+                        end
+                        monitors.empty?
+                    end
                 end
 
                 def remove_job_monitor(job)

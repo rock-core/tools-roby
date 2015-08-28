@@ -83,9 +83,6 @@ module Roby
                 def update_state(state)
                     @state = state
                     run_hook :on_progress, state
-                    if state == :finalized
-                        stop
-                    end
                 end
 
                 # Tests whether this job is terminated
@@ -96,6 +93,11 @@ module Roby
                 # Tests whether this job is running
                 def running?
                     state == :started
+                end
+                
+                # Tests whether this job has been finalized
+                def finalized?
+                    state == :finalized
                 end
 
                 # Start monitoring this job's state

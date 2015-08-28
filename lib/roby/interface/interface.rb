@@ -373,6 +373,10 @@ module Roby
                 end
             end
 
+            def on_cycle_end(&block)
+                engine.at_cycle_end(&block)
+            end
+
             # @see ExecutionEngine#remove_exception_listener
             def remove_exception_listener(listener)
                 engine.execute do
