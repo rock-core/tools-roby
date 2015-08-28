@@ -18,6 +18,23 @@ module Roby
                 #   @return [void]
                 define_hooks :on_progress
 
+                # @!method on_planning_failed
+                #   Hook called when we receive a planning failed exception for
+                #   this job
+                #
+                #   @yieldparam (see ExecutionEngine#on_exception)
+                #   @return [void]
+                define_hooks :on_planning_failed
+
+                # @!method on_exception
+                #   Hook called when we receive an exception involving this job
+                #   Note that a planning failed exception is both received by
+                #   this handler and by {#on_planning_failed}
+                #
+                #   @yieldparam (see ExecutionEngine#on_exception)
+                #   @return [void]
+                define_hooks :on_exception
+
                 # @return [Interface] the async interface we are bound to
                 attr_reader :interface
 
@@ -90,6 +107,18 @@ module Roby
 
                 # @api private
                 #
+                # Triggers {#on_exception} and {#on_planning_failed} hooks
+                def notify_exception(kind, exception)
+                    if exception.exception.kind_of?(PlanningFailedError)
+                        if job_id = exception.exception.planning_task.arguments[:job_id]
+                            if job_id == self.job_id
+                                run_hook :on_planning_failed, kind, exception
+                            end
+                        end
+                    end
+                    run_hook :on_exception, kind, exception
+                end
+
                 # @api private
                 #
                 # Called by {Interface} to update the job's state

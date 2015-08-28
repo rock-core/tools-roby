@@ -218,8 +218,16 @@ module Roby
                     end
                     client.job_progress_queue.clear
 
-                    client.exception_queue.each do |id, (kind, exception, tasks)|
-                        run_hook :on_exception, kind, exception, tasks
+                    client.exception_queue.each do |id, (kind, exception, tasks, job_ids)|
+                        job_ids.each do |job_id|
+                            if monitors = job_monitors[job_id]
+                                monitors.dup.each do |m|
+                                    m.notify_exception(kind, exception)
+                                end
+                            end
+                        end
+
+                        run_hook :on_exception, kind, exception, tasks, job_ids
                     end
                     client.exception_queue.clear
                 end

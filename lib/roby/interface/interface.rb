@@ -367,10 +367,23 @@ module Roby
             end
             command :reload_actions, 'reloads the files in models/actions/'
 
-            # (see ExecutionEngine#on_exception)
+            # Notification about plan exceptions
+            #
+            # @yieldparam [Symbol] kind one of {ExecutionEngine::EXCEPTION_NONFATAL},
+            #   {ExecutionEngine::EXCEPTION_FATAL} or {ExecutionEngine::EXCEPTION_HANDLED}
+            # @yieldparam [Roby::ExecutionException] error the exception
+            # @yieldparam [Array<Roby::Task>] tasks the tasks that are involved in this exception
+            # @yieldparam [Set<Integer>] job_ids the job ID of the involved jobs
+            #
+            # @see ExecutionEngine#on_exception
             def on_exception(&block)
                 engine.execute do
-                    engine.on_exception(&block)
+                    engine.on_exception do |kind, exception, tasks|
+                        involved_job_ids = tasks.map do |t|
+                            job_id_of_task(t)
+                        end.to_set
+                        block.call(kind, exception, tasks, involved_job_ids)
+                    end
                 end
             end
 

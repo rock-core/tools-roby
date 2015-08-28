@@ -143,8 +143,14 @@ module Roby
                 notification_queue.pop
             end
 
-            def push_exception(kind, error, tasks)
-                exception_queue.push [allocate_message_id, [kind, error, tasks]]
+            # Push an exception notification to {#exception_queue}
+            #
+            # It can be retrieved with {#pop_exception}
+            #
+            # See the yield parameters of {Interface#on_exception} for
+            # the overall argument format.
+            def push_exception(kind, error, tasks, job_ids)
+                exception_queue.push [allocate_message_id, [kind, error, tasks, job_ids]]
             end
 
             def has_exceptions?
