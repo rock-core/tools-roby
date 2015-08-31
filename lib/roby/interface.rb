@@ -1,3 +1,4 @@
+require 'roby'
 module Roby
     # Implementation of a job-oriented interface for Roby controllers
     #

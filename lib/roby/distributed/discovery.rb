@@ -19,7 +19,7 @@ module Roby
                 end
 
                 def can_respawn?
-                    !future || future.completed?
+                    !future || future.complete?
                 end
 
                 def spawn(thread_pool)
@@ -28,7 +28,7 @@ module Roby
                 end
                 
                 def neighbours
-                    if future && future.completed?
+                    if future && future.complete?
                         if future.reason
                             Distributed.warn "Failed discovery on #{discovery}:"
                             Roby.log_exception_with_backtrace(future.reason, Distributed, :warn)

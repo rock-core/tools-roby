@@ -18,6 +18,22 @@ module Roby
         JOB_MONITORED        = :monitored
         JOB_REPLACED         = :replaced
 
+        def self.terminal_state?(state)
+            [JOB_PLANNING_FAILED, JOB_FAILED, JOB_FINISHED, JOB_FINALIZED].include?(state)
+        end
+
+        def self.success_state?(state)
+            [JOB_SUCCESS].include?(state)
+        end
+
+        def self.error_state?(state)
+            [JOB_PLANNING_FAILED, JOB_FAILED].include?(state)
+        end
+
+        def self.running_state?(state)
+            [JOB_STARTED].include?(state)
+        end
+
         # The server-side implementation of the command-based interface
         #
         # This exports all the services and/or APIs that are available through e.g.
