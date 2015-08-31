@@ -74,7 +74,6 @@ module Roby
 	extend Logger::Forward
 
 	@updated_objects = ValueSet.new
-	@allowed_remote_access = Array.new
 	@keep = RefCounting.new
 	@removed_objects = ValueSet.new
 	class << self
