@@ -75,7 +75,7 @@ module Roby
         def report_exceptions_from(object)
             if object.kind_of?(Exception)
                 original_exceptions << object
-            elsif object.respond_to?(:context)
+            elsif object.respond_to?(:context) && object.context
                 object.context.each do |c|
                     report_exceptions_from(c)
                 end
@@ -104,6 +104,7 @@ module Roby
         def initialize(failure_point)
             super()
 	    @failure_point = failure_point
+            @original_exceptions ||= Array.new
 
             @failed_task, @failed_event, @failed_generator = nil
 	    if failure_point.kind_of?(Event)
@@ -424,7 +425,7 @@ module Roby
     end
 
     # Raised by Plan#replace when the new task cannot replace the older one.
-    class InvalidReplace < ExceptionBase
+    class InvalidReplace < RuntimeError
         # The task being replaced
 	attr_reader :from
         # The task which should have replaced #from

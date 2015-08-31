@@ -302,9 +302,18 @@ module Roby
                 else
                     failures.map { |failure|
                         bt = Minitest.filter_backtrace(failure.backtrace).join "\n    "
+                        msg = ""
                         if failure.kind_of?(Minitest::UnexpectedError)
-                            msg = Roby.format_exception(failure.exception).join("\n") +
+                            base = failure.exception
+                            msg << Roby.format_exception(base).join("\n") +
                                 "\n    #{bt}"
+                            if base.respond_to?(:original_exceptions)
+                                base.original_exceptions.each do |e|
+                                    e_bt = Minitest.filter_backtrace(e.backtrace).join "\n    "
+                                    msg << "\n\n" << Roby.format_exception(e).join("\n") +
+                                        "\n    #{e_bt}"
+                                end
+                            end
                         else
                             msg = failure.message
                         end

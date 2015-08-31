@@ -4,9 +4,30 @@ module Roby
     # 
     # See ExecutionEngine#process_events_synchronous for more information
     class SynchronousEventProcessingMultipleErrors < RuntimeError
+        # Exceptions as gathered during propagation with {ExecutionEngine#on_exception}
+        #
+        # @return [Array<(ExecutionException,Array<Roby::Task>)>]
         attr_reader :errors
+
+        # The set of underlying "real" (i.e. non-Roby) exceptions
+        #
+        # @return [Array<Exception>]
+        def original_exceptions
+            errors.flat_map { |e, _| e.exception.original_exceptions }.to_set.to_a
+        end
+
         def initialize(errors)
             @errors = errors
+        end
+
+        def pretty_print(pp)
+            pp.text "Got #{errors.size} exceptions and #{original_exceptions.size} sub-exceptions"
+            pp.breakable
+            pp.seplist(errors.each_with_index) do |(e, _), i|
+                pp.breakable
+                pp.text "[#{i}] "
+                e.pretty_print(pp)
+            end
         end
     end
 

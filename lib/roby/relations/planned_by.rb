@@ -75,6 +75,7 @@ module Roby
             pp.text "failed to plan "
             planned_task.pretty_print(pp)
             pp.breakable
+            pp.text "planned by "
             planning_task.pretty_print(pp)
             pp.breakable
             pp.text " failed with "

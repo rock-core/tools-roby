@@ -117,7 +117,6 @@ module Roby
         def pretty_print(pp)
             pp.text "from #{origin} with trace "
             pp.nest(2) do
-                pp.breakable
                 pp.nest(2) do
                     trace.each do |t|
                         pp.breakable

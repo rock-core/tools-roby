@@ -89,14 +89,13 @@ module Roby
         def pretty_print(pp)
             pp.seplist(values) do |keyvalue|
                 key, value = *keyvalue
-                key.pretty_print(pp)
-                pp.text " => "
+                pp.text "#{key}: "
                 value.pretty_print(pp)
             end
         end
 
         def to_s
-            values.to_s
+            values.sort_by(&:first).map { |k, v| "#{k}: #{v}" }.join(", ")
         end
 
         # @deprecated use {#each_assigned_argument} instead
@@ -257,6 +256,10 @@ module Roby
 
         def evaluate_delayed_argument(task)
             value
+        end
+
+        def pretty_print(pp)
+            pp.text to_s
         end
 
         def to_s
