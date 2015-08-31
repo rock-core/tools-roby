@@ -1,5 +1,3 @@
-require 'highline'
-
 class Exception
     def pretty_print(pp)
         if backtrace && !backtrace.empty?
@@ -27,13 +25,13 @@ module Roby
     class ConfigError < RuntimeError; end
     class ModelViolation < RuntimeError; end
     class InternalError < RuntimeError; end
-
+    
     class << self
-        attr_reader :console
+        attr_reader :colorizer
     end
-    @console = HighLine.new
-    def self.color(*args)
-        console.color(*args)
+    @colorizer = Pastel.new
+    def self.color(string, *colors)
+        colorizer.decorate(string, *colors)
     end
 
     # ExecutionException objects are used during the exception handling stage
@@ -397,6 +395,31 @@ module Roby
         end
     end
     def self.do_display_exception(io, e)
+        if colorizer.enabled?
+            do_display_exception_formatted(io, e)
+        else
+            do_display_exception_raw(io, e)
+        end
+    end
+
+    def self.do_display_exception_raw(io, e)
+        first_line = true
+        io.puts
+        format_exception(e).each do |line|
+            if first_line
+                io.puts line
+                first_line = false
+            else
+                io.puts "  #{line}"
+            end
+        end
+        format_exception(BacktraceFormatter.new(e)).each do |line|
+            io.puts line
+        end
+        true
+    end
+
+    def self.do_display_exception_formatted(io, e)
         first_line = true
         io.puts ""
         format_exception(e).each do |line|
