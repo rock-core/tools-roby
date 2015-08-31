@@ -1,3 +1,58 @@
+class Exception
+    def self.match
+        Roby::CodeError.match.with_ruby_exception(self)
+    end
+
+    def self.to_execution_exception_matcher
+        match.to_execution_exception_matcher
+    end
+
+    def pretty_print(pp)
+        pp.text "#{message} (#{self.class.name})"
+    end
+    
+    # True if +obj+ is involved in this error
+    def involved_plan_object?(obj)
+        false
+    end
+
+    def user_error?; false end
+
+    class DRoby < Exception
+        attr_reader :exception_class
+        attr_reader :formatted_message
+
+        def initialize(exception_class, formatted_message)
+            @exception_class, @formatted_message =
+                exception_class, formatted_message
+        end
+
+        def pretty_print(pp)
+            pp.seplist(formatted_message) do |line|
+                pp.text line
+            end
+        end
+
+        def proxy(peer)
+            self.class.new(peer.local_object(exception_class), formatted_message)
+        end
+
+        def kind_of?(obj)
+            obj <= exception_class
+        end
+    end
+
+
+    def droby_dump(peer)
+        formatted = Roby.format_exception(self)
+        droby = DRoby.new(
+            Roby::Distributed.format(self.class, peer),
+            formatted)
+        droby.set_backtrace backtrace
+        droby
+    end
+end
+
 module Roby
     # Module used to tag exceptions that "wrap" an original error from the user
     # code
@@ -111,7 +166,7 @@ module Roby
                 error = error.exception(message)
                 error.original_exceptions.concat(original_exceptions)
                 error.set_backtrace(backtrace)
-                error.exception_class = model
+                error.exception_class = peer.local_object(model)
                 error.formatted_message = formatted_message
                 error
             end
@@ -121,7 +176,7 @@ module Roby
         # the +dest+ peer.
         def droby_dump(dest)
             formatted = Roby.format_exception(self)
-            DRoby.new(self.class.droby_dump(dest),
+            DRoby.new(Distributed.format(self.class, dest),
                       Distributed.format(failure_point, dest),
                       message,
                       backtrace,
@@ -139,21 +194,21 @@ module Roby
         end
     end
 
-    module DRobyPlaceholderException
-        attr_accessor :exception_class
+    # Exception class used on the unmarshalling of LocalizedError for exception
+    # classes that do not have their own marshalling
+    class UntypedLocalizedError < LocalizedError
         attr_accessor :formatted_message
+        attr_accessor :exception_class
 
         def pretty_print(pp)
             pp.seplist(formatted_message) do |line|
                 pp.text line
             end
         end
-    end
 
-    # Exception class used on the unmarshalling of LocalizedError for exception
-    # classes that do not have their own marshalling
-    class UntypedLocalizedError < LocalizedError
-        include DRobyPlaceholderException
+        def kind_of?(obj)
+            obj <= exception_class
+        end
     end
 
     class RelationFailedError < LocalizedError
@@ -271,27 +326,6 @@ module Roby
         def self.match
             Roby::Queries::CodeErrorMatcher.new.with_model(self)
         end
-    end
-
-    class ::Exception
-        def self.match
-            Roby::CodeError.match.with_ruby_exception(self)
-        end
-
-        def self.to_execution_exception_matcher
-            match.to_execution_exception_matcher
-        end
-
-        def pretty_print(pp)
-            pp.text "#{message} (#{self.class.name})"
-        end
-        
-        # True if +obj+ is involved in this error
-        def involved_plan_object?(obj)
-            false
-        end
-
-        def user_error?; false end
     end
 
     # Raised if a command block has raised an exception
