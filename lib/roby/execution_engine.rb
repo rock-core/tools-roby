@@ -1536,7 +1536,7 @@ module Roby
         # @see on_exception
         def handled_exception(error, task)
 	    super if defined? super
-	    notify_exception(EXCEPTION_HANDLED, error, task)
+	    notify_exception(EXCEPTION_HANDLED, error, [task])
 	end
 
         def unmark_finished_missions_and_permanent_tasks
