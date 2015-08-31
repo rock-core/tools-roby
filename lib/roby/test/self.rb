@@ -18,6 +18,7 @@ module Roby
 
         def setup
             Roby.app.log['server'] = false
+            Roby.app.auto_load_models = false
             Roby.app.plugins_enabled = false
             Roby.app.setup
             Roby.app.prepare

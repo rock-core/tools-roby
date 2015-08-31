@@ -733,3 +733,53 @@ class TC_Dependency < Minitest::Test
     end
 end
 
+module Roby
+    module TaskStructure
+        describe Dependency do
+            describe "#remove_roles" do
+                attr_reader :parent
+                attr_reader :child
+
+                before do
+                    plan.add(@parent = Roby::Task.new)
+                    plan.add(@child  = Roby::Task.new)
+                    parent.depends_on child, roles: ['test1', 'test2']
+                end
+
+                it "removes the role" do
+                    parent.remove_roles(child, 'test1')
+                    assert_equal ['test2'].to_set, parent.roles_of(child)
+                end
+
+                it "raises ArgumentError if the child does not have the expected role" do
+                    assert_raises(ArgumentError) { parent.remove_roles(child, 'foo') }
+                end
+
+                it "calls updated_edge_info on the receiver" do
+                    flexmock(parent).should_receive(:updated_edge_info).once.
+                        with(child, Dependency, ->(info) { info[:roles] == ['test2'].to_set })
+                    parent.remove_roles(child, 'test1')
+                end
+
+                it "calls updated_info on the relation" do
+                    flexmock(Dependency).should_receive(:updated_info).once.
+                        with(parent, child, ->(info) { info[:roles] == ['test2'].to_set })
+                    parent.remove_roles(child, 'test1')
+                end
+
+                it "removes the child if the role set becomes empty and remove_child_when_empty is set" do
+                    parent.remove_roles(child, 'test1')
+                    parent.remove_roles(child, 'test2', remove_child_when_empty: true)
+                    assert !parent.depends_on?(child)
+                end
+
+                it "does not remove the child if the role set becomes empty and remove_child_when_empty is not set" do
+                    parent.remove_roles(child, 'test1')
+                    parent.remove_roles(child, 'test2', remove_child_when_empty: false)
+                    assert parent.depends_on?(child)
+                end
+            end
+        end
+    end
+end
+

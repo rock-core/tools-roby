@@ -49,7 +49,7 @@ module Roby
 
                 arg_name = arg_name.to_sym
                 argument_set << arg_name
-                unless method_defined?(arg_name)
+                if arg_name =~ /^\w+$/ && !method_defined?(arg_name)
                     define_method(arg_name) { arguments[arg_name] }
                     define_method("#{arg_name}=") { |value| arguments[arg_name] = value }
                 end

@@ -1017,7 +1017,7 @@ module Roby
         # (e.g. models/tasks.rb)
         def load_default_models
             ['tasks.rb', 'actions.rb'].each do |root_type|
-                if path = find_file('models', root_type, order: :specific_first)
+                if path = find_file('models', root_type, path: [app_dir], order: :specific_first)
                     require path
                 end
             end
