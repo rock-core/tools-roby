@@ -57,6 +57,53 @@ module Roby
                            self, SLOT('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'))
             end
 
+
+            # Info about all tasks known within the stored history
+            #
+            # @return [(Set<Roby::Task>,Hash<Roby::Task,Roby::Task>)] returns
+            #   the set of all tasks stored in the history, as well as a mapping
+            #   from job placeholder tasks to the corresponding job task
+            def tasks_info
+                all_tasks = Set.new
+                all_job_info = Hash.new
+                history.each_key do |cycle_index|
+                    tasks, job_info = tasks_info_of_snapshot(cycle_index)
+                    all_tasks.merge(tasks)
+                    all_job_info.merge!(job_info)
+                end
+                return all_tasks, all_job_info
+            end
+
+            # Returns the set of tasks that are present in the given snapshot
+            #
+            # @return [Set<Roby::Task>]
+            def tasks_info_of_snapshot(cycle)
+                _, snapshot, * = history[cycle]
+                tasks = snapshot.plan.known_tasks.to_set
+                job_info = Hash.new
+                tasks.each do |t|
+                    if t.kind_of?(Roby::Interface::Job)
+                        placeholder_task = t.
+                            enum_parent_objects(snapshot.relations[Roby::TaskStructure::PlannedBy]).
+                            first
+                        if placeholder_task
+                            job_info[placeholder_task] = t
+                        end
+                    end
+                end
+                return tasks, job_info
+            end
+
+            # Returns the job information for the given task in the given cycle
+            def job_placeholder_of(task, cycle)
+                if task.kind_of?(Roby::Interface::Job)
+                    _, snapshot, * = history[cycle]
+                    task.
+                        enum_parent_objects(snapshot.relations[Roby::TaskStructure::PlannedBy]).
+                        first
+                end
+            end
+
             def add_missing_cycles(count)
                 item = Qt::ListWidgetItem.new(list)
                 item.setBackground(Qt::Brush.new(Qt::Color::fromHsv(33, 111, 255)))
@@ -72,7 +119,10 @@ module Roby
                 item.text = "@#{cycle} - #{Roby.format_time(time)}"
                 item.setData(Qt::UserRole, Qt::Variant.new(cycle))
                 history[cycle] = [time, snapshot, item]
+                emit addedSnapshot(cycle)
             end
+
+            signals 'addedSnapshot(int)'
 
             slots 'currentItemChanged(QListWidgetItem*,QListWidgetItem*)'
             def currentItemChanged(new_item, previous_item)

@@ -17,8 +17,6 @@ module Roby
         #
         class ChronicleWidget < Qt::AbstractScrollArea
             attr_predicate :live?, true
-            # The PlanRebuilderWidget instance that is managing the history
-            attr_reader :history_widget
             # True if the time scroll bar is currently pressed
             attr_predicate :horizontal_scroll_bar_down?, true
             # Internal representation of the desired time scale. Don't use it
@@ -31,7 +29,11 @@ module Roby
                 viewport.update
             end
             # The time that is currently at the middle of the view
+            attr_accessor :display_time
+            # The system's current time
             attr_accessor :current_time
+            # The startup time
+            attr_accessor :base_time
             # The base height of a task line
             attr_accessor :task_height
             # The separation, in pixels, between tasks
@@ -39,6 +41,14 @@ module Roby
             # The index of the task that is currently at the top of the view. It
             # is an index in #current_tasks
             attr_accessor :start_line
+            # All known tasks
+            #
+            # @see add_tasks_info remove_tasks
+            attr_accessor :all_tasks
+            # Job information about all known tasks
+            #
+            # @see add_tasks_info remove_tasks
+            attr_accessor :all_job_info
             # The set of tasks that should currently be managed by the view.
             #
             # It is updated in #update(), i.e. when the view gets something to
@@ -57,13 +67,6 @@ module Roby
             # before the current displayed time: it shows the last active tasks
             # first)
             attr_reader :sort_mode
-            # Information about the plan's jobs
-            #
-            # This is updated when {#update_current_time} is called
-            #
-            # @return [{Task=>Task}] a mapping from job root tasks to the job's
-            #   planning task
-            attr_reader :job_info
             # See #sort_mode
             def sort_mode=(mode)
                 if ![:start_time, :last_event].include?(mode)
@@ -98,7 +101,7 @@ module Roby
             # Sets whether only the toplevel job tasks should be shown
             def restrict_to_jobs=(set)
                 @restrict_to_jobs = set
-                setCurrentTime
+                setDisplayTime
                 update
             end
 
@@ -111,7 +114,7 @@ module Roby
             # Sets the filter regular expression. See #filter
             def filter=(value)
                 @filter = value
-                setCurrentTime
+                setDisplayTime
                 update
             end
 
@@ -124,7 +127,7 @@ module Roby
             # Sets the filter_out regular expression. See #filter_out
             def filter_out=(value)
                 @filter_out = value
-                setCurrentTime
+                setDisplayTime
                 update
             end
 
@@ -133,15 +136,15 @@ module Roby
             # (use to generate videos for instance)
             attr_predicate :show_future_events?, true
 
-            def initialize(history_widget, parent = nil)
+            def initialize(parent = nil)
                 super(parent)
 
-                @job_info = Hash.new
-                @history_widget = history_widget
                 @time_scale = 10
                 @task_height = 10
                 @task_separation = 10
                 @start_line = 0
+                @all_tasks = Set.new
+                @all_job_info = Hash.new
                 @current_tasks = Array.new
                 @position_to_task = Array.new
                 @sort_mode = :start_time
@@ -157,14 +160,12 @@ module Roby
                 viewport.setPalette(pal)
                 self.viewport = viewport
 
-                updateWindowTitle
                 horizontal_scroll_bar.connect(SIGNAL('sliderMoved(int)')) do
                     value = horizontal_scroll_bar.value
                     self.live = (value == horizontal_scroll_bar.maximum)
                     time = base_time + Float(value) * pixel_to_time
-                    update_current_time(time)
+                    update_display_time(time)
                     emit timeChanged(time - base_time)
-                    update
                 end
                 horizontal_scroll_bar.connect(SIGNAL('sliderPressed()')) do
                     self.horizontal_scroll_bar_down = true
@@ -180,17 +181,6 @@ module Roby
                     update
                 end
             end
-
-            # Slot used to make the widget update its title when e.g. the
-            # underlying history widget changed its source
-            def updateWindowTitle
-                if parent_title = history_widget.window_title
-                    self.window_title = parent_title + ": Chronicle"
-                else
-                    self.window_title = "roby-display: Chronicle"
-                end
-            end
-            slots 'updateWindowTitle()'
 
             # Signal emitted when the currently displayed time changed. The time
             # is provided as an offset since base_time
@@ -240,31 +230,51 @@ module Roby
                 event.accept
             end
 
-            def update_current_time(time)
-                @current_time = time
-                current_tasks = ValueSet.new
-                job_info.clear
-
-                history_widget.history.each_value do |_, snapshot, _|
-                    # We cannot use #planning_task and #planned_task here:
-                    # the snapshots are messing with the root graphs.
-                    #
-                    # We instead have to access the relation graphs stored
-                    # in the snapshot
-                    snapshot.plan.known_tasks.each do |task|
-                        if task.kind_of?(Roby::Interface::Job)
-                            planned_task = task.enum_parent_objects(snapshot.relations[Roby::TaskStructure::PlannedBy]).first
-                            if planned_task
-                                job_info[planned_task] = task
-                            end
-                        end
-                    end
-                    if !restrict_to_jobs?
-                        current_tasks |= snapshot.plan.known_tasks
+            def add_tasks_info(tasks, job_info)
+                tasks.each do |t|
+                    if base_time && base_time < t.addition_time
+                        update_base_time(t.addition_time)
                     end
                 end
+
+                all_tasks.merge(tasks)
+                all_job_info.merge!(job_info)
+                update_current_tasks
+            end
+
+            def remove_tasks(tasks)
+                tasks.each do |t|
+                    all_tasks.delete(t)
+                    all_job_info.delete(t)
+                end
+                update_current_tasks
+            end
+
+            def update_base_time(time)
+                @base_time = time
+                update_scroll_ranges
+                update
+            end
+
+            def update_current_time(time)
+                @current_time = time
+                update_scroll_ranges
+                update
+            end
+
+            def update_display_time(time)
+                @display_time = time
+                update_scroll_ranges
+                if sort_mode == :last_event
+                    update_current_tasks
+                end
+                update
+            end
+
+            def update_current_tasks
+                current_tasks = all_tasks.dup
                 if restrict_to_jobs?
-                    current_tasks = job_info.keys.to_value_set
+                    current_tasks = all_job_info.keys.to_set
                 end
                 if filter
                     current_tasks = current_tasks.find_all { |t| t.to_s =~ filter }
@@ -275,61 +285,69 @@ module Roby
                 started_tasks, pending_tasks = current_tasks.partition { |t| t.start_time }
 
                 if sort_mode == :last_event
-                    not_yet_started, started_tasks = started_tasks.partition { |t| t.start_time > current_time }
-                    @current_tasks =
+                    not_yet_started, started_tasks = started_tasks.partition { |t| t.start_time > display_time }
+                    current_tasks =
                         started_tasks.sort_by do |t|
                             last_event = nil
                             t.history.each do |ev|
-                                if ev.time < current_time
+                                if ev.time < display_time
                                     last_event = ev
                                 else break
                                 end
                             end
                             last_event.time
                         end
-                    @current_tasks = @current_tasks.reverse
-                    @current_tasks.concat(not_yet_started.sort_by { |t| t.start_time })
+                    current_tasks = current_tasks.reverse
+                    current_tasks.concat(not_yet_started.sort_by { |t| t.start_time })
+                    if show_mode == :all
+                        current_tasks.
+                            concat(pending_tasks.sort_by { |t| t.addition_time })
+                    end
                 else
-                    @current_tasks =
+                    current_tasks =
                         started_tasks.sort_by { |t| t.start_time }.
                         concat(pending_tasks.sort_by { |t| t.addition_time })
                 end
+                @current_tasks = current_tasks
+            end
 
-                if show_mode == :all
-                    @current_tasks.
-                        concat(pending_tasks.sort_by { |t| t.addition_time })
+            def massage_slot_time_argument(time, default)
+                # Convert from QDateTime to allow update() to be a slot
+                if time.kind_of?(Qt::DateTime)
+                    return Time.at(Float(time.toMSecsSinceEpoch) / 1000)
+                elsif !time
+                    return default
+                else time
                 end
             end
 
-            def setCurrentTime(time = nil)
-                # Convert from QDateTime to allow update() to be a slot
-                if time.kind_of?(Qt::DateTime)
-                    time = Time.at(Float(time.toMSecsSinceEpoch) / 1000)
-                elsif !time
-                    time = current_time
-                end
+            def setDisplayTime(time = nil)
+                time = massage_slot_time_argument(time, display_time)
                 return if !time
-                update_current_time(time)
+
+                update_base_time(time) if !base_time
+                update_current_time(time) if !current_time
+                update_display_time(time)
+
                 if !horizontal_scroll_bar_down?
                     update_scroll_ranges
-                    horizontal_scroll_bar.value = time_to_pixel * (current_time - base_time)
+                    horizontal_scroll_bar.value = time_to_pixel * (display_time - base_time)
                 end
-                update
+            end
+            slots 'setDisplayTime(QDateTime)'
+
+            def setCurrentTime(time = nil)
+                time = massage_slot_time_argument(time, current_time)
+                return if !time
+
+                update_base_time(time) if !base_time
+                update_current_time(time)
+                update_display_time(time) if !display_time || live?
             end
             slots 'setCurrentTime(QDateTime)'
 
-            def live_update(time = nil)
-                if live?
-                    setCurrentTime(time)
-                elsif !horizontal_scroll_bar_down?
-                    update_scroll_ranges
-                end
-                update
-            end
-            slots 'live_update(QDateTime)'
-
             def paintEvent(event)
-                if !current_time
+                if !display_time
                     return
                 end
 
@@ -343,26 +361,20 @@ module Roby
 
                 half_width = self.geometry.width / 2
                 half_time_width = half_width * pixel_to_time
-                start_time = current_time - half_time_width
-                end_time   = current_time + half_time_width
-
-                # Find all running tasks within the display window
-                all_tasks = ValueSet.new
-                history_widget.history.each_value do |time, snapshot, _|
-                    all_tasks |= snapshot.plan.known_tasks
-                end
+                start_time = display_time - half_time_width
+                end_time   = display_time + half_time_width
 
                 # Build the timeline
                 #
                 # First, decide on the scale. We compute a "normal" text width
                 # for the time labels, and check what would be a round time-step
-                min_step_size = pixel_to_time * 1.5 * fm.width(Roby.format_time(current_time))
+                min_step_size = pixel_to_time * 1.5 * fm.width(Roby.format_time(display_time))
                 magnitude  = Integer(Math.log10(min_step_size))
                 base_value = (min_step_size / 10**magnitude).ceil
                 new_value = [1, 2, 5, 10].find { |v| v >= base_value }
                 step_size = new_value * 10**magnitude
                 # Display the current cycle time
-                central_label = Roby.format_time(current_time)
+                central_label = Roby.format_time(display_time)
                 central_time_min = half_width - fm.width(central_label) / 2
                 central_time_max = half_width + fm.width(central_label) / 2
                 painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
@@ -372,8 +384,8 @@ module Roby
                 # ruler collides with the current time, just ignore it
                 painter.pen = Qt::Pen.new(Qt::Color.new('black'))
                 step_count = 2 * (half_time_width / min_step_size).ceil
-                ruler_base_time = (current_time.to_f / step_size).round * step_size - step_size * step_count / 2
-                ruler_base_x = (ruler_base_time - current_time.to_f) * time_to_pixel + half_width
+                ruler_base_time = (display_time.to_f / step_size).round * step_size - step_size * step_count / 2
+                ruler_base_x = (ruler_base_time - display_time.to_f) * time_to_pixel + half_width
                 step_count.times do |i|
                     time = step_size * i + ruler_base_time
                     pos  = step_size * i * time_to_pixel + ruler_base_x
@@ -421,19 +433,19 @@ module Roby
 
                     if task.history.empty?
                         state = :pending
-                        end_point   = time_to_pixel * ((task.finalization_time || history_widget.current_time) - current_time) + half_width
+                        end_point   = time_to_pixel * ((task.finalization_time || current_time) - display_time) + half_width
                     else
                         state = task.current_display_state(task.history.last.time)
                         if state == :running
-                            end_point = time_to_pixel * (history_widget.current_time - current_time) + half_width
+                            end_point = time_to_pixel * (current_time - display_time) + half_width
                         else
-                            end_point = time_to_pixel * (task.history.last.time - current_time) + half_width
+                            end_point = time_to_pixel * (task.history.last.time - display_time) + half_width
                         end
                     end
 
-                    add_point = time_to_pixel * (task.addition_time - current_time) + half_width
+                    add_point = time_to_pixel * (task.addition_time - display_time) + half_width
                     if task.start_time
-                        start_point = time_to_pixel * (task.start_time - current_time) + half_width
+                        start_point = time_to_pixel * (task.start_time - display_time) + half_width
                     end
 
                     # Compute the event placement. We do this before the
@@ -445,7 +457,7 @@ module Roby
                     event_max_x = []
                     task.history.each do |ev|
                         if ev.time > start_time && ev.time < end_time
-                            event_x = time_to_pixel * (ev.time - current_time) + half_width
+                            event_x = time_to_pixel * (ev.time - display_time) + half_width
 
                             event_current_level = nil
                             event_max_x.each_with_index do |x, idx|
@@ -470,7 +482,7 @@ module Roby
                     painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[:pending])
                     painter.drawRect(add_point, y1, (start_point || end_point) - add_point, line_height)
                     if task.start_time
-                        start_point = time_to_pixel * (task.start_time - current_time) + half_width
+                        start_point = time_to_pixel * (task.start_time - display_time) + half_width
                         painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[:running])
                         painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[:running])
                         painter.drawRect(start_point, y1, end_point - start_point, line_height)
@@ -509,13 +521,13 @@ module Roby
 
             def task_timeline_title(task)
                 text = task.to_s
-                if planning_task = job_info[task]
-                    job_text = ["[#{planning_task.job_id}]"]
-                    if planning_task.action_model
-                        job_text << planning_task.action_model.name.to_s
+                if job_task = all_job_info[task]
+                    job_text = ["[#{job_task.job_id}]"]
+                    if job_task.action_model
+                        job_text << job_task.action_model.name.to_s
                     end
-                    if planning_task.action_arguments
-                        job_text << "(" + planning_task.action_arguments.map do |k,v|
+                    if job_task.action_arguments
+                        job_text << "(" + job_task.action_arguments.map do |k,v|
                             "#{k} => #{v}"
                         end.join(", ") + ")"
                     end
@@ -524,9 +536,9 @@ module Roby
                 text
             end
 
-            # The time of the first registered cycle
-            def base_time
-                history_widget.start_time
+            def clear
+                all_tasks.clear
+                all_job_info.clear
             end
 
             def mouseDoubleClickEvent(event)
@@ -535,7 +547,7 @@ module Roby
                     if !@info_view
                         @info_view = ObjectInfoView.new
                         Qt::Object.connect(@info_view, SIGNAL('selectedTime(QDateTime)'),
-                            history_widget, SLOT('seek(QDateTime)'))
+                                           self, SIGNAL('selectedTime(QDateTime)'))
                     end
 
                     if @info_view.display(task)
@@ -545,10 +557,14 @@ module Roby
                 event.accept
             end
 
+            signals 'selectedTime(QDateTime)'
+
             def update_scroll_ranges
-                if base_time
-                    horizontal_scroll_bar.value = time_to_pixel * (current_time - base_time)
-                    horizontal_scroll_bar.setRange(0, time_to_pixel * (history_widget.current_time - base_time))
+                return if horizontal_scroll_bar_down?
+
+                if base_time && current_time && display_time
+                    horizontal_scroll_bar.value = time_to_pixel * (display_time - base_time)
+                    horizontal_scroll_bar.setRange(0, time_to_pixel * (current_time - base_time))
                     horizontal_scroll_bar.setPageStep(geometry.width / 4)
                 end
                 vertical_scroll_bar.setRange(0, current_tasks.size)
@@ -559,6 +575,8 @@ module Roby
         class ChronicleView < Qt::Widget
             # The underlying ChronicleWidget instance
             attr_reader :chronicle
+            # The historyw widget instance
+            attr_reader :history_widget
 
             def initialize(history_widget, parent = nil)
                 super(parent)
@@ -567,7 +585,12 @@ module Roby
                 @menu_layout = Qt::HBoxLayout.new
                 @layout.add_layout(@menu_layout)
                 @history_widget = history_widget
-                @chronicle = ChronicleWidget.new(history_widget, self)
+                @chronicle = ChronicleWidget.new(self)
+                Qt::Object.connect(@chronicle, SIGNAL('selectedTime(QDateTime)'),
+                        history_widget, SLOT('seek(QDateTime)'))
+                chronicle.add_tasks_info(*history_widget.tasks_info)
+                Qt::Object.connect(history_widget, SIGNAL('addedSnapshot(int)'),
+                                  self, SLOT('addedSnapshot(int)'))
                 @layout.add_widget(@chronicle)
 
                 # Now setup the menu bar
@@ -624,6 +647,11 @@ module Roby
                 resize(500, 300)
             end
 
+            def addedSnapshot(cycle)
+                chronicle.add_tasks_info(*history_widget.tasks_info_of_snapshot(cycle))
+            end
+            slots 'addedSnapshot(int)'
+
             def sort_options
                 @mnu_sort = Qt::Menu.new(self)
                 @actgrp_sort = Qt::ActionGroup.new(@mnu_sort)
@@ -660,7 +688,7 @@ module Roby
                         act.connect(SIGNAL('toggled(bool)')) do |onoff|
                             if onoff
                                 @chronicle.show_mode = value
-                                @chronicle.setCurrentTime
+                                @chronicle.setDisplayTime
                             end
                         end
                         @actgrp_show.add_action(act)
@@ -682,15 +710,15 @@ module Roby
             slots 'play()'
 
             def step
-                if chronicle.current_time == chronicle.history_widget.current_time
+                if chronicle.display_time == chronicle.current_time
                     return
                 end
 
-                new_time = chronicle.current_time + PLAY_STEP
-                if new_time >= chronicle.history_widget.current_time
-                    new_time = chronicle.history_widget.current_time
+                new_time = chronicle.display_time + PLAY_STEP
+                if new_time >= chronicle.current_time
+                    new_time = chronicle.current_time
                 end
-                chronicle.setCurrentTime(new_time)
+                chronicle.setDisplayTime(new_time)
             end
             slots 'step()'
 
@@ -701,20 +729,23 @@ module Roby
             slots 'stop()'
 
             def updateWindowTitle
-                @chronicle.updateWindowTitle
-                self.window_title = @chronicle.window_title
+                if parent_title = history_widget.window_title
+                    self.window_title = parent_title + ": Chronicle"
+                else
+                    self.window_title = "roby-display: Chronicle"
+                end
             end
             slots 'updateWindowTitle()'
+
+            def setDisplayTime(time)
+                @chronicle.setDisplayTime(time)
+            end
+            slots 'setDisplayTime(QDateTime)'
 
             def setCurrentTime(time)
                 @chronicle.setCurrentTime(time)
             end
             slots 'setCurrentTime(QDateTime)'
-
-            def live_update(time)
-                @chronicle.live_update(time)
-            end
-            slots 'live_update(QDateTime)'
 
             # Save view configuration
             def save_options
