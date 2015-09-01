@@ -242,6 +242,12 @@ module Roby
                 event.accept
             end
 
+            def clear_tasks_info
+                all_tasks.clear
+                all_job_info.clear
+                update_current_tasks
+            end
+
             def add_tasks_info(tasks, job_info)
                 tasks.each do |t|
                     if base_time && t.addition_time < base_time
@@ -252,6 +258,16 @@ module Roby
                 all_tasks.merge(tasks)
                 all_job_info.merge!(job_info)
                 update_current_tasks
+            end
+
+            def contents_height
+                fm = Qt::FontMetrics.new(font)
+                layout = lay_out_tasks_and_events(fm, max_height: nil)
+                if layout.empty?
+                    0
+                else
+                    layout.last.top_y + layout.last.height
+                end
             end
 
             def remove_tasks(tasks)
