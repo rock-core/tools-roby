@@ -221,7 +221,14 @@ module Roby
             # Event handler for wheel event
             def wheelEvent(event)
                 if event.modifiers != Qt::ControlModifier
-                    return super
+                    # Don't let the user scroll with the mouse if vertical
+                    # scrolling is off
+                    if vertical_scroll_bar_policy == Qt::ScrollBarAlwaysOff
+                        event.ignore
+                        return
+                    else
+                        return super
+                    end
                 end
 
                 # See documentation of wheelEvent
