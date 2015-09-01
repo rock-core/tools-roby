@@ -91,11 +91,15 @@ module Roby
             #
             # In :current mode, only the tasks that have emitted events within
             # the display time window are shown
+            #
+            # In :in_range mode, only the tasks that would display something
+            # within the display time window are shown
             attr_reader :show_mode
+
             # See #show_mode
             def show_mode=(mode)
-                if ![:all, :running, :current].include?(mode)
-                    raise ArgumentError, "sort_mode can be :all, :running or :current, got #{mode}"
+                if ![:all, :running, :current, :in_range].include?(mode)
+                    raise ArgumentError, "sort_mode can be :all, :running, :in_range or :current, got #{mode}"
                 end
                 @show_mode = mode
             end
@@ -349,9 +353,9 @@ module Roby
                         concat(pending_tasks.sort_by { |t| t.addition_time })
                 end
 
-                if show_mode == :running || show_mode == :current
-                    start_time, end_time = displayed_time_range
+                start_time, end_time = displayed_time_range
 
+                if start_time && (show_mode == :running || show_mode == :current)
                     current_tasks = current_tasks.find_all do |t|
                         (t.start_time && t.start_time < end_time) &&
                             (!t.end_time || t.end_time > start_time)
@@ -363,7 +367,18 @@ module Roby
                         end
                     end
                 end
-                @current_tasks = current_tasks
+
+                tasks_in_range, tasks_outside_range =
+                    current_tasks.partition do |t|
+                        (t.addition_time <= end_time) &&
+                            (!t.finalization_time || t.finalization_time >= start_time)
+                    end
+
+                if show_mode == :in_range
+                    @current_tasks = tasks_in_range
+                else
+                    @current_tasks = tasks_in_range + tasks_outside_range
+                end
             end
 
             def massage_slot_time_argument(time, default)
