@@ -167,6 +167,10 @@ module Roby
                         end
                     end
                 end
+
+                def clear_integrated
+                    plan_rebuilder.clear_integrated
+                end
             end
         end
     end
