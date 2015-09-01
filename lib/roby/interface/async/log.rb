@@ -21,7 +21,7 @@ module Roby
                 #   @return [void]
                 define_hooks :on_unreachable
                 # @!method on_update
-                #   Hooks called when we got disconnected
+                #   Hooks called when the plan rebuilder processed an update
                 #
                 #   @yieldparam [Integer] cycle_index
                 #   @yieldparam [Time] cycle_time
