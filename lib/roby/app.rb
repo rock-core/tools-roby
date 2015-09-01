@@ -1944,6 +1944,8 @@ module Roby
                     end
                 end
             end
+            Distributed::DRobyConstant.clear_cache
+            Distributed::DRobyModel.clear_cache
             call_plugins(:clear_models, self)
         end
 

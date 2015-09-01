@@ -68,6 +68,10 @@ module Roby
         #     extend DRobyConstant::Dump
         #   end
 	class DRobyConstant
+            def self.clear_cache
+                @@valid_constants.clear
+            end
+
 	    @@valid_constants = Hash.new
 	    def self.valid_constants; @@valid_constants end
 	    def to_s; "#<dRoby:Constant #{name}>" end
@@ -129,6 +133,11 @@ module Roby
 	class DRobyModel
 	    @@remote_to_local = Hash.new
 	    @@local_to_remote = Hash.new
+
+            def self.clear_cache
+                @@remote_to_local.clear
+                @@local_to_remote.clear
+            end
 
 	    # A name -> class map which maps remote models to local anonymous classes
 	    # Remote models are always identified by their name
