@@ -28,6 +28,12 @@ module Roby
                 update_scroll_ranges
                 viewport.update
             end
+            # How many pixels should there be between the 'now' line and the
+            # right side, in pixels
+            attr_reader :live_update_margin
+            # The point (in pixels) where the current display time should be
+            # located on the display
+            attr_accessor :display_point
             # The time that is currently at the middle of the view
             attr_accessor :display_time
             # The system's current time
@@ -142,6 +148,7 @@ module Roby
                 @time_scale = 10
                 @task_height = 10
                 @task_separation = 10
+                @live_update_margin = 10
                 @start_line = 0
                 @all_tasks = Set.new
                 @all_job_info = Hash.new
@@ -152,6 +159,7 @@ module Roby
                 @show_future_events = true
                 @live = true
                 @horizontal_scroll_bar_down = false
+                @display_point = viewport.size.width - live_update_margin
 
                 viewport = Qt::Widget.new
                 pal = Qt::Palette.new(viewport.palette)
@@ -232,7 +240,7 @@ module Roby
 
             def add_tasks_info(tasks, job_info)
                 tasks.each do |t|
-                    if base_time && base_time < t.addition_time
+                    if base_time && t.addition_time < base_time
                         update_base_time(t.addition_time)
                     end
                 end
@@ -264,11 +272,43 @@ module Roby
 
             def update_display_time(time)
                 @display_time = time
+                _, end_time = displayed_time_range
+                limit_end_time = current_time + live_update_margin * pixel_to_time
+                update_display_point
                 update_scroll_ranges
-                if sort_mode == :last_event
-                    update_current_tasks
-                end
+                update_current_tasks
                 update
+            end
+
+            def update_display_point
+                display_point = viewport.size.width - live_update_margin -
+                    (current_time - display_time) * time_to_pixel
+                display_point_min = viewport.size.width / 2
+                if display_point < display_point_min
+                    display_point = display_point_min
+                end
+                @display_point = display_point
+            end
+
+            def resizeEvent(event)
+                if live?
+                    @display_point = event.size.width - live_update_margin
+                elsif display_time && current_time
+                    update_display_point
+                end
+
+                update_current_tasks
+                event.accept
+            end
+
+            def displayed_time_range
+                return if !display_time
+
+                display_point = self.display_point
+                window_width  = viewport.size.width
+                start_time = display_time - display_point * pixel_to_time
+                end_time   = display_time + (window_width - display_point) * pixel_to_time
+                return start_time, end_time
             end
 
             def update_current_tasks
@@ -308,6 +348,21 @@ module Roby
                         started_tasks.sort_by { |t| t.start_time }.
                         concat(pending_tasks.sort_by { |t| t.addition_time })
                 end
+
+                if show_mode == :running || show_mode == :current
+                    start_time, end_time = displayed_time_range
+
+                    current_tasks = current_tasks.find_all do |t|
+                        (t.start_time && t.start_time < end_time) &&
+                            (!t.end_time || t.end_time > start_time)
+                    end
+
+                    if show_mode == :current
+                        current_tasks = current_tasks.find_all do |t|
+                            t.history.any? { |ev| ev.time > start_time && ev.time < end_time }
+                        end
+                    end
+                end
                 @current_tasks = current_tasks
             end
 
@@ -346,10 +401,181 @@ module Roby
             end
             slots 'setCurrentTime(QDateTime)'
 
-            def paintEvent(event)
-                if !display_time
-                    return
+            def paint_timeline(painter, fm)
+                text_height = fm.height
+                window_size = viewport.size
+
+                # Display the current cycle time
+                central_label = Roby.format_time(display_time)
+                central_label_width = fm.width(central_label)
+                central_time_max = display_point + central_label_width / 2
+                if central_time_max + 3 > window_size.width
+                    central_time_max = window_size.width - 3
                 end
+                central_time_min = central_time_max - central_label_width
+                if central_time_min < 3
+                    central_time_min = 3
+                    central_time_max = central_time_min + central_label_width
+                end
+                painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
+                painter.drawText(central_time_min, text_height, central_label)
+                painter.drawRect(central_time_min - 2, 0, central_label_width + 4, text_height + 2)
+
+                # First, decide on the scale. We compute a "normal" text width
+                # for the time labels, and check what would be a round time-step
+                min_step_size = pixel_to_time * 1.5 * central_label_width
+                step_size = [1, 2, 5, 10, 20, 30, 60, 90, 120, 300, 600, 1200, 1800, 3600].find do |scale|
+                    scale > min_step_size
+                end
+                # Now display the timeline itself. If a normal ruler collides
+                # with the current time, just ignore it
+                start_time, end_time = displayed_time_range
+                painter.pen = Qt::Pen.new(Qt::Color.new('black'))
+                ruler_base_time = (start_time.to_f / step_size).floor * step_size
+                ruler_base_x    = (ruler_base_time - start_time.to_f) * time_to_pixel
+                step_count = ((end_time.to_f - ruler_base_time) / step_size).ceil
+                step_count.times do |i|
+                    time = step_size * i + ruler_base_time
+                    pos  = step_size * i * time_to_pixel + ruler_base_x
+                    time_as_text = Roby.format_time(Time.at(time))
+                    time_as_text_width = fm.width(time_as_text)
+                    min_x = pos - time_as_text_width / 2
+                    max_x = pos + time_as_text_width / 2
+                    if central_time_min > max_x || central_time_max < min_x
+                        painter.drawText(min_x, text_height, time_as_text)
+                    end
+                    painter.drawLine(pos, text_height + fm.descent, pos, text_height + fm.descent + TIMELINE_RULER_LINE_LENGTH)
+                end
+            end
+
+            def lay_out_events(fm, task, start_time, end_time)
+                # Compute the event placement. We do this before the
+                # background, as the event display might make us resize the
+                # line
+                event_base_y = fm.ascent
+                event_height = [2 * EVENT_CIRCLE_RADIUS, fm.height].max
+                event_max_x = []
+                line_height = task_height
+                events = task.history.map do |ev|
+                    next if ev.time < start_time || ev.time > end_time
+
+                    event_x = time_to_pixel * (ev.time - display_time) + display_point
+                    event_current_level = nil
+                    event_max_x.each_with_index do |x, idx|
+                        if x < event_x - EVENT_CIRCLE_RADIUS
+                            event_current_level = idx
+                            break
+                        end
+                    end
+                    event_current_level ||= event_max_x.size
+
+                    event_y = event_base_y + event_current_level * event_height
+                    if event_y + event_height + fm.descent > line_height
+                        line_height = event_y + event_height + fm.descent
+                    end
+                    event_max_x[event_current_level] = event_x + 2 * EVENT_CIRCLE_RADIUS + fm.width(ev.symbol.to_s)
+                    [event_x, event_y, ev.symbol.to_s]
+                end.compact
+                return events, line_height
+            end
+
+            TaskLayout = Struct.new :task, :top_y, :height, :state, :add_point, :start_point, :end_point, :events
+
+            def lay_out_tasks_and_events(fm, max_height: nil)
+                current_tasks = self.current_tasks
+                return Array.new if current_tasks.empty?
+
+                display_start_time, display_end_time = displayed_time_range
+
+                # Start at the current
+                first_index =
+                    if start_line >= current_tasks.size
+                        current_tasks.size - 1
+                    else start_line
+                    end
+                current_tasks = current_tasks[first_index..-1]
+                text_height = fm.height
+                bottom_y = task_separation + text_height
+
+                layout = Array.new
+                current_tasks.each_with_index do |task, idx|
+                    top_y = bottom_y + task_separation + text_height
+                    break if max_height && top_y > max_height
+
+                    if task.history.empty?
+                        state = :pending
+                        end_time = task.finalization_time
+                    else
+                        state = task.current_display_state(task.history.last.time)
+                        if state != :running
+                            end_time = task.history.last.time
+                        end
+                    end
+                    add_point = time_to_pixel * (task.addition_time - display_time) + display_point
+                    if task.start_time
+                        start_point = time_to_pixel * (task.start_time - display_time) + display_point
+                    end
+                    if end_time
+                        end_point = time_to_pixel * (end_time - display_time) + display_point
+                    end
+                    events, height = lay_out_events(fm, task, display_start_time, display_end_time)
+
+                    bottom_y = top_y + height
+                    layout << TaskLayout.new(task, top_y, height, state, add_point, start_point, end_point, events)
+                end
+                layout
+            end
+
+
+            def paint_tasks(painter, fm, layout)
+                current_point = (current_time - display_time) * time_to_pixel + display_point
+                layout.each do |task_layout|
+                    add_point, start_point, end_point =
+                        task_layout.add_point, task_layout.start_point, task_layout.end_point
+                    top_y       = task_layout.top_y
+                    line_height = task_layout.height
+                    state       = task_layout.state
+                    task        = task_layout.task
+
+                    # Paint the pending stage, i.e. before the task started
+                    painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[:pending])
+                    painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[:pending])
+                    painter.drawRect(
+                        add_point, top_y,
+                        (start_point || end_point || current_point) - add_point, line_height)
+
+                    if start_point
+                        painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[:running])
+                        painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[:running])
+                        painter.drawRect(
+                            start_point, top_y,
+                            (end_point || current_point) - start_point, line_height)
+
+                        if state && state != :running
+                            # Final state is shown by "eating" a few pixels at the task
+                            painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[state])
+                            painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[state])
+                            painter.drawRect(end_point - 2, top_y, 4, task_height)
+                        end
+                    end
+
+                    # Add the text
+                    painter.pen = Qt::Pen.new(TASK_NAME_COLOR)
+                    painter.drawText(Qt::Point.new(0, top_y - fm.descent), task_timeline_title(task))
+
+                    # And finally display the emitted events
+                    task_layout.events.each do |x, y, text|
+                        painter.brush, painter.pen = EVENT_STYLES[EVENT_CONTROLABLE | EVENT_EMITTED]
+                        painter.drawEllipse(Qt::Point.new(x, top_y + y),
+                                            EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS)
+                        painter.pen = Qt::Pen.new(EVENT_NAME_COLOR)
+                        painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, top_y + y), text)
+                    end
+                end
+            end
+
+            def paintEvent(event)
+                return if !display_time
 
                 painter = Qt::Painter.new(viewport)
                 font = painter.font
@@ -357,161 +583,14 @@ module Roby
                 painter.font = font
 
                 fm = Qt::FontMetrics.new(font)
-                text_height = fm.height
+                paint_timeline(painter, fm)
 
-                half_width = self.geometry.width / 2
-                half_time_width = half_width * pixel_to_time
-                start_time = display_time - half_time_width
-                end_time   = display_time + half_time_width
+                layout = lay_out_tasks_and_events(fm, max_height: size.height)
+                paint_tasks(painter, fm, layout)
 
-                # Build the timeline
-                #
-                # First, decide on the scale. We compute a "normal" text width
-                # for the time labels, and check what would be a round time-step
-                min_step_size = pixel_to_time * 1.5 * fm.width(Roby.format_time(display_time))
-                magnitude  = Integer(Math.log10(min_step_size))
-                base_value = (min_step_size / 10**magnitude).ceil
-                new_value = [1, 2, 5, 10].find { |v| v >= base_value }
-                step_size = new_value * 10**magnitude
-                # Display the current cycle time
-                central_label = Roby.format_time(display_time)
-                central_time_min = half_width - fm.width(central_label) / 2
-                central_time_max = half_width + fm.width(central_label) / 2
+                # Draw the "zero" line
                 painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
-                painter.drawText(central_time_min, text_height, central_label)
-                painter.drawRect(central_time_min - 2, 0, fm.width(central_label) + 4, text_height + 2)
-                # Now display. The values are rounded on step_size. If a normal
-                # ruler collides with the current time, just ignore it
-                painter.pen = Qt::Pen.new(Qt::Color.new('black'))
-                step_count = 2 * (half_time_width / min_step_size).ceil
-                ruler_base_time = (display_time.to_f / step_size).round * step_size - step_size * step_count / 2
-                ruler_base_x = (ruler_base_time - display_time.to_f) * time_to_pixel + half_width
-                step_count.times do |i|
-                    time = step_size * i + ruler_base_time
-                    pos  = step_size * i * time_to_pixel + ruler_base_x
-                    time_as_text = Roby.format_time(Time.at(time))
-                    min_x = pos - fm.width(time_as_text) / 2
-                    max_x = pos + fm.width(time_as_text) / 2
-                    if central_time_min > max_x || central_time_max < min_x
-                        painter.drawText(min_x, text_height, time_as_text)
-                    end
-                    painter.drawLine(pos, text_height + fm.descent, pos, text_height + fm.descent + TIMELINE_RULER_LINE_LENGTH)
-                end
-
-                y0 = text_height + task_separation
-                position_to_task.clear
-                position_to_task << [y0]
-
-                all_tasks = current_tasks
-                if show_mode == :running || show_mode == :current
-                    all_tasks = all_tasks.find_all do |t|
-                        (t.start_time && t.start_time < end_time) &&
-                            (!t.end_time || t.end_time > start_time)
-                    end
-
-                    if show_mode == :current
-                        all_tasks = all_tasks.find_all do |t|
-                            t.history.any? { |ev| ev.time > start_time && ev.time < end_time }
-                        end
-                    end
-                end
-
-                # Start at the current
-                first_index =
-                    if start_line >= all_tasks.size
-                        all_tasks.size - 1
-                    else start_line
-                    end
-                return if all_tasks.empty?
-                all_tasks = all_tasks[first_index..-1]
-                all_tasks.each_with_index do |task, idx|
-                    line_height = task_height
-                    y1 = y0 + task_separation + text_height
-                    if y1 > geometry.height
-                        break
-                    end
-
-                    if task.history.empty?
-                        state = :pending
-                        end_point   = time_to_pixel * ((task.finalization_time || current_time) - display_time) + half_width
-                    else
-                        state = task.current_display_state(task.history.last.time)
-                        if state == :running
-                            end_point = time_to_pixel * (current_time - display_time) + half_width
-                        else
-                            end_point = time_to_pixel * (task.history.last.time - display_time) + half_width
-                        end
-                    end
-
-                    add_point = time_to_pixel * (task.addition_time - display_time) + half_width
-                    if task.start_time
-                        start_point = time_to_pixel * (task.start_time - display_time) + half_width
-                    end
-
-                    # Compute the event placement. We do this before the
-                    # background, as the event display might make us resize the
-                    # line
-                    events = []
-                    event_base_y = fm.ascent
-                    event_height = [2 * EVENT_CIRCLE_RADIUS, text_height].max
-                    event_max_x = []
-                    task.history.each do |ev|
-                        if ev.time > start_time && ev.time < end_time
-                            event_x = time_to_pixel * (ev.time - display_time) + half_width
-
-                            event_current_level = nil
-                            event_max_x.each_with_index do |x, idx|
-                                if x < event_x - EVENT_CIRCLE_RADIUS
-                                    event_current_level = idx
-                                    break
-                                end
-                            end
-                            event_current_level ||= event_max_x.size
-
-                            event_y = event_base_y + event_current_level * event_height
-                            if event_y + event_height + fm.descent > line_height
-                                line_height = event_y + event_height + fm.descent
-                            end
-                            events << [event_x, event_y, ev.symbol.to_s]
-                            event_max_x[event_current_level] = event_x + 2 * EVENT_CIRCLE_RADIUS + fm.width(ev.symbol.to_s)
-                        end
-                    end
-
-                    # Paint the background (i.e. the task state)
-                    painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[:pending])
-                    painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[:pending])
-                    painter.drawRect(add_point, y1, (start_point || end_point) - add_point, line_height)
-                    if task.start_time
-                        start_point = time_to_pixel * (task.start_time - display_time) + half_width
-                        painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[:running])
-                        painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[:running])
-                        painter.drawRect(start_point, y1, end_point - start_point, line_height)
-                        if state && state != :running
-                            painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[state])
-                            painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[state])
-                            painter.drawRect(end_point - 2, y1, 4, task_height)
-                        end
-                    end
-
-                    # Add the text
-                    painter.pen = Qt::Pen.new(TASK_NAME_COLOR)
-                    painter.drawText(Qt::Point.new(0, y1 - fm.descent), task_timeline_title(task))
-
-                    # And finally display the emitted events
-                    events.each do |x, y, text|
-                        painter.brush, painter.pen = EVENT_STYLES[EVENT_CONTROLABLE | EVENT_EMITTED]
-                        painter.drawEllipse(Qt::Point.new(x, y1 + y),
-                                            EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS)
-                        painter.pen = Qt::Pen.new(EVENT_NAME_COLOR)
-                        painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, y1 + y), text)
-                    end
-
-                    y0 = y1 + line_height
-                    position_to_task << [y0, task]
-                end
-
-                painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
-                painter.drawLine(half_width, text_height + 2, half_width, geometry.height)
+                painter.drawLine(display_point, fm.height + 2, display_point, size.height)
 
             ensure
                 if painter
@@ -565,7 +644,7 @@ module Roby
                 if base_time && current_time && display_time
                     horizontal_scroll_bar.value = time_to_pixel * (display_time - base_time)
                     horizontal_scroll_bar.setRange(0, time_to_pixel * (current_time - base_time))
-                    horizontal_scroll_bar.setPageStep(geometry.width / 4)
+                    horizontal_scroll_bar.setPageStep(size.width / 4)
                 end
                 vertical_scroll_bar.setRange(0, current_tasks.size)
             end
