@@ -2,6 +2,7 @@ require 'Qt4'
 require 'roby/log/gui/qt4_toMSecsSinceEpoch'
 require 'utilrb/module/attr_predicate'
 require 'roby/log/gui/styles'
+require 'roby/log/gui/object_info_view'
 
 module Roby
     module LogReplay
