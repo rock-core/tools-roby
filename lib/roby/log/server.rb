@@ -91,11 +91,14 @@ module Roby
                                                     Logfile::PROLOGUE_SIZE)
 
                             Server.debug "  queueing #{all_data.size} bytes of data"
-                            @pending_data[socket] = split_in_chunks(all_data)
+                            chunks = split_in_chunks(all_data)
                         else
                             Server.debug "  log file is empty, not queueing any data"
                             @pending_data[socket] = Array.new
                         end
+                        connection_init_done = Marshal.dump(CONNECTION_INIT_DONE)
+                        chunks << [connection_init_done.size].pack('I') + connection_init_done
+                        @pending_data[socket] = chunks
                     end
 
                     # Read new data
@@ -154,6 +157,8 @@ module Roby
                 end
             end
 
+            CONNECTION_INIT_DONE = :log_server_connection_init_done
+
             # Tries to send all pending data to the connected clients
             def send_pending_data
                 needs_looping = true
@@ -205,6 +210,23 @@ module Roby
 
         # The client part of the event log distribution service
         class Client
+            include Hooks
+            include Hooks::InstanceHooks
+
+            # @!method on_init_done()
+            #   Hooks called when we finished processing the initial set of data
+            #   @return [void]
+            define_hooks :on_init_done
+            # @!method on_data
+            #   Hooks called with one cycle worth of data
+            #   @yieldparam [Array] data the data as logged, unmarshalled (with
+            #     Marshal.load) but not unmarshalled by Roby. It is a flat array
+            #     of 4-elements tuples of the form (event_name, sec, usec,
+            #     args), where event_name is defined in one of the Hook modules
+            #     in {Roby::Log}
+            #   @return [void]
+            define_hooks :on_data
+
             # The socket through which we are connected to the remote host
             attr_reader :socket
             # The host we are contacting
@@ -227,8 +249,6 @@ module Roby
                     end
                 socket.fcntl(Fcntl::FD_CLOEXEC, 1)
                 socket.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-
-                @listeners = Array.new
             end
 
             def disconnect
@@ -244,7 +264,7 @@ module Roby
             end
 
             def add_listener(&block)
-                @listeners << block
+                on_data(&block)
             end
 
             def alive?
@@ -264,6 +284,10 @@ module Roby
                 while (processed_something_last = read_and_process_one_pending_chunk) && (Time.now - start) < max
                 end
                 processed_something_last
+            end
+
+            def init_done?
+                @init_done
             end
 
             # @api private
@@ -287,10 +311,11 @@ module Roby
                         data = Marshal.load_with_missing_constants(buffer[4, data_size])
                         if data.kind_of?(Hash)
                             Roby::Log::Logfile.process_options_hash(data)
+                        elsif data == Server::CONNECTION_INIT_DONE
+                            @init_done = true
+                            run_hook :on_init_done
                         else
-                            @listeners.each do |block|
-                                block.call(data)
-                            end
+                            run_hook :on_data, data
                         end
                         buffer = buffer[(data_size + 4)..-1]
                     else

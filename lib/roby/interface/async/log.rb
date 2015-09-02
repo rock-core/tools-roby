@@ -20,6 +20,12 @@ module Roby
                 #   Hooks called when we got disconnected
                 #   @return [void]
                 define_hooks :on_unreachable
+                # @!method on_init_done
+                #   Hooks called when the initial log data has been fully
+                #   processed
+                #
+                #   @return [void]
+                define_hooks :on_init_done
                 # @!method on_update
                 #   Hooks called when the plan rebuilder processed an update
                 #
@@ -129,6 +135,10 @@ module Roby
                     plan_rebuilder && plan_rebuilder.cycle_start_time
                 end
 
+                def init_done?
+                    client && client.init_done?
+                end
+
                 # Verify the state of the last connection attempt
                 #
                 # It checks on the last connection attempt, and sets {#client}
@@ -156,7 +166,10 @@ module Roby
                             @plan_rebuilder = Roby::LogReplay::PlanRebuilder.new(plan: plan)
                             run_hook :on_reachable
 
-                            client.add_listener do |data|
+                            client.on_init_done do
+                                run_hook :on_init_done
+                            end
+                            client.on_data do |data|
                                 plan_rebuilder.push_data(data)
                                 cycle = plan_rebuilder.cycle_index
                                 time  = plan_rebuilder.cycle_start_time
