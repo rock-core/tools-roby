@@ -86,16 +86,9 @@ module Roby
 
                         Server.debug "new connection: #{socket}"
                         if found_header?
-                            all_data =
-                                if File.respond_to?(:binread)
-                                    File.binread(event_file_path, 
-                                              event_file.tell - Logfile::PROLOGUE_SIZE,
-                                              Logfile::PROLOGUE_SIZE)
-                                else
-                                    File.read(event_file_path, 
-                                              event_file.tell - Logfile::PROLOGUE_SIZE,
-                                              Logfile::PROLOGUE_SIZE)
-                                end
+                            all_data = File.binread(event_file_path, 
+                                                    event_file.tell - Logfile::PROLOGUE_SIZE,
+                                                    Logfile::PROLOGUE_SIZE)
 
                             Server.debug "  queueing #{all_data.size} bytes of data"
                             @pending_data[socket] = split_in_chunks(all_data)
