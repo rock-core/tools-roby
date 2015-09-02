@@ -254,7 +254,6 @@ module Roby
             def clear_tasks_info
                 all_tasks.clear
                 all_job_info.clear
-                update_current_tasks
             end
 
             def add_tasks_info(tasks, job_info)
@@ -266,7 +265,6 @@ module Roby
 
                 all_tasks.merge(tasks)
                 all_job_info.merge!(job_info)
-                update_current_tasks
             end
 
             def contents_height
@@ -284,29 +282,37 @@ module Roby
                     all_tasks.delete(t)
                     all_job_info.delete(t)
                 end
-                update_current_tasks
             end
 
             def update_base_time(time)
                 @base_time = time
-                update_scroll_ranges
-                update
+                invalidate_current_tasks
             end
 
             def update_current_time(time)
                 @current_time = time
-                update_scroll_ranges
-                update
+                @base_time ||= time
+                if !display_time || live?
+                    update_display_time(time)
+                else
+                    update_scroll_ranges
+                    invalidate_current_tasks
+                end
             end
 
             def update_display_time(time)
                 @display_time = time
+                @base_time ||= time
                 _, end_time = displayed_time_range
                 limit_end_time = current_time + live_update_margin * pixel_to_time
                 update_display_point
-                update_scroll_ranges
-                update_current_tasks
-                update
+
+                if !horizontal_scroll_bar_down?
+                    update_scroll_ranges
+                    horizontal_scroll_bar.value = time_to_pixel * (display_time - base_time)
+                end
+
+                invalidate_current_tasks
             end
 
             def update_display_point
@@ -317,6 +323,7 @@ module Roby
                     display_point = display_point_min
                 end
                 @display_point = display_point
+                invalidate_current_tasks
             end
 
             def resizeEvent(event)
@@ -325,10 +332,7 @@ module Roby
                 elsif display_time && current_time
                     update_display_point
                 end
-
-                if current_time && display_time
-                    update_current_tasks
-                end
+                invalidate_current_tasks
                 event.accept
             end
 
@@ -340,6 +344,15 @@ module Roby
                 start_time = display_time - display_point * pixel_to_time
                 end_time   = display_time + (window_width - display_point) * pixel_to_time
                 return start_time, end_time
+            end
+
+            def invalidate_current_tasks
+                @current_tasks_dirty = true
+                invalidate_task_layout
+            end
+
+            def current_tasks_dirty?
+                @current_tasks_dirty
             end
 
             def update_current_tasks
@@ -401,6 +414,7 @@ module Roby
                             (!t.finalization_time || t.finalization_time >= start_time)
                     end
 
+                @current_tasks_dirty = false
                 if show_mode == :in_range
                     @current_tasks = tasks_in_range
                 else
@@ -425,11 +439,7 @@ module Roby
                 update_base_time(time) if !base_time
                 update_current_time(time) if !current_time
                 update_display_time(time)
-
-                if !horizontal_scroll_bar_down?
-                    update_scroll_ranges
-                    horizontal_scroll_bar.value = time_to_pixel * (display_time - base_time)
-                end
+                update
             end
             slots 'setDisplayTime(QDateTime)'
 
@@ -439,7 +449,7 @@ module Roby
 
                 update_base_time(time) if !base_time
                 update_current_time(time)
-                update_display_time(time) if !display_time || live?
+                update
             end
             slots 'setCurrentTime(QDateTime)'
 
@@ -568,6 +578,18 @@ module Roby
                 layout
             end
 
+            def invalidate_task_layout
+                @task_layout_dirty = true
+            end
+
+            def task_layout_dirty?
+                @task_layout_dirty
+            end
+
+            def update_task_layout(metrics: Qt::FontMetrics.new(font))
+                @task_layout_dirty = false
+                @task_layout = lay_out_tasks_and_events(metrics, max_height: viewport.size.height)
+            end
 
             def paint_tasks(painter, fm, layout)
                 current_point = (current_time - display_time) * time_to_pixel + display_point
@@ -625,9 +647,13 @@ module Roby
                 painter.font = font
 
                 fm = Qt::FontMetrics.new(font)
+                if current_tasks_dirty?
+                    update_current_tasks
+                end
+                if task_layout_dirty?
+                    update_task_layout(metrics: fm)
+                end
                 paint_timeline(painter, fm)
-
-                @task_layout = lay_out_tasks_and_events(fm, max_height: size.height)
                 paint_tasks(painter, fm, task_layout)
 
                 # Draw the "zero" line
