@@ -55,6 +55,8 @@ module Roby
             #
             # @see add_tasks_info remove_tasks
             attr_accessor :all_job_info
+            # The task layout as computed in the last call to #paintEvent
+            attr_reader :task_layout
             # The set of tasks that should currently be managed by the view.
             #
             # It is updated in #update(), i.e. when the view gets something to
@@ -157,7 +159,7 @@ module Roby
                 @all_tasks = Set.new
                 @all_job_info = Hash.new
                 @current_tasks = Array.new
-                @position_to_task = Array.new
+                @task_layout = Array.new
                 @sort_mode = :start_time
                 @show_mode = :all
                 @show_future_events = true
@@ -324,7 +326,9 @@ module Roby
                     update_display_point
                 end
 
-                update_current_tasks
+                if current_time && display_time
+                    update_current_tasks
+                end
                 event.accept
             end
 
@@ -623,8 +627,8 @@ module Roby
                 fm = Qt::FontMetrics.new(font)
                 paint_timeline(painter, fm)
 
-                layout = lay_out_tasks_and_events(fm, max_height: size.height)
-                paint_tasks(painter, fm, layout)
+                @task_layout = lay_out_tasks_and_events(fm, max_height: size.height)
+                paint_tasks(painter, fm, task_layout)
 
                 # Draw the "zero" line
                 painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
@@ -659,15 +663,16 @@ module Roby
             end
 
             def mouseDoubleClickEvent(event)
-                _, task = position_to_task.find { |pos, t| pos > event.pos.y }
-                if task
+                click_y = event.pos.y
+                layout = task_layout.find { |layout| layout.top_y < click_y && layout.top_y + layout.height > click_y }
+                if layout
                     if !@info_view
                         @info_view = ObjectInfoView.new
                         Qt::Object.connect(@info_view, SIGNAL('selectedTime(QDateTime)'),
                                            self, SIGNAL('selectedTime(QDateTime)'))
                     end
 
-                    if @info_view.display(task)
+                    if @info_view.display(layout.task)
                         @info_view.activate
                     end
                 end
