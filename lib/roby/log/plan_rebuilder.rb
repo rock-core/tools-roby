@@ -598,7 +598,8 @@ module Roby
             end
 
             def task_arguments_updated(time, task, key, value)
-                task = local_object(task)
+                task  = local_object(task)
+                value = local_object(value)
                 task.arguments.values[key] = value
             end
 
