@@ -156,6 +156,11 @@ module Roby
                     interface.remove_job_monitor(self)
                 end
 
+                # Send a command to drop this job
+                def drop
+                    interface.client.drop_job(job_id)
+                end
+
                 # Send a command to kill this job
                 def kill
                     interface.client.kill_job(job_id)

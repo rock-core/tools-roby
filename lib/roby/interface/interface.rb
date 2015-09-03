@@ -111,10 +111,14 @@ module Roby
 
             # Kill a job
             #
+            # It removes the job from the list of missions and kills the job's
+            # main task
+            #
             # @param [Integer] job_id the ID of the job that should be
             #   terminated
             # @return [Boolean] true if the job was found and terminated, and
             #   false otherwise
+            # @see drop_job
             def kill_job(job_id)
                 if task = find_job_placeholder_by_id(job_id)
                     plan.unmark_mission(task)
@@ -123,8 +127,29 @@ module Roby
                 else false
                 end
             end
-            command :kill_job, 'kills the given job',
-                :job_id => 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
+            command :kill_job, 'forcefully kills the given job',
+                job_id: 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
+
+            # Drop a job
+            #
+            # It removes the job from the list of missions but does not
+            # explicitely kill it
+            #
+            # @param [Integer] job_id the ID of the job that should be
+            #   terminated
+            # @return [Boolean] true if the job was found and terminated, and
+            #   false otherwise
+            # @see kill_job
+            def drop_job(job_id)
+                if task = find_job_placeholder_by_id(job_id)
+                    plan.unmark_mission(task)
+                    true
+                else false
+                end
+            end
+            command :drop_job, "remove this job from the list of jobs, this does not necessarily kill the job's main task",
+                job_id: 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
+
 
             # Enumerates the job listeners currently registered through
             # {#on_job_notification}

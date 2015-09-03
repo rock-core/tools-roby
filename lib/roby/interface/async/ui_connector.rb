@@ -49,6 +49,14 @@ module Roby
                     end
                 end
 
+                class DropCommand < ActionConnector
+                    def run
+                        if action.exists? && !action.terminated?
+                            action.drop
+                        end
+                    end
+                end
+
                 class KillCommand < ActionConnector
                     def run
                         if action.exists? && !action.terminated?
@@ -133,6 +141,10 @@ module Roby
 
                 def START(action)
                     StartCommand.new(self, action)
+                end
+
+                def DROP(action)
+                    DropCommand.new(self, action)
                 end
 
                 def KILL(action)
