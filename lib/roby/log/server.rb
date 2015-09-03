@@ -94,9 +94,11 @@ module Roby
                             chunks = split_in_chunks(all_data)
                         else
                             Server.debug "  log file is empty, not queueing any data"
-                            @pending_data[socket] = Array.new
+                            chunks = Array.new
                         end
+                        connection_init      = Marshal.dump([CONNECTION_INIT, chunks.inject(0) { |s, c| s + c.size }])
                         connection_init_done = Marshal.dump(CONNECTION_INIT_DONE)
+                        chunks.unshift([connection_init.size].pack('I') + connection_init)
                         chunks << [connection_init_done.size].pack('I') + connection_init_done
                         @pending_data[socket] = chunks
                     end
@@ -157,6 +159,7 @@ module Roby
                 end
             end
 
+            CONNECTION_INIT = :log_server_connection_init
             CONNECTION_INIT_DONE = :log_server_connection_init_done
 
             # Tries to send all pending data to the connected clients
@@ -213,12 +216,16 @@ module Roby
             include Hooks
             include Hooks::InstanceHooks
 
+            # @!method on_init_progress()
+            #   @return [void]
+            define_hooks :on_init_progress
             # @!method on_init_done()
             #   Hooks called when we finished processing the initial set of data
             #   @return [void]
             define_hooks :on_init_done
             # @!method on_data
             #   Hooks called with one cycle worth of data
+            #
             #   @yieldparam [Array] data the data as logged, unmarshalled (with
             #     Marshal.load) but not unmarshalled by Roby. It is a flat array
             #     of 4-elements tuples of the form (event_name, sec, usec,
@@ -236,12 +243,15 @@ module Roby
             # Data that is not a full cycle worth of data (i.e. buffer needed
             # for packet reassembly)
             attr_reader :buffer
+            # The amount of bytes received so far
+            attr_reader :rx
 
             def initialize(host, port = Server::DEFAULT_PORT)
                 @host = host
                 @port = port
                 @buffer = ""
 
+                @rx = 0
                 @socket =
                     begin TCPSocket.new(host, port)
                     rescue Errno::ECONNREFUSED => e
@@ -286,6 +296,10 @@ module Roby
                 processed_something_last
             end
 
+            # The number of bytes that have to be transferred to finish
+            # initializing the connection
+            attr_reader :init_size
+
             def init_done?
                 @init_done
             end
@@ -314,7 +328,13 @@ module Roby
                         elsif data == Server::CONNECTION_INIT_DONE
                             @init_done = true
                             run_hook :on_init_done
+                        elsif data[0] == Server::CONNECTION_INIT
+                            @init_size = data[1]
                         else
+                            @rx += (data_size + 4)
+                            if !init_done?
+                                run_hook :on_init_progress, rx, init_size
+                            end
                             run_hook :on_data, data
                         end
                         buffer = buffer[(data_size + 4)..-1]

@@ -20,6 +20,14 @@ module Roby
                 #   Hooks called when we got disconnected
                 #   @return [void]
                 define_hooks :on_unreachable
+                # @!method on_init_progress
+                #   Hooks called during the initialization phase to inform about
+                #   its progress
+                #
+                #   @yieldparam [Integer] received the number of bytes received
+                #   @yieldparam [Integer] expected the number of bytes expected
+                #   @return [void]
+                define_hooks :on_init_progress
                 # @!method on_init_done
                 #   Hooks called when the initial log data has been fully
                 #   processed
@@ -166,6 +174,9 @@ module Roby
                             @plan_rebuilder = Roby::LogReplay::PlanRebuilder.new(plan: plan)
                             run_hook :on_reachable
 
+                            client.on_init_progress do |received, expected|
+                                run_hook :on_init_progress, received, expected
+                            end
                             client.on_init_done do
                                 run_hook :on_init_done
                             end
