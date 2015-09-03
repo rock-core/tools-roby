@@ -78,18 +78,24 @@ module Roby
                     connection_future.execute
                 end
 
+                STATE_DISCONNECTED = :disconnected
+                STATE_CONNECTED    = :connected
+                STATE_PENDING_DATA = :pending_data
+
                 # Active part of the async. This has to be called regularly within
                 # the system's main event loop (e.g. Roby's, Vizkit's or Qt's)
                 #
-                # @return [Boolean] true if we are connected to the remote server
+                # @return [(Boolean,Boolean)] true if we are connected to the remote server
                 #   and false otherwise
-                def poll
+                def poll(max: 0.1)
                     if connected?
-                        client.read_and_process_pending(max: 0.1)
-                        true
+                        if client.read_and_process_pending(max: max)
+                            return STATE_PENDING_DATA
+                        else return STATE_CONNECTED
+                        end
                     elsif !closed?
                         poll_connection_attempt
-                        !!client
+                        return STATE_PENDING_DATA
                     end
                 rescue Interrupt
                     close
