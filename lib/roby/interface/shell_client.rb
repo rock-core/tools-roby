@@ -171,7 +171,7 @@ module Roby
                 if error
                     msg = Roby.format_exception(error.exception)
                     if msg[0]
-                        msg[0] = Roby.console.color(msg[0], *color)
+                        msg[0] = Roby.color(msg[0], *color)
                     end
                 else
                     msg = ["<something wrong happened in transmission of exception information>"]
@@ -188,17 +188,17 @@ module Roby
                 msg = []
                 @mutex.synchronize do
                     client.notification_queue.each do |id, level, message|
-                        msg << Roby.console.color("-- ##{id} (notification) --", :bold)
+                        msg << Roby.color("-- ##{id} (notification) --", :bold)
                         msg.concat format_message(kind, level, message)
                         msg << "\n"
                     end
                     client.job_progress_queue.each do |id, (kind, job_id, job_name, *args)|
-                        msg << Roby.console.color("-- ##{id} (job progress) --", :bold)
+                        msg << Roby.color("-- ##{id} (job progress) --", :bold)
                         msg.concat format_job_progress(kind, job_id, job_name, *args)
                         msg << "\n"
                     end
                     client.exception_queue.each do |id, (kind, exception, tasks)|
-                        msg << Roby.console.color("-- ##{id} (#{kind} exception) --", :bold)
+                        msg << Roby.color("-- ##{id} (#{kind} exception) --", :bold)
                         msg.concat format_exception(kind, exception, tasks)
                         msg << "\n"
                     end
@@ -242,14 +242,14 @@ module Roby
             def help(subcommand = client)
                 puts
                 if subcommand.respond_to?(:description)
-                    puts Roby.console.color(subcommand.description.join("\n"), :bold)
+                    puts Roby.color(subcommand.description.join("\n"), :bold)
                     puts
                 end
 
                 commands = subcommand.commands[''].commands
                 if !commands.empty?
-                    puts Roby.console.color("Commands", :bold)
-                    puts Roby.console.color("--------", :bold)
+                    puts Roby.color("Commands", :bold)
+                    puts Roby.color("--------", :bold)
                     commands.keys.sort.each do |command_name|
                         cmd = commands[command_name]
                         puts "#{command_name}(#{cmd.arguments.keys.map(&:to_s).join(", ")}): #{cmd.description.first}"
@@ -257,8 +257,8 @@ module Roby
                 end
                 if subcommand.commands.size > 1
                     puts if !commands.empty?
-                    puts Roby.console.color("Subcommands (use help <subcommand name> for more details)", :bold)
-                    puts Roby.console.color("-----------", :bold)
+                    puts Roby.color("Subcommands (use help <subcommand name> for more details)", :bold)
+                    puts Roby.color("-----------", :bold)
                     subcommand.commands.keys.sort.each do |subcommand_name|
                         next if subcommand_name.empty?
                         puts "#{subcommand_name}: #{subcommand.commands[subcommand_name].description.first}"
