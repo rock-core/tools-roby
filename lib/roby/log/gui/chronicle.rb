@@ -109,7 +109,7 @@ module Roby
             # See #show_mode
             def show_mode=(mode)
                 if ![:all, :running, :current, :in_range].include?(mode)
-                    raise ArgumentError, "sort_mode can be :all, :running, :in_range or :current, got #{mode}"
+                    raise ArgumentError, "show_mode can be :all, :running, :in_range or :current, got #{mode}"
                 end
                 @show_mode = mode
             end
