@@ -82,6 +82,14 @@ module Roby
                 end
                 @sort_mode = mode
             end
+            # Whether the order defined by {#sort_mode} should be inverted
+            def reverse_sort?
+                !!@reverse_sort
+            end
+            # Whether the order defined by {#sort_mode} should be inverted
+            def reverse_sort=(flag)
+                @reverse_sort = flag
+            end
             # High-level filter on the list of shown tasks. Can either be :all,
             # :running, :current. Defaults to :all
             #
@@ -161,6 +169,7 @@ module Roby
                 @current_tasks = Array.new
                 @task_layout = Array.new
                 @sort_mode = :start_time
+                @reverse_sort = false
                 @show_mode = :all
                 @show_future_events = true
                 @live = true
@@ -413,6 +422,11 @@ module Roby
                         (t.addition_time <= end_time) &&
                             (!t.finalization_time || t.finalization_time >= start_time)
                     end
+
+                if reverse_sort?
+                    tasks_in_range = tasks_in_range.reverse
+                    tasks_outside_range = tasks_outside_range.reverse
+                end
 
                 @current_tasks_dirty = false
                 if show_mode == :in_range
