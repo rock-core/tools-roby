@@ -3,19 +3,37 @@ module Roby
     #
     # This is the implementation of e.g. the Roby shell
     module Interface
+        # The job's planning task is ready to be executed
         JOB_PLANNING_READY   = :planning_ready
+        # The job's planning task is running
         JOB_PLANNING         = :planning
+        # The job's planning task has failed
         JOB_PLANNING_FAILED  = :planning_failed
+        # The job's planning result is ready to be executed
         JOB_READY            = :ready
+        # The job is started
         JOB_STARTED          = :started
+        # The job has finished successfully
         JOB_SUCCESS          = :success
+        # The job has failed
         JOB_FAILED           = :failed
+        # The job has finished
         JOB_FINISHED         = :finished
+        # The job has been finalized (i.e. removed from plan)
         JOB_FINALIZED        = :finalized
 
-        # In addition to the states above, the following constants are used
-        # by job notification
+        # The job has been dropped, i.e. its mission status has been removed
+        JOB_DROPPED          = :dropped
+        # The job has been recaptured, i.e it was dropped and its mission status
+        # has been reestablished
+        JOB_RECAPTURED       = :recaptured
+
+        # Initial notification, when the interface starts monitoring a job
         JOB_MONITORED        = :monitored
+        # The job got replaced by a task that is not this job
+        JOB_LOST             = :lost
+        # The job placeholder task got replaced, and the replacement is managed
+        # under the same job
         JOB_REPLACED         = :replaced
 
         def self.terminal_state?(state)
@@ -103,8 +121,7 @@ module Roby
             # @return [Integer] the job ID
             def start_job(m, arguments = Hash.new)
                 engine.execute do
-                    task, planning_task = app.prepare_action(m, arguments.merge(:job_id => Job.allocate_job_id))
-                    app.plan.add_mission(task)
+                    task, planning_task = app.prepare_action(m, arguments.merge(job_id: Job.allocate_job_id), mission: true)
                     planning_task.job_id
                 end
             end
@@ -197,10 +214,11 @@ module Roby
             #   @yieldparam [Task] task the job's placeholder task
             #   @yieldparam [Task] job_task the job task
             #
-            #   Interface for JOB_MONITORED notifications
+            #   Interface for JOB_MONITORED notifications, called when the job
+            #   task is initially detected
             #
             # @overload on_job_notification
-            #   @yieldparam JOB_REPLACED
+            #   @yieldparam JOB_REPLACED or JOB_LOST
             #   @yieldparam [Integer] job_id the job ID (unique)
             #   @yieldparam [String] job_name the job name (non-unique)
             #   @yieldparam [Task] task the new task this job is now tracking
@@ -241,7 +259,8 @@ module Roby
             def monitor_job(planning_task, task)
                 job_id   = planning_task.job_id
                 job_name = planning_task.job_name
-                monitor_active = true
+                service_points_to_job, job_dropped, monitor_active =
+                    true, false, true
                 job_notify(JOB_MONITORED, job_id, job_name, task, planning_task)
                 job_notify(job_state(task), job_id, job_name)
 
@@ -264,10 +283,28 @@ module Roby
                 end
 
                 service = PlanService.new(task)
+                service.on_plan_status_change do |status|
+                    if service_points_to_job
+                        if job_dropped && (status == :mission)
+                            job_notify(JOB_RECAPTURED, job_id, job_name)
+                            job_notify(job_state(task), job_id, job_name)
+                            job_dropped = false
+                        elsif !job_dropped && (status != :mission)
+                            job_notify(JOB_DROPPED, job_id, job_name)
+                            job_dropped = true
+                        end
+                        monitor_active = service_points_to_job && !job_dropped
+                    end
+                end
                 service.on_replacement do |current, new|
-                    monitor_active = (job_id_of_task(new) == job_id)
-                    if monitor_active
-                        job_notify(JOB_REPLACED, job_id, job_name, new)
+                    service_points_to_job = (job_id_of_task(new) == job_id)
+                    monitor_active = service_points_to_job && !job_dropped
+                    if !job_dropped
+                        if service_points_to_job
+                            job_notify(JOB_REPLACED, job_id, job_name, new)
+                        else
+                            job_notify(JOB_LOST, job_id, job_name, new)
+                        end
                     end
                 end
                 service.on(:start) do |ev|
@@ -295,6 +332,8 @@ module Roby
             def job_state(task)
                 if !task
                     return JOB_FINALIZED
+                elsif !plan.mission?(task)
+                    return JOB_DROPPED
                 elsif task.success_event.happened?
                     return JOB_SUCCESS
                 elsif task.failed_event.happened?

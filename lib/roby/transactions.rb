@@ -453,9 +453,6 @@ module Roby
         #
         # snippet in your redefinition if you do so.
         def apply_modifications_to_plan
-            auto_tasks.each      { |t| plan.unmark_permanent(t) }
-            discarded_tasks.each { |t| plan.unmark_mission(t) }
-
             discover_tasks  = ValueSet.new
             discover_events  = ValueSet.new
             new_missions    = ValueSet.new
@@ -545,6 +542,9 @@ module Roby
             active_fault_response_tables.each do |tbl|
                 plan.use_fault_response_table tbl.model, tbl.arguments
             end
+
+            auto_tasks.each      { |t| plan.unmark_permanent(t) }
+            discarded_tasks.each { |t| plan.unmark_mission(t) }
 
             super if defined? super
         end

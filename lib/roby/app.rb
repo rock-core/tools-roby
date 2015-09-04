@@ -2045,13 +2045,18 @@ module Roby
         # point.
         #
         # @return task, planning_task
-        def prepare_action(name, arguments = Hash.new)
+        def prepare_action(name, arguments = Hash.new, mission: false)
             if name.kind_of?(Class)
                 planner_model, m = action_from_model(name)
             else
                 planner_model, m = action_from_name(name)
             end
-            plan.add(task = m.plan_pattern(arguments))
+
+            if mission
+                plan.add_mission(task = m.plan_pattern(arguments))
+            else
+                plan.add(task = m.plan_pattern(arguments))
+            end
             return task, task.planning_task
         end
 

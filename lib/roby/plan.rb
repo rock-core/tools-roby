@@ -417,8 +417,9 @@ module Roby
                 task = task.as_plan
             end
 	    return if @missions.include?(task)
-	    add(task)
             add_mission_task(task)
+	    add(task)
+            notify_plan_status_change(task, :mission)
 	    self
 	end
 	# Hook called when +tasks+ have been inserted in this plan
@@ -435,10 +436,12 @@ module Roby
 	# Removes the task in +tasks+ from the list of missions
 	def unmark_mission(task)
             task = task.to_task
+            return if !@missions.include?(task)
 	    @missions.delete(task)
 	    task.mission = false if task.self_owned?
 
 	    unmarked_mission(task)
+            notify_plan_status_change(task, :normal)
 	    self
 	end
 
@@ -472,12 +475,15 @@ module Roby
             if object.respond_to?(:as_plan)
                 object = object.as_plan
             end
-            add(object)
 
-            if object.kind_of?(Task)
+            if object.respond_to?(:to_task)
+                task = object.to_task
                 add_permanent_task(object)
+                add(object)
+                notify_plan_status_change(object, :permanent)
             else
                 add_permanent_event(object)
+                add(object)
             end
             self
 	end
@@ -489,7 +495,11 @@ module Roby
         # See also #add_permanent and #permanent?
 	def unmark_permanent(object)
             if object.respond_to?(:to_task)
-                @permanent_tasks.delete(object.to_task) 
+                object = object.to_task
+                if @permanent_tasks.include?(object)
+                    @permanent_tasks.delete(object)
+                    notify_plan_status_change(object, :normal)
+                end
             elsif object.respond_to?(:to_event)
                 @permanent_events.delete(object.to_event)
             else
@@ -507,6 +517,13 @@ module Roby
                 @permanent_events.include?(object.to_event)
             else
                 raise ArgumentError, "expected a task or event and got #{object}"
+            end
+        end
+
+        # Perform notifications related to the status change of a task
+        def notify_plan_status_change(task, status)
+            if services = plan_services[task]
+                services.each { |s| s.notify_plan_status_change(status) }
             end
         end
 
@@ -549,15 +566,17 @@ module Roby
 	    yield(from, to)
 
 	    if mission?(from)
-		unmark_mission(from)
 		add_mission(to)
+                replaced(from, to)
+		unmark_mission(from)
 	    elsif permanent?(from)
-		unmark_permanent(from)
 		add_permanent(to)
+                replaced(from, to)
+		unmark_permanent(from)
 	    else
 		add(to)
+                replaced(from, to)
 	    end
-	    replaced(from, to)
         end
 
 	def handle_replace(from, to) # :nodoc:
@@ -666,17 +685,17 @@ module Roby
 
         def add_mission_task(task)
 	    return if missions.include?(task)
-            add_task(task)
 	    missions << task
 	    task.mission = true if task.self_owned?
+            add_task(task)
 	    added_mission(task)
 	    true
         end
 
         def add_permanent_task(task)
             return if permanent_tasks.include?(task)
-            add_task(task)
             permanent_tasks << task
+            add_task(task)
             true
         end
 
