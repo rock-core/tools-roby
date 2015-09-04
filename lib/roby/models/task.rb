@@ -227,7 +227,7 @@ module Roby
             # True if this task is an abstract task.
             #
             # See Task::abstract() for more information.
-            attr_predicate :abstract?
+            attr_predicate :abstract?, true
 
             # Declare that this task model defines abstract tasks. Abstract
             # tasks can be used to represent an action, without specifically
