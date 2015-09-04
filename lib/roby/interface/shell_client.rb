@@ -145,6 +145,14 @@ module Roby
                         client.call(path, m, *args)
                     end
                 end
+            rescue Exception => e
+                msg = Roby.format_exception(e)
+                if msg[0]
+                    msg[0] = Roby.color(msg[0], :red)
+                end
+                puts msg.join("\n")
+                puts "  " + e.backtrace.join("\n  ")
+                nil
             end
 
             def format_notification(source, level, message)
