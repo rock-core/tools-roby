@@ -34,7 +34,9 @@ class Exception
         end
 
         def proxy(peer)
-            self.class.new(peer.local_object(exception_class), formatted_message)
+            exception = self.class.new(peer.local_object(exception_class), formatted_message)
+            exception.set_backtrace backtrace
+            exception
         end
 
         def kind_of?(obj)
