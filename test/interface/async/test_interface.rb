@@ -171,15 +171,19 @@ module Roby
                             flexmock(server.interface).should_receive(:find_job_info_by_id).
                                 with(1).
                                 and_return(['a', 'b', 'c'])
+                            server.interface.tracked_jobs << 1
                         end
 
                         it "calls the hook on jobs created by a third party" do
                             server.interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            server.interface.push_pending_job_notifications
                             process_call { client.poll }
                         end
                         it "does not call the hook on jobs that have already been seen" do
                             server.interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            server.interface.push_pending_job_notifications
                             server.interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            server.interface.push_pending_job_notifications
                             process_call { client.poll }
                         end
                         it "calls the hook only once on jobs created by the interface" do
@@ -187,6 +191,7 @@ module Roby
                             flexmock(server.interface).should_receive(:start_job).once.and_return(1)
                             process_call { client.client.action! }
                             server.interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            server.interface.push_pending_job_notifications
                             process_call { client.poll }
                         end
                     end

@@ -78,6 +78,15 @@ module Roby
             #   added with {#on_job_notification} and removed with
             #   {#remove_job_listener}
             attr_reader :job_listeners
+            # @api private
+            #
+            # @return [Set<Integer>] the set of tracked jobs
+            # @see tracked_job?
+            attr_reader :tracked_jobs
+            # @api private
+            #
+            # The set of pending job notifications for this cycle
+            attr_reader :job_notifications
 
             # Creates an interface from an existing Roby application
             #
@@ -89,7 +98,12 @@ module Roby
                         monitor_job(task, planned_task)
                     end
                 end
+                engine.at_cycle_end do
+                    push_pending_job_notifications
+                end
 
+                @tracked_jobs = Set.new
+                @job_notifications = Array.new
                 @job_listeners = Array.new
             end
 
@@ -180,8 +194,35 @@ module Roby
             #
             # Listeners are registered with {#on_job_notification}
             def job_notify(kind, job_id, job_name, *args)
+                job_notifications << [kind, job_id, job_name, args]
+            end
+
+            # @api private
+            #
+            # Called in at_cycle_end to push job notifications
+            def push_pending_job_notifications
+                # Re-track jobs for which we have a recapture event
+                job_notifications.each do |event, job_id, *|
+                    if event == JOB_RECAPTURED || event == JOB_MONITORED
+                        tracked_jobs << job_id
+                    end
+                end
+
+                job_notifications = self.job_notifications.find_all do |event, job_id, *|
+                    tracked_jobs.include?(job_id)
+                end
+                self.job_notifications.clear
+
                 each_job_listener do |listener|
-                    listener.call(kind, job_id, job_name, *args)
+                    job_notifications.each do |kind, job_id, job_name, *args|
+                        listener.call(kind, job_id, job_name, *args)
+                    end
+                end
+
+                job_notifications.each do |event, job_id, *|
+                    if event == JOB_LOST || event == JOB_FINALIZED
+                        tracked_jobs.delete(job_id)
+                    end
                 end
             end
 
@@ -257,26 +298,24 @@ module Roby
             #
             # It must be called within the Roby execution thread
             def monitor_job(planning_task, task)
+                # NOTE: this method MUST queue job notifications
+                # UNCONDITIONALLY. Job tracking is done on a per-cycle basis (in
+                # at_cycle_end) by {#push_pending_job_notifications}
+
                 job_id   = planning_task.job_id
                 job_name = planning_task.job_name
-                service_points_to_job, job_dropped, monitor_active =
-                    true, false, true
                 job_notify(JOB_MONITORED, job_id, job_name, task, planning_task)
                 job_notify(job_state(task), job_id, job_name)
 
                 if planner = task.planning_task
                     planner.on :start do |ev|
-                        if monitor_active
-                            job_notify(JOB_PLANNING, job_id, job_name)
-                        end
+                        job_notify(JOB_PLANNING, job_id, job_name)
                     end
                     planner.on :success do |ev|
-                        if monitor_active
-                            job_notify(JOB_READY, job_id, job_name)
-                        end
+                        job_notify(JOB_READY, job_id, job_name)
                     end
                     planner.on :stop do |ev|
-                        if monitor_active && !ev.task.success?
+                        if !ev.task.success?
                             job_notify(JOB_PLANNING_FAILED, job_id, job_name)
                         end
                     end
@@ -284,48 +323,31 @@ module Roby
 
                 service = PlanService.new(task)
                 service.on_plan_status_change do |status|
-                    if service_points_to_job
-                        if job_dropped && (status == :mission)
-                            job_notify(JOB_RECAPTURED, job_id, job_name)
-                            job_notify(job_state(task), job_id, job_name)
-                            job_dropped = false
-                        elsif !job_dropped && (status != :mission)
-                            job_notify(JOB_DROPPED, job_id, job_name)
-                            job_dropped = true
-                        end
-                        monitor_active = service_points_to_job && !job_dropped
+                    if status == :mission
+                        job_notify(JOB_RECAPTURED, job_id, job_name)
+                        job_notify(job_state(task), job_id, job_name)
+                    elsif (status != :mission)
+                        job_notify(JOB_DROPPED, job_id, job_name)
                     end
                 end
                 service.on_replacement do |current, new|
-                    service_points_to_job = (job_id_of_task(new) == job_id)
-                    monitor_active = service_points_to_job && !job_dropped
-                    if !job_dropped
-                        if service_points_to_job
-                            job_notify(JOB_REPLACED, job_id, job_name, new)
-                        else
-                            job_notify(JOB_LOST, job_id, job_name, new)
-                        end
+                    if job_id_of_task(new) == job_id
+                        job_notify(JOB_REPLACED, job_id, job_name, new)
+                    else
+                        job_notify(JOB_LOST, job_id, job_name, new)
                     end
                 end
                 service.on(:start) do |ev|
-                    if monitor_active
-                        job_notify(JOB_STARTED, job_id, job_name)
-                    end
+                    job_notify(JOB_STARTED, job_id, job_name)
                 end
                 service.on(:success) do |ev|
-                    if monitor_active
-                        job_notify(JOB_SUCCESS, job_id, job_name)
-                    end
+                    job_notify(JOB_SUCCESS, job_id, job_name)
                 end
                 service.on(:failed) do |ev|
-                    if monitor_active
-                        job_notify(JOB_FAILED, job_id, job_name)
-                    end
+                    job_notify(JOB_FAILED, job_id, job_name)
                 end
                 service.when_finalized do 
-                    if monitor_active
-                        job_notify(JOB_FINALIZED, job_id, job_name)
-                    end
+                    job_notify(JOB_FINALIZED, job_id, job_name)
                 end
             end
 
