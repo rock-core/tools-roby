@@ -7,8 +7,11 @@ module Roby
             # @return [Boolean] true if the local process is the client or the
             #   server
             attr_predicate :client?
+            # @return [Distributed::RemoteObjectManager] a manager object used
+            #   to demarshal objects to/from the connection
+            attr_reader :remote_object_manager
 
-            def initialize(io, client)
+            def initialize(io, client, remote_object_manager: Distributed::DumbManager)
                 @io = io
                 @client = client
 
@@ -18,6 +21,7 @@ module Roby
                     else
                         WebSocket::Frame::Incoming::Server.new
                     end
+                @remote_object_manager = remote_object_manager
             end
 
             def to_io
@@ -55,7 +59,7 @@ module Roby
                                    rescue TypeError => e
                                        raise ProtocolError, "failed to unmarshal received packet: #{e.message}"
                                    end
-                    Distributed::DumbManager.local_object(unmarshalled)
+                    remote_object_manager.local_object(unmarshalled)
                 end
 
             rescue Errno::ECONNRESET, EOFError
@@ -70,7 +74,7 @@ module Roby
             # @param [Object] object the object to be sent
             # @return [void]
             def write_packet(object)
-                marshalled = Marshal.dump(object.droby_dump(nil))
+                marshalled = Marshal.dump(object.droby_dump(remote_object_manager))
                 packet =
                     if client?
                         WebSocket::Frame::Outgoing::Client.new(data: marshalled, type: :binary)

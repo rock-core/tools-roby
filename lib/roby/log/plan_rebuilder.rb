@@ -264,7 +264,7 @@ module Roby
 	class PlanRebuilder
             # The PlanReplayPeer that is being used to do RemoteID-to-local
             # object mapping
-	    attr_reader :manager
+	    attr_reader :remote_object_manager
             # The Plan object into which we rebuild information
             attr_reader :plan
             # For future use, right now it is [plan]
@@ -285,20 +285,13 @@ module Roby
             # filters applied on the event stream
             attr_reader :event_filters
 
-	    def initialize(options = Hash.new)
-                if !options.kind_of?(Hash)
-                    options = { :main => options }
-                end
-                options = Kernel.validate_options options,
-                    :plan => Roby::Plan.new,
-                    :main => true
-
-                @plan = options[:plan]
+            def initialize(plan: Roby::Plan.new, main: true)
+                @plan = plan
                 @plan.extend ReplayPlan
                 @plans = [@plan]
-                @manager = create_remote_object_manager
-                if options[:main]
-                    Distributed.setup_log_replay(manager)
+                @remote_object_manager = create_remote_object_manager
+                if main
+                    Distributed.setup_log_replay(remote_object_manager)
                 end
                 Distributed.disable_ownership
                 @history = Array.new
@@ -434,7 +427,7 @@ module Roby
 	    
 	    def clear
                 plans.each(&:clear)
-                manager.clear
+                remote_object_manager.clear
                 history.clear
 	    end
 
@@ -480,7 +473,7 @@ module Roby
             end
 
 	    def local_object(object, create = true)
-                return manager.local_object(object, create)
+                return remote_object_manager.local_object(object, create)
 	    end
 
 	    def clear_integrated
@@ -560,7 +553,7 @@ module Roby
                     plan.remove_object(event)
                     announce_structure_update(plan)
                 end
-                manager.removed_sibling(event_id)
+                remote_object_manager.removed_sibling(event_id)
 	    end
 	    def finalized_task(time, plan, task_id)
 		task = local_object(task_id)
@@ -571,7 +564,7 @@ module Roby
                     plan.remove_object(task)
                     announce_structure_update(plan)
                 end
-                manager.removed_sibling(task_id)
+                remote_object_manager.removed_sibling(task_id)
 	    end
 	    def added_transaction(time, plan, trsc)
 		plan = local_object(plan)
@@ -582,7 +575,7 @@ module Roby
 		plan = local_object(plan)
 		trsc = local_object(trsc_id)
 		plans.delete(trsc)
-                manager.removed_sibling(trsc_id)
+                remote_object_manager.removed_sibling(trsc_id)
 	    end
 
 	    GENERATOR_TO_STATE = { :start => :started,

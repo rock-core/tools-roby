@@ -6,7 +6,6 @@ module Roby
         module Async
             # Asynchronous access to the log stream
             class Log
-                attr_reader :plan
                 attr_reader :plan_rebuilder
 
                 include Hooks
@@ -54,11 +53,19 @@ module Roby
                 DEFAULT_HOST = "localhost"
                 DEFAULT_PORT = Roby::Log::Server::DEFAULT_PORT
 
-                def initialize(host = DEFAULT_REMOTE_NAME, port: DEFAULT_PORT, connect: true)
+                # @api private
+                #
+                # Create a plan rebuilder for use in the async object
+                def default_plan_rebuilder
+                    plan = Roby::Plan.new
+                    Roby::LogReplay::PlanRebuilder.new(plan: plan)
+                end
+
+                def initialize(host = DEFAULT_REMOTE_NAME, port: DEFAULT_PORT, connect: true,
+                               plan_rebuilder: default_plan_rebuilder)
                     @host = host
                     @port = port
-                    @plan = Roby::Plan.new
-                    @plan_rebuilder = Roby::LogReplay::PlanRebuilder.new(plan: plan)
+                    @plan_rebuilder = plan_rebuilder
                     @first_connection_attempt = true
                     @closed = false
                     if connect
@@ -176,8 +183,6 @@ module Roby
                             Interface.info "successfully connected"
                             @client = connection_future.value
                             plan_rebuilder.clear
-                            @plan = Roby::Plan.new
-                            @plan_rebuilder = Roby::LogReplay::PlanRebuilder.new(plan: plan)
                             run_hook :on_reachable
 
                             client.on_init_progress do |received, expected|

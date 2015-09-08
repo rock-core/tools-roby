@@ -75,10 +75,11 @@ module Roby
         # Connect to a Roby controller interface at this host and port
         #
         # @return [Client] the client object that gives access
-        def self.connect_with_tcp_to(host, port)
+        def self.connect_with_tcp_to(host, port, remote_object_manager: Distributed::DumbManager)
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
-            Client.new(DRobyChannel.new(socket, true), "#{addr[2]}:#{addr[1]}")
+            Client.new(DRobyChannel.new(socket, true, remote_object_manager: remote_object_manager),
+                       "#{addr[2]}:#{addr[1]}")
         rescue Errno::ECONNREFUSED
             raise ConnectionError, "failed to connect to #{host}:#{port}"
         end

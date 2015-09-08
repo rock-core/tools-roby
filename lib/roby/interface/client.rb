@@ -23,7 +23,14 @@ module Roby
             #   It is always growing and will never collide with a notification ID
             attr_reader :exception_queue
 
-            # @param [DRobyChannel] a channel to the server
+            # Create a client endpoint to a Roby interface [Server]
+            #
+            # @param [DRobyChannel] io a channel to the server
+            # @param [Object] String a unique identifier for this client
+            #   (e.g. host:port of the local endpoint when using TCP). It is
+            #   passed to the server through {Server#handshake}
+            #
+            # @see Interface.connect_with_tcp_to
             def initialize(io, id)
                 @io = io
                 @message_id = 0
