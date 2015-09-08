@@ -25,6 +25,13 @@ module Roby
                 end
             end
 
+            # Returns the port this server is bound to
+            #
+            # @return [Integer]
+            def port
+                server.addr(false)[1]
+            end
+
             # Creates a server object that will manage the replies on a
             # particular TCP socket
             #

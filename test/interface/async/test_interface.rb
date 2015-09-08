@@ -19,27 +19,32 @@ module Roby
                     @interface_servers.each(&:close)
                 end
 
+                def default_server_port
+                    Distributed::DEFAULT_DROBY_PORT + 1
+                end
+
                 def create_server
-                    server = Roby::Interface::TCPServer.new(Roby.app, Distributed::DEFAULT_DROBY_PORT)
+                    server = Roby::Interface::TCPServer.new(Roby.app, default_server_port)
                     @interface_servers << server
                     server
                 end
 
-                def create_client(*args, **options, &block)
-                    interface = Interface.new(*args, **options, &block)
+                def create_client(*args, port: default_server_port, **options, &block)
+                    interface = Interface.new(*args, port: default_server_port, **options, &block)
                     @interfaces << interface
                     interface
                 end
 
-                def connect(server = nil, *args, **options, &block)
+                def connect(server = nil, **options, &block)
                     server ||= create_server
-                    client = create_client(*args, **options)
+                    client = create_client('localhost', port: server.port, **options)
                     yield(client) if block_given?
+                    client
+                ensure
                     while !client.connection_future.complete?
                         server.process_pending_requests
                     end
                     client.poll
-                    client
                 end
 
                 def process_call(&block)
@@ -87,7 +92,7 @@ module Roby
                                    jobs.first.job_id == 1 &&
                                    jobs.first.state == 'a' &&
                                    jobs.first.task == 'c' })
-                        client = connect(server) do |c|
+                        connect(server) do |c|
                             c.on_reachable { |jobs| recorder.called(jobs) }
                         end
                     end

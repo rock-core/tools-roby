@@ -111,9 +111,9 @@ module Roby
 
                 DEFAULT_REMOTE_NAME = "localhost"
 
-                def initialize(remote_name = DEFAULT_REMOTE_NAME, connect: true, &connection_method)
+                def initialize(remote_name = DEFAULT_REMOTE_NAME, port: Distributed::DEFAULT_DROBY_PORT, connect: true, &connection_method)
                     @connection_method = connection_method || lambda {
-                        Roby::Interface.connect_with_tcp_to(remote_name, Distributed::DEFAULT_DROBY_PORT)
+                        Roby::Interface.connect_with_tcp_to(remote_name, port)
                     }
 
                     @remote_name = remote_name
