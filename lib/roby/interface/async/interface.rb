@@ -113,7 +113,7 @@ module Roby
 
                 def initialize(remote_name = DEFAULT_REMOTE_NAME, connect: true, &connection_method)
                     @connection_method = connection_method || lambda {
-                        Roby::Interface.connect_with_tcp_to('localhost', Distributed::DEFAULT_DROBY_PORT)
+                        Roby::Interface.connect_with_tcp_to(remote_name, Distributed::DEFAULT_DROBY_PORT)
                     }
 
                     @remote_name = remote_name
