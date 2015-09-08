@@ -7,31 +7,46 @@ class NilClass
 end
 class Array
     def proxy(peer) # :nodoc:
-	map do |element| 
-	    catch(:ignore_this_call) { peer.local_object(element) }
+        result = Array.new
+	each do |element| 
+            Roby::Distributed.catch_ignored_call do
+                result << peer.local_object(element)
+            end
 	end
+        result
     end
 end
 class Hash
     def proxy(peer) # :nodoc:
-	inject({}) do |h, (k, v)| 
-	    h[peer.local_object(k)] = catch(:ignore_this_call) { peer.local_object(v) }
-	    h
+        result = Hash.new
+        each do |k, v|
+            Roby::Distributed.catch_ignored_call do
+                result[peer.local_object(k)] = peer.local_object(v)
+            end
 	end
+        result
     end
 end
 class Set
     def proxy(peer) # :nodoc:
-	map do |element| 
-	    catch(:ignore_this_call) { peer.local_object(element) }
-	end.to_set
+        result = Set.new
+        each do |element|
+            Roby::Distributed.catch_ignored_call do
+                result << peer.local_object(element)
+            end
+	end
+        result
     end
 end
 class ValueSet
     def proxy(peer) # :nodoc:
-	map do |element| 
-	    catch(:ignore_this_call) { peer.local_object(element) }
-	end.to_value_set
+        result = ValueSet.new
+        each do |element|
+            Roby::Distributed.catch_ignored_call do
+                result << peer.local_object(element)
+            end
+	end
+        result
     end
 end
 

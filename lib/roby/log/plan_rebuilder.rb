@@ -243,15 +243,15 @@ module Roby
                     object.extend PlanObjectLogRebuilder
                 end
                 if object.kind_of?(Roby::Task::Proxying::DRoby)
-                    throw :ignored
+                    Distributed.ignore!
                 end
                 if object.kind_of?(Roby::TaskEventGenerator::DRoby) && object.task.kind_of?(Roby::Task::Proxying::DRoby)
-                    throw :ignored
+                    Distributed.ignore!
                 end
                 super
 
             rescue Roby::Distributed::MissingProxyError
-                throw :ignored
+                Distributed.ignore!
             end
         end
 
@@ -453,7 +453,7 @@ module Roby
             def process_one_event(m, sec, usec, args)
                 time = Time.at(sec, usec)
                 @current_time = time
-                reason = catch :ignored do
+                reason = Distributed.catch_ignored_call do
                     begin
                         if respond_to?(m)
                             send(m, time, *args)
@@ -606,8 +606,8 @@ module Roby
 	    def added_task_child(time, parent, rel, child, info)
 		parent = local_object(parent)
 		child  = local_object(child)
-		if !parent   then throw :ignored, "unknown parent"
-		elsif !child then throw :ignored, "unknown child"
+                if !parent   then Distributed.ignore!("unknown parent")
+                elsif !child then Distributed.ignore!("unknown child")
 		end
 
 		rel    = rel.first if rel.kind_of?(Array)

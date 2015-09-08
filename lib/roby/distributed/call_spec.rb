@@ -46,5 +46,11 @@ module Roby
 	def self.ignore!
 	    throw :ignore_this_call
 	end
+
+        def self.catch_ignored_call
+            catch :ignore_this_call do
+                yield
+            end
+        end
     end
 end
