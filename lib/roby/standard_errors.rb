@@ -40,7 +40,11 @@ class Exception
         end
 
         def kind_of?(obj)
-            obj <= exception_class
+            if exception_class.kind_of?(Class)
+                exception_class <= obj
+            else
+                super
+            end
         end
     end
 
