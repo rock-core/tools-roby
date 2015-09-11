@@ -6,7 +6,16 @@ module Roby
         module Async
             # Asynchronous access to the log stream
             class Log
+                # The plan rebuilder object, which processes the log stream to
+                # rebuild {#plan}
+                #
+                # @return [Roby::LogReplay::PlanRebuilder]
                 attr_reader :plan_rebuilder
+
+                # The plan self is working on
+                #
+                # @return [Roby::Plan]
+                def plan; plan_rebuilder.plan end
 
                 include Hooks
                 include Hooks::InstanceHooks
