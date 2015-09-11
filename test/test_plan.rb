@@ -546,7 +546,6 @@ class TC_Plan < Minitest::Test
 end
 
 describe Roby::Plan do
-
     describe "#add_trigger" do
         it "yields new tasks that match the given object" do
             match = flexmock
@@ -598,6 +597,25 @@ describe Roby::Plan do
             plan.remove_trigger trigger
             match.should_receive(:===).never
             plan.add Roby::Task.new
+        end
+    end
+    
+    describe "#add_mission" do
+        it "ensures that the task is already in the mission set when passed to a trigger" do
+            plan.add_trigger Roby::Task do |task|
+                assert plan.mission?(task)
+                assert task.mission?
+            end
+            plan.add_mission(Roby::Task.new)
+        end
+    end
+    
+    describe "#add_permanent" do
+        it "ensures that the task is already in the permanent set when passed to a trigger" do
+            plan.add_trigger Roby::Task do |task|
+                assert plan.permanent?(task)
+            end
+            plan.add_permanent(Roby::Task.new)
         end
     end
 end

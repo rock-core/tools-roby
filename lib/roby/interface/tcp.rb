@@ -14,11 +14,22 @@ module Roby
             # @param [Integer] port
             def initialize(app, port = Roby::Distributed::DEFAULT_DROBY_PORT)
                 @interface = Interface.new(app)
-                @server = ::TCPServer.new(port)
+                @server =
+                    begin ::TCPServer.new(port)
+                    rescue TypeError
+                        raise Errno::EADDRINUSE, "#{port} already in use"
+                    end
                 @clients = Array.new
                 @propagation_handler_id = interface.engine.add_propagation_handler(:on_error => :ignore) do
                     process_pending_requests
                 end
+            end
+
+            # Returns the port this server is bound to
+            #
+            # @return [Integer]
+            def port
+                server.addr(false)[1]
             end
 
             # Creates a server object that will manage the replies on a
@@ -71,10 +82,11 @@ module Roby
         # Connect to a Roby controller interface at this host and port
         #
         # @return [Client] the client object that gives access
-        def self.connect_with_tcp_to(host, port)
+        def self.connect_with_tcp_to(host, port, remote_object_manager: Distributed::DumbManager)
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
-            Client.new(DRobyChannel.new(socket, true), "#{addr[2]}:#{addr[1]}")
+            Client.new(DRobyChannel.new(socket, true, remote_object_manager: remote_object_manager),
+                       "#{addr[2]}:#{addr[1]}")
         rescue Errno::ECONNREFUSED
             raise ConnectionError, "failed to connect to #{host}:#{port}"
         end

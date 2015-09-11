@@ -1,17 +1,102 @@
+class Exception
+    def self.match
+        Roby::CodeError.match.with_ruby_exception(self)
+    end
+
+    def self.to_execution_exception_matcher
+        match.to_execution_exception_matcher
+    end
+
+    def pretty_print(pp)
+        pp.text "#{message} (#{self.class.name})"
+    end
+    
+    # True if +obj+ is involved in this error
+    def involved_plan_object?(obj)
+        false
+    end
+
+    def user_error?; false end
+
+    class DRoby < Exception
+        attr_reader :exception_class
+        attr_reader :formatted_message
+
+        def initialize(exception_class, formatted_message)
+            @exception_class, @formatted_message =
+                exception_class, formatted_message
+        end
+
+        def pretty_print(pp)
+            pp.seplist(formatted_message) do |line|
+                pp.text line
+            end
+        end
+
+        def proxy(peer)
+            exception = self.class.new(peer.local_object(exception_class), formatted_message)
+            exception.set_backtrace backtrace
+            exception
+        end
+
+        def kind_of?(obj)
+            if exception_class.kind_of?(Class)
+                exception_class <= obj
+            else
+                super
+            end
+        end
+    end
+
+
+    def droby_dump(peer)
+        formatted = Roby.format_exception(self)
+        droby = DRoby.new(
+            Roby::Distributed.format(self.class, peer),
+            formatted)
+        droby.set_backtrace backtrace
+        droby
+    end
+end
+
 module Roby
     # Module used to tag exceptions that "wrap" an original error from the user
     # code
     #
     # All such exceptions must give access to the original error by defining an
-    # original_exception accessor
+    # original_exceptions accessor
     module UserExceptionWrapper; end
+
+    # Base class for all Roby exceptions
+    class ExceptionBase < RuntimeError
+        # List of Exception objects that caused this
+        #
+        # @return [Array<Exception>]
+        attr_accessor :original_exceptions
+
+        def initialize(exceptions = Array.new)
+            @original_exceptions = exceptions
+        end
+
+        def report_exceptions_from(object)
+            if object.kind_of?(Exception)
+                original_exceptions << object
+            elsif object.respond_to?(:context) && object.context
+                object.context.each do |c|
+                    report_exceptions_from(c)
+                end
+            elsif object.respond_to?(:failure_reason)
+                report_exceptions_from(object.failure_reason)
+            end
+        end
+    end
 
     # This kind of errors are generated during the plan execution, allowing to
     # blame a fault on a plan object (#failure_point). The precise failure
     # point is categorized in the #failed_event, #failed_generator and
     # #failed_task. It is guaranteed that one of #failed_generator and
     # #failed_task is non-nil.
-    class LocalizedError < RuntimeError
+    class LocalizedError < ExceptionBase
         # If true, such an exception causes the execution engine to stop tasks
         # in the hierarchy. Otherwise, it only causes notification(s).
         def fatal?; true end
@@ -23,7 +108,9 @@ module Roby
 
         # Create a LocalizedError object with the given failure point
         def initialize(failure_point)
+            super()
 	    @failure_point = failure_point
+            @original_exceptions ||= Array.new
 
             @failed_task, @failed_event, @failed_generator = nil
 	    if failure_point.kind_of?(Event)
@@ -45,8 +132,6 @@ module Roby
             if failed_event
                 failed_event.protect_all_sources
             end
-
-            super("")
 	end
 
         def to_execution_exception
@@ -62,29 +147,6 @@ module Roby
             failure_point.pretty_print(pp)
         end
 
-        def pp_failure_reason(pp, reason)
-            if reason.respond_to?(:context) && reason.context
-                pp.text " emission of the #{reason.symbol} event at [#{Roby.format_time(reason.time)} @#{reason.propagation_id}]"
-                reason.context.each do |c|
-                    if c.kind_of?(Exception)
-                        pp.breakable
-                        pp_exception(pp, c)
-                    end
-                end
-            else
-                reason.pretty_print(pp)
-            end
-        end
-
-        def pp_exception(pp, e, backtrace_filter_options = Hash.new)
-            if e.respond_to?(:pretty_print)
-                e.pretty_print(pp)
-            else
-                pp.text e.message
-            end
-            Roby.pretty_print_backtrace(pp, e.backtrace, backtrace_filter_options)
-        end
-
         # True if +obj+ is involved in this error
         def involved_plan_object?(obj)
             obj.kind_of?(PlanObject) && 
@@ -95,17 +157,23 @@ module Roby
 
         # Intermediate representation used to marshal/unmarshal a LocalizedError
         class DRoby
-            attr_reader :model, :failure_point, :message, :backtrace, :formatted_message
-            def initialize(model, failure_point, message, backtrace, formatted_message = [])
-                @model, @failure_point, @message, @backtrace, @formatted_message = model, failure_point, message, backtrace, formatted_message
+            attr_reader :model, :failure_point, :message, :backtrace,
+                :original_exceptions, :formatted_message
+            def initialize(model, failure_point, message, backtrace,
+                           original_exceptions, formatted_message = [])
+                @model, @failure_point, @message, @backtrace,
+                    @original_exceptions, @formatted_message =
+                    model, failure_point, message, backtrace,
+                    original_exceptions, formatted_message
             end
 
             def proxy(peer)
                 failure_point = peer.local_object(self.failure_point)
                 error = UntypedLocalizedError.new(failure_point)
                 error = error.exception(message)
+                error.original_exceptions.concat(original_exceptions)
                 error.set_backtrace(backtrace)
-                error.exception_class = model
+                error.exception_class = peer.local_object(model)
                 error.formatted_message = formatted_message
                 error
             end
@@ -115,10 +183,11 @@ module Roby
         # the +dest+ peer.
         def droby_dump(dest)
             formatted = Roby.format_exception(self)
-            DRoby.new(self.class.droby_dump(dest),
+            DRoby.new(Distributed.format(self.class, dest),
                       Distributed.format(failure_point, dest),
                       message,
                       backtrace,
+                      Distributed.format(original_exceptions, dest),
                       formatted)
         end
 
@@ -135,14 +204,17 @@ module Roby
     # Exception class used on the unmarshalling of LocalizedError for exception
     # classes that do not have their own marshalling
     class UntypedLocalizedError < LocalizedError
-        attr_accessor :exception_class
         attr_accessor :formatted_message
+        attr_accessor :exception_class
 
         def pretty_print(pp)
-            formatted_message.each do |line|
+            pp.seplist(formatted_message) do |line|
                 pp.text line
-                pp.breakable
             end
+        end
+
+        def kind_of?(obj)
+            obj <= exception_class
         end
     end
 
@@ -183,13 +255,17 @@ module Roby
     # Raised when an error occurs on a task while we were terminating it
     class TaskEmergencyTermination < LocalizedError
         attr_reader :reason
+
         def quarantined?
             !!@quarantined
         end
+
         def initialize(task, reason, quarantined = false)
-            @reason = reason
-            @quarantined = quarantined
             super(task)
+
+            @quarantined = quarantined
+            @reason = reason
+            report_exceptions_from(reason)
         end
 
         def pretty_print(pp)
@@ -201,11 +277,11 @@ module Roby
                 pp.text "It is not yet put under quarantine"
             end
             pp.breakable
-
             super
-
             pp.breakable
-            reason.pretty_print(pp)
+            if !original_exceptions.include?(reason)
+                reason.pretty_print(pp)
+            end
         end
     end
 
@@ -236,7 +312,7 @@ module Roby
         include UserExceptionWrapper
 
         # The original exception object
-	attr_reader :original_exception
+        def original_exception; original_exceptions.first end
         # @deprecated use {#original_exception} instead
         def error; original_exception end
         # Create a CodeError object from the given original exception object, and
@@ -246,20 +322,10 @@ module Roby
 		raise TypeError, "#{error} should be an exception"
 	    end
 	    super(*args)
-	    @original_exception = error
+            report_exceptions_from(error)
 	end
 
-	def pretty_print(pp) # :nodoc:
-	    if error
-                pp_failure_point(pp)
-                pp.breakable
-                pp_exception(pp, error, :display_full_framework_backtraces => true)
-	    else
-		super
-	    end
-	end
-
-        def pp_failure_point(pp)
+        def pretty_print(pp)
             pp.text "#{self.class.name}: user code raised an exception "
             failure_point.pretty_print(pp)
         end
@@ -269,19 +335,9 @@ module Roby
         end
     end
 
-    class ::Exception
-        def self.match
-            Roby::CodeError.match.with_ruby_exception(self)
-        end
-
-        def self.to_execution_exception_matcher
-            match.to_execution_exception_matcher
-        end
-    end
-
     # Raised if a command block has raised an exception
     class CommandFailed < CodeError
-        def pp_failure_point(pp)
+        def pretty_print(pp)
             pp.text "uncaught exception in the command of the "
             failed_generator.pretty_print(pp)
         end
@@ -305,23 +361,11 @@ module Roby
 	def pretty_print(pp) # :nodoc:
             pp.text "failed emission of the "
             failed_generator.pretty_print(pp)
-            pp.breakable
-            if error
-                pp.text "because of the following uncaught exception "
-                if error.respond_to?(:pp_failure_point)
-                    error.pp_failure_point(pp)
-                else
-                    pp_exception(pp, error)
-                end
-            end
 	end
-
-        def pp_failure_point(pp)
-        end
     end
     # Raised when an event handler has raised.
     class EventHandlerError < CodeError
-        def pp_failure_point(pp)
+        def pretty_print(pp)
             pp.text "uncaught exception in an event handler of the "
             failed_generator.pretty_print(pp)
             pp.breakable
@@ -345,8 +389,6 @@ module Roby
             pp.text "exception handler #{handler} failed while processing"
             pp.breakable
             handled_exception.pretty_print(pp)
-            pp.breakable
-            pp_exception(pp, error)
         end
     end
 
@@ -360,8 +402,9 @@ module Roby
         # is supposed to be either nil or a plan object which is the reason why
         # +generator+ has become unreachable.
 	def initialize(generator, reason)
-            @reason    = reason
 	    super(generator)
+            @reason    = reason
+            report_exceptions_from(reason)
 	end
 
 	def pretty_print(pp) # :nodoc:
@@ -378,17 +421,9 @@ module Roby
     
     # Exception raised when the event loop aborts because of an unhandled
     # exception
-    class Aborting < RuntimeError
-	attr_reader :all_exceptions
-	def initialize(exceptions)
-            @all_exceptions = exceptions 
-            super("")
-        end
+    class Aborting < ExceptionBase
         def pretty_print(pp) # :nodoc:
             pp.text "control loop aborting because of unhandled exceptions"
-            pp.seplist(",") do
-                all_exceptions.pretty_print(pp)
-            end
         end
 	def backtrace # :nodoc:
             [] 
@@ -437,8 +472,6 @@ module Roby
 	end
 
         def pretty_print(pp)
-            pp.breakable
-
             if reason
                 reason.pretty_print(pp)
             elsif failed_event
@@ -453,7 +486,8 @@ module Roby
     # Exception raised when a mission has failed
     class MissionFailedError < ToplevelTaskError
         def pretty_print(pp)
-            pp.text "mission failed: #{failed_task}"
+            pp.text "mission failed: "
+            failed_task.pretty_print(pp)
             super(pp)
         end
     end
@@ -462,7 +496,8 @@ module Roby
     class PermanentTaskError < ToplevelTaskError
         def fatal?; false end
         def pretty_print(pp)
-            pp.text "permanent task failed: #{failed_task}"
+            pp.text "permanent task failed: "
+            failed_task.pretty_print(pp)
             super(pp)
         end
     end

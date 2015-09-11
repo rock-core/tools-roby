@@ -61,20 +61,48 @@ module Roby
         attr_reader :planning_task
         # The planned task
         def planned_task; failed_task end
+        # The reason for the failure
+        attr_reader :failure_reason
 
-	def initialize(planned_task, planning_task)
-            @planning_task = planning_task
+        def initialize(planned_task, planning_task, failure_reason: planning_task.failure_reason)
 	    super(planned_task)
+            @planning_task = planning_task
+            @failure_reason = failure_reason
+            report_exceptions_from(failure_reason)
 	end
+
         def pretty_print(pp)
             pp.text "failed to plan "
             planned_task.pretty_print(pp)
             pp.breakable
-
+            pp.text "planned by "
             planning_task.pretty_print(pp)
             pp.breakable
             pp.text " failed with "
-            pp_failure_reason(pp, planning_task.failure_reason)
+            failure_reason.pretty_print(pp)
+        end
+
+        class DRoby
+            attr_reader :planned_task
+            attr_reader :planning_task
+            attr_reader :failure_reason
+            def initialize(planned_task, planning_task, failure_reason)
+                @planned_task  = planned_task
+                @planning_task = planning_task
+                @failure_reason = failure_reason
+            end
+            def proxy(peer)
+                planned_task  = peer.local_object(self.planned_task)
+                planning_task = peer.local_object(self.planning_task)
+                failure_reason = peer.local_object(self.failure_reason)
+                PlanningFailedError.new(planned_task, planning_task, failure_reason: failure_reason)
+            end
+        end
+
+        def droby_dump(peer)
+            DRoby.new(Distributed.format(planned_task, peer),
+                      Distributed.format(planning_task, peer),
+                      Distributed.format(failure_reason, peer))
         end
     end
 end

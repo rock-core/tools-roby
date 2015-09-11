@@ -74,7 +74,6 @@ module Roby
 	extend Logger::Forward
 
 	@updated_objects = ValueSet.new
-	@allowed_remote_access = Array.new
 	@keep = RefCounting.new
 	@removed_objects = ValueSet.new
 	class << self
@@ -248,26 +247,6 @@ module Roby
             def remote_name; "local" end
 	end
 
-        class DumbManager
-            def self.local_object(obj)
-                if obj.respond_to?(:proxy)
-                    obj.proxy(self)
-                else obj
-                end
-            end
-
-            def self.local_task_tag(*args)
-                Roby::Models::TaskServiceModel::DRoby.anon_tag_factory(*args)
-            end
-
-            def self.local_model(*args)
-                Distributed::DRobyModel.anon_model_factory(*args)
-            end
-
-            def self.connection_space
-                Roby
-            end
-        end
     end
 end
 

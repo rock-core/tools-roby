@@ -787,7 +787,15 @@ module Roby
         # provided value, it is interpreted relative to the application
         # directory. It defaults to "data".
         def log_base_dir
-            File.expand_path(log['dir'] || 'logs', app_dir || Dir.pwd)
+            maybe_relative_dir =
+                if local_conf = log['dir']
+                    local_conf
+                elsif global_base_dir = ENV['ROBY_BASE_LOG_DIR']
+                    File.join(global_base_dir, app_name)
+                else
+                    'logs'
+                end
+            File.expand_path(maybe_relative_dir, app_dir || Dir.pwd)
         end
 
 	# The directory in which logs are to be saved
@@ -1340,7 +1348,12 @@ module Roby
 		logger.stats_mode = (log['events'] == 'stats')
 		Roby::Log.add_logger logger
 
-                start_log_server(logfile)
+                Robot.info "logs are in #{log_dir}"
+                if start_log_server(logfile)
+                    Robot.info "log server running on port #{log_server_port}"
+                else
+                    Robot.info "log server disabled"
+                end
 	    end
 
             call_plugins(:prepare, self)
@@ -1507,6 +1520,8 @@ module Roby
 	    call_plugins(:stop_server, self)
 	end
 
+        attr_reader :log_server_port
+
         def start_log_server(logfile)
 	    # Start a log server if needed, and poll the log directory for new
 	    # data sources
@@ -1524,6 +1539,7 @@ module Roby
                 @log_server = fork do
                     exec("roby-display#{" --debug" if debug} --server=#{port} --sampling=#{sampling_period} #{logfile}-events.log")
                 end
+                @log_server_port = port
 	    end
         end
 
@@ -1531,6 +1547,7 @@ module Roby
             if @log_server
                 Process.kill('INT', @log_server)
                 @log_server = nil
+                @log_server_port = nil
             end
         end
 
@@ -1931,6 +1948,8 @@ module Roby
                     end
                 end
             end
+            Distributed::DRobyConstant.clear_cache
+            Distributed::DRobyModel.clear_cache
             call_plugins(:clear_models, self)
         end
 
@@ -2026,13 +2045,18 @@ module Roby
         # point.
         #
         # @return task, planning_task
-        def prepare_action(name, arguments = Hash.new)
+        def prepare_action(name, arguments = Hash.new, mission: false)
             if name.kind_of?(Class)
                 planner_model, m = action_from_model(name)
             else
                 planner_model, m = action_from_name(name)
             end
-            plan.add(task = m.plan_pattern(arguments))
+
+            if mission
+                plan.add_mission(task = m.plan_pattern(arguments))
+            else
+                plan.add(task = m.plan_pattern(arguments))
+            end
             return task, task.planning_task
         end
 
@@ -2059,9 +2083,9 @@ module Roby
         # Registers a block to be called when a message needs to be
         # dispatched
         #
-        # @yieldparam [String] the source of the message
+        # @yieldparam [String] source the source of the message
         # @yieldparam [String] level the log level
-        # @yieldparam [String] message
+        # @yieldparam [String] message the message itself
         # @return [Object] the listener ID that can be given to
         #   {#remove_notification}
         def on_notification(&block)
@@ -2069,7 +2093,7 @@ module Roby
             block
         end
 
-        # Removes a notification listener
+        # Removes a notification listener added with {#on_notification}
         #
         # @param [Object] listener the listener ID returned by
         #   {#on_notification}

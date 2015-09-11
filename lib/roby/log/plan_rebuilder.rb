@@ -207,6 +207,10 @@ module Roby
                 false
             end
 
+            def remote_siblings
+                Hash.new
+            end
+
             def transmit(*args)
             end
 
@@ -239,15 +243,15 @@ module Roby
                     object.extend PlanObjectLogRebuilder
                 end
                 if object.kind_of?(Roby::Task::Proxying::DRoby)
-                    throw :ignored
+                    Distributed.ignore!
                 end
                 if object.kind_of?(Roby::TaskEventGenerator::DRoby) && object.task.kind_of?(Roby::Task::Proxying::DRoby)
-                    throw :ignored
+                    Distributed.ignore!
                 end
                 super
 
             rescue Roby::Distributed::MissingProxyError
-                throw :ignored
+                Distributed.ignore!
             end
         end
 
@@ -260,7 +264,7 @@ module Roby
 	class PlanRebuilder
             # The PlanReplayPeer that is being used to do RemoteID-to-local
             # object mapping
-	    attr_reader :manager
+	    attr_reader :remote_object_manager
             # The Plan object into which we rebuild information
             attr_reader :plan
             # For future use, right now it is [plan]
@@ -281,20 +285,13 @@ module Roby
             # filters applied on the event stream
             attr_reader :event_filters
 
-	    def initialize(options = Hash.new)
-                if !options.kind_of?(Hash)
-                    options = { :main => options }
-                end
-                options = Kernel.validate_options options,
-                    :plan => Roby::Plan.new,
-                    :main => true
-
-                @plan = options[:plan]
+            def initialize(plan: Roby::Plan.new, main: true)
+                @plan = plan
                 @plan.extend ReplayPlan
                 @plans = [@plan]
-                @manager = create_remote_object_manager
-                if options[:main]
-                    Distributed.setup_log_replay(manager)
+                @remote_object_manager = create_remote_object_manager
+                if main
+                    Distributed.setup_log_replay(remote_object_manager)
                 end
                 Distributed.disable_ownership
                 @history = Array.new
@@ -346,8 +343,10 @@ module Roby
             end
 
             # The starting time of the last processed cycle
+            #
+            # @return [Time]
             def cycle_start_time
-                Time.at(*stats[:start])
+                Time.at(*stats[:start]) + stats[:real_start]
             end
 
             # The time of the last processed log item
@@ -428,7 +427,7 @@ module Roby
 	    
 	    def clear
                 plans.each(&:clear)
-                manager.clear
+                remote_object_manager.clear
                 history.clear
 	    end
 
@@ -447,11 +446,13 @@ module Roby
             def process_one_event(m, sec, usec, args)
                 time = Time.at(sec, usec)
                 @current_time = time
-                reason = catch :ignored do
+                reason = Distributed.catch_ignored_call do
                     begin
                         if respond_to?(m)
                             send(m, time, *args)
                         end
+                    rescue Interrupt
+                        raise
                     rescue Exception => e
                         display_args = args.map do |obj|
                             case obj
@@ -472,7 +473,7 @@ module Roby
             end
 
 	    def local_object(object, create = true)
-                return manager.local_object(object, create)
+                return remote_object_manager.local_object(object, create)
 	    end
 
 	    def clear_integrated
@@ -489,10 +490,10 @@ module Roby
 	    end
 
             def clear_changes
-                @changes =
-                    Hash[:state => Hash.new,
-                     :structure => Hash.new,
-                     :event_propagation => Hash.new]
+                @changes = Hash[
+                    state: Hash.new,
+                    structure: Hash.new,
+                    event_propagation: Hash.new]
             end
 
 	    def inserted_tasks(time, plan, task)
@@ -552,7 +553,7 @@ module Roby
                     plan.remove_object(event)
                     announce_structure_update(plan)
                 end
-                manager.removed_sibling(event_id)
+                remote_object_manager.removed_sibling(event_id)
 	    end
 	    def finalized_task(time, plan, task_id)
 		task = local_object(task_id)
@@ -563,7 +564,7 @@ module Roby
                     plan.remove_object(task)
                     announce_structure_update(plan)
                 end
-                manager.removed_sibling(task_id)
+                remote_object_manager.removed_sibling(task_id)
 	    end
 	    def added_transaction(time, plan, trsc)
 		plan = local_object(plan)
@@ -574,7 +575,7 @@ module Roby
 		plan = local_object(plan)
 		trsc = local_object(trsc_id)
 		plans.delete(trsc)
-                manager.removed_sibling(trsc_id)
+                remote_object_manager.removed_sibling(trsc_id)
 	    end
 
 	    GENERATOR_TO_STATE = { :start => :started,
@@ -590,15 +591,16 @@ module Roby
             end
 
             def task_arguments_updated(time, task, key, value)
-                task = local_object(task)
+                task  = local_object(task)
+                value = local_object(value)
                 task.arguments.values[key] = value
             end
 
 	    def added_task_child(time, parent, rel, child, info)
 		parent = local_object(parent)
 		child  = local_object(child)
-		if !parent   then throw :ignored, "unknown parent"
-		elsif !child then throw :ignored, "unknown child"
+                if !parent   then Distributed.ignore!("unknown parent")
+                elsif !child then Distributed.ignore!("unknown child")
 		end
 
 		rel    = rel.first if rel.kind_of?(Array)

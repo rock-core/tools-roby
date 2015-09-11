@@ -57,6 +57,79 @@ module Roby
             plan.remove_object(t2)
         end
 
+        describe "#on_plan_status_change" do
+            attr_reader :task, :service, :recorder
+            before do
+                plan.add(@task = Roby::Task.new)
+                @service = Roby::PlanService.new(task)
+                @recorder = flexmock
+            end
+            it "is called with the task's initial normal state" do
+                recorder.should_receive(:called).with(:normal).once
+                service.on_plan_status_change { |state| recorder.called(state) }
+            end
+            it "is called with the task's initial mission state" do
+                plan.add_mission(task)
+                recorder.should_receive(:called).with(:mission).once
+                service.on_plan_status_change { |state| recorder.called(state) }
+            end
+            it "is called with the task's initial permanent state" do
+                plan.add_permanent(task)
+                recorder.should_receive(:called).with(:permanent).once
+                service.on_plan_status_change { |state| recorder.called(state) }
+            end
+            it "is called when the task is marked as a mission" do
+                recorder.should_receive(:called).with(:normal).once.ordered
+                recorder.should_receive(:called).with(:mission).once.ordered
+                service.on_plan_status_change { |state| recorder.called(state) }
+                plan.add_mission(task)
+            end
+            it "is called when the task is unmarked as mission" do
+                plan.add_mission(task)
+                recorder.should_receive(:called).with(:mission).once.ordered
+                recorder.should_receive(:called).with(:normal).once.ordered
+                service.on_plan_status_change { |state| recorder.called(state) }
+                plan.unmark_mission(task)
+            end
+            it "is not called when Plan#add_mission is called on a task that is already a mission" do
+                recorder.should_receive(:called).with(:normal).once.ordered
+                recorder.should_receive(:called).with(:mission).once.ordered
+                service.on_plan_status_change { |state| recorder.called(state) }
+                plan.add_mission(task)
+                plan.add_mission(task)
+            end
+            it "is not called when Plan#unmark_mission is called on a task that is not a mission" do
+                recorder.should_receive(:called).with(:normal).once.ordered
+                service.on_plan_status_change { |state| recorder.called(state) }
+                plan.unmark_mission(task)
+            end
+            it "is called when the task is marked as permanent" do
+                recorder.should_receive(:called).with(:normal).once.ordered
+                recorder.should_receive(:called).with(:permanent).once.ordered
+                service.on_plan_status_change { |state| recorder.called(state) }
+                plan.add_permanent(task)
+            end
+            it "is called when the task is unmarked as permanent" do
+                plan.add_permanent(task)
+                recorder.should_receive(:called).with(:permanent).once.ordered
+                recorder.should_receive(:called).with(:normal).once.ordered
+                service.on_plan_status_change { |state| recorder.called(state) }
+                plan.unmark_permanent(task)
+            end
+            it "is not called when Plan#add_permanent is called on a task that is already permanent" do
+                recorder.should_receive(:called).with(:normal).once.ordered
+                recorder.should_receive(:called).with(:permanent).once.ordered
+                service.on_plan_status_change { |state| recorder.called(state) }
+                plan.add_permanent(task)
+                plan.add_permanent(task)
+            end
+            it "is not called when Plan#unmark_permanent is called on a task that is not permanent" do
+                recorder.should_receive(:called).with(:normal).once.ordered
+                service.on_plan_status_change { |state| recorder.called(state) }
+                plan.unmark_permanent(task)
+            end
+        end
+
         describe "transaction behaviour" do
             it "does not call replacement handlers for replacements happening in the transaction" do
                 recorder = flexmock

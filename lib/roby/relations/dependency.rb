@@ -848,15 +848,14 @@ module Roby
         #   :unreachable_success
         attr_reader :mode
 
-	# The event which is the cause of this error. This is either the task
-	# source of a failure event, or the reason why a positive event has
-	# become unreachable (if there is one)
 	def initialize(parent, child, explanation, mode)
             @explanation = explanation
             @mode = mode
 
             events, generators, others = [], [], []
             explanation.elements.each do |e|
+                report_exceptions_from(e)
+
                 case e
                 when Event then events << e
                 when EventGenerator then generators << e

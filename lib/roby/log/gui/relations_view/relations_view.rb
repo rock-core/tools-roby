@@ -48,11 +48,11 @@ module Roby
             end
             slots 'updateWindowTitle()'
 
-            def setCurrentTime(time)
+            def setDisplayTime(time)
                 scheduler_view.display(history_widget.current_plan.consolidated_scheduler_state)
                 view.update(time)
             end
-            slots 'setCurrentTime(QDateTime)'
+            slots 'setDisplayTime(QDateTime)'
 
             def save_options
                 view.save_options

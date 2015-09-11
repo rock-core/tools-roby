@@ -25,11 +25,14 @@ module Roby
         #
         # @see #on_replacement
         attr_reader :replacement_handlers
+        # The set of handlers for mission/permanent status change
+        attr_reader :plan_status_handlers
 
         def initialize(task)
             @event_handlers = Hash.new
             @finalization_handlers = Array.new
             @replacement_handlers = Array.new
+            @plan_status_handlers = Array.new
             self.task = task
             task.plan.add_plan_service(self)
         end
@@ -38,6 +41,7 @@ module Roby
             super
 
             @finalization_handlers = source.finalization_handlers.dup
+            @plan_status_handlers = source.plan_status_handlers.dup
             @event_handlers = source.event_handlers.dup
         end
 
@@ -60,6 +64,31 @@ module Roby
             replacement_handlers << block
         end
 
+        # Registers a callback that is called when the task's mission/permanent
+        # status changes
+        #
+        # @yieldparam [Symbol] status one of :mission, :permanent or :normal
+        def on_plan_status_change(&block)
+            plan_status_handlers << block
+            current_status =
+                if task.plan.mission?(task)
+                    :mission
+                elsif task.plan.permanent?(task)
+                    :permanent
+                else :normal
+                end
+            block.call(current_status)
+        end
+
+        # Called to notify about a plan status change for the underlying task
+        #
+        # @see on_plan_status_change
+        def notify_plan_status_change(new_status)
+            plan_status_handlers.each do |h|
+                h.call(new_status)
+            end
+        end
+
         # Change the underlying task
         def task=(new_task)
             replacement_handlers.each do |h|
@@ -69,7 +98,7 @@ module Roby
 
             # Register event handlers for all events that have a definition
             event_handlers.each_key do |event|
-                new_task.on(event, :on_replace => :drop, &method(:__handle_event__))
+                new_task.on(event, on_replace: :drop, &method(:__handle_event__))
             end
         end
 

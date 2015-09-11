@@ -1,22 +1,3 @@
-class Exception
-    def pretty_print(pp)
-        if backtrace && !backtrace.empty?
-            pp.text "#{backtrace[0]}: #{message} (#{self.class.name})"
-        else
-            pp.text "#{message} (#{self.class.name})"
-        end
-    end
-    
-    # True if +obj+ is involved in this error
-    def involved_plan_object?(obj)
-        false
-    end
-
-    def user_error?; false end
-
-    # DRoby-marshalling is done in distributed/protocol
-end
-
 
 module Roby
     class UserError < RuntimeError
@@ -136,7 +117,6 @@ module Roby
         def pretty_print(pp)
             pp.text "from #{origin} with trace "
             pp.nest(2) do
-                pp.breakable
                 pp.nest(2) do
                     trace.each do |t|
                         pp.breakable
@@ -399,6 +379,12 @@ module Roby
             do_display_exception_formatted(io, e)
         else
             do_display_exception_raw(io, e)
+        end
+
+        if e.respond_to?(:original_exceptions)
+            e.original_exceptions.each do |original_e|
+                do_display_exception(io, original_e)
+            end
         end
     end
 

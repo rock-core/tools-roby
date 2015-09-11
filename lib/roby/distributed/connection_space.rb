@@ -562,7 +562,7 @@ module Roby
                         "#{peer}: processing #{is_callback ? 'callback' : 'method'} [#{message_id}]#{method}(#{args_s.join(", ")})"
                     end
 
-                    result = catch(:ignore_this_call) do
+                    result = Distributed.catch_ignored_call do
                         peer_server.queued_completion = false
                         peer_server.current_message_id = message_id
                         peer_server.processing_callback = !!is_callback

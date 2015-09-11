@@ -2,6 +2,7 @@ require 'roby'
 require 'stringio'
 
 require 'roby/distributed/base'
+require 'roby/distributed/dumb_manager'
 require 'roby/distributed/protocol'
 require 'roby/distributed/exceptions'
 

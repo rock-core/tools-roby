@@ -23,7 +23,14 @@ module Roby
             #   It is always growing and will never collide with a notification ID
             attr_reader :exception_queue
 
-            # @param [DRobyChannel] a channel to the server
+            # Create a client endpoint to a Roby interface [Server]
+            #
+            # @param [DRobyChannel] io a channel to the server
+            # @param [Object] String a unique identifier for this client
+            #   (e.g. host:port of the local endpoint when using TCP). It is
+            #   passed to the server through {Server#handshake}
+            #
+            # @see Interface.connect_with_tcp_to
             def initialize(io, id)
                 @io = io
                 @message_id = 0
@@ -57,12 +64,17 @@ module Roby
             # Reads what is available on the given IO and processes the message
             #
             # @param [#read_packet] io packet-reading object
-            # @return [Boolean] false if no packet has been processed, and true
-            #   otherwise
+            # @return [Boolean,Boolean] the first boolean indicates if a packet
+            #   has been processed, the second one if it was a cycle_end message
             def read_and_process_packet(io)
                 m, *args = io.read_packet
+                if m == :cycle_end
+                    return true, true
+                end
+
                 if m == :bad_call
-                    raise args.first
+                    e = args.first
+                    raise e, e.message, e.backtrace
                 elsif m == :reply
                     yield args.first
                 elsif m == :job_progress
@@ -75,7 +87,7 @@ module Roby
                     raise ProtocolError, "unexpected reply from #{io}: #{m} (#{args.map(&:to_s).join(",")})"
                 else return false
                 end
-                true
+                return true
             end
 
             # Polls for new data on the IO channel
@@ -88,10 +100,11 @@ module Roby
                           else 0
                           end
 
+                has_cycle_end = false
                 while IO.select([io], [], [], timeout)
                     done_something = true
                     while done_something
-                        done_something = read_and_process_packet(io) do |reply_value|
+                        done_something, has_cycle_end = read_and_process_packet(io) do |reply_value|
                             if result
                                 raise ArgumentError, "got more than one reply in a single poll call"
                             end
@@ -103,13 +116,17 @@ module Roby
                         timeout = 0
                     end
                 end
-                result
+                return result, has_cycle_end
             end
 
             def allocate_message_id
                 @message_id += 1
             end
 
+            # Push a job notification to {#job_progress_queue}
+            #
+            # See the yield parameters of {Interface#on_job_notification} for
+            # the overall argument format.
             def push_job_progress(kind, job_id, job_name, *args)
                 job_progress_queue.push [allocate_message_id, [kind, job_id, job_name, *args]]
             end
@@ -134,8 +151,14 @@ module Roby
                 notification_queue.pop
             end
 
-            def push_exception(kind, error, tasks)
-                exception_queue.push [allocate_message_id, [kind, error, tasks]]
+            # Push an exception notification to {#exception_queue}
+            #
+            # It can be retrieved with {#pop_exception}
+            #
+            # See the yield parameters of {Interface#on_exception} for
+            # the overall argument format.
+            def push_exception(kind, error, tasks, job_ids)
+                exception_queue.push [allocate_message_id, [kind, error, tasks, job_ids]]
             end
 
             def has_exceptions?
@@ -155,7 +178,7 @@ module Roby
                     end
                 else
                     io.write_packet([path, m, *args])
-                    result = poll(1)
+                    result, _ = poll(1)
                     if m == :start_job
                         push_job_progress(:queued, result, nil)
                     end

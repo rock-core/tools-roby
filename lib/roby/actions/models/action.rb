@@ -52,7 +52,7 @@ module Roby
             # If true, the method is flagged as advanced. I.e., it won't be
             # listed by default in the shell when the 'actions' command is
             # called
-            attr_predicate :advanced?
+            attr_predicate :advanced?, true
             # The return type for this method, as a task or task service model.
             # It is Roby::Task by default
             #

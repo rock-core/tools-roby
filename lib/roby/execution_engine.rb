@@ -4,9 +4,30 @@ module Roby
     # 
     # See ExecutionEngine#process_events_synchronous for more information
     class SynchronousEventProcessingMultipleErrors < RuntimeError
+        # Exceptions as gathered during propagation with {ExecutionEngine#on_exception}
+        #
+        # @return [Array<(ExecutionException,Array<Roby::Task>)>]
         attr_reader :errors
+
+        # The set of underlying "real" (i.e. non-Roby) exceptions
+        #
+        # @return [Array<Exception>]
+        def original_exceptions
+            errors.flat_map { |e, _| e.exception.original_exceptions }.to_set.to_a
+        end
+
         def initialize(errors)
             @errors = errors
+        end
+
+        def pretty_print(pp)
+            pp.text "Got #{errors.size} exceptions and #{original_exceptions.size} sub-exceptions"
+            pp.breakable
+            pp.seplist(errors.each_with_index) do |(e, _), i|
+                pp.breakable
+                pp.text "[#{i}] "
+                e.pretty_print(pp)
+            end
         end
     end
 
@@ -1479,22 +1500,43 @@ module Roby
             @application_exceptions = nil
         end
 
-        # Hook called when an unhandled nonfatal exception has been found
+        # Hook called when an unhandled nonfatal exception has been processed
+        #
+        # The exception is passed to {#on_exception} handlers with the
+        # EXCEPTION_NONFATAL type.
+        #
+        # @param [ExecutionException] error the exception object
+        # @param [Array<Roby::Task>] tasks the involved tasks
+        # @see on_exception
         def nonfatal_exception(error, tasks)
             super if defined? super
 	    notify_exception(EXCEPTION_NONFATAL, error, tasks)
         end
 
         # Hook called when a set of tasks is being killed because of an exception
+        #
+        # The exception is passed to {#on_exception} handlers with the
+        # EXCEPTION_FATAL type.
+        #
+        # @param [ExecutionException] error the exception object
+        # @param [Array<Roby::Task>] tasks the involved tasks
+        # @see on_exception
         def fatal_exception(error, tasks)
             super if defined? super
 	    notify_exception(EXCEPTION_FATAL, error, tasks)
         end
 
         # Hook called when an exception +e+ has been handled by +task+
+        #
+        # The exception is passed to {#on_exception} handlers with the
+        # EXCEPTION_HANDLED type.
+        #
+        # @param [ExecutionException] error the exception object
+        # @param [Roby::Task] task the task that handled the exception
+        # @see on_exception
         def handled_exception(error, task)
 	    super if defined? super
-	    notify_exception(EXCEPTION_HANDLED, error, task)
+	    notify_exception(EXCEPTION_HANDLED, error, [task])
 	end
 
         def unmark_finished_missions_and_permanent_tasks
@@ -2204,19 +2246,26 @@ module Roby
             scheduler.enabled = scheduler_enabled
         end
 
+        # Exception kind passed to {#on_exception} handlers for non-fatal,
+        # unhandled exceptions
 	EXCEPTION_NONFATAL = :nonfatal
+
+        # Exception kind passed to {#on_exception} handlers for fatal,
+        # unhandled exceptions
 	EXCEPTION_FATAL    = :fatal
+
+        # Exception kind passed to {#on_exception} handlers for handled
+        # exceptions
 	EXCEPTION_HANDLED  = :handled
 
-	# Registers a callback that will be called when exceptions are
-	# propagated in the plan
+	# Registers a callback that will be called when exceptions are propagated in the plan
 	#
-        # @yieldparam [Object] kind one of the EXCEPTION_* constants
+        # @yieldparam [Symbol] kind one of {EXCEPTION_NONFATAL},
+        #   {EXCEPTION_FATAL} or {EXCEPTION_HANDLED}
         # @yieldparam [Roby::ExecutionException] error the exception
-        # @yieldparam [Array<Roby::Task>] tasks the tasks that are being killed
-        #   because of this exception
-        # @return [Object] an ID that can be used as argument to
-	#   {#remove_exception_listener}
+        # @yieldparam [Array<Roby::Task>] tasks the tasks that are involved in this exception
+        #
+        # @return [Object] an ID that can be used as argument to {#remove_exception_listener}
 	def on_exception(&block)
             handler = PollBlockDefinition.new("exception listener #{block}", block, on_error: :disable)
 	    exception_listeners << handler

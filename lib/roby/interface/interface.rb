@@ -3,19 +3,37 @@ module Roby
     #
     # This is the implementation of e.g. the Roby shell
     module Interface
+        # The job's planning task is ready to be executed
         JOB_PLANNING_READY   = :planning_ready
+        # The job's planning task is running
         JOB_PLANNING         = :planning
+        # The job's planning task has failed
         JOB_PLANNING_FAILED  = :planning_failed
+        # The job's planning result is ready to be executed
         JOB_READY            = :ready
+        # The job is started
         JOB_STARTED          = :started
+        # The job has finished successfully
         JOB_SUCCESS          = :success
+        # The job has failed
         JOB_FAILED           = :failed
+        # The job has finished
         JOB_FINISHED         = :finished
+        # The job has been finalized (i.e. removed from plan)
         JOB_FINALIZED        = :finalized
 
-        # In addition to the states above, the following constants are used
-        # by job notification
+        # The job has been dropped, i.e. its mission status has been removed
+        JOB_DROPPED          = :dropped
+        # The job has been recaptured, i.e it was dropped and its mission status
+        # has been reestablished
+        JOB_RECAPTURED       = :recaptured
+
+        # Initial notification, when the interface starts monitoring a job
         JOB_MONITORED        = :monitored
+        # The job got replaced by a task that is not this job
+        JOB_LOST             = :lost
+        # The job placeholder task got replaced, and the replacement is managed
+        # under the same job
         JOB_REPLACED         = :replaced
 
         def self.terminal_state?(state)
@@ -46,12 +64,12 @@ module Roby
         # One of the tasks of this class is to do job management. Jobs are the
         # unit that is used to interact with a running Roby instance at a high
         # level, as e.g. through a shell or a GUI. In Roby, jobs are represented
-        # by tasks that provide the {Interface::Job} task service and have a
+        # by tasks that provide the {Job} task service and have a
         # non-nil job ID. Up to two tasks can be associated with the job. The
         # first is obviously the job task itself, i.e. the task that provides
-        # {Interface::Job}. Quite often, the job task will be a planning task
+        # {Job}. Quite often, the job task will be a planning task
         # (actually, one can see that {Actions::Task} provides
-        # {Interface::Job}). In this case, the planned task will be also
+        # {Job}). In this case, the planned task will be also
         # associated with the job as its placeholder: while the job task
         # represents the job's deployment status, the placeholder task will
         # represent the job's execution status.
@@ -60,6 +78,15 @@ module Roby
             #   added with {#on_job_notification} and removed with
             #   {#remove_job_listener}
             attr_reader :job_listeners
+            # @api private
+            #
+            # @return [Set<Integer>] the set of tracked jobs
+            # @see tracked_job?
+            attr_reader :tracked_jobs
+            # @api private
+            #
+            # The set of pending job notifications for this cycle
+            attr_reader :job_notifications
 
             # Creates an interface from an existing Roby application
             #
@@ -71,9 +98,23 @@ module Roby
                         monitor_job(task, planned_task)
                     end
                 end
+                engine.at_cycle_end do
+                    push_pending_job_notifications
+                end
 
+                @tracked_jobs = Set.new
+                @job_notifications = Array.new
                 @job_listeners = Array.new
             end
+
+            # Returns the port of the log server
+            #
+            # @return [Integer,nil] the port, or nil if there is no log server
+            def log_server_port
+                app.log_server_port
+            end
+            command :log_port, 'returns the port of the log server',
+                advanced: true
 
             # The set of actions available on {#app}
             #
@@ -94,18 +135,21 @@ module Roby
             # @return [Integer] the job ID
             def start_job(m, arguments = Hash.new)
                 engine.execute do
-                    task, planning_task = app.prepare_action(m, arguments.merge(:job_id => Job.allocate_job_id))
-                    app.plan.add_mission(task)
+                    task, planning_task = app.prepare_action(m, arguments.merge(job_id: Job.allocate_job_id), mission: true)
                     planning_task.job_id
                 end
             end
 
             # Kill a job
             #
+            # It removes the job from the list of missions and kills the job's
+            # main task
+            #
             # @param [Integer] job_id the ID of the job that should be
             #   terminated
             # @return [Boolean] true if the job was found and terminated, and
             #   false otherwise
+            # @see drop_job
             def kill_job(job_id)
                 if task = find_job_placeholder_by_id(job_id)
                     plan.unmark_mission(task)
@@ -114,11 +158,32 @@ module Roby
                 else false
                 end
             end
-            command :kill_job, 'kills the given job',
-                :job_id => 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
+            command :kill_job, 'forcefully kills the given job',
+                job_id: 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
+
+            # Drop a job
+            #
+            # It removes the job from the list of missions but does not
+            # explicitely kill it
+            #
+            # @param [Integer] job_id the ID of the job that should be
+            #   terminated
+            # @return [Boolean] true if the job was found and terminated, and
+            #   false otherwise
+            # @see kill_job
+            def drop_job(job_id)
+                if task = find_job_placeholder_by_id(job_id)
+                    plan.unmark_mission(task)
+                    true
+                else false
+                end
+            end
+            command :drop_job, "remove this job from the list of jobs, this does not necessarily kill the job's main task",
+                job_id: 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
+
 
             # Enumerates the job listeners currently registered through
-            # #on_job_notification
+            # {#on_job_notification}
             #
             # @yieldparam [#call] the job listener object
             def each_job_listener(&block)
@@ -129,8 +194,35 @@ module Roby
             #
             # Listeners are registered with {#on_job_notification}
             def job_notify(kind, job_id, job_name, *args)
+                job_notifications << [kind, job_id, job_name, args]
+            end
+
+            # @api private
+            #
+            # Called in at_cycle_end to push job notifications
+            def push_pending_job_notifications
+                # Re-track jobs for which we have a recapture event
+                job_notifications.each do |event, job_id, *|
+                    if event == JOB_RECAPTURED || event == JOB_MONITORED
+                        tracked_jobs << job_id
+                    end
+                end
+
+                job_notifications = self.job_notifications.find_all do |event, job_id, *|
+                    tracked_jobs.include?(job_id)
+                end
+                self.job_notifications.clear
+
                 each_job_listener do |listener|
-                    listener.call(kind, job_id, job_name, *args)
+                    job_notifications.each do |kind, job_id, job_name, *args|
+                        listener.call(kind, job_id, job_name, *args)
+                    end
+                end
+
+                job_notifications.each do |event, job_id, *|
+                    if event == JOB_LOST || event == JOB_FINALIZED
+                        tracked_jobs.delete(job_id)
+                    end
                 end
             end
 
@@ -139,16 +231,41 @@ module Roby
                 app.on_notification(&block)
             end
 
-            # (see Application#remove_notification_listener)
-            def remove_notification_listener(&block)
-                app.remove_notification_listener(&block)
+            # @param (see Application#remove_notification_listener)
+            def remove_notification_listener(&listener)
+                app.remove_notification_listener(&listener)
             end
 
             # Registers a block to be called when a job changes state
             #
-            # @yieldparam kind one of the JOB_* constants
-            # @yieldparam [Integer] job_id the job ID (unique)
-            # @yieldparam [String] job_name the job name (non-unique)
+            # All callbacks will be called with at minimum
+            #
+            # @overload on_job_notification
+            #   @yieldparam kind one of the JOB_* constants
+            #   @yieldparam [Integer] job_id the job ID (unique)
+            #   @yieldparam [String] job_name the job name (non-unique)
+            #
+            #   Generic interface. Some of the notifications, detailed below,
+            #   have additional parameters (after the job_name argument) 
+            #
+            # @overload on_job_notification
+            #   @yieldparam JOB_MONITORED
+            #   @yieldparam [Integer] job_id the job ID (unique)
+            #   @yieldparam [String] job_name the job name (non-unique)
+            #   @yieldparam [Task] task the job's placeholder task
+            #   @yieldparam [Task] job_task the job task
+            #
+            #   Interface for JOB_MONITORED notifications, called when the job
+            #   task is initially detected
+            #
+            # @overload on_job_notification
+            #   @yieldparam JOB_REPLACED or JOB_LOST
+            #   @yieldparam [Integer] job_id the job ID (unique)
+            #   @yieldparam [String] job_name the job name (non-unique)
+            #   @yieldparam [Task] task the new task this job is now tracking
+            #
+            #   Interface for JOB_REPLACED notifications
+            #
             # @return [Object] the listener ID that can be given to
             #   {#remove_job_listener}
             def on_job_notification(&block)
@@ -156,7 +273,7 @@ module Roby
                 block
             end
 
-            # Remove a job listener
+            # Remove a job listener added with {#on_job_notification}
             #
             # @param [Object] listener the listener ID returned by
             #   {#on_job_notification}
@@ -181,63 +298,64 @@ module Roby
             #
             # It must be called within the Roby execution thread
             def monitor_job(planning_task, task)
+                # NOTE: this method MUST queue job notifications
+                # UNCONDITIONALLY. Job tracking is done on a per-cycle basis (in
+                # at_cycle_end) by {#push_pending_job_notifications}
+
                 job_id   = planning_task.job_id
                 job_name = planning_task.job_name
-                monitor_active = true
-                job_notify(JOB_MONITORED, job_id, job_name, task)
+                job_notify(JOB_MONITORED, job_id, job_name, task, planning_task)
                 job_notify(job_state(task), job_id, job_name)
 
                 if planner = task.planning_task
                     planner.on :start do |ev|
-                        if monitor_active
-                            job_notify(JOB_PLANNING, job_id, job_name)
-                        end
+                        job_notify(JOB_PLANNING, job_id, job_name)
                     end
                     planner.on :success do |ev|
-                        if monitor_active
-                            job_notify(JOB_READY, job_id, job_name)
-                        end
+                        job_notify(JOB_READY, job_id, job_name)
                     end
-
                     planner.on :stop do |ev|
-                        if monitor_active && !ev.task.success?
+                        if !ev.task.success?
                             job_notify(JOB_PLANNING_FAILED, job_id, job_name)
                         end
                     end
                 end
 
                 service = PlanService.new(task)
+                service.on_plan_status_change do |status|
+                    if status == :mission
+                        job_notify(JOB_RECAPTURED, job_id, job_name)
+                        job_notify(job_state(task), job_id, job_name)
+                    elsif (status != :mission)
+                        job_notify(JOB_DROPPED, job_id, job_name)
+                    end
+                end
                 service.on_replacement do |current, new|
-                    monitor_active = (job_id_of_task(new) == job_id)
-                    if monitor_active
+                    if job_id_of_task(new) == job_id
                         job_notify(JOB_REPLACED, job_id, job_name, new)
+                    else
+                        job_notify(JOB_LOST, job_id, job_name, new)
                     end
                 end
                 service.on(:start) do |ev|
-                    if monitor_active
-                        job_notify(JOB_STARTED, job_id, job_name)
-                    end
+                    job_notify(JOB_STARTED, job_id, job_name)
                 end
                 service.on(:success) do |ev|
-                    if monitor_active
-                        job_notify(JOB_SUCCESS, job_id, job_name)
-                    end
+                    job_notify(JOB_SUCCESS, job_id, job_name)
                 end
                 service.on(:failed) do |ev|
-                    if monitor_active
-                        job_notify(JOB_FAILED, job_id, job_name)
-                    end
+                    job_notify(JOB_FAILED, job_id, job_name)
                 end
                 service.when_finalized do 
-                    if monitor_active
-                        job_notify(JOB_FINALIZED, job_id, job_name)
-                    end
+                    job_notify(JOB_FINALIZED, job_id, job_name)
                 end
             end
 
             def job_state(task)
                 if !task
                     return JOB_FINALIZED
+                elsif !plan.mission?(task)
+                    return JOB_DROPPED
                 elsif task.success_event.happened?
                     return JOB_SUCCESS
                 elsif task.failed_event.happened?
@@ -284,7 +402,7 @@ module Roby
 
             def find_job_info_by_id(id)
                 engine.execute do
-                    if planning_task = plan.find_tasks(Job).with_arguments(:job_id => id).to_a.first
+                    if planning_task = plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
                         task = planning_task.planned_task || planning_task
                         return job_state(task), task, planning_task
                     end
@@ -335,11 +453,28 @@ module Roby
             end
             command :reload_actions, 'reloads the files in models/actions/'
 
+            # Notification about plan exceptions
+            #
+            # @yieldparam [Symbol] kind one of {ExecutionEngine::EXCEPTION_NONFATAL},
+            #   {ExecutionEngine::EXCEPTION_FATAL} or {ExecutionEngine::EXCEPTION_HANDLED}
+            # @yieldparam [Roby::ExecutionException] error the exception
+            # @yieldparam [Array<Roby::Task>] tasks the tasks that are involved in this exception
+            # @yieldparam [Set<Integer>] job_ids the job ID of the involved jobs
+            #
             # @see ExecutionEngine#on_exception
             def on_exception(&block)
                 engine.execute do
-                    engine.on_exception(&block)
+                    engine.on_exception do |kind, exception, tasks|
+                        involved_job_ids = tasks.map do |t|
+                            job_id_of_task(t)
+                        end.to_set
+                        block.call(kind, exception, tasks, involved_job_ids)
+                    end
                 end
+            end
+
+            def on_cycle_end(&block)
+                engine.at_cycle_end(&block)
             end
 
             # @see ExecutionEngine#remove_exception_listener

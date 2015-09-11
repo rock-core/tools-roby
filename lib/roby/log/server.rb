@@ -1,6 +1,7 @@
 require 'socket'
 require 'fcntl'
 require 'stringio'
+require 'roby/interface/exceptions'
 
 module Roby
     module Log
@@ -17,7 +18,7 @@ module Roby
 
             DEFAULT_PORT  = 20200
             DEFAULT_SAMPLING_PERIOD = 0.05
-            DATA_CHUNK_SIZE = 1024*16
+            DATA_CHUNK_SIZE = 16 * 1024
 
             # The port we are listening on
             attr_reader :port
@@ -64,6 +65,7 @@ module Roby
                         end
 
                 Server.send(level, "Roby log server listening on port #{port}, sampling period=#{sampling_period}")
+                Server.send(level, "watching #{event_file_path}")
 
                 while true
                     sockets_with_pending_data = pending_data.find_all do |socket, chunks|
@@ -84,22 +86,21 @@ module Roby
 
                         Server.debug "new connection: #{socket}"
                         if found_header?
-                            all_data =
-                                if File.respond_to?(:binread)
-                                    File.binread(event_file_path, 
-                                              event_file.tell - Logfile::PROLOGUE_SIZE,
-                                              Logfile::PROLOGUE_SIZE)
-                                else
-                                    File.read(event_file_path, 
-                                              event_file.tell - Logfile::PROLOGUE_SIZE,
-                                              Logfile::PROLOGUE_SIZE)
-                                end
+                            all_data = File.binread(event_file_path, 
+                                                    event_file.tell - Logfile::PROLOGUE_SIZE,
+                                                    Logfile::PROLOGUE_SIZE)
 
                             Server.debug "  queueing #{all_data.size} bytes of data"
-                            @pending_data[socket] = split_in_chunks(all_data)
+                            chunks = split_in_chunks(all_data)
                         else
                             Server.debug "  log file is empty, not queueing any data"
+                            chunks = Array.new
                         end
+                        connection_init      = Marshal.dump([CONNECTION_INIT, chunks.inject(0) { |s, c| s + c.size }])
+                        connection_init_done = Marshal.dump(CONNECTION_INIT_DONE)
+                        chunks.unshift([connection_init.size].pack('I') + connection_init)
+                        chunks << [connection_init_done.size].pack('I') + connection_init_done
+                        @pending_data[socket] = chunks
                     end
 
                     # Read new data
@@ -158,6 +159,9 @@ module Roby
                 end
             end
 
+            CONNECTION_INIT = :log_server_connection_init
+            CONNECTION_INIT_DONE = :log_server_connection_init_done
+
             # Tries to send all pending data to the connected clients
             def send_pending_data
                 needs_looping = true
@@ -209,6 +213,27 @@ module Roby
 
         # The client part of the event log distribution service
         class Client
+            include Hooks
+            include Hooks::InstanceHooks
+
+            # @!method on_init_progress()
+            #   @return [void]
+            define_hooks :on_init_progress
+            # @!method on_init_done()
+            #   Hooks called when we finished processing the initial set of data
+            #   @return [void]
+            define_hooks :on_init_done
+            # @!method on_data
+            #   Hooks called with one cycle worth of data
+            #
+            #   @yieldparam [Array] data the data as logged, unmarshalled (with
+            #     Marshal.load) but not unmarshalled by Roby. It is a flat array
+            #     of 4-elements tuples of the form (event_name, sec, usec,
+            #     args), where event_name is defined in one of the Hook modules
+            #     in {Roby::Log}
+            #   @return [void]
+            define_hooks :on_data
+
             # The socket through which we are connected to the remote host
             attr_reader :socket
             # The host we are contacting
@@ -218,37 +243,76 @@ module Roby
             # Data that is not a full cycle worth of data (i.e. buffer needed
             # for packet reassembly)
             attr_reader :buffer
+            # The amount of bytes received so far
+            attr_reader :rx
 
             def initialize(host, port = Server::DEFAULT_PORT)
                 @host = host
                 @port = port
                 @buffer = ""
 
+                @rx = 0
                 @socket =
                     begin TCPSocket.new(host, port)
                     rescue Errno::ECONNREFUSED => e
-                        raise e.class, "cannot contact Roby log server at '#{host}:#{port}': #{e.message}"
+                        raise Interface::ConnectionError, "cannot contact Roby log server at '#{host}:#{port}': #{e.message}"
                     end
                 socket.fcntl(Fcntl::FD_CLOEXEC, 1)
                 socket.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
-
-                @listeners = Array.new
             end
 
             def disconnect
                 @socket.close
             end
+        
+            def close
+                @socket.close
+            end
+
+            def closed?
+                @socket.closed?
+            end
 
             def add_listener(&block)
-                @listeners << block
+                on_data(&block)
             end
 
             def alive?
                 @alive
             end
 
-            def read_and_process_pending
-                buffer = @buffer + socket.read_nonblock(Server::DATA_CHUNK_SIZE)
+            # Read and process data
+            #
+            # @param [Numeric] max max time we can spend processing. The method
+            #   will at least process one cycle worth of data regardless of this
+            #   parameter
+            # @return [Boolean] true if the last call processed something and
+            #   false otherwise. It is an indicator of whether there could be
+            #   still some data pending
+            def read_and_process_pending(max: 0)
+                start = Time.now
+                while (processed_something_last = read_and_process_one_pending_chunk) && (Time.now - start) < max
+                end
+                processed_something_last
+            end
+
+            # The number of bytes that have to be transferred to finish
+            # initializing the connection
+            attr_reader :init_size
+
+            def init_done?
+                @init_done
+            end
+
+            # @api private
+            #
+            # Reads the socket and processes at most one chunk of data
+            def read_and_process_one_pending_chunk
+                begin
+                    buffer = @buffer + socket.read_nonblock(Server::DATA_CHUNK_SIZE)
+                rescue EOFError, Errno::ECONNRESET, Errno::EPIPE => e
+                    raise Interface::ComError, e.message, e.backtrace
+                end
                 Log.debug "#{buffer.size} bytes of data in buffer"
 
                 while true
@@ -261,10 +325,17 @@ module Roby
                         data = Marshal.load_with_missing_constants(buffer[4, data_size])
                         if data.kind_of?(Hash)
                             Roby::Log::Logfile.process_options_hash(data)
+                        elsif data == Server::CONNECTION_INIT_DONE
+                            @init_done = true
+                            run_hook :on_init_done
+                        elsif data[0] == Server::CONNECTION_INIT
+                            @init_size = data[1]
                         else
-                            @listeners.each do |block|
-                                block.call(data)
+                            @rx += (data_size + 4)
+                            if !init_done?
+                                run_hook :on_init_progress, rx, init_size
                             end
+                            run_hook :on_data, data
                         end
                         buffer = buffer[(data_size + 4)..-1]
                     else
@@ -273,8 +344,10 @@ module Roby
                 end
 
                 @buffer = buffer
+                !buffer.empty?
             rescue Errno::EAGAIN
             end
         end
     end
 end
+

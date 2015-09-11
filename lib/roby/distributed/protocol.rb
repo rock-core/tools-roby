@@ -7,31 +7,46 @@ class NilClass
 end
 class Array
     def proxy(peer) # :nodoc:
-	map do |element| 
-	    catch(:ignore_this_call) { peer.local_object(element) }
+        result = Array.new
+	each do |element| 
+            Roby::Distributed.catch_ignored_call do
+                result << peer.local_object(element)
+            end
 	end
+        result
     end
 end
 class Hash
     def proxy(peer) # :nodoc:
-	inject({}) do |h, (k, v)| 
-	    h[peer.local_object(k)] = catch(:ignore_this_call) { peer.local_object(v) }
-	    h
+        result = Hash.new
+        each do |k, v|
+            Roby::Distributed.catch_ignored_call do
+                result[peer.local_object(k)] = peer.local_object(v)
+            end
 	end
+        result
     end
 end
 class Set
     def proxy(peer) # :nodoc:
-	map do |element| 
-	    catch(:ignore_this_call) { peer.local_object(element) }
-	end.to_set
+        result = Set.new
+        each do |element|
+            Roby::Distributed.catch_ignored_call do
+                result << peer.local_object(element)
+            end
+	end
+        result
     end
 end
 class ValueSet
     def proxy(peer) # :nodoc:
-	map do |element| 
-	    catch(:ignore_this_call) { peer.local_object(element) }
-	end.to_value_set
+        result = ValueSet.new
+        each do |element|
+            Roby::Distributed.catch_ignored_call do
+                result << peer.local_object(element)
+            end
+	end
+        result
     end
 end
 
@@ -68,6 +83,10 @@ module Roby
         #     extend DRobyConstant::Dump
         #   end
 	class DRobyConstant
+            def self.clear_cache
+                @@valid_constants.clear
+            end
+
 	    @@valid_constants = Hash.new
 	    def self.valid_constants; @@valid_constants end
 	    def to_s; "#<dRoby:Constant #{name}>" end
@@ -129,6 +148,11 @@ module Roby
 	class DRobyModel
 	    @@remote_to_local = Hash.new
 	    @@local_to_remote = Hash.new
+
+            def self.clear_cache
+                @@remote_to_local.clear
+                @@local_to_remote.clear
+            end
 
 	    # A name -> class map which maps remote models to local anonymous classes
 	    # Remote models are always identified by their name
@@ -490,8 +514,7 @@ module Roby
 
 	    def proxy(peer)
                 generator = peer.local_object(self.generator)
-
-                context = peer.local_object(context)
+                context   = peer.local_object(self.context)
                 generator.new(context, propagation_id, time)
             end
         end
@@ -595,8 +618,8 @@ module Roby
 	    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
 		      Distributed.format(model, dest), Distributed.format(plan, dest), 
 		      Distributed.format(meaningful_arguments, dest), Distributed.format(data, dest),
-		      :mission => mission?, :started => started?, 
-		      :finished => finished?, :success => success?)
+		      mission: mission?, started: started?,
+		      finished: finished?, success: success?)
 	end
 
         # An intermediate representation of Task objects suitable
@@ -758,42 +781,3 @@ module Roby
 end
 
 Exception.extend Roby::Distributed::DRobyModel::Dump
-class Exception
-    # An intermediate representation of Exception objects suitable to
-    # be sent to our peers.
-    class DRoby
-	attr_reader :model, :message, :backtrace
-	def initialize(model, message, backtrace); @model, @message, @backtrace = model, message, backtrace end
-
-        # Returns a local representation of the exception object +self+
-        # describes. If the real exception message is not available, it reuses
-        # the more-specific exception class which is available.
-	def proxy(peer)
-	    error_model = model.proxy(peer)
-	    error = error_model.exception(self.message)
-            error.set_backtrace(backtrace)
-            error
-
-	rescue Exception
-	    # try to get a less-specific error model which does allow a simple
-	    # message. In the worst case, we will fall back to Exception itself
-	    #
-	    # However, include the real model name in the message
-	    message = "#{self.message} (#{model.ancestors.first.first})"
-	    for model in error_model.ancestors
-		next unless model.kind_of?(Class)
-		begin
-		    error = model.exception(message)
-                    error.set_backtrace(backtrace)
-                    return error
-		rescue ArgumentError
-		end
-	    end
-	end
-    end
-
-    # Returns an intermediate representation of +self+ suitable to be sent to
-    # the +dest+ peer.
-    def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), message, backtrace) end
-end
-

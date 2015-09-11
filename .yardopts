@@ -1,1 +1,3 @@
---plugin yard-utilrb
+--plugin utilrb
+--plugin metaruby
+--output-dir doc/html/api

@@ -19,6 +19,15 @@ module Roby
             def initialize(io, interface)
                 @notifications_enabled = true
                 @io, @interface = io, interface
+
+                interface.on_cycle_end do
+                    begin
+                        io.write_packet([:cycle_end])
+                    rescue ComError
+                        # The disconnection is going to be handled by the caller
+                        # of #poll
+                    end
+                end
                 interface.on_notification do |*args|
                     if notifications_enabled?
                         begin

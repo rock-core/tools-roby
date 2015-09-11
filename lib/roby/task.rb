@@ -956,7 +956,7 @@ module Roby
         def event_model(model); self.model.event_model(model) end
 
         def to_s # :nodoc:
-	    s = name.dup + arguments.to_s
+	    s = "#{name}(#{arguments})"
 	    id = owners.map do |owner|
 		next if owner == Roby::Distributed
 		sibling = remote_siblings[owner]
@@ -971,18 +971,23 @@ module Roby
 	def pretty_print(pp, with_owners = true) # :nodoc:
 	    pp.text "#{model.name}:0x#{self.address.to_s(16)}"
             if with_owners
-                pp.breakable
                 pp.nest(2) do
-                    pp.text "  owners: "
-                    pp.seplist(owners) { |r| pp.text r.to_s }
                     pp.breakable
-
-                    pp.text "arguments: "
-                    arguments.pretty_print(pp)
+                    pp.text "owners: "
+                    pp.nest(2) do
+                        pp.seplist(owners) { |r| pp.text r.to_s }
+                    end
                 end
-            else
-                pp.text " "
-                arguments.pretty_print(pp)
+            end
+            pp.nest(2) do
+                pp.breakable
+                pp.text "arguments: "
+                if !arguments.empty?
+                    pp.nest(2) do
+                        pp.breakable
+                        arguments.pretty_print(pp)
+                    end
+                end
             end
 	end
 

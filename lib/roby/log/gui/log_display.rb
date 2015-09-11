@@ -136,18 +136,18 @@ module Roby
 
             def connect_display(history_widget, view)
                 Qt::Object.connect(history_widget, SIGNAL('appliedSnapshot(QDateTime)'),
-                                   view, SLOT('setCurrentTime(QDateTime)'))
+                                   view, SLOT('setDisplayTime(QDateTime)'))
                 Qt::Object.connect(history_widget, SIGNAL('liveUpdate(QDateTime)'),
-                                   view, SLOT('live_update(QDateTime)'))
+                                   view, SLOT('setCurrentTime(QDateTime)'))
                 Qt::Object.connect(history_widget, SIGNAL('sourceChanged()'),
                                    view, SLOT('updateWindowTitle()'))
             end
 
             def disconnect_display(history_widget, view)
                 Qt::Object.disconnect(history_widget, SIGNAL('appliedSnapshot(QDateTime)'),
-                                   view, SLOT('setCurrentTime(QDateTime)'))
+                                   view, SLOT('setDisplayTime(QDateTime)'))
                 Qt::Object.disconnect(history_widget, SIGNAL('liveUpdate(QDateTime)'),
-                                   view, SLOT('live_update(QDateTime)'))
+                                   view, SLOT('setCurrentTime(QDateTime)'))
                 Qt::Object.disconnect(history_widget, SIGNAL('sourceChanged()'),
                                    view, SLOT('updateWindowTitle()'))
             end
