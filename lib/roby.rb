@@ -29,12 +29,17 @@ require 'hooks'
 require 'metaruby/dsls'
 require 'utilrb/value_set'
 require 'utilrb/object/attribute'
+require 'utilrb/object/address'
 require 'utilrb/module/ancestor_p'
 require 'utilrb/kernel/options'
 require 'utilrb/module/attr_enumerable'
 require 'utilrb/module/attr_predicate'
 require 'utilrb/module/include'
-require 'utilrb/module/is_singleton'
+begin
+    require 'utilrb/module/singleton_class_p'
+rescue LoadError
+    require 'utilrb/module/is_singleton'
+end
 require 'utilrb/kernel/arity'
 require 'utilrb/exception/full_message'
 require 'utilrb/unbound_method/call'
