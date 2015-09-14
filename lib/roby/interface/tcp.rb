@@ -87,8 +87,14 @@ module Roby
             addr = socket.addr(true)
             Client.new(DRobyChannel.new(socket, true, remote_object_manager: remote_object_manager),
                        "#{addr[2]}:#{addr[1]}")
+
         rescue Errno::ECONNREFUSED
             raise ConnectionError, "failed to connect to #{host}:#{port}"
+        rescue ::Exception
+            if socket && !socket.closed?
+                socket.close
+            end
+            raise
         end
     end
 end
