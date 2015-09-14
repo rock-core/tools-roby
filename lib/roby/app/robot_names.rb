@@ -38,6 +38,13 @@ module Roby
                 self.strict = !!options['robots']
             end
 
+            # Enumerate the list of known robots
+            #
+            # @yieldparam [String] robot_name the robot name
+            def names
+                robots.keys
+            end
+
             # @return [String,nil] the type of the default robot
             def default_robot_type
                 if default_robot_name
