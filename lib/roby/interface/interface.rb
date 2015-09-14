@@ -484,6 +484,12 @@ module Roby
                 end
             end
 
+            # Requests for the Roby application to quit
+            def quit
+                engine.quit
+            end
+            command :quit, 'requests that the Roby application quits'
+
             # This is implemented on ShellClient directly
             command 'describe', 'gives details about the given action',
                 :action => 'the action itself'

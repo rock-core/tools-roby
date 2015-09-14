@@ -131,7 +131,7 @@ module Roby
                 job_progress_queue.push [allocate_message_id, [kind, job_id, job_name, *args]]
             end
 
-            def has_job_progresss?
+            def has_job_progress?
                 !job_progress_queue.empty?
             end
 
