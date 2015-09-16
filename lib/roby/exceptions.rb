@@ -330,33 +330,54 @@ module Roby
         end
     end
 
-    def self.log_exception(e, logger, level)
+    def self.log_exception(e, logger, level, with_original_exceptions: true)
         log_pp(e, logger, level)
+        if with_original_exceptions && e.respond_to?(:original_exceptions)
+            e.original_exceptions.each do |original_e|
+                log_exception(original_e, logger, level, with_original_exceptions: true)
+            end
+        end
     end
 
     def self.log_backtrace(e, logger, level, filter: Roby.app.filter_backtraces?)
         backtrace = e.backtrace
         if filter
             backtrace = filter_backtrace(backtrace)
-        else
         end
+
         format_exception(BacktraceFormatter.new(e, backtrace)).each do |line|
             logger.send(level, line)
         end
     end
 
-    def self.log_exception_with_backtrace(e, logger, level)
-        log_exception(e, logger, level)
+    def self.log_exception_with_backtrace(e, logger, level, filter: Roby.app.filter_backtraces?, with_original_exceptions: true)
+        log_exception(e, logger, level, with_original_exceptions: false)
         logger.send level, color("= Backtrace", :bold, :red)
-        log_backtrace(e, logger, level)
-        logger.send level, color("= ", :bold, :red)
+
+        backtrace = e.backtrace
+        if filter
+            backtrace = filter_backtrace(backtrace)
+        end
+        if !backtrace || backtrace.empty?
+            logger.send level, color("= No backtrace", :bold, :red)
+        else
+            logger.send level, color("= ", :bold, :red)
+            log_backtrace(e, logger, level)
+            logger.send level, color("= ", :bold, :red)
+        end
+
+        if with_original_exceptions && e.respond_to?(:original_exceptions)
+            e.original_exceptions.each do |orig_e|
+                log_exception_with_backtrace(orig_e, logger, level, with_original_exceptions: true)
+            end
+        end
     end
 
     def self.log_error(e, logger, level, with_backtrace: true)
         if e.respond_to?(:backtrace) && with_backtrace
             log_exception_with_backtrace(e, logger, level)
         else
-            log_pp(e, logger, level)
+            log_exception(e, logger, level)
         end
     end
 
