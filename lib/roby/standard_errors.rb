@@ -81,6 +81,8 @@ module Roby
         def report_exceptions_from(object)
             if object.kind_of?(Exception)
                 original_exceptions << object
+            elsif object.respond_to?(:report_exceptions_on)
+                object.report_exceptions_on(self)
             elsif object.respond_to?(:context) && object.context
                 object.context.each do |c|
                     report_exceptions_from(c)

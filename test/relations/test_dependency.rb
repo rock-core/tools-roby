@@ -261,11 +261,29 @@ class TC_Dependency < Minitest::Test
         parent.depends_on child
         parent.start!
 
-        with_log_level(Roby, Logger::FATAL) do
+        inhibit_fatal_messages do
             assert_raises(ChildFailedError) { child.start! }
         end
 	exception = assert_child_failed(child, child.success_event, plan)
         # To avoid warning messages on teardown
+        plan.remove_object(child)
+    end
+
+    def test_ChildFailedError_points_to_the_original_exception
+        plan.add(parent = Tasks::Simple.new)
+        model = Tasks::Simple.new_submodel do
+            event :start do |context|
+                raise ArgumentError
+            end
+        end
+        parent.depends_on(child = model.new(id: 10))
+        parent.start!
+
+        inhibit_fatal_messages do
+            e = assert_raises(ChildFailedError) { child.start! }
+            assert_kind_of CommandFailed, e.original_exceptions[0]
+            assert_kind_of ArgumentError, e.original_exceptions[0].original_exceptions[0]
+        end
         plan.remove_object(child)
     end
 
