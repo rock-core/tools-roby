@@ -291,6 +291,23 @@ end
                 @value, @predicate, @elements = value, predicate, elements
             end
 
+            def report_exceptions_on(e)
+                elements.each do |el|
+                    case el
+                    when Exception
+                        e.report_exceptions_from(el)
+                    when Event
+                        el.all_sources.each do |ev|
+                            e.report_exceptions_from(ev)
+                        end
+                    when EventGenerator
+                        if value == nil
+                            e.report_exceptions_from(el.unreachability_reason)
+                        end
+                    end
+                end
+            end
+
             def pretty_print(pp)
                 if value == false
                     predicate.pretty_print(pp)

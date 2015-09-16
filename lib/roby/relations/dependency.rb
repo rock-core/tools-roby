@@ -854,8 +854,6 @@ module Roby
 
             events, generators, others = [], [], []
             explanation.elements.each do |e|
-                report_exceptions_from(e)
-
                 case e
                 when Event then events << e
                 when EventGenerator then generators << e
@@ -889,6 +887,7 @@ module Roby
 
             super(failure_point)
 
+            report_exceptions_from(explanation)
 	    @parent   = parent
 	    @relation = parent[child, TaskStructure::Dependency]
             if @relation
