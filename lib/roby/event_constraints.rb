@@ -336,6 +336,7 @@ end
 
                         when EventGenerator
                             if value == nil && explanation.unreachability_reason
+                                pp.breakable
                                 pp.text "The unreachability was caused by "
                                 pp.nest(2) do
                                     pp.breakable
