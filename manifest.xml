@@ -26,6 +26,8 @@
   <depend package="graphviz" optional='1' />
   <depend package="tools/rubigen" optional="1" />
 
+  <depend_optional package="autorespawn" />
+
   <test_depend package="minitest" />
   <test_depend package="flexmock" />
   <test_depend package="fakefs" />

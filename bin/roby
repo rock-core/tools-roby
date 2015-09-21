@@ -4,7 +4,7 @@ require 'roby'
 
 ORIGINAL_ARGV = ARGV.dup
 mode = ARGV.shift
-KNOWN_MODES = %w{init add-robot run shell test gen quit restart}
+KNOWN_MODES = %w{init add-robot run shell test gen quit restart autotest}
 
 if !KNOWN_MODES.include?(mode)
     puts "unknown mode #{mode}, available modes are: #{KNOWN_MODES.join(", ")}"

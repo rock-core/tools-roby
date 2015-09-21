@@ -71,9 +71,6 @@ if coverage_mode
 end
 
 Roby.display_exception do
-    Roby.app.setup
-    Roby.app.prepare
-
     profiling = !Roby.app.test_profile.empty?
     if profiling
         STDOUT.puts "Profiling results are saved in #{Roby.app.log_dir}.prof"
@@ -90,7 +87,9 @@ Roby.display_exception do
         PerfTools::CpuProfiler.pause
     end
 
+    Roby.app.setup
     begin
+        Roby.app.prepare
         # tests.options.banner.sub!(/\[options\]/, '\& tests...')
         if remaining_arguments.empty?
             remaining_arguments = Roby.app.

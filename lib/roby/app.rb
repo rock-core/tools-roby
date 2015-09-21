@@ -527,6 +527,7 @@ module Roby
             @auto_load_all = false
             @auto_load_models = true
             @app_dir = nil
+            @manage_drb = true
             @backward_compatible_naming = true
             @development_mode = true
             @search_path = nil
@@ -1058,6 +1059,26 @@ module Roby
             call_plugins(:register_generators, self)
         end
 
+        # Given a model class, returns the full path of an existing test file
+        # that is meant to verify this model
+        def test_file_for(model)
+            return if !model.respond_to?(:definition_location) || !model.definition_location 
+            model.definition_location.each do |file, *|
+                next if !(base_path = find_base_path_for(file))
+                relative = Pathname.new(file).relative_path_from(Pathname.new(base_path))
+                split = relative.each_filename.to_a
+                next if split[0] != 'models'
+                split[0] = 'test'
+                split[-1] = "test_#{split[-1]}"
+                canonical_testpath = [base_path, *split].join(File::SEPARATOR)
+                if File.exist?(canonical_testpath)
+                    return canonical_testpath.to_s
+                else break
+                end
+            end
+            nil
+        end
+
         # Loads the planner models
         #
         # This method is called at the end of require_models, before the
@@ -1249,7 +1270,9 @@ module Roby
             if public_shell_interface?
                 setup_shell_interface
             end
-            setup_drb_service
+            if manage_drb?
+                setup_drb_service
+            end
 
         rescue Exception
             begin cleanup
@@ -1482,7 +1505,9 @@ module Roby
 
             stop_log_server
             stop_shell_interface
-            stop_drb_service
+            if manage_drb?
+                stop_drb_service
+            end
         end
 
 	def stop; call_plugins(:stop, self) end
@@ -1857,6 +1882,12 @@ module Roby
             setup
         end
 
+        # If set to true, this object will start and stop a main DRb service for
+        # its own operations, otherwise it will assume there is one already
+        #
+        # This is used in {#setup} and {#cleanup}
+        attr_predicate :manage_drb?, true
+
         # If set to true, this Roby application will publish a public shell
         # interface. Otherwise, no shell interface is going to be published at
         # all
@@ -1923,12 +1954,20 @@ module Roby
 	    Roby.app.available_plugins << [name, dir, mod, init]
 	end
 
-        # Returns true if the given path points to a file in the Roby app
-	def app_file?(path)
-            search_path.any? do |app_dir|
+        # Returns the path in search_path that contains the given file or path
+        #
+        # @return [nil,String]
+        def find_base_path_for(path)
+            candidates = search_path.find_all do |app_dir|
                 (path =~ %r{(^|/)#{app_dir}(/|$)}) ||
                     ((path[0] != ?/) && File.file?(File.join(app_dir, path)))
             end
+            candidates.max_by(&:size)
+        end
+
+        # Returns true if the given path points to a file in the Roby app
+	def app_file?(path)
+            !!find_base_path_for(path)
 	end
 
 	def framework_file?(path)
@@ -1977,6 +2016,20 @@ module Roby
 		models.concat(config_extension.root_models)
 	    end
             models
+        end
+
+        def each_model(root_model = nil)
+            return enum_for(__method__, root_model) if !block_given?
+
+            if !root_model
+                self.root_models.each { |m| each_model(m, &proc) }
+                return
+            end
+
+            yield(root_model)
+            root_model.each_submodel do |m|
+                yield(m)
+            end
         end
 
         def clear_model?(m)

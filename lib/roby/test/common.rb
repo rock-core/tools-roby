@@ -164,6 +164,7 @@ module Roby
 	    end
 
 	    unless DRb.primary_server
+                @started_drb = true
 		DRb.start_service 'druby://localhost:0'
 	    end
 
@@ -252,7 +253,9 @@ module Roby
                 space.close
             end
 	    stop_remote_processes
-	    DRb.stop_service if DRb.thread
+            if DRb.thread && @started_drb
+                DRb.stop_service
+            end
 
 	    restore_collections
 
