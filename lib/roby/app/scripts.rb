@@ -16,12 +16,12 @@ module Roby
 
                 def initialize(app = Roby.app)
                     @app = app
+                    @host_options = Hash.new
                 end
 
                 def setup_option_parser(parser)
-                    parser.on('--host URL', String, "sets the host to connect to as hostname[:PORT]") do |url|
-                        @host = url
-                    end
+                    @host_options = Hash.new
+                    Roby::Application.host_options(parser, @host_options)
                 end
 
                 def default_option_parser(banner: "")
@@ -37,7 +37,7 @@ module Roby
                 end
 
                 def host
-                    remote_url = @host || app.droby['host'] || 'localhost'
+                    remote_url = @host_options[:host] || app.droby['host'] || 'localhost'
                     if remote_url !~ /:\d+$/
                         if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
                             remote_url << $1
