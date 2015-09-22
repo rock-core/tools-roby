@@ -451,6 +451,25 @@ module Roby
             end
         end
 
+        # Sets up provided option parser to add the --host and --vagrant option
+        #
+        # When added, a :host entry will be added to the provided options hash
+        def self.host_options(parser, options)
+            parser.on('--host URL', String, "sets the host to connect to as hostname[:PORT]") do |url|
+                options[:host] = url
+            end
+            parser.on('--vagrant NAME[:PORT]', String, "connect to a vagrant VM") do |vagrant_name|
+                require 'roby/app/vagrant'
+                vagrant_name, port = vagrant_name.split(':')
+                host = Roby::App::Vagrant.resolve_ip(vagrant_name)
+                if port
+                    options[:host] = "#{host}:#{port}"
+                else
+                    options[:host] = host
+                end
+            end
+        end
+
         # Array of regular expressions used to filter out backtraces
         attr_reader :filter_out_patterns
 

@@ -41,6 +41,11 @@ options = OptionParser.new do |opt|
         data_source_mode = :client
         host, port = parse_remote_host(host_spec)
     end
+    opt.on '--vagrant=NAME', String, 'a vagrant VM to connect to' do |name|
+        data_source_mode = :client
+        require 'roby/app/vagrant'
+        host = Roby::App::Vagrant.resolve_ip(name)
+    end
     opt.on('--server[=PORT]', Integer, "starts in server mode. If the port number is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |server_port|
         data_source_mode = :server
         port = Integer(server_port || Roby::Log::Server::DEFAULT_PORT)
