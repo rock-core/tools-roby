@@ -518,6 +518,7 @@ module Roby
             @options = DEFAULT_OPTIONS.dup
             @created_log_dirs = []
             @additional_model_files = []
+            @restarting = false
 
 	    @automatic_testing = true
             @registered_exceptions = []
@@ -1372,7 +1373,34 @@ module Roby
 
         ensure
             cleanup
+            if restarting?
+                Kernel.exec *@restart_cmdline
+            end
 	end
+
+        # Whether {#run} should exec a new process on quit or not
+        def restarting?
+            !!@restarting
+        end
+
+        # Quits this app and replaces with a new one after a proper cleanup
+        #
+        # @param [String] cmdline the command line to exec after quitting. If
+        #   not given, will restart using the same command line as the one that
+        #   started this process
+        def restart(*cmdline)
+            @restarting = true
+            @restart_cmdline =
+                if cmdline.empty?
+                    if defined? ORIGINAL_ARGV
+                        [$0, *ORIGINAL_ARGV]
+                    else
+                        [$0, *ARGV]
+                    end
+                else cmdline
+                end
+            plan.execution_engine.quit
+        end
 
         # Helper for Application#run to call the plugin's run or start methods
         # while guaranteeing the system's cleanup

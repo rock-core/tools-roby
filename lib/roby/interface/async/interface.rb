@@ -290,6 +290,16 @@ module Roby
                     !!client
                 end
 
+                # Asks the remote app to quit (synchronous)
+                def quit
+                    client.quit
+                end
+
+                # Asks the remote app to restart (synchronous)
+                def restart
+                    client.restart
+                end
+
                 # Returns all the existing jobs on this interface
                 #
                 # The returned monitors are not started, you have to call

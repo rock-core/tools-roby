@@ -547,7 +547,7 @@ module Roby::TaskStructure
             if !@implicit_fullfilled_model
                 @implicit_fullfilled_model = Array.new
                 ancestors.each do |m|
-                    next if m.is_singleton?
+                    next if m.singleton_class?
                     if m.kind_of?(Class) || (m.kind_of?(Roby::Models::TaskServiceModel) && m != Roby::TaskService)
                         @implicit_fullfilled_model << m
                     end
