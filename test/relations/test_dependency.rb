@@ -797,6 +797,36 @@ module Roby
                     assert parent.depends_on?(child)
                 end
             end
+
+            describe ".merge_fullfilled_model" do
+                let(:task_m) { Task.new_submodel }
+                let(:target_tag_m) { TaskService.new_submodel }
+                let(:source_tag_m) { TaskService.new_submodel }
+                it "does not modify the target argument" do
+                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
+                    assert_equal [task_m, [target_tag_m], Hash[arg0: 10]], target
+                end
+                it "picks the most specialized task model" do
+                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    subclass_m = task_m.new_submodel
+                    merged = Dependency.merge_fullfilled_model(target, [subclass_m], Hash[])
+                    assert_equal subclass_m, merged[0]
+                    target[0] = subclass_m
+                    merged = Dependency.merge_fullfilled_model(target, [task_m], Hash[])
+                    assert_equal subclass_m, merged[0]
+                end
+                it "concatenates tags" do
+                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
+                    assert_equal [target_tag_m, source_tag_m], merged[1]
+                end
+                it "merges the arguments" do
+                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
+                    assert_equal Hash[arg0: 10, arg1: 20], merged.last
+                end
+            end
         end
     end
 end

@@ -634,7 +634,8 @@ module Roby::TaskStructure
         def merge_fullfilled_model(model, required_models, required_arguments)
             model, tags, arguments = *model
 
-            required_models = [required_models] if !required_models.respond_to?(:to_ary)
+            tags = tags.dup
+            required_models = Array(required_models)
 
             for m in required_models
                 if m.kind_of?(Roby::Models::TaskServiceModel)
@@ -646,7 +647,7 @@ module Roby::TaskStructure
                 end
             end
 
-            arguments.merge!(required_arguments) do |name, old, new| 
+            arguments = arguments.merge(required_arguments) do |name, old, new| 
                 if old != new
                     raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
                 end
