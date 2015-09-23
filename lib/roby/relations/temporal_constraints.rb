@@ -86,9 +86,13 @@ module Roby
             end
 
             def pretty_print(pp)
-                pp.text "#{failed_event} has been emitted outside its specified temporal constraints"
-                pp.breakable
-                pp.text "  #{parent_generator}: #{allowed_intervals.map { |min, max| "[#{min}, #{max}]" }.join(" | ")}"
+                pp.text "Got "
+                failed_event.pretty_print(pp)
+                pp.text "It breaks the temporal constraint(s) #{allowed_intervals.map { |min, max| "[#{min}, #{max}]" }.join(" | ")} from"
+                pp.nest(2) do
+                    pp.breakable
+                    parent_generator.pretty_print(pp)
+                end
             end
         end
 
@@ -109,14 +113,19 @@ module Roby
             end
 
             def pretty_print(pp)
-                pp.text "#{failed_event} has been emitted outside specified constraints"
+                pp.text "Got "
+                failed_event.pretty_print(pp)
                 pp.breakable
-                pp.text "  #{parent_generator} has been emitted #{count} times"
+                pp.text "This does not satisfy the occurance constraint [#{allowed_interval[0]}, #{allowed_interval[1]}] from"
+                pp.nest(2) do
+                    pp.breakable
+                    parent_generator.pretty_print(pp)
+                end
+                pp.breakable
+                pp.text "which has been emitted #{count} times"
                 if since
                     pp.text " since #{since}"
                 end
-                pp.breakable
-                pp.text "  the constraints on #{failed_generator} specify that it can emit only in the [#{allowed_interval.map(&:to_s).join(", ")}] range"
             end
         end
 

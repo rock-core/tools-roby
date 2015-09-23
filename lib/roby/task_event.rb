@@ -96,7 +96,12 @@ module Roby
 	end
 
         def pretty_print(pp, with_context = true)
-            pp.text "[#{Roby.format_time(time)} @#{propagation_id}] #{task}/#{symbol}"
+            pp.text "event #{symbol} emitted at [#{Roby.format_time(time)} @#{propagation_id}] from "
+            pp.nest(2) do
+                pp.breakable
+                task.pretty_print(pp)
+            end
+
             if with_context && context
                 pp.breakable
                 pp.nest(2) do

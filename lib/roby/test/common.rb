@@ -182,7 +182,7 @@ module Roby
                 begin
                     yield
                 rescue Exception => e
-                    PP.pp(e, "")
+                    PP.pp(e, "") # verify that the exception can be pretty-printed, all Roby exceptions should
                     if e.kind_of?(Roby::SynchronousEventProcessingMultipleErrors)
                         match = e.errors.find do |original_e, _|
                             original_e.exception.kind_of?(exception)
