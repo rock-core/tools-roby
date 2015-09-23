@@ -70,6 +70,11 @@ module Roby
                 @watch_events_handler_id = engine.add_propagation_handler(:type => :external_events) do |plan|
                     Test.verify_watched_events
                 end
+                @received_exceptions = Array.new
+                @exception_handler = engine.on_exception do |kind, e|
+                    @received_exceptions << [kind, e]
+
+                end
             end
 
             def teardown
@@ -110,12 +115,15 @@ module Roby
             end
 
             def process_events
-                Roby.app.abort_on_exception = true
+                @received_exceptions.clear
                 engine.join_all_worker_threads
                 engine.start_new_cycle
                 engine.process_events
-            ensure
-                Roby.app.abort_on_exception = false
+                @received_exceptions.each do |kind, e|
+                    if kind == Roby::ExecutionEngine::EXCEPTION_FATAL
+                        raise e
+                    end
+                end
             end
 
             def inhibit_fatal_messages(&block)
