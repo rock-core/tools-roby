@@ -1398,12 +1398,24 @@ module Roby
 
         
         # The set of blocks that should be called to check the structure of the
-        # plan. See also Plan.structure_checks.
+        # plan.
+        #
+        # @yieldparam [Plan] the plan
+        # @yieldreturn [Array<(#to_execution_exception,Array<Task>)>] a list
+        #   of exceptions, and the tasks toward which these exceptions
+        #   should be propagated. If the list of tasks is nil, all parents
+        #   of the exception's origin will be selected
         attr_reader :structure_checks
 
         @structure_checks = Array.new
         class << self
             # A set of structure checking procedures that must be performed on all plans
+            #
+            # @yieldparam [Plan] the plan
+            # @yieldreturn [Array<(#to_execution_exception,Array<Task>)>] a list
+            #   of exceptions, and the tasks toward which these exceptions
+            #   should be propagated. If the list of tasks is nil, all parents
+            #   of the exception's origin will be selected
             attr_reader :structure_checks
         end
 
@@ -1420,6 +1432,14 @@ module Roby
         end
         structure_checks << method(:check_failed_missions)
         
+        # @api private
+        #
+        # Normalize the value returned by one of the {#structure_checks}, by
+        # computing the list of propagation parents if they were not specified
+        # in the return value
+        #
+        # @param [Hash] result
+        # @param [Array,Hash] new
         def format_exception_set(result, new)
             [*new].each do |error, tasks|
                 roby_exception = error.to_execution_exception
@@ -1434,12 +1454,12 @@ module Roby
         end
 
         # Perform the structure checking step by calling the procs registered
-        # in #structure_checks and Plan.structure_checks. These procs are
-        # supposed to return a collection of exception objects, or nil if no
-        # error has been found
+        # in {#structure_checks} and {Plan.structure_checks}
+        #
+        # @return [Hash<ExecutionException,Array<Roby::Task>,nil>
 	def check_structure
 	    # Do structure checking and gather the raised exceptions
-	    exceptions = {}
+            exceptions = Hash.new
 	    for prc in (Plan.structure_checks + structure_checks)
 		begin
 		    new_exceptions = prc.call(self)

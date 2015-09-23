@@ -726,9 +726,10 @@ class TC_Dependency < Minitest::Test
         parent.start!
         child.start!
         grandchild.start!
-        begin grandchild.stop!
-            assert(false, 'expected ChildFailedError to be raised, but got not exceptions')
-        rescue Roby::ChildFailedError => e
+        inhibit_fatal_messages do
+            e = assert_raises(Roby::ChildFailedError) do
+                grandchild.stop!
+            end
             assert_equal(child, e.failed_task)
         end
     end
