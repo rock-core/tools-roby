@@ -827,6 +827,23 @@ module Roby
                     assert_equal Hash[arg0: 10, arg1: 20], merged.last
                 end
             end
+
+            describe "#provided_models" do
+                it "returns an explicitly set model if one is set" do
+                    task_m = Task.new_submodel
+                    sub_m  = task_m.new_submodel
+                    task = sub_m.new
+                    task.fullfilled_model = [task_m, [], Hash.new]
+                    assert_equal [task_m], task_m.new.provided_models
+                end
+
+                it "falls back on the models' fullfilled model" do
+                    task_m = Task.new_submodel
+                    sub_m  = task_m.new_submodel
+                    sub_m.fullfilled_model = [task_m]
+                    assert_equal [task_m], task_m.new.provided_models
+                end
+            end
         end
     end
 end

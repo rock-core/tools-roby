@@ -483,7 +483,9 @@ module Roby::TaskStructure
             if model = explicit_fullfilled_model
                 [model[0]] + model[1]
             else
-                [self.model]
+                models = self.model.fullfilled_model
+                task_class = models.find { |m| m.kind_of?(Class) }
+                [task_class] + models.find_all { |m| !task_class.has_ancestor?(m) }
             end
         end
 
