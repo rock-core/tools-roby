@@ -131,7 +131,9 @@ module Roby
 
 	# Get the transaction proxy for +object+
 	def wrap(object, create = true)
-	    if object.kind_of?(PlanObject)
+            if object.kind_of?(PlanService)
+                PlanService.get(wrap(object.task))
+	    elsif object.kind_of?(PlanObject)
 		if object.plan == self then return object
 		elsif proxy = proxy_objects[object] then return proxy
 		end
@@ -520,10 +522,10 @@ module Roby
                         # Modified service. Might be moved to a new task
                         original = srv.__getobj__
                         task     = may_unwrap(task)
+                        srv.commit_transaction
                         if original.task != task
                             plan.move_plan_service(original, task)
                         end
-                        srv.commit_transaction
                     elsif task.transaction_proxy?
                         # New service on an already existing task
                         srv.task = task.__getobj__

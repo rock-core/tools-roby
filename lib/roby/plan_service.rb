@@ -40,9 +40,10 @@ module Roby
         def initialize_copy(source)
             super
 
-            @finalization_handlers = source.finalization_handlers.dup
-            @plan_status_handlers = source.plan_status_handlers.dup
             @event_handlers = source.event_handlers.dup
+            @finalization_handlers = source.finalization_handlers.dup
+            @replacement_handlers = source.replacement_handlers.dup
+            @plan_status_handlers = source.plan_status_handlers.dup
         end
 
         # True if this plan service instance is a transaction proxy, i.e.
@@ -185,7 +186,7 @@ module Roby
         end
 
         def kind_of?(*args)
-            task.kind_of?(*args)
+            super || task.kind_of?(*args)
         end
     end
 end
