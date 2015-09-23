@@ -2284,19 +2284,17 @@ module Roby
                             end
 
                     send(level) do
-                        lines = Roby.format_exception(error.exception).to_a
-                        lines[0] = "encountered a #{kind} exception: #{lines[0]}"
-                        lines.each do |line|
-                            send(level, line)
-                        end
+                        send(level, "encountered a #{kind} exception")
+                        Roby.log_exception_with_backtrace(error.exception, self, level)
                         if kind == EXCEPTION_HANDLED
-                            send(level, "the exception was handled by #{tasks}")
+                            send(level, "the exception was handled by")
                         else
                             send(level, "the exception involved")
-                            tasks.each do |t|
-                                send(level, "  #{t}")
-                            end
                         end
+                        tasks.each do |t|
+                            send(level, "  #{t}")
+                        end
+                        break
                     end
                 end
             else
