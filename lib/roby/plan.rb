@@ -417,9 +417,8 @@ module Roby
                 task = task.as_plan
             end
 	    return if @missions.include?(task)
-            add_mission_task(task)
 	    add(task)
-            notify_plan_status_change(task, :mission)
+            add_mission_task(task)
 	    self
 	end
 	# Hook called when +tasks+ have been inserted in this plan
@@ -478,9 +477,8 @@ module Roby
 
             if object.respond_to?(:to_task)
                 task = object.to_task
-                add_permanent_task(object)
-                add(object)
-                notify_plan_status_change(object, :permanent)
+                add(task)
+                add_permanent_task(task)
             else
                 add_permanent_event(object)
                 add(object)
@@ -685,17 +683,21 @@ module Roby
 
         def add_mission_task(task)
 	    return if missions.include?(task)
+            add_task(task)
+
 	    missions << task
 	    task.mission = true if task.self_owned?
-            add_task(task)
 	    added_mission(task)
+            notify_plan_status_change(task, :mission)
 	    true
         end
 
         def add_permanent_task(task)
             return if permanent_tasks.include?(task)
-            permanent_tasks << task
             add_task(task)
+
+            permanent_tasks << task
+            notify_plan_status_change(task, :permanent)
             true
         end
 

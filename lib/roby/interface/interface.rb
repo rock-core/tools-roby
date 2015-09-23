@@ -24,9 +24,6 @@ module Roby
 
         # The job has been dropped, i.e. its mission status has been removed
         JOB_DROPPED          = :dropped
-        # The job has been recaptured, i.e it was dropped and its mission status
-        # has been reestablished
-        JOB_RECAPTURED       = :recaptured
 
         # Initial notification, when the interface starts monitoring a job
         JOB_MONITORED        = :monitored
@@ -201,29 +198,34 @@ module Roby
             #
             # Called in at_cycle_end to push job notifications
             def push_pending_job_notifications
+                final_tracked_jobs = tracked_jobs.dup
+
                 # Re-track jobs for which we have a recapture event
                 job_notifications.each do |event, job_id, *|
-                    if event == JOB_RECAPTURED || event == JOB_MONITORED
+                    if event == JOB_MONITORED
                         tracked_jobs << job_id
+                        final_tracked_jobs << job_id
+                    elsif event == JOB_DROPPED || event == JOB_LOST || event == JOB_FINALIZED
+                        final_tracked_jobs.delete(job_id)
                     end
                 end
 
                 job_notifications = self.job_notifications.find_all do |event, job_id, *|
-                    tracked_jobs.include?(job_id)
+                    if event == JOB_DROPPED
+                        !final_tracked_jobs.include?(job_id)
+                    else
+                        tracked_jobs.include?(job_id)
+                    end
                 end
                 self.job_notifications.clear
 
                 each_job_listener do |listener|
-                    job_notifications.each do |kind, job_id, job_name, *args|
+                    job_notifications.each do |kind, job_id, job_name, args|
                         listener.call(kind, job_id, job_name, *args)
                     end
                 end
 
-                job_notifications.each do |event, job_id, *|
-                    if event == JOB_LOST || event == JOB_FINALIZED
-                        tracked_jobs.delete(job_id)
-                    end
-                end
+                @tracked_jobs = final_tracked_jobs
             end
 
             # (see Application#on_notification)
@@ -304,8 +306,16 @@ module Roby
 
                 job_id   = planning_task.job_id
                 job_name = planning_task.job_name
-                job_notify(JOB_MONITORED, job_id, job_name, task, planning_task)
-                job_notify(job_state(task), job_id, job_name)
+
+                service = PlanService.new(task)
+                service.on_plan_status_change do |status|
+                    if status == :mission
+                        job_notify(JOB_MONITORED, job_id, job_name, service.task, service.task.planning_task)
+                        job_notify(job_state(task), job_id, job_name)
+                    elsif (status != :mission)
+                        job_notify(JOB_DROPPED, job_id, job_name)
+                    end
+                end
 
                 if planner = task.planning_task
                     planner.on :start do |ev|
@@ -321,15 +331,6 @@ module Roby
                     end
                 end
 
-                service = PlanService.new(task)
-                service.on_plan_status_change do |status|
-                    if status == :mission
-                        job_notify(JOB_RECAPTURED, job_id, job_name)
-                        job_notify(job_state(task), job_id, job_name)
-                    elsif (status != :mission)
-                        job_notify(JOB_DROPPED, job_id, job_name)
-                    end
-                end
                 service.on_replacement do |current, new|
                     if job_id_of_task(new) == job_id
                         job_notify(JOB_REPLACED, job_id, job_name, new)

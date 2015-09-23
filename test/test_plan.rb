@@ -599,24 +599,5 @@ describe Roby::Plan do
             plan.add Roby::Task.new
         end
     end
-    
-    describe "#add_mission" do
-        it "ensures that the task is already in the mission set when passed to a trigger" do
-            plan.add_trigger Roby::Task do |task|
-                assert plan.mission?(task)
-                assert task.mission?
-            end
-            plan.add_mission(Roby::Task.new)
-        end
-    end
-    
-    describe "#add_permanent" do
-        it "ensures that the task is already in the permanent set when passed to a trigger" do
-            plan.add_trigger Roby::Task do |task|
-                assert plan.permanent?(task)
-            end
-            plan.add_permanent(Roby::Task.new)
-        end
-    end
 end
 
