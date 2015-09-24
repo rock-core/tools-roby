@@ -351,7 +351,7 @@ module Roby
 
         # Use to call the original method on a partial mock
         def flexmock_invoke_original(object, method, *args, &block)
-            object.instance_variable_get(:@flexmock_proxy).flexmock_invoke_original(method, args, &block)
+            object.instance_variable_get(:@flexmock_proxy).proxy.flexmock_invoke_original(method, args, &block)
         end
 
 	# The list of children started using #remote_process
