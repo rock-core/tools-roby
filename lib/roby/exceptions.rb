@@ -208,19 +208,21 @@ module Roby
 	end
     end
 
-    def self.filter_backtrace(original_backtrace = nil, options = Hash.new)
-        options = Kernel.validate_options options, :force => false, :display_full_framework_backtraces => false
+    def self.filter_backtrace(original_backtrace = nil, force: false, display_full_framework_backtraces: false)
         filter_out = Roby.app.filter_out_patterns
 
         if !original_backtrace && block_given?
             begin
                 return yield
             rescue Exception => e
-                raise e, e.message, filter_backtrace(e.backtrace, options)
+                filtered = filter_backtrace(
+                    e.backtrace, force: force,
+                    display_full_framework_backtraces: display_full_framework_backtraces)
+                raise e, e.message, filtered
             end
         end
 
-	if (Roby.app.filter_backtraces? || options[:force]) && original_backtrace
+	if (Roby.app.filter_backtraces? || force) && original_backtrace
             app_dir = Roby.app.app_dir
 
             original_backtrace = original_backtrace.dup
@@ -275,7 +277,7 @@ module Roby
                 end
             end
             backtrace.concat backtrace_bottom
-            if original_backtrace.size == backtrace.size && !options[:display_full_framework_backtraces]
+            if original_backtrace.size == backtrace.size && !display_full_framework_backtraces
                 # The backtrace is only within the framework, make it empty
                 backtrace = []
             end
@@ -283,10 +285,10 @@ module Roby
 	backtrace || original_backtrace || []
     end
 
-    def self.pretty_print_backtrace(pp, backtrace, options = Hash.new)
+    def self.pretty_print_backtrace(pp, backtrace, **options)
         if backtrace && !backtrace.empty?
             pp.nest(2) do
-                filter_backtrace(backtrace, options).each do |line|
+                filter_backtrace(backtrace, **options).each do |line|
                     pp.breakable
                     pp.text line
                 end
