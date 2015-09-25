@@ -89,6 +89,11 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
 
+        class NoSuchRobot < ArgumentError; end
+        class NotInCurrentApp < RuntimeError; end
+        class LogDirNotInitialized < RuntimeError; end
+        class PluginsDisabled < RuntimeError; end
+
         # The main plan on which this application acts
         attr_reader :plan
 
@@ -312,9 +317,6 @@ module Roby
             if !@app_dir
                 raise ArgumentError, "your current directory does not seem to be a Roby application directory; did you forget to run 'roby init'?"
             end
-        end
-
-        class NotInCurrentApp < UserError
         end
 
         # Call to check whether the current directory is within {#app_dir}. If
@@ -897,7 +899,6 @@ module Roby
             end
         end
 
-        class LogDirNotInitialized < RuntimeError; end
 
 	# The directory in which logs are to be saved
 	# Defaults to app_dir/data/$time_tag
@@ -1309,8 +1310,6 @@ module Roby
                 end
             end
         end
-
-        class NoSuchRobot < ArgumentError; end
 
         def setup_robot_names_from_config_dir
             robot_config_files = find_files_in_dirs 'config', 'robots', 
