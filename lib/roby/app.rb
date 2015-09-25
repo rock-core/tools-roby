@@ -1325,8 +1325,8 @@ module Roby
         end
 
         def require_robot_file
-            if !robot_name && !robot_type
-                return
+            if !robot_name
+                robot('default')
             end
 
             p = find_file('config', 'robots', "#{robot_name}.rb", order: :specific_first) ||
@@ -1487,13 +1487,6 @@ module Roby
 		    Roby::Distributed.state.start_neighbour_discovery
 		end
 	    end
-
-            if !robot_name
-                @robot_name = 'common'
-            end
-            if !robot_type
-                @robot_type = 'common'
-            end
 
 	    if log['events'] && public_logs?
 		require 'roby/log/file'
