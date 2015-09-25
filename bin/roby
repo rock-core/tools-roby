@@ -4,10 +4,29 @@ require 'roby'
 
 ORIGINAL_ARGV = ARGV.dup
 mode = ARGV.shift
-KNOWN_MODES = %w{init add-robot run shell test gen quit restart autotest}
 
-if !KNOWN_MODES.include?(mode)
-    puts "unknown mode #{mode}, available modes are: #{KNOWN_MODES.join(", ")}"
+KNOWN_MODES = Hash[
+    "gen" => "generate new Roby models / objects within a Roby appplication directory",
+    "run" => "start a Roby instance",
+    "shell" => "connect to a running Roby instance with a shell",
+    "test" => "run tests for this Roby app",
+    "autotest" => "run tests for this Roby app continuously",
+    "quit" => "ask a running Roby application to quit",
+    "restart" => "restart a running Roby application",
+
+    "init" => "create a new Roby app",
+    "add-robot" => "deprecated, use roby gen robot instead"
+]
+
+if !mode || !KNOWN_MODES.has_key?(mode)
+    if mode
+        STDERR.puts "unknown mode #{mode}"
+    end
+    max_mode_length = KNOWN_MODES.keys.map(&:length).max
+    format = "%-#{max_mode_length}s %s"
+    KNOWN_MODES.each do |mode_name, mode_description|
+        STDERR.puts(format % [mode_name, mode_description])
+    end
     exit 1
 end
 
