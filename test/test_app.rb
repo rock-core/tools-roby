@@ -16,7 +16,7 @@ describe Roby::Application do
         FakeFS::FileSystem.clear
     end
 
-    describe "#make_relative" do
+    describe "#make_path_relative" do
         before do
             app.search_path = %w{/bla/blo /bli/blu}
         end
@@ -26,7 +26,7 @@ describe Roby::Application do
             assert_equal(absolute_path, app.make_path_relative(absolute_path))
         end
 
-        it "keeps absolute paths that are not present on disk paths that are in the search paths to return the shortest relative path" do
+        it "keeps absolute paths that are not present on disk as-is" do
             absolute_path = "/bla/blo/config/file"
             assert_equal(absolute_path, app.make_path_relative(absolute_path))
         end

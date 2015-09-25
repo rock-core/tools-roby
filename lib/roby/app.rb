@@ -1075,14 +1075,13 @@ module Roby
         # Transforms +path+ into a path relative to an entry in +search_path+
         # (usually the application root directory)
         def make_path_relative(path)
-            path = path.dup
-            search_path.each do |p|
-                relative_path = path.gsub(/^#{Regexp.quote(p)}\//, '')
-                if File.file?(File.join(p, relative_path)) || File.file?(File.join(p, "#{relative_path}.rb"))
-                    path = relative_path
-                end
+            if !File.exists?(path)
+                path
+            elsif root_path = find_base_path_for(path)
+                return Pathname.new(path).relative_path_from(Pathname.new(root_path)).to_s
+            else
+                path
             end
-            path
         end
 
         def register_exception(e, reason = nil)
