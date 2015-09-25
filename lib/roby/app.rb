@@ -893,8 +893,8 @@ module Roby
         # @see add_app_metadata
         def app_metadata
             Hash['time' => time_tag, 'cmdline' => "#{$0} #{ARGV.join(" ")}",
-                 'robot_name' => robot_name, 'robot_type' => robot_type].
-                 merge(app_extra_metadata)
+                 'robot_name' => robot_name, 'robot_type' => robot_type,
+                 'app_name' => app_name, 'app_dir' => app_dir].merge(app_extra_metadata)
         end
 
         # Test whether this app already created its log directory
