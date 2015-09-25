@@ -729,9 +729,9 @@ module Roby
             using(*names)
         end
         
-        def register_plugins
-            if !plugins_enabled?
-                return
+        def register_plugins(force: false)
+            if !plugins_enabled? && !force
+                raise PluginsDisabled, "cannot call #register_plugins while the plugins are disabled"
             end
 
             # Load the plugins 'main' files
@@ -747,8 +747,12 @@ module Roby
         end
 
 	# Loads the plugins whose name are listed in +names+
-	def using(*names)
-            register_plugins
+	def using(*names, force: false)
+            if !plugins_enabled? && !force
+                raise PluginsDisabled, "plugins are disabled, cannot load #{names.join(", ")}"
+            end
+
+            register_plugins(force: true)
 	    names.map do |name|
 		name = name.to_s
 		unless plugin = plugin_definition(name)
@@ -1248,7 +1252,10 @@ module Roby
             load_config_yaml
 
 	    # Get the application-wide configuration
-            register_plugins
+            if plugins_enabled?
+                register_plugins
+            end
+
             if initfile = find_file('config', 'init.rb', :order => :specific_first)
                 Application.info "loading init file #{initfile}"
                 require initfile
