@@ -787,15 +787,7 @@ module Roby
         # Sets up the name and type of the robot. This can be called only once
         # in a given Roby controller.
 	def robot(name, type = nil)
-            name, type = robots.resolve(name, type)
-
-	    if @robot_name
-		if name != @robot_name && (@robot_type && type != @robot_type)
-		    raise ArgumentError, "the robot is already set to #{name}, of type #{type}"
-		end
-		return
-	    end
-	    @robot_name, @robot_type = name, type
+            @robot_name, @robot_type = robots.resolve(name, type)
 	end
 
         # The base directory in which logs should be saved
@@ -1290,15 +1282,11 @@ module Roby
             robots.strict = !robot_config_files.empty?
             robot_config_files.each do |path|
                 robot_name = File.basename(path, ".rb")
-                robots.robots[robot_name] = robot_name
+                robots.robots[robot_name] ||= robot_name
             end
         end
 
         def require_robot_file
-            if !robot_name
-                robot('default')
-            end
-
             p = find_file('config', 'robots', "#{robot_name}.rb", order: :specific_first) ||
                 find_file('config', 'robots', "#{robot_type}.rb", order: :specific_first)
 
@@ -1308,7 +1296,16 @@ module Roby
                 if !robot_type
                     robot(robot_name, robot_name)
                 end
-            elsif robots.strict? && find_dir('config', 'robots', order: :specific_first)
+            elsif !find_dir('config', 'robots', order: :specific_first) || (robot_name == robots.default_robot_name) || !robots.strict?
+                Roby.warn "#{robot_name}:#{robot_type} is selected as the robot, but there is"
+                if robot_name == robot_type
+                    Roby.warn "no file named config/robots/#{robot_name}.rb"
+                else
+                    Roby.warn "neither config/robots/#{robot_name}.rb nor config/robots/#{robot_type}.rb"
+                end
+                Roby.warn "run roby gen robot #{robot_name} in your app to create one"
+                Roby.warn "initialization will go on, but this behaviour is deprecated and will be removed in the future"
+            else
                 raise NoSuchRobot, "cannot find config file for robot #{robot_name} of type #{robot_type} in config/robots/"
             end
         end
