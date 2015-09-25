@@ -1063,19 +1063,6 @@ module Roby
 	    end
 	end
 
-	def setup_dirs
-            find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
-                each do |libdir|
-                    if !$LOAD_PATH.include?(libdir)
-                        $LOAD_PATH.unshift libdir
-                    end
-                end
-
-            if defined? Roby::Conf
-                Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
-            end
-	end
-
         # Transforms +path+ into a path relative to an entry in +search_path+
         # (usually the application root directory)
         def make_path_relative(path)
@@ -1270,9 +1257,18 @@ module Roby
             call_plugins(:load, self, options)
             call_plugins(:load_base_config, self, options)
 
-	    setup_dirs
-            find_and_create_log_dir
-	    setup_loggers
+            find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
+                each do |libdir|
+                    if !$LOAD_PATH.include?(libdir)
+                        $LOAD_PATH.unshift libdir
+                    end
+                end
+
+            if defined? Roby::Conf
+                Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
+            end
+
+            require_robot_file
         end
 
         def base_setup
@@ -1282,7 +1278,8 @@ module Roby
 
             setup_robot_names_from_config_dir
 	    load_base_config
-            require_robot_file
+            find_and_create_log_dir
+	    setup_loggers
             init_handlers.each(&:call)
 
             if !Roby.control
