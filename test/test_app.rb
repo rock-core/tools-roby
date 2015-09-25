@@ -39,6 +39,62 @@ describe Roby::Application do
         end
     end
 
+    describe "#find_and_create_log_dir" do
+        before do
+            app.log_base_dir = '/path/to/logs'
+        end
+
+        it "creates the log directory and paths to it" do
+            full_path = app.find_and_create_log_dir('tag')
+            assert_equal '/path/to/logs/tag', full_path
+            assert File.directory?(full_path)
+        end
+        it "saves the app metadata in the path" do
+            app.find_and_create_log_dir('tag')
+            metadata = YAML.load(File.read('/path/to/logs/tag/info.yml'))
+            assert_equal 1, metadata.size
+            assert(metadata.first == app.app_metadata, "#{metadata} differs from #{app.app_metadata}")
+        end
+
+        def assert_equal(expected, actual)
+            assert(expected == actual, "#{expected} differs from #{actual}")
+        end
+
+        it "registers the created paths for later cleanup" do
+            FileUtils.mkdir_p '/path'
+            app.find_and_create_log_dir('tag')
+            assert_equal ['/path/to', '/path/to/logs'].to_set,
+                app.created_log_base_dirs.to_set
+            assert_equal ['/path/to/logs/tag'],
+                app.created_log_dirs
+        end
+        it "handles concurrent path creation properly" do
+            FileUtils.mkdir_p '/path/to'
+            flexmock(FileUtils).should_receive(:mkdir).with('/path/to/logs').pass_thru
+            flexmock(FileUtils).should_receive(:mkdir).with('/path/to/logs/tag').
+                pass_thru { raise Errno::EEXIST }
+            flexmock(FileUtils).should_receive(:mkdir).with('/path/to/logs/tag.1').pass_thru
+            created = app.find_and_create_log_dir('tag')
+            assert_equal '/path/to/logs/tag.1', created
+            assert_equal [].to_set, app.created_log_base_dirs.to_set
+            assert_equal ['/path/to/logs/tag.1'], app.created_log_dirs
+        end
+        it "sets app#time_tag to the provided time tag" do
+            app.find_and_create_log_dir('tag')
+            assert_equal 'tag', app.time_tag
+        end
+        it "sets app#log_dir to the created log dir" do
+            full_path = app.find_and_create_log_dir('tag')
+            assert_equal full_path, app.log_dir
+        end
+        it "handles existing log directories by appending .N suffixes" do
+            FileUtils.mkdir_p '/path/to/logs/tag'
+            FileUtils.mkdir_p '/path/to/logs/tag.1'
+            full_path = app.find_and_create_log_dir('tag')
+            assert_equal '/path/to/logs/tag.2', full_path
+        end
+    end
+
     describe "#test_file_for" do
         before do
             app.search_path = %w{/bla/blo /bla/blo/blu}

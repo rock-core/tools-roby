@@ -427,6 +427,28 @@ module Roby
         #   application is started
         attr_reader :action_handlers
 
+        # The list of log directories created by this app
+        #
+        # They are deleted on cleanup if {#public_logs?} is false. Unlike with
+        # {#created_log_base_dirs}, they are deleted even if they are not empty.
+        #
+        # @return [Array<String>]
+        attr_reader :created_log_dirs
+
+        # The list of directories created by this app in the paths to
+        # {#created_log_dirs}
+        #
+        # They are deleted on cleanup if {#public_logs?} is false. Unlike with
+        # {#created_log_dirs}, they are not deleted if they are not empty.
+        #
+        # @return [Array<String>]
+        attr_reader :created_log_base_dirs
+
+        # Additional metadata saved in log_dir/info.yml by the app
+        #
+        # Do not modify directly, use {#add_app_metadata} instead
+        attr_reader :app_extra_metadata
+
         # Defines common configuration options valid for all Roby-oriented
         # scripts
         def self.common_optparse_setup(parser)
@@ -537,11 +559,13 @@ module Roby
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
             @created_log_dirs = []
+            @created_log_base_dirs = []
             @additional_model_files = []
             @restarting = false
 
 	    @automatic_testing = true
             @registered_exceptions = []
+            @app_extra_metadata = Hash.new
 
             @filter_out_patterns = [Roby::RX_IN_FRAMEWORK,
                                     Roby::RX_IN_METARUBY,
@@ -809,8 +833,8 @@ module Roby
         # directory. It defaults to "data".
         def log_base_dir
             maybe_relative_dir =
-                if local_conf = log['dir']
-                    local_conf
+                if @log_base_dir ||= log['dir']
+                    @log_base_dir
                 elsif global_base_dir = ENV['ROBY_BASE_LOG_DIR']
                     File.join(global_base_dir, app_name)
                 else
@@ -819,16 +843,65 @@ module Roby
             File.expand_path(maybe_relative_dir, app_dir || Dir.pwd)
         end
 
+        # Sets the directory under which logs should be created
+        #
+        # This cannot be called after log_dir has been set
+        def log_base_dir=(dir)
+            @log_base_dir = dir
+        end
+
+        # Create a log directory for the given time tag, and make it this app's
+        # log directory
+        #
+        # The time tag given to this method also becomes the app's time tag
+        #
+        # @param [String] time_tag
+        # @return [String] the path to the log directory
+        def find_and_create_log_dir(time_tag = self.time_tag)
+            base_dir  = log_base_dir
+            @time_tag = time_tag
+
+            while true
+                log_dir  = Roby::Application.unique_dirname(base_dir, '', time_tag)
+                new_dirs = Array.new
+
+                dir = log_dir
+                while !File.directory?(dir)
+                    new_dirs << dir
+                    dir = File.dirname(dir)
+                end
+
+                # Create all paths necessary, but check for possible concurrency
+                # issues with other Roby-based tools creating a log dir with the
+                # same name
+                failed = new_dirs.reverse.any? do |dir|
+                    begin FileUtils.mkdir(dir)
+                        false
+                    rescue Errno::EEXIST
+                        true
+                    end
+                end
+
+                if !failed
+                    new_dirs.delete(log_dir)
+                    created_log_dirs << log_dir
+                    created_log_base_dirs.concat(new_dirs)
+                    @log_dir = log_dir
+                    log_save_metadata
+                    return log_dir
+                end
+            end
+        end
+
+        class LogDirNotInitialized < RuntimeError; end
+
 	# The directory in which logs are to be saved
 	# Defaults to app_dir/data/$time_tag
 	def log_dir
-            if @log_dir
-                return @log_dir
-            else
-                base_dir = log_base_dir
-                final_path = Roby::Application.unique_dirname(base_dir, '', time_tag)
-                @log_dir = final_path
+            if !@log_dir
+                raise LogDirNotInitialized, "the log directory has not been initialized yet"
             end
+            @log_dir
 	end
 
         # The time tag. It is a time formatted as YYYYMMDD-HHMM used to mark log
@@ -837,28 +910,73 @@ module Roby
 	    @time_tag ||= Time.now.strftime('%Y%m%d-%H%M')
 	end
 
-        # Save a time tag file in the current log directory. This is used in
-        # case the log directory gets renamed
-        def log_save_time_tag
-            path = File.join(log_dir, 'time_tag')
-            if !File.file?(path)
-	        tag = time_tag
-                File.open(path, 'w') do |io|
-                    io.write tag
+        # Add some metadata to {#app_metadata}, and save it to the log dir's
+        # info.yml if it is already created
+        def add_app_metadata(metadata)
+            app_extra_metadata.merge!(metadata)
+            if created_log_dir?
+                log_update_metadata
+            end
+        end
+
+        # Metadata used to describe the app
+        #
+        # It is saved in the app's log directory under info.yml
+        #
+        # @see add_app_metadata
+        def app_metadata
+            Hash['time' => time_tag, 'cmdline' => "#{$0} #{ARGV.join(" ")}",
+                 'robot_name' => robot_name, 'robot_type' => robot_type].
+                 merge(app_extra_metadata)
+        end
+
+        # Test whether this app already created its log directory
+        def created_log_dir?
+            @log_dir && File.directory?(@log_dir)
+        end
+
+        # Save {#app_metadata} in the log directory
+        #
+        # @param [Boolean] append if true (the default), the value returned by
+        #   {#app_metadata} is appended to the existing data. Otherwise, it
+        #   replaces the last entry in the file
+        def log_save_metadata(append: true)
+            path = File.join(log_dir, 'info.yml')
+
+            info = Array.new
+            current =
+                if File.file?(path)
+                    YAML.load(File.read(path)) || Array.new
+                else Array.new
                 end
+
+            if append || current.empty?
+                current << app_metadata
+            else
+                current[-1] = app_metadata
+            end
+            File.open(path, 'w') do |io|
+                YAML.dump(current, io)
             end
         end
 
         # Read the time tag from the current log directory
-        def log_read_time_tag
+        def log_read_metadata
             dir = begin
                       log_current_dir
                   rescue ArgumentError
                   end
 
-            if dir && File.exists?(File.join(log_dir, 'time_tag'))
-                File.read(File.join(log_dir, 'time_tag')).strip
+            if dir && File.exists?(File.join(log_dir, 'info.yml'))
+                YAML.load(File.read(File.join(log_dir, 'info.yml')))
+            else
+                Array.new
             end
+        end
+
+        def log_read_time_tag
+            metadata = log_read_metadata.last
+            metadata && metadata['time_tag']
         end
 
         # The path to the current log directory
@@ -942,19 +1060,6 @@ module Roby
 	end
 
 	def setup_dirs
-            if !File.directory?(log_dir)
-                dir = log_dir
-                while !File.directory?(dir)
-                    @created_log_dirs << dir
-                    dir = File.dirname(dir)
-                end
-                FileUtils.mkdir_p(log_dir)
-            end
-            if public_logs?
-                FileUtils.rm_f File.join(log_base_dir, "current")
-                FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
-            end
-
             find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
                 each do |libdir|
                     if !$LOAD_PATH.include?(libdir)
@@ -1160,6 +1265,7 @@ module Roby
             call_plugins(:load_base_config, self, options)
 
 	    setup_dirs
+            find_and_create_log_dir
 	    setup_loggers
         end
 
@@ -1354,7 +1460,10 @@ module Roby
 
         # Prepares the environment to actually run
         def prepare
-            log_save_time_tag
+            if public_logs?
+                FileUtils.rm_f File.join(log_base_dir, "current")
+                FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
+            end
 
             if !single? && discovery.empty?
                 Application.info "dRoby disabled as no discovery configuration has been provided"
@@ -1498,8 +1607,12 @@ module Roby
             clear_config
 
             if !public_logs?
-                @created_log_dirs.each do |dir|
+                created_log_dirs.each do |dir|
                     FileUtils.rm_rf dir
+                end
+                created_log_base_dirs.sort_by(&:length).reverse_each do |dir|
+                    # .rmdir will ignore nonempty / nonexistent directories
+                    FileUtils.rmdir(dir)
                 end
             end
 
