@@ -33,23 +33,6 @@ parser = OptionParser.new do |opt|
     opt.on('-v', '--verbose', String, "run tests in verbose mode") do |verbose|
         testrb_args << '-v'
     end
-    opt.on('--timings[=AGGREGATE]', Integer, "show execution timings") do |aggregate|
-        Roby.app.test_show_timings = true
-        if aggregate.respond_to?(:to_int)
-            Roby.app.test_format_timepoints_options[:aggregate] = aggregate
-        end
-    end
-    opt.on('--repeat=N', Integer, 'repeat each test N times (usually used with --profile)') do |count|
-        Roby.app.test_repeat = count
-    end
-    opt.on('--profile[=SUBSYSTEM]', String, 'profile the given subsystem. Without arguments, profiles the tests without setup/teardown') do |subsystem|
-        Roby.app.test_profile.clear
-        if !subsystem.respond_to?(:to_str)
-            Roby.app.test_profile << 'test'
-        else
-            Roby.app.test_profile << subsystem
-        end
-    end
     opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
         coverage_mode = true
     end
@@ -71,22 +54,6 @@ if coverage_mode
 end
 
 Roby.display_exception do
-    profiling = !Roby.app.test_profile.empty?
-    if profiling
-        STDOUT.puts "Profiling results are saved in #{Roby.app.log_dir}.prof"
-        begin
-            require 'perftools'
-        rescue LoadError => perftools_error
-            begin
-                require 'stackprof/perftools'
-            rescue LoadError => stackprof_error
-                raise LoadError, "can load neither perftools (#{perftools_error}) nor stackprof (#{stackprof_error})"
-            end
-        end
-        PerfTools::CpuProfiler.start "#{Roby.app.log_dir}.prof"
-        PerfTools::CpuProfiler.pause
-    end
-
     Roby.app.setup
     begin
         Roby.app.prepare

@@ -12,12 +12,9 @@ module Roby
 
 		@old_distributed_logger_level = Distributed.logger.level
 
-		timings[:setup] = Time.now
-
 		# Start the GC so that it does not kick in a test. On slow machines, 
 		# it can trigger timeouts
 		GC.start
-		timings[:gc] = Time.now
 	    end
 
 	    def teardown
@@ -51,8 +48,6 @@ module Roby
 		if local
 		    local.quit
 		end
-
-		timings[:end] = Time.now
 
 	    rescue Exception
 		STDERR.puts "failing teardown: #{$!.full_message}"
@@ -172,10 +167,8 @@ module Roby
 
 	    # Establishes a peer to peer connection between two ConnectionSpace objects
 	    def peer2peer(&remote_init)
-		timings[:starting_peers] = Time.now
 		start_peers(&remote_init)
 		setup_connection
-		timings[:started_peers] = Time.now
 	    end
 
 	    def process_events

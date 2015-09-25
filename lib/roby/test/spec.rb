@@ -31,22 +31,6 @@ module Roby
                 "#{self.class}##{name}"
             end
 
-
-            def self.it(*args, &block)
-                super(*args) do
-                    if profiling = Roby.app.test_profile.include?('test')
-                        PerfTools::CpuProfiler.resume
-                    end
-                    begin
-                        instance_eval(&block)
-                    ensure
-                        if profiling
-                            PerfTools::CpuProfiler.pause
-                        end
-                    end
-                end
-            end
-
             # Set of models present during {setup}
             #
             # This is used to clear all the models created during the test in
@@ -82,15 +66,6 @@ module Roby
                     super
                 rescue ::Exception => e
                     teardown_failure = e
-                end
-
-                if Roby.app.test_show_timings?
-                    puts __full_name__
-                    timepoints = format_timepoints(Roby.app.test_format_timepoints_options)
-                    timepoints.each do |timing, name|
-                        puts "  %.3f %s" % [timing, name.join(" ")]
-                    end
-                    clear_timepoints
                 end
 
                 teardown_registered_plans
