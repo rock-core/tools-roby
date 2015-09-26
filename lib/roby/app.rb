@@ -270,6 +270,10 @@ module Roby
             end
         end
 
+        def has_app?
+            !!@app_dir
+        end
+
         # Guess the app directory based on the current directory, and sets
         # {@app_dir} It will not do anything if the current directory is not in
         # a Roby app. Moreover, it does nothing if #app_dir is already set
@@ -1231,7 +1235,9 @@ module Roby
                 Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
             end
 
-            require_robot_file
+            if has_app?
+                require_robot_file
+            end
         end
 
         def base_setup
