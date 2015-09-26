@@ -1,3 +1,5 @@
+require 'roby/test/self'
+
 require './test/test_bgl'
 require './test/test_relations'
 require './test/test_event'

@@ -1,8 +1,8 @@
-require 'minitest/autorun'
 
 # simplecov must be loaded FIRST. Only the files required after it gets loaded
 # will be profiled !!!
 if ENV['TEST_ENABLE_COVERAGE'] != '0'
+    ENV['TEST_ENABLE_COVERAGE'] = '0'
     begin
         require 'simplecov'
         require 'coveralls'
@@ -22,6 +22,7 @@ if ENV['TEST_ENABLE_COVERAGE'] != '0'
     end
 end
 
+require 'minitest/autorun'
 require 'flexmock/minitest'
 require 'roby/test/common'
 require 'roby/tasks/simple'
@@ -100,7 +101,4 @@ module Minitest
         include Roby::Test::Self
     end
 end
-
-
-
 
