@@ -16,3 +16,6 @@ logs/
 
 coverage/
 tmp
+vendor/
+.bundle
+Gemfile.lock

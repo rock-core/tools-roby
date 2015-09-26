@@ -45,7 +45,7 @@ require 'utilrb/exception/full_message'
 require 'utilrb/unbound_method/call'
 require 'metaruby'
 
-require 'roby/config'
+require 'roby/version'
 require 'roby/support'
 require 'roby/hooks'
 require 'roby/basic_object'

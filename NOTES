@@ -1,4 +1,0 @@
-* Consistency checking on relations is done in adding_(parent|child)_object. Don't modify any
-  internal structure before having called add_child_object or remove_child_object as the
-  task is supposed to behave if one of these hooks raises an exception
-
