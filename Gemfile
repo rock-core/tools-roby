@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-gem 'rubigen', path: File.expand_path('../rubigen', File.dirname(__FILE__))
+gem 'rubigen', github: 'doudou/rubigen'
 
 group 'gui' do
     gem 'qtbindings'
