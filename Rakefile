@@ -13,8 +13,6 @@ Rake::ExtensionTask.new 'roby_bgl' do |ext|
         ext.config_options << "--with-boost-dir=#{ENV['BOOST_DIR']}" 
     end
 end
-
-
 task :default => :compile
 
 Rake::TestTask.new(:test) do |t|
@@ -23,6 +21,7 @@ Rake::TestTask.new(:test) do |t|
     t.test_files = FileList['test/suite_core.rb']
 end
 
+# For backward compatibility with some scripts that expected hoe
 task :gem => :build
 
 UIFILES = %w{gui/relations_view/relations.ui gui/relations_view/relations_view.ui gui/stepping.ui}
@@ -40,8 +39,6 @@ task :uic do
         end
     end
 end
-
-task :default => :compile
 task :compile => :uic
 
 ###########
