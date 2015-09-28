@@ -1,6 +1,6 @@
 require 'drb'
 require 'set'
-require 'utilrb/value_set'
+require 'value_set'
 
 class NilClass
     def droby_dump(dest); nil end

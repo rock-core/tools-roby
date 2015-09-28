@@ -13,6 +13,10 @@ Rake::ExtensionTask.new 'roby_bgl' do |ext|
         ext.config_options << "--with-boost-dir=#{ENV['BOOST_DIR']}" 
     end
 end
+
+Rake::ExtensionTask.new 'value_set' do |ext|
+    ext.lib_dir = 'lib/value_set'
+end
 task :default => :compile
 
 Rake::TestTask.new(:test) do |t|

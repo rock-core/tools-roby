@@ -19,12 +19,12 @@ Roby.
   s.licenses = ["BSD"]
 
   s.require_paths = ["lib"]
-  s.extensions = ['ext/roby_bgl/extconf.rb', 'ext/roby_marshalling/extconf.rb']
+  s.extensions = ['ext/roby_bgl/extconf.rb', 'ext/roby_marshalling/extconf.rb', 'ext/value_set/extconf.rb']
   s.extra_rdoc_files = ["README.md"]
   s.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }
 
   s.add_runtime_dependency "facets", ">= 2.4.0"
-  s.add_runtime_dependency "utilrb", ">= 2.1.0.a"
+  s.add_runtime_dependency "utilrb", ">= 3.0.0.a"
   s.add_runtime_dependency "state_machine", "= 1.0.3"
   s.add_runtime_dependency "metaruby", '>= 1.0.0.a'
   s.add_runtime_dependency "websocket"
@@ -34,6 +34,7 @@ Roby.
   s.add_runtime_dependency "pastel"
   s.add_runtime_dependency "hooks"
   s.add_runtime_dependency "rubigen"
+  s.add_runtime_dependency "rake-compiler"
   s.add_development_dependency "webgen", "< 1.0"
   s.add_development_dependency "minitest", ">= 5.0", "~> 5.0"
   s.add_development_dependency "flexmock"
