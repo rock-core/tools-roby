@@ -38,6 +38,7 @@ module Roby
             attr_reader :models_present_in_setup
 
             def setup
+                plan.execution_engine.display_exceptions = false
                 # Mark every app-defined model as permanent, so that the tests can define
                 # their own and get cleanup up properly on teardown
                 @models_present_in_setup = Set.new
