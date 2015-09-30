@@ -471,19 +471,13 @@ module Roby
     class ToplevelTaskError < LocalizedError
         include UserExceptionWrapper
 
-        # If non-nil, this exception has been generated because of another, and
-        # this is the original one
-        attr_reader :original_exception
-        
         attr_reader :reason
 
         # Create a new MissionFailedError for the given mission
-	def initialize(task, reason = nil)
-	    super(task.failure_event || task)
+        def initialize(task, reason = nil)
+            super(task.failure_event || task)
             @reason = reason || task.failure_reason
-            if reason.kind_of?(Exception)
-                @original_exception = reason
-            end
+            report_exceptions_from(@reason)
 	end
 
         def pretty_print(pp)
