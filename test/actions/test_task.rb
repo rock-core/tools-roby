@@ -50,8 +50,6 @@ class TC_Actions_Task < Minitest::Test
             assert_raises(Roby::PlanningFailedError) { task.start! }
         end
         assert task.failed?
-        # To silence the teardown
-        plan.remove_object(task)
     end
 
     def test_it_emits_failed_if_the_transaction_failed_to_commit
@@ -61,8 +59,6 @@ class TC_Actions_Task < Minitest::Test
             assert_raises(Roby::PlanningFailedError) { task.start! }
         end
         assert task.failed?
-        # To silence the teardown
-        plan.remove_object(task)
     end
 
     def test_it_discards_the_transaction_on_failure
@@ -73,8 +69,6 @@ class TC_Actions_Task < Minitest::Test
         end
         assert task.failed?
         assert !task.transaction.plan, "transaction is neither discarded nor committed"
-        # To silence the teardown
-        plan.remove_object(task)
     end
 end
 

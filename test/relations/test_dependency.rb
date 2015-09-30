@@ -113,23 +113,14 @@ class TC_Dependency < Minitest::Test
     end
 
     def assert_child_fails(child, reason, plan)
-        with_log_level(Roby, Logger::FATAL) do
+        error = inhibit_fatal_messages do
             assert_raises(ChildFailedError) { yield }
         end
-        assert_child_failed(child, reason.last, plan)
+        assert_child_failed(child, error, reason.last, plan)
     end
 
-    def assert_child_failed(child, reason, plan)
+    def assert_child_failed(child, error, reason, plan)
 	result = plan.check_structure
-        if result.empty?
-            flunk("no error detected")
-        elsif result.size > 1
-            result.each do |err, _|
-                pp err
-            end
-            flunk("expected one error, got #{result.size}")
-        end
-        error = result.find { true }[0].exception
 	assert_equal(child, error.failed_task)
 	assert_equal(reason, error.failure_point)
         assert_formatting_succeeds(error)
@@ -201,8 +192,6 @@ class TC_Dependency < Minitest::Test
             mock.should_receive(:decision_control_called).at_least.once
 
             assert_child_fails(child, child.failed_event, plan) { child.stop! }
-            # To avoid warning messages on teardown
-            plan.remove_object(child)
         end
     end
 
@@ -231,23 +220,22 @@ class TC_Dependency < Minitest::Test
     def test_failure_on_pending_child_failed_to_start
         Roby::ExecutionEngine.logger.level = Logger::FATAL
         _, child = create_pair :success => [], :failure => [:stop], :start => false
-        FlexMock.use do |mock|
-            decision_control = Roby::DecisionControl.new
-            decision_control.singleton_class.class_eval do
-                define_method(:pending_dependency_failed) do |_, _, _|
-                    mock.decision_control_called
-                    true
-                end
-            end
 
-            plan.engine.control = decision_control
-            # Called once for the initial error handling and once for the
-            # post-recovery check
-            mock.should_receive(:decision_control_called).twice
-            assert_raises(ChildFailedError) { child.failed_to_start!(nil) }
+        mock = flexmock
+        decision_control = Roby::DecisionControl.new
+        decision_control.singleton_class.class_eval do
+            define_method(:pending_dependency_failed) do |_, _, _|
+                mock.decision_control_called
+                true
+            end
         end
-        assert_child_failed(child, child.start_event, plan) 
-        plan.remove_object(child)
+
+        plan.engine.control = decision_control
+        # Called once for the initial error handling and once for the
+        # post-recovery check
+        mock.should_receive(:decision_control_called).twice
+        error = assert_raises(ChildFailedError) { child.failed_to_start!(nil) }
+        assert_child_failed(child, error, child.start_event, plan) 
     end
 
     def test_failure_on_failed_start
@@ -261,12 +249,10 @@ class TC_Dependency < Minitest::Test
         parent.depends_on child
         parent.start!
 
-        inhibit_fatal_messages do
+        error = inhibit_fatal_messages do
             assert_raises(ChildFailedError) { child.start! }
         end
-	exception = assert_child_failed(child, child.success_event, plan)
-        # To avoid warning messages on teardown
-        plan.remove_object(child)
+	assert_child_failed(child, error, child.success_event, plan)
     end
 
     def test_ChildFailedError_points_to_the_original_exception
@@ -553,7 +539,10 @@ class TC_Dependency < Minitest::Test
         child.start!
 
         parent.depends_on child, :failure => :start
-        assert_child_failed(child, child.start_event.last, plan)
+	result = plan.check_structure
+        assert_equal 1, result.size
+        error = result.first[0].exception
+        assert_child_failed(child, error, child.start_event.last, plan)
     end
 
     def test_role_paths

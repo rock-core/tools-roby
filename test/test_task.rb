@@ -801,38 +801,70 @@ class TC_Task < Minitest::Test
 	assert( ev_models[:start].name || ev_models[:start].name.length > 0 )
     end
 
-    def test_check_running
-	model = Tasks::Simple.new_submodel do
-	    event(:inter, :command => true)
-	end
-	plan.add(task = model.new)
-
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(CommandFailed) { task.inter! }
-            assert_raises(EmissionFailed) { task.emit(:inter) }
-            assert(!task.event(:inter).pending)
-            task.start!
-            assert_raises(CommandFailed) { task.start! }
-            task.inter!
-            task.stop!
-
-            assert_raises(TaskEventNotExecutable) { task.emit(:inter) }
-            assert_raises(CommandFailed) { task.inter! }
-            assert(!task.event(:inter).pending)
+    describe "event validation" do
+        attr_reader :task
+        before do
+            model = Tasks::Simple.new_submodel do
+                event(:inter, :command => true)
+            end
+            plan.add(@task = model.new)
+            plan.execution_engine.display_exceptions = false
         end
 
-	model = Tasks::Simple.new_submodel do
-	    event :start do |context|
-		emit :inter
-		emit :start
-            end
+        after do
+            plan.execution_engine.display_exceptions = true
+        end
 
-	    event :inter do |context|
-		emit :inter
+        describe "a pending task" do
+            it "raises if calling an intermediate event" do
+                assert_raises(CommandFailed) { task.inter! }
+                assert(!task.inter_event.pending)
             end
-	end
-	plan.add(task = model.new)
-	task.start!
+            it "raises if emitting an intermediate event" do
+                inhibit_fatal_messages do
+                    assert_raises(EmissionFailed) { task.inter_event.emit }
+                end
+                assert(!task.inter_event.pending)
+            end
+        end
+
+        describe "a running task" do
+            before do
+                task.start!
+            end
+            it "raises if calling the start event" do
+                assert_raises(CommandFailed) { task.start! }
+            end
+        end
+        describe "a finished task" do
+            before do
+                task.start!
+                task.inter!
+                task.stop!
+            end
+            it "raises if calling an intermediate event" do
+                assert_raises(CommandFailed) { task.inter! }
+            end
+            it "raises if emitting an intermedikate event" do
+                assert_raises(TaskEventNotExecutable) { task.emit(:inter) }
+            end
+        end
+
+        it "correctly handles unordered emissions during the propagation phase" do
+            model = Tasks::Simple.new_submodel do
+                event :start do |context|
+                    emit :inter
+                    emit :start
+                end
+
+                event :inter do |context|
+                    emit :inter
+                end
+            end
+            plan.add(task = model.new)
+            task.start!
+            assert task.inter_event.happened?
+        end
     end
 
     def test_finished

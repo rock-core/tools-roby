@@ -1088,17 +1088,13 @@ class TC_ExecutionEngine < Minitest::Test
 	task = prepare_plan :missions => 1, :model => model
 	task.start!
         
-        inhibit_fatal_messages do
+        error = inhibit_fatal_messages do
             assert_raises(Roby::MissionFailedError) { task.specialized_failure! }
         end
 	
-	error = Roby::Plan.check_failed_missions(plan).first.exception
 	assert_kind_of(Roby::MissionFailedError, error)
 	assert_equal(task.event(:specialized_failure).last, error.failure_point)
         Roby.format_exception error
-
-	# Makes teardown happy
-	plan.remove_object(task)
     end
 
     def test_check_relations_structure
@@ -1495,18 +1491,12 @@ class TC_ExecutionEngine < Minitest::Test
     def test_mission_exceptions
 	mission = prepare_plan :missions => 1, :model => Tasks::Simple
 	mission.start!
-        inhibit_fatal_messages do
+        error = inhibit_fatal_messages do
             assert_raises(MissionFailedError) { mission.emit(:failed) }
         end
 
-	exceptions = plan.check_structure
-	assert_equal(1, exceptions.size)
-	assert_kind_of(Roby::MissionFailedError, exceptions.to_a[0][0].exception, exceptions)
-
-	# Discard the mission so that the test teardown does not complain
-	plan.unmark_mission(mission)
+	assert_kind_of(Roby::MissionFailedError, error)
     end
-
 
     def test_command_failed_formatting
         plan.add(task = Roby::Task.new)

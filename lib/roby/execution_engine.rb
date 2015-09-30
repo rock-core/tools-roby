@@ -1412,6 +1412,7 @@ module Roby
         def error_handling_phase_synchronous(stats, errors)
             kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
             if fatal_errors
+                garbage_collect(kill_tasks)
                 if fatal_errors.size == 1
                     e = fatal_errors.first.first.exception
                     raise e.dup, e.message, e.backtrace

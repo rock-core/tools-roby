@@ -476,10 +476,9 @@ class TC_Plan < Minitest::Test
         t2.start!
         t3.start!
         t4.start!
-        assert_raises(SynchronousEventProcessingMultipleErrors) { t4.stop! }
-        errors = engine.compute_fatal_errors({:start => Time.now}, [])
+        error = assert_raises(SynchronousEventProcessingMultipleErrors) { t4.stop! }
+        errors = error.errors
         assert_equal 2, errors.size
-
         child_failed   = errors.find { |e, _| e.exception.kind_of?(ChildFailedError) }
         mission_failed = errors.find { |e, _| e.exception.kind_of?(MissionFailedError) }
 
