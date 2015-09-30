@@ -12,6 +12,17 @@ module Roby
                 @excluded_patterns = Regexp.union(excluded_patterns, rx)
             end
 
+            def each_exception_from(e)
+                super do |e|
+                    yield e
+                    if e.respond_to?(:original_exceptions)
+                        e.original_exceptions.each do |original_e|
+                            each_exception_from(original_e, &proc)
+                        end
+                    end
+                end
+            end
+
             def filter_backtrace(parsed_backtrace, raw_backtrace)
                 raw_backtrace = raw_backtrace.
                     find_all { |l| !(excluded_patterns === l) }
@@ -27,18 +38,6 @@ module Roby
             def initialize(*)
                 super
                 @exception_rendering = ExceptionRendering.new(self.exception_rendering.linker)
-            end
-
-            def each_exception
-                return enum_for(__method__) if !block_given?
-                super do |e, reason|
-                    yield(e, reason)
-                    if e.respond_to?(:original_exceptions)
-                        e.original_exceptions.each do |original_e|
-                            yield(original_e, nil)
-                        end
-                    end
-                end
             end
         end
     end
