@@ -1,7 +1,20 @@
 module Roby
     module GUI
         class ExceptionRendering < MetaRuby::GUI::ExceptionRendering
+            attr_reader :excluded_patterns
+
+            def initialize(*)
+                super
+                @excluded_patterns = Regexp.new("^$")
+            end
+
+            def add_excluded_pattern(rx)
+                @excluded_patterns = Regexp.union(excluded_patterns, rx)
+            end
+
             def filter_backtrace(parsed_backtrace, raw_backtrace)
+                raw_backtrace = raw_backtrace.
+                    find_all { |l| !(excluded_patterns === l) }
                 Roby.filter_backtrace(raw_backtrace, force: true)
             end
 
