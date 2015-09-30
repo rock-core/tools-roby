@@ -24,9 +24,11 @@ module Roby
             pp.text "Got #{errors.size} exceptions and #{original_exceptions.size} sub-exceptions"
             pp.breakable
             pp.seplist(errors.each_with_index) do |(e, _), i|
-                pp.breakable
-                pp.text "[#{i}] "
-                e.pretty_print(pp)
+                Roby.flatten_exception(e).each_with_index do |sub_e, sub_i|
+                    pp.breakable
+                    pp.text "[#{i}.#{sub_i}] "
+                    sub_e.pretty_print(pp)
+                end
             end
         end
     end
