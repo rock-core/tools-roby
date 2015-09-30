@@ -173,7 +173,7 @@ module Roby
                 failure_point = peer.local_object(self.failure_point)
                 error = UntypedLocalizedError.new(failure_point)
                 error = error.exception(message)
-                error.original_exceptions.concat(original_exceptions)
+                error.original_exceptions.concat(peer.local_object(original_exceptions))
                 error.set_backtrace(backtrace)
                 error.exception_class = peer.local_object(model)
                 error.formatted_message = formatted_message
