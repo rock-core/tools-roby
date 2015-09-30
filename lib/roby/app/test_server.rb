@@ -19,6 +19,10 @@ module Roby
                 result.exception = manager.local_object(result.exception)
                 result
             end
+
+            def pretty_print(pp)
+                exception.pretty_print(pp)
+            end
         end
 
         # DRuby server for a client/server scheme in autotest
