@@ -601,7 +601,7 @@ module Roby
         # successfully
         def self.event_watch_result(positive, negative, deadline = nil)
             if deadline && deadline < Time.now
-                return true, "timeout"
+                return true, "timed out waiting for #{positive.map(&:to_s).join(", ")} to happen"
             end
 
             if positive_ev = positive.find { |ev| ev.happened? }
