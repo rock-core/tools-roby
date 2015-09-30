@@ -290,6 +290,37 @@ module Roby
                 end
             end
 
+            def capture_exceptions
+                super do
+                    begin
+                        yield
+                    rescue SynchronousEventProcessingMultipleErrors => aggregate_e
+                        exceptions = aggregate_e.errors.map do |execution_exception, _|
+                            execution_exception.exception
+                        end
+
+                        # Try to be smart and to only keep the toplevel
+                        # exceptions
+                        filter_execution_exceptions(exceptions).each do |e|
+                            case e
+                            when Assertion
+                                self.failures << e
+                            else
+                                self.failures << Minitest::UnexpectedError.new(e)
+                            end
+                        end
+                    end
+                end
+            end
+
+            def filter_execution_exceptions(exceptions)
+                included_in_another = exceptions.
+                    inject(Set.new) do |s, e|
+                        s.merge(Roby.flatten_exception(e) - [e])
+                    end
+                exceptions.find_all { |e| !included_in_another.include?(e) }
+            end
+
             def exception_details e, msg
                 [
                     "#{msg}",

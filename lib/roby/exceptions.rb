@@ -483,5 +483,15 @@ module Roby
             Roby.app.filter_backtraces = old_filter_backtraces
         end
     end
+
+    def self.flatten_exception(e)
+        result = [e].to_set
+        if e.respond_to?(:original_exceptions)
+            e.original_exceptions.each do |orig_e|
+                result.merge(flatten_exception(orig_e))
+            end
+        end
+        result
+    end
 end
 
