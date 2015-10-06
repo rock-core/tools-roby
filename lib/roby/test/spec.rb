@@ -31,22 +31,6 @@ module Roby
                 "#{self.class}##{name}"
             end
 
-
-            def self.it(*args, &block)
-                super(*args) do
-                    if profiling = Roby.app.test_profile.include?('test')
-                        PerfTools::CpuProfiler.resume
-                    end
-                    begin
-                        instance_eval(&block)
-                    ensure
-                        if profiling
-                            PerfTools::CpuProfiler.pause
-                        end
-                    end
-                end
-            end
-
             # Set of models present during {setup}
             #
             # This is used to clear all the models created during the test in
@@ -54,6 +38,7 @@ module Roby
             attr_reader :models_present_in_setup
 
             def setup
+                plan.execution_engine.display_exceptions = false
                 # Mark every app-defined model as permanent, so that the tests can define
                 # their own and get cleanup up properly on teardown
                 @models_present_in_setup = Set.new
@@ -70,6 +55,11 @@ module Roby
                 @watch_events_handler_id = engine.add_propagation_handler(:type => :external_events) do |plan|
                     Test.verify_watched_events
                 end
+                @received_exceptions = Array.new
+                @exception_handler = engine.on_exception do |kind, e|
+                    @received_exceptions << [kind, e]
+
+                end
             end
 
             def teardown
@@ -77,15 +67,6 @@ module Roby
                     super
                 rescue ::Exception => e
                     teardown_failure = e
-                end
-
-                if Roby.app.test_show_timings?
-                    puts __full_name__
-                    timepoints = format_timepoints(Roby.app.test_format_timepoints_options)
-                    timepoints.each do |timing, name|
-                        puts "  %.3f %s" % [timing, name.join(" ")]
-                    end
-                    clear_timepoints
                 end
 
                 teardown_registered_plans
@@ -110,25 +91,13 @@ module Roby
             end
 
             def process_events
-                Roby.app.abort_on_exception = true
+                @received_exceptions.clear
                 engine.join_all_worker_threads
                 engine.start_new_cycle
                 engine.process_events
-            ensure
-                Roby.app.abort_on_exception = false
-            end
-
-            def assert_raises(klass)
-                super do
-                    begin
-                        inhibit_fatal_messages do
-                            yield
-                        end
-                    rescue Roby::CodeError => code_error
-                        if code_error.error.kind_of?(klass)
-                            raise code_error.error
-                        else raise
-                        end
+                @received_exceptions.each do |kind, e|
+                    if kind == Roby::ExecutionEngine::EXCEPTION_FATAL
+                        raise e
                     end
                 end
             end
@@ -320,6 +289,37 @@ module Roby
                         "#{failure.result_label}:\n#{self.location}:\n#{msg}\n"
                     }.join "\n"
                 end
+            end
+
+            def capture_exceptions
+                super do
+                    begin
+                        yield
+                    rescue SynchronousEventProcessingMultipleErrors => aggregate_e
+                        exceptions = aggregate_e.errors.map do |execution_exception, _|
+                            execution_exception.exception
+                        end
+
+                        # Try to be smart and to only keep the toplevel
+                        # exceptions
+                        filter_execution_exceptions(exceptions).each do |e|
+                            case e
+                            when Assertion
+                                self.failures << e
+                            else
+                                self.failures << Minitest::UnexpectedError.new(e)
+                            end
+                        end
+                    end
+                end
+            end
+
+            def filter_execution_exceptions(exceptions)
+                included_in_another = exceptions.
+                    inject(Set.new) do |s, e|
+                        s.merge(Roby.flatten_exception(e) - [e])
+                    end
+                exceptions.find_all { |e| !included_in_another.include?(e) }
             end
 
             def exception_details e, msg

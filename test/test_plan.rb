@@ -476,10 +476,9 @@ class TC_Plan < Minitest::Test
         t2.start!
         t3.start!
         t4.start!
-        assert_raises(SynchronousEventProcessingMultipleErrors) { t4.stop! }
-        errors = engine.compute_fatal_errors({:start => Time.now}, [])
+        error = assert_raises(SynchronousEventProcessingMultipleErrors) { t4.stop! }
+        errors = error.errors
         assert_equal 2, errors.size
-
         child_failed   = errors.find { |e, _| e.exception.kind_of?(ChildFailedError) }
         mission_failed = errors.find { |e, _| e.exception.kind_of?(MissionFailedError) }
 
@@ -597,25 +596,6 @@ describe Roby::Plan do
             plan.remove_trigger trigger
             match.should_receive(:===).never
             plan.add Roby::Task.new
-        end
-    end
-    
-    describe "#add_mission" do
-        it "ensures that the task is already in the mission set when passed to a trigger" do
-            plan.add_trigger Roby::Task do |task|
-                assert plan.mission?(task)
-                assert task.mission?
-            end
-            plan.add_mission(Roby::Task.new)
-        end
-    end
-    
-    describe "#add_permanent" do
-        it "ensures that the task is already in the permanent set when passed to a trigger" do
-            plan.add_trigger Roby::Task do |task|
-                assert plan.permanent?(task)
-            end
-            plan.add_permanent(Roby::Task.new)
         end
     end
 end

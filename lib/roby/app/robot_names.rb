@@ -19,10 +19,9 @@ module Roby
             # from the app.yml file
             def initialize(options = Hash.new)
                 @robots = options['robots'] || Hash.new
-                if @default_robot_name = options['default_robot']
-                    if !has_robot?(default_robot_name)
-                        robots[default_robot_name] = default_robot_name
-                    end
+                @default_robot_name = options['default_robot'] || 'default'
+                if !has_robot?(default_robot_name)
+                    robots[default_robot_name] = default_robot_name
                 end
 
                 @aliases = options['aliases'] || Hash.new
@@ -80,8 +79,8 @@ module Roby
             def resolve(name, type = nil)
                 robot_name = aliases[name] || name || default_robot_name
                 if !robot_name
-                    error(ArgumentError, "no robot name given and no default name declared in app.yml, defaulting to #{DEFAULT_ROBOT_NAME}:#{DEFAULT_ROBOT_TYPE}")
-                    return DEFAULT_ROBOT_NAME, DEFAULT_ROBOT_TYPE
+                    error(ArgumentError, "no robot name given and no default name declared in app.yml, defaulting to #{default_robot_name}:#{default_robot_type}")
+                    return default_robot_name, default_robot_type
                 elsif robots.has_key?(robot_name)
                     robot_type = robots[robot_name]
                     type ||= robot_type

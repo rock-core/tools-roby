@@ -48,6 +48,7 @@ module Roby
                                 end
                                 last_quarantine = plan.gc_quarantine.dup
                             end
+                            sleep 1
                         end
                         engine.killall
                         
@@ -55,7 +56,6 @@ module Roby
                             [plan, engine, last_known_tasks, last_quarantine]
                         end
                     end.compact
-                    sleep 0.1
                     counter += 1
                 end
 

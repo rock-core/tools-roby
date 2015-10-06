@@ -1,3 +1,27 @@
+
+# simplecov must be loaded FIRST. Only the files required after it gets loaded
+# will be profiled !!!
+if ENV['TEST_ENABLE_COVERAGE'] != '0'
+    ENV['TEST_ENABLE_COVERAGE'] = '0'
+    begin
+        require 'simplecov'
+        require 'coveralls'
+        SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter[
+            SimpleCov::Formatter::HTMLFormatter,
+            Coveralls::SimpleCov::Formatter
+        ]
+        SimpleCov.start do
+            add_filter "/test/"
+        end
+    rescue LoadError
+        require 'roby'
+        Roby.warn "coverage is disabled because the 'simplecov' gem cannot be loaded"
+    rescue Exception => e
+        require 'roby'
+        Roby.warn "coverage is disabled: #{e.message}"
+    end
+end
+
 require 'minitest/autorun'
 require 'flexmock/minitest'
 require 'roby/test/common'
@@ -77,7 +101,4 @@ module Minitest
         include Roby::Test::Self
     end
 end
-
-
-
 

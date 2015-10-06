@@ -322,7 +322,10 @@ module Roby
                         argument
                     end
                 elsif v.respond_to?(m)
-                    v.send(m)
+                    begin v.send(m)
+                    rescue Exception
+                        throw :no_value
+                    end
                 elsif @weak
                     throw :no_value
                 else

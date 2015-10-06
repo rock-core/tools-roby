@@ -81,6 +81,8 @@ module Roby
         def report_exceptions_from(object)
             if object.kind_of?(Exception)
                 original_exceptions << object
+            elsif object.respond_to?(:report_exceptions_on)
+                object.report_exceptions_on(self)
             elsif object.respond_to?(:context) && object.context
                 object.context.each do |c|
                     report_exceptions_from(c)
@@ -171,7 +173,7 @@ module Roby
                 failure_point = peer.local_object(self.failure_point)
                 error = UntypedLocalizedError.new(failure_point)
                 error = error.exception(message)
-                error.original_exceptions.concat(original_exceptions)
+                error.original_exceptions.concat(peer.local_object(original_exceptions))
                 error.set_backtrace(backtrace)
                 error.exception_class = peer.local_object(model)
                 error.formatted_message = formatted_message
@@ -234,11 +236,24 @@ module Roby
     # The only difference is that this method displays some task-specific
     # information
     class TaskEventNotExecutable < EventNotExecutable
+        def initialize(failure_point)
+            super(failure_point)
+            if !(@plan = failed_generator.task.plan)
+                @removed_at = failed_generator.task.removed_at
+            end
+        end
+
+        def plan; @plan end
+        def removed_at; @removed_at end
+
         def pretty_print(pp)
-            super
-            if failed_generator.task.plan
+            pp.text "#{failed_generator.symbol} called but it is not executable on"
+            pp.breakable
+            failed_generator.task.pretty_print(pp)
+            pp.breakable
+            if plan
                 pp.text "the task has NOT been garbage collected"
-            elsif removed_at = failed_generator.task.removed_at
+            elsif removed_at
                 pp.text "#{failed_generator.task} has been removed from its plan at"
                 removed_at.each do |line|
                     pp.breakable
@@ -456,19 +471,13 @@ module Roby
     class ToplevelTaskError < LocalizedError
         include UserExceptionWrapper
 
-        # If non-nil, this exception has been generated because of another, and
-        # this is the original one
-        attr_reader :original_exception
-        
         attr_reader :reason
 
         # Create a new MissionFailedError for the given mission
-	def initialize(task, reason = nil)
-	    super(task.failure_event || task)
+        def initialize(task, reason = nil)
+            super(task.failure_event || task)
             @reason = reason || task.failure_reason
-            if reason.kind_of?(Exception)
-                @original_exception = reason
-            end
+            report_exceptions_from(@reason)
 	end
 
         def pretty_print(pp)

@@ -24,9 +24,11 @@ module Roby
             pp.text "Got #{errors.size} exceptions and #{original_exceptions.size} sub-exceptions"
             pp.breakable
             pp.seplist(errors.each_with_index) do |(e, _), i|
-                pp.breakable
-                pp.text "[#{i}] "
-                e.pretty_print(pp)
+                Roby.flatten_exception(e).each_with_index do |sub_e, sub_i|
+                    pp.breakable
+                    pp.text "[#{i}.#{sub_i}] "
+                    sub_e.pretty_print(pp)
+                end
             end
         end
     end
@@ -1410,6 +1412,7 @@ module Roby
         def error_handling_phase_synchronous(stats, errors)
             kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
             if fatal_errors
+                garbage_collect(kill_tasks)
                 if fatal_errors.size == 1
                     e = fatal_errors.first.first.exception
                     raise e.dup, e.message, e.backtrace
@@ -2284,19 +2287,17 @@ module Roby
                             end
 
                     send(level) do
-                        lines = Roby.format_exception(error.exception).to_a
-                        lines[0] = "encountered a #{kind} exception: #{lines[0]}"
-                        lines.each do |line|
-                            send(level, line)
-                        end
+                        send(level, "encountered a #{kind} exception")
+                        Roby.log_exception_with_backtrace(error.exception, self, level)
                         if kind == EXCEPTION_HANDLED
-                            send(level, "the exception was handled by #{tasks}")
+                            send(level, "the exception was handled by")
                         else
                             send(level, "the exception involved")
-                            tasks.each do |t|
-                                send(level, "  #{t}")
-                            end
                         end
+                        tasks.each do |t|
+                            send(level, "  #{t}")
+                        end
+                        break
                     end
                 end
             else

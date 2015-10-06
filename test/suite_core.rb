@@ -1,3 +1,5 @@
+require 'roby/test/self'
+
 require './test/test_bgl'
 require './test/test_relations'
 require './test/test_event'
@@ -37,4 +39,6 @@ require './test/suite_coordination'
 
 require './test/suite_interface'
 require './test/test_log'
+
+require './test/test_value_set'
 

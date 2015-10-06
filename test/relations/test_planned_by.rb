@@ -20,11 +20,15 @@ class TC_PlannedBy < Minitest::Test
 	task = root.depends_on(Roby::Task.new)
         planner = task.planned_by(Roby::Test::Tasks::Simple.new)
 	planner.start!
+
+        spy = flexmock(plan.execution_engine) do |s|
+            s.should_receive(:propagate_exceptions).with([])
+            s.should_receive(:propagate_exceptions).
+                with(->(e) { e.first.first.exception.kind_of?(Exception) && e.first.last == [] })
+        end
         inhibit_fatal_messages do
             assert_raises(PlanningFailedError) { planner.failed! }
         end
-        assert_equal [], plan.check_structure.first.last
-        plan.remove_object(planner)
     end
 
     def test_check
@@ -46,22 +50,17 @@ class TC_PlannedBy < Minitest::Test
 	assert_equal([], plan.check_structure.to_a)
 	planner.start!
 	assert_equal([], plan.check_structure.to_a)
-        inhibit_fatal_messages do
+        error = inhibit_fatal_messages do
             assert_raises(PlanningFailedError) { planner.failed! }
         end
 
-	errors = plan.check_structure.to_a
-        error = errors.find { |err| err.first.exception.kind_of?(Roby::PlanningFailedError) }
         assert(error, "no PlanningFailedError generated while one was expected")
-        error = error.first.exception
+        error = error.exception
 	assert_equal(planner, error.planning_task)
 	assert_equal(task, error.planned_task)
 
         # Verify that the formatting works fine
         PP.pp(error, "")
-
-	# Clear the planned task to make test teardown happy
-	plan.remove_object(task)
     end
 
     def test_as_plan

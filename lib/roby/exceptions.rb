@@ -208,19 +208,21 @@ module Roby
 	end
     end
 
-    def self.filter_backtrace(original_backtrace = nil, options = Hash.new)
-        options = Kernel.validate_options options, :force => false, :display_full_framework_backtraces => false
+    def self.filter_backtrace(original_backtrace = nil, force: false, display_full_framework_backtraces: false)
         filter_out = Roby.app.filter_out_patterns
 
         if !original_backtrace && block_given?
             begin
                 return yield
             rescue Exception => e
-                raise e, e.message, filter_backtrace(e.backtrace, options)
+                filtered = filter_backtrace(
+                    e.backtrace, force: force,
+                    display_full_framework_backtraces: display_full_framework_backtraces)
+                raise e, e.message, filtered
             end
         end
 
-	if (Roby.app.filter_backtraces? || options[:force]) && original_backtrace
+	if (Roby.app.filter_backtraces? || force) && original_backtrace
             app_dir = Roby.app.app_dir
 
             original_backtrace = original_backtrace.dup
@@ -275,7 +277,7 @@ module Roby
                 end
             end
             backtrace.concat backtrace_bottom
-            if original_backtrace.size == backtrace.size && !options[:display_full_framework_backtraces]
+            if original_backtrace.size == backtrace.size && !display_full_framework_backtraces
                 # The backtrace is only within the framework, make it empty
                 backtrace = []
             end
@@ -283,10 +285,10 @@ module Roby
 	backtrace || original_backtrace || []
     end
 
-    def self.pretty_print_backtrace(pp, backtrace, options = Hash.new)
+    def self.pretty_print_backtrace(pp, backtrace, **options)
         if backtrace && !backtrace.empty?
             pp.nest(2) do
-                filter_backtrace(backtrace, options).each do |line|
+                filter_backtrace(backtrace, **options).each do |line|
                     pp.breakable
                     pp.text line
                 end
@@ -330,33 +332,54 @@ module Roby
         end
     end
 
-    def self.log_exception(e, logger, level)
+    def self.log_exception(e, logger, level, with_original_exceptions: true)
         log_pp(e, logger, level)
+        if with_original_exceptions && e.respond_to?(:original_exceptions)
+            e.original_exceptions.each do |original_e|
+                log_exception(original_e, logger, level, with_original_exceptions: true)
+            end
+        end
     end
 
     def self.log_backtrace(e, logger, level, filter: Roby.app.filter_backtraces?)
         backtrace = e.backtrace
         if filter
             backtrace = filter_backtrace(backtrace)
-        else
         end
+
         format_exception(BacktraceFormatter.new(e, backtrace)).each do |line|
             logger.send(level, line)
         end
     end
 
-    def self.log_exception_with_backtrace(e, logger, level)
-        log_exception(e, logger, level)
+    def self.log_exception_with_backtrace(e, logger, level, filter: Roby.app.filter_backtraces?, with_original_exceptions: true)
+        log_exception(e, logger, level, with_original_exceptions: false)
         logger.send level, color("= Backtrace", :bold, :red)
-        log_backtrace(e, logger, level)
-        logger.send level, color("= ", :bold, :red)
+
+        backtrace = e.backtrace
+        if filter
+            backtrace = filter_backtrace(backtrace)
+        end
+        if !backtrace || backtrace.empty?
+            logger.send level, color("= No backtrace", :bold, :red)
+        else
+            logger.send level, color("= ", :bold, :red)
+            log_backtrace(e, logger, level)
+            logger.send level, color("= ", :bold, :red)
+        end
+
+        if with_original_exceptions && e.respond_to?(:original_exceptions)
+            e.original_exceptions.each do |orig_e|
+                log_exception_with_backtrace(orig_e, logger, level, with_original_exceptions: true)
+            end
+        end
     end
 
     def self.log_error(e, logger, level, with_backtrace: true)
         if e.respond_to?(:backtrace) && with_backtrace
             log_exception_with_backtrace(e, logger, level)
         else
-            log_pp(e, logger, level)
+            log_exception(e, logger, level)
         end
     end
 
@@ -459,6 +482,16 @@ module Roby
         if !filter_backtraces.nil?
             Roby.app.filter_backtraces = old_filter_backtraces
         end
+    end
+
+    def self.flatten_exception(e)
+        result = [e].to_set
+        if e.respond_to?(:original_exceptions)
+            e.original_exceptions.each do |orig_e|
+                result.merge(flatten_exception(orig_e))
+            end
+        end
+        result
     end
 end
 

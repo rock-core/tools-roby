@@ -113,23 +113,14 @@ class TC_Dependency < Minitest::Test
     end
 
     def assert_child_fails(child, reason, plan)
-        with_log_level(Roby, Logger::FATAL) do
+        error = inhibit_fatal_messages do
             assert_raises(ChildFailedError) { yield }
         end
-        assert_child_failed(child, reason.last, plan)
+        assert_child_failed(child, error, reason.last, plan)
     end
 
-    def assert_child_failed(child, reason, plan)
+    def assert_child_failed(child, error, reason, plan)
 	result = plan.check_structure
-        if result.empty?
-            flunk("no error detected")
-        elsif result.size > 1
-            result.each do |err, _|
-                pp err
-            end
-            flunk("expected one error, got #{result.size}")
-        end
-        error = result.find { true }[0].exception
 	assert_equal(child, error.failed_task)
 	assert_equal(reason, error.failure_point)
         assert_formatting_succeeds(error)
@@ -201,8 +192,6 @@ class TC_Dependency < Minitest::Test
             mock.should_receive(:decision_control_called).at_least.once
 
             assert_child_fails(child, child.failed_event, plan) { child.stop! }
-            # To avoid warning messages on teardown
-            plan.remove_object(child)
         end
     end
 
@@ -231,23 +220,22 @@ class TC_Dependency < Minitest::Test
     def test_failure_on_pending_child_failed_to_start
         Roby::ExecutionEngine.logger.level = Logger::FATAL
         _, child = create_pair :success => [], :failure => [:stop], :start => false
-        FlexMock.use do |mock|
-            decision_control = Roby::DecisionControl.new
-            decision_control.singleton_class.class_eval do
-                define_method(:pending_dependency_failed) do |_, _, _|
-                    mock.decision_control_called
-                    true
-                end
-            end
 
-            plan.engine.control = decision_control
-            # Called once for the initial error handling and once for the
-            # post-recovery check
-            mock.should_receive(:decision_control_called).twice
-            assert_raises(ChildFailedError) { child.failed_to_start!(nil) }
+        mock = flexmock
+        decision_control = Roby::DecisionControl.new
+        decision_control.singleton_class.class_eval do
+            define_method(:pending_dependency_failed) do |_, _, _|
+                mock.decision_control_called
+                true
+            end
         end
-        assert_child_failed(child, child.start_event, plan) 
-        plan.remove_object(child)
+
+        plan.engine.control = decision_control
+        # Called once for the initial error handling and once for the
+        # post-recovery check
+        mock.should_receive(:decision_control_called).twice
+        error = assert_raises(ChildFailedError) { child.failed_to_start!(nil) }
+        assert_child_failed(child, error, child.start_event, plan) 
     end
 
     def test_failure_on_failed_start
@@ -261,11 +249,27 @@ class TC_Dependency < Minitest::Test
         parent.depends_on child
         parent.start!
 
-        with_log_level(Roby, Logger::FATAL) do
+        error = inhibit_fatal_messages do
             assert_raises(ChildFailedError) { child.start! }
         end
-	exception = assert_child_failed(child, child.success_event, plan)
-        # To avoid warning messages on teardown
+	assert_child_failed(child, error, child.success_event, plan)
+    end
+
+    def test_ChildFailedError_points_to_the_original_exception
+        plan.add(parent = Tasks::Simple.new)
+        model = Tasks::Simple.new_submodel do
+            event :start do |context|
+                raise ArgumentError
+            end
+        end
+        parent.depends_on(child = model.new(id: 10))
+        parent.start!
+
+        inhibit_fatal_messages do
+            e = assert_raises(ChildFailedError) { child.start! }
+            assert_kind_of CommandFailed, e.original_exceptions[0]
+            assert_kind_of ArgumentError, e.original_exceptions[0].original_exceptions[0]
+        end
         plan.remove_object(child)
     end
 
@@ -535,7 +539,10 @@ class TC_Dependency < Minitest::Test
         child.start!
 
         parent.depends_on child, :failure => :start
-        assert_child_failed(child, child.start_event.last, plan)
+	result = plan.check_structure
+        assert_equal 1, result.size
+        error = result.first[0].exception
+        assert_child_failed(child, error, child.start_event.last, plan)
     end
 
     def test_role_paths
@@ -708,9 +715,10 @@ class TC_Dependency < Minitest::Test
         parent.start!
         child.start!
         grandchild.start!
-        begin grandchild.stop!
-            assert(false, 'expected ChildFailedError to be raised, but got not exceptions')
-        rescue Roby::ChildFailedError => e
+        inhibit_fatal_messages do
+            e = assert_raises(Roby::ChildFailedError) do
+                grandchild.stop!
+            end
             assert_equal(child, e.failed_task)
         end
     end
@@ -777,6 +785,53 @@ module Roby
                     parent.remove_roles(child, 'test1')
                     parent.remove_roles(child, 'test2', remove_child_when_empty: false)
                     assert parent.depends_on?(child)
+                end
+            end
+
+            describe ".merge_fullfilled_model" do
+                let(:task_m) { Task.new_submodel }
+                let(:target_tag_m) { TaskService.new_submodel }
+                let(:source_tag_m) { TaskService.new_submodel }
+                it "does not modify the target argument" do
+                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
+                    assert_equal [task_m, [target_tag_m], Hash[arg0: 10]], target
+                end
+                it "picks the most specialized task model" do
+                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    subclass_m = task_m.new_submodel
+                    merged = Dependency.merge_fullfilled_model(target, [subclass_m], Hash[])
+                    assert_equal subclass_m, merged[0]
+                    target[0] = subclass_m
+                    merged = Dependency.merge_fullfilled_model(target, [task_m], Hash[])
+                    assert_equal subclass_m, merged[0]
+                end
+                it "concatenates tags" do
+                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
+                    assert_equal [target_tag_m, source_tag_m], merged[1]
+                end
+                it "merges the arguments" do
+                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
+                    assert_equal Hash[arg0: 10, arg1: 20], merged.last
+                end
+            end
+
+            describe "#provided_models" do
+                it "returns an explicitly set model if one is set" do
+                    task_m = Task.new_submodel
+                    sub_m  = task_m.new_submodel
+                    task = sub_m.new
+                    task.fullfilled_model = [task_m, [], Hash.new]
+                    assert_equal [task_m], task_m.new.provided_models
+                end
+
+                it "falls back on the models' fullfilled model" do
+                    task_m = Task.new_submodel
+                    sub_m  = task_m.new_submodel
+                    sub_m.fullfilled_model = [task_m]
+                    assert_equal [task_m], task_m.new.provided_models
                 end
             end
         end

@@ -16,3 +16,7 @@ logs/
 
 coverage/
 tmp
+vendor/
+.bundle
+Gemfile.lock
+/lib/value_set/value_set.so

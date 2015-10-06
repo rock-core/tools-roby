@@ -186,15 +186,16 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_propagation_handlers_ignore_on_error
-        FlexMock.use do |mock|
-            engine.add_propagation_handler :on_error => :ignore do |plan|
-                mock.called
-                raise
-            end
-            mock.should_receive(:called).twice
-            process_events
-            process_events
+        spy = flexmock { |s| s.should_receive(:called).twice }
+
+        handler = engine.add_propagation_handler on_error: :ignore do |plan|
+            spy.called
+            raise
         end
+        inhibit_fatal_messages { process_events }
+        inhibit_fatal_messages { process_events }
+    ensure
+        engine.remove_propagation_handler(handler) if handler
     end
 
     def test_prepare_propagation
@@ -302,34 +303,30 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_delay_with_unreachability
-	FlexMock.use(Time) do |time_proxy|
-	    current_time = Time.now + 5
-	    time_proxy.should_receive(:now).and_return { current_time }
+        time_proxy = flexmock(Time)
+        current_time = Time.now + 5
+        time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.add_permanent(source = Tasks::Simple.new)
-	    plan.add_permanent(sink0 = Tasks::Simple.new)
-	    plan.add_permanent(sink1 = Tasks::Simple.new)
-	    source.start_event.signals sink0.start_event, :delay => 0.1
-	    source.start_event.signals sink1.start_event, :delay => 0.1
-	    engine.once { source.start! }
-	    process_events
-	    assert(!sink0.start_event.happened?)
-	    assert(!sink1.start_event.happened?)
+        source, sink0, sink1 = prepare_plan permanent: 3, model: Tasks::Simple
+        source.start_event.signals sink0.start_event, delay: 0.1
+        source.start_event.signals sink1.start_event, delay: 0.1
+        source.start!
+        assert(!sink0.start_event.happened?)
+        assert(!sink1.start_event.happened?)
 
-            plan.remove_object(sink0)
-            sink1.failed_to_start!("test")
-            assert(sink0.start_event.unreachable?)
-            assert(sink1.start_event.unreachable?)
-            assert(! engine.delayed_events.
-                   find { |_, _, _, target, _| target == sink0.start_event })
-            assert(! engine.delayed_events.
-                   find { |_, _, _, target, _| target == sink1.start_event })
+        plan.remove_object(sink0)
+        inhibit_fatal_messages { sink1.failed_to_start!("test") }
+        assert(sink0.start_event.unreachable?)
+        assert(sink1.start_event.unreachable?)
+        assert(! engine.delayed_events.
+               find { |_, _, _, target, _| target == sink0.start_event })
+        assert(! engine.delayed_events.
+               find { |_, _, _, target, _| target == sink1.start_event })
 
-	    current_time += 0.1
-            # Avoid unnecessary error messages
-            plan.unmark_permanent(sink0)
-            plan.unmark_permanent(sink1)
-	end
+        current_time += 0.1
+        # Avoid unnecessary error messages
+        plan.unmark_permanent(sink0)
+        plan.unmark_permanent(sink1)
     end
 
     def test_duplicate_signals
@@ -535,19 +532,13 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_failing_once
-	Roby.logger.level = Logger::FATAL + 1
-	Roby.app.abort_on_exception = true
-	engine.run
+        spy = flexmock
+        spy.should_receive(:called).once
+        engine.once { spy.called; raise }
 
-	FlexMock.use do |mock|
-	    engine.once { mock.called; raise }
-	    mock.should_receive(:called).once
-
-	    assert_raises(ExecutionQuitError) do
-		engine.wait_one_cycle
-		engine.join
-	    end
-	end
+        assert_raises(RuntimeError) do
+            process_events
+        end
     end
 
     class SpecificException < RuntimeError; end
@@ -626,18 +617,22 @@ class TC_ExecutionEngine < Minitest::Test
         # First time, we don't do anything. Second time, we return some filtered
         # fatal errors and verify that they are handled
 	Plan.structure_checks.clear
-        t0, t1, t2 = prepare_plan :add => 3
+        t0, t1, t2 = prepare_plan add: 3
+        t1.depends_on t0
         errors = Hash[LocalizedError.new(t0).to_execution_exception => [t1]]
-	Plan.structure_checks << lambda do |plan|
-            return errors
-        end
+        plan.structure_checks.clear
+        handler = proc { errors }
+	Plan.structure_checks << handler
+
         engine = flexmock(self.engine)
         engine.should_receive(:propagate_exceptions).with([]).and_return([])
         engine.should_receive(:propagate_exceptions).with(errors).once
         engine.should_receive(:remove_inhibited_exceptions).with(errors).
             and_return([[LocalizedError.new(t0), [t2]]])
         assert_equal [[LocalizedError.new(t0), [t2]]],
-            engine.compute_fatal_errors(Hash[:start => Time.now], [])
+            engine.compute_fatal_errors(Hash[start: Time.now], [])
+    ensure
+        Plan.structure_checks.delete(handler) if handler
     end
 
     def test_at_cycle_end
@@ -1093,17 +1088,13 @@ class TC_ExecutionEngine < Minitest::Test
 	task = prepare_plan :missions => 1, :model => model
 	task.start!
         
-        inhibit_fatal_messages do
+        error = inhibit_fatal_messages do
             assert_raises(Roby::MissionFailedError) { task.specialized_failure! }
         end
 	
-	error = Roby::Plan.check_failed_missions(plan).first.exception
 	assert_kind_of(Roby::MissionFailedError, error)
 	assert_equal(task.event(:specialized_failure).last, error.failure_point)
         Roby.format_exception error
-
-	# Makes teardown happy
-	plan.remove_object(task)
     end
 
     def test_check_relations_structure
@@ -1184,7 +1175,7 @@ class TC_ExecutionEngine < Minitest::Test
         task.stop_event.when_unreachable do
             engine.add_error LocalizedError.new(task)
         end
-        process_events
+        inhibit_fatal_messages { process_events }
     end
 
     class SpecializedError < LocalizedError; end
@@ -1500,18 +1491,12 @@ class TC_ExecutionEngine < Minitest::Test
     def test_mission_exceptions
 	mission = prepare_plan :missions => 1, :model => Tasks::Simple
 	mission.start!
-        inhibit_fatal_messages do
+        error = inhibit_fatal_messages do
             assert_raises(MissionFailedError) { mission.emit(:failed) }
         end
 
-	exceptions = plan.check_structure
-	assert_equal(1, exceptions.size)
-	assert_kind_of(Roby::MissionFailedError, exceptions.to_a[0][0].exception, exceptions)
-
-	# Discard the mission so that the test teardown does not complain
-	plan.unmark_mission(mission)
+	assert_kind_of(Roby::MissionFailedError, error)
     end
-
 
     def test_command_failed_formatting
         plan.add(task = Roby::Task.new)

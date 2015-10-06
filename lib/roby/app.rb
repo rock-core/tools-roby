@@ -89,6 +89,11 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
 
+        class NoSuchRobot < ArgumentError; end
+        class NotInCurrentApp < RuntimeError; end
+        class LogDirNotInitialized < RuntimeError; end
+        class PluginsDisabled < RuntimeError; end
+
         # The main plan on which this application acts
         attr_reader :plan
 
@@ -209,33 +214,6 @@ module Roby
         # The default is true
         attr_predicate :backward_compatible_naming?, true
 
-        # If set to true, tests will show detailed execution timings
-        #
-        # It is false by default
-        attr_predicate :test_show_timings?, true
-
-        # The options passed to Utilrb::Timepoints#format_timepoints if
-        # {#test_show_timings?} is true
-        attr_reader :test_format_timepoints_options
-
-        # How many times each test should be repeated (defaults to 1)
-        #
-        # This is mostly useful when profiling is enabled
-        #
-        # @return [Integer]
-        attr_accessor :test_repeat
-
-        # List of subsystems that should be profiles during testing
-        #
-        # Profiling is done using perftools.rb. All profiles are aggregated
-        # (run the tests separately if you need one profile per test)
-        #
-        # Roby knows 'test', which profiles the test without setup and teardown.
-        # The default is empty (no profiling)
-        #
-        # @return [Array<String>]
-        attr_reader :test_profile
-
         # Returns the name of the application
         def app_name
             if @app_name
@@ -292,6 +270,10 @@ module Roby
             end
         end
 
+        def has_app?
+            !!@app_dir
+        end
+
         # Guess the app directory based on the current directory, and sets
         # {@app_dir} It will not do anything if the current directory is not in
         # a Roby app. Moreover, it does nothing if #app_dir is already set
@@ -312,9 +294,6 @@ module Roby
             if !@app_dir
                 raise ArgumentError, "your current directory does not seem to be a Roby application directory; did you forget to run 'roby init'?"
             end
-        end
-
-        class NotInCurrentApp < UserError
         end
 
         # Call to check whether the current directory is within {#app_dir}. If
@@ -427,6 +406,28 @@ module Roby
         #   application is started
         attr_reader :action_handlers
 
+        # The list of log directories created by this app
+        #
+        # They are deleted on cleanup if {#public_logs?} is false. Unlike with
+        # {#created_log_base_dirs}, they are deleted even if they are not empty.
+        #
+        # @return [Array<String>]
+        attr_reader :created_log_dirs
+
+        # The list of directories created by this app in the paths to
+        # {#created_log_dirs}
+        #
+        # They are deleted on cleanup if {#public_logs?} is false. Unlike with
+        # {#created_log_dirs}, they are not deleted if they are not empty.
+        #
+        # @return [Array<String>]
+        attr_reader :created_log_base_dirs
+
+        # Additional metadata saved in log_dir/info.yml by the app
+        #
+        # Do not modify directly, use {#add_app_metadata} instead
+        attr_reader :app_extra_metadata
+
         # Defines common configuration options valid for all Roby-oriented
         # scripts
         def self.common_optparse_setup(parser)
@@ -448,6 +449,25 @@ module Roby
             parser.on_tail('-h', '--help', 'this help message') do
                 STDERR.puts parser
                 exit
+            end
+        end
+
+        # Sets up provided option parser to add the --host and --vagrant option
+        #
+        # When added, a :host entry will be added to the provided options hash
+        def self.host_options(parser, options)
+            parser.on('--host URL', String, "sets the host to connect to as hostname[:PORT]") do |url|
+                options[:host] = url
+            end
+            parser.on('--vagrant NAME[:PORT]', String, "connect to a vagrant VM") do |vagrant_name|
+                require 'roby/app/vagrant'
+                vagrant_name, port = vagrant_name.split(':')
+                host = Roby::App::Vagrant.resolve_ip(vagrant_name)
+                if port
+                    options[:host] = "#{host}:#{port}"
+                else
+                    options[:host] = host
+                end
             end
         end
 
@@ -508,6 +528,7 @@ module Roby
             @auto_load_all = false
             @auto_load_models = true
             @app_dir = nil
+            @manage_drb = true
             @backward_compatible_naming = true
             @development_mode = true
             @search_path = nil
@@ -517,11 +538,13 @@ module Roby
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
             @created_log_dirs = []
+            @created_log_base_dirs = []
             @additional_model_files = []
             @restarting = false
 
 	    @automatic_testing = true
             @registered_exceptions = []
+            @app_extra_metadata = Hash.new
 
             @filter_out_patterns = [Roby::RX_IN_FRAMEWORK,
                                     Roby::RX_IN_METARUBY,
@@ -531,9 +554,6 @@ module Roby
 
             @planners    = []
             @notification_listeners = Array.new
-            @test_format_timepoints_options = Hash.new
-            @test_repeat = 1
-            @test_profile = []
 
             @init_handlers = Array.new
             @setup_handlers = Array.new
@@ -685,9 +705,9 @@ module Roby
             using(*names)
         end
         
-        def register_plugins
-            if !plugins_enabled?
-                return
+        def register_plugins(force: false)
+            if !plugins_enabled? && !force
+                raise PluginsDisabled, "cannot call #register_plugins while the plugins are disabled"
             end
 
             # Load the plugins 'main' files
@@ -703,8 +723,12 @@ module Roby
         end
 
 	# Loads the plugins whose name are listed in +names+
-	def using(*names)
-            register_plugins
+	def using(*names, force: false)
+            if !plugins_enabled? && !force
+                raise PluginsDisabled, "plugins are disabled, cannot load #{names.join(", ")}"
+            end
+
+            register_plugins(force: true)
 	    names.map do |name|
 		name = name.to_s
 		unless plugin = plugin_definition(name)
@@ -767,15 +791,7 @@ module Roby
         # Sets up the name and type of the robot. This can be called only once
         # in a given Roby controller.
 	def robot(name, type = nil)
-            name, type = robots.resolve(name, type)
-
-	    if @robot_name
-		if name != @robot_name && (@robot_type && type != @robot_type)
-		    raise ArgumentError, "the robot is already set to #{name}, of type #{type}"
-		end
-		return
-	    end
-	    @robot_name, @robot_type = name, type
+            @robot_name, @robot_type = robots.resolve(name, type)
 	end
 
         # The base directory in which logs should be saved
@@ -789,8 +805,8 @@ module Roby
         # directory. It defaults to "data".
         def log_base_dir
             maybe_relative_dir =
-                if local_conf = log['dir']
-                    local_conf
+                if @log_base_dir ||= log['dir']
+                    @log_base_dir
                 elsif global_base_dir = ENV['ROBY_BASE_LOG_DIR']
                     File.join(global_base_dir, app_name)
                 else
@@ -799,16 +815,64 @@ module Roby
             File.expand_path(maybe_relative_dir, app_dir || Dir.pwd)
         end
 
+        # Sets the directory under which logs should be created
+        #
+        # This cannot be called after log_dir has been set
+        def log_base_dir=(dir)
+            @log_base_dir = dir
+        end
+
+        # Create a log directory for the given time tag, and make it this app's
+        # log directory
+        #
+        # The time tag given to this method also becomes the app's time tag
+        #
+        # @param [String] time_tag
+        # @return [String] the path to the log directory
+        def find_and_create_log_dir(time_tag = self.time_tag)
+            base_dir  = log_base_dir
+            @time_tag = time_tag
+
+            while true
+                log_dir  = Roby::Application.unique_dirname(base_dir, '', time_tag)
+                new_dirs = Array.new
+
+                dir = log_dir
+                while !File.directory?(dir)
+                    new_dirs << dir
+                    dir = File.dirname(dir)
+                end
+
+                # Create all paths necessary, but check for possible concurrency
+                # issues with other Roby-based tools creating a log dir with the
+                # same name
+                failed = new_dirs.reverse.any? do |dir|
+                    begin FileUtils.mkdir(dir)
+                        false
+                    rescue Errno::EEXIST
+                        true
+                    end
+                end
+
+                if !failed
+                    new_dirs.delete(log_dir)
+                    created_log_dirs << log_dir
+                    created_log_base_dirs.concat(new_dirs)
+                    @log_dir = log_dir
+                    log_save_metadata
+                    return log_dir
+                end
+            end
+        end
+
+
 	# The directory in which logs are to be saved
 	# Defaults to app_dir/data/$time_tag
 	def log_dir
-            if @log_dir
-                return @log_dir
-            else
-                base_dir = log_base_dir
-                final_path = Roby::Application.unique_dirname(base_dir, '', time_tag)
-                @log_dir = final_path
+            if !@log_dir
+                raise LogDirNotInitialized, "the log directory has not been initialized yet"
             end
+            @log_dir
 	end
 
         # The time tag. It is a time formatted as YYYYMMDD-HHMM used to mark log
@@ -817,28 +881,73 @@ module Roby
 	    @time_tag ||= Time.now.strftime('%Y%m%d-%H%M')
 	end
 
-        # Save a time tag file in the current log directory. This is used in
-        # case the log directory gets renamed
-        def log_save_time_tag
-            path = File.join(log_dir, 'time_tag')
-            if !File.file?(path)
-	        tag = time_tag
-                File.open(path, 'w') do |io|
-                    io.write tag
+        # Add some metadata to {#app_metadata}, and save it to the log dir's
+        # info.yml if it is already created
+        def add_app_metadata(metadata)
+            app_extra_metadata.merge!(metadata)
+            if created_log_dir?
+                log_update_metadata
+            end
+        end
+
+        # Metadata used to describe the app
+        #
+        # It is saved in the app's log directory under info.yml
+        #
+        # @see add_app_metadata
+        def app_metadata
+            Hash['time' => time_tag, 'cmdline' => "#{$0} #{ARGV.join(" ")}",
+                 'robot_name' => robot_name, 'robot_type' => robot_type,
+                 'app_name' => app_name, 'app_dir' => app_dir].merge(app_extra_metadata)
+        end
+
+        # Test whether this app already created its log directory
+        def created_log_dir?
+            @log_dir && File.directory?(@log_dir)
+        end
+
+        # Save {#app_metadata} in the log directory
+        #
+        # @param [Boolean] append if true (the default), the value returned by
+        #   {#app_metadata} is appended to the existing data. Otherwise, it
+        #   replaces the last entry in the file
+        def log_save_metadata(append: true)
+            path = File.join(log_dir, 'info.yml')
+
+            info = Array.new
+            current =
+                if File.file?(path)
+                    YAML.load(File.read(path)) || Array.new
+                else Array.new
                 end
+
+            if append || current.empty?
+                current << app_metadata
+            else
+                current[-1] = app_metadata
+            end
+            File.open(path, 'w') do |io|
+                YAML.dump(current, io)
             end
         end
 
         # Read the time tag from the current log directory
-        def log_read_time_tag
+        def log_read_metadata
             dir = begin
                       log_current_dir
                   rescue ArgumentError
                   end
 
-            if dir && File.exists?(File.join(log_dir, 'time_tag'))
-                File.read(File.join(log_dir, 'time_tag')).strip
+            if dir && File.exists?(File.join(log_dir, 'info.yml'))
+                YAML.load(File.read(File.join(log_dir, 'info.yml')))
+            else
+                Array.new
             end
+        end
+
+        def log_read_time_tag
+            metadata = log_read_metadata.last
+            metadata && metadata['time_tag']
         end
 
         # The path to the current log directory
@@ -921,43 +1030,16 @@ module Roby
 	    end
 	end
 
-	def setup_dirs
-            if !File.directory?(log_dir)
-                dir = log_dir
-                while !File.directory?(dir)
-                    @created_log_dirs << dir
-                    dir = File.dirname(dir)
-                end
-                FileUtils.mkdir_p(log_dir)
-            end
-            if public_logs?
-                FileUtils.rm_f File.join(log_base_dir, "current")
-                FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
-            end
-
-            find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
-                each do |libdir|
-                    if !$LOAD_PATH.include?(libdir)
-                        $LOAD_PATH.unshift libdir
-                    end
-                end
-
-            if defined? Roby::Conf
-                Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
-            end
-	end
-
         # Transforms +path+ into a path relative to an entry in +search_path+
         # (usually the application root directory)
         def make_path_relative(path)
-            path = path.dup
-            search_path.each do |p|
-                relative_path = path.gsub(/^#{Regexp.quote(p)}\//, '')
-                if File.file?(File.join(p, relative_path)) || File.file?(File.join(p, "#{relative_path}.rb"))
-                    path = relative_path
-                end
+            if !File.exists?(path)
+                path
+            elsif root_path = find_base_path_for(path)
+                return Pathname.new(path).relative_path_from(Pathname.new(root_path)).to_s
+            else
+                path
             end
-            path
         end
 
         def register_exception(e, reason = nil)
@@ -1039,6 +1121,26 @@ module Roby
             call_plugins(:register_generators, self)
         end
 
+        # Given a model class, returns the full path of an existing test file
+        # that is meant to verify this model
+        def test_file_for(model)
+            return if !model.respond_to?(:definition_location) || !model.definition_location 
+            model.definition_location.each do |file, *|
+                next if !(base_path = find_base_path_for(file))
+                relative = Pathname.new(file).relative_path_from(Pathname.new(base_path))
+                split = relative.each_filename.to_a
+                next if split[0] != 'models'
+                split[0] = 'test'
+                split[-1] = "test_#{split[-1]}"
+                canonical_testpath = [base_path, *split].join(File::SEPARATOR)
+                if File.exist?(canonical_testpath)
+                    return canonical_testpath.to_s
+                else break
+                end
+            end
+            nil
+        end
+
         # Loads the planner models
         #
         # This method is called at the end of require_models, before the
@@ -1104,7 +1206,10 @@ module Roby
             load_config_yaml
 
 	    # Get the application-wide configuration
-            register_plugins
+            if plugins_enabled?
+                register_plugins
+            end
+
             if initfile = find_file('config', 'init.rb', :order => :specific_first)
                 Application.info "loading init file #{initfile}"
                 require initfile
@@ -1119,8 +1224,20 @@ module Roby
             call_plugins(:load, self, options)
             call_plugins(:load_base_config, self, options)
 
-	    setup_dirs
-	    setup_loggers
+            find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
+                each do |libdir|
+                    if !$LOAD_PATH.include?(libdir)
+                        $LOAD_PATH.unshift libdir
+                    end
+                end
+
+            if defined? Roby::Conf
+                Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
+            end
+
+            if has_app?
+                require_robot_file
+            end
         end
 
         def base_setup
@@ -1130,7 +1247,8 @@ module Roby
 
             setup_robot_names_from_config_dir
 	    load_base_config
-            require_robot_file
+            find_and_create_log_dir
+	    setup_loggers
             init_handlers.each(&:call)
 
             if !Roby.control
@@ -1161,8 +1279,6 @@ module Roby
             end
         end
 
-        class NoSuchRobot < ArgumentError; end
-
         def setup_robot_names_from_config_dir
             robot_config_files = find_files_in_dirs 'config', 'robots', 
                 all: true,
@@ -1172,15 +1288,11 @@ module Roby
             robots.strict = !robot_config_files.empty?
             robot_config_files.each do |path|
                 robot_name = File.basename(path, ".rb")
-                robots.robots[robot_name] = robot_name
+                robots.robots[robot_name] ||= robot_name
             end
         end
 
         def require_robot_file
-            if !robot_name && !robot_type
-                return
-            end
-
             p = find_file('config', 'robots', "#{robot_name}.rb", order: :specific_first) ||
                 find_file('config', 'robots', "#{robot_type}.rb", order: :specific_first)
 
@@ -1190,7 +1302,16 @@ module Roby
                 if !robot_type
                     robot(robot_name, robot_name)
                 end
-            elsif robots.strict? && find_dir('config', 'robots', order: :specific_first)
+            elsif !find_dir('config', 'robots', order: :specific_first) || (robot_name == robots.default_robot_name) || !robots.strict?
+                Roby.warn "#{robot_name}:#{robot_type} is selected as the robot, but there is"
+                if robot_name == robot_type
+                    Roby.warn "no file named config/robots/#{robot_name}.rb"
+                else
+                    Roby.warn "neither config/robots/#{robot_name}.rb nor config/robots/#{robot_type}.rb"
+                end
+                Roby.warn "run roby gen robot #{robot_name} in your app to create one"
+                Roby.warn "initialization will go on, but this behaviour is deprecated and will be removed in the future"
+            else
                 raise NoSuchRobot, "cannot find config file for robot #{robot_name} of type #{robot_type} in config/robots/"
             end
         end
@@ -1230,7 +1351,9 @@ module Roby
             if public_shell_interface?
                 setup_shell_interface
             end
-            setup_drb_service
+            if manage_drb?
+                setup_drb_service
+            end
 
         rescue Exception
             begin cleanup
@@ -1312,7 +1435,10 @@ module Roby
 
         # Prepares the environment to actually run
         def prepare
-            log_save_time_tag
+            if public_logs?
+                FileUtils.rm_f File.join(log_base_dir, "current")
+                FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
+            end
 
             if !single? && discovery.empty?
                 Application.info "dRoby disabled as no discovery configuration has been provided"
@@ -1334,13 +1460,6 @@ module Roby
 		    Roby::Distributed.state.start_neighbour_discovery
 		end
 	    end
-
-            if !robot_name
-                @robot_name = 'common'
-            end
-            if !robot_type
-                @robot_type = 'common'
-            end
 
 	    if log['events'] && public_logs?
 		require 'roby/log/file'
@@ -1456,14 +1575,20 @@ module Roby
             clear_config
 
             if !public_logs?
-                @created_log_dirs.each do |dir|
+                created_log_dirs.each do |dir|
                     FileUtils.rm_rf dir
+                end
+                created_log_base_dirs.sort_by(&:length).reverse_each do |dir|
+                    # .rmdir will ignore nonempty / nonexistent directories
+                    FileUtils.rmdir(dir)
                 end
             end
 
             stop_log_server
             stop_shell_interface
-            stop_drb_service
+            if manage_drb?
+                stop_drb_service
+            end
         end
 
 	def stop; call_plugins(:stop, self) end
@@ -1838,6 +1963,12 @@ module Roby
             setup
         end
 
+        # If set to true, this object will start and stop a main DRb service for
+        # its own operations, otherwise it will assume there is one already
+        #
+        # This is used in {#setup} and {#cleanup}
+        attr_predicate :manage_drb?, true
+
         # If set to true, this Roby application will publish a public shell
         # interface. Otherwise, no shell interface is going to be published at
         # all
@@ -1904,12 +2035,20 @@ module Roby
 	    Roby.app.available_plugins << [name, dir, mod, init]
 	end
 
-        # Returns true if the given path points to a file in the Roby app
-	def app_file?(path)
-            search_path.any? do |app_dir|
+        # Returns the path in search_path that contains the given file or path
+        #
+        # @return [nil,String]
+        def find_base_path_for(path)
+            candidates = search_path.find_all do |app_dir|
                 (path =~ %r{(^|/)#{app_dir}(/|$)}) ||
                     ((path[0] != ?/) && File.file?(File.join(app_dir, path)))
             end
+            candidates.max_by(&:size)
+        end
+
+        # Returns true if the given path points to a file in the Roby app
+	def app_file?(path)
+            !!find_base_path_for(path)
 	end
 
 	def framework_file?(path)
@@ -1958,6 +2097,20 @@ module Roby
 		models.concat(config_extension.root_models)
 	    end
             models
+        end
+
+        def each_model(root_model = nil)
+            return enum_for(__method__, root_model) if !block_given?
+
+            if !root_model
+                self.root_models.each { |m| each_model(m, &proc) }
+                return
+            end
+
+            yield(root_model)
+            root_model.each_submodel do |m|
+                yield(m)
+            end
         end
 
         def clear_model?(m)

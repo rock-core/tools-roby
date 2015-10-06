@@ -35,7 +35,9 @@ class TC_ThreadTask < Minitest::Test
         end
 
         plan.add_permanent(task = model.new)
-	wait_thread_end(task)
+        inhibit_fatal_messages do
+            wait_thread_end(task)
+        end
 
         assert task.failed?
         assert_kind_of ArgumentError, task.event(:failed).last.context.first

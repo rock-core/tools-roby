@@ -53,7 +53,6 @@ module Roby
 	REMOTE_SERVER  = "druby://localhost:#{BASE_PORT + 3}"
 	LOCAL_SERVER   = "druby://localhost:#{BASE_PORT + 4}"
 
-	attr_reader :timings
 	class << self
 	    attr_accessor :check_allocation_count
 	end
@@ -137,7 +136,6 @@ module Roby
             @connection_spaces = Array.new
             @transactions = Array.new
 
-            @timings = Hash.new
             if !@plan
                 @plan = Roby.plan
             end
@@ -149,7 +147,6 @@ module Roby
             @event_logger   ||= false
 
 	    @original_roby_logger_level = Roby.logger.level
-	    @timings[:start] = Time.now
 
 	    @original_collections = []
 	    Thread.abort_on_exception = false
@@ -164,12 +161,11 @@ module Roby
 	    end
 
 	    unless DRb.primary_server
+                @started_drb = true
 		DRb.start_service 'druby://localhost:0'
 	    end
 
             plan.engine.gc_warning = false
-
-	    timings[:setup] = Time.now
 
             @handler_ids = Array.new
             @handler_ids << engine.add_propagation_handler(:type => :external_events) do |plan|
@@ -182,7 +178,7 @@ module Roby
                 begin
                     yield
                 rescue Exception => e
-                    PP.pp(e, "")
+                    PP.pp(e, "") # verify that the exception can be pretty-printed, all Roby exceptions should
                     if e.kind_of?(Roby::SynchronousEventProcessingMultipleErrors)
                         match = e.errors.find do |original_e, _|
                             original_e.exception.kind_of?(exception)
@@ -231,14 +227,12 @@ module Roby
         end
 
 	def teardown
-	    timings[:quit] = Time.now
             @transactions.each do |trsc|
                 if !trsc.finalized?
                     trsc.discard_transaction
                 end
             end
             teardown_registered_plans
-	    timings[:teardown_plan] = Time.now
 
             if @handler_ids && engine
                 @handler_ids.each do |handler_id|
@@ -252,7 +246,9 @@ module Roby
                 space.close
             end
 	    stop_remote_processes
-	    DRb.stop_service if DRb.thread
+            if DRb.thread && @started_drb
+                DRb.stop_service
+            end
 
 	    restore_collections
 
@@ -273,15 +269,6 @@ module Roby
 		GC.start
 		remains = ObjectStats.count
 		Roby.warn "#{count} -> #{remains} (#{count - remains})"
-	    end
-	    timings[:end] = Time.now
-
-	    if display_timings?
-		begin
-		    display_timings!
-		rescue
-		    Roby.warn $!.full_message
-		end
 	    end
 
             super if defined? super
@@ -351,7 +338,7 @@ module Roby
 
         # Use to call the original method on a partial mock
         def flexmock_invoke_original(object, method, *args, &block)
-            object.instance_variable_get(:@flexmock_proxy).flexmock_invoke_original(method, args, &block)
+            object.instance_variable_get(:@flexmock_proxy).proxy.flexmock_invoke_original(method, args, &block)
         end
 
 	# The list of children started using #remote_process
@@ -547,29 +534,6 @@ module Roby
 	attr_reader :console_logger
 
 	attr_predicate :debug_gc?, true
-	attr_predicate :display_timings?, true
-	def display_timings!
-	    timings = self.timings.sort_by { |_, t| t }
-	    ref = timings[0].last
-
-	    format, header, times = "", [], []
-	    format << "%#{method_name.size}s"
-	    header << method_name
-	    times  << ""
-	    timings.each do |name, time| 
-		name = name.to_s
-		time = "%.2f" % [time - ref]
-
-		col_size = [name.size, time.size].max
-		format << " % #{col_size}s"
-		header << name
-		times << time
-	    end
-
-	    puts
-	    puts format % header
-	    puts format % times
-	end
 
 	# Enable display of all plan events on the console
 	def console_logger=(value)
@@ -637,7 +601,7 @@ module Roby
         # successfully
         def self.event_watch_result(positive, negative, deadline = nil)
             if deadline && deadline < Time.now
-                return true, "timeout"
+                return true, "timed out waiting for #{positive.map(&:to_s).join(", ")} to happen"
             end
 
             if positive_ev = positive.find { |ev| ev.happened? }

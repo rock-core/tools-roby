@@ -379,6 +379,8 @@ module Roby::TaskStructure
 	    result
         end
 
+        # Sets a base model specification that must be met by this task
+        #
         # In normal operations, the fullfilled model returned by
         # #fullfilled_model is computed from the dependency relations in which
         # +self+ is a child.
@@ -424,15 +426,8 @@ module Roby::TaskStructure
         # Beware that, for historical reasons, this is not the same format than
         # {#fullfilled_model=}
 	def fullfilled_model
-	    current_model =
-                if explicit = @fullfilled_model
-                    @fullfilled_model
-                elsif self.model.explicit_fullfilled_model?
-                    models = self.model.fullfilled_model
-                    tasks, tags = models.partition { |m| m <= Roby::Task }
-                    [tasks.first || Roby::Task, tags, Hash.new]
-                end
-            if current_model then has_value = true
+	    if current_model = explicit_fullfilled_model
+                has_value = true
             else current_model = [Roby::Task, [], {}]
             end
 
@@ -460,7 +455,21 @@ module Roby::TaskStructure
         #
         # @return [Boolean]
         def explicit_fullfilled_model?
-            !!@fullfilled_model || self.model.explicit_fullfilled_model?
+            !!explicit_fullfilled_model
+        end
+
+        # Returns an explicitly set {#fullfilled_model}
+        #
+        # @return [nil,Object] either nil if no explicit model has been set, or
+        #   the model in the same format as expected by {#fullfilled_model=}
+        #   (which is different than the value returned by {#fullfilled_model})
+        def explicit_fullfilled_model
+            if explicit = @fullfilled_model
+                explicit
+            elsif explicit = self.model.explicit_fullfilled_model
+                tasks, tags = explicit.partition { |m| m <= Roby::Task }
+                [tasks.first || Roby::Task, tags, Hash.new]
+            end
         end
 
         # Returns the set of models this task is providing by itself
@@ -468,16 +477,15 @@ module Roby::TaskStructure
         # It differs from #fullfilled_model because it is not considering the
         # models that are required because of the dependency relation
         #
-        # @return [Array<Model<Task>,TaskService>]
+        # @return [Array<Models::Task,TaskService>]
         # @see #fullfilled_model
         def provided_models
-            if explicit_fullfilled_model?
-                if @fullfilled_model
-                    return [@fullfilled_model[0]] + @fullfilled_model[1]
-                else return self.model.fullfilled_model
-                end
+            if model = explicit_fullfilled_model
+                [model[0]] + model[1]
             else
-                [self.model]
+                models = self.model.fullfilled_model
+                task_class = models.find { |m| m.kind_of?(Class) }
+                [task_class] + models.find_all { |m| !task_class.has_ancestor?(m) }
             end
         end
 
@@ -530,9 +538,17 @@ module Roby::TaskStructure
         # @return [Boolean]
         def explicit_fullfilled_model?; !!@fullfilled_model end
 
-        # Specifies the models that all instances of this task model fullfill
+        # Returns an explicitly set {#fullfilled_model}
         #
-        # (see DependencyGraphClass::Extension#fullfilled_model=
+        # @return [nil,Array<Models::Task,TaskService>] either nil if no
+        #   explicit model has been set, or the list of models it must fullfill
+        def explicit_fullfilled_model; @fullfilled_model end
+
+        # Specifies the models that all instances of this task must fullfill
+        #
+        # This is usually used to under-constraint the model instances
+        #
+        # @param [Array<Models::Task,TaskService>] the list of models
         def fullfilled_model=(models)
             if !models.respond_to?(:to_ary)
                 raise ArgumentError, "expected an array, got #{models}"
@@ -543,6 +559,10 @@ module Roby::TaskStructure
             @fullfilled_model = models
         end
 
+        # @api private
+        #
+        # @return [Array<Models::Task,TaskService>] the list of models
+        #   fullfilled by this task
         def implicit_fullfilled_model
             if !@implicit_fullfilled_model
                 @implicit_fullfilled_model = Array.new
@@ -564,10 +584,7 @@ module Roby::TaskStructure
         #
         # (see DependencyGraphClass::Extension#fullfilled_model)
         def fullfilled_model
-            if @fullfilled_model
-                return @fullfilled_model
-            else return implicit_fullfilled_model
-            end
+            explicit_fullfilled_model || implicit_fullfilled_model
         end
         
         # Enumerates the models that all instances of this task model fullfill
@@ -619,7 +636,8 @@ module Roby::TaskStructure
         def merge_fullfilled_model(model, required_models, required_arguments)
             model, tags, arguments = *model
 
-            required_models = [required_models] if !required_models.respond_to?(:to_ary)
+            tags = tags.dup
+            required_models = Array(required_models)
 
             for m in required_models
                 if m.kind_of?(Roby::Models::TaskServiceModel)
@@ -631,7 +649,7 @@ module Roby::TaskStructure
                 end
             end
 
-            arguments.merge!(required_arguments) do |name, old, new| 
+            arguments = arguments.merge(required_arguments) do |name, old, new| 
                 if old != new
                     raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
                 end
@@ -854,8 +872,6 @@ module Roby
 
             events, generators, others = [], [], []
             explanation.elements.each do |e|
-                report_exceptions_from(e)
-
                 case e
                 when Event then events << e
                 when EventGenerator then generators << e
@@ -889,6 +905,7 @@ module Roby
 
             super(failure_point)
 
+            report_exceptions_from(explanation)
 	    @parent   = parent
 	    @relation = parent[child, TaskStructure::Dependency]
             if @relation
