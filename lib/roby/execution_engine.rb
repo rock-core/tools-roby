@@ -2241,6 +2241,10 @@ module Roby
             quit
             join
 
+            if @application_exceptions
+                process_pending_application_exceptions
+            end
+
             start_new_cycle
             process_events
             cycle_end(Hash.new)
