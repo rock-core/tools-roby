@@ -146,9 +146,9 @@ Roby.display_exception do
     manager.on_exception do |e|
         reporter.exception(e)
     end
-    manager.require test_files.first
     manager.run do
         Roby.app.setup
+        require test_files.first
         reporter.test_start
         begin
             Roby.app.prepare
