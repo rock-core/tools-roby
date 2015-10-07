@@ -32,6 +32,13 @@ describe Roby::Coordination::ActionScript do
             assert script.finished?
         end
 
+        it "registeres is the only coordination object on the root-task" do
+            assert_equal root_task.coordination_objects, []
+            script = script_model.new(script_model.action_interface, root_task)
+            assert_equal root_task.coordination_objects.size, 1
+            assert_equal root_task.coordination_objects[0], script
+        end
+
         it "does wait even if the event was already emitted" do
             script_model.wait script_task.intermediate_event
             script = script_model.new(script_model.action_interface, root_task)

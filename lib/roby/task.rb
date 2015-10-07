@@ -193,6 +193,7 @@ module Roby
 
             @poll_handlers = []
             @execute_handlers = []
+            @coordination_objects = []
 
             yield(self) if block_given?
 
@@ -713,7 +714,15 @@ module Roby
         #
         # It is only much more efficient
         attr_reader :failure_event
-	
+
+        # Reference to the coordinating task if this Roby::Task is handled by a coordination
+        # object like Statemachiens or ActionScripts
+        attr_reader :coordination_objects
+
+        def register_coordination_object(object)
+            coordination_objects << object
+        end
+
 	# Call to update the task status because of +event+
 	def update_task_status(event) # :nodoc:
 	    if event.success?

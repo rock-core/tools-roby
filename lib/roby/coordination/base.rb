@@ -70,6 +70,11 @@ module Roby
                             attach_fault_response_tables_to(new_task)
                         end
                     end
+
+                    #We register ourself at the rreffering roby task to 
+                    #get a access to us.
+                    root_task.register_coordination_object(self)
+
                 end
             end
 
