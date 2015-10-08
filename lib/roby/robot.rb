@@ -64,6 +64,10 @@ module Robot
         Roby.app.on_require(&block)
     end
 
+    def self.clear_models(&block)
+        Roby.app.on_clear_models(&block)
+    end
+
     def self.config(&block)
         Roby.app.on_config(&block)
     end

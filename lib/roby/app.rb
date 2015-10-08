@@ -394,6 +394,10 @@ module Roby
         #   its configuration (i.e. after {require_config})
         attr_reader :config_handlers
 
+        # @return [Array<#call>] list of objects called when the app is doing
+        #   {#clear_models}
+        attr_reader :clear_models_handlers
+
         # @return [Array<#call>] list of objects called when the app cleans up
         #   (it is the opposite of setup)
         attr_reader :cleanup_handlers
@@ -558,6 +562,7 @@ module Roby
             @init_handlers = Array.new
             @setup_handlers = Array.new
             @require_handlers = Array.new
+            @clear_models_handlers = Array.new
             @config_handlers = Array.new
             @cleanup_handlers = Array.new
             @controllers = Array.new
@@ -604,6 +609,12 @@ module Roby
         # action interface
         def actions(&block)
             action_handlers << block
+        end
+
+        # Declares that the following block should be called when
+        # {#clear_models} is called
+        def on_clear_models(&block)
+            clear_models_handlers << block
         end
 
         # Looks into subdirectories of +dir+ for files called app.rb and
@@ -2131,6 +2142,7 @@ module Roby
             end
             Distributed::DRobyConstant.clear_cache
             Distributed::DRobyModel.clear_cache
+            clear_models_handlers.each { |b| b.call }
             call_plugins(:clear_models, self)
         end
 
