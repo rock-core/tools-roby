@@ -390,10 +390,6 @@ module Roby
         #   to require its models (i.e. after {require_models})
         attr_reader :require_handlers
 
-        # @return [Array<#call>] list of objects called when the app loaded
-        #   its configuration (i.e. after {require_config})
-        attr_reader :config_handlers
-
         # @return [Array<#call>] list of objects called when the app is doing
         #   {#clear_models}
         attr_reader :clear_models_handlers
@@ -559,14 +555,13 @@ module Roby
             @planners    = []
             @notification_listeners = Array.new
 
-            @init_handlers = Array.new
-            @setup_handlers = Array.new
-            @require_handlers = Array.new
+            @init_handlers         = Array.new
+            @setup_handlers        = Array.new
+            @require_handlers      = Array.new
             @clear_models_handlers = Array.new
-            @config_handlers = Array.new
-            @cleanup_handlers = Array.new
-            @controllers = Array.new
-            @action_handlers = Array.new
+            @cleanup_handlers      = Array.new
+            @controllers           = Array.new
+            @action_handlers       = Array.new
 	end
 
         # The robot names configuration
@@ -587,16 +582,21 @@ module Roby
             init_handlers << block
         end
 
+        # Declares a block that should be executed when the Roby app is begin
+        # setup
+        def on_setup(&block)
+            setup_handlers << block
+        end
+
         # Declares a block that should be executed when the Roby app loads
         # models (i.e. in {require_models})
         def on_require(&block)
             require_handlers << block
         end
 
-        # Declares a block that should be executed when the Roby app sets itself
-        # up (i.e. in {setup})
+        # @deprecated use {#on_setup} instead
         def on_config(&block)
-            config_handlers << block
+            on_setup(&block)
         end
 
         # Declares that the following block should be used as the robot
@@ -1351,7 +1351,7 @@ module Roby
             setup_handlers.each(&:call)
 
 	    require_models
-            require_config
+            call_plugins(:require_config, self)
 
 	    # Main is always included in the planner list
             self.planners << app_module::Actions::Main
@@ -1378,22 +1378,6 @@ module Roby
             end
             raise
 	end
-
-        # Load all configuration files (i.e. files in config/) except init.rb
-        # and app.yml
-        #
-        # init.rb and app.yml are loadedd "early" in #setup by calling
-        # #load_base_config
-        #
-        # It calls the corresponding hook on enabled plugins
-        def require_config
-            if file = find_file('config', "ROBOT.rb", :order => :specific_first)
-                require file
-            end
-
-            call_plugins(:require_config, self)
-            config_handlers.each(&:call)
-        end
 
         # Publishes a shell interface
         #
