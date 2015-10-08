@@ -1103,7 +1103,11 @@ module Roby
 
 	    # Set up the loaded plugins
 	    call_plugins(:require_models, self)
-            require_handlers.each(&:call)
+            require_handlers.each do |handler|
+                isolate_load_errors("while calling #{handler}") do
+                    handler.call
+                end
+            end
 
             require_planners
 
@@ -1181,7 +1185,9 @@ module Roby
             end
 
             action_handlers.each do |act|
-                app_module::Actions::Main.class_eval(&act)
+                isolate_load_errors("error in #{act}") do
+                    app_module::Actions::Main.class_eval(&act)
+                end
             end
 
             if auto_load_models?
