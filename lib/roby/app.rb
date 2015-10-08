@@ -886,7 +886,7 @@ module Roby
         def add_app_metadata(metadata)
             app_extra_metadata.merge!(metadata)
             if created_log_dir?
-                log_update_metadata
+                log_save_metadata
             end
         end
 
