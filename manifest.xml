@@ -21,6 +21,7 @@
   <depend package="concurrent-ruby" />
   <depend package="pastel" />
   <depend package="hooks" optional='1' />
+  <depend package="rake-compiler" />
 
   <depend package="qtruby" optional='1' />
   <depend package="graphviz" optional='1' />
