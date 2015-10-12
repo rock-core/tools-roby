@@ -326,11 +326,6 @@ module Roby::Log
     # You can use FileLogger.replay(io) to send the events back into the
     # logging system (using Log.log), for instance to feed an offline display
     class FileLogger
-	@dumped = Hash.new
-	class << self
-	    attr_reader :dumped
-	end
-
 	# The IO object for the event log
 	attr_reader :event_log
 	# The IO object for the index log
