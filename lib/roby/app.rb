@@ -2079,7 +2079,10 @@ module Roby
         def reload_config
             clear_config
             unload_features("config", ".*\.rb$")
-            require_config
+            if has_app?
+                require_robot_file
+            end
+            call_plugins(:require_config, self)
         end
 
         def model_defined_in_app?(model)
