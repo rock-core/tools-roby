@@ -189,7 +189,7 @@ module Roby
 
                     client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
                         new_job_listeners.each do |listener|
-                            if listener.seen_job_with_id?(job_id)
+                            if !listener.seen_job_with_id?(job_id)
                                 job =
                                     if job_state == JOB_MONITORED
                                         JobMonitor.new(
