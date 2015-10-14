@@ -337,9 +337,9 @@ module Roby
                         end
 
                         if has_valid_connection && !was_connected
-                            Readline.puts "reconnected"
+                            RbReadline.puts "reconnected"
                         elsif !has_valid_connection && was_connected
-                            Readline.puts "lost connection, reconnecting ..."
+                            RbReadline.puts "lost connection, reconnecting ..."
                         end
                         was_connected = has_valid_connection
                     end
