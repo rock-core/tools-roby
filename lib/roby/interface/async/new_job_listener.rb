@@ -38,7 +38,7 @@ module Roby
                 # @param [Integer] job_id
                 # @see last_job_id
                 def seen_job_with_id?(job_id)
-                    last_job_id < job_id
+                    last_job_id >= job_id
                 end
 
                 # Tests whether the provided job matches what this listener

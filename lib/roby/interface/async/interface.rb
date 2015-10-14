@@ -189,20 +189,20 @@ module Roby
 
                     client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
                         new_job_listeners.each do |listener|
-                            if !listener.seen_job_with_id?(job_id)
-                                job =
-                                    if job_state == JOB_MONITORED
-                                        JobMonitor.new(
-                                            self, job_id,
-                                            state: job_state,
-                                            placeholder_task: args[0],
-                                            task: args[1])
-                                    else
-                                        monitor_job(job_id, start: false)
-                                    end
-                                if listener.matches?(job)
-                                    listener.call(job)
+                            next if listener.seen_job_with_id?(job_id)
+
+                            job =
+                                if job_state == JOB_MONITORED
+                                    JobMonitor.new(
+                                        self, job_id,
+                                        state: job_state,
+                                        placeholder_task: args[0],
+                                        task: args[1])
+                                else
+                                    monitor_job(job_id, start: false)
                                 end
+                            if listener.matches?(job)
+                                listener.call(job)
                             end
                         end
 
