@@ -68,6 +68,8 @@ module Roby
             #
             # It removes duplicates, and removes "non-scheduled" reports for
             # tasks that have in fine been scheduled
+            #
+            # @return [Schedulers::State]
             def consolidated_scheduler_state
                 state = Schedulers::State.new
                 scheduler_states.each do |s|

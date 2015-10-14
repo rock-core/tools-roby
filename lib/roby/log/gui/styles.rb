@@ -36,6 +36,8 @@ module Roby
 	    :finalized => Qt::Color.new('#555555')
 	}
 	TASK_NAME_COLOR = Qt::Color.new('black')
+	TASK_MESSAGE_COLOR = Qt::Color.new('#606060')
+        TASK_MESSAGE_MARGIN = 10
 	EVENT_NAME_COLOR = Qt::Color.new('black')
 	TASK_FONTSIZE = 10
 

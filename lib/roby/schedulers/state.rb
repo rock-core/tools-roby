@@ -21,9 +21,30 @@ module Roby
             attr_accessor :non_scheduled_tasks
 
             def initialize
-                @pending_non_executable_tasks = Array.new
-                @called_generators = Array.new
-                @non_scheduled_tasks = Hash.new { |h, k| h[k] = Array.new }
+                @pending_non_executable_tasks = Set.new
+                @called_generators = Set.new
+                @non_scheduled_tasks = Hash.new { |h, k| h[k] = Set.new }
+            end
+
+            # Add information contained in 'state' to this object
+            def merge!(state)
+                pending_non_executable_tasks.merge(state.pending_non_executable_tasks)
+                called_generators.merge(state.called_generators)
+                non_scheduled_tasks.merge!(state.non_scheduled_tasks) do |task, msg0, msg1|
+                    msg0.merge(msg1)
+                end
+            end
+
+            # Formats a message stored in {#non_scheduled_tasks} into a plain
+            # string
+            def self.format_message_into_string(msg, *args)
+                args.each_with_index.inject(msg) do |msg, (a, i)|
+                    a = if a.respond_to?(:map)
+                            a.map(&:to_s).join(", ")
+                        else a.to_s
+                        end
+                    msg.gsub "%#{i + 1}", a
+                end
             end
         end
     end

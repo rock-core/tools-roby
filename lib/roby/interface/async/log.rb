@@ -17,6 +17,11 @@ module Roby
                 # @return [Roby::Plan]
                 def plan; plan_rebuilder.plan end
 
+                # Information about the scheduler state
+                #
+                # @return [Schedulers::State]
+                def scheduler_state; plan.consolidated_scheduler_state end
+
                 include Hooks
                 include Hooks::InstanceHooks
 
