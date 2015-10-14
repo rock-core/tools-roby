@@ -203,6 +203,8 @@ module Roby
                                 end
                             if listener.matches?(job)
                                 listener.call(job)
+                            else
+                                listener.ignored(job)
                             end
                         end
 

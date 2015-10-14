@@ -55,6 +55,15 @@ module Roby
                     block.call(job)
                 end
 
+                # Tell this listener that the given job was received, but
+                # ignored.
+                #
+                # This is an optimization to avoid re-considering this listener
+                # for the given job
+                def ignored(job)
+                    @last_job_id = job.job_id
+                end
+
                 # Start listening for jobs
                 def start
                     interface.add_new_job_listener(self)
