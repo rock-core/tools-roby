@@ -381,8 +381,6 @@ module Roby
                     result = true
                 end
                 @last_cycle_snapshotted = has_interesting_events?
-
-                clear_integrated
                 result
             end
 
