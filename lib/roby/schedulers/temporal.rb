@@ -50,7 +50,7 @@ module Roby
                     begin
                         stack.push task
                         if !can_schedule?(parent.task, time, stack)
-                            report_holdoff "%2 cannot be scheduled and %1.schedule_as(%2)", task, parent
+                            report_holdoff "held by a schedule_as constraint with %2", task, parent
                             return false
                         end
                     ensure
