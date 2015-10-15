@@ -311,7 +311,7 @@ module Roby
                 service.on_plan_status_change do |status|
                     if status == :mission
                         job_notify(JOB_MONITORED, job_id, job_name, service.task, service.task.planning_task)
-                        job_notify(job_state(task), job_id, job_name)
+                        job_notify(job_state(service.task), job_id, job_name)
                     elsif (status != :mission)
                         job_notify(JOB_DROPPED, job_id, job_name)
                     end
