@@ -17,6 +17,10 @@ module Roby
                     end
                 end
 
+                def required?
+                    !!required
+                end
+
                 def droby_dump(peer)
                     result = self.dup
                     result.droby_dump!(peer)
@@ -88,6 +92,44 @@ module Roby
                 @doc = doc
                 @arguments = []
                 @returned_type = Roby::Task
+                @advanced = nil
+            end
+
+            def initialize_copy(old)
+                super
+                @arguments = arguments.map(&:dup)
+            end
+
+            # @api private
+            #
+            # Validates that the information provided in the argument can safely
+            # be used to update self
+            #
+            # @raise [ArgumentError]
+            def validate_can_update(new)
+                new_return = new.returned_type
+                if !new_return.fullfills?(returned_type)
+                    if new_return.kind_of?(Class)
+                        raise ArgumentError, "new return type #{new_return} does not fullfill #{returned_type}, cannot merge the action models"
+                    elsif returned_type != Roby::Task
+                        raise ArgumentError, "new return type #{new_return} is a service model which does not fullfill #{returned_type}, and Roby does not support return type specifications that are composite of services and tasks"
+                    end
+                end
+            end
+
+            # Update this action model with information from another
+            #
+            # @raise [ArgumentError] if the actions return types are not
+            #   compatible
+            def update(new)
+                validate_can_update(new)
+
+                self.doc = new.doc || self.doc
+                @arguments = arguments.find_all do |arg|
+                    !new.has_arg?(arg.name)
+                end
+                @arguments.concat(new.arguments.map(&:dup))
+                @returned_type = new.returned_type
             end
 
             # Documents a new required argument to the method
@@ -105,9 +147,23 @@ module Roby
 
             # Return true if a argument with the given name is specified
             def has_arg?(name)
-                !!arguments.find do |arg|
-                    arg.name.to_sym == name.to_sym
-                end
+                !!find_arg(name)
+            end
+
+            # Find the argument from its name
+            #
+            # @param [String] name the argument name
+            # @return [Argument,nil]
+            def find_arg(name)
+                name = name.to_s
+                arguments.find { |arg| arg.name == name }
+            end
+
+            # Enumerate this action's arguments
+            #
+            # @yieldparam [Argument] arg
+            def each_arg(&block)
+                arguments.each(&block)
             end
 
             # Sets the advanced flag to true. See #advanced?
@@ -115,9 +171,10 @@ module Roby
                 @advanced = true 
                 self
             end
+
             # Sets the type of task returned by the action
             def returns(type)
-                if !type.kind_of?(Class) && !type.kind_of?(TaskServiceModel)
+                if !type.kind_of?(Class) && !type.kind_of?(Roby::Models::TaskServiceModel)
                     raise ArgumentError, "#{type} is neither a task model nor a task service model"
                 elsif type.kind_of?(Class) && !(type <= Roby::Task)
                     raise ArgumentError, "#{type} is neither a task model nor a task service model"
@@ -167,11 +224,18 @@ module Roby
                 result
             end
 
-            def rebind(action_interface_model)
+            # Create a new action model that is bound to a different interface model
+            #
+            # @param [Models::Interface] action_interface_model the new model
+            # @param [Boolean] force the rebind will happen only if the new
+            #   interface model is a submodel of the current one. If force is
+            #   true, it will be done regardless.
+            # @return [Action] the rebound action model
+            def rebind(action_interface_model, force: false)
                 m = dup
                 # We rebind only if the new interface model is a submodel of the
                 # old one
-                if action_interface_model <= self.action_interface_model
+                if force || (action_interface_model <= self.action_interface_model)
                     m.action_interface_model = action_interface_model
                 end
                 m

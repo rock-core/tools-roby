@@ -106,6 +106,15 @@ module Roby
                     name = method_name.to_s
                     description, @current_description = @current_description, nil
 
+                    if existing = find_action_by_name(name)
+                        if description.returned_type == Roby::Task
+                            description.returns(existing.returned_type)
+                        end
+                        updated = existing.rebind(self, force: true)
+                        updated.update(description)
+                        description = updated
+                    end
+
                     expected_argument_count =
                         if description.arguments.empty? then 0
                         else 1

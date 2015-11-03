@@ -215,4 +215,17 @@ class TC_Actions_InterfaceModel < Minitest::Test
         action.test
     end
 
+    def test_it_uses_an_already_existing_return_type_as_type_for_the_new_action
+        action_m = Actions::Interface.new_submodel
+        task_m = Roby::Task.new_submodel
+        action_m.describe('an action').returns(task_m)
+        action_m.send(:define_method, :test) do
+        end
+
+        submodel_m = action_m.new_submodel
+        submodel_m.describe('an overload')
+        submodel_m.send(:define_method, :test) do
+        end
+        assert_same task_m, submodel_m.find_action_by_name(:test).returned_type
+    end
 end
