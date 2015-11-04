@@ -216,7 +216,7 @@ module Roby
         end
 
         def kind_of?(obj)
-            obj <= exception_class
+            exception_class <= obj
         end
     end
 
