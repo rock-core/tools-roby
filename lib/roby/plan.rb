@@ -1158,7 +1158,12 @@ module Roby
 	# Returns true if there is no task in this plan
 	def empty?; @known_tasks.empty? end
 	# Iterates on all tasks
-	def each_task; @known_tasks.each { |t| yield(t) } end
+        #
+        # @yieldparam [Task] task
+	def each_task
+            return enum_for(__method__) if !block_given?
+            @known_tasks.each { |t| yield(t) }
+        end
  
 	# Returns +object+ if object is a plan object from this plan, or if
 	# it has no plan yet (in which case it is added to the plan first).
