@@ -1,5 +1,6 @@
 module Roby
     module App
+        # Reporter class for the Roby autotest, that outputs on an IO object
         class AutotestConsoleReporter
             # @return [#puts] the IO on which reporting should be done
             attr_reader :io
@@ -106,7 +107,7 @@ module Roby
                 server.on_exception do |pid, exception|
                     slave, slave_id = slave_from_pid(pid)
                     io.puts "[##{slave_id}] #{slave_to_s(slave)} reports exception"
-                    Roby.display_exception(STDOUT, exception)
+                    Roby.display_exception(io, exception)
                 end
                 server.on_discovery_start do |pid|
                     slave, slave_id = slave_from_pid(pid)
@@ -124,7 +125,7 @@ module Roby
                     slave, slave_id = slave_from_pid(pid)
                     io.puts "[##{slave_id}] #{test_case_name}##{test_name}: #{failures.size} failures and #{assertions.size} assertions (#{time})"
                     failures.each do |e|
-                        Roby.display_exception(e)
+                        Roby.display_exception(io, e)
                     end
                 end
                 server.on_test_finished do |pid|
