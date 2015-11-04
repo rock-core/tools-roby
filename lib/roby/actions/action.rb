@@ -17,6 +17,15 @@ module Roby
                 model.name
             end
 
+            # Update this object with new arguments and returns it
+            #
+            # @param [Hash] arguments new arguments
+            # @return [self]
+            def with_arguments(arguments)
+                @arguments.merge!(arguments)
+                self
+            end
+
             # The task model returned by this action
             def returned_type
                 model.returned_type
