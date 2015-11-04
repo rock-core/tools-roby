@@ -274,14 +274,16 @@ module Roby
                         msg = ""
                         if failure.kind_of?(Minitest::UnexpectedError)
                             base = failure.exception
-                            msg << Roby.format_exception(base).join("\n") +
-                                "\n    #{bt}"
-                            if base.respond_to?(:original_exceptions)
-                                base.original_exceptions.each do |e|
-                                    e_bt = Minitest.filter_backtrace(e.backtrace).join "\n    "
-                                    msg << "\n\n" << Roby.format_exception(e).join("\n") +
-                                        "\n    #{e_bt}"
-                                end
+                            seen = Set.new
+                            queue = [base]
+                            while e = queue.shift
+                                next if seen.include?(e)
+                                seen << e
+                                e_bt = Minitest.filter_backtrace(e.backtrace).join "\n    "
+                                msg << "\n\n" << Roby.format_exception(e).join("\n") +
+                                    "\n    #{e_bt}"
+
+                                queue.concat(e.original_exceptions) if e.respond_to?(:original_exceptions)
                             end
                         else
                             msg = failure.message
