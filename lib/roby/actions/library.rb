@@ -1,22 +1,23 @@
 module Roby
     module Actions
-        module Library
-            include Models::Interface
-            include MetaRuby::ModelAsModule
-            extend MetaRuby::Registration
-
-            attr_accessor :supermodel
-
-            def self.supermodel; end
-        end
+        Library = Models::Library.new
+        Library.root = true
     end
 end
 
 class Module
-    def action_library
-        extend Roby::Actions::Library
-        self.supermodel = Roby::Actions::Library
-        Roby::Actions::Library.register_submodel(self)
+    def action_library(name = nil, &block)
+        if name
+            create_and_register_submodel(self, name, Roby::Actions::Library, &block)
+        else
+            extend Roby::Actions::Models::Interface
+            extend MetaRuby::ModelAsModule
+            extend MetaRuby::Registration
+            self.supermodel = Roby::Actions::Library
+            Roby::Actions::Library.register_submodel(self)
+        end
     end
 end
+
+
 
