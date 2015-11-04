@@ -106,30 +106,30 @@ module Roby
             # be used to update self
             #
             # @raise [ArgumentError]
-            def validate_can_update(new)
-                new_return = new.returned_type
-                if !new_return.fullfills?(returned_type)
-                    if new_return.kind_of?(Class)
-                        raise ArgumentError, "new return type #{new_return} does not fullfill #{returned_type}, cannot merge the action models"
-                    elsif returned_type != Roby::Task
-                        raise ArgumentError, "new return type #{new_return} is a service model which does not fullfill #{returned_type}, and Roby does not support return type specifications that are composite of services and tasks"
+            def validate_can_overload(parent)
+                overloaded_return  = parent.returned_type
+                overloading_return = self.returned_type
+
+                if !overloading_return.fullfills?(overloaded_return)
+                    if overloading_return.kind_of?(Class)
+                        raise ArgumentError, "overloading return type #{overloading_return} does not fullfill #{overloaded_return}, cannot merge the action models"
+                    elsif overloaded_return != Roby::Task
+                        raise ArgumentError, "overloading return type #{overloading_return} is a service model which does not fullfill #{overloaded_return}, and Roby does not support return type specifications that are composite of services and tasks"
                     end
                 end
             end
 
-            # Update this action model with information from another
+            # Update this action model with information from another, to reflect
+            # that self overloads the other model
             #
+            # @param [Action] parent the action model that is being overloaded
             # @raise [ArgumentError] if the actions return types are not
             #   compatible
-            def update(new)
-                validate_can_update(new)
+            def overloads(parent)
+                validate_can_overload(parent)
 
-                self.doc = new.doc || self.doc
-                @arguments = arguments.find_all do |arg|
-                    !new.has_arg?(arg.name)
-                end
-                @arguments.concat(new.arguments.map(&:dup))
-                @returned_type = new.returned_type
+                self.doc ||= parent.doc
+                @arguments.concat(parent.arguments.find_all { |a| !has_arg?(a.name) })
             end
 
             # Documents a new required argument to the method

@@ -62,17 +62,17 @@ describe Roby::Actions::Models::Action do
         attr_reader :action_m, :updated_m
         before do
             interface_m = Roby::Actions::Interface.new_submodel
-            @action_m = Roby::Actions::Models::Action.new(interface_m)
-            @updated_m = Roby::Actions::Models::Action.new(interface_m)
+            @action_m   = Roby::Actions::Models::Action.new(interface_m)
+            @updated_m  = Roby::Actions::Models::Action.new(interface_m)
         end
 
         it "replaces existing argument description by new ones" do
             action_m.required_arg('test', 'test documentation')
             updated_m.optional_arg('test', 'updated documentation', 10)
-            action_m.update(updated_m)
+            updated_m.overloads(action_m)
             
-            arg = action_m.find_arg('test')
-            refute_same arg, updated_m.find_arg('test')
+            arg = updated_m.find_arg('test')
+            refute_same arg, action_m.find_arg('test')
             assert !arg.required?
             assert_equal 'updated documentation', arg.doc
             assert_equal 10, arg.default
@@ -80,40 +80,55 @@ describe Roby::Actions::Models::Action do
         it "keeps existing argument description that are not overriden" do
             action_m.required_arg('test', 'test documentation')
             updated_m.optional_arg('test2', 'updated documentation', 10)
-            action_m.update(updated_m)
-            assert action_m.has_arg?('test')
-            assert action_m.has_arg?('test2')
+            updated_m.overloads(action_m)
+            assert updated_m.has_arg?('test')
+            assert updated_m.has_arg?('test2')
         end
         it "updates the return type if a submodel task model is provided" do
             task_m = Roby::Task.new_submodel
             action_m.returns(task_m)
             subtask_m = task_m.new_submodel
             updated_m.returns(subtask_m)
-            action_m.update(updated_m)
-            assert_same subtask_m, action_m.returned_type
+            updated_m.overloads(action_m)
+            assert_same subtask_m, updated_m.returned_type
         end
         it "updates the return type if a submodel service model is provided" do
             srv_m = Roby::TaskService.new_submodel
             action_m.returns(srv_m)
             subsrv_m = srv_m.new_submodel
             updated_m.returns(subsrv_m)
-            action_m.update(updated_m)
-            assert_same subsrv_m, action_m.returned_type
+            updated_m.overloads(action_m)
+            assert_same subsrv_m, updated_m.returned_type
         end
         it "does not update the argument if validation fails" do
-            updated_m.required_arg('test', '')
-            original_args = action_m.arguments.dup
-            flexmock(action_m).should_receive(:validate_can_update).and_raise(ArgumentError)
-            assert_raises(ArgumentError) { action_m.update(updated_m) }
-            assert_equal original_args, action_m.arguments
+            action_m.required_arg('test', '')
+            original_args = updated_m.arguments.dup
+            flexmock(updated_m).should_receive(:validate_can_overload).and_raise(ArgumentError)
+            assert_raises(ArgumentError) { updated_m.overloads(action_m) }
+            assert_equal original_args, updated_m.arguments
         end
+        it "updates the return type if the new action's return type is a service and self does not have a return type defined" do
+            srv_m = Roby::TaskService.new_submodel
+            updated_m.returns(srv_m)
+            updated_m.overloads(action_m)
+            assert_same srv_m, updated_m.returned_type
+        end
+    end
+    describe "#validate_can_overload" do
+        attr_reader :action_m, :updated_m
+        before do
+            interface_m = Roby::Actions::Interface.new_submodel
+            @action_m   = Roby::Actions::Models::Action.new(interface_m)
+            @updated_m  = Roby::Actions::Models::Action.new(interface_m)
+        end
+
         it "raises ArgumentError if the provided return model is not a submodel task model of the current one" do
             task_m = Roby::Task.new_submodel
             action_m.returns(task_m)
             other_m = Roby::Task.new_submodel
             updated_m.returns(other_m)
             assert_raises(ArgumentError) do
-                action_m.update(updated_m)
+                updated_m.validate_can_overload(action_m)
             end
         end
         it "raises ArgumentError if the provided return model is not a submodel service model of the current one" do
@@ -122,14 +137,8 @@ describe Roby::Actions::Models::Action do
             other_m = Roby::TaskService.new_submodel
             updated_m.returns(other_m)
             assert_raises(ArgumentError) do
-                action_m.update(updated_m)
+                updated_m.validate_can_overload(action_m)
             end
-        end
-        it "updates the return type if the new action's return type is a service and self does not have a return type defined" do
-            srv_m = Roby::TaskService.new_submodel
-            updated_m.returns(srv_m)
-            action_m.update(updated_m)
-            assert_same srv_m, action_m.returned_type
         end
     end
 end

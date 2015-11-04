@@ -110,9 +110,7 @@ module Roby
                         if description.returned_type == Roby::Task
                             description.returns(existing.returned_type)
                         end
-                        updated = existing.rebind(self, force: true)
-                        updated.update(description)
-                        description = updated
+                        description.overloads(existing)
                     end
 
                     expected_argument_count =
