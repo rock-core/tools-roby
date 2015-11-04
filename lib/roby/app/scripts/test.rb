@@ -75,9 +75,6 @@ Roby.display_exception do
         end
         Minitest.run testrb_args
     ensure
-        if profiling
-            PerfTools::CpuProfiler.stop
-        end
         Roby.app.cleanup
     end
 end
