@@ -115,9 +115,7 @@ Roby.display_exception do
     end
 
     if test_files.size != 1 || !Autorespawn.slave?
-        manager.watch_yield do
-            Roby.app.setup
-        end
+        Roby.app.setup
         begin
             reporter.discovery_start
             if test_files.empty?
