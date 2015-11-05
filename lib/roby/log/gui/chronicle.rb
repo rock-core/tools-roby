@@ -58,7 +58,7 @@ module Roby
             # Scheduler information
             # 
             # @return [Schedulers::State]
-            attr_reader :scheduler_state
+            attr_accessor :scheduler_state
             # The task layout as computed in the last call to #paintEvent
             attr_reader :task_layout
             # The set of tasks that should currently be managed by the view.
@@ -278,7 +278,7 @@ module Roby
             #   task and the job task it represents
             # @param [Roby::Schedulers::State] scheduler information to be displayed
             #   on the chronicle
-            def add_tasks_info(tasks, job_info, scheduler_state = Roby::Schedulers::State.new)
+            def add_tasks_info(tasks, job_info)
                 tasks.each do |t|
                     if base_time && t.addition_time < base_time
                         update_base_time(t.addition_time)
@@ -287,7 +287,6 @@ module Roby
 
                 all_tasks.merge(tasks)
                 all_job_info.merge!(job_info)
-                self.scheduler_state.merge!(scheduler_state)
             end
 
             def contents_height
