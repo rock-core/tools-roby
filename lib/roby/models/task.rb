@@ -276,7 +276,7 @@ module Roby
 
             # Defines a new event on this task. 
             #
-            # @param [Symbol,String] event_name the event name
+            # @param [Symbol] event_name the event name
             # @param [Hash] options an option hash
             # @option options [Boolean] :controllable if true, the event is
             #   controllable and will use the default command of emitting directly
@@ -298,7 +298,6 @@ module Roby
             # Roby::TaskEvent, but it is possible to override that by using the +model+
             # option.
             def event(event_name, options = Hash.new, &block)
-                ev_s = event_name.to_s
                 event_name = event_name.to_sym
 
                 options = validate_options options,
@@ -308,7 +307,7 @@ module Roby
                 if options.has_key?(:controlable)
                     options[:command] = options[:controlable]
                 elsif !options.has_key?(:command) && block
-                    options[:command] = define_command_method(ev_s, block)
+                    options[:command] = define_command_method(event_name, block)
                 end
                 validate_event_definition_request(event_name, options)
 
@@ -328,12 +327,17 @@ module Roby
                 if setup_terminal_handler
                     forward(new_event => :stop)
                 end
-                const_set(ev_s.camelcase(:upper), new_event)
+                const_set(event_name.to_s.camelcase(:upper), new_event)
 
-                define_event_methods(ev_s)
+                define_event_methods(event_name)
                 new_event
             end
 
+            # @api private
+            #
+            # Define the method that will be used as command for the given event
+            #
+            # @param [Symbol] event_name the event name
             def define_command_method(event_name, block)
                 check_arity(block, 1)
                 define_method("event_command_#{event_name}", &block)
@@ -348,32 +352,43 @@ module Roby
                 end
             end
 
-            def define_event_methods(ev_s)
-                if !method_defined?("#{ev_s}_event")
-                    define_method("#{ev_s}_event") do
-                        event(ev_s)
+            # @api private
+            #
+            # Define support methods for a task event
+            #
+            # @param [Symbol] event_name the event name
+            def define_event_methods(event_name)
+                if !method_defined?("#{event_name}_event")
+                    define_method("#{event_name}_event") do
+                        event(event_name)
                     end
                 end
-                if !method_defined?("#{ev_s}?")
-                    define_method("#{ev_s}?") do
-                        event(ev_s).happened?
+                if !method_defined?("#{event_name}?")
+                    define_method("#{event_name}?") do
+                        event(event_name).happened?
                     end
                 end
-                if !method_defined?("#{ev_s}!")
-                    define_method("#{ev_s}!") do |*context| 
-                        generator = event(ev_s)
+                if !method_defined?("#{event_name}!")
+                    define_method("#{event_name}!") do |*context| 
+                        generator = event(event_name)
                         generator.call(*context) 
                     end
                 end
-                if !respond_to?("#{ev_s}_event")
+                if !respond_to?("#{event_name}_event")
                     singleton_class.class_eval do
-                        define_method("#{ev_s}_event") do
-                            find_event_model(ev_s)
+                        define_method("#{event_name}_event") do
+                            find_event_model(event_name)
                         end
                     end
                 end
             end
 
+            # @api private
+            #
+            # Validate the parameters passed to {#event}
+            #
+            # @raise [ArgumentError] if there are inconsistencies / errors in
+            #   the arguments
             def validate_event_definition_request(event_name, options) #:nodoc:
                 if options[:command] && options[:command] != true && !options[:command].respond_to?(:call)
                     raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
@@ -415,9 +430,7 @@ module Roby
 
             # Find the event class for +event+, or nil if +event+ is not an event name for this model
             def find_event_model(name)
-                name = name.to_sym
-                each_event { |sym, e| return e if sym == name }
-                nil
+                find_event(name.to_sym)
             end
 
             # Accesses an event model
