@@ -70,5 +70,31 @@ class TC_Actions_Task < Minitest::Test
         assert task.failed?
         assert !task.transaction.plan, "transaction is neither discarded nor committed"
     end
+
+    def test_it_propagates_the_job_id
+        task_m = Roby::Task.new_submodel
+        planning_m = Roby::Task.new_submodel
+        planning_m.terminates
+        planning_m.provides Roby::Interface::Job
+
+        iface_m = Actions::Interface.new_submodel do
+            describe("the test action").returns(task_m)
+            define_method(:test_action) do
+                t = task_m.new
+                t.planned_by(planning_m.new)
+                t
+            end
+        end
+
+        plan.add(task = iface_m.test_action.as_plan)
+        tracker = task.as_service
+        task.planning_task.job_id = 10
+        assert_event_emission(task.planning_task.success_event) do
+            task.planning_task.start!
+        end
+        assert_kind_of task_m, tracker.task
+        assert_kind_of planning_m, tracker.task.planning_task
+        assert_equal 10, tracker.task.planning_task.job_id
+    end
 end
 
