@@ -199,7 +199,7 @@ module Roby
             #
             # It adds a +stop!+ command that emits the +failed+ event.
 	    def terminates
-		event :failed, :command => true, :terminal => true
+		event :failed, command: true, terminal: true
 		interruptible
 	    end
 
@@ -207,11 +207,12 @@ module Roby
             # defining a command for +stop+, which in effect calls the command
             # for +failed+.
             #
-            # Raises ArgumentError if failed is not controlable.
+            # @raise [ArgumentError] if {#failed_event} is not controlable.
 	    def interruptible
 		if !has_event?(:failed) || !event_model(:failed).controlable?
 		    raise ArgumentError, "failed is not controlable"
 		end
+
 		event(:stop) do |context| 
 		    if starting?
 			signals :start, self, :stop
@@ -221,12 +222,9 @@ module Roby
 		end
 	    end
 
-            ##
-            # :singleton-method: abstract?
+            # True if this task is an abstract task
             #
-            # True if this task is an abstract task.
-            #
-            # See Task::abstract() for more information.
+            # @see abstract
             attr_predicate :abstract?, true
 
             # Declare that this task model defines abstract tasks. Abstract
@@ -236,14 +234,17 @@ module Roby
             # Instances of abstract task models are not executable, i.e. they
             # cannot be started.
             #
-            # See also #abstract? and #executable?
+            # @see abstract? executable?
             def abstract
                 @abstract = true
             end
 
+            # @api private
+            #
             # Update the terminal flag for the event models that are defined in
-            # this task model. The event is terminal if model-level signals (set up
-            # by Task::on) lead to the emission of the +stop+ event
+            # this task model. The event is terminal if model-level signals
+            # ({signal}) or forwards ({forward}) lead to the
+            # emission of {#stop_event}
             def update_terminal_flag # :nodoc:
                 events = enum_events.map { |name, _| name }
                 terminal_events = [:stop]
@@ -416,7 +417,7 @@ module Roby
             # The events defined by the task model
             #
             # @return [Hash<Symbol,TaskEvent>]
-            inherited_attribute(:event, :events, :map => true) { Hash.new }
+            inherited_attribute(:event, :events, map: true) { Hash.new }
 
             def enum_events # :nodoc
                 @__enum_events__ ||= enum_for(:each_event)
