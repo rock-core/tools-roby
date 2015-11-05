@@ -132,7 +132,7 @@ module Roby
             # @return [Integer] the job ID
             def start_job(m, arguments = Hash.new)
                 engine.execute do
-                    task, planning_task = app.prepare_action(m, arguments.merge(job_id: Job.allocate_job_id), mission: true)
+                    task, planning_task = app.prepare_action(m, mission: true, job_id: Job.allocate_job_id, **arguments)
                     planning_task.job_id
                 end
             end

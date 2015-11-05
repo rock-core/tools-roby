@@ -246,10 +246,10 @@ describe Roby::Coordination::ActionStateMachine do
         end
         description.required_arg('machine_arg')
         action_m.action_state_machine 'test' do
-            use_fault_response_table table_m, :arg => machine_arg
+            use_fault_response_table table_m, arg: machine_arg
             start state(task_m)
         end
-        task = action_m.test.instanciate(plan, :machine_arg => 10)
+        task = action_m.test.instanciate(plan, machine_arg: 10)
         task.start!
         table = plan.active_fault_response_tables.first
         assert_equal Hash[:arg => 10], table.arguments

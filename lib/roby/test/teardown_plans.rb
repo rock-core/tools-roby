@@ -61,7 +61,14 @@ module Roby
 
                 registered_plans.each do |plan|
                     if !plan.empty?
-                        Roby.warn "failed to teardown: #{plan} has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events"
+                        if plan.known_tasks.all? { |t| t.pending? }
+                            plan.clear
+                        else
+                            Roby.warn "failed to teardown: #{plan} has #{plan.known_tasks.size} tasks and #{plan.free_events.size} events, #{plan.gc_quarantine.size} of which are in quarantine"
+                            if !plan.execution_engine
+                                Roby.warn "this is most likely because this plan does not have an execution engine. Either add one or clear the plan in the tests"
+                            end
+                        end
                     end
                     plan.clear
                     if engine = plan.execution_engine

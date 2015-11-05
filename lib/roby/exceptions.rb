@@ -15,6 +15,18 @@ module Roby
         colorizer.decorate(string, *colors)
     end
 
+    def self.disable_colors
+        @colorizer = Pastel.new(enabled: false)
+    end
+
+    def self.enable_colors_if_available
+        @colorizer = Pastel.new
+    end
+
+    def self.enable_colors
+        @colorizer = Pastel.new(enabled: true)
+    end
+
     # ExecutionException objects are used during the exception handling stage
     # to keep information about the propagation. 
     #

@@ -1,7 +1,14 @@
 require 'roby/test/self'
 
-module Roby
+describe Roby do
     describe '.log_exceptions' do
+        before do
+            Roby.disable_colors
+        end
+        after do
+            Roby.enable_colors_if_available
+        end
+
         it "pretty_prints the exception on the given logger" do
             text = "This is a very loooooooong first line\nand a second"
             stub = stub_exception(text)

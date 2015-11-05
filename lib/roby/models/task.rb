@@ -55,10 +55,10 @@ module Roby
             #   child = root.depends_on(TaskModel.with_arguments(:id => 200))
             #
             def as_plan(arguments = Hash.new)
-                Robot.prepare_action(nil, self, arguments).first
-            rescue ArgumentError
+                Roby.app.prepare_action(self, **arguments).first
+            rescue Application::ActionResolutionError
                 if abstract?
-                    raise ArgumentError, "#{self} is abstract and no planning method exists that returns it"
+                    raise Application::ActionResolutionError, "#{self} is abstract and no planning method exists that returns it"
                 else
                     Robot.warn "no planning method for #{self}, and #{self} is not abstract. Returning new instance"
                     new(arguments)

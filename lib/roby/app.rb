@@ -2166,11 +2166,14 @@ module Roby
             require_planners
         end
 
+        class ActionResolutionError < ArgumentError; end
+
         # Find an action on the planning interface that can generate the given task
         # model
         #
-        # Raises ArgumentError if there either none or more than one. Otherwise,
-        # returns the action name.
+        # @return [Actions::Models::Action]
+        # @raise [ActionResolutionError] if there either none or more than one matching
+        #   action
         def action_from_model(model)
             candidates = []
             planners.each do |planner_model|
@@ -2181,9 +2184,9 @@ module Roby
             candidates = candidates.uniq
                 
             if candidates.empty?
-                raise ArgumentError, "cannot find an action to produce #{model}"
+                raise ActionResolutionError, "cannot find an action to produce #{model}"
             elsif candidates.size > 1
-                raise ArgumentError, "more than one actions available produce #{model}: #{candidates.map { |pl, m| "#{pl}.#{m.name}" }.sort.join(", ")}"
+                raise ActionResolutionError, "more than one actions available produce #{model}: #{candidates.map { |pl, m| "#{pl}.#{m.name}" }.sort.join(", ")}"
             else
                 candidates.first
             end
@@ -2192,7 +2195,8 @@ module Roby
         # Find an action with the given name on the action interfaces registered on
         # {#planners}
         #
-        # @raise [ArgumentError] if more than one action interface provide an
+        # @return [Actions::Models::Action,nil]
+        # @raise [ActionResolutionError] if more than one action interface provide an
         #   action with this name
         def find_action_from_name(name)
             candidates = []
@@ -2204,11 +2208,19 @@ module Roby
             candidates = candidates.uniq
 
             if candidates.size > 1
-                raise ArgumentError, "more than one action interface provide the #{name} action: #{candidates.map { |pl, m| "#{pl}" }.sort.join(", ")}"
+                raise ActionResolutionError, "more than one action interface provide the #{name} action: #{candidates.map { |pl, m| "#{pl}" }.sort.join(", ")}"
             else candidates.first
             end
         end
 
+        # Finds the action matching the given name
+        #
+        # Unlike {#find_action_by_name}, it raises if no matching action has
+        # been found
+        #
+        # @return [Actions::Models::Action]
+        # @raise [ActionResolutionError] if either none or more than one action
+        #   interface provide an action with this name
         def action_from_name(name)
             action = find_action_from_name(name)
             if !action
@@ -2216,9 +2228,9 @@ module Roby
                     planner_model.each_action.map(&:name)
                 end.flatten
                 if available_actions.empty?
-                    raise ArgumentError, "cannot find an action named #{name}, there are no actions defined"
+                    raise ActionResolutionError, "cannot find an action named #{name}, there are no actions defined"
                 else
-                    raise ArgumentError, "cannot find an action named #{name}, available actions are: #{available_actions.sort.join(", ")}"
+                    raise ActionResolutionError, "cannot find an action named #{name}, available actions are: #{available_actions.sort.join(", ")}"
                 end
             end
             action
@@ -2231,7 +2243,7 @@ module Roby
         # point.
         #
         # @return task, planning_task
-        def prepare_action(name, arguments = Hash.new, mission: false)
+        def prepare_action(name, mission: false, **arguments)
             if name.kind_of?(Class)
                 planner_model, m = action_from_model(name)
             else

@@ -23,11 +23,11 @@ module Robot
     end
 
     # @deprecated use Roby.app.prepare_action instead
-    def self.prepare_action(plan, name, arguments = Hash.new)
+    def self.prepare_action(plan, name, **arguments)
         if plan != Roby.app.plan
             raise ArgumentError, "cannot call prepare_action with any other plan than Roby.app.plan"
         end
-	return Roby.app.prepare_action(name, arguments)
+	return Roby.app.prepare_action(name, **arguments)
     end
 
     # Implements that one can call
@@ -50,9 +50,8 @@ module Robot
 	end
 
 	options = args.first || {}
-	task, planner = Roby.app.prepare_action(name, options)
-	Roby.plan.add_mission(task)
-
+	task, planner = Roby.app.prepare_action(name, **options)
+        task.plan.add_mission(task)
 	return task, planner
     end
 

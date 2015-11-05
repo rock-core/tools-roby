@@ -4,7 +4,7 @@ describe Roby::App::RobotNames do
     describe "#initialize" do
         it "should get the robot list from the 'robots' field" do
             conf = Roby::App::RobotNames.new('robots' => Hash['a' => 'b'])
-            assert_equal Hash['a' => 'b'], conf.robots
+            assert_equal Hash['a' => 'b', 'default' => 'default'], conf.robots
         end
 
         it "should get the default robot name from the 'default_robot' field" do
@@ -48,9 +48,9 @@ describe Roby::App::RobotNames do
                                                      'default_robot' => 'a')
             assert_equal 'b', conf.default_robot_type
         end
-        it "should return nil if no default robot is defined" do
+        it "uses 'default' as the default robot name" do
             conf = Roby::App::RobotNames.new('robots' => Hash['a' => 'b'])
-            assert !conf.default_robot_type
+            assert_equal 'default', conf.default_robot_type
         end
     end
 

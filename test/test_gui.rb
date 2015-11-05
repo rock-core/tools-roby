@@ -1,7 +1,7 @@
 require 'roby/test/self'
 require 'roby/log/gui/relations'
 
-class TC_Task < Minitest::Test 
+class TC_GUI < Minitest::Test 
     def test_index_handling
         model = Ui::RelationConfigModel.new(nil)
         [-1, 0, 222].each do |id|

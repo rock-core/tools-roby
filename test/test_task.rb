@@ -2155,7 +2155,7 @@ class TC_Task < Minitest::Test
         task_t = Roby::Task.new_submodel
         task, planner_task = task_t.new, task_t.new
         task.planned_by planner_task
-        flexmock(Robot).should_receive(:prepare_action).with(nil, task_t, Hash.new).and_return([task, planner_task])
+        flexmock(Roby.app).should_receive(:prepare_action).with(task_t, Hash.new).and_return([task, planner_task])
 
         plan.add(as_plan = task_t.as_plan)
         assert_same task, as_plan
