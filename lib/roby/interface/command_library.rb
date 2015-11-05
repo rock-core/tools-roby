@@ -51,7 +51,25 @@ module Roby
                 @subcommands = Hash.new
 
                 self.class.each_subcommand do |name, (interface_model, description)|
-                    subcommands[name] = interface_model.new(app)
+                    subcommand(name, interface_model.new(app), description)
+                end
+            end
+
+            # Declare a subcommand on this interface
+            #
+            # Unless with {CommandLibrary.subcommand}, the interface must
+            # already be instanciated
+            def subcommand(name, interface, description)
+                subcommands[name] = [interface, description]
+            end
+
+            # Enumerate the subcommands available on this interface
+            #
+            # @yieldparam [String] name the subcommand name
+            def each_subcommand
+                return enum_for(__method__) if !block_given?
+                subcommands.each do |name, (interface, description)|
+                    yield(name, interface, description)
                 end
             end
 
@@ -64,8 +82,8 @@ module Roby
             #   empty)
             def commands
                 result = Hash['' => InterfaceCommands.new('', nil, self.class.commands)]
-                self.subcommands.each do |name, subcommand|
-                    result[name] = InterfaceCommands.new(name, self.class.find_subcommand(name).last, subcommand.commands)
+                each_subcommand do |name, interface, description|
+                    result[name] = InterfaceCommands.new(name, description, interface.commands)
                 end
                 result
             end
