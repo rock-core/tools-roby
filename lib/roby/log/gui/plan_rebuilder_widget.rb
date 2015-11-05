@@ -211,6 +211,7 @@ module Roby
                 while !stream.eof? && (!until_cycle || !plan_rebuilder.cycle_index || plan_rebuilder.cycle_index < until_cycle)
                     data = stream.read
                     needs_snapshot = plan_rebuilder.push_data(data)
+                    plan_rebuilder.clear_integrated
                     yield(needs_snapshot, data) if block_given?
                     dialog.setValue(plan_rebuilder.cycle_start_time - start_time)
                     if dialog.wasCanceled
@@ -286,6 +287,7 @@ module Roby
                 @client = client
                 client.add_listener do |data|
                     needs_snapshot = plan_rebuilder.push_data(data)
+                    plan_rebuilder.clear_integrated
                     time = push_data(needs_snapshot, data)
                     emit liveUpdate(Qt::DateTime.new(time))
 

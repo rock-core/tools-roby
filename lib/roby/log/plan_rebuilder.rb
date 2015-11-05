@@ -373,14 +373,15 @@ module Roby
             # Push one cycle worth of data
             def push_data(data)
                 process(data)
-                if has_interesting_events? || @last_cycle_snapshotted
+                interesting = has_interesting_events?
+                if interesting || @last_cycle_snapshotted
                     relations = if !has_structure_updates? && !history.empty?
                                     history.last.relations
                                 end
                     history << snapshot(relations)
                     result = true
                 end
-                @last_cycle_snapshotted = has_interesting_events?
+                @last_cycle_snapshotted = interesting
                 result
             end
 
