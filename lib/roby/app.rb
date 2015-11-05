@@ -240,6 +240,14 @@ module Roby
             constant("::#{module_name}")
         end
 
+        # Returns this app's main action interface
+        #
+        # This is usually set up in the robot configuration file by calling
+        # Robot.actions
+        def main_action_interface
+            app_module::Actions::Main
+        end
+
         # Returns the application base directory
         def app_dir
             if defined?(APP_DIR)
