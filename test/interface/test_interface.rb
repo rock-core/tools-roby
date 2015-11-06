@@ -130,6 +130,20 @@ describe Roby::Interface::Interface do
             interface.push_pending_job_notifications
         end
 
+        it "notifies of planning failures" do
+            recorder.should_receive(:called).with(Roby::Interface::JOB_MONITORED, 10, "the job", task, task.planning_task).once.ordered
+            recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_READY, 10, "the job").once.ordered
+            recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING, 10, "the job").once.ordered
+            recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_FAILED, 10, "the job").once.ordered
+            recorder.should_receive(:called).with(Roby::Interface::JOB_FINALIZED, 10, "the job").once.ordered
+            interface.monitor_job(task.planning_task, task)
+            job_task.start!
+            inhibit_fatal_messages do
+                assert_raises(Roby::PlanningFailedError) { job_task.failed_event.emit }
+            end
+            interface.push_pending_job_notifications
+        end
+
         it "should notify of placeholder task change" do
             plan.add(new_task = Roby::Tasks::Simple.new(:id => task.id))
             new_task.planned_by job_task
@@ -259,6 +273,105 @@ describe Roby::Interface::Interface do
                     child_task.stop!
                 end
             end
+        end
+    end
+
+    describe "#kill_job" do
+        attr_reader :task
+        before do
+            plan.add(job_task = job_task_m.new(job_id: 10))
+            plan.add_mission(@task = Roby::Tasks::Simple.new)
+            task.planned_by job_task
+        end
+        it "returns true for an existing job" do
+            assert interface.kill_job(10)
+        end
+        it "returns false for a non-existent job" do
+            assert !interface.kill_job(20)
+        end
+        it "unmarks the job as mission" do
+            interface.kill_job 10
+            assert !plan.mission?(task)
+        end
+        it "forcefully stops a running job" do
+            task.start!
+            interface.kill_job 10
+            assert task.finished?
+        end
+    end
+
+    describe "#drop_job" do
+        attr_reader :task
+        before do
+            plan.add(job_task = job_task_m.new(job_id: 10))
+            plan.add_mission(@task = Roby::Tasks::Simple.new)
+            task.planned_by job_task
+        end
+        it "returns true for an existing job" do
+            assert interface.drop_job(10)
+        end
+        it "returns false for a non-existent job" do
+            assert !interface.drop_job(20)
+        end
+        it "unmarks the job as mission" do
+            interface.drop_job 10
+            assert !plan.mission?(task)
+        end
+        it "does not stops a running job" do
+            task.start!
+            interface.drop_job 10
+            assert task.running?
+        end
+    end
+
+    describe "#find_job_info_by_id" do
+        it "returns nil on a non-existent job" do
+            assert !interface.find_job_info_by_id(20)
+        end
+        it "returns the job information of a job" do
+            plan.add(job_task = job_task_m.new(job_id: 10))
+            plan.add_mission(task = Roby::Tasks::Simple.new)
+            task.planned_by job_task
+            flexmock(interface).should_receive(:job_state).with(task).
+                and_return(expected_state = flexmock)
+            job_state, placeholder_task, planning_task = interface.find_job_info_by_id(10)
+            assert_equal expected_state, job_state
+            assert_equal task, placeholder_task
+            assert_equal job_task, planning_task
+        end
+        it "returns the same task as placeholder and planning task for standalone job tasks" do
+            plan.add_mission(job_task = job_task_m.new(job_id: 10))
+            _, task, planning_task = interface.find_job_info_by_id(10)
+            assert_equal job_task, task
+            assert_equal job_task, planning_task
+        end
+        it "returns the job information of a job" do
+            plan.add(job_task = job_task_m.new(job_id: 10))
+            plan.add_mission(task = Roby::Tasks::Simple.new)
+            task.planned_by job_task
+            job_state, task, planning_task = interface.find_job_info_by_id(20)
+        end
+    end
+
+    describe "notification handlers" do
+        it "#on_notifications registers a notification handler" do
+            recorder = flexmock
+            interface.on_notification do |source, level, message|
+                recorder.called(source, level, message)
+            end
+            recorder.should_receive(:called).
+                with(source = flexmock, level = flexmock, message = flexmock).
+                once
+            app.notify(source, level, message)
+        end
+        it "#remove_notification_listener removes a registered notification handler" do
+            recorder = flexmock
+            handler_id = interface.on_notification do |source, level, message|
+                recorder.called
+            end
+            interface.remove_notification_listener(handler_id)
+            recorder.should_receive(:called).never
+            app.notify(flexmock, flexmock, flexmock)
         end
     end
 end

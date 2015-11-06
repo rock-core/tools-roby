@@ -234,8 +234,8 @@ module Roby
             end
 
             # @param (see Application#remove_notification_listener)
-            def remove_notification_listener(&listener)
-                app.remove_notification_listener(&listener)
+            def remove_notification_listener(listener)
+                app.remove_notification_listener(listener)
             end
 
             # Registers a block to be called when a job changes state

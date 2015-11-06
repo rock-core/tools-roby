@@ -2287,7 +2287,7 @@ module Roby
         end
 
         # Registers a block to be called when a message needs to be
-        # dispatched
+        # dispatched from {#notify}
         #
         # @yieldparam [String] source the source of the message
         # @yieldparam [String] level the log level
