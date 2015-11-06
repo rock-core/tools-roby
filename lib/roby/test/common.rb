@@ -173,12 +173,36 @@ module Roby
             end
 	end
 
+        def assert_adds_roby_localized_error(matcher)
+            matcher = matcher.match
+            errors = plan.execution_engine.gather_errors do
+                yield
+            end
+
+            errors = errors.map(&:exception)
+            assert !errors.empty?, "expected to have added a LocalizedError, but got none"
+            errors.each do |e|
+                assert_exception_can_be_pretty_printed(e)
+            end
+            if matched_e = errors.find { |e| matcher === e }
+                return matched_e
+            elsif errors.empty?
+                flunk "block was expected to add an error matching #{matcher}, but did not"
+            else
+                raise SynchronousEventProcessingMultipleErrors.new(errors)
+            end
+        end
+
+        def assert_exception_can_be_pretty_printed(e)
+            PP.pp(e, "") # verify that the exception can be pretty-printed, all Roby exceptions should
+        end
+
         def assert_raises(exception, &block)
             super(exception) do
                 begin
                     yield
                 rescue Exception => e
-                    PP.pp(e, "") # verify that the exception can be pretty-printed, all Roby exceptions should
+                    assert_exception_can_be_pretty_printed(e)
                     if e.kind_of?(Roby::SynchronousEventProcessingMultipleErrors)
                         match = e.errors.find do |original_e, _|
                             original_e.exception.kind_of?(exception)
