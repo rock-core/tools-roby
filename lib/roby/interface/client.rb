@@ -78,11 +78,11 @@ module Roby
                 elsif m == :reply
                     yield args.first
                 elsif m == :job_progress
-                    push_job_progress(*args)
+                    queue_job_progress(*args)
                 elsif m == :notification
-                    push_notification(*args)
+                    queue_notification(*args)
                 elsif m == :exception
-                    push_exception(*args)
+                    queue_exception(*args)
                 elsif m
                     raise ProtocolError, "unexpected reply from #{io}: #{m} (#{args.map(&:to_s).join(",")})"
                 else return false
@@ -127,7 +127,7 @@ module Roby
             #
             # See the yield parameters of {Interface#on_job_notification} for
             # the overall argument format.
-            def push_job_progress(kind, job_id, job_name, *args)
+            def queue_job_progress(kind, job_id, job_name, *args)
                 job_progress_queue.push [allocate_message_id, [kind, job_id, job_name, *args]]
             end
 
@@ -136,10 +136,10 @@ module Roby
             end
 
             def pop_job_progress
-                job_progress_queue.pop
+                job_progress_queue.shift
             end
 
-            def push_notification(source, level, message)
+            def queue_notification(source, level, message)
                 notification_queue.push [allocate_message_id, [source, level, message]]
             end
 
@@ -148,7 +148,7 @@ module Roby
             end
 
             def pop_notification
-                notification_queue.pop
+                notification_queue.shift
             end
 
             # Push an exception notification to {#exception_queue}
@@ -157,7 +157,7 @@ module Roby
             #
             # See the yield parameters of {Interface#on_exception} for
             # the overall argument format.
-            def push_exception(kind, error, tasks, job_ids)
+            def queue_exception(kind, error, tasks, job_ids)
                 exception_queue.push [allocate_message_id, [kind, error, tasks, job_ids]]
             end
 
@@ -166,7 +166,7 @@ module Roby
             end
 
             def pop_exception
-                exception_queue.pop
+                exception_queue.shift
             end
 
             def call(path, m, *args)
