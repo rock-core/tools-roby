@@ -357,8 +357,8 @@ module Roby
                     end
                 end
 
-                def create_batch(&block)
-                    client.create_batch(&block)
+                def create_batch
+                    client.create_batch
                 end
 
                 def add_new_job_listener(job)
