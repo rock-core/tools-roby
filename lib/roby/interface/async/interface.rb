@@ -253,10 +253,11 @@ module Roby
                 #   and false otherwise
                 def poll
                     if connected?
-                        _, has_cycle_end = client.poll
-                        process_message_queues
-                        if has_cycle_end
+                        has_cycle_end = true
+                        while has_cycle_end
                             cleanup_dead_monitors
+                            _, has_cycle_end = client.poll
+                            process_message_queues
                         end
                         true
                     else

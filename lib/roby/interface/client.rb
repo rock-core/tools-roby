@@ -88,13 +88,13 @@ module Roby
             # @param [#read_packet] io packet-reading object
             # @return [Boolean,Boolean] the first boolean indicates if a packet
             #   has been processed, the second one if it was a cycle_end message
-            def read_and_process_packet(io)
-                m, *args = io.read_packet
-
+            def process_packet(m, *args)
                 if m == :cycle_end
                     @cycle_index, @cycle_start_time = *args
-                    return true, true
-                elsif m == :bad_call
+                    return true
+                end
+
+                if m == :bad_call
                     e = args.first
                     raise e, e.message, e.backtrace
                 elsif m == :reply
@@ -105,11 +105,10 @@ module Roby
                     queue_notification(*args)
                 elsif m == :exception
                     queue_exception(*args)
-                elsif m
+                else
                     raise ProtocolError, "unexpected reply from #{io}: #{m} (#{args.map(&:to_s).join(",")})"
-                else return false
                 end
-                return true
+                false
             end
 
             # Polls for new data on the IO channel
@@ -125,18 +124,17 @@ module Roby
                           end
 
                 has_cycle_end = false
-                while IO.select([io], [], [], timeout)
-                    done_something = true
-                    while done_something
-                        done_something, has_cycle_end = read_and_process_packet(io) do |reply_value|
-                            if result
-                                raise ArgumentError, "got more than one reply in a single poll call"
-                            end
-                            result = reply_value
-                            expected_count -= 1
+                while packet = io.read_packet(timeout)
+                    has_cycle_end = process_packet(*packet) do |reply_value|
+                        if result
+                            raise ProtocolError, "got more than one reply in a single poll call"
                         end
+                        result = reply_value
+                        expected_count -= 1
                     end
+
                     if expected_count <= 0
+                        break if has_cycle_end
                         timeout = 0
                     end
                 end
