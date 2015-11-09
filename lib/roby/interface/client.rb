@@ -169,12 +169,15 @@ module Roby
                 exception_queue.shift
             end
 
+            # Method called when trying to start an action that does not exist
+            class NoSuchAction < NoMethodError; end
+
             def call(path, m, *args)
                 if m.to_s =~ /(.*)!$/
                     action_name = $1
                     if find_action_by_name(action_name)
                         call([], :start_job, action_name, *args)
-                    else raise ArgumentError, "there is no action called #{action_name}"
+                    else raise NoSuchAction, "there is no action called #{action_name}"
                     end
                 else
                     io.write_packet([path, m, *args])
@@ -200,15 +203,30 @@ module Roby
                     @calls << [path, m, *args]
                 end
 
+                # Start the given job within the batch
+                #
+                # Note that as all batch operations, order does NOT matter
+                def start_job(action_name, *args)
+                    if @context.find_action_by_name(action_name)
+                        push([], :start_job, action_name, *args)
+                    else raise NoSuchAction, "there is no action called #{action_name} on #{@context}"
+                    end
+                end
+
+                # Kill the given job within the batch
+                #
+                # Note that as all batch operations, order does NOT matter
+                def kill_job(job_id)
+                    push([], :kill_job, job_id)
+                end
+
+                # Catch calls to the unnderlying {#context} and gathers them in
+                # {#__calls}
                 def method_missing(m, *args)
                     if m.to_s =~ /(.*)!$/
-                        action_name = $1
-                        if @context.find_action_by_name(action_name)
-                            push([], :start_job, action_name, *args)
-                        else raise ArgumentError, "there is no action called #{action_name}"
-                        end
+                        start_job($1, *args)
                     else
-                        push([], m, *args)
+                        raise NoMethodError.new(m), "#{m} either does not exist, or is not supported in batch context (only starting and killing jobs is)"
                     end
                 end
 
