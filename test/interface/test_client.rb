@@ -207,6 +207,15 @@ module Roby
                         client.pop_notification
                         assert !client.has_notifications?
                     end
+
+                    it "updates cycle_time and cycle_index with the state from the execution engine" do
+                        flexmock(plan.execution_engine).should_receive(:cycle_start).and_return(start_time = Time.now)
+                        flexmock(plan.execution_engine).should_receive(:cycle_index).and_return(index = 42)
+                        plan.execution_engine.cycle_end(Hash.new)
+                        client.poll
+                        assert_equal index, client.cycle_index
+                        assert_equal start_time, client.cycle_start_time
+                    end
                 end
 
                 it "raises ProtocolError if getting more than one reply call in one time" do

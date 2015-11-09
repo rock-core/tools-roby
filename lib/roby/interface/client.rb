@@ -23,6 +23,11 @@ module Roby
             #   It is always growing and will never collide with a notification ID
             attr_reader :exception_queue
 
+            # @return [Integer] index of the last processed cycle
+            attr_reader :cycle_index
+            # @return [Time] time of the last processed cycle
+            attr_reader :cycle_start_time
+
             # Create a client endpoint to a Roby interface [Server]
             #
             # @param [DRobyChannel] io a channel to the server
@@ -87,6 +92,7 @@ module Roby
                 m, *args = io.read_packet
 
                 if m == :cycle_end
+                    @cycle_index, @cycle_start_time = *args
                     return true, true
                 elsif m == :bad_call
                     e = args.first

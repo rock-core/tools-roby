@@ -238,6 +238,14 @@ module Roby
                     !!client
                 end
 
+                def cycle_start_time
+                    client.cycle_start_time
+                end
+
+                def cycle_index
+                    client.cycle_index
+                end
+
                 # Active part of the async. This has to be called regularly within
                 # the system's main event loop (e.g. Roby's, Vizkit's or Qt's)
                 #
