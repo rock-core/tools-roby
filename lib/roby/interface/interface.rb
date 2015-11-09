@@ -75,6 +75,12 @@ module Roby
             #   added with {#on_job_notification} and removed with
             #   {#remove_job_listener}
             attr_reader :job_listeners
+
+            # @return [#call] the blocks that listen to end-of-cycle
+            #   notifications. They are added with {#on_cycle_end} and
+            #   removed with {#remove_cycle_end}
+            attr_reader :cycle_end_listeners
+
             # @api private
             #
             # @return [Set<Integer>] the set of tracked jobs
@@ -97,11 +103,13 @@ module Roby
                 end
                 engine.at_cycle_end do
                     push_pending_job_notifications
+                    notify_cycle_end
                 end
 
                 @tracked_jobs = Set.new
                 @job_notifications = Array.new
                 @job_listeners = Array.new
+                @cycle_end_listeners = Array.new
             end
 
             # Returns the port of the log server
@@ -468,14 +476,10 @@ module Roby
                     engine.on_exception do |kind, exception, tasks|
                         involved_job_ids = tasks.map do |t|
                             job_id_of_task(t)
-                        end.to_set
+                        end.compact.to_set
                         block.call(kind, exception, tasks, involved_job_ids)
                     end
                 end
-            end
-
-            def on_cycle_end(&block)
-                engine.at_cycle_end(&block)
             end
 
             # @see ExecutionEngine#remove_exception_listener
@@ -483,6 +487,38 @@ module Roby
                 engine.execute do
                     engine.remove_exception_listener(listener)
                 end
+            end
+
+            # Add a handler called at each end of cycle
+            #
+            # Interface-related objects that need to be notified must use this
+            # method instead of using {ExecutionEngine#at_cycle_end} on
+            # {#engine}, because the listener is guaranteed to be ordered
+            # properly w.r.t. {#push_pending_job_notifications}
+            #
+            # @param [#call] block the listener
+            # @yieldparam [ExecutionEngine] the underlying execution engine
+            # @return [Object] and ID that can be passed to {#remove_cycle_end}
+            def on_cycle_end(&block)
+                engine.execute do
+                    cycle_end_listeners << block
+                    block
+                end
+            end
+
+            # @api private
+            #
+            # Notify the end-of-cycle to the listeners registered with
+            # {#on_cycle_end}
+            def notify_cycle_end
+                cycle_end_listeners.each do |listener|
+                    listener.call
+                end
+            end
+
+            # Remove a handler that has been added to {#on_cycle_end}
+            def remove_cycle_end(listener)
+                cycle_end_listeners.delete(listener)
             end
 
             # Requests for the Roby application to quit

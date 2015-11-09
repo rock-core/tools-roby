@@ -191,7 +191,7 @@ module Roby
                         # 'client' is lazily loaded, create it now to avoid
                         # interference
                         client
-                        interface_mock.notify_cycle_end(Object.new)
+                        interface_mock.notify_cycle_end
                         assert_equal true, client.poll.last
                         assert !client.has_notifications?
                     end

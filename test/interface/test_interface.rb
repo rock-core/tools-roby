@@ -374,5 +374,29 @@ describe Roby::Interface::Interface do
             app.notify(flexmock, flexmock, flexmock)
         end
     end
+
+    describe "cycle end handlers" do
+        it "registers a new handler called when the execution engine announces a cycle end" do
+            recorder = flexmock
+            interface.on_cycle_end { recorder.called }
+            recorder.should_receive(:called).once
+            app.plan.execution_engine.cycle_end(Hash.new)
+        end
+        it "calls #push_pending_job_notifications before the handler" do
+            recorder = flexmock
+            interface.on_cycle_end { recorder.called }
+
+            flexmock(interface).should_receive(:push_pending_job_notifications).once.globally.ordered
+            recorder.should_receive(:called).once.globally.ordered
+            app.plan.execution_engine.cycle_end(Hash.new)
+        end
+        it "allows to remove an added handler" do
+            recorder = flexmock
+            listener_id = interface.on_cycle_end { recorder.called }
+            recorder.should_receive(:called).never
+            interface.remove_cycle_end(listener_id)
+            app.plan.execution_engine.cycle_end(Hash.new)
+        end
+    end
 end
 
