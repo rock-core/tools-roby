@@ -6,7 +6,6 @@ require 'flexmock/minitest'
 if ENV['TEST_ENABLE_COVERAGE'] == '1'
     begin
         require 'simplecov'
-        SimpleCov.start
     rescue LoadError
         require 'roby'
         Roby.warn "coverage is disabled because the 'simplecov' gem cannot be loaded"
