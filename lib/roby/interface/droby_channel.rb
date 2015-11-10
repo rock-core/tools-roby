@@ -80,7 +80,7 @@ module Roby
                                end
                 remote_object_manager.local_object(unmarshalled)
 
-            rescue Errno::ECONNRESET, EOFError
+            rescue Errno::ECONNRESET, EOFError, IOError
                 raise ComError, "closed communication"
             rescue Errno::EPIPE
                 raise ComError, "broken communication channel"

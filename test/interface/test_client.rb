@@ -37,7 +37,16 @@ module Roby
                 @interface = interface_mock
                 server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0) 
                 @server    = Server.new(DRobyChannel.new(server_socket, false), interface)
-                @server_thread = Thread.new { while true; server.poll; sleep 0.1 end }
+                @server_thread = Thread.new do
+                    begin
+                        while true
+                            server.poll
+                            sleep 0.1
+                        end
+                    rescue ComError
+                    end
+                end
+                @server_thread.abort_on_exception = true
             end
 
             let :client do
@@ -48,7 +57,6 @@ module Roby
                 InterfaceClientTestInterface.clear_model
                 client.close if !client.closed?
                 server.close if !server.closed?
-                @server_thread.raise Interrupt
                 begin @server_thread.join
                 rescue Interrupt
                 end
