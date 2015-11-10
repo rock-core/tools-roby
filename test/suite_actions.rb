@@ -1,3 +1,4 @@
+require 'roby/test/self'
 require './test/actions/test_interface_model'
 require './test/actions/test_task'
 require './test/actions/test_action'
