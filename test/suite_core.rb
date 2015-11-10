@@ -1,5 +1,17 @@
 require 'roby/test/self'
 
+if ENV['TEST_ENABLE_COVERAGE'] == '1' || rand > 0.5
+    null_io = File.open('/dev/null', 'w')
+    current_formatter = Roby.logger.formatter
+    Roby.warn "running tests with logger in DEBUG mode"
+    Roby.logger = Logger.new(null_io)
+    Roby.logger.level = Logger::DEBUG
+    Roby.logger.formatter = current_formatter
+else
+    Roby.warn "running tests with logger in FATAL mode"
+    Roby.logger.level = Logger::FATAL + 1
+end
+
 require './test/test_bgl'
 require './test/test_relations'
 require './test/test_event'
