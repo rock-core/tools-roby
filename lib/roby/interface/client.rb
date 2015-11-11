@@ -265,8 +265,8 @@ module Roby
                     @calls
                 end
 
-                def push(path, m, *args)
                 # Pushes an operation in the batch
+                def __push(path, m, *args)
                     @calls << [path, m, *args]
                 end
 
@@ -277,7 +277,7 @@ module Roby
                 # @raise [NoSuchAction] if the action does not exist
                 def start_job(action_name, *args)
                     if @context.find_action_by_name(action_name)
-                        push([], :start_job, action_name, *args)
+                        __push([], :start_job, action_name, *args)
                     else raise NoSuchAction, "there is no action called #{action_name} on #{@context}"
                     end
                 end
@@ -286,7 +286,7 @@ module Roby
                 #
                 # Note that as all batch operations, order does NOT matter
                 def kill_job(job_id)
-                    push([], :kill_job, job_id)
+                    __push([], :kill_job, job_id)
                 end
 
                 # @api private
@@ -302,7 +302,7 @@ module Roby
 
                 # Process the batch and return the list of return values for all
                 # the calls in {#__calls}
-                def process
+                def __process
                     @context.process_batch(self)
                 end
             end
