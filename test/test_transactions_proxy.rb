@@ -174,9 +174,9 @@ class TC_TransactionsProxy < Minitest::Test
 	p1, p2, p3 = proxies
 	p1.depends_on p2
 
-	assert_equal([], t1.enum_for(:each_child_object, Hierarchy).to_a)
+	assert_equal([], t1.enum_for(:each_child_object, Dependency).to_a)
 	t2.depends_on t3
-	assert(! Hierarchy.linked?(p2, p3))
+	assert(! Dependency.linked?(p2, p3))
     end
 
     def test_proxy_plan
@@ -190,7 +190,7 @@ class TC_TransactionsProxy < Minitest::Test
 	assert_equal(transaction, proxy.event(:start).plan)
     end
 
-    Hierarchy = Roby::TaskStructure::Hierarchy
+    Dependency = Roby::TaskStructure::Dependency
 
     def test_task_relation_copy
 	t1, t2 = prepare_plan :add => 2

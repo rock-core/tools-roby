@@ -294,7 +294,7 @@ class TC_DistributedMixedPlan < Minitest::Test
 	r2 = remote_task(:id => 'remote-2')
 	Roby.synchronize do
 	    assert(r2.plan && !plan.unneeded_tasks.include?(r2))
-	    assert(t3.child_object?(r2, TaskStructure::Hierarchy))
+	    assert(t3.child_object?(r2, TaskStructure::Dependency))
 	end
 
 	r3 = remote_task(:id => 'remote-3')

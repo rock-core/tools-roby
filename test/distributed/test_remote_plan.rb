@@ -275,7 +275,7 @@ class TC_DistributedRemotePlan < Minitest::Test
 	assert(!next_mission_proxy)
 	# Check that mission is still included, and is still linked to root
 	assert(r_mission.plan)
-	assert(r_root.child_object?(r_mission, TaskStructure::Hierarchy))
+	assert(r_root.child_object?(r_mission, TaskStructure::Dependency))
 
 	## Check that #subscribe takes the plan modification into account
 	remote.remove_mission_subtask
@@ -291,7 +291,7 @@ class TC_DistributedRemotePlan < Minitest::Test
 	remote.add_mission_subtask
 	process_events
 	assert(r_mission.plan)
-	assert(r_mission.leaf?(TaskStructure::Hierarchy))
+	assert(r_mission.leaf?(TaskStructure::Dependency))
 
 	r_mission = remote_peer.subscribe(r_mission)
 	r_subtask = remote_task(:id => 'subtask')
@@ -344,7 +344,7 @@ class TC_DistributedRemotePlan < Minitest::Test
 	assert(!right.plan)
 
 	assert(middle.plan)
-	assert_equal(1, middle.parent_objects(TaskStructure::Hierarchy).to_a.size)
+	assert_equal(1, middle.parent_objects(TaskStructure::Dependency).to_a.size)
 
 	remote.remove_last_link
 	process_events
@@ -440,7 +440,7 @@ class TC_DistributedRemotePlan < Minitest::Test
 
 	remote.remove_mission_subtask
 	process_events
-	assert(r_mission.leaf?(TaskStructure::Hierarchy))
+	assert(r_mission.leaf?(TaskStructure::Dependency))
 
 	remote.add_mission_stop_next_start
 	process_events

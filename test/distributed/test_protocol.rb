@@ -31,7 +31,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	    Roby::EventGenerator.new {}, 
 	    Tasks::Simple.new(:id => 2), 
 	    task.event(:start), 
-	    Roby::TaskStructure::Hierarchy, 
+	    Roby::TaskStructure::Dependency, 
 	    Tasks::Simple.new_submodel.new(:id => 3) ]
     end
     def dumpable_hash
@@ -58,7 +58,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	assert_equal(:start, array[4].symbol)
 
 	assert_kind_of(Roby::Distributed::DRobyConstant, array[5])
-	assert_equal(Roby::TaskStructure::Hierarchy.object_id, array[5].proxy(nil).object_id)
+	assert_equal(Roby::TaskStructure::Dependency.object_id, array[5].proxy(nil).object_id)
 
 	assert_kind_of(Task::DRoby, array[6])
 	refute_equal(Task, array[6].model.proxy(remote_peer))

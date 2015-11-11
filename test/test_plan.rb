@@ -181,21 +181,21 @@ module TC_PlanStatic
 		end
 	    end
 
-	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Hierarchy]).once
-	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Hierarchy]).once
-	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Hierarchy])
-	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Hierarchy])
-	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Hierarchy])
-	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Dependency]).once
+	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Dependency]).once
+	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Dependency])
+	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Dependency])
+	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Dependency])
+	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Dependency])
 	    plan.replace_task(c1, c3)
 	end
 
 	# Check that the external task and event structures have been
 	# transferred. 
-	assert( !p.child_object?(c1, TaskStructure::Hierarchy) )
-	assert( p.child_object?(c3, TaskStructure::Hierarchy) )
-	assert( c3.child_object?(c11, TaskStructure::Hierarchy) )
-	assert( !c1.child_object?(c11, TaskStructure::Hierarchy) )
+	assert( !p.child_object?(c1, TaskStructure::Dependency) )
+	assert( p.child_object?(c3, TaskStructure::Dependency) )
+	assert( c3.child_object?(c11, TaskStructure::Dependency) )
+	assert( !c1.child_object?(c11, TaskStructure::Dependency) )
 
 	assert( !c1.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
 	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
@@ -244,21 +244,21 @@ module TC_PlanStatic
 		end
 	    end
 
-	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Hierarchy]).once
-	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Hierarchy]).once
-	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Hierarchy])
-	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Hierarchy])
-	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Hierarchy])
-	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Dependency]).once
+	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Dependency]).once
+	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Dependency])
+	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Dependency])
+	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Dependency])
+	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Dependency])
 	    plan.replace(c1, c3)
 	end
 
 	# Check that the external task and event structures have been
 	# transferred. 
-	assert( !p.child_object?(c1, TaskStructure::Hierarchy) )
-	assert( p.child_object?(c3, TaskStructure::Hierarchy) )
-	assert( c1.child_object?(c11, TaskStructure::Hierarchy) )
-	assert( !c3.child_object?(c11, TaskStructure::Hierarchy) )
+	assert( !p.child_object?(c1, TaskStructure::Dependency) )
+	assert( p.child_object?(c3, TaskStructure::Dependency) )
+	assert( c1.child_object?(c11, TaskStructure::Dependency) )
+	assert( !c3.child_object?(c11, TaskStructure::Dependency) )
 
 	assert( !c1.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
 	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )

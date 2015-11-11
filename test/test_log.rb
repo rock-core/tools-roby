@@ -77,7 +77,7 @@ class TC_Log < Minitest::Test
             mock.should_receive(:logs_message?).and_return(true)
 	    mock.should_receive(:splat?).and_return(true)
 	    mock.should_receive(:added_task_child).
-		with(FlexMock.any, on_marshalled_task(t1), [TaskStructure::Hierarchy].droby_dump(nil), 
+		with(FlexMock.any, on_marshalled_task(t1), [TaskStructure::Dependency].droby_dump(nil), 
 		     on_marshalled_task(t2), FlexMock.any).once
 
 	    match_discovered_set = FlexMock.on do |task_set| 
@@ -88,7 +88,7 @@ class TC_Log < Minitest::Test
 		with(FlexMock.any, FlexMock.any, match_discovered_set).
 		once
 	    mock.should_receive(:removed_task_child).
-		with(FlexMock.any, t1.remote_id, [TaskStructure::Hierarchy].droby_dump(nil), t2.remote_id).
+		with(FlexMock.any, t1.remote_id, [TaskStructure::Dependency].droby_dump(nil), t2.remote_id).
 		once
 	    mock.should_receive(:finalized_task).
 		with(FlexMock.any, FlexMock.any, t1.remote_id).

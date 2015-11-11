@@ -27,7 +27,7 @@ class TC_TransactionAsPlan < Minitest::Test
 end
 
 module TC_TransactionBehaviour
-    Hierarchy = Roby::TaskStructure::Hierarchy
+    Dependency = Roby::TaskStructure::Dependency
     PlannedBy = Roby::TaskStructure::PlannedBy
     Signal = Roby::EventStructure::Signal
     Forwarding = Roby::EventStructure::Forwarding
@@ -48,11 +48,11 @@ module TC_TransactionBehaviour
             assert(trsc.include?(proxy))
             assert_same(proxy, trsc[t, false])
 
-            assert_equal [], proxy.parent_objects(Hierarchy).to_a
-            assert_equal [], proxy.child_objects(Hierarchy).to_a
+            assert_equal [], proxy.parent_objects(Dependency).to_a
+            assert_equal [], proxy.child_objects(Dependency).to_a
 
             child_proxy = trsc[t_child]
-            assert_equal t[t_child, Hierarchy], proxy[child_proxy, Hierarchy]
+            assert_equal t[t_child, Dependency], proxy[child_proxy, Dependency]
         end
     end
 
@@ -471,39 +471,39 @@ module TC_TransactionBehaviour
 
 	t = Roby::Task.new
 	transaction_commit(plan, t1) do |trsc, p1|
-            assert_equal([], p1.parent_objects(Hierarchy).to_a)
-            assert_equal([], p1.child_objects(Hierarchy).to_a)
+            assert_equal([], p1.parent_objects(Dependency).to_a)
+            assert_equal([], p1.child_objects(Dependency).to_a)
 	    t.depends_on p1
-	    assert(Hierarchy.linked?(t, p1))
-	    assert(!Hierarchy.linked?(t, t1))
+	    assert(Dependency.linked?(t, p1))
+	    assert(!Dependency.linked?(t, t1))
 	end
-	assert(Hierarchy.linked?(t1, t2))
-	assert(Hierarchy.linked?(t, t1))
+	assert(Dependency.linked?(t1, t2))
+	assert(Dependency.linked?(t, t1))
 
 	t = Roby::Task.new
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p2.depends_on t
-	    assert(Hierarchy.linked?(p2, t))
+	    assert(Dependency.linked?(p2, t))
             assert_equal trsc, p2.plan
             assert_equal trsc, t.plan
-	    assert(!Hierarchy.linked?(t2, t))
+	    assert(!Dependency.linked?(t2, t))
 	end
         assert_equal plan, t.plan
-	assert(Hierarchy.linked?(t2, t))
+	assert(Dependency.linked?(t2, t))
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    p1.remove_child_object(p2, Hierarchy)
-	    assert(!Hierarchy.linked?(p1, p2))
-	    assert(Hierarchy.linked?(t1, t2))
+	    p1.remove_child_object(p2, Dependency)
+	    assert(!Dependency.linked?(p1, p2))
+	    assert(Dependency.linked?(t1, t2))
 	end
-	assert(!Hierarchy.linked?(t1, t2))
+	assert(!Dependency.linked?(t1, t2))
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p1.depends_on(p2)
-	    assert(Hierarchy.linked?(p1, p2))
-	    assert(!Hierarchy.linked?(t1, t2))
+	    assert(Dependency.linked?(p1, p2))
+	    assert(!Dependency.linked?(t1, t2))
 	end
-	assert(Hierarchy.linked?(t1, t2))
+	assert(Dependency.linked?(t1, t2))
 
 	transaction_commit(plan, t3, t4) do |trsc, p3, p4|
 	    trsc.remove_object(p3)
@@ -599,9 +599,9 @@ module TC_TransactionBehaviour
 	    trsc.replace(pt, r)
 
 	    assert([r], trsc.missions.map(&:to_s).join(", "))
-	    assert(Hierarchy.linked?(pm, r))
-	    assert(!Hierarchy.linked?(mission, r))
-	    assert(!Hierarchy.linked?(r, pc))
+	    assert(Dependency.linked?(pm, r))
+	    assert(!Dependency.linked?(mission, r))
+	    assert(!Dependency.linked?(r, pc))
 	    assert(PlannedBy.linked?(pp, r))
 	    assert(!PlannedBy.linked?(planned, r))
 
@@ -612,12 +612,12 @@ module TC_TransactionBehaviour
 	    assert(!Signal.linked?(r.event(:stop), pc.event(:stop)))
 	    assert(!Signal.linked?(r.event(:stop), mission.event(:stop)))
 	end
-	assert(Hierarchy.linked?(mission, r))
-	assert(!Hierarchy.linked?(mission, task))
+	assert(Dependency.linked?(mission, r))
+	assert(!Dependency.linked?(mission, task))
 	assert(PlannedBy.linked?(planned, r))
 	assert(!PlannedBy.linked?(planned, task))
-	assert(Hierarchy.linked?(task, child))
-	assert(!Hierarchy.linked?(r, child))
+	assert(Dependency.linked?(task, child))
+	assert(!Dependency.linked?(r, child))
 	assert(Signal.linked?(r.event(:stop), mission.event(:stop)))
 	assert(!Signal.linked?(task.event(:stop), mission.event(:stop)))
 	assert(Forwarding.linked?(r.event(:stop), planned.event(:success)))
@@ -822,7 +822,7 @@ module TC_TransactionBehaviour
 	t1.depends_on t2
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		assert(p1.child_object?(p2, Roby::TaskStructure::Hierarchy))
+		assert(p1.child_object?(p2, Roby::TaskStructure::Dependency))
 		t1.remove_child t2
 		assert(trsc.invalid?)
 	    end
@@ -888,22 +888,22 @@ module TC_TransactionBehaviour
             # discovered
             trsc[d3].depends_on t1
             t1.depends_on trsc[d4]
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Hierarchy, [d1], [])
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Dependency, [d1], [])
             assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
             assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
             
             # Remove the relation and check the result
             trsc[d3].remove_child t1
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Hierarchy, [d1], [])
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Dependency, [d1], [])
             assert_equal([d1, d2].to_value_set, plan_set)
             assert_equal([trsc[d3]].to_value_set, trsc_set)
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Hierarchy, [], [t1])
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Dependency, [], [t1])
             assert_equal([d5, d6].to_value_set, plan_set)
             assert_equal([t1, trsc[d4]].to_value_set, trsc_set)
 
             # Remove a plan relation inside the transaction, and check it is taken into account
             trsc[d2].remove_child trsc[d3]
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Hierarchy, [d1], [])
+            plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Dependency, [d1], [])
             assert_equal([d1].to_value_set, plan_set)
             assert_equal([trsc[d2]].to_value_set, trsc_set)
         end

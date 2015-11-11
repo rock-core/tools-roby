@@ -94,7 +94,7 @@ class TC_DistributedPlanNotifications < Minitest::Test
 	assert(p_subtask = tasks.find { |t| t.arguments[:id] == 'subtask' })
 	assert(p_next_mission = tasks.find { |t| t.arguments[:id] == 'next_mission' })
 
-	assert(p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
+	assert(p_mission.child_object?(p_subtask, TaskStructure::Dependency))
 	assert(p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
     end
 
@@ -152,7 +152,7 @@ class TC_DistributedPlanNotifications < Minitest::Test
 	process_events
 	p_subtask = remote_task(:id => 'subtask')
 	assert_equal(3, plan.size)
-	assert(p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
+	assert(p_mission.child_object?(p_subtask, TaskStructure::Dependency))
 
 	remote.create_next_mission
 	process_events
@@ -184,7 +184,7 @@ class TC_DistributedPlanNotifications < Minitest::Test
 	assert(p_subtask.subscribed?)
 	process_events
 	assert_equal(3, plan.size, plan.known_tasks)
-	assert(!p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
+	assert(!p_mission.child_object?(p_subtask, TaskStructure::Dependency))
 
 	remote.remove_subtask
 	process_events

@@ -124,8 +124,8 @@ class TC_DistributedTransaction < Minitest::Test
 	assert(t2 = trsc.find_tasks.with_arguments(:id => 'child').to_a.first)
 	assert(t3 = trsc.find_tasks.with_arguments(:id => 'grandchild').to_a.first)
 
-	assert(t1.child_object?(t2, TaskStructure::Hierarchy))
-	assert(t2.child_object?(t3, TaskStructure::Hierarchy))
+	assert(t1.child_object?(t2, TaskStructure::Dependency))
+	assert(t2.child_object?(t3, TaskStructure::Dependency))
     end
 
     def test_edition
@@ -330,11 +330,11 @@ class TC_DistributedTransaction < Minitest::Test
 	c_task = plan.known_tasks.find { |t| t.arguments[:id] == 'remote-2' }
 
 	assert_equal(2, r_task.children.to_a.size, r_task.children)
-	assert(r_task.child_object?(task, Roby::TaskStructure::Hierarchy))
+	assert(r_task.child_object?(task, Roby::TaskStructure::Dependency))
 	assert_equal([task.event(:start)], r_task.event(:start).child_objects(Roby::EventStructure::Signal).to_a)
 	assert_equal([c_task], task.children.to_a)
 	assert_equal([c_task.event(:stop)], task.event(:stop).child_objects(Roby::EventStructure::Signal).to_a)
-	assert(r_task.child_object?(c_task, Roby::TaskStructure::Hierarchy))
+	assert(r_task.child_object?(c_task, Roby::TaskStructure::Dependency))
     end
 
     # Commit the transaction and checks the result

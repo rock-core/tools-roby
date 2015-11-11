@@ -505,7 +505,7 @@ module Roby
                 @layout_options    = Hash.new
 
 		default_colors = {
-		    Roby::TaskStructure::Hierarchy => 'grey',
+		    Roby::TaskStructure::Dependency => 'grey',
 		    Roby::TaskStructure::PlannedBy => '#32ba21',
 		    Roby::TaskStructure::ExecutionAgent => '#5d95cf',
 		    Roby::TaskStructure::ErrorHandling => '#ff2727'

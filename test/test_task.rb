@@ -1218,15 +1218,15 @@ class TC_Task < Minitest::Test
 	t1, t2 = prepare_plan :tasks => 2, :model => Tasks::Simple
 
 	seq = (t1 + t2)
-	assert(seq.child_object?(t1, TaskStructure::Hierarchy))
-	assert(seq.child_object?(t2, TaskStructure::Hierarchy))
+	assert(seq.child_object?(t1, TaskStructure::Dependency))
+	assert(seq.child_object?(t2, TaskStructure::Dependency))
 
 	task = seq.to_task(model)
 
 	plan.add_mission(task)
 
-	assert(!seq.child_object?(t1, TaskStructure::Hierarchy))
-	assert(!seq.child_object?(t2, TaskStructure::Hierarchy))
+	assert(!seq.child_object?(t1, TaskStructure::Dependency))
+	assert(!seq.child_object?(t2, TaskStructure::Dependency))
 
 	task.start!
 	assert(t1.running?)
