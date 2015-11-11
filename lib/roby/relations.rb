@@ -770,6 +770,7 @@ module Roby
                 const_set("#{options[:const_name]}GraphClass", klass)
                 klass.const_set("Extension", mod)
                 mod.const_set("ClassExtension", Module.new)
+                klass.const_set("ModelExtension", mod::ClassExtension)
 		relations << graph
                 graph.support = mod
                 graph

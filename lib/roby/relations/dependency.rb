@@ -533,7 +533,7 @@ module Roby::TaskStructure
     # For backward compatibility reasons
     Hierarchy = Dependency
 
-    module DependencyGraphClass::Extension::ClassExtension
+    module DependencyGraphClass::ModelExtension
         # True if a fullfilled model has been explicitly set on self
         # @return [Boolean]
         def explicit_fullfilled_model?; !!@fullfilled_model end
