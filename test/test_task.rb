@@ -302,11 +302,6 @@ class TC_Task < Minitest::Test
     def test_instantiate_model_signals
         do_test_instantiate_model_relations(:signal, EventStructure::Signal, :internal_error => :stop)
     end
-    def test_instantiate_deprecated_model_on
-        deprecated_feature do
-            do_test_instantiate_model_relations(:on, EventStructure::Signal, :internal_error => :stop)
-        end
-    end
     def test_instantiate_model_forward
         do_test_instantiate_model_relations(:forward, EventStructure::Forwarding,
                            :success => :stop, :aborted => :failed, :failed => :stop)
@@ -336,11 +331,6 @@ class TC_Task < Minitest::Test
     end
     def test_inherit_model_signals
         do_test_inherit_model_relations(:signal, EventStructure::Signal, :internal_error => :stop)
-    end
-    def test_inherit_deprecated_model_on
-        deprecated_feature do
-            do_test_inherit_model_relations(:on, EventStructure::Signal, :internal_error => :stop)
-        end
     end
     def test_inherit_model_forward
         do_test_inherit_model_relations(:forward, EventStructure::Forwarding,

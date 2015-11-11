@@ -489,24 +489,24 @@ module Roby
                 end
                 update_terminal_flag
             end
-
-            # call-seq:
-            #   on(event_name) { |event| ... }
+        
+            # Adds an event handler for the given event model. The block is
+            # going to be called whenever some events are emitted.
             #
-            # Adds an event handler for the given event model. The block is going to
-            # be called whenever +event_name+ is emitted.
-            def on(mappings, &user_handler)
-                if user_handler
-                    check_arity(user_handler, 1)
+            # Unlike a block given to {EventGenerator#on}, the block is
+            # evaluated in the context of the task instance.
+            #
+            # @param [Array<Symbol>] event_names the name of the events on which
+            #   to install the handler
+            # @yieldparam [Object] context the arguments passed to {Roby::Task#emit}
+            #   when the event was emitted
+            def on(*event_names, &user_handler)
+                if !user_handler
+                    raise ArgumentError, "#on called without a block"
                 end
 
-                if mappings.kind_of?(Hash)
-                    Roby.warn_deprecated "the on(event => event) form of Task.on is deprecated. Use #signal to establish signals"
-                    signal(mappings)
-                end
-
-                mappings = [*mappings].zip([]) unless Hash === mappings
-                mappings.each do |from, _|
+                check_arity(user_handler, 1)
+                event_names.each do |from|
                     from = event_model(from).symbol
                     if user_handler 
                         method_name = "event_handler_#{from}_#{Object.address_from_id(user_handler.object_id).to_s(16)}"

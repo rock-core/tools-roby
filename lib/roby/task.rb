@@ -821,26 +821,18 @@ module Roby
 
         # Registers an event handler for the given event.
         #
-        # @overload on(event_name, options = Hash.new, &handler)
-        #   @param [Symbol] event_model the generator for which this handler should be registered
-        #   @yield [event] the event handler
-        #   @yieldparam [TaskEvent] event the emitted event that caused this
-        #     handler to be called
-        #   @return self
-        #
-        # @overload on(event_name, task, target_events, &handler)
-        #   @deprecated register the handler with #on and the signal with #signals
-        def on(event_model, options = Hash.new, target_event = nil, &user_handler)
-            if !options.kind_of?(Hash)
-                Roby.error_deprecated "on(event_name, task, target_events) has been replaced by #signals"
-            elsif !user_handler
+        # @param [Symbol] event_model the generator for which this handler should be registered
+        # @yield [event] the event handler
+        # @yieldparam [TaskEvent] event the emitted event that caused this
+        #   handler to be called
+        # @return self
+        def on(event_model, options = Hash.new, &user_handler)
+            if !user_handler
                 raise ArgumentError, "you must provide an event handler"
             end
 
-            if user_handler
-                generator = event(event_model)
-                generator.on(options, &user_handler)
-            end
+            generator = event(event_model)
+            generator.on(options, &user_handler)
             self
         end
 
