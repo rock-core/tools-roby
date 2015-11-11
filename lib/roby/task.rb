@@ -295,6 +295,8 @@ module Roby
 		bound_events[ev_symbol.to_sym] = TaskEventGenerator.new(self, ev_model)
 	    end
 	    @bound_events = bound_events
+
+            super if defined? super
         end
 
 	# Returns for how many seconds this task is running.  Returns nil if
