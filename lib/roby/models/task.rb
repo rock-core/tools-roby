@@ -596,7 +596,7 @@ module Roby
             # terminated by emitting its +failed+ event.
             def poll(&block)
                 if !block_given?
-                    raise "no block given"
+                    raise ArgumentError, "no block given"
                 end
 
                 define_method(:poll_handler, &block)
