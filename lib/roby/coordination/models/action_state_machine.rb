@@ -164,7 +164,7 @@ module Roby
 
                 if spec.size == 2
                     state_event, new_state = *spec
-                    transition(state_event.task_model, state_event, validate_task(new_state))
+                    transition(state_event.task, state_event, validate_task(new_state))
                 elsif spec.size != 3
                     raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
                 else

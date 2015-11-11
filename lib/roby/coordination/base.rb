@@ -11,7 +11,7 @@ module Roby
             attr_reader :parent
 
             # The task on which this execution context is being executed. It
-            # must fullfill model.task_model
+            # must fullfill model.task
             # @return [Model<Roby::Task>]
             def root_task
                 instance_for(model.root).task

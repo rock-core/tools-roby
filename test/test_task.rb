@@ -1213,7 +1213,7 @@ class TC_Task < Minitest::Test
 	    aggregator_test(s.to_task, t1, t2, t3)
 	end
     end
-    def test_sequence_to_task
+    def test_sequence_child_of
 	model = Tasks::Simple.new_submodel
 	t1, t2 = prepare_plan :tasks => 2, :model => Tasks::Simple
 
@@ -1221,7 +1221,7 @@ class TC_Task < Minitest::Test
 	assert(seq.child_object?(t1, TaskStructure::Dependency))
 	assert(seq.child_object?(t2, TaskStructure::Dependency))
 
-	task = seq.to_task(model)
+	task = seq.child_of(model)
 
 	plan.add_mission(task)
 

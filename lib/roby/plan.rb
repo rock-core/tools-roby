@@ -431,10 +431,6 @@ module Roby
 	# Hook called when +tasks+ have been inserted in this plan
 	def added_mission(tasks)
             super if defined? super 
-            if respond_to?(:inserted)
-                Roby.warn_deprecated "the #inserted hook has been replaced by #added_mission"
-                inserted(tasks)
-            end
         end
 	# Checks if +task+ is a mission of this plan
 	def mission?(task); @missions.include?(task.to_task) end
@@ -454,14 +450,6 @@ module Roby
 	# Hook called when +tasks+ have been discarded from this plan
 	def unmarked_mission(task)
             super if defined? super
-            if respond_to?(:removed_mission)
-                Roby.warn_deprecated "the #removed_mission hook has been replaced by #unmarked_mission"
-                removed_mission(task)
-            end
-            if respond_to?(:discarded)
-                Roby.warn_deprecated "the #discarded hook has been replaced by #unmarked_mission"
-                discarded(task)
-            end
         end
 
 	# Adds +object+ in the list of permanent tasks. Permanent tasks are
@@ -683,11 +671,6 @@ module Roby
 	# plain Plan objects and false for transcations
 	def executable?; true end
 
-        def discover(objects) # :nodoc:
-            Roby.warn_deprecated "#discover has been replaced by #add"
-            add(objects)
-        end
-
         def add_mission_task(task)
 	    return if missions.include?(task)
             add_task(task)
@@ -876,15 +859,6 @@ module Roby
 	end
 
         def added_tasks(tasks)
-            if respond_to?(:discovered)
-                Roby.warn_deprecated "the #discovered hook is deprecated, use #added_tasks instead"
-                discovered(tasks)
-            end
-            if respond_to?(:discovered_tasks)
-                Roby.warn_deprecated "the #discovered_tasks hook is deprecated, use #added_tasks instead"
-                discovered_tasks(tasks)
-            end
-
             if execution_engine
                 execution_engine.event_ordering.clear
             end
@@ -914,11 +888,6 @@ module Roby
 
 	# Hook called when new events have been discovered in this plan
 	def added_events(events)
-            if respond_to?(:discovered_events)
-                Roby.warn_deprecated "the #discovered_events hook has been replaced by #added_events"
-                discovered_events(events)
-            end
-
             if execution_engine
                 execution_engine.event_ordering.clear
             end

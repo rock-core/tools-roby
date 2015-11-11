@@ -761,11 +761,6 @@ module Roby
             @options = @options.recursive_merge(options)
 	end
 
-        # DEPRECATED. Use #using instead
-        def using_plugins(*names)
-            using(*names)
-        end
-        
         def register_plugins(force: false)
             if !plugins_enabled? && !force
                 raise PluginsDisabled, "cannot call #register_plugins while the plugins are disabled"

@@ -47,7 +47,7 @@ module Roby
             def forward(*spec)
                 if spec.size == 2
                     state_event, target_event = *spec
-                    forward(state_event.task_model, state_event, target_event)
+                    forward(state_event.task, state_event, target_event)
                 elsif spec.size != 3
                     raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
                 else

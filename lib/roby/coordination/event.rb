@@ -13,7 +13,7 @@ module Roby
                 def initialize(execution_context, model)
                     @execution_context = execution_context
                     @model = model
-                    @task  = execution_context.instance_for(model.task_model)
+                    @task  = execution_context.instance_for(model.task)
                 end
 
                 def symbol; model.symbol end

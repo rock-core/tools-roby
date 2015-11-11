@@ -5,18 +5,6 @@ module Roby::TaskStructure
     relation :Dependency, :child_name => :child, :parent_name => :parent_task
 
     module DependencyGraphClass::Extension
-        # @deprecated use #depended_upon_by? instead
-        def realizes?(obj)
-            Roby.warn_deprecated "#realizes? is deprecated. Use #depended_upon_by? instead"
-            depended_upon_by?(obj)
-        end
-
-        # @deprecated use #depends_on? instead
-	def realized_by?(obj)
-            Roby.warn_deprecated "#realized_by? is deprecated. Use #depends_on?(obj, false) instead"
-            depends_on?(obj, false)
-        end
-
 	# True if +obj+ is a parent of this object in the hierarchy relation
 	# (+obj+ is realized by +self+)
 	def depended_upon_by?(obj);	parent_object?(obj, Dependency) end
@@ -142,12 +130,6 @@ module Roby::TaskStructure
                 raise Roby::NoSuchChild.new(self, role_name, known_children), "#{self} has no child with the role '#{role_name}'"
             end
             child
-        end
-
-        # DEPRECATED. Use #depends_on instead 
-        def realized_by(task, options = {}) # :nodoc:
-            Roby.warn_deprecated "#realized_by is deprecated. Use #depends_on instead"
-            depends_on(task, options)
         end
 
         # Returns a task in the dependency hierarchy of this task by following

@@ -261,22 +261,6 @@ class TC_Event < Minitest::Test
         assert(e2.happened?)
     end
 
-    # b.emit_on(a) is replaced by a.forward_to(b)
-    def test_deprecated_emit_on
-	e1, e2 = EventGenerator.new, Roby::EventGenerator.new
-	plan.add([e1, e2])
-
-        deprecated_feature do
-            e2.emit_on e1
-        end
-
-        assert( e1.child_object?( e2, EventStructure::Forwarding ))
-        assert( e2.parent_object?( e1, EventStructure::Forwarding ))
-
-        e1.emit(nil)
-        assert(e2.happened?)
-    end
-
     # forward has been renamed into #forward_to
     def test_deprecated_forward
 	e1, e2 = EventGenerator.new, Roby::EventGenerator.new

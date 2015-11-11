@@ -8,9 +8,6 @@ module Roby
                 # @return [Symbol] the event's symbol
                 attr_reader :symbol
 
-                # @deprecated
-                def task_model; task end
-
                 def initialize(task, symbol)
                     @task, @symbol = task, symbol.to_sym
                 end

@@ -98,11 +98,6 @@ module Roby
             values.sort_by(&:first).map { |k, v| "#{k}: #{v}" }.join(", ")
         end
 
-        # @deprecated use {#each_assigned_argument} instead
-        def each_static(&block)
-            each_assigned_argument(&block)
-        end
-
         # Returns the set of arguments for which a proper value has been
         # assigned
         #

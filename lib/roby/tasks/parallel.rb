@@ -13,9 +13,6 @@ module Roby::Tasks
         end
 
         def child_of(task = nil)
-            to_task(task)
-        end
-	def to_task(task = nil)
 	    return super() unless task
 
 	    task = task.new unless task.kind_of?(Roby::Task)
@@ -28,7 +25,7 @@ module Roby::Tasks
 	    delete
 
 	    task
-	end
+        end
 
         def <<(task)
 	    raise "trying to change a running parallel task" if running?

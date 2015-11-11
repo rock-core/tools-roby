@@ -9,20 +9,6 @@ module Roby::Tasks
 	    @name || @tasks.map { |t| t.name }.join("+")
 	end
 
-        # Deprecated version of #child_of
-	def to_task(task = nil) # :nodoc:
-	    return super() unless task
-	    task = task.new unless task.kind_of?(Roby::Task)
-	    @tasks.each { |t| task.depends_on t }
-
-	    task.signals(:start, @tasks.first, :start)
-	    @tasks.last.forward_to(:success, task, :success)
-
-	    delete
-
-	    task
-	end
-
         # Quite often, a sequence is meant to implement a higher-level
         # functionality. In this case, it is better to not use a Sequence task
         # at all, but instead create the sequence as dependency of a high-level
@@ -43,7 +29,16 @@ module Roby::Tasks
         #   seq.child_of(mission)
         #
         def child_of(task = nil)
-            to_task(task)
+	    return super() unless task
+	    task = task.new unless task.kind_of?(Roby::Task)
+	    @tasks.each { |t| task.depends_on t }
+
+	    task.signals(:start, @tasks.first, :start)
+	    @tasks.last.forward_to(:success, task, :success)
+
+	    delete
+
+	    task
         end
 
 	def connect_start(task) # :nodoc:

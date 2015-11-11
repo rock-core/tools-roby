@@ -676,16 +676,6 @@ module Roby
 	    end
 	end
 
-	# Deprecated. Instead of using
-	#   dest.emit_on(source)
-	# now use
-	#   source.forward_to(dest)
-	def emit_on(generator, timespec = nil)
-            Roby.warn_deprecated "a.emit_on(b) has been replaced by b.forward_to(a)"
-	    generator.forward(self, timespec)
-	    self
-	end
-
         # Sets up +ev+ and +self+ to represent that the command of +self+ is to
         # be achieved by the emission of +ev+. It is to be used in a command
         # handler:

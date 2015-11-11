@@ -890,17 +890,6 @@ module Roby
             self
         end
 
-        # @deprecated renamed to #forward_to for consistency reasons with
-        #   EventGenerator
-	def forward(name, to, *to_task_events)
-            Roby.warn_deprecated "Task#forward has been renamed into Task#forward_to"
-            if to_task_events.empty?
-                Roby.warn_deprecated "the Task#forward(event_name, target_task) form is deprecated. Use Task#forward_to and specify the target event name"
-            end
-
-            forward_to(name, to, *to_task_events)
-        end
-
         # Fowards an event to another event
         #
         # Forwarding an event means that the target event should be emitted
@@ -1281,7 +1270,7 @@ module Roby
                 return false
             end
 
-            target.arguments.each_static do |key, val|
+            target.arguments.each_assigned_argument do |key, val|
 		if arguments.set?(key) && arguments[key] != val
 		    return false
 		end
