@@ -154,6 +154,94 @@ module Roby
             # The set of precondition handlers that are registered on this task model
             model_attribute_list('precondition')
 
+            # Establish model-level signals between events of that task. These
+            # signals will be established on all the instances of this task model
+            # (and its subclasses).
+            #
+            # Signals cause the target event(s) command to be called when the
+            # source event is emitted.
+            # 
+            # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
+            # @raise [ArgumentError] if the target event is not controlable,
+            #   i.e. not have a command
+            #
+            # @example when establishing multiple relations from the same source use name-to-arrays
+            #   signal :start => [:one, :two]
+            def signal(mappings)
+                mappings.each do |from, to|
+                    from    = event_model(from)
+                    targets = Array[*to].map { |ev| event_model(ev) }
+
+                    if from.terminal?
+                        non_terminal = targets.find_all { |ev| !ev.terminal? }
+                        if !non_terminal.empty?
+                            raise ArgumentError, "trying to establish a signal from the terminal event #{from} to the non-terminal events #{non_terminal}"
+                        end
+                    end
+                    non_controlable = targets.find_all { |ev| !ev.controlable? }
+                    if !non_controlable.empty?
+                        raise ArgumentError, "trying to signal #{non_controlable.join(" ")} which is/are not controlable"
+                    end
+
+                    signal_sets[from.symbol].merge targets.map { |ev| ev.symbol }.to_value_set
+                end
+                update_terminal_flag
+            end
+
+            # Establish model-level causal links between events of that task. These
+            # signals will be established on all the instances of this task
+            # model (and its subclasses).
+            #
+            # Causal links are used during event propagation to order the
+            # propagation properly. Establish a causal link when e.g. an event
+            # handler might call or emit on another of this task's event
+            # 
+            # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
+            #
+            # @example when establishing multiple relations from the same source use name-to-arrays
+            #   signal :start => [:one, :two]
+            def causal_link(mappings)
+                mappings.each do |from, to|
+                    from = event_model(from).symbol
+                    causal_link_sets[from].merge Array[*to].map { |ev| event_model(ev).symbol }.to_value_set
+                end
+                update_terminal_flag
+            end
+
+            # Establish model-level forwarding between events of that task.
+            # These relations will be established on all the instances of this
+            # task model (and its subclasses).
+            #
+            # Forwarding is used to cause the target event to be emitted when
+            # the source event is.
+            #
+            # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
+            # @example
+            #   # A task that is stopped as soon as it is started
+            #   class MyTask < Roby::Task
+            #     forward :start => :stop
+            #   end
+            #
+            # @see Task#forward
+            # @see EventGenerator#forward.
+            # @see Roby::EventStructure::Forward the forwarding relation.
+            def forward(mappings)
+                mappings.each do |from, to|
+                    from    = event_model(from).symbol
+                    targets = Array[*to].map { |ev| event_model(ev).symbol }
+
+                    if event_model(from).terminal?
+                        non_terminal = targets.find_all { |name| !event_model(name).terminal? }
+                        if !non_terminal.empty?
+                            raise ArgumentError, "trying to establish a forwarding relation from the terminal event #{from} to the non-terminal event(s) #{targets}"
+                        end
+                    end
+
+                    forwarding_sets[from].merge targets.to_value_set
+                end
+                update_terminal_flag
+            end
+
             # @!endgroup
 
             # Helper method to define delayed arguments from related objects
@@ -455,40 +543,6 @@ module Roby
             alias :has_event? :find_event_model
 
             private :validate_event_definition_request
-
-            # Establish model-level signals between events of that task. These
-            # signals will be established on all the instances of this task model
-            # (and its subclasses).
-            #
-            # Signals cause the target event(s) command to be called when the
-            # source event is emitted.
-            # 
-            # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
-            # @raise [ArgumentError] if the target event is not controlable,
-            #   i.e. not have a command
-            #
-            # @example when establishing multiple relations from the same source use name-to-arrays
-            #   signal :start => [:one, :two]
-            def signal(mappings)
-                mappings.each do |from, to|
-                    from    = event_model(from)
-                    targets = Array[*to].map { |ev| event_model(ev) }
-
-                    if from.terminal?
-                        non_terminal = targets.find_all { |ev| !ev.terminal? }
-                        if !non_terminal.empty?
-                            raise ArgumentError, "trying to establish a signal from the terminal event #{from} to the non-terminal events #{non_terminal}"
-                        end
-                    end
-                    non_controlable = targets.find_all { |ev| !ev.controlable? }
-                    if !non_controlable.empty?
-                        raise ArgumentError, "trying to signal #{non_controlable.join(" ")} which is/are not controlable"
-                    end
-
-                    signal_sets[from.symbol].merge targets.map { |ev| ev.symbol }.to_value_set
-                end
-                update_terminal_flag
-            end
         
             # Adds an event handler for the given event model. The block is
             # going to be called whenever some events are emitted.
@@ -516,60 +570,6 @@ module Roby
                         handler_sets[from] << EventGenerator::EventHandler.new(handler, false, false)
                     end
                 end
-            end
-
-            # Establish model-level causal links between events of that task. These
-            # signals will be established on all the instances of this task
-            # model (and its subclasses).
-            #
-            # Causal links are used during event propagation to order the
-            # propagation properly. Establish a causal link when e.g. an event
-            # handler might call or emit on another of this task's event
-            # 
-            # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
-            #
-            # @example when establishing multiple relations from the same source use name-to-arrays
-            #   signal :start => [:one, :two]
-            def causal_link(mappings)
-                mappings.each do |from, to|
-                    from = event_model(from).symbol
-                    causal_link_sets[from].merge Array[*to].map { |ev| event_model(ev).symbol }.to_value_set
-                end
-                update_terminal_flag
-            end
-
-            # Establish model-level forwarding between events of that task.
-            # These relations will be established on all the instances of this
-            # task model (and its subclasses).
-            #
-            # Forwarding is used to cause the target event to be emitted when
-            # the source event is.
-            #
-            # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
-            # @example
-            #   # A task that is stopped as soon as it is started
-            #   class MyTask < Roby::Task
-            #     forward :start => :stop
-            #   end
-            #
-            # @see Task#forward
-            # @see EventGenerator#forward.
-            # @see Roby::EventStructure::Forward the forwarding relation.
-            def forward(mappings)
-                mappings.each do |from, to|
-                    from    = event_model(from).symbol
-                    targets = Array[*to].map { |ev| event_model(ev).symbol }
-
-                    if event_model(from).terminal?
-                        non_terminal = targets.find_all { |name| !event_model(name).terminal? }
-                        if !non_terminal.empty?
-                            raise ArgumentError, "trying to establish a forwarding relation from the terminal event #{from} to the non-terminal event(s) #{targets}"
-                        end
-                    end
-
-                    forwarding_sets[from].merge targets.to_value_set
-                end
-                update_terminal_flag
             end
 
 
