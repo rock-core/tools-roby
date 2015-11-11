@@ -93,6 +93,7 @@ module Roby
 
             it "raises NoSuchAction on invalid actions without accessing the network" do
                 flexmock(client.io).should_receive(:write_packet).never
+                assert_raises(Client::NoSuchAction) { client.start_job(:Bla, arg0: 10) }
                 assert_raises(Client::NoSuchAction) { client.Bla!(arg0: 10) }
             end
 

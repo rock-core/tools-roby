@@ -220,6 +220,19 @@ module Roby
             # Method called when trying to start an action that does not exist
             class NoSuchAction < NoMethodError; end
 
+            # Start the given job within the batch
+            #
+            # @param [Symbol] action_name the action name
+            # @param [Hash<Symbol,Object>] arguments the action arguments
+            #
+            # @raise [NoSuchAction] if the requested action does not exist
+            def start_job(action_name, **arguments)
+                if find_action_by_name(action_name)
+                    call([], :start_job, action_name, arguments)
+                else raise NoSuchAction, "there is no action called #{action_name} on #{self}"
+                end
+            end
+
             # @api private
             #
             # Call a method on the interface or on one of the interface's
@@ -235,10 +248,7 @@ module Roby
             def call(path, m, *args)
                 if m.to_s =~ /(.*)!$/
                     action_name = $1
-                    if find_action_by_name(action_name)
-                        call([], :start_job, action_name, *args)
-                    else raise NoSuchAction, "there is no action called #{action_name}"
-                    end
+                    start_job(action_name, *args)
                 else
                     io.write_packet([path, m, *args])
                     result, _ = poll(1)
