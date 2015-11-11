@@ -204,26 +204,26 @@ class TC_ExecutionEngine < Minitest::Test
 
 	step = [nil, [1], nil, nil, [4], nil]
 	source_events, source_generators, context = engine.prepare_propagation(nil, false, step)
-	assert_equal(ValueSet.new, source_events)
-	assert_equal(ValueSet.new, source_generators)
+	assert_equal(Set.new, source_events)
+	assert_equal(Set.new, source_generators)
 	assert_equal([1, 4], context)
 
 	step = [nil, [], nil, nil, [4], nil]
 	source_events, source_generators, context = engine.prepare_propagation(nil, false, step)
-	assert_equal(ValueSet.new, source_events)
-	assert_equal(ValueSet.new, source_generators)
+	assert_equal(Set.new, source_events)
+	assert_equal(Set.new, source_generators)
 	assert_equal([4], context)
 
 	step = [g1, [], nil, ev, [], nil]
 	source_events, source_generators, context = engine.prepare_propagation(nil, false, step)
-	assert_equal([g1, g2].to_value_set, source_generators)
-	assert_equal([ev].to_value_set, source_events)
+	assert_equal([g1, g2].to_set, source_generators)
+	assert_equal([ev].to_set, source_events)
 	assert_equal(nil, context)
 
 	step = [g2, [], nil, ev, [], nil]
 	source_events, source_generators, context = engine.prepare_propagation(nil, false, step)
-	assert_equal([g2].to_value_set, source_generators)
-	assert_equal([ev].to_value_set, source_events)
+	assert_equal([g2].to_set, source_generators)
+	assert_equal([ev].to_set, source_events)
 	assert_equal(nil, context)
     end
 
@@ -451,8 +451,8 @@ class TC_ExecutionEngine < Minitest::Test
 
 	    mock.should_receive(:signalling).never
 	    mock.should_receive(:forwarding).never
-	    mock.should_receive(:calling).with(src, [].to_value_set).once
-	    mock.should_receive(:calling).with(dst, [src].to_value_set).once
+	    mock.should_receive(:calling).with(src, [].to_set).once
+	    mock.should_receive(:calling).with(dst, [src].to_set).once
 	    src.call
 	end
 
@@ -1045,37 +1045,31 @@ class TC_ExecutionEngine < Minitest::Test
 	assert_equal([], plan.unneeded_events.to_a)
 
 	plan.remove_object(t)
-	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
+	assert_equal([e1, e2].to_set, plan.unneeded_events)
 
         plan.add_permanent(e1)
 	assert_equal([], plan.unneeded_events.to_a)
         plan.unmark_permanent(e1)
-	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
+	assert_equal([e1, e2].to_set, plan.unneeded_events)
         plan.add_permanent(e2)
 	assert_equal([], plan.unneeded_events.to_a)
         plan.unmark_permanent(e2)
-	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
+	assert_equal([e1, e2].to_set, plan.unneeded_events)
     end
 
     def test_garbage_collect_weak_relations
-	engine.run
+        planning, planned, influencing = prepare_plan discover: 3, model: Tasks::Simple
 
-	engine.execute do
-	    planning, planned, influencing = prepare_plan :discover => 3, :model => Tasks::Simple
+        # Create a cycle with a weak relation
+        planned.planned_by planning
+        influencing.depends_on planned
+        planning.influenced_by influencing
 
-	    planned.planned_by planning
-	    influencing.depends_on planned
-	    planning.influenced_by influencing
-
-	    planned.start!
-	    planning.start!
-	    influencing.start!
-	end
-
-	engine.wait_one_cycle
-	engine.wait_one_cycle
-	engine.wait_one_cycle
-
+        planned.start!
+        planning.start!
+        influencing.start!
+        
+        process_events
 	assert(plan.known_tasks.empty?)
     end
 

@@ -72,7 +72,7 @@ module TC_TransactionBehaviour
             assert_equal(trsc, proxy.plan)
         end
 
-        assert_equal [t1, t2].to_value_set, plan.known_tasks
+        assert_equal [t1, t2].to_set, plan.known_tasks
         assert_same old_start, t1.start_event
     end
 
@@ -889,23 +889,23 @@ module TC_TransactionBehaviour
             trsc[d3].depends_on t1
             t1.depends_on trsc[d4]
             plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Dependency, [d1], [])
-            assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
-            assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
+            assert_equal([trsc[d3], trsc[d4], t1].to_set, trsc_set)
+            assert_equal([d1, d2, d5, d6].to_set, plan_set)
             
             # Remove the relation and check the result
             trsc[d3].remove_child t1
             plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Dependency, [d1], [])
-            assert_equal([d1, d2].to_value_set, plan_set)
-            assert_equal([trsc[d3]].to_value_set, trsc_set)
+            assert_equal([d1, d2].to_set, plan_set)
+            assert_equal([trsc[d3]].to_set, trsc_set)
             plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Dependency, [], [t1])
-            assert_equal([d5, d6].to_value_set, plan_set)
-            assert_equal([t1, trsc[d4]].to_value_set, trsc_set)
+            assert_equal([d5, d6].to_set, plan_set)
+            assert_equal([t1, trsc[d4]].to_set, trsc_set)
 
             # Remove a plan relation inside the transaction, and check it is taken into account
             trsc[d2].remove_child trsc[d3]
             plan_set, trsc_set = trsc.merged_generated_subgraphs(Roby::TaskStructure::Dependency, [d1], [])
-            assert_equal([d1].to_value_set, plan_set)
-            assert_equal([trsc[d2]].to_value_set, trsc_set)
+            assert_equal([d1].to_set, plan_set)
+            assert_equal([trsc[d2]].to_set, trsc_set)
         end
     end
 

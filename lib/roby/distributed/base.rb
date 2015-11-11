@@ -73,9 +73,9 @@ module Roby
 	extend Logger::Hierarchy
 	extend Logger::Forward
 
-	@updated_objects = ValueSet.new
+	@updated_objects = Set.new
 	@keep = RefCounting.new
-	@removed_objects = ValueSet.new
+	@removed_objects = Set.new
 	class << self
             # The one and only ConnectionSpace object
 	    attr_reader :state
@@ -123,11 +123,11 @@ module Roby
             # If +result+ is non-nil, the method adds the objects to +result+
             # using #<< and returns it.
 	    def remotely_useful_objects(candidates, include_subscriptions_relations, result = nil)
-		return ValueSet.new if candidates.empty?
+		return Set.new if candidates.empty?
 
-		result  ||= Distributed.keep.referenced_objects.to_value_set
+		result  ||= Distributed.keep.referenced_objects.to_set
 
-		child_set = ValueSet.new
+		child_set = Set.new
 	        for obj in candidates
 	            if result.include?(obj.root_object)
 			next
@@ -178,14 +178,14 @@ module Roby
 	
 	    # True if we are updating all objects in +objects+
 	    def updating_all?(objects)
-		@update_all || updated_objects.include_all?(objects.to_value_set)
+		@update_all || updated_objects.superset?(objects)
 	    end
 
 	    # Call the block with the objects in +objects+ added to the
 	    # updated_objects set
 	    def update_all(objects)
 		old_updated_objects = @updated_objects
-		@updated_objects |= objects.to_value_set
+		@updated_objects |= objects.to_set
 		yield
 	    ensure
 		@updated_objects = old_updated_objects

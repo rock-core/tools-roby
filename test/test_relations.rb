@@ -189,7 +189,7 @@ class TC_Relations < Minitest::Test
 	    r1, r2 = nil
 	    space = Roby::RelationSpace(klass)
             r1 = space.relation :R1
-            r2 = space.relation :R2, :subsets => [r1]
+            r2 = space.relation :R2, subsets: [r1]
 	    assert_equal(r2, r1.parent)
 	    assert(! r1.subset?(r2))
 	    assert(r2.subset?(r1))
@@ -289,7 +289,7 @@ class TC_Relations < Minitest::Test
         v = klass.new
         r1.insert(v)
         r2.insert(v)
-        assert_equal [r1, r2].to_value_set, v.relations.to_value_set
+        assert_equal [r1, r2].to_set, v.relations.to_set
         v.clear_relations
         assert_equal [], v.relations
     end

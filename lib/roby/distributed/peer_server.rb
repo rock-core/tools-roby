@@ -61,7 +61,7 @@ module Roby
 	# The peers asks to be notified if a plan object which matches
 	# +matcher+ changes
 	def add_trigger(id, matcher)
-	    triggers[id] = [matcher, (triggered = ValueSet.new)]
+	    triggers[id] = [matcher, (triggered = Set.new)]
 	    Distributed.info "#{remote_name} wants notification on #{matcher} (#{id})"
 
 	    peer.queueing do
@@ -224,7 +224,7 @@ module Roby
         # format suitable for PeerServer#set_relations.
         def plan_add(plan, m_tasks, m_relations)
             Distributed.update(plan = peer.local_object(plan)) do
-                tasks = peer.local_object(m_tasks).to_value_set
+                tasks = peer.local_object(m_tasks).to_set
                 Distributed.update_all(tasks) do 
                     plan.add(tasks)
                     m_relations.each_slice(2) do |obj, rel|
@@ -613,8 +613,8 @@ module Roby
             relations = peer.local_object(relations)
 
             Distributed.update(object.root_object) do
-                all_parents  = Hash.new { |h, k| h[k] = ValueSet.new }
-                all_children = Hash.new { |h, k| h[k] = ValueSet.new }
+                all_parents  = Hash.new { |h, k| h[k] = Set.new }
+                all_children = Hash.new { |h, k| h[k] = Set.new }
                 
                 # Add or update existing relations
                 relations.each_slice(3) do |graph, parents, children|
@@ -654,14 +654,14 @@ module Roby
                     # our remote peer, keep it: it means that the relation
                     # is a local-only annotation this pDB has added to the
                     # task
-                    (object.parent_objects(rel).to_value_set - all_parents[rel]).each do |p|
+                    (object.parent_objects(rel).to_set - all_parents[rel]).each do |p|
                         # See comment above
                         next unless p.distribute?
                         Distributed.update_all([p.root_object, object.root_object]) do
                             p.remove_child_object(object, rel)
                         end
                     end
-                    (object.child_objects(rel).to_value_set - all_children[rel]).each do |c|
+                    (object.child_objects(rel).to_set - all_children[rel]).each do |c|
                         # See comment above
                         next unless c.distribute?
                         Distributed.update_all([c.root_object, object.root_object]) do

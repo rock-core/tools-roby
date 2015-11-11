@@ -29,10 +29,10 @@ module Roby
         # Initializes an empty TaskMatcher object
 	def initialize
             @model                = Array.new
-	    @predicates           = ValueSet.new
-	    @neg_predicates       = ValueSet.new
-	    @indexed_predicates     = ValueSet.new
-	    @indexed_neg_predicates = ValueSet.new
+	    @predicates           = Set.new
+	    @neg_predicates       = Set.new
+	    @indexed_predicates     = Set.new
+	    @indexed_neg_predicates = Set.new
 	    @owners               = Array.new
             @parents              = Hash.new { |h, k| h[k] = Array.new }
             @children             = Hash.new { |h, k| h[k] = Array.new }
@@ -195,8 +195,8 @@ module Roby
         # avoid an explicit O(N) filtering step after filter() has been called
         def indexed_query?
             @children.empty? && @parents.empty? &&
-                Index::PREDICATES.include_all?(predicates) &&
-                Index::PREDICATES.include_all?(neg_predicates)
+                Index::PREDICATES.superset?(predicates) &&
+                Index::PREDICATES.superset?(neg_predicates)
         end
 
 
@@ -241,28 +241,28 @@ module Roby
         # include all tasks in +initial_set+ which match with #===, but can
         # include tasks which do not match #===
         #
-        # @param [ValueSet] initial_set
+        # @param [Set] initial_set
         # @param [Index] index
-        # @return [ValueSet]
+        # @return [Set]
 	def filter(initial_set, index)
             for m in model
-                initial_set.intersection!(index.by_model[m])
+                initial_set = initial_set.intersection(index.by_model[m])
             end
 
             for o in owners
                 if candidates = index.by_owner[o]
-                    initial_set.intersection!(candidates)
+                    initial_set = initial_set.intersection(candidates)
                 else
-                    return ValueSet.new
+                    return Set.new
                 end
             end
 
 	    for pred in indexed_predicates
-		initial_set.intersection!(index.by_predicate[pred])
+		initial_set = initial_set.intersection(index.by_predicate[pred])
 	    end
 
 	    for pred in indexed_neg_predicates
-		initial_set.difference!(index.by_predicate[pred])
+		initial_set = initial_set.difference(index.by_predicate[pred])
 	    end
 
 	    initial_set

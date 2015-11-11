@@ -7,7 +7,6 @@ static VALUE mRoby;
 static VALUE mRobyDistributed;
 static VALUE cDRbObject;
 static VALUE cSet;
-static VALUE cValueSet;
 static ID id_droby_dump;
 static ID id_remote_id;
 static ID id_append;
@@ -120,27 +119,6 @@ static VALUE set_droby_dump(VALUE self, VALUE dest)
     return arg.result;
 }
 
-// Creates a copy of this ValueSet with all its values formatted for
-// marshalling using Distributed.format
-static VALUE value_set_droby_dump(VALUE self, VALUE dest)
-{
-    VALUE result = rb_class_new_instance(0, 0, cValueSet);
-    std::set<VALUE>* result_set;
-    Data_Get_Struct(result, std::set<VALUE>, result_set);
-
-    std::set<VALUE> const * source_set;
-    Data_Get_Struct(self, std::set<VALUE>, source_set);
-
-    VALUE el[2] = { Qnil, dest };
-    for (std::set<VALUE>::const_iterator it = source_set->begin(); it != source_set->end(); ++it)
-    {
-	el[0] = *it;
-	result_set->insert(droby_format(2, el, mRobyDistributed));
-    }
-
-    return result;
-}
-
 extern "C" void Init_roby_marshalling()
 {
     id_droby_dump = rb_intern("droby_dump");
@@ -148,7 +126,6 @@ extern "C" void Init_roby_marshalling()
     id_append = rb_intern("<<");
     
     cDRbObject = rb_const_get(rb_cObject, rb_intern("DRbObject"));
-    cValueSet  = rb_const_get(rb_cObject, rb_intern("ValueSet"));
     cSet       = rb_const_get(rb_cObject, rb_intern("Set"));
 
     /* */
@@ -159,7 +136,6 @@ extern "C" void Init_roby_marshalling()
     rb_define_method(rb_cArray , "droby_dump" , RUBY_METHOD_FUNC(array_droby_dump)     , 1);
     rb_define_method(rb_cHash  , "droby_dump" , RUBY_METHOD_FUNC(hash_droby_dump)      , 1);
     rb_define_method(cSet      , "droby_dump" , RUBY_METHOD_FUNC(set_droby_dump)       , 1);
-    rb_define_method(cValueSet , "droby_dump" , RUBY_METHOD_FUNC(value_set_droby_dump) , 1);
 
     rb_define_singleton_method(mRobyDistributed, "format", RUBY_METHOD_FUNC(droby_format), -1);
 

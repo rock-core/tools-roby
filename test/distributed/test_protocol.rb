@@ -101,11 +101,11 @@ class TC_DistributedRobyProtocol < Minitest::Test
     def test_value_set_droby_dump
 	FlexMock.use do |mock|
 	    mock.should_receive(:droby_dump).and_return("mock")
-	    value_set = [1, mock, "q"].to_value_set
+	    value_set = [1, mock, "q"].to_set
 
 
 	    dumped = value_set.droby_dump(nil)
-	    assert_kind_of(ValueSet, dumped)
+	    assert_kind_of(Set, dumped)
 	    assert_equal([1, "mock", "q"].to_set, dumped.to_set)
 	end
     end
@@ -116,7 +116,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		define_method(:array)     { test_case.dumpable_array }
-		define_method(:value_set) { test_case.dumpable_array.to_value_set }
+		define_method(:value_set) { test_case.dumpable_array.to_set
 		define_method(:_hash)     { test_case.dumpable_hash }
 		define_method(:array_of_array) { [test_case.dumpable_array] }
 	    end
@@ -135,7 +135,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	check_undumped_array(array_of_array[0])
 
 	set = remote_peer.call(:value_set)
-	assert_kind_of(ValueSet, set)
+	assert_kind_of(Set, set)
 	assert_equal(TEST_ARRAY_SIZE, set.size)
 	assert(set.find { |o| o == 1 })
 	assert(set.find { |t| t.kind_of?(Task::DRoby) && t.arguments[:id] == 1 })

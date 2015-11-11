@@ -12,7 +12,7 @@ module Roby
 
             module ModelExtension
                 extend MetaRuby::Attributes
-                inherited_attribute(:conflicting_model, :conflicting_models) { ValueSet.new }
+                inherited_attribute(:conflicting_model, :conflicting_models) { Set.new }
 
                 def conflicts_with(model)
                     conflicting_models << model
@@ -33,9 +33,8 @@ module Roby
                     return unless symbol == :start
 
                     # Check for conflicting tasks
-                    result = nil
+                    result = Set.new
                     task.each_conflicts do |conflicting_task|
-                        result ||= ValueSet.new
                         result << conflicting_task
                     end
 
@@ -48,7 +47,7 @@ module Roby
                         end
                     end
 
-                    if result
+                    if !result.empty?
                         plan.control.conflict(task, result)
                     end
 

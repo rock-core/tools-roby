@@ -34,7 +34,7 @@ module Roby
         end
 
 	# Returns the events that are the cause of this event, limiting itself
-        # to the task's events. The return value is a ValueSet of TaskEvent
+        # to the task's events. The return value is a Set of TaskEvent
         # instances.
         #
         # For instance, for an interruptible task:
@@ -42,7 +42,7 @@ module Roby
         #   task.start!
         #   task.stop!
         #
-        # Then task.stop_event.last.task_sources will return a ValueSet instance
+        # Then task.stop_event.last.task_sources will return a Set instance
         # which contains the failed event. I.e. in this particular situation, it
         # behaves in the same way than Event#event_sources
         #
@@ -56,7 +56,7 @@ module Roby
         # task.failed_event.last while TaskEvent will only return
         # task.failed_event.last.
 	def task_sources
-	    result = ValueSet.new
+	    result = Set.new
             for ev in sources
                 gen = ev.generator
                 if gen.respond_to?(:task) && gen.task == task
@@ -69,7 +69,7 @@ module Roby
         # Recursively browses in the event sources, returning only those that
         # come from this event's task
         def all_task_sources
-            result = ValueSet.new
+            result = Set.new
             for ev in task_sources
                 result << ev
                 result.merge(ev.all_task_sources)

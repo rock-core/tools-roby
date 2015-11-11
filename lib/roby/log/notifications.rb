@@ -16,7 +16,7 @@ module Roby
 	    attr_reader :histories
 	    def initialize(name)
                 @manager = ObjectIDManager.new
-                @transactions = ValueSet.new
+                @transactions = Set.new
 		@histories = Hash.new { |h, k| h[k] = Array.new }
 		super(name)
 	    end

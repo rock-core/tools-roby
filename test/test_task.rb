@@ -186,7 +186,7 @@ class TC_Task < Minitest::Test
     def test_arguments_declaration
 	model = Task.new_submodel { argument :from; argument :to }
 	assert_equal([], Task.arguments.to_a)
-	assert_equal([:from, :to].to_value_set, model.arguments.to_value_set)
+	assert_equal([:from, :to].to_set, model.arguments.to_set)
     end
 
     def test_arguments_initialization
@@ -385,12 +385,12 @@ class TC_Task < Minitest::Test
 	model = Tasks::Simple.new_submodel do
 	    forward :start => :failed
 	end
-	assert_equal({ :start => [:failed, :stop].to_value_set }, model.forwarding_sets)
+	assert_equal({ :start => [:failed, :stop].to_set }, model.forwarding_sets)
 	assert_equal({}, Tasks::Simple.signal_sets)
 
-	assert_equal([:failed, :stop].to_value_set, model.forwardings(:start))
-	assert_equal([:stop].to_value_set,          model.forwardings(:failed))
-	assert_equal([:stop].to_value_set,          model.enum_for(:each_forwarding, :failed).to_value_set)
+	assert_equal([:failed, :stop].to_set, model.forwardings(:start))
+	assert_equal([:stop].to_set,          model.forwardings(:failed))
+	assert_equal([:stop].to_set,          model.enum_for(:each_forwarding, :failed).to_set)
 
         plan.add(task = model.new)
         task.start!
@@ -1302,9 +1302,9 @@ class TC_Task < Minitest::Test
 	    each { |t| plan.add(t) }
 	t1.depends_on t2
 	t1.event(:start).signals t3.event(:start)
-	assert_equal([t3].to_value_set, t1.event(:start).related_tasks)
-	assert_equal([t2].to_value_set, t1.related_objects)
-	assert_equal([t2, t3].to_value_set, t1.related_tasks)
+	assert_equal([t3].to_set, t1.event(:start).related_tasks)
+	assert_equal([t2].to_set, t1.related_objects)
+	assert_equal([t2, t3].to_set, t1.related_tasks)
     end
 
     def test_related_events
@@ -1312,7 +1312,7 @@ class TC_Task < Minitest::Test
 	    each { |t| plan.add(t) }
 	t1.depends_on t2
 	t1.event(:start).signals t3.event(:start)
-	assert_equal([t3.event(:start)].to_value_set, t1.related_events)
+	assert_equal([t3.event(:start)].to_set, t1.related_events)
     end
 
     def test_if_unreachable
@@ -1666,7 +1666,7 @@ class TC_Task < Minitest::Test
 	ev.forward_to task.event(:specialized_failure)
 	ev.call
 	assert_equal([task.event(:failed).last], task.event(:stop).last.task_sources.to_a)
-	assert_equal([task.event(:specialized_failure).last, task.event(:failed).last].to_value_set, task.event(:stop).last.all_task_sources.to_value_set)
+	assert_equal([task.event(:specialized_failure).last, task.event(:failed).last].to_set, task.event(:stop).last.all_task_sources.to_set)
     end
 
     def test_virtual_task
@@ -2210,13 +2210,13 @@ class TC_Task < Minitest::Test
         source.stop!
         event = target.stop_event.last
 
-        assert_equal [target.failed_event].map(&:last).to_value_set, event.sources.to_value_set
-        assert_equal [source.failed_event, source.stop_event, target.aborted_event, target.failed_event].map(&:last).to_value_set, event.all_sources.to_value_set
-        assert_equal [source.failed_event].map(&:last).to_value_set, event.root_sources.to_value_set
+        assert_equal [target.failed_event].map(&:last).to_set, event.sources.to_set
+        assert_equal [source.failed_event, source.stop_event, target.aborted_event, target.failed_event].map(&:last).to_set, event.all_sources.to_set
+        assert_equal [source.failed_event].map(&:last).to_set, event.root_sources.to_set
 
-        assert_equal [target.failed_event].map(&:last).to_value_set, event.task_sources.to_value_set
-        assert_equal [target.aborted_event, target.failed_event].map(&:last).to_value_set, event.all_task_sources.to_value_set
-        assert_equal [target.aborted_event].map(&:last).to_value_set, event.root_task_sources.to_value_set
+        assert_equal [target.failed_event].map(&:last).to_set, event.task_sources.to_set
+        assert_equal [target.aborted_event, target.failed_event].map(&:last).to_set, event.all_task_sources.to_set
+        assert_equal [target.aborted_event].map(&:last).to_set, event.root_task_sources.to_set
     end
 
     def test_task_as_plan

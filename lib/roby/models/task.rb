@@ -102,17 +102,17 @@ module Roby
             #   
             def self.model_attribute_list(name) # :nodoc:
                 class_eval <<-EOD, __FILE__, __LINE__+1
-                    inherited_attribute("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = ValueSet.new } }
+                    inherited_attribute("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
                     def each_#{name}(model)
                         for obj in #{name}s(model)
-                        yield(obj)
+                            yield(obj)
                         end
                         self
                     end
                     def #{name}s(model)
-                        result = ValueSet.new
+                        result = Set.new
                         each_#{name}_set(model, false) do |set|
-                        result.merge set
+                            result.merge set
                         end
                         result
                     end
@@ -123,7 +123,7 @@ module Roby
                         else
                             result = Hash.new
                             each_#{name}_set do |from, targets|
-                                result[from] ||= ValueSet.new
+                                result[from] ||= Set.new
                                 result[from].merge(targets)
                             end
                             @all_#{name}s = result
@@ -183,7 +183,7 @@ module Roby
                         raise ArgumentError, "trying to signal #{non_controlable.join(" ")} which is/are not controlable"
                     end
 
-                    signal_sets[from.symbol].merge targets.map { |ev| ev.symbol }.to_value_set
+                    signal_sets[from.symbol].merge targets.map { |ev| ev.symbol }
                 end
                 update_terminal_flag
             end
@@ -203,7 +203,7 @@ module Roby
             def causal_link(mappings)
                 mappings.each do |from, to|
                     from = event_model(from).symbol
-                    causal_link_sets[from].merge Array[*to].map { |ev| event_model(ev).symbol }.to_value_set
+                    causal_link_sets[from].merge Array[*to].map { |ev| event_model(ev).symbol }
                 end
                 update_terminal_flag
             end
@@ -237,7 +237,7 @@ module Roby
                         end
                     end
 
-                    forwarding_sets[from].merge targets.to_value_set
+                    forwarding_sets[from].merge targets
                 end
                 update_terminal_flag
             end

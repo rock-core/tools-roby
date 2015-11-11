@@ -132,15 +132,15 @@ module Roby
         attr_reader :active_fault_response_tables
 
 	def initialize
-	    @missions	 = ValueSet.new
-	    @permanent_tasks   = ValueSet.new
-	    @permanent_events   = ValueSet.new
-	    @known_tasks = ValueSet.new
-	    @free_events = ValueSet.new
-	    @task_events = ValueSet.new
-	    @force_gc    = ValueSet.new
-	    @gc_quarantine = ValueSet.new
-	    @transactions = ValueSet.new
+	    @missions	 = Set.new
+	    @permanent_tasks  = Set.new
+	    @permanent_events = Set.new
+	    @known_tasks = Set.new
+	    @free_events = Set.new
+	    @task_events = Set.new
+	    @force_gc    = Set.new
+	    @gc_quarantine = Set.new
+	    @transactions = Set.new
             @exception_handlers = Array.new
             @fault_response_tables = Array.new
             @active_fault_response_tables = Array.new
@@ -633,7 +633,7 @@ module Roby
                 raise "trying to register a plan service on #{self} for #{service.task}, which is included in #{service.task.plan}"
             end
 
-            set = (plan_services[service.task] ||= ValueSet.new)
+            set = (plan_services[service.task] ||= Set.new)
             if !set.include?(service)
                 set << service
             end
@@ -673,7 +673,7 @@ module Roby
             if services = plan_services.delete(replaced_task)
                 services.each do |srv|
                     srv.task = replacing_task
-                    (plan_services[replacing_task] ||= ValueSet.new) << srv
+                    (plan_services[replacing_task] ||= Set.new) << srv
                 end
             end
             super if defined? super
@@ -759,11 +759,11 @@ module Roby
 	    events, tasks = partition_event_task(objects)
 
 	    if tasks && !tasks.empty?
-                tasks = tasks.to_value_set
+                tasks = tasks.to_set
 		new_tasks = discover_new_objects(TaskStructure.relations, nil, known_tasks.dup, tasks)
 		if !new_tasks.empty?
 		    add_task_set(new_tasks)
-                    events ||= ValueSet.new
+                    events ||= Set.new
                     for t in new_tasks
                         for ev in t.bound_events.values
                             events << ev
@@ -773,7 +773,7 @@ module Roby
 	    end
 
 	    if events && !events.empty?
-		events = events.to_value_set
+		events = events.to_set
                 new_events = discover_new_objects(EventStructure.relations, nil, free_events.dup, events)
 
                 # Issue added_task_relation hooks for the relations between the new
@@ -1004,21 +1004,21 @@ module Roby
 	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
 	# Only the tasks that are in +complete_set+ are included.
 	def discover_new_objects(relations, complete_set, useful_set, seeds, explored_relations = Hash.new)
-            new_objects = ValueSet.new
+            new_objects = Set.new
             useful_set.merge(seeds)
 	    for rel in relations
 		next if !rel.root_relation?
 
-                explored_relations[rel] ||= [ValueSet.new, ValueSet.new]
+                explored_relations[rel] ||= [Set.new, Set.new]
 
-                reverse_seeds = seeds - explored_relations[rel][0]
-		for subgraph in rel.reverse.generated_subgraphs(reverse_seeds, false)
+                reverse_seeds = (seeds - explored_relations[rel][0]).to_a
+                for subgraph in rel.reverse.generated_subgraphs(reverse_seeds, false)
                     explored_relations[rel][0].merge(subgraph)
 		    new_objects.merge(subgraph)
 		end
 
-                direct_seeds = seeds - explored_relations[rel][1]
-		for subgraph in rel.generated_subgraphs(direct_seeds, false)
+                direct_seeds = (seeds - explored_relations[rel][1]).to_a
+                for subgraph in rel.generated_subgraphs(direct_seeds, false)
                     explored_relations[rel][1].merge(subgraph)
 		    new_objects.merge(subgraph)
 		end
@@ -1028,7 +1028,7 @@ module Roby
 		new_objects.delete_if { |obj| !complete_set.include?(obj) }
 	    end
 
-            new_objects.difference!(seeds)
+            new_objects.subtract(seeds)
             new_objects.delete_if { |t| useful_set.include?(t) }
             if new_objects.empty?
                 seeds
@@ -1041,10 +1041,12 @@ module Roby
 	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
 	# Only the tasks that are in +complete_set+ are included.
 	def useful_task_component(complete_set, useful_set, seeds)
+            seeds = seeds.to_a
+
 	    old_useful_set = useful_set.dup
 	    for rel in TaskStructure.relations
 		next if !rel.root_relation?
-		for subgraph in rel.generated_subgraphs(seeds, false)
+                for subgraph in rel.generated_subgraphs(seeds, false)
 		    useful_set.merge(subgraph)
 		end
 	    end
@@ -1065,10 +1067,10 @@ module Roby
 	    # Create the set of tasks which must be kept as-is
 	    seeds = @missions | @permanent_tasks
 	    for trsc in transactions
-		seeds.merge trsc.proxy_objects.keys.to_value_set
+		seeds.merge trsc.proxy_objects.keys.to_set
 	    end
 
-	    return ValueSet.new if seeds.empty?
+	    return Set.new if seeds.empty?
 
 	    # Compute the set of LOCAL tasks which serve the seeds.  The set of
 	    # locally_useful_tasks is the union of the seeds and of this one 
@@ -1076,7 +1078,7 @@ module Roby
 	end
 
 	def local_tasks
-	    task_index.by_owner[Roby::Distributed] || ValueSet.new
+	    task_index.by_owner[Roby::Distributed] || Set.new
 	end
 
 	def remote_tasks
@@ -1112,38 +1114,51 @@ module Roby
 	    known_tasks.include?(task) && !unneeded_tasks.include?(task)
 	end
 
-	def useful_event_component(useful_events)
+        # @api private
+        #
+        # Compute the set of events that are "useful" to the plan.
+        #
+        # It contains every event that is connected to an event in
+        # {#permanent_events} or to an event on a task in the plan
+        #
+        # @param [Set<EventGenerator>] useful_events  the set of useful events (free or task) computed so far
+        # @param [Set<EventGenerator>] useless_events the remainder of {#free_events} that
+        #   is not included in useful_events yet
+        # @return [Set<EventGenerator>]
+        def compute_useful_free_events(useful_events, useless_events)
 	    current_size = useful_events.size
+
 	    for rel in EventStructure.relations
 		next unless rel.root_relation?
 
-		for subgraph in rel.components(free_events, false)
-		    subgraph = subgraph.to_value_set
-		    if subgraph.intersects?(useful_events) || subgraph.intersects?(task_events)
-			useful_events.merge(subgraph)
-			if useful_events.include_all?(free_events)
-			    return free_events
-			end
+                for subgraph in rel.components(useless_events.to_a, true)
+		    subgraph = subgraph.to_set
+		    if subgraph.intersect?(useful_events)
+                        useful_events.merge(subgraph)
+                        useless_events.subtract(subgraph)
+                        return self.free_events if useless_events.empty?
 		    end
 		end
-
-		if useful_events.include_all?(free_events)
-		    return free_events
-		end
+                return self.free_events if useless_events.empty?
 	    end
 
 	    if current_size != useful_events.size
-		useful_event_component(useful_events)
+		compute_useful_free_events(useful_events, useless_events)
 	    else
-		useful_events
+                self.free_events - useless_events
 	    end
 	end
 
 	# Computes the set of events that are useful in the plan Events are
 	# 'useful' when they are chained to a task.
 	def useful_events
-	    return ValueSet.new if free_events.empty?
-	    (free_events & useful_event_component(permanent_events.dup))
+            if free_events.empty?
+                Set.new
+            else
+                useful_events = permanent_events | task_events
+                useless_events = self.free_events - useful_events
+                compute_useful_free_events(useful_events, useless_events)
+            end
 	end
 
 	# The set of events that can be removed from the plan
@@ -1280,8 +1295,8 @@ module Roby
 
 	# Remove all tasks
 	def clear
-	    known_tasks, @known_tasks = @known_tasks, ValueSet.new
-	    free_events, @free_events = @free_events, ValueSet.new
+	    known_tasks, @known_tasks = @known_tasks, Set.new
+	    free_events, @free_events = @free_events, Set.new
 
 	    @free_events.clear
 	    @missions.clear
@@ -1529,7 +1544,7 @@ module Roby
                     return [:new_object, obj]
                 end
                 mappings[obj]
-            end.to_value_set
+            end.to_set
             if all_mapped_objects != all_other_objects
                 return [:removed_objects, all_other_objects - all_mapped_objects]
             end
@@ -1608,7 +1623,7 @@ module Roby
             if matcher.indexed_query?
                 filtered
             else
-                result = ValueSet.new
+                result = Set.new
                 for task in filtered
                     result << task if matcher === task
                 end
@@ -1627,8 +1642,8 @@ module Roby
 	# Given the result set of +query+, returns the subset of tasks which
 	# have no parent in +query+
 	def query_roots(result_set, relation) # :nodoc:
-	    children = ValueSet.new
-	    found    = ValueSet.new
+	    children = Set.new
+	    found    = Set.new
 	    for task in result_set
 		next if children.include?(task)
 		task_children = task.generated_subgraph(relation)

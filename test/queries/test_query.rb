@@ -67,13 +67,13 @@ class TC_Queries_Query < Minitest::Test
         plan.in_transaction do |trsc|
             [tr1, tr2, tr3].each { |t| trsc.add(t) }
 
-            assert_equal([t1, t2, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Dependency).to_value_set)
+            assert_equal([t1, t2, t3].to_set, plan.find_tasks.roots(TaskStructure::Dependency).to_set)
             t1.depends_on t2
-            assert_equal([t1, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Dependency).to_value_set)
+            assert_equal([t1, t3].to_set, plan.find_tasks.roots(TaskStructure::Dependency).to_set)
 
             tr1.depends_on tr2
             trsc[t3].depends_on tr3
-            assert_equal([trsc[t1], trsc[t3], tr1].to_value_set, trsc.find_tasks.roots(TaskStructure::Dependency).to_value_set)
+            assert_equal([trsc[t1], trsc[t3], tr1].to_set, trsc.find_tasks.roots(TaskStructure::Dependency).to_set)
         end
     end
 

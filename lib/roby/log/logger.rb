@@ -90,7 +90,7 @@ module Roby::Log
 	    if m == :added_tasks || m == :added_events
 		Roby.synchronize do
 		    args ||= yield
-		    objects = args[1].to_value_set
+		    objects = args[1]
 		    # Do not give a 'peer' argument at Distributed.format, to
 		    # make sure we do a full dump
 		    args = Roby::Distributed.format(args) if has_logger?(m)
@@ -200,7 +200,7 @@ module Roby::Log
     @logged_events        = SizedQueue.new(LOGGED_EVENTS_QUEUE_SIZE)
     @flushed_logger_mutex = Mutex.new
     @flushed_logger       = ConditionVariable.new
-    @known_objects        = ValueSet.new
+    @known_objects        = Set.new
 
 end
 

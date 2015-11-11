@@ -505,11 +505,11 @@ module Roby
         # to this event, self.task excluded:
         #
         #   ev = task.intermediate_event
-        #   ev.related_tasks # => #<ValueSet: {}>
+        #   ev.related_tasks # => #<Set: {}>
         #   ev.add_signal task2.intermediate_event
-        #   ev.related_tasks # => #<ValueSet: {task2}>
+        #   ev.related_tasks # => #<Set: {task2}>
 	def related_tasks(result = nil)
-	    result ||= ValueSet.new
+	    result ||= Set.new
 	    for ev in related_events
 		if ev.respond_to?(:task)
 		    result << ev.task
@@ -935,7 +935,7 @@ module Roby
             end
         end
 
-	@@event_gathering = Hash.new { |h, k| h[k] = ValueSet.new }
+	@@event_gathering = Hash.new { |h, k| h[k] = Set.new }
 	# If a generator in +events+ fires, add the fired event in +collection+
 	def self.gather_events(collection, events)
 	    for ev in events

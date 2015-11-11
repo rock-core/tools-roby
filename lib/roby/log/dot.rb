@@ -21,7 +21,7 @@ module Roby
             def all_events(display)
                 known_tasks.inject(free_events.dup) do |events, task|
                     if display.displayed?(task)
-                        events.merge(task.events.values.to_value_set)
+                        events.merge(task.events.values.to_set)
                     else
                         events
                     end
@@ -354,7 +354,7 @@ module Roby
                 # We first layout only the tasks separately. This allows to find
                 # how to layout the events within the task, and know the overall
                 # task sizes
-                all_tasks = ValueSet.new
+                all_tasks = Set.new
                 bounding_boxes, positions = run_dot(:graph_type => 'graph', :layout_method => 'fdp', :scale_x => 1.0 / 100, :scale_y => 1.0 / 100) do
                     display.plans.each do |p|
                         p_tasks = p.known_tasks | p.finalized_tasks

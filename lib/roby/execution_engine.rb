@@ -186,7 +186,7 @@ module Roby
             @process_every   = Array.new
             @waiting_threads = Array.new
             @emitted_events  = Array.new
-            @disabled_handlers = ValueSet.new
+            @disabled_handlers = Set.new
             @additional_errors = nil
             @exception_listeners = Array.new
 
@@ -502,7 +502,7 @@ module Roby
         attr_reader :propagation_sources
         # The set of events extracted from #sources
         def propagation_source_events
-            result = ValueSet.new
+            result = Set.new
             for ev in @propagation_sources
                 if ev.respond_to?(:generator)
                     result << ev
@@ -513,7 +513,7 @@ module Roby
 
         # The set of generators extracted from #sources
         def propagation_source_generators
-            result = ValueSet.new
+            result = Set.new
             for ev in @propagation_sources
                 result << if ev.respond_to?(:generator)
                               ev.generator
@@ -966,7 +966,7 @@ module Roby
         def prepare_propagation(target, is_forward, info)
             timeref = Time.now
 
-            source_events, source_generators, context = ValueSet.new, ValueSet.new, []
+            source_events, source_generators, context = Set.new, Set.new, []
 
             delayed = true
             info.each_slice(3) do |src, ctxt, time|
@@ -1587,7 +1587,7 @@ module Roby
 
             # The set of tasks for which we queued stop! at this cycle
             # #finishing? is false until the next event propagation cycle
-            finishing = ValueSet.new
+            finishing = Set.new
             did_something = true
             while did_something
                 did_something = false
@@ -1645,7 +1645,7 @@ module Roby
                     end
                 end
 
-                (roots.to_value_set - finishing - plan.gc_quarantine).each do |local_task|
+                (roots.to_set - finishing - plan.gc_quarantine).each do |local_task|
                     if local_task.pending?
                         info "GC: removing pending task #{local_task}"
 
@@ -1904,7 +1904,7 @@ module Roby
 		plan.permanent_events.dup.each { |t| plan.unmark_permanent(t) }
 		plan.force_gc.merge( plan.known_tasks )
 
-		quaranteened_subplan = plan.useful_task_component(nil, ValueSet.new, plan.gc_quarantine.dup)
+		quaranteened_subplan = plan.useful_task_component(nil, Set.new, plan.gc_quarantine.dup)
 		remaining = plan.known_tasks - quaranteened_subplan
 
 		if remaining.empty?

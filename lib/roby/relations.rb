@@ -77,12 +77,12 @@ module Roby
 	# Computes and returns the set of objects related with this one (parent
 	# or child). If +relation+ is given, enumerate only for this relation,
 	# otherwise enumerate for all relations.  If +result+ is given, it is a
-	# ValueSet in which the related objects are added
+	# Set in which the related objects are added
 	def related_objects(relation = nil, result = nil)
-	    result ||= ValueSet.new
+	    result ||= Set.new
 	    if relation
-		result.merge(parent_objects(relation).to_value_set)
-		result.merge(child_objects(relation).to_value_set)
+		result.merge(parent_objects(relation))
+		result.merge(child_objects(relation))
 	    else
 		each_relation { |rel| related_objects(rel, result) }
 	    end
@@ -294,8 +294,8 @@ module Roby
             self.name = name
 	    @name    = name
 	    @options = options
-	    @subsets = ValueSet.new
-            @recursive_subsets = ValueSet.new
+	    @subsets = Set.new
+            @recursive_subsets = Set.new
 	    @distribute = options[:distribute]
 	    @dag     = options[:dag]
 	    @weak    = options[:weak]
@@ -304,7 +304,7 @@ module Roby
             @embeds_info = !options[:noinfo]
 
 	    if options[:subsets]
-		options[:subsets].each(&method(:superset_of))
+                options[:subsets].each { |g| superset_of(g) }
 	    end
 	end
 
@@ -536,7 +536,7 @@ module Roby
         # Recomputes the recursive_subsets attribute, and triggers the
         # recomputation on its parents as well
         def recompute_recursive_subsets
-            @recursive_subsets = subsets.inject(ValueSet.new) do |set, child|
+            @recursive_subsets = subsets.inject(Set.new) do |set, child|
                 set.merge(child.recursive_subsets)
             end
             if parent
@@ -606,11 +606,7 @@ module Roby
 
         def initialize(*args)
             super
-            if options.has_key?(:scheduling)
-                @scheduling = options[:scheduling]
-            else
-                @scheduling = true
-            end
+            @scheduling = options.fetch(:scheduling, true)
         end
     end
 
@@ -688,7 +684,7 @@ module Roby
         # 
 	# If +strict+ is true, +obj+ is not included in the returned set
 	def children_of(obj, strict = true, relations = nil)
-	    set = compute_children_of([obj].to_value_set, relations || self.relations)
+            set = compute_children_of([obj].to_set, relations || self.relations)
 	    set.delete(obj) if strict
 	    set
 	end
@@ -790,7 +786,7 @@ module Roby
 			:child_name  => relation_name.to_s.snakecase,
 			:const_name  => relation_name,
 			:parent_name => nil,
-			:subsets     => ValueSet.new,
+			:subsets     => Set.new,
 			:noinfo      => false,
 			:graph       => default_graph_class,
 			:distribute  => true,
@@ -983,12 +979,12 @@ module Roby
         sorted_relations = Array.new
 
         # Remove from the set of relations the ones that are not leafs
-        remaining = self.all_relations.to_value_set
+        remaining = self.all_relations
         remaining << rel
         target_size = remaining.size
 
         while sorted_relations.size != target_size
-            queue, remaining = remaining.partition { |g| !g.subsets.intersects?(remaining.to_value_set) }
+            queue, remaining = remaining.partition { |g| !g.subsets.intersect?(remaining.to_set) }
             sorted_relations.concat(queue)
         end
 

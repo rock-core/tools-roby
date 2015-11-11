@@ -21,18 +21,21 @@ module BGL
             end
 	end
 
-	attribute(:singleton_set) { [self].to_value_set.freeze }
+        def singleton_set
+            @singleton_set ||= [self].to_set.freeze
+        end
+
 	# Returns the connected component +self+ is part of in +graph+
 	def component(graph)
-	    graph.components(singleton_set, false).first || singleton_set
+	    graph.components([self], false).first || singleton_set
 	end
 	# Returns the vertex set which are reachable from +self+ in +graph+
 	def generated_subgraph(graph)
-	    graph.generated_subgraphs(singleton_set, false).first || singleton_set
+	    graph.generated_subgraphs([self], false).first || singleton_set
 	end
 	# Returns the vertex set which can reach +self+ in +graph+
 	def reverse_generated_subgraph(graph)
-	    graph.reverse.generated_subgraphs(singleton_set, false).first || singleton_set
+	    graph.reverse.generated_subgraphs([self], false).first || singleton_set
 	end
 
 	# Replace this vertex by +to+ in all graphs. See Graph#replace_vertex.
@@ -287,9 +290,7 @@ module BGL
 		return false
 	    end
 
-	    # cannot use to_value_set for edges since we are comparing arrays (and ValueSet
-	    # bases its comparison on VALUE)
-	    (other.enum_for(:each_vertex).to_value_set == enum_for(:each_vertex).to_value_set) && 
+	    (other.enum_for(:each_vertex).to_set == enum_for(:each_vertex).to_set) && 
 		(other.enum_for(:each_edge).to_set == enum_for(:each_edge).to_set)
 	end
 
@@ -343,11 +344,11 @@ module BGL
         # vertices of +other_graph+ for +removed+
         def difference(other_graph, self_vertices, &mapping)
             mapping ||= lambda { |v| v }
-            other_vertices = ValueSet.new
+            other_vertices = Set.new
 
             new, removed, updated = Set.new, Set.new, Set.new
 
-            seen_vertices    = ValueSet.new
+            seen_vertices    = Set.new
             seen_connections = Set.new
             for self_v in self_vertices
                 other_v = mapping[self_v]

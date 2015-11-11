@@ -199,11 +199,11 @@ module Roby
 			plan_object = plan.may_unwrap(obj)
 			trsc_objects[plan_object] = obj
 			plan_object
-		    end.to_value_set
+		    end.to_set
 
 		plan_others = __getobj__.send(enum, rel).
 		    find_all { |obj| plan[obj, false] }.
-		    to_value_set
+		    to_set
 
                 new = (trsc_others - plan_others)
                 existing = (trsc_others - new)

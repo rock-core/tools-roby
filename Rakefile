@@ -14,9 +14,6 @@ Rake::ExtensionTask.new 'roby_bgl' do |ext|
     end
 end
 
-Rake::ExtensionTask.new 'value_set' do |ext|
-    ext.lib_dir = 'lib/value_set'
-end
 task :default => :compile
 
 Rake::TestTask.new(:test) do |t|

@@ -4,30 +4,30 @@ module Roby
     #
     # @see {Roby::Plan#task_index} {Roby::Queries::Query}
     class Index
-        # A model => ValueSet map of the tasks for each model
+        # A model => Set map of the tasks for each model
 	attr_reader :by_model
-	# A state => ValueSet map of tasks given their state. The state is
+	# A state => Set map of tasks given their state. The state is
 	# a symbol in [:pending, :starting, :running, :finishing,
 	# :finished]
 	attr_reader :by_predicate
-	# A peer => ValueSet map of tasks given their owner.
+	# A peer => Set map of tasks given their owner.
 	attr_reader :by_owner
 
-	STATE_PREDICATES = [:pending?, :running?, :finished?, :success?, :failed?].to_value_set
+	STATE_PREDICATES = [:pending?, :running?, :finished?, :success?, :failed?].to_set
         PREDICATES = STATE_PREDICATES.dup
 
 	def initialize
-	    @by_model = Hash.new { |h, k| h[k] = ValueSet.new }
+	    @by_model = Hash.new { |h, k| h[k] = Set.new }
 	    @by_predicate = Hash.new
 	    STATE_PREDICATES.each do |state_name|
-		by_predicate[state_name] = ValueSet.new
+		by_predicate[state_name] = Set.new
 	    end
 	    @by_owner = Hash.new
 	end
 
         def initialize_copy(source)
             super
-	    @by_model = Hash.new { |h, k| h[k] = ValueSet.new }
+	    @by_model = Hash.new { |h, k| h[k] = Set.new }
             source.by_model.each do |model, set|
                 by_model[model] = set.dup
             end
@@ -62,7 +62,7 @@ module Roby
 
         # Updates the index to reflect that +new_owner+ now owns +task+
 	def add_owner(task, new_owner)
-	    (by_owner[new_owner] ||= ValueSet.new) << task
+	    (by_owner[new_owner] ||= Set.new) << task
 	end
 
         # Updates the index to reflect that +peer+ no more owns +task+

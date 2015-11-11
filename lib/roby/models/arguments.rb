@@ -8,7 +8,7 @@ module Roby
             # The set of knwon argument names
             #
             # @return [Set<Symbol>]
-            inherited_attribute("argument_set", "argument_set") { ValueSet.new }
+            inherited_attribute("argument_set", "argument_set") { Set.new }
 
             # The set of known argument default values
             #

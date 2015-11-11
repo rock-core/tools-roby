@@ -281,7 +281,7 @@ module Roby::TaskStructure
                 options[:model] = [Array(options[:model]), Hash.new]
             end
 
-            roles = options[:roles] || ValueSet.new
+            roles = options[:roles] || Set.new
             if role = options.delete(:role)
                 roles << role.to_str
             end
@@ -368,7 +368,7 @@ module Roby::TaskStructure
 	# Return the set of this task children for which the :start event has
 	# no parent in CausalLinks
         def first_children
-	    result = ValueSet.new
+	    result = Set.new
 
 	    generated_subgraph(Dependency).each do |task|
 		next if task == self
@@ -598,14 +598,14 @@ module Roby::TaskStructure
 	attribute(:interesting_events) { Array.new }
 
 	# The set of tasks that are currently failing 
-	attribute(:failing_tasks) { ValueSet.new }
+	attribute(:failing_tasks) { Set.new }
 
         def self.register_interesting_event_if_unreachable(reason, ev)
             Dependency.interesting_events << ev
         end
 
         def update_triggers_for(parent, child, info)
-            events = ValueSet.new
+            events = Set.new
             if info[:success]
                 for event_name in info[:success].required_events
                     events << child.event(event_name)
@@ -761,7 +761,7 @@ module Roby::TaskStructure
         # relations. It returns an array of ChildFailedError for all failed
         # hierarchy relations
         def check_structure(plan)
-            # The ValueSet in #interesting_events is also referenced
+            # The Set in #interesting_events is also referenced
             # *separately* in EventStructure.gather_events. We therefore have to
             # keep it (and can't use #partition). Yuk
             events = Array.new

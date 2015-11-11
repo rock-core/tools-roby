@@ -847,10 +847,10 @@ class TC_Event < Minitest::Test
 	e1, e2 = (1..2).map { EventGenerator.new(true) }.
 	    each { |ev| plan.add(ev) }
 
-	assert_equal([].to_value_set, e1.related_events)
+	assert_equal([].to_set, e1.related_events)
 	e1.signals e2
-	assert_equal([e2].to_value_set, e1.related_events)
-	assert_equal([e1].to_value_set, e2.related_events)
+	assert_equal([e2].to_set, e1.related_events)
+	assert_equal([e1].to_set, e2.related_events)
     end
 
     def test_related_tasks
@@ -858,9 +858,9 @@ class TC_Event < Minitest::Test
 	    each { |ev| plan.add(ev) }
 	t1 = Tasks::Simple.new
 
-	assert_equal([].to_value_set, e1.related_tasks)
+	assert_equal([].to_set, e1.related_tasks)
 	e1.signals t1.event(:start)
-	assert_equal([t1].to_value_set, e1.related_tasks)
+	assert_equal([t1].to_set, e1.related_tasks)
     end
 
     def test_command
@@ -1260,9 +1260,9 @@ class TC_Event < Minitest::Test
 
         root.emit
         event = target.last
-        assert_equal [i1.last, i2.last].to_value_set, event.sources.to_value_set
-        assert_equal [root.last, i1.last, i2.last].to_value_set, event.all_sources.to_value_set
-        assert_equal [root.last].to_value_set, event.root_sources.to_value_set
+        assert_equal [i1.last, i2.last].to_set, event.sources.to_set
+        assert_equal [root.last, i1.last, i2.last].to_set, event.all_sources.to_set
+        assert_equal [root.last].to_set, event.root_sources.to_set
     end
 
     def test_adding_a_handler_from_within_a_handler_does_not_call_the_new_handler

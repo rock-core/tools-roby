@@ -11,7 +11,7 @@ module Roby
 
         # Overload of TaskMatcher#filter
 	def filter(task_set, task_index)
-	    result = ValueSet.new
+	    result = Set.new
 	    for child in @ops
 		result.merge child.filter(task_set, task_index)
 	    end

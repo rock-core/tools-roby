@@ -148,7 +148,7 @@ module Roby
         #
         # See #find_tasks.
 	def query_result_set(query)
-	    result = ValueSet.new
+	    result = Set.new
 	    call(:query_result_set, query) do |marshalled_set|
 		for task in marshalled_set
 		    task = local_object(task)
@@ -230,7 +230,7 @@ module Roby
 	# Discovers all objects at a distance +dist+ from +obj+. The object
 	# can be either a remote proxy or the remote object itself
 	def discover_neighborhood(object, distance)
-	    objects = ValueSet.new
+	    objects = Set.new
 	    Roby.condition_variable(true) do |synchro, mutex|
 		mutex.synchronize do
                     done = false
@@ -550,7 +550,7 @@ module Roby
         # collection, it will check that each of its elements is
         # marshallable first. This is automatically called for all
         # messages if DEBUG_MARSHALLING is set to true.
-        def check_marshallable(object, stack = ValueSet.new)
+        def check_marshallable(object, stack = Set.new)
             if !object.kind_of?(DRbObject) && object.respond_to?(:each) && !object.kind_of?(String)
                 if stack.include?(object)
                     Distributed.warn "recursive marshalling of #{obj}"

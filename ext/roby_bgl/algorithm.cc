@@ -1,4 +1,3 @@
-#include "../value_set/value_set.hh"
 #include "graph.hh"
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/breadth_first_search.hpp>
@@ -19,6 +18,8 @@ typedef RubyGraph::vertex_iterator	vertex_iterator;
 typedef RubyGraph::vertex_descriptor	vertex_descriptor;
 typedef RubyGraph::edge_iterator	edge_iterator;
 typedef RubyGraph::edge_descriptor	edge_descriptor;
+typedef std::set<VALUE> ValueSet;
+
 
 static VALUE graph_view_of(VALUE self)
 { return rb_iv_get(self, "@__bgl_real_graph__"); }
@@ -26,8 +27,9 @@ static VALUE graph_view_of(VALUE self)
 using namespace boost;
 using namespace std;
 
+static VALUE rb_cSet;
 static ID id_new;
-static VALUE utilrbValueSet;
+static ID id_add;
 
 template<typename T>
 struct Queue : std::queue<T>
@@ -130,25 +132,31 @@ public:
 };
 
 
-static ValueSet& rb_to_set(VALUE object)
+static std::set<VALUE> rb_to_set(VALUE object)
 {
-    if (!RTEST(rb_obj_is_kind_of(object, utilrbValueSet)))
-	rb_raise(rb_eArgError, "expected a ValueSet");
+    if (!rb_obj_is_kind_of(object, rb_cArray))
+        rb_raise(rb_eArgError, "expected an array");
 
-    ValueSet* result_set;
-    Data_Get_Struct(object, ValueSet, result_set);
-    return *result_set;
+    std::set<VALUE> result_set;
+    long length = RARRAY_LEN(object);
+#ifdef RARRAY_AREF
+    for (long i = 0; i < length; ++i)
+        result_set.insert(RARRAY_AREF(object, i));
+#else
+    for (long i = 0; i < length; ++i)
+        result_set.insert(RARRAY_PTR(object)[i]);
+#endif
+    return result_set;
 }
 
 /** Converts a std::set<VALUE> into a ValueSet object 
  * After this method, +source+ is empty */
 static VALUE set_to_rb(ValueSet& source)
 {
-    VALUE result = rb_funcall(utilrbValueSet, id_new, 0);
-    ValueSet* result_set;
-    Data_Get_Struct(result, ValueSet, result_set);
+    VALUE result = rb_funcall(rb_cSet, id_new, 0);
+    for (set<VALUE>::const_iterator it = source.begin(); it != source.end(); ++it)
+        rb_funcall(result, id_add, 1, *it);
 
-    result_set->swap(source);
     return result;
 }
 
@@ -230,8 +238,8 @@ static VALUE graph_do_generated_subgraphs(int argc, VALUE* argv, Graph const& g,
     }
     else
     {
-	ValueSet& root_set = rb_to_set(roots);
-	ValueSet::const_iterator 
+	std::set<VALUE> root_set = rb_to_set(roots);
+	std::set<VALUE>::const_iterator 
 	    begin = root_set.begin(),
 	    end   = root_set.end();
 
@@ -288,8 +296,8 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
     else
     {
 	enabled_components.resize(count, false);
-	ValueSet& seed_set = rb_to_set(seeds);
-	for (ValueSet::const_iterator it = seed_set.begin(); it != seed_set.end(); ++it)
+	std::set<VALUE> seed_set = rb_to_set(seeds);
+	for (std::set<VALUE>::const_iterator it = seed_set.begin(); it != seed_set.end(); ++it)
 	{
 	    VALUE rb_vertex = *it;
 
@@ -736,6 +744,9 @@ static VALUE graph_topological_sort(int argc, VALUE* argv, VALUE self)
 void Init_graph_algorithms()
 {
     id_new = rb_intern("new");
+    id_add = rb_intern("add");
+
+    rb_cSet = rb_const_get(rb_cObject, rb_intern("Set"));
 
     bglModule = rb_define_module("BGL");
     bglGraph  = rb_define_class_under(bglModule, "Graph", rb_cObject);
@@ -766,7 +777,5 @@ void Init_graph_algorithms()
     rb_define_method(bglUndirectedGraph, "each_dfs",	RUBY_METHOD_FUNC(graph_undirected_each_dfs), 2);
     rb_define_method(bglUndirectedGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_undirected_each_bfs), 2);
     rb_define_method(bglUndirectedGraph, "prune",	RUBY_METHOD_FUNC(graph_prune), 0);
-
-    utilrbValueSet = rb_define_class("ValueSet", rb_cObject);
 }
 

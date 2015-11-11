@@ -672,8 +672,8 @@ module Roby
                 end
             end
             def watch_events(positive, negative, timeout, &block)
-                positive = Array[*(positive || [])].to_value_set
-                negative = Array[*(negative || [])].to_value_set
+                positive = Array[*(positive || [])].to_set
+                negative = Array[*(negative || [])].to_set
                 if positive.empty? && negative.empty? && !block
                     raise ArgumentError, "neither a block nor a set of positive or negative events have been given"
                 end
@@ -681,14 +681,14 @@ module Roby
 		control_priority do
                     engine.waiting_threads << Thread.current
 
-                    unreachability_reason = ValueSet.new
+                    unreachability_reason = Set.new
                     result_queue = Queue.new
 
                     engine.execute do
                         if positive.empty? && negative.empty?
                             positive, negative = yield
-                            positive = Array[*(positive || [])].to_value_set
-                            negative = Array[*(negative || [])].to_value_set
+                            positive = Array[*(positive || [])].to_set
+                            negative = Array[*(negative || [])].to_set
                             if positive.empty? && negative.empty?
                                 raise ArgumentError, "#{block} returned no events to watch"
                             end

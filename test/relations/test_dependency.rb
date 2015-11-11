@@ -387,10 +387,10 @@ class TC_Dependency < Minitest::Test
 	p, c1, c2 = prepare_plan :add => 3, :model => Tasks::Simple
 	p.depends_on c1
 	p.depends_on c2
-	assert_equal([c1, c2].to_value_set, p.first_children)
+	assert_equal([c1, c2].to_set, p.first_children)
 
 	c1.signals(:start, c2, :start)
-	assert_equal([c1].to_value_set, p.first_children)
+	assert_equal([c1].to_set, p.first_children)
     end
 
     def test_remove_finished_children

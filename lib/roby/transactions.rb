@@ -289,8 +289,8 @@ module Roby
 	    @plan   = plan
 
 	    @proxy_objects      = Hash.new
-	    @discarded_tasks    = ValueSet.new
-	    @auto_tasks	        = ValueSet.new
+	    @discarded_tasks    = Set.new
+	    @auto_tasks	        = Set.new
 
 	    Roby.synchronize do
 		plan.transactions << self
@@ -374,7 +374,7 @@ module Roby
 
 	    t = may_unwrap(t)
 	    if t.plan == self.plan
-		auto_tasks.insert(t)
+		auto_tasks.add(t)
 	    end
 	end
 
@@ -387,7 +387,7 @@ module Roby
 
 	    t = may_unwrap(t)
 	    if t.plan == self.plan
-		discarded_tasks.insert(t)
+		discarded_tasks.add(t)
 	    end
 	end
 
@@ -455,11 +455,11 @@ module Roby
         #
         # snippet in your redefinition if you do so.
         def apply_modifications_to_plan
-            discover_tasks  = ValueSet.new
-            discover_events  = ValueSet.new
-            new_missions    = ValueSet.new
-            new_permanent_tasks  = ValueSet.new
-            new_permanent_events = ValueSet.new
+            discover_tasks  = Set.new
+            discover_events  = Set.new
+            new_missions    = Set.new
+            new_permanent_tasks  = Set.new
+            new_permanent_events = Set.new
             known_tasks.dup.each do |t|
                 unwrapped = if t.transaction_proxy?
                                 finalized_task(t)
@@ -734,10 +734,10 @@ module Roby
         #
         # This is an internal method used by queries
 	def merged_generated_subgraphs(relation, plan_seeds, transaction_seeds)
-	    plan_set        = ValueSet.new
-	    transaction_set = ValueSet.new
-	    plan_seeds	      = plan_seeds.to_value_set
-	    transaction_seeds = transaction_seeds.to_value_set
+	    plan_set        = Set.new
+	    transaction_set = Set.new
+	    plan_seeds	      = plan_seeds.to_set
+	    transaction_seeds = transaction_seeds.to_a
 
 	    loop do
 		old_transaction_set = transaction_set.dup
@@ -789,7 +789,7 @@ module Roby
         # it applies on the global scope. New proxies will only be created when
         # Query#each is called.
 	def query_result_set(matcher) # :nodoc:
-	    plan_set = ValueSet.new
+	    plan_set = Set.new
             if matcher.scope == :global
                 plan_result_set = plan.query_result_set(matcher)
                 plan.query_each(plan_result_set) do |task|
@@ -815,8 +815,8 @@ module Roby
 	# have no parent in +query+
 	def query_roots(result_set, relation) # :nodoc:
 	    plan_set      , trsc_set      = *result_set
-	    plan_result   , trsc_result   = ValueSet.new     , ValueSet.new
-	    plan_children , trsc_children = ValueSet.new     , ValueSet.new
+	    plan_result   , trsc_result   = Set.new     , Set.new
+	    plan_children , trsc_children = Set.new     , Set.new
 
 	    for task in plan_set
 		next if plan_children.include?(task)

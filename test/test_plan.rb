@@ -150,12 +150,12 @@ module TC_PlanStatic
 
 	plan.add_mission(t1)
 
-	assert_equal([t1, t2, t4].to_value_set, plan.locally_useful_tasks)
+	assert_equal([t1, t2, t4].to_set, plan.locally_useful_tasks)
 	plan.add_mission(t3)
-	assert_equal([t1, t2, t3, t4].to_value_set, plan.locally_useful_tasks)
+	assert_equal([t1, t2, t3, t4].to_set, plan.locally_useful_tasks)
 	plan.unmark_mission(t1)
-	assert_equal([t3].to_value_set, plan.locally_useful_tasks)
-	assert_equal([t1, t2, t4].to_value_set, plan.unneeded_tasks)
+	assert_equal([t3].to_set, plan.locally_useful_tasks)
+	assert_equal([t1, t2, t4].to_set, plan.unneeded_tasks)
     end
 
     def test_replace_task
@@ -502,7 +502,7 @@ class TC_Plan < Minitest::Test
 
     def test_discover_new_objects_single_object
         t = Roby::Task.new
-        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = ValueSet.new), [t].to_value_set)
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = Set.new), [t].to_set)
         assert_equal [t], new.to_a
         assert_equal [t], set.to_a
     end
@@ -511,9 +511,9 @@ class TC_Plan < Minitest::Test
         t = Roby::Task.new
         child = Roby::Task.new
         t.depends_on child
-        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = ValueSet.new), [t].to_value_set)
-        assert_equal [t, child].to_value_set, new
-        assert_equal [t, child].to_value_set, set
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = Set.new), [t].to_set)
+        assert_equal [t, child].to_set, new
+        assert_equal [t, child].to_set, set
         plan.add([t, child])
     end
 
@@ -524,9 +524,9 @@ class TC_Plan < Minitest::Test
         next_task = Roby::Task.new
         child.planned_by next_task
 
-        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = ValueSet.new), [t].to_value_set)
-        assert_equal [t, child, next_task].to_value_set, new
-        assert_equal [t, child, next_task].to_value_set, set
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = Set.new), [t].to_set)
+        assert_equal [t, child, next_task].to_set, new
+        assert_equal [t, child, next_task].to_set, set
         plan.add([t, child, next_task])
     end
 
@@ -537,9 +537,9 @@ class TC_Plan < Minitest::Test
         next_task = Roby::Task.new
         child.planned_by next_task
 
-        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = [child].to_value_set), [t].to_value_set)
-        assert_equal [t].to_value_set, new
-        assert_equal [t, child].to_value_set, set
+        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = [child].to_set), [t].to_set)
+        assert_equal [t].to_set, new
+        assert_equal [t, child].to_set, set
         plan.add([t, child, next_task])
     end
 end

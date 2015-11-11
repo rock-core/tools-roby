@@ -9,7 +9,7 @@ module Roby
 
 	def initialize(generator, propagation_id, context, time = Time.now)
 	    @generator, @propagation_id, @context, @time = generator, propagation_id, context.freeze, time
-            @sources = ValueSet.new
+            @sources = Set.new
 	end
 
         def plan
@@ -25,12 +25,12 @@ module Roby
         # collected (i.e. if all references to the associated task/event
         # generator are removed), it will be removed from this set as well.
         def sources
-            result = ValueSet.new
+            result = Set.new
             @sources.delete_if do |ref|
                 begin 
-                    result << ref.get
+                    result << ref.__getobj__
                     false
-                rescue Utilrb::WeakRef::RefError
+                rescue WeakRef::RefError
                     true
                 end
             end
@@ -40,7 +40,7 @@ module Roby
         # Recursively computes the source event that led to the emission of
         # +self+
         def all_sources
-            result = ValueSet.new
+            result = Set.new
             sources.each do |ev|
                 result << ev
                 result.merge(ev.all_sources)
@@ -63,13 +63,13 @@ module Roby
 
         # Sets the sources. See #sources
         def sources=(new_sources) # :nodoc:
-            @sources = ValueSet.new
+            @sources = Set.new
             add_sources(new_sources)
         end
 
         def add_sources(new_sources)
             for new_s in new_sources
-                @sources << Utilrb::WeakRef.new(new_s)
+                @sources << WeakRef.new(new_s)
             end
         end
 

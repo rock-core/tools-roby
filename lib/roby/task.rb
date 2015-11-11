@@ -650,9 +650,9 @@ module Roby
 	    end
 
             success_events, failure_events, terminal_events =
-                [event(:success)].to_value_set, 
-                [event(:failed)].to_value_set,
-                [event(:stop), event(:success), event(:failed)].to_value_set
+                [event(:success)].to_set, 
+                [event(:failed)].to_set,
+                [event(:stop), event(:success), event(:failed)].to_set
 
             do_terminal_flag_update(terminal_events, success_events, event(:success))
             do_terminal_flag_update(terminal_events, failure_events, event(:failed))
@@ -702,7 +702,7 @@ module Roby
 	    end
 
 	    result.reject { |ev| ev.respond_to?(:task) && ev.task == self }.
-		to_value_set
+		to_set
 	end
             
         # This method is called by TaskEventGenerator#fire just before the event handlers
@@ -1357,7 +1357,7 @@ module Roby
 
 	    # Compute the set of tasks that are in our subtree and not in
 	    # object's *after* the replacement
-	    tree = ValueSet.new
+	    tree = Set.new
 	    TaskStructure.each_root_relation do |rel|
 		tree.merge generated_subgraph(rel)
                 tree.merge object.generated_subgraph(rel)

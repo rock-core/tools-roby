@@ -25,7 +25,7 @@ module Roby
         module DisplayPlanObject
             def display_parent; end
             def display_create(display); end
-            def display_events; ValueSet.new end
+            def display_events; Set.new end
             def display_name(display); remote_name end
             def display(display, graphics_item)
             end
@@ -488,8 +488,8 @@ module Roby
 
                 @display_policy    = :explicit
 		@graphics          = Hash.new
-		@selected_objects   = ValueSet.new
-		@visible_objects   = ValueSet.new
+		@selected_objects   = Set.new
+		@visible_objects   = Set.new
 		@flashing_objects  = Hash.new
 		@arrows            = Hash.new
                 @free_arrows       = Array.new
@@ -848,7 +848,7 @@ module Roby
 	    end
 
             def update_visible_objects
-                @visible_objects = ValueSet.new
+                @visible_objects = Set.new
 
                 # NOTE: we unconditionally add events that are propagated, as
                 # #displayed?(obj) will filter out the ones whose task is hidden
@@ -882,11 +882,11 @@ module Roby
 
                 if display_policy == :emitters_and_parents
                     while true
-                        new_visible_objects = ValueSet.new
+                        new_visible_objects = Set.new
                         Roby::TaskStructure.each_relation do |rel|
                             components = rel.reverse.generated_subgraphs(visible_objects, false)
                             components.each do |c|
-                                new_visible_objects.merge(c.to_value_set - visible_objects)
+                                new_visible_objects.merge(c.to_set - visible_objects)
                             end
                         end
                         if new_visible_objects.empty?
@@ -897,7 +897,7 @@ module Roby
                     visible_objects.dup.each do |obj|
                         if obj.kind_of?(Roby::Task)
                             obj.each_relation do |rel|
-                                visible_objects.merge(obj.child_objects(rel).to_value_set)
+                                visible_objects.merge(obj.child_objects(rel))
                             end
                         end
                     end
@@ -946,20 +946,20 @@ module Roby
 		clear_flashing_objects
 
 		# The sets of tasks and events know to the data stream
-		all_tasks  = plans.inject(ValueSet.new) do |all_tasks, plan|
+		all_tasks  = plans.inject(Set.new) do |all_tasks, plan|
 		    all_tasks.merge plan.known_tasks
 		    all_tasks.merge plan.finalized_tasks
 		end
-		all_events = plans.inject(ValueSet.new) do |all_events, plan|
+		all_events = plans.inject(Set.new) do |all_events, plan|
 		    all_events.merge plan.free_events
 		    all_events.merge plan.finalized_events
 		end
-                all_task_events = all_tasks.inject(ValueSet.new) do |all_task_events, task|
-                    all_task_events.merge(task.bound_events.values.to_value_set)
+                all_task_events = all_tasks.inject(Set.new) do |all_task_events, task|
+                    all_task_events.merge(task.bound_events.values)
                 end
 
 		# Remove the items for objects that don't exist anymore
-		(graphics.keys.to_value_set - all_tasks - all_events - all_task_events).each do |obj|
+		(graphics.keys.to_set - all_tasks - all_events - all_task_events).each do |obj|
 		    selected_objects.delete(obj)
 		    remove_graphics(graphics.delete(obj))
 		    clear_arrows(obj)

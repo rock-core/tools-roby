@@ -7,14 +7,14 @@ module Roby
         module ReplayPlan
             # The set of tasks that have been finalized since the last call to
             # #clear_integrated
-            attribute(:finalized_tasks)  { ValueSet.new }
+            attribute(:finalized_tasks)  { Set.new }
             # The set of free event generators that have been finalized since
             # the last call to #clear_integrated
-            attribute(:finalized_events) { ValueSet.new }
+            attribute(:finalized_events) { Set.new }
             # The set of objects (tasks and events) that got garbage collected.
             # For display purposes, they only get removed from the plan at the
             # next cycle.
-            attribute(:garbaged_objects) { ValueSet.new }
+            attribute(:garbaged_objects) { Set.new }
             # The set of events emitted since the last call to
             # #clear_integrated
             attribute(:emitted_events)   { Array.new }

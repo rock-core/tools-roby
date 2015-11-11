@@ -100,11 +100,11 @@ class TC_Log < Minitest::Test
 		t1.depends_on t2
 		assert(Log.known_objects.empty?)
 		plan.add(t1)
-		assert_equal([t1, t2].to_value_set, Log.known_objects)
+		assert_equal([t1, t2].to_set, Log.known_objects)
 		t1.remove_child t2
-		assert_equal([t1, t2].to_value_set, Log.known_objects)
+		assert_equal([t1, t2].to_set, Log.known_objects)
 		plan.remove_object(t1)
-		assert_equal([t2].to_value_set, Log.known_objects)
+		assert_equal([t2].to_set, Log.known_objects)
 
 		Log.flush
 	    ensure

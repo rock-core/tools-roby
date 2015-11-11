@@ -51,15 +51,15 @@ module Roby
             result = super
 
             if plan_predicates.include?(:mission?)
-                result.intersection!(plan.missions)
+                result = result.intersection(plan.missions)
             elsif neg_plan_predicates.include?(:mission?)
-                result.difference!(plan.missions)
+                result.subtract(plan.missions)
             end
 
             if plan_predicates.include?(:permanent?)
-                result.intersection!(plan.permanent_tasks)
+                result = result.intersection(plan.permanent_tasks)
             elsif neg_plan_predicates.include?(:permanent?)
-                result.difference!(plan.permanent_tasks)
+                result.subtract(plan.permanent_tasks)
             end
 
             result
