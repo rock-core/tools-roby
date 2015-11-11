@@ -91,15 +91,14 @@ module Roby
                 #   created. It is not monitoring the job yet, call
                 #   {JobMonitor#start} to get it to start monitoring.
                 # @return [NewJobListener]
-                def on_job(action_name: nil, jobs: jobs, &block)
+                def on_job(action_name: nil, jobs: self.jobs, &block)
                     listener = NewJobListener.new(self, action_name, block)
                     listener.start
                     if reachable?
-                        run_initial_new_job_hooks_events(listener, self.jobs)
+                        run_initial_new_job_hooks_events(listener, jobs)
                     end
                     listener
                 end
-
 
                 # @!endgroup Hooks
 
