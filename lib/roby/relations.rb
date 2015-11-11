@@ -197,6 +197,54 @@ module Roby
 	        relation.updated_info(self, object, value)
 	    end
         end
+
+        # Hook called before a new child is added to this object
+        #
+        # If an exception is raised, the child edge will not be removed
+        #
+        # As all Roby hook methods, one must call super when overloading
+        #
+        # @param [Object] child the child object
+        # @param [Array<RelationGraph>] relations the graphs in which an edge
+        #   has been added
+        # @param [Object] info the associated edge info that applies to
+        #   relations.first
+        def adding_child_object(child, relations, info)
+        end
+
+        # Hook called after a new child has been added to this object
+        #
+        # As all Roby hook methods, one must call super when overloading
+        #
+        # @param [Object] child the child object
+        # @param [Array<RelationGraph>] relations the graphs in which an edge
+        #   has been added
+        # @param [Object] info the associated edge info that applies to
+        #   relations.first
+        def added_child_object(child, relations, info)
+        end
+
+        # Hook called before a new child is added to this object
+        #
+        # If an exception is raised, the edge will not be removed
+        #
+        # As all Roby hook methods, one must call super when overloading
+        #
+        # @param [Object] child the child object
+        # @param [Array<RelationGraph>] relations the graphs in which an edge
+        #   is being removed
+        def removing_child_object(child, relations)
+        end
+
+        # Hook called after a child has been removed from this object
+        #
+        # As all Roby hook methods, one must call super when overloading
+        #
+        # @param [Object] child the child object
+        # @param [Array<RelationGraph>] relations the graphs in which an edge
+        #   has been removed
+        def removed_child_object(child, relations)
+        end
     end
 
     # This class manages the graph defined by an object relation in Roby.
@@ -737,7 +785,7 @@ module Roby
         #
         # Finally, if a block is given, it gets included in the target class
         # (i.e. for a TaskStructure relation, Roby::Task)
-	def relation(relation_name, options = {}, &block)
+	def relation(relation_name, options = {})
 	    options = validate_options options,
 			:child_name  => relation_name.to_s.snakecase,
 			:const_name  => relation_name,
@@ -752,7 +800,9 @@ module Roby
                         :strong      => false,
                         :copy_on_replace => false
 
-            if options[:strong] && options[:weak]
+            if block_given?
+                raise ArgumentError, "calling relation with a block is not supported anymore. Reopen #{options[:const_name]}GraphClass::Extension after the relation call to add helper methods"
+            elsif options[:strong] && options[:weak]
                 raise ArgumentError, "a relation cannot be both strong and weak"
             end
 
@@ -776,7 +826,6 @@ module Roby
                 graph
 	    end
             mod = graph.support
-            mod.scoped_eval(:module_eval, &block) if block
 
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
@@ -832,7 +881,20 @@ module Roby
 		end
 		EOD
 	    end
+
 	    mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+            def adding_child_object(to, relations, info)
+                super
+                if relations.include?(@@__r_#{relation_name}__)
+                    adding_#{options[:child_name]}(to, info)
+                end
+            end
+            def removing_child_object(to, relations)
+                super
+                if relations.include?(@@__r_#{relation_name}__)
+                    removing_#{options[:child_name]}(to)
+                end
+            end
 	    def add_#{options[:child_name]}(to, info = nil)
 		add_child_object(to, @@__r_#{relation_name}__, info)
 		self
@@ -841,27 +903,31 @@ module Roby
 		remove_child_object(to, @@__r_#{relation_name}__)
 		self
 	    end
+
+            def adding_#{options[:child_name]}(to, info)
+            end
+            def added_#{options[:child_name]}(to, info)
+            end
+            def removing_#{options[:child_name]}(to)
+            end
+            def removed_#{options[:child_name]}(to)
+            end
 	    EOD
 
 	    if options[:single_child]
-                existing_methods = mod.instance_methods(false).map(&:to_sym)
-                has_add_child_hook    = existing_methods.include?(:added_child_object)
-                has_remove_child_hook = existing_methods.include?(:removed_child_object)
-
 		mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
 		attr_reader :#{options[:child_name]}
 
-                #{"alias __added_child_object__ added_child_object" if has_add_child_hook}
                 def added_child_object(child, relations, info)
                     if relations.include?(@@__r_#{relation_name}__)
                         instance_variable_set :@#{options[:child_name]}, child
                     end
-
                     super if defined? super
-                    #{"__added_child_object__(child, relations, info)" if has_add_child_hook}
+                    if relations.include?(@@__r_#{relation_name}__)
+                        added_#{options[:child_name]}(child, info)
+                    end
                 end
 
-                #{"alias __removed_child_object__ removed_child_object" if has_remove_child_hook}
                 def removed_child_object(child, relations)
                     if relations.include?(@@__r_#{relation_name}__)
                         instance_variable_set :@#{options[:child_name]}, nil
@@ -871,10 +937,26 @@ module Roby
 			end
                     end
                     super if defined? super
-
-                    #{"__removed_child_object__(child, relations)" if has_remove_child_hook}
+                    if relations.include?(@@__r_#{relation_name}__)
+                        removed_#{options[:child_name]}(child)
+                    end
                 end
 		EOD
+            else
+                mod.class_eval <<-EOD, __FILE__, __LINE__ + 1
+                def added_child_object(to, relations, info)
+                    super
+                    if relations.include?(@@__r_#{relation_name}__)
+                        added_#{options[:child_name]}(to, info)
+                    end
+                end
+                def removed_child_object(to, relations)
+                    super
+                    if relations.include?(@@__r_#{relation_name}__)
+                        removed_#{options[:child_name]}(to)
+                    end
+                end
+                EOD
 	    end
 
 	    graph.support = mod

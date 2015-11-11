@@ -6,7 +6,8 @@ class TC_Relations < Minitest::Test
 
 	r1, r2 = nil
 	space = Roby::RelationSpace(klass)
-        r1 = space.relation :R1 do
+        r1 = space.relation :R1
+        r1.class::Extension.module_eval do
             def specific_relation_method
             end
         end
@@ -176,11 +177,11 @@ class TC_Relations < Minitest::Test
 		def to_s; "v#{@index.to_s}" end
 		include Roby::DirectedRelationSupport
 		define_method(:added_child_object) do |child, relations, info|
-		    super if defined? super
+		    super(child, relations, info) if defined? super
 		    mock.hooked_addition(child, relations)
 		end
 		define_method(:removed_child_object) do |child, relations|
-		    super if defined? super
+		    super(child, relations) if defined? super
 		    mock.hooked_removal(child, relations)
 		end
 	    end
@@ -233,9 +234,10 @@ class TC_Relations < Minitest::Test
 	space = Roby::RelationSpace(klass)
         add_child_called = false
         remove_child_called = false
-        r1 = space.relation :R1, :single_child => true do
-            define_method(:added_child_object) { |*args| add_child_called = true }
-            define_method(:removed_child_object) { |*args| remove_child_called = true }
+        r1 = space.relation :R1, :single_child => true
+        r1.class::Extension.module_eval do
+            define_method(:added_r1) { |*args| add_child_called = true }
+            define_method(:removed_r1) { |*args| remove_child_called = true }
         end
 
 	parent = klass.new 
