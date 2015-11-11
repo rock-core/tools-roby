@@ -33,8 +33,8 @@ module Roby::Tasks
 	    task = task.new unless task.kind_of?(Roby::Task)
 	    @tasks.each { |t| task.depends_on t }
 
-	    task.signals(:start, @tasks.first, :start)
-	    @tasks.last.forward_to(:success, task, :success)
+            task.start_event.signals @tasks.first.start_event
+            @tasks.last.success_event.forward_to task.success_event
 
 	    delete
 
@@ -43,19 +43,19 @@ module Roby::Tasks
 
 	def connect_start(task) # :nodoc:
 	    if old = @tasks.first
-		event(:start).remove_signal old.event(:start)
-		task.signals(:success, old, :start)
+		start_event.remove_signal old.start_event
+                task.success_event.signals old.start_event
 	    end
 
-	    event(:start).signals task.event(:start)
+	    start_event.signals task.start_event
 	end
 
 	def connect_stop(task) # :nodoc:
 	    if old = @tasks.last
-		old.signals(:success, task, :start)
-		old.event(:success).remove_forwarding event(:success)
+                old.success_event.signals task.start_event
+		old.success_event.remove_forwarding success_event
 	    end
-	    task.forward_to(:success, self, :success)
+            task.success_event.forward_to success_event
 	end
 	private :connect_stop, :connect_start
 

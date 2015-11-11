@@ -344,14 +344,14 @@ class TC_Task < Minitest::Test
     # Test the behaviour of Task#on, and event propagation inside a task
     def test_instance_event_handlers
 	plan.add(t1 = Tasks::Simple.new)
-	assert_raises(ArgumentError) { t1.on(:start) }
+        assert_raises(ArgumentError) { t1.start_event.on }
 	
 	plan.add(task = Tasks::Simple.new)
 	FlexMock.use do |mock|
-	    task.on(:start)   { |event| mock.started(event.context) }
-	    task.on(:start)   { |event| task.emit(:success, *event.context) }
-	    task.on(:success) { |event| mock.success(event.context) }
-	    task.on(:stop)    { |event| mock.stopped(event.context) }
+            task.start_event.on   { |event| mock.started(event.context) }
+            task.start_event.on   { |event| task.emit(:success, *event.context) }
+            task.success_event.on { |event| mock.success(event.context) }
+            task.stop_event.on    { |event| mock.stopped(event.context) }
 	    mock.should_receive(:started).once.with([42]).ordered
 	    mock.should_receive(:success).once.with([42]).ordered
 	    mock.should_receive(:stopped).once.with([42]).ordered
@@ -359,15 +359,15 @@ class TC_Task < Minitest::Test
 	end
         assert(task.finished?)
 	event_history = task.history.map { |ev| ev.generator }
-	assert_equal([task.event(:start), task.event(:success), task.event(:stop)], event_history)
+	assert_equal([task.start_event, task.success_event, task.stop_event], event_history)
     end
 
     def test_instance_signals
 	FlexMock.use do |mock|
 	    t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
-            t1.signals(:start, t2, :start)
+            t1.start_event.signals t2.start_event
 
-	    t2.on(:start) { |ev| mock.start }
+            t2.start_event.on { |ev| mock.start }
             mock.should_receive(:start).once
 	    t1.start!
 	end
@@ -376,7 +376,7 @@ class TC_Task < Minitest::Test
     def test_instance_signals_plain_events
 	t = prepare_plan :missions => 1, :model => Tasks::Simple
 	e = EventGenerator.new(true)
-	t.signals(:start, e)
+        t.start_event.signals e
 	t.start!
 	assert(e.happened?)
     end
@@ -422,9 +422,9 @@ class TC_Task < Minitest::Test
 
     def test_instance_forward_to
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :missions => 2, :model => Tasks::Simple
-	    t1.forward_to(:start, t2, :start)
-	    t2.on(:start) { |context| mock.start }
+	    t1, t2 = prepare_plan missions: 2, model: Tasks::Simple
+            t1.start_event.forward_to t2.start_event
+            t2.start_event.on { |context| mock.start }
 
 	    mock.should_receive(:start).once
 	    t1.start!
@@ -439,7 +439,7 @@ class TC_Task < Minitest::Test
 		ev.emit
 	    end
 	    ev.on { |event| mock.emitted }
-	    t1.forward_to(:start, ev)
+            t1.start_event.forward_to ev
 
 	    mock.should_receive(:called).never
 	    mock.should_receive(:emitted).once
@@ -454,7 +454,7 @@ class TC_Task < Minitest::Test
         assert klass.event_model(:terminal).terminal?
         plan.add(task = klass.new)
         assert task.event(:terminal).terminal?
-        assert task.event(:terminal).child_object?(task.event(:stop), EventStructure::Forwarding)
+        assert task.event(:terminal).child_object?(task.stop_event, EventStructure::Forwarding)
     end
 
     ASSERT_EVENT_ALL_PREDICATES = [:terminal?, :failure?, :success?]
@@ -486,14 +486,13 @@ class TC_Task < Minitest::Test
     def test_terminal_forward_stop(target_event = :stop)
 	klass = Task.new_submodel do
 	    event :direct
-
             event :indirect
             event :intermediate
 	end
         plan.add(task = klass.new)
-        task.forward_to :direct, task, target_event
-        task.forward_to :indirect, task, :intermediate
-        task.forward_to :intermediate, task, target_event
+        task.direct_event.forward_to task.event(target_event)
+        task.indirect_event.forward_to task.intermediate_event
+        task.intermediate_event.forward_to task.event(target_event)
         assert_event_flag(task, :direct, target_event, :normal)
         assert_event_flag(task, :indirect, target_event, :normal)
     end
@@ -528,9 +527,9 @@ class TC_Task < Minitest::Test
             event target_event, :controlable => true, :terminal => true
 	end
         plan.add(task = klass.new)
-        task.signals :direct, task, target_event
-        task.signals :indirect, task, :intermediate
-        task.signals :intermediate, task, target_event
+        task.direct_event.signals task.event(target_event)
+        task.indirect_event.signals task.intermediate_event
+        task.intermediate_event.signals task.event(target_event)
         assert_event_flag(task, :direct, target_event, :normal)
         assert_event_flag(task, :indirect, target_event, :normal)
     end
@@ -571,10 +570,10 @@ class TC_Task < Minitest::Test
         assert_model_event_flag(klass, :forward_first, :normal)
         plan.add(task = klass.new)
 
-        task.forward_to :forward_first, task, :intermediate_signal
-        task.signals :intermediate_signal, task, target_event
-        task.signals :signal_first, task, :intermediate_forward
-        task.forward_to :intermediate_forward, task, target_event
+        task.forward_first_event.forward_to task.event(:intermediate_signal)
+        task.intermediate_signal_event.signals task.event(target_event)
+        task.signal_first_event.signals task.event(:intermediate_forward)
+        task.intermediate_forward_event.forward_to task.event(target_event)
         assert_event_flag(task, :signal_first, target_event, :normal)
         assert_event_flag(task, :forward_first, target_event, :normal)
     end
@@ -653,7 +652,7 @@ class TC_Task < Minitest::Test
         # Check properties on EvControlable
         assert( klass::EvControlable.controlable? )
         assert( klass::EvControlable.respond_to?(:call) )
-        event = klass::EvControlable.new(task, task.event(:ev_controlable), 0, nil)
+        event = klass::EvControlable.new(task, task.ev_controlable_event, 0, nil)
         assert_equal(:ev_controlable, klass::EvControlable.call(task, :ev_controlable))
 
         # Check Event.terminal? if :terminal => true
@@ -669,13 +668,13 @@ class TC_Task < Minitest::Test
         assert_raises(ArgumentError) { klass.event :try_event, :command => "bla" }
 
         plan.add(task = EmptyTask.new)
-	start_event = task.event(:start)
+	start_event = task.start_event
 
-        assert_equal(start_event, task.event(:start))
+        assert_equal(start_event, task.start_event)
         assert_equal([], start_event.handlers)
 	# Note that the start => stop forwarding is added because 'start' is
 	# detected as terminal in the EmptyTask model
-        assert_equal([task.event(:stop), task.event(:success)].to_set, start_event.enum_for(:each_forwarding).to_set)
+        assert_equal([task.stop_event, task.success_event].to_set, start_event.enum_for(:each_forwarding).to_set)
         start_model = task.event_model(:start)
         assert_equal(start_model, start_event.event_model)
         assert_equal([:stop, :success].to_set, task.model.enum_for(:each_forwarding, :start).to_set)
@@ -803,7 +802,7 @@ class TC_Task < Minitest::Test
 	    model = Tasks::Simple.new_submodel do
 		event :start do |context|
 		    mock.starting(context)
-		    event(:start).emit(*context)
+		    start_event.emit(*context)
 		end
 		on(:start) do |event| 
 		    mock.started(event.context)
@@ -846,14 +845,14 @@ class TC_Task < Minitest::Test
         assert(sub.find_event_model(:stop).controlable?)
 
 	sub = base.new_submodel
-        sub.event(:start) { |context| }
+        sub.start_event { |context| }
     end
 
     def test_singleton
 	model = Task.new_submodel do
 	    def initialize
 		singleton_class.event(:start, :command => true)
-		singleton_class.event(:stop)
+		singleton_class.stop_event
 		super
 	    end
 	    event :inter
@@ -949,7 +948,7 @@ class TC_Task < Minitest::Test
 	assert(!task.success?)
 	assert(!task.failed?)
 	assert(task.finished?)
-	assert_equal(task.event(:stop).last, task.terminal_event)
+	assert_equal(task.stop_event.last, task.terminal_event)
 
 	plan.add(task = model.new)
 	task.start!
@@ -957,7 +956,7 @@ class TC_Task < Minitest::Test
 	assert(task.success?)
 	assert(!task.failed?)
 	assert(task.finished?)
-	assert_equal(task.event(:success).last, task.terminal_event)
+	assert_equal(task.success_event.last, task.terminal_event)
 
 	plan.add(task = model.new)
 	task.start!
@@ -965,7 +964,7 @@ class TC_Task < Minitest::Test
 	assert(!task.success?)
 	assert(task.failed?)
 	assert(task.finished?)
-	assert_equal(task.event(:failed).last, task.terminal_event)
+	assert_equal(task.failed_event.last, task.terminal_event)
     end
 
     def assert_exception_message(klass, msg)
@@ -987,7 +986,7 @@ class TC_Task < Minitest::Test
 	end
 
         plan.add(task = model.new)
-        assert_raises(TaskEventNotExecutable) { task.event(:start).call }
+        assert_raises(TaskEventNotExecutable) { task.start_event.call }
 
         plan.add(task = model.new)
         assert_raises(TaskEventNotExecutable) { task.start! }
@@ -1009,23 +1008,23 @@ class TC_Task < Minitest::Test
 	task = model.new
 
 	assert(!task.executable?)
-	assert(!task.event(:start).executable?)
+	assert(!task.start_event.executable?)
         task.executable = true
 	assert(task.executable?)
-	assert(task.event(:start).executable?)
+	assert(task.start_event.executable?)
         task.executable = nil
 	assert(!task.executable?)
-	assert(!task.event(:start).executable?)
+	assert(!task.start_event.executable?)
 
 	plan.add(task)
 	assert(task.executable?)
-	assert(task.event(:start).executable?)
+	assert(task.start_event.executable?)
         task.executable = false
 	assert(!task.executable?)
-	assert(!task.event(:start).executable?)
+	assert(!task.start_event.executable?)
         task.executable = nil
 	assert(task.executable?)
-	assert(task.event(:start).executable?)
+	assert(task.start_event.executable?)
 
 	# Cannot change the flag if the task is running
         task.executable = nil
@@ -1059,9 +1058,9 @@ class TC_Task < Minitest::Test
             error = yield
             assert_exception_message(TaskEventNotExecutable, substring) { error.start! }
             error = yield
-            assert_exception_message(TaskEventNotExecutable, substring) {error.event(:start).call(nil)}
+            assert_exception_message(TaskEventNotExecutable, substring) {error.start_event.call(nil)}
             error = yield
-            assert_exception_message(TaskEventNotExecutable, substring) {error.event(:start).emit(nil)}
+            assert_exception_message(TaskEventNotExecutable, substring) {error.start_event.emit(nil)}
             
             if check_signaling then
                 error = yield
@@ -1096,12 +1095,12 @@ class TC_Task < Minitest::Test
         end
         error = yield
 	assert_failure_reason(error, TaskEventNotExecutable, message_match) do
-            error.event(:start).call(nil)
+            error.start_event.call(nil)
         end
 
         error = yield
         assert_exception_message(TaskEventNotExecutable, message_match) do
-            error.event(:start).emit(nil)
+            error.start_event.emit(nil)
         end
 	
 	if check_signaling then
@@ -1156,7 +1155,7 @@ class TC_Task < Minitest::Test
 	FlexMock.use do |mock|
 	    plan.add_mission(t = EmptyTask.new)
 	    [:start, :success, :stop].each do |name|
-		t.on(name) { |event| mock.send(name) }
+                t.event(name).on { |event| mock.send(name) }
 		mock.should_receive(name).once.ordered
 	    end
 	    t.start!
@@ -1167,7 +1166,7 @@ class TC_Task < Minitest::Test
 	plan.add_mission(a)
 	FlexMock.use do |mock|
 	    [:start, :success, :stop].each do |name|
-		a.on(name) { |ev| mock.send(name) }
+                a.event(name).on { |ev| mock.send(name) }
 		mock.should_receive(name).once.ordered
 	    end
 	    a.start!
@@ -1198,7 +1197,7 @@ class TC_Task < Minitest::Test
         task_tuple(2) do |t1, t2| 
 	    s = t1 + t2
 	    aggregator_test( s.to_task, t1, t2 )
-	    assert(! t1.event(:stop).related_object?(s.event(:stop)))
+	    assert(! t1.stop_event.related_object?(s.stop_event))
 	end
 
 	task_tuple(3) do |t1, t2, t3|
@@ -1301,8 +1300,8 @@ class TC_Task < Minitest::Test
 	t1, t2, t3 = (1..3).map { Tasks::Simple.new }.
 	    each { |t| plan.add(t) }
 	t1.depends_on t2
-	t1.event(:start).signals t3.event(:start)
-	assert_equal([t3].to_set, t1.event(:start).related_tasks)
+	t1.start_event.signals t3.start_event
+	assert_equal([t3].to_set, t1.start_event.related_tasks)
 	assert_equal([t2].to_set, t1.related_objects)
 	assert_equal([t2, t3].to_set, t1.related_tasks)
     end
@@ -1311,8 +1310,8 @@ class TC_Task < Minitest::Test
 	t1, t2, t3 = (1..3).map { Tasks::Simple.new }.
 	    each { |t| plan.add(t) }
 	t1.depends_on t2
-	t1.event(:start).signals t3.event(:start)
-	assert_equal([t3.event(:start)].to_set, t1.related_events)
+	t1.start_event.signals t3.start_event
+	assert_equal([t3.start_event].to_set, t1.related_events)
     end
 
     def test_if_unreachable
@@ -1323,12 +1322,12 @@ class TC_Task < Minitest::Test
 	# Test that the stop event will make the handler called on a running task
 	FlexMock.use do |mock|
 	    plan.add(task = model.new)
-	    ev = task.event(:success)
+	    ev = task.success_event
 	    ev.if_unreachable(false) { mock.success_called }
 	    ev.if_unreachable(true)  { mock.success_cancel_called }
 	    mock.should_receive(:success_called).once
 	    mock.should_receive(:success_cancel_called).never
-	    ev = task.event(:ready)
+	    ev = task.ready_event
 	    ev.if_unreachable(false) { mock.ready_called }
 	    ev.if_unreachable(true)  { mock.ready_cancel_called }
 	    mock.should_receive(:ready_called).once
@@ -1342,13 +1341,13 @@ class TC_Task < Minitest::Test
 	# Test that it works on pending tasks too
 	FlexMock.use do |mock|
 	    plan.add(task = model.new)
-	    ev = task.event(:success)
+	    ev = task.success_event
 	    ev.if_unreachable(false) { mock.success_called }
 	    ev.if_unreachable(true)  { mock.success_cancel_called }
 	    mock.should_receive(:success_called).once
 	    mock.should_receive(:success_cancel_called).once
 
-	    ev = task.event(:ready)
+	    ev = task.ready_event
 	    ev.if_unreachable(false) { mock.ready_called }
 	    ev.if_unreachable(true)  { mock.ready_cancel_called }
 	    mock.should_receive(:ready_called).once
@@ -1378,7 +1377,7 @@ class TC_Task < Minitest::Test
 	master = Task.new_submodel do
 	    terminates
 	    event :start do |context|
-		event(:start).achieve_with slave
+		start_event.achieve_with slave
 	    end
 	end.new
 	plan.add([master, slave])
@@ -1395,7 +1394,7 @@ class TC_Task < Minitest::Test
 	slave  = Tasks::Simple.new
 	master = Task.new_submodel do
 	    event :start do |context|
-		event(:start).achieve_with slave.event(:start)
+		start_event.achieve_with slave.start_event
 	    end
 	end.new
 	plan.add([master, slave])
@@ -1484,7 +1483,7 @@ class TC_Task < Minitest::Test
             poll { mock.poll_handler }
         end
         t = prepare_plan :permanent => 1, :model => model
-        t.on(:start) { |ev| mock.start_handler }
+        t.start_event.on { |ev| mock.start_handler }
         t.poll { |task| mock.poll_handler }
         mock.should_receive(:start_handler).ordered
         mock.should_receive(:poll_handler).ordered
@@ -1660,13 +1659,13 @@ class TC_Task < Minitest::Test
 	plan.add(task)
 
 	task.start!
-	assert_equal([], task.event(:start).last.task_sources.to_a)
+	assert_equal([], task.start_event.last.task_sources.to_a)
 
 	ev = EventGenerator.new(true)
-	ev.forward_to task.event(:specialized_failure)
+	ev.forward_to task.specialized_failure_event
 	ev.call
-	assert_equal([task.event(:failed).last], task.event(:stop).last.task_sources.to_a)
-	assert_equal([task.event(:specialized_failure).last, task.event(:failed).last].to_set, task.event(:stop).last.all_task_sources.to_set)
+	assert_equal([task.failed_event.last], task.stop_event.last.task_sources.to_a)
+	assert_equal([task.specialized_failure_event.last, task.failed_event.last].to_set, task.stop_event.last.all_task_sources.to_set)
     end
 
     def test_virtual_task
@@ -1679,7 +1678,7 @@ class TC_Task < Minitest::Test
 	assert_equal(success, task.success_event)
 	FlexMock.use do |mock|
 	    start.on { |event| mock.start_event }
-	    task.event(:start).on { |event| mock.start_task }
+	    task.start_event.on { |event| mock.start_task }
 	    mock.should_receive(:start_event).once.ordered
 	    mock.should_receive(:start_task).once.ordered
 	    task.start!
@@ -1709,8 +1708,8 @@ class TC_Task < Minitest::Test
         task.emit :intermediate
 
 	new = task.dup
-	refute_same(new.event(:stop), task.event(:stop))
-	assert_same(new, new.event(:stop).task)
+	refute_same(new.stop_event, task.stop_event)
+	assert_same(new, new.stop_event.task)
 
 	assert(!plan.include?(new))
         assert_equal(nil, new.plan)
@@ -1719,7 +1718,7 @@ class TC_Task < Minitest::Test
 	assert_equal(task.arguments.to_hash, new.arguments.to_hash)
 
         plan.add(new)
-	assert_equal([new.event(:stop)], new.event(:failed).child_objects(Roby::EventStructure::Forwarding).to_a)
+	assert_equal([new.stop_event], new.failed_event.child_objects(Roby::EventStructure::Forwarding).to_a)
 
         assert(task.running?)
         assert(new.running?)
@@ -1730,7 +1729,7 @@ class TC_Task < Minitest::Test
 	assert(!task.running?)
 	assert(new.running?)
 
-	new.event(:stop).call
+	new.stop_event.call
 	assert(new.stop?, "#{new} should have emitted stop but did not, history: #{new.history.map(&:to_s).join(", ")}")
 	assert(new.finished?, "#{new} should have finished but did not, history: #{new.history.map(&:to_s).join(", ")}")
     end
@@ -1738,7 +1737,7 @@ class TC_Task < Minitest::Test
     def test_failed_to_start
 	plan.add(task = Roby::Test::Tasks::Simple.new)
         begin
-            task.event(:start).emit_failed
+            task.start_event.emit_failed
         rescue Exception
         end
         assert task.failed_to_start?
@@ -1754,7 +1753,7 @@ class TC_Task < Minitest::Test
     def test_cannot_call_event_on_task_that_failed_to_start
 	plan.add(task = Roby::Test::Tasks::Simple.new)
         begin
-            task.event(:start).emit_failed
+            task.start_event.emit_failed
         rescue Exception
         end
         assert task.failed_to_start?
@@ -1775,11 +1774,11 @@ class TC_Task < Minitest::Test
 	plan.add(task = model.new)
         task.start!
 
-        task.event(:intermediate).emit_failed
+        task.intermediate_event.emit_failed
         assert(task.internal_error?)
         assert(task.failed?)
         assert_kind_of EmissionFailed, task.failure_reason
-        assert_equal(task.event(:intermediate), task.failure_reason.failed_generator)
+        assert_equal(task.intermediate_event, task.failure_reason.failed_generator)
     end
 
     def test_emergency_termination_fails
@@ -1796,7 +1795,7 @@ class TC_Task < Minitest::Test
         assert(task.internal_error?)
         assert(task.failed?)
         assert_kind_of CommandFailed, task.failure_reason
-        assert_equal(task.event(:command_fails), task.failure_reason.failed_generator)
+        assert_equal(task.command_fails_event, task.failure_reason.failed_generator)
 
         plan.add(task = model.new)
         task.start!
@@ -2364,7 +2363,7 @@ class TC_Task < Minitest::Test
         end
         recorder = flexmock
         plan.add(task = task_m.new)
-        task.on :stop do
+        task.stop_event.on do
             recorder.on_stop
         end
         task.intermediate_event.when_unreachable do

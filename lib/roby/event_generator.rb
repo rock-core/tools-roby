@@ -308,6 +308,8 @@ module Roby
 	def on(options = Hash.new, &handler)
 	    if !options.kind_of?(Hash)
                 Roby.error_deprecated "EventGenerator#on only accepts event handlers now. Use #signals to establish signalling"
+            elsif !handler
+                raise ArgumentError, "no block given"
 	    end
 
             options = Kernel.validate_options options, :on_replace => :drop, :once => false

@@ -827,12 +827,8 @@ module Roby
         #   handler to be called
         # @return self
         def on(event_model, options = Hash.new, &user_handler)
-            if !user_handler
-                raise ArgumentError, "you must provide an event handler"
-            end
-
-            generator = event(event_model)
-            generator.on(options, &user_handler)
+            Roby.warn_deprecated "Task#on is deprecated, use EventGenerator#on instead (e.g. #{event_model}_event.signals other_event)"
+            event(event_model).on(options, &user_handler)
             self
         end
 
@@ -865,28 +861,24 @@ module Roby
         #   dest_task, with delay options. See EventGenerator#signals for more
         #   information on the available options
         #
-        # @overload signals(source_event, dest_task)
-        #   @deprecated you must always specify the target event
-        #
         def signals(event_model, to, *to_task_events)
+            Roby.warn_deprecated "Task#signals is deprecated, use EventGenerator#signal instead (e.g. #{event_model}_event.signals other_event)"
+
             generator = event(event_model)
             if Hash === to_task_events.last
                 delay = to_task_events.pop
             end
 	    to_events = case to
 			when Task
-			    if to_task_events.empty?
-                                Roby.warn_deprecated "signals(event_name, target_task) is deprecated. You must now always specify the target event name"
-				[to.event(generator.symbol)]
-			    else
-				to_task_events.map { |ev_model| to.event(ev_model) }
-			    end
+                            to_task_events.map { |ev_model| to.event(ev_model) }
 			when EventGenerator then [to]
-			else []
+			else
+			    raise ArgumentError, "expected Task or EventGenerator, got #{to}(#{to.class}: #{to.class.ancestors})"
 			end
 
-            to_events.push delay if delay
-            generator.signals(*to_events)
+            to_events.each do |event|
+                generator.signals event, delay
+            end
             self
         end
 
@@ -915,21 +907,17 @@ module Roby
         # @overload forward_to(source_event, dest_task)
         #   @deprecated you must always specify the target event
         #
-	def forward_to(name, to, *to_task_events)
-            generator = event(name)
+	def forward_to(event_model, to, *to_task_events)
+            Roby.warn_deprecated "Task#forward_to is deprecated, use EventGenerator#forward_to instead (e.g. #{event_model}_event.forward_to other_event)"
+
+            generator = event(event_model)
             if Hash === to_task_events.last
                 delay = to_task_events.pop
             end
-
-	    to_events = if to.respond_to?(:event)
-			    if to_task_events.empty?
-                                Roby.warn_deprecated "forward_to(event_name, target_task) is deprecated. You must now always specify the target event name"
-				[to.event(generator.symbol)]
-                            else
-                                to_task_events.map { |ev| to.event(ev) }
-                            end
-			elsif to.kind_of?(EventGenerator)
-			    [to]
+	    to_events = case
+                        when Task
+                            to_task_events.map { |ev| to.event(ev) }
+                        when EventGenerator then [to]
 			else
 			    raise ArgumentError, "expected Task or EventGenerator, got #{to}(#{to.class}: #{to.class.ancestors})"
 			end

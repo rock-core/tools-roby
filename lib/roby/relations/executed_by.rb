@@ -181,10 +181,10 @@ module Roby::TaskStructure
                             execution_agent.forward_to(:stop, self, :aborted)
                         end
                     else
-                        on :start, &ExecutionAgentGraphClass.method(:establish_agent_aborted_relation)
+                        start_event.on(&ExecutionAgentGraphClass.method(:establish_agent_aborted_relation))
                     end
 
-                    on :stop, &ExecutionAgentGraphClass.method(:remove_agent_aborted_relation)
+                    stop_event.on(&ExecutionAgentGraphClass.method(:remove_agent_aborted_relation))
                     self.used_with_an_execution_agent = true
                 end
 
