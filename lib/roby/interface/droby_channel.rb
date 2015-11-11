@@ -104,6 +104,12 @@ module Roby
                 nil
             rescue Errno::EPIPE, IOError, Errno::ECONNRESET
                 raise ComError, "broken communication channel"
+            rescue RuntimeError => e
+                # Workaround what seems to be a Ruby bug ...
+                if e.message =~ /can.t modify frozen IOError/
+                    raise ComError, "broken communication channel"
+                else raise
+                end
             end
         end
     end
