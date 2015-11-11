@@ -1,7 +1,4 @@
 module Roby
-    # Implementation of a job-oriented interface for Roby controllers
-    #
-    # This is the implementation of e.g. the Roby shell
     module Interface
         # The job's planning task is ready to be executed
         JOB_PLANNING_READY   = :planning_ready
@@ -9,7 +6,7 @@ module Roby
         JOB_PLANNING         = :planning
         # The job's planning task has failed
         JOB_PLANNING_FAILED  = :planning_failed
-        # The job's planning result is ready to be executed
+        # The job's main task is ready to be executed
         JOB_READY            = :ready
         # The job is started
         JOB_STARTED          = :started
@@ -33,18 +30,26 @@ module Roby
         # under the same job
         JOB_REPLACED         = :replaced
 
+        # Tests if the given state (one of the JOB_ constants) is terminal, e.g.
+        # means that the job is finished
         def self.terminal_state?(state)
             [JOB_PLANNING_FAILED, JOB_FAILED, JOB_FINISHED, JOB_FINALIZED].include?(state)
         end
 
+        # Tests if the given state (one of the JOB_ constants) means that the
+        # job finished successfully
         def self.success_state?(state)
             [JOB_SUCCESS].include?(state)
         end
 
+        # Tests if the given state (one of the JOB_ constants) means that the
+        # job finished with error
         def self.error_state?(state)
             [JOB_PLANNING_FAILED, JOB_FAILED].include?(state)
         end
 
+        # Tests if the given state (one of the JOB_ constants) means that the
+        # job is still running
         def self.running_state?(state)
             [JOB_STARTED].include?(state)
         end
@@ -274,7 +279,7 @@ module Roby
             #   @yieldparam [String] job_name the job name (non-unique)
             #   @yieldparam [Task] task the new task this job is now tracking
             #
-            #   Interface for JOB_REPLACED notifications
+            #   Interface for JOB_REPLACED and JOB_LOST notifications
             #
             # @return [Object] the listener ID that can be given to
             #   {#remove_job_listener}
@@ -392,7 +397,7 @@ module Roby
             # The jobs currently running on {#app}'s plan
             #
             # @return [Hash<Integer,(Symbol,Roby::Task,Roby::Task)>] the mapping
-            #   from job ID to the job's state (as returned by {job_state}), the
+            #   from job ID to the job's state (as returned by {#job_state}), the
             #   placeholder job task and the job task itself
             def jobs
                 result = Hash.new

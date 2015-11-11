@@ -1,6 +1,6 @@
 module Roby
     module Interface
-        # A command on an {CommandInterface}
+        # A command on an {CommandLibrary}
         class Command
             # @return [Symbol] the command name
             attr_reader :name

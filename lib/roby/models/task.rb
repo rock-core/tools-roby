@@ -132,52 +132,34 @@ module Roby
                 EOD
             end
 
+            def self.model_relation(name)
+                model_attribute_list(name)
+            end
+                
+
+            # @!group Event Relations
+
             # The set of signals that are registered on this task model
-            #
-            # At the level of the task model, events are represented as subclasses
-            # of TaskEvent. Therefore, the model-level mappings are stored between
-            # these subclasses.
-            #
-            # @return [Hash<Model<TaskEvent>, ValueSet<Model<TaskEvent>>>]
-            # @key_name source_generator
-            model_attribute_list('signal')
+            model_relation 'signal'
+
             # The set of forwardings that are registered on this task model
-            #
-            # At the level of the task model, events are represented as subclasses
-            # of TaskEvent. Therefore, the model-level mappings are stored between
-            # these subclasses.
-            #
-            # @return [Hash<subclass of TaskEvent, ValueSet<subclass of TaskEvent>>]
-            # @key_name source_generator
-            model_attribute_list('forwarding')
+            model_relation('forwarding')
+
             # The set of causal links that are registered on this task model
-            #
-            # At the level of the task model, events are represented as subclasses
-            # of TaskEvent. Therefore, the model-level mappings are stored between
-            # these subclasses.
-            #
-            # @return [Hash<subclass of TaskEvent, ValueSet<subclass of TaskEvent>>]
-            # @key_name source_generator
-            model_attribute_list('causal_link')
+            model_relation('causal_link')
+
             # The set of event handlers that are registered on this task model
-            #
-            # At the level of the task model, events are represented as subclasses
-            # of TaskEvent. Therefore, the model-level mappings are stored between
-            # these subclasses.
-            #
-            # @return [Hash<subclass of TaskEvent, ValueSet<Proc>>]
-            # @key_name generator
             model_attribute_list('handler')
+
             # The set of precondition handlers that are registered on this task model
-            #
-            # At the level of the task model, events are represented as subclasses
-            # of TaskEvent. Therefore, the model-level mappings are stored between
-            # these subclasses.
-            #
-            # @return [Hash<subclass of TaskEvent, ValueSet<Proc>>]
-            # @key_name generator
             model_attribute_list('precondition')
 
+            # @!endgroup
+
+            # Helper method to define delayed arguments from related objects
+            #
+            # @example propagate an argument from a parent task
+            #    argument :target, default: from(:parent).target
             def from(object)
                 if object.kind_of?(Symbol)
                     Roby.from(nil).send(object)
@@ -186,28 +168,31 @@ module Roby
                 end
             end
 
+            # Helper method to define delayed arguments from the State object
+            #
+            # @example get an argument from the State object
+            #    argument :initial_pose, default: from_state.pose
             def from_state(state_object = State)
                 Roby.from_state(state_object)
             end
 
             # Declare that tasks of this model can finish by simply emitting
-            # +stop+. Use it this way:
+            # stop, i.e. with no specific action.
             #
+            # @example
             #   class MyTask < Roby::Task
             #     terminates
             #   end
             #
-            # It adds a +stop!+ command that emits the +failed+ event.
 	    def terminates
 		event :failed, command: true, terminal: true
 		interruptible
 	    end
 
-            # Declare that tasks of this model can be interrupted. It does so by
-            # defining a command for +stop+, which in effect calls the command
-            # for +failed+.
+            # Declare that tasks of this model can be interrupted by calling the
+            # command of {Roby::Task#failed_event}
             #
-            # @raise [ArgumentError] if {#failed_event} is not controlable.
+            # @raise [ArgumentError] if {Roby::Task#failed_event} is not controlable.
 	    def interruptible
 		if !has_event?(:failed) || !event_model(:failed).controlable?
 		    raise ArgumentError, "failed is not controlable"
@@ -243,7 +228,7 @@ module Roby
             #
             # Update the terminal flag for the event models that are defined in
             # this task model. The event is terminal if model-level signals
-            # ({signal}) or forwards ({forward}) lead to the
+            # ({#signal}) or forwards ({#forward}) lead to the
             # emission of {#stop_event}
             def update_terminal_flag # :nodoc:
                 events = enum_events.map { |name, _| name }
@@ -470,13 +455,20 @@ module Roby
             alias :has_event? :find_event_model
 
             private :validate_event_definition_request
-        
-            # call-seq:
-            #   signal(name1 => name2, name3 => [name4, name5])
-            #
+
             # Establish model-level signals between events of that task. These
             # signals will be established on all the instances of this task model
             # (and its subclasses).
+            #
+            # Signals cause the target event(s) command to be called when the
+            # source event is emitted.
+            # 
+            # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
+            # @raise [ArgumentError] if the target event is not controlable,
+            #   i.e. not have a command
+            #
+            # @example when establishing multiple relations from the same source use name-to-arrays
+            #   signal :start => [:one, :two]
             def signal(mappings)
                 mappings.each do |from, to|
                     from    = event_model(from)
@@ -526,12 +518,18 @@ module Roby
                 end
             end
 
-            # call-seq:
-            #   causal_link(:from => :to)
+            # Establish model-level causal links between events of that task. These
+            # signals will be established on all the instances of this task
+            # model (and its subclasses).
             #
-            # Declares a causal link between two events in the task. See
-            # EventStructure::CausalLink for a description of the causal link
-            # relation.
+            # Causal links are used during event propagation to order the
+            # propagation properly. Establish a causal link when e.g. an event
+            # handler might call or emit on another of this task's event
+            # 
+            # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
+            #
+            # @example when establishing multiple relations from the same source use name-to-arrays
+            #   signal :start => [:one, :two]
             def causal_link(mappings)
                 mappings.each do |from, to|
                     from = event_model(from).symbol
@@ -540,11 +538,14 @@ module Roby
                 update_terminal_flag
             end
 
-            # Defines a forwarding relation between two events of the same task
-            # instance.
+            # Establish model-level forwarding between events of that task.
+            # These relations will be established on all the instances of this
+            # task model (and its subclasses).
             #
-            # @param [{Symbol=>Symbol}] mappings of event names, where the keys
-            #   are forwarded to the values
+            # Forwarding is used to cause the target event to be emitted when
+            # the source event is.
+            #
+            # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
             # @example
             #   # A task that is stopped as soon as it is started
             #   class MyTask < Roby::Task
@@ -570,6 +571,7 @@ module Roby
                 end
                 update_terminal_flag
             end
+
 
             def precondition(event, reason, &block)
                 event = event_model(event)
@@ -600,19 +602,28 @@ module Roby
                 define_method(:poll_handler, &block)
             end
 
-            ##
-            # :call-seq:
-            #   on_exception(exception_class, ...) { |task, exception_object| ... }
-            # 
-            # Defines an exception handler. matcher === exception_object is used to
-            # determine if the handler should be called when +exception_object+ has
-            # been fired. The first matching handler is called. Call #pass_exception to pass
-            # the exception to previous handlers
+            # Defines an exception handler.
             #
+            # When propagating exceptions, {ExecutionException} goes up in the
+            # task hierarchy and calls matching handlers on the tasks it finds,
+            # and on their planning task. The first matching handler is called,
+            # and the exception propagation assumes that it handled the
+            # exception (i.e. won't look for new handlers) unless it calls
+            # {Roby::Task#pass_exception}
+            #
+            # @param [#to_execution_exception_matcher] matcher object for
+            #   exceptions. Subclasses of {LocalizedError} have it (matching the
+            #   exception class) as well as {Task} (matches exception origin).
+            #   See {Roby::Queries} for more advanced exception matchers.
+            #
+            # @yieldparam [ExecutionException] exception the exception that is
+            #   being handled
+            #
+            # @example install a handler for a TaskModelViolation exception
             #   on_exception(TaskModelViolation, ...) do |task, exception_object|
-            #	if cannot_handle
-            #	    task.pass_exception # send to the next handler
-            #	end
+            #	    if cannot_handle
+            #	        task.pass_exception # send to the next handler
+            #	    end
             #       do_handle
             #   end
             def on_exception(matcher, &handler)

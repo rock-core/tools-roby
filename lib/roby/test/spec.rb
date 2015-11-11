@@ -31,10 +31,10 @@ module Roby
                 "#{self.class}##{name}"
             end
 
-            # Set of models present during {setup}
+            # Set of models present during {#setup}
             #
             # This is used to clear all the models created during the test in
-            # {teardown}
+            # {#teardown}
             attr_reader :models_present_in_setup
 
             def setup

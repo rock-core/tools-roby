@@ -31,7 +31,7 @@ module Roby
             # Create a client endpoint to a Roby interface [Server]
             #
             # @param [DRobyChannel] io a channel to the server
-            # @param [Object] String a unique identifier for this client
+            # @param [String] id a unique identifier for this client
             #   (e.g. host:port of the local endpoint when using TCP). It is
             #   passed to the server through {Server#handshake}
             #
@@ -83,11 +83,9 @@ module Roby
 
             # @api private
             #
-            # Reads what is available on the given IO and processes the message
+            # Process a message as received on {#io}
             #
-            # @param [#read_packet] io packet-reading object
-            # @return [Boolean,Boolean] the first boolean indicates if a packet
-            #   has been processed, the second one if it was a cycle_end message
+            # @return [Boolean] whether the message was a cycle_end message
             def process_packet(m, *args)
                 if m == :cycle_end
                     @cycle_index, @cycle_start_time = *args
@@ -262,19 +260,21 @@ module Roby
                     @calls = Array.new
                 end
 
-                # The set of calls on {#context} that have been gathered so far
+                # The set of operations that have been gathered so far
                 def __calls
                     @calls
                 end
 
-                # Pushes a call in the batch
                 def push(path, m, *args)
+                # Pushes an operation in the batch
                     @calls << [path, m, *args]
                 end
 
                 # Start the given job within the batch
                 #
                 # Note that as all batch operations, order does NOT matter
+                #
+                # @raise [NoSuchAction] if the action does not exist
                 def start_job(action_name, *args)
                     if @context.find_action_by_name(action_name)
                         push([], :start_job, action_name, *args)
@@ -289,8 +289,9 @@ module Roby
                     push([], :kill_job, job_id)
                 end
 
-                # Catch calls to the unnderlying {#context} and gathers them in
-                # {#__calls}
+                # @api private
+                #
+                # Provides the action_name! syntax to start jobs
                 def method_missing(m, *args)
                     if m.to_s =~ /(.*)!$/
                         start_job($1, *args)

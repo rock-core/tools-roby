@@ -41,7 +41,7 @@ module Roby
             # A list of callbacks that should be called with the remote peer's
             # reply
             #
-            # @return # [Array<#call(ConnectionRequest,socket,remote_uri,remote_port,remote_state)>]
+            # @return [Array<#call(ConnectionRequest,socket,remote_uri,remote_port,remote_state)>]
             #   information about the remote peer's reply. See {Peer}
             #   documentation for more information
             attr_reader :callbacks

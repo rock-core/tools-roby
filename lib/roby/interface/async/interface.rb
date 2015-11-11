@@ -38,17 +38,20 @@ module Roby
                 #   Hooks called when we successfully connected
                 #
                 #   @param [Array<JobMonitor>] list of currently active jobs, as
-                #     returned by {#jobs}
+                #     returned by {#jobs}. These monitors are inactive: if you
+                #     want to track one of them, you must call
+                #     {JobMonitor#start}.
                 #   @return [void]
                 define_hooks :on_reachable
                 # @!method on_unreachable()
-                #
-                #   Hooks called when we got disconnected
+                #   Hooks called when the connection to the Roby app has been
+                #   lost.
                 #   @return [void]
                 define_hooks :on_unreachable
                 # @!method on_notification
-                #
-                #   Hooks called for generic notifications
+                #   Hooks called for generic notifications messages, usually
+                #   queued through {Application#notify}. Note that all log
+                #   messages sent through {Robot} are forwarded this way.
                 #
                 #   @yieldparam [Symbol] level message level
                 #   @yieldparam [String] message a text message explaining the
@@ -64,7 +67,8 @@ module Roby
                 #   @yieldparam [Integer] job_id the job ID
                 #   @yieldparam [String] job_name the job name
                 #   @yieldparam [Array<Object>] args additional information
-                #     specific to this progress message
+                #     specific to this progress message. See
+                #     {Interface::Interface#on_job_notification} for details.
                 #   @return [void]
                 define_hooks :on_job_progress
                 # @!method on_exception

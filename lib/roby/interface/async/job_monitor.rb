@@ -4,12 +4,16 @@ module Roby
             # Asynchronous monitoring of a job
             #
             # This is usually not created directly, but either by calling
-            # {Interface#on_job} or {Interface#find_job}. The jobs created by
-            # these two methods are already listening for the job's progress.
-            # Call {#stop} to remove the monitor.
+            # {Interface#on_job} or {Interface#find_all_jobs}. The jobs created by
+            # these two methods not listening for the job's progress, you must
+            # call {#start} on them to start tracking the job progress.
+            #
+            # Then call {#stop} to remove the monitor.
             class JobMonitor
                 include Roby::Hooks
                 include Roby::Hooks::InstanceHooks
+
+                # @!group Hooks
 
                 # @!method on_progress
                 #   Hook called when there is an upcoming notification
@@ -34,6 +38,8 @@ module Roby
                 #   @yieldparam (see ExecutionEngine#on_exception)
                 #   @return [void]
                 define_hooks :on_exception
+
+                # @!endgroup
 
                 # @return [Interface] the async interface we are bound to
                 attr_reader :interface
