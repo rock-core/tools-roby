@@ -636,24 +636,6 @@ module Roby
 
             @@exception_handler_id = 0
 
-            def simulation_model
-                if @simulation_model
-                    return @simulation_model
-                end
-
-                base  = self
-                model = Roby::Task.new_submodel
-                arguments.each do |name|
-                    model.argument name
-                end
-                each_event do |name, event_model|
-                    if !model.has_event?(name) || (model.find_event_model(name).controlable? != event_model.controlable?)
-                        model.event name, :controlable => event_model.controlable?, :terminal => event_model.terminal?
-                    end
-                end
-                @simulation_model ||= model
-            end
-
             # Returns a TaskMatcher object that matches this task model
             def match(*args)
                 matcher = Queries::TaskMatcher.new

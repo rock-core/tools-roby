@@ -1057,13 +1057,15 @@ class TC_ExecutionEngine < Minitest::Test
 	assert_equal([e1, e2].to_set, plan.unneeded_events)
     end
 
+    Roby::TaskStructure.relation :WeakTest, weak: true
+
     def test_garbage_collect_weak_relations
         planning, planned, influencing = prepare_plan discover: 3, model: Tasks::Simple
 
         # Create a cycle with a weak relation
         planned.planned_by planning
         influencing.depends_on planned
-        planning.influenced_by influencing
+        planning.add_weak_test influencing
 
         planned.start!
         planning.start!

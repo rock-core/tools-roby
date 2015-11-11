@@ -90,12 +90,10 @@ require 'roby/tasks/sequence'
 require 'roby/event_constraints'
 
 require 'roby/relations/conflicts'
-require 'roby/relations/ensured'
 require 'roby/relations/error_handling'
 require 'roby/relations/events'
 require 'roby/relations/executed_by'
 require 'roby/relations/dependency'
-require 'roby/relations/influence'
 require 'roby/relations/planned_by'
 require 'roby/relations/temporal_constraints'
 
