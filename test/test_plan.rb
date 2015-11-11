@@ -598,5 +598,28 @@ describe Roby::Plan do
             plan.add Roby::Task.new
         end
     end
+
+    describe "#unneeded_events" do
+        it "returns free events that are connected to nothing" do
+            plan.add(ev = Roby::EventGenerator.new)
+            assert_equal [ev].to_set, plan.unneeded_events.to_set
+        end
+        it "does not return free events that are reachable from a permanent event" do
+            plan.add_permanent(ev = Roby::EventGenerator.new)
+            assert plan.unneeded_events.empty?
+        end
+        it "does not return free events that are reachable from a task event" do
+            plan.add(t = Roby::Task.new)
+            ev = Roby::EventGenerator.new
+            t.start_event.forward_to ev
+            assert plan.unneeded_events.empty?
+        end
+        it "does not return free events that can reach a task event" do
+            plan.add(t = Roby::Task.new)
+            ev = Roby::EventGenerator.new
+            ev.forward_to t.start_event
+            assert plan.unneeded_events.empty?
+        end
+    end
 end
 
