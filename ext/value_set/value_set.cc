@@ -1,14 +1,12 @@
 #include <ruby.h>
-#include <set>
+#include "value_set.hh"
 #include <algorithm>
-#include "ruby_allocator.hh"
 
 using namespace std;
 
 static VALUE cValueSet;
 static ID id_new;
 
-typedef std::set<VALUE, std::less<VALUE>, ruby_allocator<VALUE> > ValueSet;
 static ValueSet& get_wrapped_set(VALUE self)
 {
     ValueSet* object = 0;
