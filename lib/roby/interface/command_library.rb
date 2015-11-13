@@ -31,7 +31,7 @@ module Roby
                 def subcommand(name, interface, *description)
                     subcommands[name] = [interface, description]
                     define_method name do
-                        subcommands[name]
+                        subcommands[name].first
                     end
                 end
             end
