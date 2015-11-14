@@ -1167,6 +1167,8 @@ class TC_ExecutionEngine < Minitest::Test
         process_events
         time = time + 4
         process_events
+        time = time + 6
+        process_events
     end
 
     def test_one_can_add_errors_during_garbage_collection

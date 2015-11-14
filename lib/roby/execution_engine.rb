@@ -1732,8 +1732,11 @@ module Roby
                     end
 
                     last_call = now
+                    # delete block if it shall be called only once
+                    [block, last_call, duration] unless block.respond_to?(:once?) && block.once?
+                else
+                    [block, last_call, duration]
                 end
-                [block, last_call, duration]
             end.compact!
         end
 
