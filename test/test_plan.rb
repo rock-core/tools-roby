@@ -599,6 +599,13 @@ describe Roby::Plan do
         end
     end
 
+    describe "#add_task_set" do
+        it "registers the task events in #task_events" do
+            plan.add_task_set([task = Roby::Task.new])
+            assert(plan.task_events.to_set.subset?(task.bound_events.values.to_set))
+        end
+    end
+
     describe "#unneeded_events" do
         it "returns free events that are connected to nothing" do
             plan.add(ev = Roby::EventGenerator.new)

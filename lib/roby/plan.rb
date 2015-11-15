@@ -721,9 +721,6 @@ module Roby
             end
 
             add_task_set([task])
-            for ev in task.bound_events.values
-                task_events << ev
-            end
         end
 
         # Add a free event to the plan
@@ -762,7 +759,6 @@ module Roby
                     events ||= ValueSet.new
                     for t in new_tasks
                         for ev in t.bound_events.values
-                            task_events << ev
                             events << ev
                         end
                     end
@@ -865,6 +861,9 @@ module Roby
 
 	    for t in tasks
 		t.instantiate_model_event_relations
+                for ev in t.bound_events.values
+                    task_events << ev
+                end
 	    end
 	    nil
 	end
