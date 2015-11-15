@@ -29,6 +29,7 @@ require './test/test_transactions_proxy'
 require './test/tasks/test_thread_task'
 require './test/tasks/test_external_process'
 
+require './test/schedulers/test_state'
 require './test/schedulers/test_basic'
 require './test/schedulers/test_temporal'
 

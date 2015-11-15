@@ -18,9 +18,6 @@ module Roby
     # whatever event is reasonable to call with respect to the system's
     # state (i.e. execution situation).
     module Schedulers
-        extend Logger::Hierarchy
-        extend Logger::Forward
-
         # The basic schedulers uses the Roby's "core" plan model to decide which
         # tasks can be started.
         #

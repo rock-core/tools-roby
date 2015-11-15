@@ -2,6 +2,9 @@ require 'roby/schedulers/state'
 
 module Roby
     module Schedulers
+        extend Logger::Hierarchy
+        extend Logger::Forward
+
         class Reporting
             attr_reader :state
 

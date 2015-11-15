@@ -35,6 +35,37 @@ module Roby
                 end
             end
 
+            def pretty_print(pp)
+                if !pending_non_executable_tasks.empty?
+                    has_text = true
+                    pp.text "Pending non-executable tasks"
+                    pp.nest(2) do
+                        pending_non_executable_tasks.each do |args|
+                            pp.breakable
+                            pp.text self.class.format_message_into_string(*args)
+                        end
+                    end
+                end
+
+                if !non_scheduled_tasks.empty?
+                    pp.breakable if has_text
+                    has_text = true
+                    pp.text "Non scheduled tasks"
+                    pp.nest(2) do
+                        non_scheduled_tasks.each do |task, msgs|
+                            pp.breakable
+                            task.pretty_print(pp)
+                            pp.nest(2) do
+                                msgs.each do |msg, *args|
+                                    pp.breakable
+                                    pp.text self.class.format_message_into_string(msg, task, *args)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
             # Formats a message stored in {#non_scheduled_tasks} into a plain
             # string
             def self.format_message_into_string(msg, *args)
