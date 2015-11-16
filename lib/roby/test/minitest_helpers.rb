@@ -5,6 +5,23 @@ module Roby
         # They mainly "tune" the default minitest behaviour to match some of the
         # Roby idioms as e.g. using pretty-print to format exception messages
         module MinitestHelpers
+            def roby_find_matching_exception(expected, exception)
+                queue = [exception]
+                seen  = Set.new
+                while !queue.empty?
+                    e = queue.shift
+                    next if seen.include?(e)
+                    seen << e
+                    if expected.any? { |expected_e| e.kind_of?(expected_e) }
+                        return e
+                    end
+                    if e.respond_to?(:original_exceptions)
+                        queue.concat(e.original_exceptions)
+                    end
+                end
+                nil
+            end
+
             def assert_raises(*exp, &block)
                 if plan.execution_engine
                     # Avoid having it displayed by the execution engine. We're going
@@ -22,12 +39,8 @@ module Roby
                 # wrapped in a LocalizedError, so make sure we properly
                 # process it
                 exception = super(*([Roby::UserExceptionWrapper] + exp), &block)
-                if exp.any? { |expected_e| exception.kind_of?(expected_e) }
-                    exception
-                elsif exception.kind_of?(Roby::UserExceptionWrapper) && exception.original_exception
-                    # Recursively call ourselves, it might be that the exception
-                    # we except is deeper in the chain
-                    assert_raises(*exp) { raise exception.original_exception }
+                if resolved_exception = roby_find_matching_exception(exp, exception)
+                    return resolved_exception
                 else
                     # Get minitest's error message
                     super(*exp) { raise exception }
