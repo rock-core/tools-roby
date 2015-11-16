@@ -25,6 +25,7 @@ end
 require 'minitest/autorun'
 require 'flexmock/minitest'
 require 'roby/test/common'
+require 'roby/test/minitest_helpers'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 
@@ -39,6 +40,7 @@ module Roby
     module Self
         include Roby::Test
         include Roby::Test::Assertions
+        include Roby::Test::MinitestHelpers
 
         def setup
             Roby.app.log['server'] = false
@@ -98,7 +100,7 @@ end
 
 module Minitest
     class Test
-        include Roby::Test::Self
+        prepend Roby::Test::Self
     end
 end
 
