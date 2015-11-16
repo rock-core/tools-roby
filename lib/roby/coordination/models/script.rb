@@ -53,14 +53,14 @@ module Roby
                     # @option options [Time] :after (nil) value for
                     #   {#time_barrier}
                     def initialize(event, options = Hash.new)
-                        options = Kernel.validate_options options, :after => nil
+                        options = Kernel.validate_options options, after: nil
                         @event = event
                         @done = false
                         @time_barrier = options[:after]
                     end
 
                     def new(script)
-                        Wait.new(script.instance_for(event), :after => time_barrier)
+                        Wait.new(script.instance_for(event), after: time_barrier)
                     end
 
                     def execute(script)
@@ -74,19 +74,19 @@ module Roby
                         end
 
                         if event.task != script.root_task
-                            script.root_task.depends_on event.task, :success => event.symbol
+                            script.root_task.depends_on event.task, success: event.symbol
                         else
                             if event.unreachable?
                                 raise DeadInstruction.new(script.root_task), "#{self} is locked: #{event.unreachability_reason}"
                             end
-                            event.if_unreachable(:cancel_at_emission => true) do |reason, generator|
+                            event.if_unreachable(cancel_at_emission: true) do |reason, generator|
                                 if !disabled?
                                     raise DeadInstruction.new(script.root_task), "#{self} is locked: #{reason}"
                                 end
                             end
                         end
 
-                        event.on :on_replace => :copy do |event|
+                        event.on on_replace: :copy do |event|
                             if event.generator == self.event.resolve && !disabled?
                                 if !time_barrier || event.time > time_barrier
                                     cancel
@@ -129,7 +129,7 @@ module Roby
 
                     def initialize(seconds, options = Hash.new)
                         @seconds = seconds
-                        options = Kernel.validate_options options, :emit => nil
+                        options = Kernel.validate_options options, emit: nil
                         @event = options[:emit]
                     end
 
@@ -203,7 +203,7 @@ module Roby
                 #
                 # @param [Float] time the amount of time to wait, in seconds
                 def sleep(time)
-                    task = self.task(ActionCoordination::TaskFromAsPlan.new(Tasks::Timeout.with_arguments(:delay => time), Tasks::Timeout))
+                    task = self.task(ActionCoordination::TaskFromAsPlan.new(Tasks::Timeout.with_arguments(delay: time), Tasks::Timeout))
                     start task
                     wait task.stop_event
                 end
@@ -221,7 +221,7 @@ module Roby
                     validate_event event
 
                     # For backward compatibility only
-                    options, wait_options = Kernel.filter_options(options, :timeout => nil)
+                    options, wait_options = Kernel.filter_options(options, timeout: nil)
 
                     wait = Wait.new(event, wait_options)
                     if options[:timeout]

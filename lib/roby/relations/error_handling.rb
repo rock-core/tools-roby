@@ -7,7 +7,7 @@ module Roby::TaskStructure
             end
 
             options = Kernel.validate_options options,
-                :remove_when_done => true
+                remove_when_done: true
 
 	    if !task.child_object?(repairing_task, ErrorHandling)
 		task.add_error_handler repairing_task, Set.new
@@ -33,7 +33,7 @@ module Roby::TaskStructure
 	end
     end
 
-    relation :ErrorHandling, :child_name => :error_handler, :strong => true
+    relation :ErrorHandling, child_name: :error_handler, strong: true
 
     module ErrorHandlingGraphClass::Extension
         def repaired_tasks

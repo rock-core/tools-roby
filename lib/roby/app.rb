@@ -193,11 +193,11 @@ module Roby
         #
         # The :predicate option allows to make the setter look like a predicate:
         #
-        #   overridable_configuration 'log', 'filter_backtraces', :predicate => true
+        #   overridable_configuration 'log', 'filter_backtraces', predicate: true
         #
         # will define #filter_backtraces? instead of #filter_backtraces
         def self.overridable_configuration(config_set, config_key, options = Hash.new)
-            options = Kernel.validate_options options, :predicate => false, :attr_name => config_key
+            options = Kernel.validate_options options, predicate: false, attr_name: config_key
             attr_config(config_set)
             define_method("#{options[:attr_name]}#{"?" if options[:predicate]}") do
                 send(config_set)[config_key]
@@ -553,7 +553,7 @@ module Roby
         #
         # Override the value stored in configuration files for filter_backtraces?
 
-        overridable_configuration 'log', 'filter_backtraces', :predicate => true
+        overridable_configuration 'log', 'filter_backtraces', predicate: true
 
 	##
         # :method: log_server?
@@ -565,7 +565,7 @@ module Roby
         #
         # Sets whether the log server should be started
 
-        overridable_configuration 'log', 'server', :predicate => true, :attr_name => 'log_server'
+        overridable_configuration 'log', 'server', predicate: true, attr_name: 'log_server'
 
         DEFAULT_OPTIONS = {
 	    'log' => Hash['events' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
@@ -1139,8 +1139,8 @@ module Roby
             if auto_load_models?
                 search_path = self.auto_load_search_path
                 all_files =
-                    find_files_in_dirs('models', 'tasks', 'ROBOT', :path => search_path, :all => true, :order => :specific_last, :pattern => /\.rb$/) +
-                    find_files_in_dirs('tasks', 'ROBOT', :path => search_path, :all => true, :order => :specific_last, :pattern => /\.rb$/)
+                    find_files_in_dirs('models', 'tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/) +
+                    find_files_in_dirs('tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/)
                 all_files.each do |p|
                     require(p)
                 end
@@ -1209,9 +1209,9 @@ module Roby
             search_path = self.auto_load_search_path
             if auto_load_models?
                 main_files =
-                    find_files('models', 'actions', 'ROBOT', 'main.rb', :path => search_path, :all => true, :order => :specific_first) +
-                    find_files('models', 'planners', 'ROBOT', 'main.rb', :path => search_path, :all => true, :order => :specific_first) +
-                    find_files('planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first)
+                    find_files('models', 'actions', 'ROBOT', 'main.rb', path: search_path, all: true, order: :specific_first) +
+                    find_files('models', 'planners', 'ROBOT', 'main.rb', path: search_path, all: true, order: :specific_first) +
+                    find_files('planners', 'ROBOT', 'main.rb', all: true, order: :specific_first)
                 main_files.each do |path|
                     require path
                 end
@@ -1237,9 +1237,9 @@ module Roby
 
             if auto_load_models?
                 all_files =
-                    find_files_in_dirs('models', 'actions', 'ROBOT', :path => search_path, :all => true, :order => :specific_first, :pattern => /\.rb$/) +
-                    find_files_in_dirs('models', 'planners', 'ROBOT', :path => search_path, :all => true, :order => :specific_first, :pattern => /\.rb$/) +
-                    find_files_in_dirs('planners', 'ROBOT', :path => search_path, :all => true, :order => :specific_first, :pattern => /\.rb$/)
+                    find_files_in_dirs('models', 'actions', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/) +
+                    find_files_in_dirs('models', 'planners', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/) +
+                    find_files_in_dirs('planners', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/)
                 all_files.each do |p|
                     require(p)
                 end
@@ -1249,7 +1249,7 @@ module Roby
         end
 
         def load_config_yaml
-            if file = find_file('config', 'app.yml', :order => :specific_first)
+            if file = find_file('config', 'app.yml', order: :specific_first)
                 Application.info "loading config file #{file}"
                 file = YAML.load(File.open(file)) || Hash.new
                 load_yaml(file)
@@ -1272,7 +1272,7 @@ module Roby
                 register_plugins
             end
 
-            if initfile = find_file('config', 'init.rb', :order => :specific_first)
+            if initfile = find_file('config', 'init.rb', order: :specific_first)
                 Application.info "loading init file #{initfile}"
                 require initfile
             end
@@ -1286,7 +1286,7 @@ module Roby
             call_plugins(:load, self, options)
             call_plugins(:load_base_config, self, options)
 
-            find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
+            find_dirs('lib', 'ROBOT', all: true, order: :specific_last).
                 each do |libdir|
                     if !$LOAD_PATH.include?(libdir)
                         $LOAD_PATH.unshift libdir
@@ -1294,7 +1294,7 @@ module Roby
                 end
 
             if defined? Roby::Conf
-                Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
+                Roby::Conf.datadirs = find_dirs('data', 'ROBOT', all: true, order: :specific_first)
             end
 
             if has_app?
@@ -1489,10 +1489,10 @@ module Roby
             if !single? && discovery.empty?
                 Application.info "dRoby disabled as no discovery configuration has been provided"
 	    elsif !single? && robot_name
-		droby_config = { :ring_discovery => !!discovery['ring'],
-		    :name => robot_name, 
-		    :plan => plan, 
-		    :period => discovery['period'] || 0.5 }
+		droby_config = { ring_discovery: !!discovery['ring'],
+		    name: robot_name, 
+		    plan: plan, 
+		    period: discovery['period'] || 0.5 }
 
 		if discovery['tuplespace']
 		    droby_config[:discovery_tuplespace] = DRbObject.new_with_uri("druby://#{discovery['tuplespace']}")
@@ -1510,7 +1510,7 @@ module Roby
 	    if log['events'] && public_logs?
 		require 'roby/log/file'
 		logfile = File.join(log_dir, robot_name)
-		logger  = Roby::Log::FileLogger.new(logfile, :plugins => plugins.map { |n, _| n })
+		logger  = Roby::Log::FileLogger.new(logfile, plugins: plugins.map { |n, _| n })
 		logger.stats_mode = (log['events'] == 'stats')
 		Roby::Log.add_logger logger
 
@@ -1530,7 +1530,7 @@ module Roby
 
 	    engine_config = self.engine
 	    engine = self.plan.engine
-	    options = { :cycle => engine_config['cycle'] || 0.1 }
+	    options = { cycle: engine_config['cycle'] || 0.1 }
 	    
 	    engine.run options
 	    plugins = self.plugins.map { |_, mod| mod if (mod.respond_to?(:start) || mod.respond_to?(:run)) }.compact
@@ -1775,13 +1775,13 @@ module Roby
         #   app2/models/tasks/asguard/goto.rb
         #
         # @example
-        #   find_dirs('tasks', 'ROBOT', :all => true, :order => :specific_first)
+        #   find_dirs('tasks', 'ROBOT', all: true, order: :specific_first)
         #   # returns [app1/models/tasks/v3,
         #   #          app2/models/tasks/asguard,
         #   #          app1/models/tasks/]
         #
         # @example
-        #   find_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
+        #   find_dirs('tasks', 'ROBOT', all: false, order: :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb]
         def find_dirs(*dir_path)
             Application.debug { "find_dirs(#{dir_path.map(&:inspect).join(", ")})" }
@@ -1867,23 +1867,23 @@ module Roby
         #   app2/models/tasks/asguard/goto.rb
         #
         # @example
-        #   find_files_in_dirs('tasks', 'ROBOT', :all => true, :order => :specific_first)
+        #   find_files_in_dirs('tasks', 'ROBOT', all: true, order: :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb,
         #   #          app2/models/tasks/asguard/goto.rb,
         #   #          app1/models/tasks/goto.rb]
         #
         # @example
-        #   find_files_in_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
+        #   find_files_in_dirs('tasks', 'ROBOT', all: false, order: :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb,
         def find_files_in_dirs(*dir_path)
             Application.debug { "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})" }
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :all, :order, :path, :pattern => Regexp.new(""))
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :path, pattern: Regexp.new(""))
 
             dir_search = dir_path.dup
-            dir_search << { :all => true, :order => options[:order], :path => options[:path] }
+            dir_search << { all: true, order: options[:order], path: options[:path] }
             search_path = find_dirs(*dir_search)
 
             result = []
@@ -1927,12 +1927,12 @@ module Roby
         #   app2/config/asguard.rb
         #
         # @example
-        #   find_files('config', 'ROBOT.rb', :all => true, :order => :specific_first)
+        #   find_files('config', 'ROBOT.rb', all: true, order: :specific_first)
         #   # returns [app1/config/v3.rb,
         #   #          app2/config/asguard.rb]
         #
         # @example
-        #   find_dirs('tasks', 'ROBOT', :all => false, :order => :specific_first)
+        #   find_dirs('tasks', 'ROBOT', all: false, order: :specific_first)
         #   # returns [app1/config/v3.rb]
         #
         def find_files(*file_path)
@@ -1948,12 +1948,12 @@ module Roby
             filename = filename[-1]
 
             if filename =~ /ROBOT/ && robot_name
-                args = file_path + [options.merge(:pattern => filename.gsub('ROBOT', robot_name))]
+                args = file_path + [options.merge(pattern: filename.gsub('ROBOT', robot_name))]
                 robot_name_matches = find_files_in_dirs(*args)
 
                 robot_type_matches = []
                 if robot_name != robot_type
-                    args = file_path + [options.merge(:pattern => filename.gsub('ROBOT', robot_type))]
+                    args = file_path + [options.merge(pattern: filename.gsub('ROBOT', robot_type))]
                     robot_type_matches = find_files_in_dirs(*args)
                 end
 
@@ -1964,7 +1964,7 @@ module Roby
                 end
             else
                 args = file_path.dup
-                args << options.merge(:pattern => filename)
+                args << options.merge(pattern: filename)
                 result = find_files_in_dirs(*args)
             end
 
@@ -1987,7 +1987,7 @@ module Roby
                 args.push(Hash.new)
             end
             args.last.delete('all')
-            args.last.merge!(:all => true)
+            args.last.merge!(all: true)
             find_files(*args).first
         end
 
@@ -1997,7 +1997,7 @@ module Roby
                 args.push(Hash.new)
             end
             args.last.delete('all')
-            args.last.merge!(:all => true)
+            args.last.merge!(all: true)
             find_dirs(*args).first
         end
 

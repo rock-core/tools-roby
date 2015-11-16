@@ -25,7 +25,7 @@ module Roby
             end
 
             def bind(task)
-                result_model = self.class.superclass.new_submodel(:root => model.root.model)
+                result_model = self.class.superclass.new_submodel(root: model.root.model)
                 result = result_model.new(task)
                 result.parse(&definition_block)
                 result.prepare
@@ -38,7 +38,7 @@ module Roby
                     script_task = instance_for(model_task)
                     if script_task.respond_to?(:task) && !script_task.task # Not bound ? Check if the model can be instanciated
                         task = model_task.instanciate(root_task.plan)
-                        bind_coordination_task_to_instance(script_task, task, :on_replace => :copy)
+                        bind_coordination_task_to_instance(script_task, task, on_replace: :copy)
 
                         # Protect from scheduling until the start is executed
                         #
@@ -65,7 +65,7 @@ module Roby
                     root_task.plan.add(task)
                     model_task = Coordination::Models::Task.new(task.model)
                     script_task = instance_for(model_task)
-                    bind_coordination_task_to_instance(script_task, task, :on_replace => :copy)
+                    bind_coordination_task_to_instance(script_task, task, on_replace: :copy)
                 else
                     model_task = self.model.task(task)
                     script_task = instance_for(model_task)
@@ -134,7 +134,7 @@ module Roby
             # @example wait first_child.start_event
             #   Waits until start event has been emitted. Will wait forever if
             #   the start event has already been emitted
-            # @example wait first_child.start_event, :after => Time.at(0)
+            # @example wait first_child.start_event, after: Time.at(0)
             #   Waits for start event to be emitted. Will return immediately if
             #   it has already been emitted.
             def wait(event, options = Hash.new)
@@ -145,9 +145,9 @@ module Roby
 
             # @deprecated
             #
-            # Use wait(event :after => Time.at(0)) instead
+            # Use wait(event after: Time.at(0)) instead
             def wait_any(event, options = Hash.new)
-                wait(event, options.merge(:after => Time.at(0)))
+                wait(event, options.merge(after: Time.at(0)))
             end
 
             # Sleep for a given number of seconds
@@ -155,7 +155,7 @@ module Roby
             # @param [Float] seconds the number of seconds to stop the script
             #   execution
             def sleep(seconds)
-                task = start(Tasks::Timeout.new(:delay => seconds))
+                task = start(Tasks::Timeout.new(delay: seconds))
                 wait task.stop_event
             end
 
@@ -205,11 +205,11 @@ module Roby
             #
             # @see timeout
             def timeout_start(seconds, options = Hash.new)
-                options, timeout_options  = Kernel.filter_options options, :emit => nil
+                options, timeout_options  = Kernel.filter_options options, emit: nil
                 if event = options[:emit]
                     script_event, model_event = resolve_event(event)
                 end
-                model.timeout_start(seconds, timeout_options.merge(:emit => model_event))
+                model.timeout_start(seconds, timeout_options.merge(emit: model_event))
             end
 
             # Stop a timeout operation. Usually not used directly
@@ -242,7 +242,7 @@ module Roby
         event :poll_transition
 
         def self.create_script(*task, &block)
-            script_model = Coordination::TaskScript.new_submodel(:root => self)
+            script_model = Coordination::TaskScript.new_submodel(root: self)
             script = script_model.new(*task)
             if block_given?
                 script.parse(&block)

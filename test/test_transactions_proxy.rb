@@ -120,7 +120,7 @@ class TC_TransactionsProxy < Minitest::Test
 
     def test_proxy_not_executable
 	task  = Tasks::Simple.new_submodel do
-	    event :intermediate, :command => true
+	    event :intermediate, command: true
 	end.new
 	plan.add(task)
 	proxy = transaction[task]
@@ -147,27 +147,27 @@ class TC_TransactionsProxy < Minitest::Test
         end
         model.include(tag)
 
-        t = model.new :id => 10
+        t = model.new id: 10
         p = transaction[t]
 
         assert(p.fullfills?(model))
         assert(p.fullfills?(tag))
-        assert(p.fullfills?(model, :id => 10))
-        assert(p.fullfills?(tag, :id => 10))
+        assert(p.fullfills?(model, id: 10))
+        assert(p.fullfills?(tag, id: 10))
         assert(!p.fullfills?(other_model))
-        assert(!p.fullfills?(model, :id => 5))
-        assert(!p.fullfills?(tag, :id => 5))
+        assert(!p.fullfills?(model, id: 5))
+        assert(!p.fullfills?(tag, id: 5))
 
-        assert(!p.fullfills?(model, :id => 10, :other => 20))
+        assert(!p.fullfills?(model, id: 10, other: 20))
         p.arguments[:other] = 20
-        assert(p.fullfills?(model, :id => 10, :other => 20))
+        assert(p.fullfills?(model, id: 10, other: 20))
 
     end
 
     # Tests that the graph of proxys is separated from
     # the Task and EventGenerator graphs
     def test_proxy_graph_separation
-	tasks = prepare_plan :add => 3
+	tasks = prepare_plan add: 3
 	proxies = tasks.map { |t| transaction[t] }
 
 	t1, t2, t3 = tasks
@@ -193,7 +193,7 @@ class TC_TransactionsProxy < Minitest::Test
     Dependency = Roby::TaskStructure::Dependency
 
     def test_task_relation_copy
-	t1, t2 = prepare_plan :add => 2
+	t1, t2 = prepare_plan add: 2
 	t1.depends_on t2
 
 	p1 = transaction[t1]
@@ -203,7 +203,7 @@ class TC_TransactionsProxy < Minitest::Test
     end
 
     def test_task_events
-	t1, t2 = prepare_plan :add => 2
+	t1, t2 = prepare_plan add: 2
 	t1.signals(:success, t2, :start)
 
 	p1 = transaction[t1]

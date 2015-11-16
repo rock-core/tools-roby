@@ -19,8 +19,8 @@ def test(discovery_period)
 	quit_w.close
 
 	DRb.start_service
-	Distributed.state = ConnectionSpace.new :period => discovery_period, :ring_discovery => true, :ring_broadcast => BROADCAST
-	Distributed.publish :bind => '127.0.0.2'
+	Distributed.state = ConnectionSpace.new period: discovery_period, ring_discovery: true, ring_broadcast: BROADCAST
+	Distributed.publish bind: '127.0.0.2'
 
 	start_w.write('OK')
 	quit_r.read(2)
@@ -31,8 +31,8 @@ def test(discovery_period)
     start_r.read(2)
 
     DRb.start_service
-    Distributed.state = ConnectionSpace.new :period => discovery_period, :ring_discovery => true, :ring_broadcast => BROADCAST
-    Distributed.publish :bind => '127.0.0.1'
+    Distributed.state = ConnectionSpace.new period: discovery_period, ring_discovery: true, ring_broadcast: BROADCAST
+    Distributed.publish bind: '127.0.0.1'
 
     Distributed.state.start_neighbour_discovery
     Distributed.state.wait_discovery

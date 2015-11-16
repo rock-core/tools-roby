@@ -3,11 +3,11 @@ require 'roby/test/self'
 class TC_ExecutedBy < Minitest::Test
     class ExecutionAgentModel < Tasks::Simple
 	event :ready
-	forward :start => :ready
+	forward start: :ready
     end
     class SecondExecutionModel < Tasks::Simple
 	event :ready
-	forward :start => :ready
+	forward start: :ready
     end
 
     def test_relationships
@@ -20,11 +20,11 @@ class TC_ExecutedBy < Minitest::Test
 
     def test_inherits_execution_model
 	model = Roby::Task.new_submodel do
-	    executed_by ExecutionAgentModel, :id => 20
+	    executed_by ExecutionAgentModel, id: 20
 	end
 	submodel = model.new_submodel
 
-	assert_equal([ExecutionAgentModel, {:id => 20}], submodel.execution_agent)
+	assert_equal([ExecutionAgentModel, {id: 20}], submodel.execution_agent)
     end
 
     def test_nominal
@@ -70,21 +70,21 @@ class TC_ExecutedBy < Minitest::Test
         # Wrong agent type
 	plan.add(task = task_model.new)
         assert_raises(Roby::ModelViolation) do
-            task.executed_by SecondExecutionModel.new(:id => 2)
+            task.executed_by SecondExecutionModel.new(id: 2)
         end
         assert !task.execution_agent
 
         # Wrong agent arguments
 	plan.add(task = task_model.new)
         assert_raises(Roby::ModelViolation) do
-            task.executed_by SecondExecutionModel.new(:id => 2)
+            task.executed_by SecondExecutionModel.new(id: 2)
         end
         assert !task.execution_agent
     end
 
     def test_model_requires_agent_but_none_exists
 	task_model = Tasks::Simple.new_submodel
-	task_model.executed_by ExecutionAgentModel, :id => 2
+	task_model.executed_by ExecutionAgentModel, id: 2
 	plan.add(task = task_model.new)
         assert_raises(Roby::CommandFailed) { task.start! }
         assert task.failed_to_start?
@@ -93,12 +93,12 @@ class TC_ExecutedBy < Minitest::Test
 
     def test_as_plan
         model = Tasks::Simple.new_submodel do
-	    event :ready, :controlable => true
+	    event :ready, controlable: true
             def self.as_plan
-                new(:id => 10)
+                new(id: 10)
             end
         end
-        root = prepare_plan :add => 1, :model => Tasks::Simple
+        root = prepare_plan add: 1, model: Tasks::Simple
         agent = root.executed_by(model)
         assert_kind_of model, agent
         assert_equal 10, agent.arguments[:id]

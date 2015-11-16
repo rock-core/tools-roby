@@ -267,8 +267,8 @@ module Roby
 
             def self.parse_dot_layout(dot_layout, options = Hash.new)
                 options = Kernel.validate_options options,
-                    :scale_x => DOT_TO_QT_SCALE_FACTOR_X,
-                    :scale_y => DOT_TO_QT_SCALE_FACTOR_Y
+                    scale_x: DOT_TO_QT_SCALE_FACTOR_X,
+                    scale_y: DOT_TO_QT_SCALE_FACTOR_Y
                 scale_x = options[:scale_x]
                 scale_y = options[:scale_y]
 
@@ -318,7 +318,7 @@ module Roby
 
             def run_dot(options = Hash.new)
                 options, parsing_options = Kernel.filter_options options,
-                    :graph_type => 'digraph', :layout_method => display.layout_method
+                    graph_type: 'digraph', layout_method: display.layout_method
 
 		@@index ||= 0
 		@@index += 1
@@ -349,13 +349,13 @@ module Roby
             def layout(display, plan, options = Hash.new)
 		@display         = display
                 options = Kernel.validate_options options,
-                    :scale_x => DOT_TO_QT_SCALE_FACTOR_X, :scale_y => DOT_TO_QT_SCALE_FACTOR_Y
+                    scale_x: DOT_TO_QT_SCALE_FACTOR_X, scale_y: DOT_TO_QT_SCALE_FACTOR_Y
 
                 # We first layout only the tasks separately. This allows to find
                 # how to layout the events within the task, and know the overall
                 # task sizes
                 all_tasks = Set.new
-                bounding_boxes, positions = run_dot(:graph_type => 'graph', :layout_method => 'fdp', :scale_x => 1.0 / 100, :scale_y => 1.0 / 100) do
+                bounding_boxes, positions = run_dot(graph_type: 'graph', layout_method: 'fdp', scale_x: 1.0 / 100, scale_y: 1.0 / 100) do
                     display.plans.each do |p|
                         p_tasks = p.known_tasks | p.finalized_tasks
                         p_tasks.each do |task|
@@ -397,7 +397,7 @@ module Roby
                     graphics.rect = Qt::RectF.new(0, 0, bb.width, bb.height)
                 end
                 
-                @bounding_rects, @object_pos = run_dot(:scale_x => 1.0 / 50, :scale_y => 1.0 / 15) do
+                @bounding_rects, @object_pos = run_dot(scale_x: 1.0 / 50, scale_y: 1.0 / 15) do
                     # Finally, generate the whole plan
                     plan.to_dot(display, self, 0)
 

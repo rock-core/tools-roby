@@ -167,7 +167,7 @@ module Roby
             plan.engine.gc_warning = false
 
             @handler_ids = Array.new
-            @handler_ids << engine.add_propagation_handler(:type => :external_events) do |plan|
+            @handler_ids << engine.add_propagation_handler(type: :external_events) do |plan|
                 Test.verify_watched_events
             end
 	end
@@ -395,36 +395,36 @@ module Roby
 	# plan:: the plan to apply on [plan]
 	#
 	# The return value is [missions, discovered, tasks]
-	#   (t1, t2), (t3, t4, t5), (t6, t7) = prepare_plan :missions => 2,
-	#	:discover => 3, :tasks => 2
+	#   (t1, t2), (t3, t4, t5), (t6, t7) = prepare_plan missions: 2,
+	#	discover: 3, tasks: 2
 	#
 	# An empty set is omitted
-	#   (t1, t2), (t6, t7) = prepare_plan :missions => 2, :tasks => 2
+	#   (t1, t2), (t6, t7) = prepare_plan missions: 2, tasks: 2
 	#
 	# If a set is a singleton, the only object of this singleton is returned
-	#   t1, (t6, t7) = prepare_plan :missions => 1, :tasks => 2
+	#   t1, (t6, t7) = prepare_plan missions: 1, tasks: 2
 	#    
 	def prepare_plan(options)
 	    options = validate_options options,
-		:missions => 0, :add => 0, :discover => 0, :tasks => 0,
-		:permanent => 0,
-		:model => Roby::Task, :plan => plan
+		missions: 0, add: 0, discover: 0, tasks: 0,
+		permanent: 0,
+		model: Roby::Task, plan: plan
 
 	    missions, permanent, added, tasks = [], [], [], []
 	    (1..options[:missions]).each do |i|
-		options[:plan].add_mission(t = options[:model].new(:id => "mission-#{i}"))
+		options[:plan].add_mission(t = options[:model].new(id: "mission-#{i}"))
 		missions << t
 	    end
 	    (1..options[:permanent]).each do |i|
-		options[:plan].add_permanent(t = options[:model].new(:id => "perm-#{i}"))
+		options[:plan].add_permanent(t = options[:model].new(id: "perm-#{i}"))
 		permanent << t
 	    end
 	    (1..(options[:discover] + options[:add])).each do |i|
-		options[:plan].add(t = options[:model].new(:id => "discover-#{i}"))
+		options[:plan].add(t = options[:model].new(id: "discover-#{i}"))
 		added << t
 	    end
 	    (1..options[:tasks]).each do |i|
-		tasks << options[:model].new(:id => "task-#{i}")
+		tasks << options[:model].new(id: "task-#{i}")
 	    end
 
 	    result = []
@@ -845,7 +845,7 @@ module Roby
 
         def develop_planning_method(method_name, args = Hash.new)
             options, args = Kernel.filter_options args,
-                :planner_model => MainPlanner
+                planner_model: MainPlanner
 
             planner = options[:planner_model].new(plan)
             planner.send(method_name, args)

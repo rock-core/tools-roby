@@ -246,9 +246,9 @@ module Roby
                 job_id, arguments = Kernel.filter_options arguments, :job_id
 
                 planner = Roby::Actions::Task.new(
-                    Hash[:action_interface_model => action_interface_model,
-                    :action_model => self,
-                    :action_arguments => arguments].merge(job_id))
+                    Hash[action_interface_model: action_interface_model,
+                    action_model: self,
+                    action_arguments: arguments].merge(job_id))
                 planner.planned_task
             end
 

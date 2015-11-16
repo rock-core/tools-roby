@@ -8,7 +8,7 @@ module Roby::Tasks
         end
 
 	terminates
-	event(:start, :controlable => true)
+	event(:start, controlable: true)
 
         # The array of tasks that are aggregated by this object
 	attr_reader :tasks

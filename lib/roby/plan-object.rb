@@ -55,7 +55,7 @@ module Roby
             #      kept).
             def self.handle_options(method, options, defaults)
                 options, other = Kernel.send("#{method}_options", options,
-                    :on_replace => (defaults[:on_replace] || :drop))
+                    on_replace: (defaults[:on_replace] || :drop))
 
                 if ![:drop, :copy].include?(options[:on_replace])
                     raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
@@ -87,7 +87,7 @@ module Roby
                              else :drop
                              end
 
-                { :on_replace => on_replace }
+                { on_replace: on_replace }
             end
 
             def ==(other)
@@ -448,7 +448,7 @@ module Roby
         # BGL::Vertex#replace_by, this calls the various add/remove hooks
         # defined in DirectedRelationSupport
 	def replace_by(object, options = Hash.new)
-            options = Kernel.validate_options options, :exclude => Array.new
+            options = Kernel.validate_options options, exclude: Array.new
             exclusions = options[:exclude]
 
 	    changes = []

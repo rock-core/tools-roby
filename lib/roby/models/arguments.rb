@@ -39,11 +39,11 @@ module Roby
             #     delayed arguments (see examples below)
             #
             # @example getting an argument at runtime from another object
-            #   argument :target_point, :default => from(:planned_task).target_point
+            #   argument :target_point, default: from(:planned_task).target_point
             # @example getting an argument at runtime from the global configuration
-            #   argument :target_point, :default => from_conf.target_position
+            #   argument :target_point, default: from_conf.target_position
             # @example defining 'nil' as a default value
-            #   argument :main_direction, :default => nil
+            #   argument :main_direction, default: nil
             def argument(arg_name, **options)
                 options = Kernel.validate_options options, default: nil
 

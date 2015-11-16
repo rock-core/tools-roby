@@ -5,7 +5,7 @@ class TC_TemporalConstraints < Minitest::Test
     TemporalConstraints = EventStructure::TemporalConstraints
 
     def test_empty_constraints
-        t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
+        t1, t2 = prepare_plan add: 2, model: Tasks::Simple
         e1 = t1.start_event
         e2 = t2.start_event
 
@@ -85,7 +85,7 @@ class TC_TemporalConstraints < Minitest::Test
     end
 
     def test_has_temporal_constraints
-        t1, t2 = prepare_plan :add => 2
+        t1, t2 = prepare_plan add: 2
         e1 = t1.start_event
         e2 = t2.start_event
 
@@ -145,7 +145,7 @@ class TC_TemporalConstraints < Minitest::Test
     end
 
     def test_add_temporal_constraints
-        t1, t2 = prepare_plan :add => 2
+        t1, t2 = prepare_plan add: 2
         e1 = t1.start_event
         e2 = t2.start_event
 
@@ -168,7 +168,7 @@ class TC_TemporalConstraints < Minitest::Test
     end
 
     def test_missed_deadline
-        t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
+        t1, t2 = prepare_plan add: 2, model: Tasks::Simple
         e1 = t1.start_event
         e2 = t2.start_event
 
@@ -191,7 +191,7 @@ class TC_TemporalConstraints < Minitest::Test
     end
 
     def test_deadline_updates_on_emission
-        t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
+        t1, t2 = prepare_plan add: 2, model: Tasks::Simple
         e1 = t1.start_event
         e2 = t2.start_event
 
@@ -213,7 +213,7 @@ class TC_TemporalConstraints < Minitest::Test
     end
 
     def test_deadlines_consider_history
-        t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
+        t1, t2, t3 = prepare_plan add: 3, model: Tasks::Simple
         e1 = t1.start_event
         e2 = t2.start_event
         e3 = t3.start_event
@@ -252,7 +252,7 @@ class TC_TemporalConstraints < Minitest::Test
     end
 
     def test_temporal_constraint_violation
-        t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
+        t1, t2, t3 = prepare_plan add: 3, model: Tasks::Simple
         e1 = t1.start_event
         e2 = t2.start_event
 

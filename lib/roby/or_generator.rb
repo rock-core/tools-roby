@@ -66,7 +66,7 @@ module Roby
 	    super if defined? super
 	    return unless relations.include?(EventStructure::Signal)
 
-	    parent.if_unreachable(:cancel_at_emission => true) do |reason, event|
+	    parent.if_unreachable(cancel_at_emission: true) do |reason, event|
 		if !happened? && parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }
 		    unreachable!(reason || parent)
 		end

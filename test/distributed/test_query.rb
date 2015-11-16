@@ -45,7 +45,7 @@ class TC_DistributedQuery < Minitest::Test
 	peer2peer do |remote|
 	    local_model = Tasks::Simple.new_submodel
 
-	    mission, subtask = QueryTaskModel.new(:id => 1), local_model.new(:id => 2)
+	    mission, subtask = QueryTaskModel.new(id: 1), local_model.new(id: 2)
 	    mission.depends_on subtask
 	    remote.plan.add_mission(mission)
 	end
@@ -59,22 +59,22 @@ class TC_DistributedQuery < Minitest::Test
 	assert_equal(2, result.size)
 
 	result = remote_peer.find_tasks.
-	    with_arguments(:id => 1).to_a
+	    with_arguments(id: 1).to_a
 	assert_equal(1, result.size)
 	assert_equal(1, result[0].arguments[:id])
 
 	result = remote_peer.find_tasks.
-	    with_arguments(:id => 2).to_a
+	    with_arguments(id: 2).to_a
 	assert_equal(1, result.size)
 	assert(2, result[0].arguments[:id])
 
-	result = (TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2)).enum_for(:each, remote_peer).to_a
+	result = (TaskMatcher.with_arguments(id: 1) | TaskMatcher.with_arguments(id: 2)).enum_for(:each, remote_peer).to_a
 	assert_equal(2, result.size)
 
-	result = (TaskMatcher.with_arguments(:id => 1) & TaskMatcher.with_model(Tasks::Simple)).enum_for(:each, remote_peer).to_a
+	result = (TaskMatcher.with_arguments(id: 1) & TaskMatcher.with_model(Tasks::Simple)).enum_for(:each, remote_peer).to_a
 	assert_equal(0, result.size)
 
-	result = TaskMatcher.with_arguments(:id => 1).negate.enum_for(:each, remote_peer).to_a
+	result = TaskMatcher.with_arguments(id: 1).negate.enum_for(:each, remote_peer).to_a
 	assert_equal(1, result.size, result)
 
 	result = remote_peer.find_tasks.
@@ -87,7 +87,7 @@ class TC_DistributedQuery < Minitest::Test
 	assert(2, result[0].arguments[:id])
 
 	r_subtask = *remote_peer.find_tasks.
-	    with_arguments(:id => 2).to_a
+	    with_arguments(id: 2).to_a
 	result = remote_peer.find_tasks.
 	    with_model(r_subtask.model).to_a
 	assert_equal(1, result.size)

@@ -21,7 +21,7 @@ module Roby
             argument :action_model
             # The arguments for the action method
             # @return [Hash]
-            argument :action_arguments, :default => Hash.new
+            argument :action_arguments, default: Hash.new
 
             # The model of the roby task that is going to represent the action
             # in the plan

@@ -102,10 +102,10 @@ class TC_DistributedTransaction < Minitest::Test
 		trsc = local_peer.local_object(trsc)
 
 		trsc.edit do
-		    t1 = Tasks::Simple.new :id => 'root'
-		    t1.depends_on(t2 = Tasks::Simple.new(:id => 'child'))
+		    t1 = Tasks::Simple.new id: 'root'
+		    t1.depends_on(t2 = Tasks::Simple.new(id: 'child'))
 		    t1.signals(:start, t2, :start)
-		    t2.depends_on(t3 = Tasks::Simple.new(:id => 'grandchild'))
+		    t2.depends_on(t3 = Tasks::Simple.new(id: 'grandchild'))
 		    t3.signals(:failed, t2, :failed)
 
 		    trsc.add_mission(t1)
@@ -120,9 +120,9 @@ class TC_DistributedTransaction < Minitest::Test
 	trsc.release(false)
 	remote.add_tasks(Distributed.format(trsc))
 	trsc.edit
-	assert(t1 = trsc.find_tasks.with_arguments(:id => 'root').to_a.first)
-	assert(t2 = trsc.find_tasks.with_arguments(:id => 'child').to_a.first)
-	assert(t3 = trsc.find_tasks.with_arguments(:id => 'grandchild').to_a.first)
+	assert(t1 = trsc.find_tasks.with_arguments(id: 'root').to_a.first)
+	assert(t2 = trsc.find_tasks.with_arguments(id: 'child').to_a.first)
+	assert(t3 = trsc.find_tasks.with_arguments(id: 'grandchild').to_a.first)
 
 	assert(t1.child_object?(t2, TaskStructure::Dependency))
 	assert(t2.child_object?(t3, TaskStructure::Dependency))
@@ -172,7 +172,7 @@ class TC_DistributedTransaction < Minitest::Test
 
     def test_ownership
 	peer2peer do |remote|
-	    remote.plan.add_mission(Task.new(:id => 1))
+	    remote.plan.add_mission(Task.new(id: 1))
 	    def remote.add_owner_local(trsc)
 		trsc = local_peer.local_object(trsc)
 		trsc.add_owner local_peer
@@ -191,7 +191,7 @@ class TC_DistributedTransaction < Minitest::Test
 	trsc.remove_owner remote_peer
 	assert(!remote_peer.owns?(trsc))
 
-	r_task = subscribe_task(:id => 1)
+	r_task = subscribe_task(id: 1)
 	assert(!Distributed.owns?(r_task))
 	assert(remote_peer.owns?(r_task))
 	assert_raises(OwnershipError) { t_task = trsc[r_task] }
@@ -225,10 +225,10 @@ class TC_DistributedTransaction < Minitest::Test
 
     def test_executed_by
 	peer2peer do |remote|
-	    task = Task.new(:id => 1) 
+	    task = Task.new(id: 1) 
 	    exec = Task.new_submodel do
-		event :ready, :command => true
-	    end.new(:id => 'exec')
+		event :ready, command: true
+	    end.new(id: 'exec')
 	    task.executed_by exec
 	    remote.plan.add_mission(task)
 
@@ -237,20 +237,20 @@ class TC_DistributedTransaction < Minitest::Test
 		define_method(:check_execution_agent) do
 		    remote_connection_tasks = plan.find_tasks.
 			with_model(ConnectionTask).
-			with_arguments(:peer => Roby::Distributed).
+			with_arguments(peer: Roby::Distributed).
 			to_a
 		    assert(remote_connection_tasks.empty?)
 		    assert_equal(exec, task.execution_agent)
 		end
 	    end
 	end
-	r_task = remote_task(:id => 1)
+	r_task = remote_task(id: 1)
 	assert_equal(remote_peer.task, r_task.execution_agent)
 
 	trsc = Roby::Distributed::Transaction.new(plan) 
 	trsc.add_owner remote_peer
 	trsc.self_owned
-	r_task = subscribe_task(:id => 1)
+	r_task = subscribe_task(id: 1)
 	assert(!trsc[remote_peer.task].distribute?)
 	assert_equal(trsc[remote_peer.task], trsc[r_task].execution_agent)
 	trsc.propose(remote_peer)
@@ -266,7 +266,7 @@ class TC_DistributedTransaction < Minitest::Test
 
     def test_argument_updates
 	peer2peer do |remote|
-	    remote.plan.add_mission(ArgumentUpdateTest.new(:id => 2))
+	    remote.plan.add_mission(ArgumentUpdateTest.new(id: 2))
 	    def remote.set_argument(task)
 		task = local_peer.local_object(task)
 		task.plan.edit
@@ -275,7 +275,7 @@ class TC_DistributedTransaction < Minitest::Test
 		nil
 	    end
 	end
-	r_task = remote_task(:id => 2, :permanent => true)
+	r_task = remote_task(id: 2, permanent: true)
 	assert_raises(OwnershipError, r_task.owners) { r_task.arguments[:foo] = :bar }
 
 	trsc   = Roby::Distributed::Transaction.new(plan)
@@ -298,11 +298,11 @@ class TC_DistributedTransaction < Minitest::Test
     def build_transaction(trsc)
 
 	# Now, add a task of our own and link the remote and the local
-	task = Tasks::Simple.new :id => 'local'
+	task = Tasks::Simple.new id: 'local'
 	trsc.add(task)
 
-	parent = subscribe_task(:id => 'remote-1')
-	child  = subscribe_task(:id => 'remote-2')
+	parent = subscribe_task(id: 'remote-1')
+	child  = subscribe_task(id: 'remote-2')
 
 	# Check some properties
 	assert((trsc[parent].owners - trsc.owners).empty?)
@@ -348,8 +348,8 @@ class TC_DistributedTransaction < Minitest::Test
     def test_propose_commit
 	peer2peer do |remote|
 	    testcase = self
-	    remote.plan.add_mission(root = Tasks::Simple.new(:id => 'remote-1'))
-	    root.depends_on(child = Tasks::Simple.new(:id => 'remote-2'))
+	    remote.plan.add_mission(root = Tasks::Simple.new(id: 'remote-1'))
+	    root.depends_on(child = Tasks::Simple.new(id: 'remote-2'))
 
 	    PeerServer.class_eval do
 		include Minitest::Assertions
@@ -380,8 +380,8 @@ class TC_DistributedTransaction < Minitest::Test
     def test_synchronization
 	peer2peer do |remote|
 	    testcase = self
-	    remote.plan.add_mission(root = Tasks::Simple.new(:id => 'remote-1'))
-	    root.depends_on Tasks::Simple.new(:id => 'remote-2')
+	    remote.plan.add_mission(root = Tasks::Simple.new(id: 'remote-1'))
+	    root.depends_on Tasks::Simple.new(id: 'remote-2')
 
 	    PeerServer.class_eval do
 		define_method(:check_transaction) do |trsc|
@@ -433,10 +433,10 @@ class TC_DistributedTransaction < Minitest::Test
 	trsc.add_owner remote_peer
 	trsc.propose(remote_peer)
 
-	local_task = Tasks::Simple.new(:id => 'local')
+	local_task = Tasks::Simple.new(id: 'local')
 	trsc.add_mission(local_task)
 
-	t = RemoteTaskModel.new(:arg => 10, :id => 0)
+	t = RemoteTaskModel.new(arg: 10, id: 0)
 	t.extend DistributedObject
 	local_task.depends_on t
 	trsc.add_mission(t)
@@ -457,7 +457,7 @@ class TC_DistributedTransaction < Minitest::Test
 	assert(remote.check_mission(Distributed.format(t)))
 	assert(remote.check_ownership(Distributed.format(t)))
 	assert(local_task.children.include?(t))
-	assert_equal({ :arg => 10, :id => 0 }, remote.arguments_of(Distributed.format(t)))
+	assert_equal({ arg: 10, id: 0 }, remote.arguments_of(Distributed.format(t)))
     end
 end
 

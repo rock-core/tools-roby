@@ -15,7 +15,7 @@ module Roby
             def process
                 name = statement.parameters[0].jump(:tstring_content, :ident).source
 
-                push_state(:scope => :class) do
+                push_state(scope: :class) do
                     object = YARD::CodeObjects::MethodObject.new(namespace, "#{name}_sets", scope)
                     object.dynamic = true 
                     register(object)

@@ -14,7 +14,7 @@ class TC_KnownFailures < Minitest::Test
             event :test_event do |context|
                 return
             end
-            event :stop, :command => true
+            event :stop, command: true
 	end
 
         plan.discover(task = model.new)

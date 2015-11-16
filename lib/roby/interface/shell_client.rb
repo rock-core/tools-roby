@@ -101,7 +101,7 @@ module Roby
             end
 
             def jobs
-                jobs = call Hash[:retry => true], [], :jobs
+                jobs = call Hash[retry: true], [], :jobs
                 jobs.each do |id, (state, task, planning_task)|
                     if planning_task.respond_to?(:action_model) && planning_task.action_model
                         name = "#{planning_task.action_model.to_s}(#{format_arguments(planning_task.action_arguments)})"
@@ -134,9 +134,9 @@ module Roby
             end
 
             def call(options, path, m, *args)
-                options = Kernel.validate_options options, :retry => false
+                options = Kernel.validate_options options, retry: false
                 if options[:retry]
-                    options = options.merge(:retry => false)
+                    options = options.merge(retry: false)
                     retry_on_com_error do
                         return call options, path, m, *args
                     end
@@ -288,9 +288,9 @@ module Roby
             #   {#summarize_exception}
             def summarize_pending_messages(already_summarized = Set.new)
                 summarized = Set.new
-                queues = {:exception => client.exception_queue,
-                          :job_progress => client.job_progress_queue,
-                          :notification => client.notification_queue}
+                queues = {exception: client.exception_queue,
+                          job_progress: client.job_progress_queue,
+                          notification: client.notification_queue}
                 queues.each do |type, q|
                     q.delete_if do |id, args|
                         summarized << id

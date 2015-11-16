@@ -20,7 +20,7 @@ class TC_DistributedMixedPlan < Minitest::Test
     #
     # Returns [-1, -2, -3]
     def add_tasks(plan, name)
-	t1, t2, t3 = (1..3).map { |i| Tasks::Simple.new(:id => "#{name}-#{i}") }
+	t1, t2, t3 = (1..3).map { |i| Tasks::Simple.new(id: "#{name}-#{i}") }
 	t1.depends_on t2
 	t2.planned_by t3
 	plan.add_mission(t1)
@@ -141,7 +141,7 @@ class TC_DistributedMixedPlan < Minitest::Test
 	common_setup(propose_first) do |trsc|
 	    # First, add relations between two nodes that are already existing
 	    remote.add_tasks(Distributed.format(plan))
-	    r_t2 = subscribe_task(:id => 'remote-2')
+	    r_t2 = subscribe_task(id: 'remote-2')
 	    assert(1, r_t2.parents.to_a.size)
 	    r_t1 = r_t2.parents.find { true }
 	    t1, t2, t3 = Roby.synchronize { add_tasks(plan, "local") }
@@ -181,7 +181,7 @@ class TC_DistributedMixedPlan < Minitest::Test
     def test_rproxy_realizes_ltask(propose_first = false)
 	common_setup(propose_first) do |trsc|
 	    remote.add_tasks(Distributed.format(plan))
-	    r_t2 = subscribe_task(:id => 'remote-2')
+	    r_t2 = subscribe_task(id: 'remote-2')
 	    t1, t2, t3 = Roby.synchronize { add_tasks(trsc, "local") }
 
 	    trsc[r_t2].depends_on t2
@@ -237,19 +237,19 @@ class TC_DistributedMixedPlan < Minitest::Test
 
     def test_garbage_collect
 	peer2peer do |remote|
-	    remote.plan.add_mission(Tasks::Simple.new(:id => 'remote-1'))
+	    remote.plan.add_mission(Tasks::Simple.new(id: 'remote-1'))
 	    def remote.insert_children(trsc, root_task)
 		trsc = local_peer.local_object(trsc)
 		root_task = local_peer.local_object(root_task)
 		trsc.edit
 
-		root_task.depends_on(r2 = Tasks::Simple.new(:id => 'remote-2'))
-		r2.depends_on(r3 = Tasks::Simple.new(:id => 'remote-3'))
+		root_task.depends_on(r2 = Tasks::Simple.new(id: 'remote-2'))
+		r2.depends_on(r3 = Tasks::Simple.new(id: 'remote-3'))
 		trsc.release(false)
 	    end
 	end
 
-	r1 = subscribe_task(:id => 'remote-1')
+	r1 = subscribe_task(id: 'remote-1')
 	assert(!plan.unneeded_tasks.include?(r1))
 
 	t1 = Tasks::Simple.new
@@ -291,13 +291,13 @@ class TC_DistributedMixedPlan < Minitest::Test
 	trsc.commit_transaction
 	process_events
 
-	r2 = remote_task(:id => 'remote-2')
+	r2 = remote_task(id: 'remote-2')
 	Roby.synchronize do
 	    assert(r2.plan && !plan.unneeded_tasks.include?(r2))
 	    assert(t3.child_object?(r2, TaskStructure::Dependency))
 	end
 
-	r3 = remote_task(:id => 'remote-3')
+	r3 = remote_task(id: 'remote-3')
 	Roby.synchronize do
 	    assert(!r3.plan || plan.unneeded_tasks.include?(r3))
 	end
@@ -312,7 +312,7 @@ class TC_DistributedMixedPlan < Minitest::Test
 	    def remote.add_task(trsc)
 		trsc = local_peer.local_object(trsc)
 		trsc.edit
-		trsc.add(Tasks::Simple.new(:id => 'remote'))
+		trsc.add(Tasks::Simple.new(id: 'remote'))
 		trsc.release(false)
 	    end
 	end

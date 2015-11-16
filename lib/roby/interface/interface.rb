@@ -435,7 +435,7 @@ module Roby
             # @return [Roby::Task,nil]
             def find_job_by_id(id)
                 engine.execute do
-                    return plan.find_tasks(Job).with_arguments(:job_id => id).to_a.first
+                    return plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
                 end
             end
 
@@ -546,7 +546,7 @@ module Roby
 
             # This is implemented on ShellClient directly
             command 'describe', 'gives details about the given action',
-                :action => 'the action itself'
+                action: 'the action itself'
 
             # This is implemented on Server directly
             command 'enable_notifications', 'enables the forwarding of notifications'

@@ -224,7 +224,7 @@ module Roby
 
             def analyze(options = Hash.new)
                 options = Kernel.validate_options options,
-                    :until => nil
+                    until: nil
 
                 @last_cycle = nil
                 PlanRebuilderWidget.analyze(plan_rebuilder, stream, options[:until]) do |needs_snapshot, data|
@@ -267,8 +267,8 @@ module Roby
             # display will check whether there is new data on the port.
             def connect(client, options = Hash.new)
                 options = Kernel.validate_options options,
-                    :port => Roby::Log::Server::DEFAULT_PORT,
-                    :update_period => DEFAULT_REMOTE_POLL_PERIOD
+                    port: Roby::Log::Server::DEFAULT_PORT,
+                    update_period: DEFAULT_REMOTE_POLL_PERIOD
 
                 if client.respond_to?(:to_str)
                     self.window_title = "roby-display: #{client}"

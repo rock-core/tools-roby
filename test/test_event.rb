@@ -1294,7 +1294,7 @@ describe Roby::EventGenerator do
         it "should call the provided callback with the block's result in the execution engine thread" do
             recorder, result = flexmock, flexmock
             recorder.should_receive(:call).with(Thread.current, result)
-            ev.achieve_asynchronously(:callback => recorder) do
+            ev.achieve_asynchronously(callback: recorder) do
                 result
             end.join
             inhibit_fatal_messages { process_events }
@@ -1303,20 +1303,20 @@ describe Roby::EventGenerator do
             recorder = flexmock
             recorder.should_receive(:call).ordered
             flexmock(ev).should_receive(:emit).once.with(proc { |*args| Thread.current == main_thread }).ordered
-            ev.achieve_asynchronously :emit_on_success => true do
+            ev.achieve_asynchronously emit_on_success: true do
                 recorder.call
             end.join
             process_events
         end
         it "should not emit the event automatically if the emit_on_success option is false" do
             flexmock(ev).should_receive(:emit).never
-            ev.achieve_asynchronously :emit_on_success => false do
+            ev.achieve_asynchronously emit_on_success: false do
             end.join
         end
         it "should call emit_failed if the callback raises" do
             flexmock(ev).should_receive(:emit_failed).once.
                 with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
-            ev.achieve_asynchronously(:callback => proc { raise ArgumentError }) do
+            ev.achieve_asynchronously(callback: proc { raise ArgumentError }) do
             end.join
             process_events
         end

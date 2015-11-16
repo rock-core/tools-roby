@@ -22,7 +22,7 @@ module Roby
                 Qt::Object.connect(ui.btn_next, SIGNAL("clicked()"), self, SLOT("step_forward()"))
 
                 @main_widget = main_widget
-                @plan_rebuilder = PlanRebuilder.new(:plan => plan)
+                @plan_rebuilder = PlanRebuilder.new(plan: plan)
                 @plan_rebuilder.plan.clear
                 @stream = stream
                 PlanRebuilderWidget.analyze(plan_rebuilder, stream, starting_cycle - 1)

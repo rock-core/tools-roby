@@ -16,7 +16,7 @@ class TC_DistributedPlanNotifications < Minitest::Test
 
 	notification = TaskMatcher.new.
 	    with_model(Tasks::Simple).
-	    with_arguments(:id => 2)
+	    with_arguments(id: 2)
 
 	FlexMock.use do |mock|
 	    remote_peer.on(notification) do |task|
@@ -29,16 +29,16 @@ class TC_DistributedPlanNotifications < Minitest::Test
 	    simple_task = Distributed.format(Tasks::Simple)
 	    roby_task   = Distributed.format(Roby::Task)
 
-	    remote.new_task(simple_task, :id => 3)
-	    remote.new_task(roby_task, :id => 2)
-	    remote.new_task(simple_task, :id => 2) do |inserted_id|
+	    remote.new_task(simple_task, id: 3)
+	    remote.new_task(roby_task, id: 2)
+	    remote.new_task(simple_task, id: 2) do |inserted_id|
 		mock.should_receive(:notified).with(inserted_id).once.ordered
 		nil
 	    end
 
-	    remote.new_task(simple_task, :id => 3)
-	    remote.new_task(roby_task, :id => 2)
-	    remote.new_task(simple_task, :id => 2) do |inserted_id|
+	    remote.new_task(simple_task, id: 3)
+	    remote.new_task(roby_task, id: 2)
+	    remote.new_task(simple_task, id: 2) do |inserted_id|
 		mock.should_receive(:notified).with(inserted_id).once.ordered
 		nil
 	    end
@@ -50,14 +50,14 @@ class TC_DistributedPlanNotifications < Minitest::Test
     def test_trigger_subscribe
 	peer2peer do |remote|
 	    def remote.new_task
-		plan.add_mission(Tasks::Simple.new(:id => 1))
+		plan.add_mission(Tasks::Simple.new(id: 1))
 		nil
 	    end
 	end
 
 	notification = TaskMatcher.new.
 	    with_model(Tasks::Simple).
-	    with_arguments(:id => 1)
+	    with_arguments(id: 1)
 
 	task = nil
 	remote_peer.on(notification) do |t|
@@ -70,14 +70,14 @@ class TC_DistributedPlanNotifications < Minitest::Test
 	end
 
 	assert(task)
-	assert_equal([task], plan.find_tasks.with_arguments(:id => 1).to_a)
+	assert_equal([task], plan.find_tasks.with_arguments(id: 1).to_a)
     end
 
     def test_subscribe_plan
 	peer2peer do |remote|
-	    plan.add_mission(mission = Tasks::Simple.new(:id => 'mission'))
-	    subtask = Tasks::Simple.new :id => 'subtask'
-	    plan.add_mission(next_mission = Tasks::Simple.new(:id => 'next_mission'))
+	    plan.add_mission(mission = Tasks::Simple.new(id: 'mission'))
+	    subtask = Tasks::Simple.new id: 'subtask'
+	    plan.add_mission(next_mission = Tasks::Simple.new(id: 'next_mission'))
 	    mission.depends_on subtask
 	    mission.signals(:start, next_mission, :start)
 	end
@@ -103,15 +103,15 @@ class TC_DistributedPlanNotifications < Minitest::Test
 	    class << remote
 		attr_reader :mission, :subtask, :next_mission, :free_event
 		def create_mission
-		    @mission = Roby::Task.new :id => 'mission'
+		    @mission = Roby::Task.new id: 'mission'
 		    plan.add_mission(mission)
 		end
 		def create_subtask
-		    plan.add_permanent(@subtask = Roby::Task.new(:id => 'subtask'))
+		    plan.add_permanent(@subtask = Roby::Task.new(id: 'subtask'))
 		    mission.depends_on subtask
 		end
 		def create_next_mission
-		    @next_mission = Roby::Task.new :id => 'next_mission'
+		    @next_mission = Roby::Task.new id: 'next_mission'
 		    mission.signals(:start, next_mission, :start)
 		    plan.add_mission(next_mission)
 		end
@@ -141,7 +141,7 @@ class TC_DistributedPlanNotifications < Minitest::Test
 
 	remote.create_mission
 	process_events
-	p_mission = remote_task(:id => 'mission')
+	p_mission = remote_task(id: 'mission')
 	# NOTE: the count is always remote_tasks + 1 since we have the ConnectionTask for our connection
 	assert_equal(2, plan.size, plan.known_tasks.to_a)
 	assert(p_mission.mission?)
@@ -150,13 +150,13 @@ class TC_DistributedPlanNotifications < Minitest::Test
 
 	remote.create_subtask
 	process_events
-	p_subtask = remote_task(:id => 'subtask')
+	p_subtask = remote_task(id: 'subtask')
 	assert_equal(3, plan.size)
 	assert(p_mission.child_object?(p_subtask, TaskStructure::Dependency))
 
 	remote.create_next_mission
 	process_events
-	p_next_mission = remote_task(:id => 'next_mission')
+	p_next_mission = remote_task(id: 'next_mission')
 	assert_equal(4, plan.size)
 	assert(p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
 
@@ -203,11 +203,11 @@ class TC_DistributedPlanNotifications < Minitest::Test
 
     def test_unsubscribe_plan
 	peer2peer do |remote|
-	    remote.plan.add_mission(Tasks::Simple.new(:id => 'remote-1'))
-	    remote.plan.add_mission(Tasks::Simple.new(:id => 'remote-2'))
+	    remote.plan.add_mission(Tasks::Simple.new(id: 'remote-1'))
+	    remote.plan.add_mission(Tasks::Simple.new(id: 'remote-2'))
 
 	    def remote.new_task
-		plan.add_mission(Tasks::Simple.new(:id => 'remote-3'))
+		plan.add_mission(Tasks::Simple.new(id: 'remote-3'))
 	    end
 	end
 
@@ -215,7 +215,7 @@ class TC_DistributedPlanNotifications < Minitest::Test
 	assert_equal(3, plan.size)
 
 	# Subscribe to the remote-1 task and unsubscribe to the plan
-	r1 = *plan.find_tasks.with_arguments(:id => 'remote-1').to_a
+	r1 = *plan.find_tasks.with_arguments(id: 'remote-1').to_a
 	remote_peer.subscribe(r1)
 
 	remote_peer.unsubscribe_plan

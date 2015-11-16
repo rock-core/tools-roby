@@ -51,8 +51,8 @@ class TC_OpenStruct < Minitest::Test
 	s.a = 10
 	s.b.a = 10
 
-	assert_equal({:a => 10, :b => { :a => 10 }}, s.to_hash)
-	assert_equal({:a => 10, :b => s.b}, s.to_hash(false))
+	assert_equal({a: 10, b: { a: 10 }}, s.to_hash)
+	assert_equal({a: 10, b: s.b}, s.to_hash(false))
     end
 
     def test_pending_subfields_behaviour

@@ -68,7 +68,7 @@ describe Roby::Coordination::Script do
             assert script.finished?
         end
         it "returns false if the last instruction needs to be called back" do
-            ins = flexmock(:disabled? => false, :execute => false)
+            ins = flexmock(:disabled? => false, execute: false)
             script.instructions << ins
             script.step
             assert !script.finished?

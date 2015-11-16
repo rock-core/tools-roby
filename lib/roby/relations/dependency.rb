@@ -2,7 +2,7 @@ module Roby::TaskStructure
     DEPENDENCY_RELATION_ARGUMENTS =
         [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]
 
-    relation :Dependency, :child_name => :child, :parent_name => :parent_task
+    relation :Dependency, child_name: :child, parent_name: :parent_task
 
     module DependencyGraphClass::Extension
 	# True if +obj+ is a parent of this object in the hierarchy relation
@@ -235,13 +235,13 @@ module Roby::TaskStructure
             end
 
             options = DependencyGraphClass.validate_options options, 
-		:model => [task.provided_models, task.meaningful_arguments], 
-		:success => :success.to_unbound_task_predicate, 
-		:failure => false.to_unbound_task_predicate,
-		:remove_when_done => true,
-                :consider_in_pending => true,
-                :roles => nil,
-                :role => nil
+		model: [task.provided_models, task.meaningful_arguments], 
+		success: :success.to_unbound_task_predicate, 
+		failure: false.to_unbound_task_predicate,
+		remove_when_done: true,
+                consider_in_pending: true,
+                roles: nil,
+                role: nil
 
             # We accept
             #
@@ -639,13 +639,13 @@ module Roby::TaskStructure
         end
 
         def self.validate_options(options, defaults = Hash.new)
-            defaults = Hash[:model => [[Roby::Task], Hash.new],
-                :success => nil,
-                :failure => nil,
-                :remove_when_done => true,
-                :consider_in_pending => true,
-                :roles => Set.new,
-                :role => nil].merge(defaults)
+            defaults = Hash[model: [[Roby::Task], Hash.new],
+                success: nil,
+                failure: nil,
+                remove_when_done: true,
+                consider_in_pending: true,
+                roles: Set.new,
+                role: nil].merge(defaults)
             Kernel.validate_options options, defaults
         end
 
@@ -659,7 +659,7 @@ module Roby::TaskStructure
                 raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
             end
 
-            result = { :remove_when_done => opt1[:remove_when_done], :consider_in_pending => opt1[:consider_in_pending] }
+            result = { remove_when_done: opt1[:remove_when_done], consider_in_pending: opt1[:consider_in_pending] }
 
             if opt1[:success] || opt2[:success]
                 result[:success] =

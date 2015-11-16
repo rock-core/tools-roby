@@ -8,7 +8,7 @@ describe Roby::Queries::TaskEventGeneratorMatcher do
             before do
                 @task_matcher = flexmock
                 @task = flexmock
-                event_model = Roby::TaskEvent.new_submodel(:symbol => :dummy)
+                event_model = Roby::TaskEvent.new_submodel(symbol: :dummy)
                 @generator = Roby::TaskEventGenerator.new(task, event_model)
             end
 

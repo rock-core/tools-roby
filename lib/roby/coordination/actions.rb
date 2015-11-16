@@ -49,9 +49,9 @@ module Roby
                 if task.name
                     roles << task.name
                 end
-                Hash[:roles => roles,
-                    :failure => :stop.or(:start.never),
-                    :remove_when_done => true]
+                Hash[roles: roles,
+                    failure: :stop.or(:start.never),
+                    remove_when_done: true]
             end
 
             def start_task(toplevel)
@@ -60,7 +60,7 @@ module Roby
                 instanciated_tasks = tasks.map do |task, roles|
                     action_task = task.model.instanciate(root_task.plan, arguments)
                     root_task.depends_on(action_task, dependency_options_for(toplevel, task, roles))
-                    bind_coordination_task_to_instance(task, action_task, :on_replace => :copy)
+                    bind_coordination_task_to_instance(task, action_task, on_replace: :copy)
                     task.model.setup_instanciated_task(self, action_task, arguments)
                     action_task
                 end

@@ -4,7 +4,7 @@ require 'roby/tasks/simple'
 # This testcase tests local views of remote plans
 class TC_DistributedRemotePlan < Minitest::Test
     def test_distributed_update
-	objects = (1..10).map { |i| Tasks::Simple.new(:id => i) }
+	objects = (1..10).map { |i| Tasks::Simple.new(id: i) }
 	obj = Object.new
 
 	Distributed.update(obj) do
@@ -64,14 +64,14 @@ class TC_DistributedRemotePlan < Minitest::Test
 
     def test_remote_proxy_update
 	peer2peer do |remote|
-	    remote.plan.add_mission(Tasks::Simple.new(:id => 'simple_task'))
-	    remote.plan.add_permanent(Tasks::Simple.new(:id => 'task'))
-	    remote.plan.add_permanent(Tasks::Simple.new(:id => 'other_task'))
+	    remote.plan.add_mission(Tasks::Simple.new(id: 'simple_task'))
+	    remote.plan.add_permanent(Tasks::Simple.new(id: 'task'))
+	    remote.plan.add_permanent(Tasks::Simple.new(id: 'other_task'))
 	end
 
-	r_simple_task = remote_task(:id => 'simple_task', :permanent => true)
-	r_task        = remote_task(:id => 'task', :permanent => true)
-	r_other_task  = remote_task(:id => 'other_task', :permanent => true)
+	r_simple_task = remote_task(id: 'simple_task', permanent: true)
+	r_task        = remote_task(id: 'task', permanent: true)
+	r_other_task  = remote_task(id: 'other_task', permanent: true)
 
 	task = Tasks::Simple.new
 	assert(!r_simple_task.read_write?, r_simple_task.plan)
@@ -114,9 +114,9 @@ class TC_DistributedRemotePlan < Minitest::Test
     def test_discover_neighborhood
 	peer2peer do |remote|
 	    mission, subtask, next_mission =
-		Tasks::Simple.new(:id => 'mission'), 
-		Tasks::Simple.new(:id => 'subtask'),
-		Tasks::Simple.new(:id => 'next_mission')
+		Tasks::Simple.new(id: 'mission'), 
+		Tasks::Simple.new(id: 'subtask'),
+		Tasks::Simple.new(id: 'next_mission')
 	    mission.depends_on subtask
 	    mission.signals(:stop, next_mission, :start)
 
@@ -124,9 +124,9 @@ class TC_DistributedRemotePlan < Minitest::Test
 	    remote.plan.add_mission(next_mission)
 	end
 
-	r_mission	= remote_task(:id => 'mission', :permanent => true)
-	r_subtask	= remote_task(:id => 'subtask', :permanent => true)
-	r_next_mission  = remote_task(:id => 'next_mission', :permanent => true)
+	r_mission	= remote_task(id: 'mission', permanent: true)
+	r_subtask	= remote_task(id: 'subtask', permanent: true)
+	r_next_mission  = remote_task(id: 'next_mission', permanent: true)
 
 	# We don't know about the remote relations
 	assert_equal([], r_mission.children.to_a)
@@ -150,11 +150,11 @@ class TC_DistributedRemotePlan < Minitest::Test
 
     def test_subscribing_old_objects
 	peer2peer do |remote|
-	    plan.add_mission(@task = Tasks::Simple.new(:id => 1))
+	    plan.add_mission(@task = Tasks::Simple.new(id: 1))
 	end
 
 	r_task, r_task_id = nil
-	r_task = remote_task(:id => 1) do |t|
+	r_task = remote_task(id: 1) do |t|
 	    assert(r_task_id = t.remote_siblings[remote_peer])
 	    t
 	end
@@ -167,10 +167,10 @@ class TC_DistributedRemotePlan < Minitest::Test
     def test_subscription
 	peer2peer do |remote|
 	    root, mission, subtask, next_mission =
-		Tasks::Simple.new(:id => 'root'), 
-		Tasks::Simple.new(:id => 'mission'), 
-		Tasks::Simple.new(:id => 'subtask'),
-		Tasks::Simple.new(:id => 'next_mission')
+		Tasks::Simple.new(id: 'root'), 
+		Tasks::Simple.new(id: 'mission'), 
+		Tasks::Simple.new(id: 'subtask'),
+		Tasks::Simple.new(id: 'next_mission')
 	    root.depends_on mission
 	    mission.depends_on subtask
 	    mission.signals(:stop, next_mission, :start)
@@ -204,7 +204,7 @@ class TC_DistributedRemotePlan < Minitest::Test
 	    end
 	end
 
-	r_root = subscribe_task(:id => 'root')
+	r_root = subscribe_task(id: 'root')
 	# Check that the task index has been updated
 	assert(plan.task_index.by_owner[remote_peer].include?(r_root))
 	
@@ -220,14 +220,14 @@ class TC_DistributedRemotePlan < Minitest::Test
 	assert_equal([remote_peer], Distributed.enum_for(:each_updated_peer, r_root).to_a)
 
 	assert(r_root.mission?)
-	r_mission = remote_task(:id => 'mission')
+	r_mission = remote_task(id: 'mission')
 	assert_equal([r_mission], r_root.children.to_a)
 	assert_equal([], r_mission.children.to_a)
 	assert_equal([], r_mission.event(:stop).child_objects(EventStructure::Signal).to_a)
 
 	assert(plan.useful_task?(r_mission))
-	r_next_mission = remote_task(:id => 'next_mission')
-	r_subtask = remote_task(:id => 'subtask')
+	r_next_mission = remote_task(id: 'next_mission')
+	r_subtask = remote_task(id: 'subtask')
 	Roby.synchronize do
 	    assert(!r_next_mission.plan || !plan.useful_task?(r_next_mission))
 	    assert(!r_subtask.plan || !plan.useful_task?(r_subtask))
@@ -240,9 +240,9 @@ class TC_DistributedRemotePlan < Minitest::Test
 	# Check that subscribing again is handled nicely
 	assert_same(r_root, remote_peer.subscribe(r_root))
 	assert_same(r_mission, remote_peer.subscribe(r_mission))
-	r_subtask = remote_task(:id => 'subtask')
+	r_subtask = remote_task(id: 'subtask')
 	assert(!plan.unneeded_tasks.include?(r_subtask))
-	r_next_mission = remote_task(:id => 'next_mission')
+	r_next_mission = remote_task(id: 'next_mission')
 	Roby.synchronize do
 	    assert(!r_next_mission.plan || plan.unneeded_tasks.include?(r_next_mission))
 	end
@@ -294,8 +294,8 @@ class TC_DistributedRemotePlan < Minitest::Test
 	assert(r_mission.leaf?(TaskStructure::Dependency))
 
 	r_mission = remote_peer.subscribe(r_mission)
-	r_subtask = remote_task(:id => 'subtask')
-	r_next_mission = remote_task(:id => 'next_mission')
+	r_subtask = remote_task(id: 'subtask')
+	r_next_mission = remote_task(id: 'next_mission')
 	engine.wait_one_cycle
 
 	proxies = r_mission.children.to_a
@@ -305,9 +305,9 @@ class TC_DistributedRemotePlan < Minitest::Test
     def test_remove_not_needed
 	peer2peer do |remote|
 	    left, right, middle =
-		Tasks::Simple.new(:id => 'left'), 
-		Tasks::Simple.new(:id => 'right'), 
-		Tasks::Simple.new(:id => 'middle')
+		Tasks::Simple.new(id: 'left'), 
+		Tasks::Simple.new(id: 'right'), 
+		Tasks::Simple.new(id: 'middle')
 	    remote.plan.add_mission(left)
 	    remote.plan.add_mission(right)
 
@@ -325,9 +325,9 @@ class TC_DistributedRemotePlan < Minitest::Test
 	    end
 	end
 
-	left   = subscribe_task(:id => 'left')
-	right  = subscribe_task(:id => 'right')
-	middle = remote_task(:id => 'middle')
+	left   = subscribe_task(id: 'left')
+	right  = subscribe_task(id: 'right')
+	middle = remote_task(id: 'middle')
 	assert(!middle.subscribed?)
 	assert(!plan.unneeded_tasks.include?(left))
 	assert(!plan.unneeded_tasks.include?(right))
@@ -353,7 +353,7 @@ class TC_DistributedRemotePlan < Minitest::Test
 
     def test_data_update
 	peer2peer do |remote|
-	    task = Tasks::Simple.new(:id => 'task')
+	    task = Tasks::Simple.new(id: 'task')
 	    task.data = [4, 2]
 	    remote.plan.add_mission(task)
 
@@ -361,7 +361,7 @@ class TC_DistributedRemotePlan < Minitest::Test
 		define_method(:change_data) { task.data = 42 }
 	    end
 	end
-	task = subscribe_task(:id => 'task')
+	task = subscribe_task(id: 'task')
 	assert_equal([4, 2], task.data)
 
 	remote.change_data
@@ -371,7 +371,7 @@ class TC_DistributedRemotePlan < Minitest::Test
 
     def test_mission_notifications
 	peer2peer do |remote|
-	    plan.add_mission(mission = Tasks::Simple.new(:id => 'mission'))
+	    plan.add_mission(mission = Tasks::Simple.new(id: 'mission'))
 
 	    remote.class.class_eval do
 		define_method(:discard_mission) do
@@ -388,7 +388,7 @@ class TC_DistributedRemotePlan < Minitest::Test
 		end
 	    end
 	end
-	r_mission = subscribe_task(:id => 'mission')
+	r_mission = subscribe_task(id: 'mission')
 	assert(r_mission.mission?)
 	assert(!plan.mission?(r_mission))
 
@@ -406,9 +406,9 @@ class TC_DistributedRemotePlan < Minitest::Test
     def test_relation_updates
 	peer2peer do |remote|
 	    mission, subtask, next_mission =
-		Tasks::Simple.new(:id => 'mission'), 
-		Tasks::Simple.new(:id => 'subtask'),
-		Tasks::Simple.new(:id => 'next_mission')
+		Tasks::Simple.new(id: 'mission'), 
+		Tasks::Simple.new(id: 'subtask'),
+		Tasks::Simple.new(id: 'next_mission')
 
 	    remote.plan.add_mission(mission)
 	    remote.plan.add_mission(next_mission)
@@ -430,9 +430,9 @@ class TC_DistributedRemotePlan < Minitest::Test
 	    end
 	end
 
-	r_mission	= subscribe_task(:id => 'mission')
-	r_subtask 	= subscribe_task(:id => 'subtask')
-	r_next_mission  = subscribe_task(:id => 'next_mission')
+	r_mission	= subscribe_task(id: 'mission')
+	r_subtask 	= subscribe_task(id: 'subtask')
+	r_next_mission  = subscribe_task(id: 'next_mission')
 
 	remote.add_mission_subtask
 	process_events
@@ -455,11 +455,11 @@ class TC_DistributedRemotePlan < Minitest::Test
     def test_ignored_events
 	peer2peer do |remote|
 	    model = Tasks::Simple.new_submodel do
-		event :unknown, :command => true
+		event :unknown, command: true
 	    end
-	    remote.plan.add_mission(t1 = Tasks::Simple.new(:id => 1))
-	    remote.plan.add_mission(t2 = Tasks::Simple.new(:id => 2))
-	    remote.plan.add_mission(u = model.new(:id => 0))
+	    remote.plan.add_mission(t1 = Tasks::Simple.new(id: 1))
+	    remote.plan.add_mission(t2 = Tasks::Simple.new(id: 2))
+	    remote.plan.add_mission(u = model.new(id: 0))
 
 	    t1.signals(:start, u, :unknown)
             u.forward_to(:unknown, t2, :start)
@@ -472,9 +472,9 @@ class TC_DistributedRemotePlan < Minitest::Test
 	    end
 	end
 
-	u = subscribe_task(:id => 0)
-	t1 = remote_task(:id => 1)
-	t2 = remote_task(:id => 2)
+	u = subscribe_task(id: 0)
+	t1 = remote_task(id: 1)
+	t2 = remote_task(id: 2)
 
 	assert(remote_peer.connected?)
 

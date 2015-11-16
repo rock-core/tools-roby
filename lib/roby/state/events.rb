@@ -8,7 +8,7 @@ module Roby
         # +yaw+:: heading in radians
         #
         # For instance:
-        #   Roby.state.on_delta :d => 10, :t => 20
+        #   Roby.state.on_delta d: 10, t: 20
         #
         # will emit everytime the robot moves more than 10 meters AND more than
         # 20 seconds have elapsed.
@@ -17,7 +17,7 @@ module Roby
         # combined with the & operator. This can be changed by setting the :or
         # option to 'true'.
         #
-        #   Roby.state.on_delta :d => 10, :t => 20, :or => true
+        #   Roby.state.on_delta d: 10, t: 20, or: true
         #
         # See DeltaEvent and its subclasses.
 	def on_delta(spec)
@@ -88,7 +88,7 @@ module Roby
         #
         # See TimePointEvent
         def at(options)
-            options = validate_options options, :t => nil
+            options = validate_options options, t: nil
             if time = options[:t]
                 trigger_when { Time.now >= time }
             end
@@ -104,7 +104,7 @@ module Roby
             end
         end
     end
-    Roby::ExecutionEngine.add_propagation_handler(:type => :propagation, &Roby.method(:poll_state_events))
+    Roby::ExecutionEngine.add_propagation_handler(type: :propagation, &Roby.method(:poll_state_events))
 
     # A state event is an event which emits when some parameters over the state
     # are reached. See DeltaEvent and TimePointEvent.
@@ -219,7 +219,7 @@ module Roby
         #
         # which allows to use it with
         #
-        #   Roby.state.on_delta :t => 10
+        #   Roby.state.on_delta t: 10
 	def self.register_as(name)
 	    event_types[name] = self
 	end

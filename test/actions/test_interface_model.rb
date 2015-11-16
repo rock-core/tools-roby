@@ -42,7 +42,7 @@ class TC_Actions_InterfaceModel < Minitest::Test
         description = m.describe('an action').
             optional_arg('test', nil, 10)
         m.class_eval { def an_action(args = Hash.new); self.class::AnAction.new end }
-        flexmock(m).new_instances.should_receive(:an_action).with(:test => 10).pass_thru.once
+        flexmock(m).new_instances.should_receive(:an_action).with(test: 10).pass_thru.once
         m.an_action.instanciate(plan)
     end
 
@@ -65,8 +65,8 @@ class TC_Actions_InterfaceModel < Minitest::Test
         description = m.describe('an action').
             optional_arg('test', nil, 10)
         m.class_eval { def an_action(args = Hash.new); self.class::AnAction.new end }
-        flexmock(m).new_instances.should_receive(:an_action).with(:test => 20).pass_thru.once
-        m.an_action.instanciate(plan, :test => 20)
+        flexmock(m).new_instances.should_receive(:an_action).with(test: 20).pass_thru.once
+        m.an_action.instanciate(plan, test: 20)
     end
 
     def test_it_raises_ArgumentError_if_a_required_argument_is_not_given
@@ -84,7 +84,7 @@ class TC_Actions_InterfaceModel < Minitest::Test
         description = m.describe('an action')
         m.class_eval { def an_action(args = Hash.new); end }
         assert_raises(ArgumentError) do
-            m.an_action.instanciate(plan, :test => 10)
+            m.an_action.instanciate(plan, test: 10)
         end
     end
 
@@ -111,7 +111,7 @@ class TC_Actions_InterfaceModel < Minitest::Test
         end
         act = actions.an_action('test' => 10)
         assert_same m, act.model
-        assert_equal Hash[:test => 10], act.arguments
+        assert_equal Hash[test: 10], act.arguments
     end
 
     def test_action_libraries_are_not_registered_as_submodels
@@ -145,9 +145,9 @@ class TC_Actions_InterfaceModel < Minitest::Test
         actions = Actions::Interface.new_submodel do
             m = describe('an action').
                 required_arg('test')
-            define_method(:an_action) { |args| task_m.new(:id => args[:test]) }
+            define_method(:an_action) { |args| task_m.new(id: args[:test]) }
         end
-        assert_equal 10, actions.an_action(:test => 10).instanciate(plan).id
+        assert_equal 10, actions.an_action(test: 10).instanciate(plan).id
     end
 
     def test_inherited_actions_are_rebound_to_the_interface_model

@@ -5,10 +5,10 @@ module Roby
             terminates
 
             event :timed_out
-            forward :timed_out => :stop
+            forward timed_out: :stop
 
             event :start do |context|
-                forward_to :start, self, :timed_out, :delay => delay
+                forward_to :start, self, :timed_out, delay: delay
                 emit :start
             end
         end

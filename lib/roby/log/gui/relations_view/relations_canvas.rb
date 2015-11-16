@@ -224,9 +224,9 @@ module Roby
             #   Otherwise, nil.
             def self.to_svg(task, options = Hash.new)
                 options = Kernel.validate_options options,
-                    :path => nil,
-                    :scale_x => Layout::DOT_TO_QT_SCALE_FACTOR_X,
-                    :scale_y => Layout::DOT_TO_QT_SCALE_FACTOR_Y
+                    path: nil,
+                    scale_x: Layout::DOT_TO_QT_SCALE_FACTOR_X,
+                    scale_y: Layout::DOT_TO_QT_SCALE_FACTOR_Y
 
                 if !task.plan
                     plan = Roby::Plan.new
@@ -744,7 +744,7 @@ module Roby
 	    end
 	    def layout_options
 		return @layout_options if @layout_options
-		{ :rankdir => 'TB' }
+		{ rankdir: 'TB' }
 	    end
 	    def layout_method
 		return @layout_method if @layout_method

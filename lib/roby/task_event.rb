@@ -10,7 +10,7 @@ module Roby
     # overloads the stop command with
     #
     #   class TModel < Roby::Task
-    #     event :stop, :controlable => true
+    #     event :stop, controlable: true
     #   end
     #
     # Then TModel::StopEvent will be a subclass of StopEvent.

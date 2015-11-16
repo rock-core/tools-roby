@@ -75,7 +75,7 @@ module Roby
 		    end
 		else
 		    if !File.exists?(destfile)
-			FileUtils.cp file, destfile, :preserve => true
+			FileUtils.cp file, destfile, preserve: true
 			puts "creating #{relative}"
 		    elsif !File.file?(destfile)
 			STDERR.puts "#{destfile} exists but it is not a file"

@@ -387,7 +387,7 @@ module Roby
     #
     # For instance,
     #
-    #   task.new(:goal => Roby.from(State).pose.position))
+    #   task.new(goal: Roby.from(State).pose.position))
     #
     # will set the task's 'goal' argument from State.pose.position *at the
     # time the task is started*
@@ -396,7 +396,7 @@ module Roby
     # Task.from can be used instead of Roby.from):
     #
     #   class MyTask < Roby::Task
-    #     argument :goal, :default => from(State).pose.position
+    #     argument :goal, default: from(State).pose.position
     #   end
     #
     # If the provided object is nil, the receiver will be the task itself.
@@ -413,7 +413,7 @@ module Roby
     #
     # For instance:
     #
-    #   task.new(:goal => Roby.from_state.pose.position))
+    #   task.new(goal: Roby.from_state.pose.position))
     #
     def self.from_state(state_object = State)
         DelayedArgumentFromState.new(state_object)
@@ -425,7 +425,7 @@ module Roby
     #
     # For instance:
     #
-    #   task.new(:goal => Roby.from_state.pose.position))
+    #   task.new(goal: Roby.from_state.pose.position))
     #
     def self.from_conf
 	from_state(Conf)

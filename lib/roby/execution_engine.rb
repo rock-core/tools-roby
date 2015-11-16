@@ -241,7 +241,7 @@ module Roby
 
             def initialize(description, handler, options)
                 options = Kernel.validate_options options,
-                    :on_error => :raise, :late => false, :once => false
+                    on_error: :raise, late: false, once: false
 
                 if !PollBlockDefinition::ON_ERROR.include?(options[:on_error].to_sym)
                     raise ArgumentError, "invalid value '#{options[:on_error]} for the :on_error option. Accepted values are #{ON_ERROR.map(&:to_s).join(", ")}"
@@ -314,7 +314,7 @@ module Roby
                 end
 
                 handler_options, poll_options = Kernel.filter_options options,
-                    :type => :external_events
+                    type: :external_events
 
                 check_arity block, 1
                 new_handler = PollBlockDefinition.new("propagation handler #{block}", block, poll_options)
@@ -397,7 +397,7 @@ module Roby
             end
 
             handler_options, poll_options = Kernel.filter_options options,
-                :type => :external_events
+                type: :external_events
 
             check_arity block, 1
             new_handler = PollBlockDefinition.new("propagation handler #{block}", block, poll_options)
@@ -873,8 +873,8 @@ module Roby
         # specification is either +nil+ or a hash, in which case two forms are
         # possible:
         #
-        #   :at => absolute_time
-        #   :delay => number
+        #   at: absolute_time
+        #   delay: number
         #
         def self.validate_timespec(timespec)
             if timespec
@@ -1159,7 +1159,7 @@ module Roby
                 parents = filtered_parents
                 handled_exceptions[exception.exception] = Set.new
                 remaining = TaskStructure::Dependency.reverse.
-                    fork_merge_propagation(origin, exception, :vertex_visitor => visitor) do |from, to, e|
+                    fork_merge_propagation(origin, exception, vertex_visitor: visitor) do |from, to, e|
                         if !parents.empty?
                             if from == origin && !parents.include?(to)
                                 TaskStructure::Dependency.prune
@@ -1264,13 +1264,13 @@ module Roby
         #
         # @yieldparam [Plan] plan the plan on which this engine works
         def once(options = Hash.new, &block)
-            add_propagation_handler(Hash[:type => :external_events, :once => true].merge(options), &block)
+            add_propagation_handler(Hash[type: :external_events, once: true].merge(options), &block)
         end
 
         # Schedules +block+ to be called once after +delay+ seconds passed, in
         # the propagation context
         def delayed(delay, options = Hash.new, &block)
-            handler = PollBlockDefinition.new("delayed block #{block}", block, Hash[:once => true].merge(options))
+            handler = PollBlockDefinition.new("delayed block #{block}", block, Hash[once: true].merge(options))
             once do
                 process_every << [handler, cycle_start, delay]
             end
@@ -1375,7 +1375,7 @@ module Roby
         def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new, enable_scheduler: false)
             scheduler_was_enabled, scheduler.enabled = scheduler.enabled?, enable_scheduler
             gather_framework_errors("process_events_simple") do
-                stats = Hash[:start => Time.now]
+                stats = Hash[start: Time.now]
                 next_steps = seeds.dup
                 errors = initial_errors.dup
                 if block_given?
@@ -1438,7 +1438,7 @@ module Roby
         
         # Process the pending events. The time at each event loop step
         # is saved into +stats+.
-        def process_events(stats = {:start => Time.now})
+        def process_events(stats = {start: Time.now})
             @emitted_events = Array.new
 
             if @application_exceptions
@@ -1852,7 +1852,7 @@ module Roby
 		raise "there is already a control running in thread #{@thread}"
 	    end
 
-	    options = validate_options options, :cycle => 0.1
+	    options = validate_options options, cycle: 0.1
 
 	    @quit = 0
             @allow_propagation = false

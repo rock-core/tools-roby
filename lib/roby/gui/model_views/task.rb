@@ -26,7 +26,7 @@ module Roby
                     svg  = Roby::LogReplay::RelationsDisplay::DisplayTask.to_svg(task_model.new)
 
                     options, push_options = Kernel.filter_options options,
-                        :external_objects => false, :doc => true
+                        external_objects: false, doc: true
                     if external_objects = options[:external_objects]
                         file = external_objects % 'roby_task' + ".svg"
                         File.open(file, 'w') { |io| io.write(svg) }

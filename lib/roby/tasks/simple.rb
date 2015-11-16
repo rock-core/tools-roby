@@ -8,12 +8,12 @@ module Roby
 	    argument :id
 
 	    def initialize(arguments = {}) # :nodoc:
-		arguments = { :id => object_id.to_s }.merge(arguments)
+		arguments = { id: object_id.to_s }.merge(arguments)
 		super(arguments)
 	    end
 
-	    event :start, :command => true
-	    event :success, :command => true, :terminal => true
+	    event :start, command: true
+	    event :success, command: true, terminal: true
 	    terminates
         end
     end

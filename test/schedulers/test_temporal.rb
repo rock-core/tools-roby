@@ -15,13 +15,13 @@ class TC_Schedulers_Temporal < Minitest::Test
     end
 
     def test_scheduling_time
-        t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
+        t1, t2, t3 = prepare_plan add: 3, model: Tasks::Simple
         e1 = t1.start_event
         e2 = t2.start_event
         e3 = t3.start_event
         t1.executable = false
 
-        e2.should_emit_after(e1, :min_t => 5, :max_t => 10)
+        e2.should_emit_after(e1, min_t: 5, max_t: 10)
         t2.depends_on t3
 
         FlexMock.use(Time) do |time|
@@ -59,7 +59,7 @@ class TC_Schedulers_Temporal < Minitest::Test
     def test_scheduling_constraint
         scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
 
-        t2, t3 = prepare_plan :add => 2, :model => Tasks::Simple
+        t2, t3 = prepare_plan add: 2, model: Tasks::Simple
         t2.planned_by t3
         t2.should_start_after(t3)
         t3.schedule_as(t2)
@@ -86,7 +86,7 @@ class TC_Schedulers_Temporal < Minitest::Test
 
     def test_temporal_constraints
         scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
-        t1, t1_child, t2, t2_child = prepare_plan :add => 4, :model => Tasks::Simple
+        t1, t1_child, t2, t2_child = prepare_plan add: 4, model: Tasks::Simple
         t1.depends_on(t1_child)
         t2.depends_on(t2_child)
         t2_child.should_start_after(t1_child)
@@ -119,7 +119,7 @@ class TC_Schedulers_Temporal < Minitest::Test
 
     def test_mixing_scheduling_and_basic_constraints
         scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
-        t0, t1, t2, t3 = prepare_plan :add => 4, :model => Tasks::Simple
+        t0, t1, t2, t3 = prepare_plan add: 4, model: Tasks::Simple
         t0.depends_on t1
         t1.depends_on t2
         t2.planned_by t3
@@ -152,7 +152,7 @@ class TC_Schedulers_Temporal < Minitest::Test
 
     def test_parent_waiting_for_child
         scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
-        t0, t1 = prepare_plan :add => 2, :model => Tasks::Simple
+        t0, t1 = prepare_plan add: 2, model: Tasks::Simple
         t0.depends_on t1
         t0.should_start_after(t1)
 

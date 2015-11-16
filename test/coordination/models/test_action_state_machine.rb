@@ -3,17 +3,17 @@ require 'roby/test/self'
 describe Roby::Coordination::Models::ActionStateMachine do
     attr_reader :task_m, :action_m, :description
     before do
-        task_m = @task_m = Roby::Task.new_submodel(:name => 'TaskModel') do
+        task_m = @task_m = Roby::Task.new_submodel(name: 'TaskModel') do
             terminates
         end
         description = nil
         @action_m = Roby::Actions::Interface.new_submodel do
             describe("the start task").returns(task_m).optional_arg(:id, "the task ID")
-            define_method(:start_task) { |arg| task_m.new(:id => (arg[:id] || :start)) }
+            define_method(:start_task) { |arg| task_m.new(id: (arg[:id] || :start)) }
             describe("the next task").returns(task_m)
-            define_method(:next_task) { task_m.new(:id => :next) }
+            define_method(:next_task) { task_m.new(id: :next) }
             describe("a monitoring task").returns(task_m)
-            define_method(:monitoring_task) { task_m.new(:id => 'monitoring') }
+            define_method(:monitoring_task) { task_m.new(id: 'monitoring') }
             description = describe("state machine").returns(task_m)
         end
         @description = description
@@ -62,7 +62,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
     it "assigns the name of the local variable, suffixed with _suffix, to the state name" do
         _, machine = state_machine 'test' do
-            first = state(start_task(:id => 10))
+            first = state(start_task(id: 10))
             start(first)
         end
         assert_equal 'first_state', machine.tasks.first.name
@@ -70,7 +70,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
     it "can resolve a state model by its child name" do
         _, machine = state_machine 'test' do
-            first = state(start_task(:id => 10))
+            first = state(start_task(id: 10))
             start(first)
         end
         assert_equal task_m, machine.find_child('first_state')
@@ -96,7 +96,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
         it "raises if an unknown argument is accessed" do
             assert_raises(NameError) do
                 state_machine 'test' do
-                    start(state(start_task(:id => task_id)))
+                    start(state(start_task(id: task_id)))
                 end
             end
         end

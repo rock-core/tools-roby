@@ -28,11 +28,11 @@ class TC_DistributedConnection < Minitest::Test
 	    DRb.start_service
 	    central_tuplespace = DRbObject.new_with_uri('druby://localhost:1245')
 
-	    Distributed.state = ConnectionSpace.new :ring_discovery => false, 
-		:discovery_tuplespace => central_tuplespace, :plan => plan
+	    Distributed.state = ConnectionSpace.new ring_discovery: false, 
+		discovery_tuplespace: central_tuplespace, plan: plan
 	end
-	@local = ConnectionSpace.new :ring_discovery => false, 
-	    :discovery_tuplespace => central_tuplespace, :plan => plan
+	@local = ConnectionSpace.new ring_discovery: false, 
+	    discovery_tuplespace: central_tuplespace, plan: plan
         Distributed.state = local
 	assert_has_neighbour { |n| n.name == "#{Socket.gethostname}-#{remote_pid}" }
     end
@@ -44,14 +44,14 @@ class TC_DistributedConnection < Minitest::Test
 
 	remote_pid = remote_process do
 	    DRb.start_service
-	    Distributed.state = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST, :plan => plan
-	    Distributed.publish :bind => '127.0.0.2'
+	    Distributed.state = ConnectionSpace.new period: 0.5, ring_discovery: true, ring_broadcast: BROADCAST, plan: plan
+	    Distributed.publish bind: '127.0.0.2'
 	end
 
 	DRb.start_service
-        @local = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST, :plan => plan
+        @local = ConnectionSpace.new period: 0.5, ring_discovery: true, ring_broadcast: BROADCAST, plan: plan
 	Distributed.state = local
-	Distributed.publish :bind => '127.0.0.1'
+	Distributed.publish bind: '127.0.0.1'
 
 	assert_has_neighbour { |n| n.name == "#{Socket.gethostname}-#{remote_pid}" }
     end

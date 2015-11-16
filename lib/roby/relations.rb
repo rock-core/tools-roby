@@ -759,7 +759,7 @@ module Roby
         #
         # and
         #
-        #   relation :Children, :child_name => :child
+        #   relation :Children, child_name: :child
         #
         # would define
         #
@@ -775,7 +775,7 @@ module Roby
         # * if <tt>:single_child</tt> is set to true, then an additional method is defined:
         #     child => object or nil
         # * and finally if the following is used
-        #     relation :Children, :child_name => :child, :parent_name => :parent
+        #     relation :Children, child_name: :child, parent_name: :parent
         #   then the following method is additionally defined
         #     each_parent { |v| ... }
         #
@@ -783,18 +783,18 @@ module Roby
         # (i.e. for a TaskStructure relation, Roby::Task)
 	def relation(relation_name, options = {})
 	    options = validate_options options,
-			:child_name  => relation_name.to_s.snakecase,
-			:const_name  => relation_name,
-			:parent_name => nil,
-			:subsets     => Set.new,
-			:noinfo      => false,
-			:graph       => default_graph_class,
-			:distribute  => true,
-			:dag         => true,
-			:single_child => false,
-			:weak        => false,
-                        :strong      => false,
-                        :copy_on_replace => false
+			child_name:  relation_name.to_s.snakecase,
+			const_name:  relation_name,
+			parent_name: nil,
+			subsets:     Set.new,
+			noinfo:      false,
+			graph:       default_graph_class,
+			distribute:  true,
+			dag:         true,
+			single_child: false,
+			weak:        false,
+                        strong:      false,
+                        copy_on_replace: false
 
             if block_given?
                 raise ArgumentError, "calling relation with a block is not supported anymore. Reopen #{options[:const_name]}GraphClass::Extension after the relation call to add helper methods"

@@ -26,13 +26,13 @@ class TC_DistributedRobyProtocol < Minitest::Test
 
     TEST_ARRAY_SIZE = 7
     def dumpable_array
-	task = Tasks::Simple.new(:id => 1)
+	task = Tasks::Simple.new(id: 1)
 	[1, task, 
 	    Roby::EventGenerator.new {}, 
-	    Tasks::Simple.new(:id => 2), 
+	    Tasks::Simple.new(id: 2), 
 	    task.event(:start), 
 	    Roby::TaskStructure::Dependency, 
-	    Tasks::Simple.new_submodel.new(:id => 3) ]
+	    Tasks::Simple.new_submodel.new(id: 3) ]
     end
     def dumpable_hash
 	Hash[*(0...TEST_ARRAY_SIZE).zip(dumpable_array).flatten]
@@ -42,7 +42,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	assert_equal(1, array[0])
 
 	assert_kind_of(Task::DRoby, array[1])
-	assert_equal({:id => 1}, array[1].arguments)
+	assert_equal({id: 1}, array[1].arguments)
 	assert_equal(Tasks::Simple, array[1].model.proxy(remote_peer))
 
 	assert_kind_of(EventGenerator::DRoby, array[2])
@@ -50,7 +50,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	assert_equal(EventGenerator, array[2].model.proxy(remote_peer))
 
 	assert_kind_of(Task::DRoby, array[3])
-	assert_equal({:id => 2}, array[3].arguments)
+	assert_equal({id: 2}, array[3].arguments)
 	assert_equal(Tasks::Simple, array[3].model.proxy(remote_peer))
 
 	assert_kind_of(TaskEventGenerator::DRoby, array[4])
@@ -177,7 +177,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def task
-		    plan.add_mission(@task = Tasks::Simple.new_submodel.new(:id => 1))
+		    plan.add_mission(@task = Tasks::Simple.new_submodel.new(id: 1))
 		    @task.data = [42, @task.class]
 		    [@task, @task.remote_id]
 		end
@@ -189,7 +189,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 
 	remote_task, remote_task_id = remote_peer.call(:task)
 	assert_kind_of(Task::DRoby, remote_task)
-	assert_equal({:id => 1},    remote_task.arguments)
+	assert_equal({id: 1},    remote_task.arguments)
 	assert_kind_of(Plan::DRoby, remote_task.plan)
 	assert_equal("Roby::Test::Tasks::Simple",  remote_task.model.ancestors[1].first)
 	assert_equal([42, remote_task.model], remote_task.data)
@@ -272,7 +272,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	    end
 	end
 
-	plan.add_permanent(local_task = Tasks::Simple.new(:id => 'local'))
+	plan.add_permanent(local_task = Tasks::Simple.new(id: 'local'))
 	remote_proxy = remote_peer.call(:proxy, local_task)
 	remote_peer.synchro_point
 	assert(remote_peer.proxies[remote_proxy], [remote_peer.proxies, remote_proxy])
@@ -299,7 +299,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 
 	begin
 	    remote.disable_communication
-	    plan.add_permanent(local_task = Tasks::Simple.new(:id => 'local'))
+	    plan.add_permanent(local_task = Tasks::Simple.new(id: 'local'))
 	    remote_proxy = remote.proxy(Distributed.format(local_task))
 	    assert_equal(remote_proxy, remote.proxy(Distributed.format(local_task)))
 	    assert(!remote_peer.proxies[remote_proxy])
@@ -322,7 +322,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
     #   deletion (it has not yet received the removed_sibling message)
     def test_finalized_remote_task_race_condition
 	peer2peer do |remote|
-	    remote.plan.add_mission(task = FinalizedRemoteTaskRaceTask.new(:id => 'remote'))
+	    remote.plan.add_mission(task = FinalizedRemoteTaskRaceTask.new(id: 'remote'))
 	    
 	    remote.singleton_class.class_eval do
 		define_method(:send_task_update) do
@@ -332,7 +332,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	    end
 	end
 
-	task = remote_task(:id => 'remote') do |task|
+	task = remote_task(id: 'remote') do |task|
 	    remote_peer.disable_tx
 	    task
 	end
@@ -352,7 +352,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def task
-		    plan.add_mission(@task = model.new(:id => 1, :model => model))
+		    plan.add_mission(@task = model.new(id: 1, model: model))
 		    @task
 		end
 		def model
@@ -370,7 +370,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	assert_equal(m_model.ancestors, m_task.arguments[:model].ancestors)
 	assert_equal(m_model.tags, m_task.arguments[:model].tags)
 	t = remote_peer.local_object(m_task)
-	assert_equal({ :id => 1, :model => m }, t.arguments)
+	assert_equal({ id: 1, model: m }, t.arguments)
     end
 
     def test_marshal_task_event
@@ -378,7 +378,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 	    PeerServer.class_eval do
 		attr_reader :task
 		def task_event
-		    @task = Tasks::Simple.new_submodel.new(:id => 1)
+		    @task = Tasks::Simple.new_submodel.new(id: 1)
 		    task.event(:start)
 		end
 	    end
@@ -460,18 +460,18 @@ class TC_DistributedRobyProtocol < Minitest::Test
 
     def test_siblings
 	peer2peer do |remote|
-	    plan.add_mission(Roby::Task.new(:id => 'remote'))
+	    plan.add_mission(Roby::Task.new(id: 'remote'))
 	end
 
-	plan.add_mission(remote_task = remote_task(:id => 'remote'))
+	plan.add_mission(remote_task = remote_task(id: 'remote'))
 	assert(remote_task.has_sibling_on?(remote_peer))
 	remote_object, _ = remote_peer.proxies.find { |_, task| task == remote_task }
 	assert(remote_object)
 	assert_equal(remote_object, remote_task.sibling_on(remote_peer))
 
-	assert_equal(remote_task, remote_task(:id => 'remote'))
+	assert_equal(remote_task, remote_task(id: 'remote'))
 	process_events
-	assert_equal(remote_task, remote_task(:id => 'remote'))
+	assert_equal(remote_task, remote_task(id: 'remote'))
     end
 
 
@@ -502,7 +502,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 
     def test_dump_sequence
 	DRb.start_service
-	t1, t2 = prepare_plan :add => 2
+	t1, t2 = prepare_plan add: 2
 	p = t1+t2
 
 	formatted = Distributed.format(p)
@@ -511,7 +511,7 @@ class TC_DistributedRobyProtocol < Minitest::Test
 
     def test_dump_parallel
 	DRb.start_service
-	t1, t2 = prepare_plan :add => 2
+	t1, t2 = prepare_plan add: 2
 	p = t1|t2
 
 	formatted = Distributed.format(p)

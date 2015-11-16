@@ -172,7 +172,7 @@ module Roby
             def create_remote_event(symbol, peer, marshalled_event)
                 if !self.model.has_event?(symbol)
                     event_model = self.model.
-                        event(symbol, :controlable => marshalled_event.controlable)
+                        event(symbol, controlable: marshalled_event.controlable)
                 else
                     event_model = self.model.find_event_model(symbol)
                 end
@@ -188,8 +188,8 @@ module Roby
                 if !self.model.event_model(symbol).controlable? && marshalled_event.controlable
                     terminal = self.model.event_model(symbol).terminal?
                     event_model = self.model.
-                        event(symbol, :controlable => marshalled_event.controlable,
-                              :terminal => terminal)
+                        event(symbol, controlable: marshalled_event.controlable,
+                              terminal: terminal)
                 else
                     event_model = self.model.event_model(symbol)
                 end
@@ -584,9 +584,9 @@ module Roby
                 remote_object_manager.removed_sibling(trsc_id)
 	    end
 
-	    GENERATOR_TO_STATE = { :start => :started,
-		:success => :success,
-		:stop => :finished }
+	    GENERATOR_TO_STATE = { start: :started,
+		success: :success,
+		stop: :finished }
 
             def task_failed_to_start(time, task, reason)
                 task   = local_object(task)

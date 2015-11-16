@@ -731,7 +731,7 @@ describe BGL::Graph do
             a = *create_and_add_vertices(1)
             value = flexmock
             should_visit([a, value])
-            result = graph.fork_merge_propagation(a, value, :vertex_visitor => visitor)
+            result = graph.fork_merge_propagation(a, value, vertex_visitor: visitor)
             assert_equal Hash[a => value], result
         end
 
@@ -742,7 +742,7 @@ describe BGL::Graph do
             value = flexmock
             value.should_receive(:propagate).with(a, b, 0).and_return(1)
             value.should_receive(:propagate).with(b, c, 1).and_return(2)
-            result = graph.fork_merge_propagation(a, 0, :vertex_visitor => visitor) do |from, to, v|
+            result = graph.fork_merge_propagation(a, 0, vertex_visitor: visitor) do |from, to, v|
                 value.propagate(from, to, v)
             end
             assert_equal Hash[c => 2], result
@@ -766,7 +766,7 @@ describe BGL::Graph do
             v.should_receive(:fork).and_return(v_clone)
             should_visit([a, v], [b, v], [c0, v_clone], [c1, v_clone])
             setup_dfs graph, [a, b], [b, c0], [b, c1]
-            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+            result = graph.fork_merge_propagation(a, v, vertex_visitor: visitor) do |from, to, v|
                 v
             end
             assert_equal Hash[c0 => v_clone, c1 => v_clone], result
@@ -788,7 +788,7 @@ describe BGL::Graph do
             should_visit([a, v], [b, v], [c0, v_clone], [c1, v_clone], [d, v_merged])
             setup_dfs graph, [a, b], [b, c0], [c0, d], [b, c1], [c1, d]
             flexmock(graph).should_receive(:prune).once
-            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+            result = graph.fork_merge_propagation(a, v, vertex_visitor: visitor) do |from, to, v|
                 v.propagate(from, to)
             end
             assert_equal Hash[d => v_merged], result
@@ -802,7 +802,7 @@ describe BGL::Graph do
             v = flexmock
             v.should_receive(:propagate).and_return(v)
             should_visit([a0, v], [b, v])
-            result = graph.fork_merge_propagation(a0, v, :vertex_visitor => visitor) do |from, to, v|
+            result = graph.fork_merge_propagation(a0, v, vertex_visitor: visitor) do |from, to, v|
                 v
             end
             assert_equal Hash[b => v], result
@@ -818,7 +818,7 @@ describe BGL::Graph do
             v.should_receive(:fork).and_return(v)
             v.should_receive(:propagate).with(b1, c).never
             should_visit([a, v], [b0, v], [c, v])
-            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+            result = graph.fork_merge_propagation(a, v, vertex_visitor: visitor) do |from, to, v|
                 if to == b1
                     graph.prune
                 else
@@ -841,7 +841,7 @@ describe BGL::Graph do
                 graph.prune
             end
             should_visit([a, v], [b0, v], [c, v])
-            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+            result = graph.fork_merge_propagation(a, v, vertex_visitor: visitor) do |from, to, v|
                 v.propagate(from, to, v)
             end
             assert_equal Hash[c, v], result
@@ -856,7 +856,7 @@ describe BGL::Graph do
             visitor.should_receive(:call).with(a, v).and_return do
                 graph.prune
             end
-            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+            result = graph.fork_merge_propagation(a, v, vertex_visitor: visitor) do |from, to, v|
                 v.propagate(from, to, v)
             end
             assert_equal Hash[], result
@@ -868,7 +868,7 @@ describe BGL::Graph do
             visitor.should_receive(:call).with(a, v).and_return do
                 graph.prune
             end
-            result = graph.fork_merge_propagation(a, v, :vertex_visitor => visitor) do |from, to, v|
+            result = graph.fork_merge_propagation(a, v, vertex_visitor: visitor) do |from, to, v|
                 v
             end
             assert result.empty?
@@ -902,7 +902,7 @@ describe BGL::Graph do
                     graph.prune
                 end
             end
-            result = graph.fork_merge_propagation(a0, v, :vertex_visitor => visitor) do |from, to, v|
+            result = graph.fork_merge_propagation(a0, v, vertex_visitor: visitor) do |from, to, v|
                 v
             end
 

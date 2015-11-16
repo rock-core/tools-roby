@@ -20,7 +20,7 @@ module Roby::TaskStructure
                 end
 
                 options = Kernel.validate_options options,
-                    :replace => false, :optional => false, :plan_early => true
+                    replace: false, optional: false, plan_early: true
 
                 allow_replace = options.delete(:replace)
                 if old = planning_task

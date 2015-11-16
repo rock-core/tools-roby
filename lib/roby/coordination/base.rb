@@ -52,7 +52,7 @@ module Roby
             #   model. This is used so that the coordination tasks can be shared
             #   across instances
             def initialize(root_task = nil, arguments = Hash.new, options = Hash.new)
-                options = Kernel.validate_options options, :on_replace => :drop, :parent => nil
+                options = Kernel.validate_options options, on_replace: :drop, parent: nil
 
                 @arguments = model.validate_arguments(arguments)
                 @parent = options[:parent]
@@ -61,7 +61,7 @@ module Roby
                     bind_coordination_task_to_instance(
                         instance_for(model.root),
                         root_task,
-                        :on_replace => options[:on_replace])
+                        on_replace: options[:on_replace])
 
                     attach_fault_response_tables_to(root_task)
                     
@@ -99,7 +99,7 @@ module Roby
             #   the new task
             # @return [void]
             def bind_coordination_task_to_instance(coordination_task, instance, options = Hash.new)
-                options = Kernel.validate_options options, :on_replace => :drop
+                options = Kernel.validate_options options, on_replace: :drop
 
                 coordination_task.bind(instance)
                 if options[:on_replace] == :copy

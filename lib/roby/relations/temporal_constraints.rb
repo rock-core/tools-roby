@@ -304,7 +304,7 @@ module Roby
                 def should_emit_after(other_event, options = nil)
                     if options
                         options = Kernel.validate_options options,
-                            :min_t => nil, :max_t => nil, :recurrent => false
+                            min_t: nil, max_t: nil, recurrent: false
                         recurrent = options[:recurrent]
                     end
                     other_event.add_occurence_constraint(self, 1, Infinity, recurrent)

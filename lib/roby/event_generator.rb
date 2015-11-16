@@ -281,7 +281,7 @@ module Roby
                        else :drop
                        end
 
-                { :on_replace => mode, :once => once? }
+                { on_replace: mode, once: once? }
             end
 
             def ==(other)
@@ -293,7 +293,7 @@ module Roby
 
 	# call-seq:
         #   on { |event| ... }
-        #   on(:on_replace => :forward) { |event| ... }
+        #   on(on_replace: :forward) { |event| ... }
         #
         # Adds an event handler on this generator. The block gets an Event
         # object which describes the parameters of the emission (context value,
@@ -312,7 +312,7 @@ module Roby
                 raise ArgumentError, "no block given"
 	    end
 
-            options = Kernel.validate_options options, :on_replace => :drop, :once => false
+            options = Kernel.validate_options options, on_replace: :drop, once: false
             if ![:drop, :copy].include?(options[:on_replace])
                 raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
             end
@@ -337,7 +337,7 @@ module Roby
             for h in unreachable_handlers
                 cancel, h = h
                 if h.copy_on_replace?
-                    event.if_unreachable(:cancel_at_emission => cancel, :on_replace => :copy, &h.block)
+                    event.if_unreachable(cancel_at_emission: cancel, on_replace: :copy, &h.block)
                 end
             end
         end
@@ -345,8 +345,8 @@ module Roby
 	# Adds a signal from this event to +generator+. +generator+ must be
 	# controlable.
         #
-        # If +time+ is given it is either a :delay => time association, or a
-        # :at => time association. In the first case, +time+ is a floating-point
+        # If +time+ is given it is either a delay: time association, or a
+        # at: time association. In the first case, +time+ is a floating-point
         # delay in seconds and in the second case it is a Time object which is
         # the absolute point in time at which this propagation must happen.
         def signals(generator, timespec = nil)
@@ -386,11 +386,11 @@ module Roby
         #   the one on which the handler got installed
 	def if_unreachable(options = Hash.new, &block)
             if options == true || options == false
-                options = Hash[:cancel_at_emission => options]
+                options = Hash[cancel_at_emission: options]
             end
             options = Kernel.validate_options options,
-                :cancel_at_emission => false,
-                :on_replace => :drop
+                cancel_at_emission: false,
+                on_replace: :drop
 
             if ![:drop, :copy].include?(options[:on_replace])
                 raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
@@ -417,7 +417,7 @@ module Roby
         # handler will be kept.
         def when_unreachable(cancel_at_emission = false, &block)
             if block_given?
-                return if_unreachable(:cancel_at_emission => cancel_at_emission, &block)
+                return if_unreachable(cancel_at_emission: cancel_at_emission, &block)
             end
 
             # NOTE: the unreachable event is not directly tied to this one from
@@ -426,7 +426,7 @@ module Roby
             # user did not take care to use it.
             if !@unreachable_events[cancel_at_emission] || !@unreachable_events[cancel_at_emission].plan
                 result = EventGenerator.new(true)
-                if_unreachable(:cancel_at_emission => cancel_at_emission) do
+                if_unreachable(cancel_at_emission: cancel_at_emission) do
                     if result.plan
                         result.emit
                     end
@@ -445,8 +445,8 @@ module Roby
         # Emit +generator+ when +self+ is fired, without calling the command of
         # +generator+, if any.
         #
-        # If +timespec+ is given it is either a :delay => time association, or a
-        # :at => time association. In the first case, +time+ is a floating-point
+        # If +timespec+ is given it is either a delay: time association, or a
+        # at: time association. In the first case, +time+ is a floating-point
         # delay in seconds and in the second case it is a Time object which is
         # the absolute point in time at which this propagation must happen.
         def forward_to(generator, timespec = nil)
@@ -460,7 +460,7 @@ module Roby
 	    if seconds == 0 then self
 	    else
 		ev = EventGenerator.new
-		forward_to(ev, :delay => seconds)
+		forward_to(ev, delay: seconds)
 		ev
 	    end
 	end
@@ -479,7 +479,7 @@ module Roby
         #
         # Calls the provided event handler only once
 	def once(options = Hash.new, &block)
-            on(options.merge(:once => true), &block)
+            on(options.merge(once: true), &block)
             self
 	end
 
@@ -704,7 +704,7 @@ module Roby
 		ev.forward_to_once self
 	    end
 
-	    ev.if_unreachable(:cancel_at_emission => true) do |reason, event|
+	    ev.if_unreachable(cancel_at_emission: true) do |reason, event|
 		emit_failed(EmissionFailed.new(UnreachableEvent.new(ev, reason), self))
 	    end
 	end
@@ -722,8 +722,8 @@ module Roby
         #   block got called successfully
         def achieve_asynchronously(options = Hash.new, &block)
             options = Kernel.validate_options options,
-                :emit_on_success => true,
-                :callback => proc { }
+                emit_on_success: true,
+                callback: proc { }
 
             worker_thread = Thread.new do
                 begin

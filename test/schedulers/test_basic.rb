@@ -20,7 +20,7 @@ class TC_Schedulers_Basic < Minitest::Test
 
     def test_non_executable
         @scheduler = Roby::Schedulers::Basic.new(false, plan)
-        t1 = prepare_plan :add => 1, :model => Tasks::Simple
+        t1 = prepare_plan add: 1, model: Tasks::Simple
 
         t1.executable = false
         scheduler_initial_events
@@ -33,7 +33,7 @@ class TC_Schedulers_Basic < Minitest::Test
 
     def test_event_ordering
         @scheduler = Roby::Schedulers::Basic.new(false, plan)
-        t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
+        t1, t2 = prepare_plan add: 2, model: Tasks::Simple
         t1.stop_event.signals t2.start_event
 
         scheduler_initial_events
@@ -46,7 +46,7 @@ class TC_Schedulers_Basic < Minitest::Test
 
     def test_without_children
         @scheduler = Roby::Schedulers::Basic.new(false, plan)
-        t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
+        t1, t2 = prepare_plan add: 2, model: Tasks::Simple
         t1.depends_on t2
 
         scheduler_initial_events
@@ -59,7 +59,7 @@ class TC_Schedulers_Basic < Minitest::Test
 
     def test_with_children
         @scheduler = Roby::Schedulers::Basic.new(true, plan)
-        t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
+        t1, t2 = prepare_plan add: 2, model: Tasks::Simple
         t1.depends_on t2
 
         verify_event_ordering(t1.start_event, t2.start_event)
@@ -73,7 +73,7 @@ class TC_Schedulers_Basic < Minitest::Test
 
     def test_planned_by
         @scheduler = Roby::Schedulers::Basic.new(true, plan)
-        t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
+        t1, t2, t3 = prepare_plan add: 3, model: Tasks::Simple
         t1.depends_on t2
         t2.executable = false
         t2.planned_by t3

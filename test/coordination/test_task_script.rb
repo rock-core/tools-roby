@@ -9,7 +9,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_execute
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        task = prepare_plan missions: 1, model: Roby::Tasks::Simple
         counter = 0
         task.script do
             execute do
@@ -25,7 +25,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_execute_and_emit
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        task = prepare_plan missions: 1, model: Roby::Tasks::Simple
         counter = 0
         task.script do
             execute do
@@ -44,7 +44,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_poll
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        task = prepare_plan missions: 1, model: Roby::Tasks::Simple
         counter = 0
         task.script do
             poll do
@@ -67,7 +67,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_cancelling_a_poll_operation_deregisters_the_poll_handler
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        task = prepare_plan missions: 1, model: Roby::Tasks::Simple
         recorder = flexmock
         script = task.model.create_script(task) do
             poll do
@@ -87,7 +87,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_poll_evaluates_the_block_in_the_context_of_the_root_task
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        task = prepare_plan missions: 1, model: Roby::Tasks::Simple
         recorder = flexmock
         recorder.should_receive(:called).with(task)
         task.script do
@@ -104,7 +104,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
         end
-        task = prepare_plan :missions => 1, :model => model
+        task = prepare_plan missions: 1, model: model
         counter = 0
         task.script do
             wait :intermediate
@@ -123,8 +123,8 @@ class TC_Coordination_TaskScript < Minitest::Test
         model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
         end
-        parent, child = prepare_plan :missions => 1, :add => 1, :model => model
-        parent.depends_on(child, :role => 'subtask')
+        parent, child = prepare_plan missions: 1, add: 1, model: model
+        parent.depends_on(child, role: 'subtask')
 
         script_child = parent.script.subtask_child
         assert_equal model, script_child.model.model
@@ -134,8 +134,8 @@ class TC_Coordination_TaskScript < Minitest::Test
         model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
         end
-        parent, child = prepare_plan :missions => 1, :add => 1, :model => model
-        parent.depends_on(child, :role => 'subtask')
+        parent, child = prepare_plan missions: 1, add: 1, model: model
+        parent.depends_on(child, role: 'subtask')
 
         counter = 0
         parent.script do
@@ -160,8 +160,8 @@ class TC_Coordination_TaskScript < Minitest::Test
         model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
         end
-        parent, (child, planning_task) = prepare_plan :missions => 1, :add => 2, :model => model
-        parent.depends_on(child, :role => 'subtask')
+        parent, (child, planning_task) = prepare_plan missions: 1, add: 2, model: model
+        parent.depends_on(child, role: 'subtask')
 
         recorder = flexmock
         recorder.should_receive(:first_execute).once.ordered
@@ -170,7 +170,7 @@ class TC_Coordination_TaskScript < Minitest::Test
             wait intermediate_event
             execute do
                 recorder.first_execute
-                child.depends_on(model.new, :role => 'subsubtask')
+                child.depends_on(model.new, role: 'subsubtask')
             end
             wait subtask_child.subsubtask_child.intermediate_event
             execute do
@@ -185,7 +185,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_sleep
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        task = prepare_plan missions: 1, model: Roby::Tasks::Simple
 
         FlexMock.use(Time) do |mock|
             time = Time.now
@@ -208,11 +208,11 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_wait_after
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        task = prepare_plan missions: 1, model: Roby::Tasks::Simple
         time = Time.now
         task.start!
         task.script do
-            wait start_event, :after => time
+            wait start_event, after: time
             emit :success
         end
         process_events
@@ -226,7 +226,7 @@ class TC_Coordination_TaskScript < Minitest::Test
                 event "found_event#{i + 1}"
             end
         end
-        task = prepare_plan :missions => 1, :model => model
+        task = prepare_plan missions: 1, model: model
 
         task.script do
             wait_any event1_event
@@ -252,7 +252,7 @@ class TC_Coordination_TaskScript < Minitest::Test
             event :intermediate
             event :timeout
         end
-        task = prepare_plan :missions => 1, :model => model
+        task = prepare_plan missions: 1, model: model
 
         FlexMock.use(Time) do |mock|
             time = Time.now
@@ -260,7 +260,7 @@ class TC_Coordination_TaskScript < Minitest::Test
 
             plan.add(task)
             task.script do
-                timeout 5, :emit => :timeout do
+                timeout 5, emit: :timeout do
                     wait intermediate_event
                 end
                 emit :success
@@ -280,14 +280,14 @@ class TC_Coordination_TaskScript < Minitest::Test
             event :intermediate
             event :timeout
         end
-        task = prepare_plan :missions => 1, :model => model
+        task = prepare_plan missions: 1, model: model
 
         mock = flexmock(Time)
         time = Time.now
         mock.should_receive(:now).and_return { time }
 
         task.script do
-            timeout 5, :emit => :timeout do
+            timeout 5, emit: :timeout do
                 wait intermediate_event
             end
             emit :success
@@ -309,7 +309,7 @@ class TC_Coordination_TaskScript < Minitest::Test
             event :start_script2
             event :done_script2
         end
-        task = prepare_plan :permanent => 1, :model => model
+        task = prepare_plan permanent: 1, model: model
 
         task.script do
             wait start_script1_event
@@ -346,10 +346,10 @@ class TC_Coordination_TaskScript < Minitest::Test
         child_model = Roby::Tasks::Simple.new_submodel
 
         task = nil
-        task = prepare_plan :permanent => 1, :model => model
+        task = prepare_plan permanent: 1, model: model
         task.script do
             wait start_child_event
-            child_task = start(child_model, :role => "subtask")
+            child_task = start(child_model, role: "subtask")
             execute do
                 mock.child_started(child_task.resolve.running?)
             end
@@ -366,7 +366,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_execute_always_goes_on_regardless_of_the_output_of_the_block
-        task = prepare_plan :permanent => 1, :model => Tasks::Simple
+        task = prepare_plan permanent: 1, model: Tasks::Simple
         task.script do
             execute { true }
             emit :success
@@ -374,7 +374,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         task.start!
         assert task.success?
 
-        task = prepare_plan :permanent => 1, :model => Tasks::Simple
+        task = prepare_plan permanent: 1, model: Tasks::Simple
         task.script do
             execute { false }
             emit :success
@@ -385,7 +385,7 @@ class TC_Coordination_TaskScript < Minitest::Test
 
     def test_execute_block_is_evaluated_in_the_context_of_the_root_task
         context = nil
-        task = prepare_plan :permanent => 1, :model => Tasks::Simple
+        task = prepare_plan permanent: 1, model: Tasks::Simple
         task.script do
             execute { context = self }
         end
@@ -407,7 +407,7 @@ class TC_Coordination_TaskScript < Minitest::Test
             end
         end
 
-        task1, task2 = prepare_plan :permanent => 2, :model => model
+        task1, task2 = prepare_plan permanent: 2, model: model
         mock.should_receive(:before_called).with(task1).once.ordered
         mock.should_receive(:before_called).with(task2).once.ordered
         mock.should_receive(:after_called).with(task1).once.ordered
@@ -426,7 +426,7 @@ class TC_Coordination_TaskScript < Minitest::Test
 
     def test_script_is_prepared_with_the_new_task_after_a_replacement
         model = Roby::Task.new_submodel { terminates }
-        old, new = prepare_plan :add => 2, :model => model
+        old, new = prepare_plan add: 2, model: model
         old.abstract = true
         script = old.script do
             emit success_event
@@ -437,7 +437,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_transaction_commits_new_script_on_pending_task
-        task = prepare_plan :permanent => 1, :model => Roby::Tasks::Simple
+        task = prepare_plan permanent: 1, model: Roby::Tasks::Simple
         task.executable = false
 
         mock = flexmock
@@ -463,7 +463,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_transaction_commits_new_script_on_running_task
-        task = prepare_plan :permanent => 1, :model => Roby::Tasks::Simple
+        task = prepare_plan permanent: 1, model: Roby::Tasks::Simple
         task.start!
 
         mock = flexmock

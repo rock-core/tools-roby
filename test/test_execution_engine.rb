@@ -55,7 +55,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_add_propagation_handlers_for_external_events
         FlexMock.use do |mock|
             handler = PropagationHandlerTest.new(plan, mock)
-            id = engine.add_propagation_handler(:type => :external_events) { |plan| handler.handler(plan) }
+            id = engine.add_propagation_handler(type: :external_events) { |plan| handler.handler(plan) }
 
             mock.should_receive(:called).with(plan).twice
 
@@ -76,7 +76,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_add_propagation_handlers_for_propagation
         FlexMock.use do |mock|
             handler = PropagationHandlerTest.new(plan, mock)
-            id = engine.add_propagation_handler(:type => :propagation) { |plan| handler.handler(plan) }
+            id = engine.add_propagation_handler(type: :propagation) { |plan| handler.handler(plan) }
 
             # In the handler, we call the event two times
             #
@@ -109,13 +109,13 @@ class TC_ExecutionEngine < Minitest::Test
             late_event.on { |_| mock.late_event_emitted(index += 1) }
 
 
-            id = engine.add_propagation_handler(:type => :propagation) do |plan|
+            id = engine.add_propagation_handler(type: :propagation) do |plan|
                 mock.handler_called(index += 1)
                 if !event.happened?
                     event.emit
                 end
             end
-            late_id = engine.add_propagation_handler(:type => :propagation, :late => true) do |plan|
+            late_id = engine.add_propagation_handler(type: :propagation, late: true) do |plan|
                 mock.late_handler_called(index += 1)
                 if !late_event.happened?
                     late_event.emit
@@ -140,7 +140,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_add_propagation_handlers_accepts_method_object
         FlexMock.use do |mock|
             handler = PropagationHandlerTest.new(plan, mock)
-            id = engine.add_propagation_handler(:type => :external_events, &handler.method(:handler))
+            id = engine.add_propagation_handler(type: :external_events, &handler.method(:handler))
 
             mock.should_receive(:called).with(plan).twice
             process_events
@@ -175,7 +175,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_propagation_handlers_disabled_on_error
         Roby.logger.level = Logger::FATAL
         FlexMock.use do |mock|
-            engine.add_propagation_handler :on_error => :disable do |plan|
+            engine.add_propagation_handler on_error: :disable do |plan|
                 mock.called
                 raise
             end
@@ -292,7 +292,7 @@ class TC_ExecutionEngine < Minitest::Test
 
 	    plan.add_mission(t = Tasks::Simple.new)
 	    e = EventGenerator.new(true)
-	    t.event(:start).signals e, :delay => 0.1
+	    t.event(:start).signals e, delay: 0.1
 	    engine.once { t.start! }
 	    process_events
 	    assert(!e.happened?)
@@ -347,10 +347,10 @@ class TC_ExecutionEngine < Minitest::Test
     def test_default_task_ordering
 	a = Tasks::Simple.new_submodel do
 	    event :intermediate
-	end.new(:id => 'a')
+	end.new(id: 'a')
 
 	plan.add_mission(a)
-	a.depends_on(b = Tasks::Simple.new(:id => 'b'))
+	a.depends_on(b = Tasks::Simple.new(id: 'b'))
 
 	b.forward_to(:success, a, :intermediate)
 	b.forward_to(:success, a, :success)
@@ -372,11 +372,11 @@ class TC_ExecutionEngine < Minitest::Test
 	a = Tasks::Simple.new_submodel do
 	    event :child_success
 	    event :child_stop
-	    forward :child_success => :child_stop
-	end.new(:id => 'a')
+	    forward child_success: :child_stop
+	end.new(id: 'a')
 
 	plan.add_mission(a)
-	a.depends_on(b = Tasks::Simple.new(:id => 'b'))
+	a.depends_on(b = Tasks::Simple.new(id: 'b'))
 
 	b.forward_to(:success, a, :child_success)
 	b.forward_to(:stop, a, :child_stop)
@@ -481,7 +481,7 @@ class TC_ExecutionEngine < Minitest::Test
         start_node.on(:stop) { |ev| next_event = [if_node, :start] }
 	if_node.on(:stop) { |ev| }
             
-        engine.add_propagation_handler(:type => :external_events) do |plan|
+        engine.add_propagation_handler(type: :external_events) do |plan|
             next unless next_event
             task, event = *next_event
             next_event = nil
@@ -551,7 +551,7 @@ class TC_ExecutionEngine < Minitest::Test
 		raise SpecificException, "bla"
             end
 	end
-	plan.add_permanent(t = model.new(:id => 1))
+	plan.add_permanent(t = model.new(id: 1))
 
 	assert_original_error(SpecificException, CommandFailed) { t.start! }
 	assert(!t.event(:start).pending?)
@@ -566,7 +566,7 @@ class TC_ExecutionEngine < Minitest::Test
 		    emit :start
                 end
 		on(:start) { |ev| mock.handler_called }
-	    end.new(:id => 2)
+	    end.new(id: 2)
 	    plan.add_permanent(t)
 
 	    mock.should_receive(:command_called).once
@@ -905,7 +905,7 @@ class TC_ExecutionEngine < Minitest::Test
 	klass = Task.new_submodel do
 	    attr_accessor :delays
 
-	    event(:start, :command => true)
+	    event(:start, command: true)
 	    event(:stop) do |context|
 		if delays
 		    return
@@ -916,7 +916,7 @@ class TC_ExecutionEngine < Minitest::Test
 	end
 
         (m1, m2, m3), (t1, t2, t3, t4, t5, p1) =
-            prepare_plan :missions => 3, :add => 6, :model => klass
+            prepare_plan missions: 3, add: 6, model: klass
         dependency_chain m1, t1, t2
         dependency_chain m2, t1
         dependency_chain m3, t2
@@ -968,7 +968,7 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_gc_ignores_incoming_events
 	Roby::Plan.logger.level = Logger::WARN
-	a, b = prepare_plan :discover => 2, :model => Tasks::Simple
+	a, b = prepare_plan discover: 2, model: Tasks::Simple
 	a.signals(:stop, b, :start)
 	a.start!
 
@@ -988,7 +988,7 @@ class TC_ExecutionEngine < Minitest::Test
 	running_task = nil
 	FlexMock.use do |mock|
 	    task_model = Task.new_submodel do
-		event :start, :command => true
+		event :start, command: true
 		event :stop do |context|
 		    mock.stop(self)
 		end
@@ -1077,11 +1077,11 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_mission_failed
 	model = Tasks::Simple.new_submodel do
-	    event :specialized_failure, :command => true
-	    forward :specialized_failure => :failed
+	    event :specialized_failure, command: true
+	    forward specialized_failure: :failed
 	end
 
-	task = prepare_plan :missions => 1, :model => model
+	task = prepare_plan missions: 1, model: model
 	task.start!
         
         error = inhibit_fatal_messages do
@@ -1127,7 +1127,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_forward_signal_ordering
         100.times do
             stop_called = false
-            source = Tasks::Simple.new(:id => 'source')
+            source = Tasks::Simple.new(id: 'source')
             target = Tasks::Simple.new_submodel do
                 event :start do |context|
                     if !stop_called
@@ -1135,7 +1135,7 @@ class TC_ExecutionEngine < Minitest::Test
                     end
                     emit :start
                 end
-            end.new(:id => 'target')
+            end.new(id: 'target')
             plan.add(source)
             plan.add(target)
 
@@ -1222,7 +1222,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_it_filters_handlers_on_the_exception_model
         mock = flexmock
 
-        t1, t2 = prepare_plan :add => 2
+        t1, t2 = prepare_plan add: 2
         t0 = make_task_with_handler(SpecializedError, mock)
         dependency_chain(t0, t1, t2)
 
@@ -1233,7 +1233,7 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_it_ignores_handlers_that_do_not_match_the_filter
-        t1, t2 = prepare_plan :add => 2
+        t1, t2 = prepare_plan add: 2
         t0 = make_task_with_handler(CodeError, nil)
         dependency_chain(t0, t1, t2)
 
@@ -1249,7 +1249,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_it_does_not_call_global_handlers_if_the_exception_is_handled_by_a_task
         mock = flexmock
 
-        t1, t2 = prepare_plan :add => 3
+        t1, t2 = prepare_plan add: 3
         t0 = make_task_with_handler(SpecializedError, mock)
         dependency_chain(t0, t1, t2)
 
@@ -1265,7 +1265,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_it_uses_global_handlers_to_filter_exceptions_that_have_not_been_handled_by_a_task
         mock = flexmock
 
-        t0, t1, t2 = prepare_plan :add => 3
+        t0, t1, t2 = prepare_plan add: 3
         dependency_chain(t0, t1, t2)
 
         error = ExecutionException.new(SpecializedError.new(t2))
@@ -1289,7 +1289,7 @@ class TC_ExecutionEngine < Minitest::Test
 
 	mock = flexmock
 
-        t1, t2, t3 = prepare_plan :add => 3
+        t1, t2, t3 = prepare_plan add: 3
         t0 = Task.new_submodel do 
             on_exception(Roby::CodeError) do |exception|
                 mock.handler(exception, exception.trace, self)
@@ -1315,7 +1315,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_propagate_exceptions_diamond_propagation
         mock = flexmock
 
-        t11, t12, t2 = prepare_plan :add => 3
+        t11, t12, t2 = prepare_plan add: 3
 
         t0 = Task.new_submodel do 
             on_exception(Roby::LocalizedError) do |exception|
@@ -1402,7 +1402,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    mock.should_receive(:other_once_handler).once
 	    mock.should_receive(:other_event_processing).once
 	    engine.once { mock.other_once_handler }
-	    engine.add_propagation_handler(:type => :external_events) { |plan| mock.other_event_processing }
+	    engine.add_propagation_handler(type: :external_events) { |plan| mock.other_event_processing }
 
 	    begin
 		process_events
@@ -1432,10 +1432,10 @@ class TC_ExecutionEngine < Minitest::Test
     def test_error_handling_relation(error_event = :failed)
 	task_model = Tasks::Simple.new_submodel do
 	    event :blocked
-	    forward :blocked => :failed
+	    forward blocked: :failed
 	end
 
-	parent, (child, *repair_tasks) = prepare_plan :permanent => 1, :add => 3, :model => task_model
+	parent, (child, *repair_tasks) = prepare_plan permanent: 1, add: 3, model: task_model
 	parent.depends_on child
 	child.event(:failed).handle_with repair_tasks[0]
 
@@ -1475,17 +1475,17 @@ class TC_ExecutionEngine < Minitest::Test
     def test_error_handling_relation_with_as_plan
         model = Tasks::Simple.new_submodel do
             def self.as_plan
-                new(:id => 10)
+                new(id: 10)
             end
         end
-        task = prepare_plan :add => 1, :model => Tasks::Simple
+        task = prepare_plan add: 1, model: Tasks::Simple
         child = task.failed_event.handle_with(model)
         assert_kind_of model, child
         assert_equal 10, child.arguments[:id]
     end
 
     def test_mission_exceptions
-	mission = prepare_plan :missions => 1, :model => Tasks::Simple
+	mission = prepare_plan missions: 1, model: Tasks::Simple
 	mission.start!
         error = inhibit_fatal_messages do
             assert_raises(MissionFailedError) { mission.emit(:failed) }
@@ -1524,9 +1524,9 @@ class TC_ExecutionEngine < Minitest::Test
             end
         end
         
-        t1, t2, t3 = prepare_plan :add => 3, :model => task_model
+        t1, t2, t3 = prepare_plan add: 3, model: task_model
         t1.depends_on t2
-        t2.depends_on t3, :failure => [:intermediate]
+        t2.depends_on t3, failure: [:intermediate]
 
         plan.add_permanent(t1)
         t1.start!
@@ -1552,7 +1552,7 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_permanent_task_errors_are_nonfatal
-        task = prepare_plan :permanent => 1, :model => Tasks::Simple
+        task = prepare_plan permanent: 1, model: Tasks::Simple
 
         mock = flexmock
         mock.should_receive(:called).once.with(false)
@@ -1574,7 +1574,7 @@ class TC_ExecutionEngine < Minitest::Test
                 pass_exception
             end
         end
-        a0, a1 = prepare_plan :add => 2, :model => task_model
+        a0, a1 = prepare_plan add: 2, model: task_model
         plan.add(b = Roby::Task.new)
         a0.depends_on b
         a1.depends_on b

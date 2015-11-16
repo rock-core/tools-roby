@@ -44,8 +44,8 @@ Roby.display_exception do
 
         if run_controller
             # Load the controller
-            controller_file = Roby.app.find_file("scripts", "controllers", "ROBOT.rb", :order => :specific_first) ||
-                Roby.app.find_file("controllers", "ROBOT.rb", :order => :specific_first)
+            controller_file = Roby.app.find_file("scripts", "controllers", "ROBOT.rb", order: :specific_first) ||
+                Roby.app.find_file("controllers", "ROBOT.rb", order: :specific_first)
             if controller_file
                 Robot.info "loading controller file #{controller_file}"
                 load controller_file

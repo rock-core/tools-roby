@@ -96,7 +96,7 @@ module Roby
 
 	    # If the parent is unreachable, check that it has neither been
 	    # removed, nor it has been emitted
-	    parent.if_unreachable(:cancel_at_emission => true) do |reason, event|
+	    parent.if_unreachable(cancel_at_emission: true) do |reason, event|
 		if @events.has_key?(parent) && @events[parent] == parent.last
 		    unreachable!(reason || parent)
 		end

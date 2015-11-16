@@ -7,12 +7,12 @@ module Roby
             argument :peer
             event :ready
 
-            event :aborted, :terminal => true do |context|
+            event :aborted, terminal: true do |context|
                 peer.disconnected!
             end
-            forward :aborted => :failed
+            forward aborted: :failed
 
-            event :failed, :terminal => true do |context| 
+            event :failed, terminal: true do |context| 
                 peer.disconnect
             end
             interruptible

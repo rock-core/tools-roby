@@ -23,8 +23,8 @@ describe Roby::Coordination::TaskBase do
             assert_equal instance, task.find_child('name')
         end
         it "resolves the child model from the task instance if already bound and if the model does not provide this information" do
-            roby_task, roby_child = prepare_plan :add => 2, :model => Roby::Tasks::Simple
-            roby_task.depends_on roby_child, :role => 'name'
+            roby_task, roby_child = prepare_plan add: 2, model: Roby::Tasks::Simple
+            roby_task.depends_on roby_child, role: 'name'
             model_task.should_receive(:find_child_model).and_return(nil)
             model_task.should_receive(:find_child).once.
                 with('name', Roby::Tasks::Simple)
@@ -32,8 +32,8 @@ describe Roby::Coordination::TaskBase do
             task.find_child('name')
         end
         it "does not resolve the child model from the task instance if already bound and if the model already provides this information" do
-            roby_task, roby_child = prepare_plan :add => 2, :model => Roby::Tasks::Simple
-            roby_task.depends_on roby_child, :role => 'name'
+            roby_task, roby_child = prepare_plan add: 2, model: Roby::Tasks::Simple
+            roby_task.depends_on roby_child, role: 'name'
             model_task.should_receive(:find_child_model).with('name').and_return(child_model = flexmock)
             model_task.should_receive(:find_child).once.
                 with('name', child_model)
@@ -41,8 +41,8 @@ describe Roby::Coordination::TaskBase do
             task.find_child('name')
         end
         it "uses the provided child model if one is given, even if a task instance exists" do
-            roby_task, roby_child = prepare_plan :add => 2, :model => Roby::Tasks::Simple
-            roby_task.depends_on roby_child, :role => 'name'
+            roby_task, roby_child = prepare_plan add: 2, model: Roby::Tasks::Simple
+            roby_task.depends_on roby_child, role: 'name'
 
             roby_child_model = flexmock
             model_task.should_receive(:find_child).once.

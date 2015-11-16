@@ -22,18 +22,18 @@ module Roby
 	ARROW_SIZE    = 10
 
 	TASK_BRUSH_COLORS = {
-	    :pending  => Qt::Color.new('#6DF3FF'),
-	    :running  => Qt::Color.new('#B0FFA6'),
-	    :success  => Qt::Color.new('#E2E2E2'),
-	    :finished => Qt::Color.new('#E2A8A8'),
-	    :finalized => Qt::Color.new('#555555')
+	    pending:  Qt::Color.new('#6DF3FF'),
+	    running:  Qt::Color.new('#B0FFA6'),
+	    success:  Qt::Color.new('#E2E2E2'),
+	    finished: Qt::Color.new('#E2A8A8'),
+	    finalized: Qt::Color.new('#555555')
 	}
 	TASK_PEN_COLORS = {
-	    :pending  => Qt::Color.new('#6DF3FF'),
-	    :running  => Qt::Color.new('#B0FFA6'),
-	    :success  => Qt::Color.new('#E2E2E2'),
-	    :finished => Qt::Color.new('#E2A8A8'),
-	    :finalized => Qt::Color.new('#555555')
+	    pending:  Qt::Color.new('#6DF3FF'),
+	    running:  Qt::Color.new('#B0FFA6'),
+	    success:  Qt::Color.new('#E2E2E2'),
+	    finished: Qt::Color.new('#E2A8A8'),
+	    finalized: Qt::Color.new('#555555')
 	}
 	TASK_NAME_COLOR = Qt::Color.new('black')
 	TASK_MESSAGE_COLOR = Qt::Color.new('#606060')

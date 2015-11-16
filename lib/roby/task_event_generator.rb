@@ -19,7 +19,7 @@ module Roby
 	    @symbol = model.symbol
         end
 
-        # The default command if the event is created with :controlable => true.
+        # The default command if the event is created with controlable: true.
         # It emits the event on the task.
 	def default_command(context)
 	    event_model.call(task, context)
@@ -178,8 +178,8 @@ module Roby
 	    if child_task
 		unless task.depends_on?(child_task, false)
 		    task.depends_on child_task, 
-			:success => [child_event.symbol],
-			:remove_when_done => true
+			success: [child_event.symbol],
+			remove_when_done: true
 		end
 		super(child_event)
 	    else
@@ -274,7 +274,7 @@ module Roby
                 if task.abstract? then :copy
                 else :drop
                 end
-            on_replace, options = Kernel.filter_options options, :on_replace => default_on_replace
+            on_replace, options = Kernel.filter_options options, on_replace: default_on_replace
             super(on_replace.merge(options), &block)
         end
     end

@@ -116,7 +116,7 @@ module TC_PlanStatic
     # TODO: test that #add adds related objects
 
     #def test_discover
-    #    t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Tasks::Simple
+    #    t1, t2, t3, t4 = prepare_plan tasks: 4, model: Roby::Tasks::Simple
     #    t1.depends_on t2
     #    or_ev = OrGenerator.new
     #    t2.event(:start).signals or_ev
@@ -143,7 +143,7 @@ module TC_PlanStatic
     #end
 
     def test_useful_task_components
-	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Tasks::Simple
+	t1, t2, t3, t4 = prepare_plan tasks: 4, model: Roby::Tasks::Simple
 	t1.depends_on t2
 	t2.signals(:start, t3, :stop)
 	t2.planned_by t4
@@ -159,8 +159,8 @@ module TC_PlanStatic
     end
 
     def test_replace_task
-	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Tasks::Simple
-	p.depends_on c1, :model => [Roby::Tasks::Simple, {}]
+	(p, c1), (c11, c12, c2, c3) = prepare_plan missions: 2, tasks: 4, model: Roby::Tasks::Simple
+	p.depends_on c1, model: [Roby::Tasks::Simple, {}]
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2
@@ -212,8 +212,8 @@ module TC_PlanStatic
 	assert( plan.include?(c1) )
 
 	# Check that #replace_task keeps the permanent flag too
-	(root, p), t = prepare_plan :permanent => 2, :tasks => 1, :model => Roby::Tasks::Simple
-        root.depends_on p, :model => Roby::Tasks::Simple
+	(root, p), t = prepare_plan permanent: 2, tasks: 1, model: Roby::Tasks::Simple
+        root.depends_on p, model: Roby::Tasks::Simple
 
 	plan.add_permanent(p)
 	plan.replace_task(p, t)
@@ -222,8 +222,8 @@ module TC_PlanStatic
     end
 
     def test_replace
-	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Tasks::Simple
-	p.depends_on c1, :model => Roby::Tasks::Simple
+	(p, c1), (c11, c12, c2, c3) = prepare_plan missions: 2, tasks: 4, model: Roby::Tasks::Simple
+	p.depends_on c1, model: Roby::Tasks::Simple
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2
@@ -276,9 +276,9 @@ module TC_PlanStatic
     end
 
     def test_replace_task_and_strong_relations
-        t0, t1, t2, t3 = prepare_plan :add => 4, :model => Roby::Tasks::Simple
+        t0, t1, t2, t3 = prepare_plan add: 4, model: Roby::Tasks::Simple
 
-        t0.depends_on t1, :model => Roby::Tasks::Simple
+        t0.depends_on t1, model: Roby::Tasks::Simple
         t1.depends_on t2
         t1.stop_event.handle_with t2
         # The error handling relation is strong, so the t1 => t3 relation should
@@ -293,13 +293,13 @@ module TC_PlanStatic
 
     def test_replace_task_and_copy_relations_on_replace
         agent_t = Roby::Task.new_submodel do
-            event :ready, :controlable => true
+            event :ready, controlable: true
         end
 
-        t0, t1, t3 = prepare_plan :add => 3, :model => Roby::Tasks::Simple
+        t0, t1, t3 = prepare_plan add: 3, model: Roby::Tasks::Simple
         plan.add(t2 = agent_t.new)
 
-        t0.depends_on t1, :model => Roby::Tasks::Simple
+        t0.depends_on t1, model: Roby::Tasks::Simple
         t1.executed_by t2
 
         # The error handling relation is marked as copy_on_replace, so the t1 =>
@@ -314,9 +314,9 @@ module TC_PlanStatic
         task_m = Roby::Task.new_submodel do
             argument :arg
         end
-        delayed_arg = flexmock(:evaluate_delayed_argument => nil)
-        plan.add(original = task_m.new(:arg => delayed_arg))
-        plan.add(replacing = task_m.new(:arg => 10))
+        delayed_arg = flexmock(evaluate_delayed_argument: nil)
+        plan.add(original = task_m.new(arg: delayed_arg))
+        plan.add(replacing = task_m.new(arg: 10))
         plan.replace(original, replacing)
     end
 
@@ -339,7 +339,7 @@ module TC_PlanStatic
     end
 
     def test_plan_synchronization
-	t1, t2 = prepare_plan :tasks => 2
+	t1, t2 = prepare_plan tasks: 2
 	plan.add_mission(t1)
 	assert_equal(plan, t1.plan)
 	assert_equal(nil, t2.plan)
@@ -441,7 +441,7 @@ class TC_Plan < Minitest::Test
 
 
     def test_quarantine
-        t1, t2, t3, p = prepare_plan :add => 4
+        t1, t2, t3, p = prepare_plan add: 4
         t1.depends_on t2
         t2.depends_on t3
         t2.planned_by p
@@ -466,7 +466,7 @@ class TC_Plan < Minitest::Test
         # involves a mission ...
         Roby::ExecutionEngine.logger.level = Logger::FATAL
 
-        t1, t2, t3, t4 = prepare_plan :add => 4, :model => Tasks::Simple
+        t1, t2, t3, t4 = prepare_plan add: 4, model: Tasks::Simple
         t1.depends_on t2
         t2.depends_on t3
         t3.depends_on t4
@@ -493,7 +493,7 @@ class TC_Plan < Minitest::Test
         assert !root.plan
         assert !t1.plan
 
-        root.depends_on t1, :role => 'bla'
+        root.depends_on t1, role: 'bla'
         plan.add(t1)
 
         assert_equal plan, root.plan

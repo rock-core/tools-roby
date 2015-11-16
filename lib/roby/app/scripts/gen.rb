@@ -22,7 +22,7 @@ Roby.display_exception do
         end
         puts usage
     else
-        RubiGen::Scripts::Generate.new.run(ARGV, :generator => gen_name)
+        RubiGen::Scripts::Generate.new.run(ARGV, generator: gen_name)
     end
 end
 

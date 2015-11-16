@@ -58,12 +58,12 @@ class TC_Test_TestCase < Minitest::Test
 	engine.run
     
 	task = Tasks::Simple.new_submodel do
-	    forward :start => :success
+	    forward start: :success
 	end.new
         assert_succeeds(task)
 
 	task = Tasks::Simple.new_submodel do
-	    forward :start => :failed
+	    forward start: :failed
 	end.new
 	assert_raises(Assertion) do
 	    assert_succeeds(task)
@@ -100,7 +100,7 @@ class TC_Test_TestCase < Minitest::Test
 
     def test_stats
 	samples = test_sampling
-	stats = Roby::Test.stats(samples, :dummy => :absolute)
+	stats = Roby::Test.stats(samples, dummy: :absolute)
 	assert_in_delta(1, stats.index.mean, 0.05)
 	assert_in_delta(0.025, stats.index.stddev, 0.1)
 	assert_in_delta(1, stats.dummy.mean, 0.05)
@@ -108,7 +108,7 @@ class TC_Test_TestCase < Minitest::Test
 	assert_in_delta(0.1, stats.dt.mean, 0.001, stats.dt)
 	assert_in_delta(0, stats.dt.stddev, 0.001)
 
-	stats = Roby::Test.stats(samples, :index => :rate, :dummy => :absolute_rate)
+	stats = Roby::Test.stats(samples, index: :rate, dummy: :absolute_rate)
 	assert_in_delta(10, stats.index.mean,  1)
 	assert_in_delta(0.25, stats.index.stddev, 0.5)
 	assert_in_delta(10, stats.dummy.mean,  1)

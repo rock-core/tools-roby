@@ -53,13 +53,13 @@ module Roby
         # @example creating an action state machine model
         #   class Main < Roby::Actions::Interface
         #     action_state_machine 'example_action' do
-        #       move  = state move(:speed => 0.1)
-        #       stand = state move(:speed => 0)
+        #       move  = state move(speed: 0.1)
+        #       stand = state move(speed: 0)
         #       # This monitor triggers each time the system moves more than
         #       # 0.1 meters
-        #       d_monitor = task monitor_movement_threshold(:d => 0.1) 
+        #       d_monitor = task monitor_movement_threshold(d: 0.1) 
         #       # This monitor triggers after 20 seconds
-        #       t_monitor = task monitor_time_threshold(:t => 20) 
+        #       t_monitor = task monitor_time_threshold(t: 20) 
         #       # Make the distance monitor run in the move state
         #       move.depends_on d_monitor
         #       # Make the time monitor run in the stand state

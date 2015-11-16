@@ -16,7 +16,7 @@ module Roby
             #
             # @return [Hash<String,Models::Action>]
             # @key_name action_name
-            inherited_attribute(:registered_action, :actions, :map => true) { Hash.new }
+            inherited_attribute(:registered_action, :actions, map: true) { Hash.new }
 
             # The set of fault response tables added to this action interface
             # @return [Array<Model<FaultResponseTable>>]
@@ -169,11 +169,11 @@ module Roby
 
                 root_m = action_model.returned_type
                 arguments = action_model.arguments.map(&:name)
-                coordination_model = model.new_submodel(:action_interface => self, :root => root_m)
+                coordination_model = model.new_submodel(action_interface: self, root: root_m)
 
                 action_model.arguments.each do |arg|
                     if !arg.required
-                        coordination_model.argument arg.name, :default => arg.default
+                        coordination_model.argument arg.name, default: arg.default
                     else
                         coordination_model.argument arg.name
                     end
@@ -211,7 +211,7 @@ module Roby
                 if @current_description.has_arg?("start_state")
                     raise ArgumentError, "A argument \"start_state\" has defined for the statemachine, but this keyword is reseved"
                 end
-                @current_description.optional_arg("start_state", :default => nil)
+                @current_description.optional_arg("start_state", default: nil)
                 action_coordination(name, Coordination::ActionStateMachine, &block)
             end
 

@@ -11,9 +11,9 @@ describe Roby::Coordination::FaultResponseTable do
         end
         plan.use_fault_response_table fault_table
         begin
-            mission, child = prepare_plan :missions => 1, :add => 1,
-                :model => Roby::Tasks::Simple
-            mission.depends_on child, :role => 'name'
+            mission, child = prepare_plan missions: 1, add: 1,
+                model: Roby::Tasks::Simple
+            mission.depends_on child, role: 'name'
             mission.start!
             child.start!
             child.stop!
@@ -36,13 +36,13 @@ describe Roby::Coordination::FaultResponseTable do
             argument :arg
         end
         task = Roby::Tasks::Simple.new
-        task.use_fault_response_table fault_table_m, :arg => 20
+        task.use_fault_response_table fault_table_m, arg: 20
         plan.add(task)
         task.start!
         assert_equal 1, plan.active_fault_response_tables.size
         table = plan.active_fault_response_tables.first
         assert_kind_of fault_table_m, table
-        assert_equal Hash[:arg => 20], table.arguments
+        assert_equal Hash[arg: 20], table.arguments
         task.stop!
         assert plan.active_fault_response_tables.empty?
     end
@@ -51,9 +51,9 @@ describe Roby::Coordination::FaultResponseTable do
         it "can be added in a transaction" do
             fault_table_m = Roby::Coordination::FaultResponseTable.new_submodel
             fault_table_m.argument :arg
-            flexmock(plan).should_receive(:use_fault_response_table).with(fault_table_m, :arg => 10).once
+            flexmock(plan).should_receive(:use_fault_response_table).with(fault_table_m, arg: 10).once
             plan.in_transaction do |trsc|
-                trsc.use_fault_response_table fault_table_m, :arg => 10
+                trsc.use_fault_response_table fault_table_m, arg: 10
                 trsc.commit_transaction
             end
         end
@@ -62,7 +62,7 @@ describe Roby::Coordination::FaultResponseTable do
             fault_table_m.argument :arg
             flexmock(plan).should_receive(:use_fault_response_table).never
             plan.in_transaction do |trsc|
-                trsc.use_fault_response_table fault_table_m, :arg => 10
+                trsc.use_fault_response_table fault_table_m, arg: 10
                 trsc.discard_transaction
             end
         end
@@ -81,7 +81,7 @@ describe Roby::Coordination::FaultResponseTable do
                 describe('').returns(task_m)
                 define_method :test do
                     parent, child = task_m.new, task_m.new
-                    parent.depends_on child, :role => 'test'
+                    parent.depends_on child, role: 'test'
                     plan.add(parent)
                     parent
                 end

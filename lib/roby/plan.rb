@@ -1552,11 +1552,11 @@ module Roby
         # Additionally, the +model+ and +args+ options are passed to
         # Query#which_fullfills. For example:
         #
-        #   plan.find_tasks(Tasks::SimpleTask, :id => 20)
+        #   plan.find_tasks(Tasks::SimpleTask, id: 20)
         #
         # is equivalent to
         #
-        #   Roby::Query.new(self).which_fullfills(Tasks::SimpleTask, :id => 20)
+        #   Roby::Query.new(self).which_fullfills(Tasks::SimpleTask, id: 20)
         #
         # The returned query is applied on the global scope by default. This
         # means that, if it is applied on a transaction, it will match tasks

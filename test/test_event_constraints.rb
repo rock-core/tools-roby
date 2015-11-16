@@ -2,8 +2,8 @@ require 'roby/test/self'
 
 class TC_EventConstraints_UnboundPredicate < Minitest::Test
     class TaskModel < Roby::Tasks::Simple
-        event :first, :controlable => true
-        event :second, :controlable => true
+        event :first, controlable: true
+        event :second, controlable: true
     end
 
     def assert_is_true(predicate, task)

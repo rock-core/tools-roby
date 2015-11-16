@@ -4,8 +4,8 @@ module Roby
         class CommandLibrary
             class << self
                 extend MetaRuby::Attributes
-                inherited_attribute(:command, :commands, :map => true) { Hash.new }
-                inherited_attribute(:subcommand, :subcommands, :map => true) { Hash.new }
+                inherited_attribute(:command, :commands, map: true) { Hash.new }
+                inherited_attribute(:subcommand, :subcommands, map: true) { Hash.new }
 
                 # Declares a command for this interface
                 def command(name, *info)

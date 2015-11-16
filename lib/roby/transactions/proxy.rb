@@ -308,7 +308,7 @@ module Roby
                 end
                 real_object.unreachable_handlers.each do |cancel, h|
                     if h.copy_on_replace?
-                        event.if_unreachable(:cancel_at_emission => cancel, :on_replace => :copy, &h.block)
+                        event.if_unreachable(cancel_at_emission: cancel, on_replace: :copy, &h.block)
                     end
                 end
             end
@@ -323,8 +323,8 @@ module Roby
                              else :drop
                              end
                 __getobj__.if_unreachable(
-                    :cancel_at_emission => cancel,
-                    :on_replace => on_replace,
+                    cancel_at_emission: cancel,
+                    on_replace: on_replace,
                     &h.block)
             end
 	end

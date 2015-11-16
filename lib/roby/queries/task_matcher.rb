@@ -65,20 +65,20 @@ module Roby
         #     argument :a
         #     argument :b
         #   end
-        #   task = TaskModel.new(:a => 10, :b => 20)
+        #   task = TaskModel.new(a: 10, b: 20)
         #
         #   # Matches on :a, :b is ignored altogether
         #   TaskMatcher.new.
         #       with_model(TaskModel).
-        #       with_model_arguments(:a => 10) === task # => true
+        #       with_model_arguments(a: 10) === task # => true
         #   # Looks for both :a and :b
         #   TaskMatcher.new.
         #       with_model(TaskModel).
-        #       with_model_arguments(:a => 10, :b => 30) === task # => false
+        #       with_model_arguments(a: 10, b: 30) === task # => false
         #   # Matches on :a, :c is ignored as it is not an argument of +TaskModel+
         #   TaskMatcher.new.
         #       with_model(TaskModel).
-        #       with_model_arguments(:a => 10, :c => 30) === task # => true
+        #       with_model_arguments(a: 10, c: 30) === task # => true
         #
         # In general, one would use #which_fullfills, which sets both the model
         # and the model arguments
@@ -102,17 +102,17 @@ module Roby
         #     argument :a
         #     argument :b
         #   end
-        #   task = TaskModel.new(:a => 10, :b => 20)
+        #   task = TaskModel.new(a: 10, b: 20)
         #
         #   # Matches on :a, :b is ignored altogether
         #   TaskMatcher.new.
-        #       with_arguments(:a => 10) === task # => true
+        #       with_arguments(a: 10) === task # => true
         #   # Looks for both :a and :b
         #   TaskMatcher.new.
-        #       with_arguments(:a => 10, :b => 30) === task # => false
+        #       with_arguments(a: 10, b: 30) === task # => false
         #   # Looks for both :a and :c, even though :c is not declared in TaskModel
         #   TaskMatcher.new.
-        #       with_arguments(:a => 10, :c => 30) === task # => false
+        #       with_arguments(a: 10, c: 30) === task # => false
 	def with_arguments(arguments)
 	    @arguments ||= Hash.new
 	    self.arguments.merge!(arguments) do |k, old, new| 

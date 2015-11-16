@@ -123,7 +123,7 @@ module Roby
             #
             #   module MyApplication
             #      task_service 'NavigationService' do
-            #         argument :target, :type => Eigen::Vector3
+            #         argument :target, type: Eigen::Vector3
             #      end
             #   end
             #

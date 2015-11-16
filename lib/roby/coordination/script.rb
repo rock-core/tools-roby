@@ -63,7 +63,7 @@ module Roby
                     end
 
                     if event.task != script.root_task
-                        script.root_task.depends_on event.task, :success => event.symbol
+                        script.root_task.depends_on event.task, success: event.symbol
                     else
                         event.when_unreachable(true) do |reason, generator|
                             if !disabled?

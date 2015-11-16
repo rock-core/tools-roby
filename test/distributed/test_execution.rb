@@ -14,7 +14,7 @@ class TC_DistributedExecution < Minitest::Test
 		attr_reader :contingent
 		def create
 		    # Put the task to avoir having GC clearing the events
-		    plan.add_mission(t = Tasks::Simple.new(:id => 'task'))
+		    plan.add_mission(t = Tasks::Simple.new(id: 'task'))
 		    plan.add(@controlable = Roby::EventGenerator.new(true))
 		    plan.add(@contingent = Roby::EventGenerator.new(false))
 		    t.signals(:start, controlable, :start)
@@ -32,7 +32,7 @@ class TC_DistributedExecution < Minitest::Test
 	end
 
 	remote.create
-	task = subscribe_task(:id => 'task')
+	task = subscribe_task(id: 'task')
 	controlable = *task.event(:start).child_objects(EventStructure::Signal).to_a
 	contingent  = *task.event(:start).child_objects(EventStructure::Forwarding).to_a
 
@@ -59,7 +59,7 @@ class TC_DistributedExecution < Minitest::Test
 	    Roby::Distributed.on_transaction do |trsc|
 		trsc.edit do
 		    local_task = trsc.find_tasks.which_fullfills(Roby::Test::Tasks::Simple).to_a.first
-		    t = trsc[Tasks::Simple.new(:id => 'remote_task')]
+		    t = trsc[Tasks::Simple.new(id: 'remote_task')]
 		    local_task.depends_on t
 		    local_task.signals :start, t, :start
 		    nil
@@ -80,7 +80,7 @@ class TC_DistributedExecution < Minitest::Test
 	engine.execute { local_task.start! }
 	engine.wait_one_cycle
 	remote_peer.synchro_point
-	remote_task = subscribe_task(:id => 'remote_task')
+	remote_task = subscribe_task(id: 'remote_task')
 	assert(remote_task.running?)
 
 	engine.execute do
@@ -97,7 +97,7 @@ class TC_DistributedExecution < Minitest::Test
 		attr_reader :task
 		def create
 		    # Put the task to avoir having GC clearing the events
-		    plan.add_mission(@task = Tasks::Simple.new(:id => 'task'))
+		    plan.add_mission(@task = Tasks::Simple.new(id: 'task'))
 		    plan.add(@event = Roby::EventGenerator.new(true))
 		    event.signals task.event(:start)
 		    nil
@@ -117,7 +117,7 @@ class TC_DistributedExecution < Minitest::Test
 	end
 
 	remote.create
-	task = subscribe_task(:id => 'task')
+	task = subscribe_task(id: 'task')
 	event = *task.event(:start).parent_objects(EventStructure::Signal).to_a
 
 	FlexMock.use do |mock|
@@ -142,7 +142,7 @@ class TC_DistributedExecution < Minitest::Test
 		attr_reader :task
 		def create_task
 		    plan.clear
-		    plan.add_mission(@task = Tasks::Simple.new(:id => 1))
+		    plan.add_mission(@task = Tasks::Simple.new(id: 1))
 		end
 		def start_task; engine.once { task.start! }; nil end
 		def stop_task
@@ -157,7 +157,7 @@ class TC_DistributedExecution < Minitest::Test
 	end
 
 	remote.create_task
-	p_task = remote_task(:id => 1)
+	p_task = remote_task(id: 1)
 	assert(!p_task.event(:start).happened?)
 	process_events
 	assert(!p_task.plan)
@@ -166,7 +166,7 @@ class TC_DistributedExecution < Minitest::Test
 	# task status
 	remote.start_task
 	process_events
-	p_task = subscribe_task(:id => 1)
+	p_task = subscribe_task(id: 1)
 	assert(p_task.running?)
 	assert(p_task.event(:start).happened?)
 
@@ -181,7 +181,7 @@ class TC_DistributedExecution < Minitest::Test
 
     def test_signalling
 	peer2peer do |remote|
-	    remote.plan.add_mission(task = Tasks::Simple.new(:id => 1))
+	    remote.plan.add_mission(task = Tasks::Simple.new(id: 1))
 	    remote.class.class_eval do
 		include Minitest::Assertions
 		define_method(:start_task) do
@@ -196,7 +196,7 @@ class TC_DistributedExecution < Minitest::Test
 		end
 	    end
 	end
-	p_task = subscribe_task(:id => 1)
+	p_task = subscribe_task(id: 1)
 
 	FlexMock.use do |mock|
 	    signalled_ev = EventGenerator.new do |context|
@@ -227,7 +227,7 @@ class TC_DistributedExecution < Minitest::Test
 
     def test_event_handlers
 	peer2peer do |remote|
-	    remote.plan.add_mission(task = Tasks::Simple.new(:id => 1))
+	    remote.plan.add_mission(task = Tasks::Simple.new(id: 1))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
 		engine.once { task.start! }
@@ -237,7 +237,7 @@ class TC_DistributedExecution < Minitest::Test
 	FlexMock.use do |mock|
 	    mock.should_receive(:started).once
 
-	    task = subscribe_task(:id => 1)
+	    task = subscribe_task(id: 1)
 	    task.on(:start) { mock.started }
 	    remote.start(Distributed.format(task))
 	    process_events
@@ -251,8 +251,8 @@ class TC_DistributedExecution < Minitest::Test
     def test_forgetting
 	peer2peer do |remote|
 	    parent, child =
-		Tasks::Simple.new(:id => 'parent'), 
-		Tasks::Simple.new(:id => 'child')
+		Tasks::Simple.new(id: 'parent'), 
+		Tasks::Simple.new(id: 'child')
 	    parent.depends_on child
 
 	    remote.plan.add_mission(parent)
@@ -264,7 +264,7 @@ class TC_DistributedExecution < Minitest::Test
 	    end
 	end
 
-	parent   = subscribe_task(:id => 'parent')
+	parent   = subscribe_task(id: 'parent')
 	child    = nil
 	assert(child = local.plan.known_tasks.find { |t| t.arguments[:id] == 'child' })
 	assert(!child.subscribed?)
@@ -278,7 +278,7 @@ class TC_DistributedExecution < Minitest::Test
     # connection is killed
     def test_disconnect_kills_tasks
 	peer2peer do |remote|
-	    remote.plan.add_mission(task = Tasks::Simple.new(:id => 'remote-1'))
+	    remote.plan.add_mission(task = Tasks::Simple.new(id: 'remote-1'))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
 		engine.execute do
@@ -288,7 +288,7 @@ class TC_DistributedExecution < Minitest::Test
 	    end
 	end
 
-	task = subscribe_task(:id => 'remote-1')
+	task = subscribe_task(id: 'remote-1')
 	remote.start(Distributed.format(task))
 	process_events
 	assert(task.running?)
@@ -322,7 +322,7 @@ class TC_DistributedExecution < Minitest::Test
 
     def test_code_blocks_owners
 	peer2peer do |remote|
-	    remote.plan.add_mission(CodeBlocksOwnersMockup.new(:id => 'mockup'))
+	    remote.plan.add_mission(CodeBlocksOwnersMockup.new(id: 'mockup'))
 
 	    def remote.call
 		task = plan.find_tasks(CodeBlocksOwnersMockup).to_a.first
@@ -335,7 +335,7 @@ class TC_DistributedExecution < Minitest::Test
 	    end
 	end
 
-	mockup = subscribe_task(:id => 'mockup')
+	mockup = subscribe_task(id: 'mockup')
 	remote.call
 	remote_peer.synchro_point
 
@@ -349,13 +349,13 @@ class TC_DistributedExecution < Minitest::Test
     # received in the same cycle
     def test_joint_fired_signalled
 	peer2peer do |remote|
-	    remote.plan.add_mission(task = Tasks::Simple.new(:id => 'remote-1'))
+	    remote.plan.add_mission(task = Tasks::Simple.new(id: 'remote-1'))
 	    engine.once { task.start! }
 	end
 	    
 	event_time = Time.now
-	remote = subscribe_task(:id => 'remote-1')
-	plan.add_mission(local = Tasks::Simple.new(:id => 'local'))
+	remote = subscribe_task(id: 'remote-1')
+	plan.add_mission(local = Tasks::Simple.new(id: 'local'))
 	remote_peer.synchro_point
 
 	engine.execute do

@@ -32,7 +32,7 @@ module Robot
 
     # Implements that one can call
     #
-    #   Robot.action_name! :arg0 => value0, :arg1 => value1
+    #   Robot.action_name! arg0: value0, arg1: value1
     #
     # To inject a given action in Roby.plan. The added action is added as a
     # mission.

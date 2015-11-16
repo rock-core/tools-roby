@@ -38,7 +38,7 @@ module TC_TransactionBehaviour
         plan.add(t = Tasks::Simple.new)
         plan.add(t_child = Tasks::Simple.new)
         plan.add(t_parent = Tasks::Simple.new)
-        t.depends_on t_child, :model => Roby::Task
+        t.depends_on t_child, model: Roby::Task
         t_parent.depends_on t
         transaction_commit(plan) do |trsc|
             assert !trsc[t, false]
@@ -95,7 +95,7 @@ module TC_TransactionBehaviour
             assert(!trsc.include?(p))
         end
 
-	t1, t2, t3 = prepare_plan :missions => 1, :add => 1, :tasks => 1
+	t1, t2, t3 = prepare_plan missions: 1, add: 1, tasks: 1
 	t1.depends_on t2
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p1.depends_on(t3)
@@ -140,7 +140,7 @@ module TC_TransactionBehaviour
     end
 
     def test_merged_relations
-        t1, t2, t3 = prepare_plan :add => 3
+        t1, t2, t3 = prepare_plan add: 3
         t1.depends_on t2
         t2.depends_on t3
 
@@ -202,7 +202,7 @@ module TC_TransactionBehaviour
 
     # Checks that model-level task relations are kept if a task is modified by a transaction
     def test_commit_model_level_event_relations_in_tasks
-	t = prepare_plan :tasks => 1
+	t = prepare_plan tasks: 1
 	transaction_commit(plan, t) do |trsc, p|
 	    trsc.add(p)
 	    assert(p.event(:start).child_object?(p.event(:updated_data), Roby::EventStructure::Precedence))
@@ -211,7 +211,7 @@ module TC_TransactionBehaviour
 	assert(t.event(:start).child_object?(t.event(:updated_data), Roby::EventStructure::Precedence))
 	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
 
-	t = prepare_plan :add => 1
+	t = prepare_plan add: 1
 	transaction_commit(plan, t) do |trsc, p|
 	    trsc.add_mission(p)
 	end
@@ -220,7 +220,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_abstract_flag
-	t = prepare_plan :add => 1
+	t = prepare_plan add: 1
         sequence = [true, false]
 
 	t.abstract = false
@@ -236,7 +236,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_executable_flag
-	t = prepare_plan :add => 1
+	t = prepare_plan add: 1
         sequence = [true, nil, false, nil, true, false]
 
 	t.executable = false
@@ -249,7 +249,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_arguments
-	(t1, t2), t = prepare_plan :add => 2, :tasks => 1
+	(t1, t2), t = prepare_plan add: 2, tasks: 1
 	t1.arguments[:first] = 10
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p1.arguments[:first] = 20
@@ -272,7 +272,7 @@ module TC_TransactionBehaviour
     end
 
     def test_finalization_handlers_are_not_called_at_commit
-	t = prepare_plan :add => 1
+	t = prepare_plan add: 1
         FlexMock.use do |mock|
             t.when_finalized do |task|
                 mock.old_handler(task)
@@ -288,7 +288,7 @@ module TC_TransactionBehaviour
     end
 
     def test_wraps_plan_service
-	t = prepare_plan :add => 1
+	t = prepare_plan add: 1
         service = Roby::PlanService.get(t)
         transaction_commit(plan, t) do |trsc, p|
             assert(service_proxy = trsc.find_plan_service(p))
@@ -299,7 +299,7 @@ module TC_TransactionBehaviour
     end
 
     def test_create_plan_service
-	t = prepare_plan :add => 1
+	t = prepare_plan add: 1
         service = nil
         transaction_commit(plan, t) do |trsc, p|
             service = Roby::PlanService.get(p)
@@ -311,7 +311,7 @@ module TC_TransactionBehaviour
     end
 
     def test_moves_plan_services_to_new_task
-	t = prepare_plan :add => 1
+	t = prepare_plan add: 1
         service = Roby::PlanService.get(t)
         t2 = nil
         transaction_commit(plan, t) do |trsc, p|
@@ -325,7 +325,7 @@ module TC_TransactionBehaviour
     end
 
     def test_moves_plan_services_from_new_task
-	t = prepare_plan :add => 1
+	t = prepare_plan add: 1
         service, t2 = nil
         transaction_commit(plan, t) do |trsc, p|
             trsc.add(t2 = Roby::Task.new)
@@ -340,7 +340,7 @@ module TC_TransactionBehaviour
     end
 
     def test_moves_plan_services_between_tasks
-	t1, t2 = prepare_plan :add => 2
+	t1, t2 = prepare_plan add: 2
         service = Roby::PlanService.get(t1)
 
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
@@ -354,7 +354,7 @@ module TC_TransactionBehaviour
 
     # Tests insertion and removal of tasks
     def test_commit_plan_tasks
-	t1, (t2, t3) = prepare_plan(:missions => 1, :tasks => 2)
+	t1, (t2, t3) = prepare_plan(missions: 1, tasks: 2)
 
 	transaction_commit(plan, t1) do |trsc, p1|
 	    assert(trsc.include?(p1))
@@ -459,7 +459,7 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_task_relations
-	(t1, t2), (t3, t4) = prepare_plan(:missions => 2, :tasks => 2)
+	(t1, t2), (t3, t4) = prepare_plan(missions: 2, tasks: 2)
 	t1.depends_on t2
 
 	transaction_commit(plan) do |trsc|
@@ -521,7 +521,7 @@ module TC_TransactionBehaviour
             old.merge(new)
         end
 
-	(t1, t2) = prepare_plan(:add => 2)
+	(t1, t2) = prepare_plan(add: 2)
 
         t1.add_test_r(t2, Hash[0, 1, 2, 3])
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
@@ -552,8 +552,8 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_event_relations
-	(t1, t2), (t3, t4) = prepare_plan :missions => 2, :tasks => 2,
-	    :model => Tasks::Simple
+	(t1, t2), (t3, t4) = prepare_plan missions: 2, tasks: 2,
+	    model: Tasks::Simple
 	t1.signals(:start, t2, :success)
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
@@ -587,8 +587,8 @@ module TC_TransactionBehaviour
     end
     
     def test_commit_replace
-	task, (planned, mission, child, r) = prepare_plan :missions => 1, :tasks => 4, :model => Tasks::Simple
-	mission.depends_on task, :model => Tasks::Simple
+	task, (planned, mission, child, r) = prepare_plan missions: 1, tasks: 4, model: Tasks::Simple
+	mission.depends_on task, model: Tasks::Simple
 	planned.planned_by task
 	task.depends_on child
 	task.signals(:stop, mission, :stop)
@@ -629,17 +629,17 @@ module TC_TransactionBehaviour
 
     def test_commit_replace_copies_poll_handlers_to_new_task
         model = Roby::Task.new_submodel
-	task = prepare_plan :add => 1, :model => model
+	task = prepare_plan add: 1, model: model
 
         expected = []
         task.poll { |event| }
-        task.poll(:on_replace => :copy) { |event| }
+        task.poll(on_replace: :copy) { |event| }
         expected << task.poll_handlers[1]
 
         new_task = nil
 	transaction_commit(plan, task) do |trsc, p|
             p.poll { |event| }
-            p.poll(:on_replace => :copy) { |event| }
+            p.poll(on_replace: :copy) { |event| }
             assert_equal 2, p.poll_handlers.size
             expected << p.poll_handlers[1]
 
@@ -652,17 +652,17 @@ module TC_TransactionBehaviour
 
     def test_commit_replace_copies_poll_handlers_to_proxy
         model = Roby::Task.new_submodel
-	task = prepare_plan :add => 1, :model => model
+	task = prepare_plan add: 1, model: model
         plan.add(new_task = model.new)
 
         expected = []
         task.poll { |event| }
-        task.poll(:on_replace => :copy) { |event| }
+        task.poll(on_replace: :copy) { |event| }
         expected << task.poll_handlers[1]
 
 	transaction_commit(plan, task, new_task) do |trsc, p, new_p|
             p.poll { |event| }
-            p.poll(:on_replace => :copy) { |event| }
+            p.poll(on_replace: :copy) { |event| }
             assert_equal 2, p.poll_handlers.size
             expected << p.poll_handlers[1]
 
@@ -674,7 +674,7 @@ module TC_TransactionBehaviour
 
     def test_commit_replace_copies_poll_handlers_from_abstract
         model = Roby::Task.new_submodel
-	task = prepare_plan :add => 1, :model => model
+	task = prepare_plan add: 1, model: model
         task.abstract = true
         plan.add(new_task = model.new)
 
@@ -694,17 +694,17 @@ module TC_TransactionBehaviour
 
     def test_commit_replace_copies_event_handlers_to_new_task
         model = Roby::Task.new_submodel
-	task = prepare_plan :add => 1, :model => model
+	task = prepare_plan add: 1, model: model
 
         expected = []
         task.on(:start) { |event| }
-        task.on(:start, :on_replace => :copy) { |event| }
+        task.on(:start, on_replace: :copy) { |event| }
         expected << task.start_event.handlers[1]
 
         new_task = nil
 	transaction_commit(plan, task) do |trsc, p|
             p.on(:start) { |event| }
-            p.on(:start, :on_replace => :copy) { |event| }
+            p.on(:start, on_replace: :copy) { |event| }
             assert_equal 2, p.start_event.handlers.size
             expected << p.start_event.handlers[1]
 
@@ -717,17 +717,17 @@ module TC_TransactionBehaviour
 
     def test_commit_replace_copies_event_handlers_to_proxy
         model = Roby::Task.new_submodel
-	task = prepare_plan :add => 1, :model => model
+	task = prepare_plan add: 1, model: model
         plan.add(new_task = model.new)
 
         expected = []
         task.on(:start) { |event| }
-        task.on(:start, :on_replace => :copy) { |event| }
+        task.on(:start, on_replace: :copy) { |event| }
         expected << task.start_event.handlers[1]
 
 	transaction_commit(plan, task, new_task) do |trsc, p, new_p|
             p.on(:start) { |event| }
-            p.on(:start, :on_replace => :copy) { |event| }
+            p.on(:start, on_replace: :copy) { |event| }
             assert_equal 2, p.start_event.handlers.size
             expected << p.start_event.handlers[1]
 
@@ -739,7 +739,7 @@ module TC_TransactionBehaviour
 
     def test_commit_replace_copies_event_handlers_from_abstract
         model = Roby::Task.new_submodel
-	task = prepare_plan :add => 1, :model => model
+	task = prepare_plan add: 1, model: model
         task.abstract = true
         plan.add(new_task = model.new)
 
@@ -758,7 +758,7 @@ module TC_TransactionBehaviour
     end
 
     def test_relation_validation
-	t1, t2 = prepare_plan :tasks => 2
+	t1, t2 = prepare_plan tasks: 2
 	transaction_commit(plan, t1) do |trsc, p1|
 	    trsc.add_mission(t2)
 	    assert_equal(plan, t1.plan)
@@ -773,7 +773,7 @@ module TC_TransactionBehaviour
     end
 
     def test_wrap_raises_if_wrapping_a_finalized_task
-	t1 = prepare_plan :add => 1
+	t1 = prepare_plan add: 1
         plan.remove_object(t1)
 
         plan.in_transaction do |trsc|
@@ -782,7 +782,7 @@ module TC_TransactionBehaviour
     end
 
     def test_finalizing_a_task_invalidates_the_transaction
-	t1, t2, t3 = prepare_plan :missions => 1, :add => 1
+	t1, t2, t3 = prepare_plan missions: 1, add: 1
 	t1.depends_on t2
 
 	t3 = Tasks::Simple.new
@@ -797,7 +797,7 @@ module TC_TransactionBehaviour
     end
 
     def test_plan_add_remove_invalidate
-	t1 = prepare_plan :add => 1
+	t1 = prepare_plan add: 1
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1) do |trsc, p1|
 		plan.remove_object(t1)
@@ -808,7 +808,7 @@ module TC_TransactionBehaviour
 
         # Test for a special case: the task is removed from the transaction and
         # then removed from the plan. We should not invalidate in that case
-	t1 = prepare_plan :add => 1
+	t1 = prepare_plan add: 1
         transaction_commit(plan, t1) do |trsc, p1|
             trsc.remove_object(p1)
             plan.remove_object(t1)
@@ -817,7 +817,7 @@ module TC_TransactionBehaviour
     end
 
     def test_plan_relation_update_invalidate
-	t1, t2 = prepare_plan :add => 2
+	t1, t2 = prepare_plan add: 2
 
 	t1.depends_on t2
 	assert_raises(Roby::InvalidTransaction) do
@@ -852,7 +852,7 @@ module TC_TransactionBehaviour
     end
 
     def test_proxy_clear_vertex
-        t1, t2 = prepare_plan :add => 2
+        t1, t2 = prepare_plan add: 2
         t1.depends_on t2
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
             p1.clear_vertex
@@ -863,7 +863,7 @@ module TC_TransactionBehaviour
     end
 
     def test_replace_with_parents_non_included_in_relation_does_not_touch_parents
-        root, t1 = prepare_plan :add => 2
+        root, t1 = prepare_plan add: 2
         root.depends_on t1
         t2 = Roby::Task.new
         transaction_commit(plan, t1) do |trsc, p1|
@@ -875,7 +875,7 @@ module TC_TransactionBehaviour
     end
 
     def test_merged_generated_subgraphs
-	(d1, d2, d3, d4, d5, d6), t1 = prepare_plan :add => 6, :tasks => 1
+	(d1, d2, d3, d4, d5, d6), t1 = prepare_plan add: 6, tasks: 1
 
         plan.in_transaction do |trsc|
             d1.depends_on d2
@@ -922,7 +922,7 @@ class TC_Transactions < Minitest::Test
     end
 
     def test_commit_finalization_handlers
-	t = prepare_plan :add => 1
+	t = prepare_plan add: 1
         FlexMock.use do |mock|
             t.when_finalized do |task|
                 mock.old_handler(task)
@@ -942,13 +942,13 @@ class TC_Transactions < Minitest::Test
         model = Roby::Task.new_submodel do
             terminates
         end
-	t1, t2 = prepare_plan :add => 2, :model => model
+	t1, t2 = prepare_plan add: 2, model: model
 
         FlexMock.use do |mock|
             t1.when_finalized do |task|
                 mock.should_not_be_copied(task)
             end
-            t1.when_finalized(:on_replace => :copy) do |task|
+            t1.when_finalized(on_replace: :copy) do |task|
                 mock.should_be_copied(task)
             end
             t3 = nil
@@ -975,7 +975,7 @@ class TC_Transactions < Minitest::Test
         plan.add(t2 = model.new)
 
         FlexMock.use do |mock|
-            t1.when_finalized(:on_replace => :drop) do |task|
+            t1.when_finalized(on_replace: :drop) do |task|
                 mock.should_not_be_copied(task)
             end
             t1.when_finalized do |task|
@@ -998,9 +998,9 @@ class TC_Transactions < Minitest::Test
     end
 
     def test_commits_plan_services_event_handlers
-	root, t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
-        root.depends_on t1, :model => Tasks::Simple
-        root.depends_on t2, :model => Tasks::Simple
+	root, t1, t2 = prepare_plan add: 3, model: Tasks::Simple
+        root.depends_on t1, model: Tasks::Simple
+        root.depends_on t2, model: Tasks::Simple
         service = Roby::PlanService.get(t1)
 
         FlexMock.use do |mock|
@@ -1020,9 +1020,9 @@ class TC_Transactions < Minitest::Test
     end
 
     def test_commits_plan_services_finalization_handlers
-	root, t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
-        root.depends_on t1, :model => Tasks::Simple
-        root.depends_on t2, :model => Tasks::Simple
+	root, t1, t2 = prepare_plan add: 3, model: Tasks::Simple
+        root.depends_on t1, model: Tasks::Simple
+        root.depends_on t2, model: Tasks::Simple
         service = Roby::PlanService.get(t1)
 
         FlexMock.use do |mock|
@@ -1164,7 +1164,7 @@ class TC_Transactions < Minitest::Test
     end
 
     def test_when_unreachable_is_propagated_to_the_plan
-	t1 = prepare_plan :add => 1, :model => Tasks::Simple
+	t1 = prepare_plan add: 1, model: Tasks::Simple
         mock = flexmock
         mock.should_receive(:is_unreachable).once
         transaction_commit(plan, t1) do |trsc, p1|

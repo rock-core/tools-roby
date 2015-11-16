@@ -79,7 +79,7 @@ module Roby
         # Call this method in the model definition to declare that the thread
         # implementation will call #interruption_point regularly.
         def self.interruptible
-            event :failed, :terminal => true do |context|
+            event :failed, terminal: true do |context|
                 self.interruption_requested = true
             end
             super

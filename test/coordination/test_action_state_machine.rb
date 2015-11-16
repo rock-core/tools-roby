@@ -3,17 +3,17 @@ require 'roby/test/self'
 describe Roby::Coordination::ActionStateMachine do
     attr_reader :task_m, :action_m, :description
     before do
-        task_m = @task_m = Roby::Task.new_submodel(:name => 'TaskModel') do
+        task_m = @task_m = Roby::Task.new_submodel(name: 'TaskModel') do
             terminates
         end
         description = nil
         @action_m = Roby::Actions::Interface.new_submodel do
             describe("the start task").returns(task_m).optional_arg(:id, "the task ID")
-            define_method(:start_task) { |arg| task_m.new(:id => (arg[:id] || :start)) }
+            define_method(:start_task) { |arg| task_m.new(id: (arg[:id] || :start)) }
             describe("the next task").returns(task_m)
-            define_method(:next_task) { task_m.new(:id => :next) }
+            define_method(:next_task) { task_m.new(id: :next) }
             describe("a monitoring task").returns(task_m)
-            define_method(:monitoring_task) { task_m.new(:id => 'monitoring') }
+            define_method(:monitoring_task) { task_m.new(id: 'monitoring') }
             description = describe("state machine").returns(task_m)
         end
         @description = description
@@ -43,10 +43,10 @@ describe Roby::Coordination::ActionStateMachine do
         it "passes instanciation arguments to the generated tasks" do
             description.required_arg(:task_id, "the task ID")
             state_machine 'test' do
-                start(state(start_task(:id => task_id)))
+                start(state(start_task(id: task_id)))
             end
 
-            task = start_machine('test', :task_id => 10)
+            task = start_machine('test', task_id: 10)
             assert_equal 10, task.current_task_child.arguments[:id]
         end
     end
@@ -60,7 +60,7 @@ describe Roby::Coordination::ActionStateMachine do
         task = start_machine('test')
         start = task.current_task_child
         assert_kind_of task_m, start
-        assert_equal Hash[:id => :start], start.arguments
+        assert_equal Hash[id: :start], start.arguments
     end
 
     it "starting state can be overridden by passing start_state argument" do
@@ -70,10 +70,10 @@ describe Roby::Coordination::ActionStateMachine do
             start(start)
         end
 
-        task = start_machine('test', :start_state => "second")
+        task = start_machine('test', start_state: "second")
         start = task.current_task_child
         assert_kind_of task_m, start
-        assert_equal Hash[:id => :next], start.arguments
+        assert_equal Hash[id: :next], start.arguments
     end
 
     it "state_machines check for accidentally given arg \"start_state\"" do
@@ -97,10 +97,10 @@ describe Roby::Coordination::ActionStateMachine do
             end
 
             task = start_machine('test')
-            monitor = plan.find_tasks.with_arguments(:id => 'monitoring').first
+            monitor = plan.find_tasks.with_arguments(id: 'monitoring').first
             monitor.start!
             monitor.emit :success
-            assert_equal Hash[:id => :next], task.current_task_child.arguments
+            assert_equal Hash[id: :next], task.current_task_child.arguments
         end
 
         it "can transition using an event from a state-local dependency" do
@@ -113,23 +113,23 @@ describe Roby::Coordination::ActionStateMachine do
             end
 
             task = start_machine('test')
-            monitor = plan.find_tasks.with_arguments(:id => 'monitoring').first
+            monitor = plan.find_tasks.with_arguments(id: 'monitoring').first
             monitor.start!
             monitor.emit :success
-            assert_equal Hash[:id => :next], task.current_task_child.arguments
+            assert_equal Hash[id: :next], task.current_task_child.arguments
         end
 
         it "removes the dependency from the root task to the current state's task" do
             state_machine 'test' do
                 monitor = state(monitoring_task)
-                depends_on monitor, :role => 'monitor'
+                depends_on monitor, role: 'monitor'
                 start_state = state start_task
                 next_state  = state next_task
                 start(start_state)
                 transition(start_state, monitor.start_event, next_state)
             end
             task = start_machine('test')
-            assert_equal Hash[:id => :start], task.current_task_child.arguments
+            assert_equal Hash[id: :start], task.current_task_child.arguments
             assert_equal 2, task.children.to_a.size
             assert_equal([task.current_task_child, task.monitor_child].to_set, task.children.to_set)
         end
@@ -137,7 +137,7 @@ describe Roby::Coordination::ActionStateMachine do
         it "transitions because of an event only in the source state" do
             state_machine 'test' do
                 monitor = state monitoring_task
-                depends_on monitor, :role => 'monitor'
+                depends_on monitor, role: 'monitor'
                 start_state = state start_task
                 next_state  = state next_task
                 start(start_state)
@@ -146,13 +146,13 @@ describe Roby::Coordination::ActionStateMachine do
             end
 
             task = start_machine('test')
-            assert_equal Hash[:id => :start], task.current_task_child.arguments
+            assert_equal Hash[id: :start], task.current_task_child.arguments
             task.monitor_child.start!
-            assert_equal Hash[:id => :start], task.current_task_child.arguments
+            assert_equal Hash[id: :start], task.current_task_child.arguments
             task.monitor_child.emit :success
-            assert_equal Hash[:id => :next], task.current_task_child.arguments
+            assert_equal Hash[id: :next], task.current_task_child.arguments
             task.monitor_child.start!
-            assert_equal Hash[:id => :start], task.current_task_child.arguments
+            assert_equal Hash[id: :start], task.current_task_child.arguments
         end
     end
 
@@ -197,17 +197,17 @@ describe Roby::Coordination::ActionStateMachine do
             start(first_state)
         end
 
-        task = start_machine('test', :first_task => action_m.start_task)
+        task = start_machine('test', first_task: action_m.start_task)
         assert_equal :start, task.current_task_child.arguments[:id]
     end
 
     it "rebinds the action states to the actual interface model" do
         task_m = self.task_m
-        child_task_m = task_m.new_submodel(:name => "TaskChildModel")
+        child_task_m = task_m.new_submodel(name: "TaskChildModel")
 
         child_m = action_m.new_submodel do
             define_method(:start_task) do |arg|
-                child_task_m.new(:id => (arg[:id] || :start))
+                child_task_m.new(id: (arg[:id] || :start))
             end
         end
         state_machine('test') do
@@ -252,7 +252,7 @@ describe Roby::Coordination::ActionStateMachine do
         task = action_m.test.instanciate(plan, machine_arg: 10)
         task.start!
         table = plan.active_fault_response_tables.first
-        assert_equal Hash[:arg => 10], table.arguments
+        assert_equal Hash[arg: 10], table.arguments
     end
 
     it "does not instanciate transitions if the root task is finished" do

@@ -26,7 +26,7 @@ class TC_TaskStateMachine < Minitest::Test
     end
 
     class SecondTestTask < Roby::Task
-        refine_running_state :namespace => 'test' do
+        refine_running_state namespace: 'test' do
             on :firstly do 
                 transition [:running] => :first
             end 
@@ -126,18 +126,18 @@ class TC_TaskStateMachine < Minitest::Test
         model = Roby::Task.new_submodel do
             terminates
             refine_running_state do
-                on(:intermediate) { transition :running => :one }
+                on(:intermediate) { transition running: :one }
             end
         end
         assert model.event_model(:intermediate).controlable?
 
-        task = prepare_plan :add => 1, :model => model
+        task = prepare_plan add: 1, model: model
         task.start!
         assert_equal 'running', task.state_machine.status
         task.intermediate!
         assert_equal 'one', task.state_machine.status
 
-        task = prepare_plan :add => 1, :model => model
+        task = prepare_plan add: 1, model: model
         task.start!
         assert_equal 'running', task.state_machine.status
         task.emit :intermediate
@@ -149,12 +149,12 @@ class TC_TaskStateMachine < Minitest::Test
             terminates
             event :intermediate
             refine_running_state do
-                on(:intermediate) { transition :running => :one }
+                on(:intermediate) { transition running: :one }
             end
         end
         assert !model.event_model(:intermediate).controlable?
 
-        task = prepare_plan :add => 1, :model => model
+        task = prepare_plan add: 1, model: model
         task.start!
         assert_equal 'running', task.state_machine.status
         task.emit :intermediate
@@ -211,7 +211,7 @@ class TC_TaskStateMachine < Minitest::Test
             end
         end
 
-        task = prepare_plan :permanent => 1, :model => model
+        task = prepare_plan permanent: 1, model: model
         task.start!
         process_events
     end
@@ -234,16 +234,16 @@ class TC_TaskStateMachine < Minitest::Test
                     mock.running_poll
                     task.emit :running_poll
                 end
-                on(:intermediate) { transition :running => :one }
+                on(:intermediate) { transition running: :one }
                 poll_in_state :one do |task|
                     mock.one_poll
                     task.emit :one_poll
                 end
-                on(:one_poll) { transition :one => :final }
+                on(:one_poll) { transition one: :final }
             end
         end
 
-        task = prepare_plan :missions => 1, :model => model
+        task = prepare_plan missions: 1, model: model
         task.on(:running_poll) { |_| mock.running_poll_event }
         task.start!
         task.on(:one_poll) { |_| mock.one_poll_event }
@@ -269,16 +269,16 @@ class TC_TaskStateMachine < Minitest::Test
                     execute { mock.running_poll }
                     emit :running_poll
                 end
-                on(:intermediate) { transition :running => :one }
+                on(:intermediate) { transition running: :one }
                 script_in_state :one do
                     execute { mock.one_poll }
                     emit :one_poll
                 end
-                on(:one_poll) { transition :one => :running }
+                on(:one_poll) { transition one: :running }
             end
         end
 
-        task = prepare_plan :permanent => 1, :model => model
+        task = prepare_plan permanent: 1, model: model
         task.start!
         task.on(:running_poll) { |_| mock.running_poll_event }
         process_events
@@ -307,7 +307,7 @@ class TC_TaskStateMachine < Minitest::Test
             end
         end
 
-        task = prepare_plan :permanent => 1, :model => model
+        task = prepare_plan permanent: 1, model: model
         task.start!
         process_events
     end
@@ -324,7 +324,7 @@ class TC_TaskStateMachine < Minitest::Test
             end
         end
 
-        task = prepare_plan :permanent => 1, :model => model
+        task = prepare_plan permanent: 1, model: model
         task.start!
         process_events
     end

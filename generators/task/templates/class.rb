@@ -4,9 +4,9 @@
 <%= indent %>    # You usually want this
 <%= indent %>    terminates
 <%= indent %>
-<%= indent %>    # Declare an argument to the task. Use :default => VALUE to set up a default
+<%= indent %>    # Declare an argument to the task. Use default: VALUE to set up a default
 <%= indent %>    # value. The default can be nil
-<%= indent %>    # argument :arg[, :default => 1]
+<%= indent %>    # argument :arg[, default: 1]
 <%= indent %>    
 <%= indent %>    # Declare a new event. This defines updated_event which returns a
 <%= indent %>    # Roby::EventGenerator

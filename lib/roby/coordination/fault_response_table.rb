@@ -34,10 +34,10 @@ module Roby
         #   use_fault_response_table MyTable
         #
         # @example enable this fault response table whenever a task matching this matcher
-        #   use_fault_response_table MyTable, :when => MyTaskModel.mission
+        #   use_fault_response_table MyTable, when: MyTaskModel.mission
         # 
         # @example enable this fault response table when this action is running
-        #   use_fault_response_table MyTable, :when => an_action
+        #   use_fault_response_table MyTable, when: an_action
         #
         # @example dynamically enable/disable tables programatically
         #   Roby.plan.use_fault_response_table MyTable

@@ -7,7 +7,7 @@ describe Roby::Coordination::ActionScript do
         @task_model = Class.new(Roby::Tasks::Simple) do
             event :intermediate
         end
-        @script_model = Roby::Coordination::ActionScript.new_submodel(:action_interface => flexmock(:find_action_by_name => nil), :root => task_model)
+        @script_model = Roby::Coordination::ActionScript.new_submodel(action_interface: flexmock(find_action_by_name: nil), root: task_model)
         @script_task =
             flexmock(Roby::Coordination::Models::TaskWithDependencies.new(task_model))
         script_model.tasks << script_task
@@ -84,7 +84,7 @@ describe Roby::Coordination::ActionScript do
                 describe ''
                 action_script 'test' do
                     t = task Roby::Tasks::Simple
-                    execute t, :role => 'test'
+                    execute t, role: 'test'
                     emit success_event
                 end
             end
@@ -107,13 +107,13 @@ describe Roby::Coordination::ActionScript do
                 describe ''
                 action_script 'test' do
                     t = task Roby::Tasks::Simple
-                    execute t, :role => 'test'
+                    execute t, role: 'test'
                     emit success_event
                 end
             end
             root_task = action_model.test.instanciate(plan)
             root_task.start!
-            plan.force_replace(root_task.test_child, new_child = Roby::Tasks::Simple.new(:id => root_task.test_child.id))
+            plan.force_replace(root_task.test_child, new_child = Roby::Tasks::Simple.new(id: root_task.test_child.id))
             new_child.start!
             new_child.success_event.emit
             assert root_task.success?

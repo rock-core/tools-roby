@@ -197,7 +197,7 @@ describe Roby::Application do
         end
 
         it "passes arguments to the action" do
-            arguments = {:id => 10}
+            arguments = {id: 10}
 
             task_t = Roby::Task.new_submodel
             task, planner_task = task_t.new, task_t.new

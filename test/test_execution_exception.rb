@@ -25,7 +25,7 @@ describe Roby::ExecutionException do
 
     describe "#fork" do
         it "isolates the traces" do
-            task, t1, t2, t3 = prepare_plan :add => 5
+            task, t1, t2, t3 = prepare_plan add: 5
             e = create_exception_from(task)
             s = e.fork
 
@@ -38,7 +38,7 @@ describe Roby::ExecutionException do
 
     describe "#merge" do
         it "keeps the origin" do
-            task, t1, t2, t3 = prepare_plan :add => 5
+            task, t1, t2, t3 = prepare_plan add: 5
             e = create_exception_from(task)
             s = e.fork
             e.trace << t1
@@ -48,7 +48,7 @@ describe Roby::ExecutionException do
         end
 
         it "does not duplicate tasks" do
-            task, t1, t2, t3 = prepare_plan :add => 5
+            task, t1, t2, t3 = prepare_plan add: 5
             e = create_exception_from(task)
             s = e.fork
 
@@ -60,7 +60,7 @@ describe Roby::ExecutionException do
     end
 
     it "should be droby-marshallable" do
-        task = prepare_plan :add => 1
+        task = prepare_plan add: 1
         verify_is_droby_marshallable_object(create_exception_from(task))
     end
 end

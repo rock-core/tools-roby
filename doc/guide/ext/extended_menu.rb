@@ -24,6 +24,6 @@ module Webgen::Tag
 end
 
 config = Webgen::WebsiteAccess.website.config
-config.tag.menu.range_start nil, :mandatory => false
-config.tag.menu.range_end   nil, :mandatory => false
+config.tag.menu.range_start nil, mandatory: false
+config.tag.menu.range_end   nil, mandatory: false
 

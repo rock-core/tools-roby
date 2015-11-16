@@ -3,14 +3,14 @@ require 'roby/test/self'
 class TC_PlannedBy < Minitest::Test
     PlannedBy = Roby::TaskStructure::PlannedBy
     def test_replace
-	task, p1, p2 = prepare_plan :add => 3
+	task, p1, p2 = prepare_plan add: 3
 	task.planned_by p1
 
 	assert_raises(ArgumentError) { task.planned_by p2 }
 	assert(task.child_object?(p1, PlannedBy))
 	assert(!task.child_object?(p2, PlannedBy))
 
-	task.planned_by p2, :replace => true
+	task.planned_by p2, replace: true
 	assert(!task.child_object?(p1, PlannedBy))
 	assert(task.child_object?(p2, PlannedBy))
     end
@@ -66,10 +66,10 @@ class TC_PlannedBy < Minitest::Test
     def test_as_plan
         model = Tasks::Simple.new_submodel do
             def self.as_plan
-                new(:id => 10)
+                new(id: 10)
             end
         end
-        root = prepare_plan :add => 1, :model => Tasks::Simple
+        root = prepare_plan add: 1, model: Tasks::Simple
         agent = root.planned_by(model)
         assert_kind_of model, agent
         assert_equal 10, agent.arguments[:id]

@@ -52,7 +52,7 @@ module Roby
             # used:
             #
             #   root = Roby::Task.new
-            #   child = root.depends_on(TaskModel.with_arguments(:id => 200))
+            #   child = root.depends_on(TaskModel.with_arguments(id: 200))
             #
             def as_plan(arguments = Hash.new)
                 Roby.app.prepare_action(self, **arguments).first
@@ -102,7 +102,7 @@ module Roby
             #   
             def self.model_attribute_list(name) # :nodoc:
                 class_eval <<-EOD, __FILE__, __LINE__+1
-                    inherited_attribute("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
+                    inherited_attribute("#{name}_set", "#{name}_sets", map: true) { Hash.new { |h, k| h[k] = Set.new } }
                     def each_#{name}(model)
                         for obj in #{name}s(model)
                             yield(obj)
@@ -166,7 +166,7 @@ module Roby
             #   i.e. not have a command
             #
             # @example when establishing multiple relations from the same source use name-to-arrays
-            #   signal :start => [:one, :two]
+            #   signal start: [:one, :two]
             def signal(mappings)
                 mappings.each do |from, to|
                     from    = event_model(from)
@@ -199,7 +199,7 @@ module Roby
             # @param [Hash<Symbol,Array<Symbol>>,Hash<Symbol,Symbol>] mappings the source-to-target mappings
             #
             # @example when establishing multiple relations from the same source use name-to-arrays
-            #   signal :start => [:one, :two]
+            #   signal start: [:one, :two]
             def causal_link(mappings)
                 mappings.each do |from, to|
                     from = event_model(from).symbol
@@ -219,7 +219,7 @@ module Roby
             # @example
             #   # A task that is stopped as soon as it is started
             #   class MyTask < Roby::Task
-            #     forward :start => :stop
+            #     forward start: :stop
             #   end
             #
             # @see Task#forward
@@ -341,8 +341,8 @@ module Roby
                     else
                         ev = superclass.event_model(sym)
                         unless ev.terminal?
-                            event sym, :model => ev, :terminal => true, 
-                                :command => (ev.method(:call) rescue nil)
+                            event sym, model: ev, terminal: true, 
+                                command: (ev.method(:call) rescue nil)
                         end
                     end
                 end
@@ -375,8 +375,8 @@ module Roby
                 event_name = event_name.to_sym
 
                 options = validate_options options,
-                    :controlable => nil, :command => nil, :terminal => nil,
-                    :model => find_event_model(event_name) || Roby::TaskEvent
+                    controlable: nil, command: nil, terminal: nil,
+                    model: find_event_model(event_name) || Roby::TaskEvent
 
                 if options.has_key?(:controlable)
                     options[:command] = options[:controlable]
@@ -386,9 +386,9 @@ module Roby
                 validate_event_definition_request(event_name, options)
 
                 # Define the event class
-                new_event = options[:model].new_submodel :task_model => self,
-                    :terminal => options[:terminal],
-                    :symbol => event_name, :command => options[:command]
+                new_event = options[:model].new_submodel task_model: self,
+                    terminal: options[:terminal],
+                    symbol: event_name, command: options[:command]
                 new_event.permanent_model = self.permanent_model?
 
                 setup_terminal_handler = false

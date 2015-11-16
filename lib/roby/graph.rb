@@ -89,7 +89,7 @@ module BGL
         # time there is a fork in the graph and merging (calling #merge) each
         # time the forks meet again
         def fork_merge_propagation(seed, value, options = Hash.new)
-            options = Kernel.validate_options options, :vertex_visitor => nil
+            options = Kernel.validate_options options, vertex_visitor: nil
             vertex_visitor = options[:vertex_visitor]
             forks  = Hash.new
             merges = Hash.new

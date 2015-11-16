@@ -72,7 +72,7 @@ module Roby
         # This event gets emitted if the process died because of a signal
         event :signaled
 
-        forward :signaled => :failed
+        forward signaled: :failed
 
         ##
         # If set to a string, the process' standard output will be redirected to
@@ -81,11 +81,11 @@ module Roby
         #
         # The last form (with nil argument) removes any redirection. A specific
         # redirection can also be disabled using the hash form:
-        #   redirect_output :stdout => nil
+        #   redirect_output stdout: nil
         #
         # :call-seq:
         #   redirect_output "file"
-        #   redirect_output :stdout => "file-out", :stderr => "another-file"
+        #   redirect_output stdout: "file-out", stderr: "another-file"
         #   redirect_output nil
         #
         def redirect_output(args)
@@ -94,7 +94,7 @@ module Roby
             elsif args.respond_to? :to_str
                 @redirection = args.to_str
             else
-                args = validate_options args, :stdout => nil, :stderr => nil
+                args = validate_options args, stdout: nil, stderr: nil
                 if args[:stdout] == args[:stderr]
                     @redirection = args[:stdout].to_str
                 else

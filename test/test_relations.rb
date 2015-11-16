@@ -11,7 +11,7 @@ class TC_Relations < Minitest::Test
             def specific_relation_method
             end
         end
-        r2 = space.relation :R2s, :child_name => :child, :parent_name => :parent
+        r2 = space.relation :R2s, child_name: :child, parent_name: :parent
 	assert(Module === space)
 
 	n = klass.new
@@ -31,11 +31,11 @@ class TC_Relations < Minitest::Test
 
 	space = Roby::RelationSpace(klass)
         r2 = space.relation :R2
-        r1 = space.relation :R1, :subsets => [r2]
+        r1 = space.relation :R1, subsets: [r2]
         assert(r1.embeds_info?)
         assert(r2.embeds_info?)
 
-        r3 = space.relation :R3, :noinfo => true
+        r3 = space.relation :R3, noinfo: true
         r1.superset_of r3
         assert(!r3.embeds_info?)
 
@@ -72,7 +72,7 @@ class TC_Relations < Minitest::Test
 	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r2 = space.relation :R2
-        r1 = space.relation :R1, :subsets => [r2]
+        r1 = space.relation :R1, subsets: [r2]
 
 	n1, n2 = 2.enum_for(:times).map { klass.new }
         n1.add_child_object(n2, r2, obj = Hash.new)
@@ -100,7 +100,7 @@ class TC_Relations < Minitest::Test
 	r1, r2 = nil
 	space = Roby::RelationSpace(klass)
         r1 = space.relation :R1
-        r2 = space.relation :Child, :parent_name => :parent
+        r2 = space.relation :Child, parent_name: :parent
 
 	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
 	n1.add_child_object(n2, r1, true)
@@ -219,7 +219,7 @@ class TC_Relations < Minitest::Test
 
     def test_dag_checking
 	klass = Class.new { include Roby::DirectedRelationSupport }
-	graph = RelationGraph.new("test", :dag => true)
+	graph = RelationGraph.new("test", dag: true)
 
 	v1, v2, v3 = (1..3).map { v = klass.new; graph.insert(v); v }
 	graph.add_relation(v1, v2, nil)
@@ -234,7 +234,7 @@ class TC_Relations < Minitest::Test
 	space = Roby::RelationSpace(klass)
         add_child_called = false
         remove_child_called = false
-        r1 = space.relation :R1, :single_child => true
+        r1 = space.relation :R1, single_child: true
         r1.class::Extension.module_eval do
             define_method(:added_r1) { |*args| add_child_called = true }
             define_method(:removed_r1) { |*args| remove_child_called = true }
@@ -262,29 +262,29 @@ class TC_Relations < Minitest::Test
     def test_child_enumeration_without_info
 	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
-        r1 = space.relation :R1, :child_name => 'child', :noinfo => true
+        r1 = space.relation :R1, child_name: 'child', noinfo: true
 
         v1, v2 = klass.new, klass.new
-        v1.add_child(v2, :test => true)
+        v1.add_child(v2, test: true)
 
         assert_equal([v2], v1.each_child.to_a)
     end
     def test_child_enumeration_with_info
 	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
-        r1 = space.relation :R1, :child_name => 'child'
+        r1 = space.relation :R1, child_name: 'child'
 
         v1, v2 = klass.new, klass.new
-        v1.add_child(v2, :test => true)
+        v1.add_child(v2, test: true)
 
-        assert_equal([[v2, {:test => true}]], v1.each_child.to_a)
+        assert_equal([[v2, {test: true}]], v1.each_child.to_a)
     end
 
     def test_clear_relations
 	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
-        r1 = space.relation :R1, :child_name => 'child', :noinfo => true
-        r2 = space.relation :R2, :child_name => 'child2', :noinfo => true
+        r1 = space.relation :R1, child_name: 'child', noinfo: true
+        r2 = space.relation :R2, child_name: 'child2', noinfo: true
 
         v = klass.new
         r1.insert(v)
@@ -304,7 +304,7 @@ class TC_Relations < Minitest::Test
         end
 	space = Roby::RelationSpace(klass)
         space.default_graph_class = EventRelationGraph
-        r = space.relation :R, :child_name => 'child', :noinfo => true
+        r = space.relation :R, child_name: 'child', noinfo: true
 
         ta = Object.new
         ea = klass.new(ta)

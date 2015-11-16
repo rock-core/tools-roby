@@ -18,14 +18,14 @@ module Roby
             #   class Main < Roby::Actions::Interface
             #     action_script 'example_action' do
             #       # Start moving at 0.1 m/s until we move more than 0.1m
-            #       move_task = task move(:speed => 0.1)
-            #       d_monitor = task monitor_movement_threshold(:d => 0.1)
+            #       move_task = task move(speed: 0.1)
+            #       d_monitor = task monitor_movement_threshold(d: 0.1)
             #       d_monitor.depends_on move_task
             #       execute d_monitor
             #
             #       # Then, once we're done with that, stand still for 20s
-            #       stand_task = task move(:speed => 0)
-            #       t_monitor  = task monitor_time_threshold(:t => 20) 
+            #       stand_task = task move(speed: 0)
+            #       t_monitor  = task monitor_time_threshold(t: 20) 
             #       t_monitor.depends_on stand_task
             #       execute t_monitor
             #

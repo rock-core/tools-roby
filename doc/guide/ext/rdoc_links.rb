@@ -24,11 +24,11 @@ class RdocLinks
 end
 
 config = Webgen::WebsiteAccess.website.config
-config.rdoclinks.name        "", :mandatory => 'default'
-config.rdoclinks.base_webgen "", :mandatory => false
-config.rdoclinks.base_url    "", :mandatory => false
-config.rdoclinks.base_module nil, :mandatory => false
-config.rdoclinks.full_name   false, :mandatory => false
-config.rdoclinks.text   nil, :mandatory => false
+config.rdoclinks.name        "", mandatory: 'default'
+config.rdoclinks.base_webgen "", mandatory: false
+config.rdoclinks.base_url    "", mandatory: false
+config.rdoclinks.base_module nil, mandatory: false
+config.rdoclinks.full_name   false, mandatory: false
+config.rdoclinks.text   nil, mandatory: false
 config['contentprocessor.tags.map']['rdoc_class'] = 'RdocLinks'
 

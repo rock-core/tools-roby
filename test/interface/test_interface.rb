@@ -32,17 +32,17 @@ describe Roby::Interface::Interface do
 
     describe "job_id_of_task" do
         it "should return the job ID of a job task" do
-            plan.add(job_task = job_task_m.new(:job_id => 10))
+            plan.add(job_task = job_task_m.new(job_id: 10))
             assert_equal 10, interface.job_id_of_task(job_task)
         end
         it "should return the job ID of the placeholder task for a job task" do
-            plan.add(job_task = job_task_m.new(:job_id => 10))
+            plan.add(job_task = job_task_m.new(job_id: 10))
             plan.add(planned_task = Roby::Task.new)
             planned_task.planned_by job_task
             assert_equal 10, interface.job_id_of_task(planned_task)
         end
         it "should return nil if the job ID is not set" do
-            plan.add(job_task = job_task_m.new(:job_id => nil))
+            plan.add(job_task = job_task_m.new(job_id: nil))
             plan.add(planned_task = Roby::Task.new)
             planned_task.planned_by job_task
             assert_equal nil, interface.job_id_of_task(job_task)
@@ -56,11 +56,11 @@ describe Roby::Interface::Interface do
 
     describe "#jobs" do
         it "should return the set of job tasks existing in the plan" do
-            plan.add_mission(job_task = job_task_m.new(:job_id => 10))
+            plan.add_mission(job_task = job_task_m.new(job_id: 10))
             assert_equal Hash[10 => [:ready, job_task, job_task]], interface.jobs
         end
         it "should return the planned task if the job task has one" do
-            plan.add(job_task = job_task_m.new(:job_id => 10))
+            plan.add(job_task = job_task_m.new(job_id: 10))
             plan.add_mission(planned_task = Roby::Task.new)
             planned_task.planned_by job_task
             assert_equal Hash[10 => [:planning_ready, planned_task, job_task]], interface.jobs
@@ -73,7 +73,7 @@ describe Roby::Interface::Interface do
 
     describe "find_job_by_id" do
         it "should return the corresponding job task if there is one" do
-            plan.add(job_task = job_task_m.new(:job_id => 10))
+            plan.add(job_task = job_task_m.new(job_id: 10))
             assert_equal job_task, interface.find_job_by_id(10)
         end
         it "should return nil if no job with the given ID exists" do
@@ -84,7 +84,7 @@ describe Roby::Interface::Interface do
     describe "job state tracking" do
         attr_reader :job_task, :task, :recorder, :job_listener
         before do
-            plan.add(@job_task = job_task_m.new(:job_id => 10))
+            plan.add(@job_task = job_task_m.new(job_id: 10))
             plan.add_mission(@task = Roby::Tasks::Simple.new)
             task.planned_by job_task
             flexmock(job_task).should_receive(:job_name).and_return("the job")
@@ -145,7 +145,7 @@ describe Roby::Interface::Interface do
         end
 
         it "should notify of placeholder task change" do
-            plan.add(new_task = Roby::Tasks::Simple.new(:id => task.id))
+            plan.add(new_task = Roby::Tasks::Simple.new(id: task.id))
             new_task.planned_by job_task
             recorder.should_receive(:called).with(Roby::Interface::JOB_MONITORED, 10, "the job", task, task.planning_task).once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_READY, 10, "the job").once.ordered
@@ -217,7 +217,7 @@ describe Roby::Interface::Interface do
         end
 
         it "disable notifications if the replacement task has not the same job ID" do
-            plan.add(new_task = Roby::Tasks::Simple.new(:id => task.id))
+            plan.add(new_task = Roby::Tasks::Simple.new(id: task.id))
             recorder.should_receive(:called).with(Roby::Interface::JOB_MONITORED, 10, "the job", task, task.planning_task).once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_READY, 10, "the job").once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_LOST, 10, "the job", new_task).once.ordered

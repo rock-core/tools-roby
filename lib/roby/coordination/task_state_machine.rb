@@ -14,7 +14,7 @@ module Roby
         def script_in_state(state, &block)
             script_engine = task_model.create_script(&block)
 
-            state_machine.before_transition state_machine.any => state, :do => lambda { |proxy|
+            state_machine.before_transition state_machine.any => state, do: lambda { |proxy|
                 proxy.instance_variable_set :@script_engine, nil
             }
             state_machine.state(state) do
@@ -78,7 +78,7 @@ module Roby
             collection.each do |s_o|
                 collection.each do |s_i|
                     # status_transitions is added to TaskStateMachine using meta programming
-                    transitions = proxy.status_transitions(:from => s_o.name.to_sym, :to => s_i.name.to_sym)
+                    transitions = proxy.status_transitions(from: s_o.name.to_sym, to: s_i.name.to_sym)
                     @transitions << transitions
                 end
                 @transitions.flatten!
@@ -234,7 +234,7 @@ module Roby
             if args.last.kind_of?(Hash) 
                 options = args.pop
             end
-            options = Kernel.validate_options(options || Hash.new, :namespace => nil)
+            options = Kernel.validate_options(options || Hash.new, namespace: nil)
 
             if options.has_key?(:namespace)
                 self.namespace=options[:namespace]
@@ -259,12 +259,12 @@ module Roby
             # instead of :status here for yet unknown reason Changing the
             # attribute :status also changes other method definitions, due to
             # meta programming approach of the underlying library, e.g.
-            # status_transitions(:from => ..., :to => ...)
+            # status_transitions(from: ..., to: ...)
 
             if self.namespace 
-                machine = StateMachine::Machine.find_or_create(proxy_model, :status, :initial => :running, :namespace => self.namespace)
+                machine = StateMachine::Machine.find_or_create(proxy_model, :status, initial: :running, namespace: self.namespace)
             else
-                machine = StateMachine::Machine.find_or_create(proxy_model, :status, :initial => :running)
+                machine = StateMachine::Machine.find_or_create(proxy_model, :status, initial: :running)
             end
 
             machine_loader = StateMachineDefinitionContext.new(self, machine)
@@ -279,7 +279,7 @@ module Roby
             # Thus embed import into refine_running_state and using eval here
             machine.events.each do |e|
                 if !has_event?(e.name)
-                    event e.name, :controlable => true
+                    event e.name, controlable: true
                 end
                 # when event is called transition the state_machine
                 on(e.name) do |event|

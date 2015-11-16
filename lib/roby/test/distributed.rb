@@ -115,9 +115,9 @@ module Roby
 		remote_process do
 		    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_SERVER)
 
-		    cs = ConnectionSpace.new :ring_discovery => false, 
-			:discovery_tuplespace => central_tuplespace, :name => "remote",
-                        :plan => plan
+		    cs = ConnectionSpace.new ring_discovery: false, 
+			discovery_tuplespace: central_tuplespace, name: "remote",
+                        plan: plan
 
                     getter = Class.new do
                         attr_accessor :cs
@@ -142,9 +142,9 @@ module Roby
 		DRb.start_service LOCAL_SERVER
 		@central_tuplespace = DRbObject.new_with_uri(DISCOVERY_SERVER)
 		@remote  = DRbObject.new_with_uri(REMOTE_SERVER).get
-		@local   = ConnectionSpace.new :ring_discovery => false, 
-		    :discovery_tuplespace => central_tuplespace, :name => 'local', 
-		    :plan => plan
+		@local   = ConnectionSpace.new ring_discovery: false, 
+		    discovery_tuplespace: central_tuplespace, name: 'local', 
+		    plan: plan
                 Distributed.state = local
 
                 remote.start_control_thread

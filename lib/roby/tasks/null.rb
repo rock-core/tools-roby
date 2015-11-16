@@ -3,9 +3,9 @@ module Roby
         # A special task model which does nothing and emits +success+
         # as soon as it is started.
         class Null < Task
-            event :start, :command => true
+            event :start, command: true
             event :stop
-            forward :start => :success
+            forward start: :success
 
             # Always true. See Task#null?
             def null?; true end

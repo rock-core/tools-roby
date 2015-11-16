@@ -44,12 +44,12 @@ describe Roby::Actions::Models::Action do
         end
 
         it "sets the job ID if given" do
-            plan.add(task = action_m.plan_pattern(:job_id => 10))
+            plan.add(task = action_m.plan_pattern(job_id: 10))
             assert_equal 10, task.planning_task.job_id
         end
         it "passes the arguments to the planning task" do
-            plan.add(task = action_m.plan_pattern(:job_id => 10, :arg => 20))
-            assert_equal Hash[:arg => 20], task.planning_task.action_arguments
+            plan.add(task = action_m.plan_pattern(job_id: 10, arg: 20))
+            assert_equal Hash[arg: 20], task.planning_task.action_arguments
         end
         it "does not set the job ID at all if not given" do
             plan.add(task = action_m.plan_pattern)

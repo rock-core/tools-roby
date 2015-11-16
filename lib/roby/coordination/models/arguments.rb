@@ -8,7 +8,7 @@ module Roby
 
                 # The set of arguments available to this execution context
                 # @return [Array<Symbol>]
-                inherited_attribute(:argument, :arguments, :map => true) { Hash.new }
+                inherited_attribute(:argument, :arguments, map: true) { Hash.new }
 
                 # Define a new argument for this coordination model
                 #

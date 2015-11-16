@@ -15,13 +15,13 @@ class TC_Query < Minitest::Test
 
 	result = TaskMatcher.with_model(task_model).enum_for(:each, plan).to_set
 	assert_equal([t1, t2].to_set, result)
-	result = TaskMatcher.with_arguments(:value => 1).enum_for(:each, plan).to_set
+	result = TaskMatcher.with_arguments(value: 1).enum_for(:each, plan).to_set
 	assert_equal([t0, t1].to_set, result)
 
-	result = TaskMatcher.which_fullfills(task_model, :value => 1).enum_for(:each, plan).to_set
+	result = TaskMatcher.which_fullfills(task_model, value: 1).enum_for(:each, plan).to_set
 	assert_equal([t1].to_set, result)
 
-	verify_is_droby_marshallable_object(TaskMatcher.new.which_fullfills(task_model, :value => 2))
+	verify_is_droby_marshallable_object(TaskMatcher.new.which_fullfills(task_model, value: 2))
     end
 
     def test_match_task_fullfills
@@ -29,9 +29,9 @@ class TC_Query < Minitest::Test
 	    argument :value
 	end
 
-	t0 = Roby::Task.new(:value => 1)
-	t1 = task_model.new(:value => 1)
-	t2 = task_model.new(:value => 2)
+	t0 = Roby::Task.new(value: 1)
+	t1 = task_model.new(value: 1)
+	t2 = task_model.new(value: 2)
 
 	plan.add_mission(t0)
 	plan.add_mission(t1)
@@ -46,15 +46,15 @@ class TC_Query < Minitest::Test
 	task_model = Tasks::Simple.new_submodel
         task_model.provides tag
 
-        plan.add(task = task_model.new(:id => 3))
+        plan.add(task = task_model.new(id: 3))
         assert(Task.match(tag)              === task)
-        assert(Task.match(tag, :id => 3)    === task)
-        assert(! (Task.match(tag, :id => 2) === task))
+        assert(Task.match(tag, id: 3)    === task)
+        assert(! (Task.match(tag, id: 2) === task))
 
         plan.add(task = Tasks::Simple.new)
         assert(! (Task.match(tag)           === task))
-        assert(! (Task.match(tag, :id => 3) === task))
-        assert(! (Task.match(tag, :id => 2) === task))
+        assert(! (Task.match(tag, id: 3) === task))
+        assert(! (Task.match(tag, id: 2) === task))
     end
 
     def test_match_proxy_fullfills
@@ -62,9 +62,9 @@ class TC_Query < Minitest::Test
 	    argument :value
 	end
 
-	t0 = Roby::Task.new(:value => 1)
-	t1 = task_model.new(:value => 1)
-	t2 = task_model.new(:value => 2)
+	t0 = Roby::Task.new(value: 1)
+	t1 = task_model.new(value: 1)
+	t2 = task_model.new(value: 2)
 
 	plan.add_mission(t0)
 	plan.add_mission(t1)
@@ -119,8 +119,8 @@ class TC_Query < Minitest::Test
     end
 
     def test_it_does_not_allow_specifying_different_constraints_on_the_same_argument
-        matcher = Tasks::Simple.match.with_arguments(:id => 1)
-        assert_raises(ArgumentError) { matcher.with_arguments(:id => 2) }
+        matcher = Tasks::Simple.match.with_arguments(id: 1)
+        assert_raises(ArgumentError) { matcher.with_arguments(id: 2) }
     end
 end
 

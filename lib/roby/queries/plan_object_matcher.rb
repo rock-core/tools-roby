@@ -142,12 +142,12 @@ module Roby
         #   TaskMatcher.new.
         #       with_child(TaskMatcher.new.pending,
         #                  Roby::TaskStructure::Dependency,
-        #                  :roles => ["trajectory_following"]) === parent # => false
-        #   parent.depends_on child, :role => "trajectory_following"
+        #                  roles: ["trajectory_following"]) === parent # => false
+        #   parent.depends_on child, role: "trajectory_following"
         #   TaskMatcher.new.
         #       with_child(TaskMatcher.new.pending,
         #                  Roby::TaskStructure::Dependency,
-        #                  :roles => ["trajectory_following"]) === parent # => true
+        #                  roles: ["trajectory_following"]) === parent # => true
         #
         def with_child(other_query, relation = nil, relation_options = nil)
             relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)

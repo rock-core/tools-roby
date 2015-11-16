@@ -1050,7 +1050,7 @@ module Roby
         #
         # It is obviously forwarded to {#failed_event}
 	event :aborted
-	forward :aborted => :failed
+	forward aborted: :failed
 
         # Event emitted when a task internal code block ({Models::Task#on} handler,
         # {Models::Task#poll} block) raised an exception
@@ -1086,7 +1086,7 @@ module Roby
 	def updated_data
 	    super if defined? super
 	end
-	event :updated_data, :command => false
+	event :updated_data, command: false
 
 	# Checks if +task+ is in the same execution state than +self+
 	# Returns true if they are either both running or both pending
@@ -1104,7 +1104,7 @@ module Roby
         # cycle if the task is already running, or when the task is started
         def execute(options = Hash.new, &block)
             default_on_replace = if abstract? then :copy else :drop end
-            options = InstanceHandler.validate_options(options, :on_replace => default_on_replace)
+            options = InstanceHandler.validate_options(options, on_replace: default_on_replace)
 
             check_arity(block, 1)
             @execute_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
@@ -1120,7 +1120,7 @@ module Roby
         # @return [Object] an ID that can be used in {#remove_poll_handler}
         def poll(options = Hash.new, &block)
             default_on_replace = if abstract? then :copy else :drop end
-            options = InstanceHandler.validate_options(options, :on_replace => default_on_replace)
+            options = InstanceHandler.validate_options(options, on_replace: default_on_replace)
             
             check_arity(block, 1)
             @poll_handlers << (handler = InstanceHandler.new(block, (options[:on_replace] == :copy)))
@@ -1138,7 +1138,7 @@ module Roby
 
         def ensure_poll_handler_called
             if !transaction_proxy? && running?
-                @poll_handler_id ||= engine.add_propagation_handler(:type => :external_events, &method(:do_poll))
+                @poll_handler_id ||= engine.add_propagation_handler(type: :external_events, &method(:do_poll))
             end
         end
 
@@ -1184,7 +1184,7 @@ module Roby
             #  - additional instance poll_handler added by instance method poll
             #  - polling as defined in state of the state_machine, i.e. substates of running
             if respond_to?(:poll_handler) || !poll_handlers.empty? || state_machine
-                @poll_handler_id = engine.add_propagation_handler(:type => :external_events, &method(:do_poll))
+                @poll_handler_id = engine.add_propagation_handler(type: :external_events, &method(:do_poll))
             end
         end
 
@@ -1421,7 +1421,7 @@ module Roby
 
         def when_finalized(options = Hash.new, &block)
             default = if abstract? then :copy else :drop end
-            options, remaining = InstanceHandler.filter_options options, :on_replace => default
+            options, remaining = InstanceHandler.filter_options options, on_replace: default
             super(options.merge(remaining), &block)
         end
 

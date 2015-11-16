@@ -35,7 +35,7 @@ RELATION_COUNT.times do
 	       end
 
     begin
-	parent.add_child_object(child, relation, :success => [], :failure => [])
+	parent.add_child_object(child, relation, success: [], failure: [])
     rescue CycleFoundError
     end
 end

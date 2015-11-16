@@ -19,7 +19,7 @@ class TC_StateEvents < Minitest::Test
     def test_pos_delta_event
 	State.pos = Pos::Euler3D.new
 
-	plan.add(d = State.on_delta(:d => 10))
+	plan.add(d = State.on_delta(d: 10))
 	assert_kind_of(PosDeltaEvent, d)
 	d.poll
 	assert_equal(State.pos, d.last_value)
@@ -44,7 +44,7 @@ class TC_StateEvents < Minitest::Test
     def test_yaw_delta_event
 	State.pos = Pos::Euler3D.new
 
-	plan.add(y = State.on_delta(:yaw => 2))
+	plan.add(y = State.on_delta(yaw: 2))
 	assert_kind_of(YawDeltaEvent, y)
 	y.poll
 	assert_equal(0, y.last_value)
@@ -67,7 +67,7 @@ class TC_StateEvents < Minitest::Test
 	    current_time = Time.now + 5
 	    time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.add(t = State.on_delta(:t => 1))
+	    plan.add(t = State.on_delta(t: 1))
 	    assert_kind_of(TimeDeltaEvent, t)
 
 	    t.poll
@@ -95,7 +95,7 @@ class TC_StateEvents < Minitest::Test
 	    current_time = Time.now + 5
 	    time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.add(ev = State.at(:t => current_time + 1))
+	    plan.add(ev = State.at(t: current_time + 1))
 	    ev.poll
 	    assert(!ev.happened?)
 	    current_time += 1
@@ -109,7 +109,7 @@ class TC_StateEvents < Minitest::Test
 
     def test_and_state_events
 	State.pos = Pos::Euler3D.new
-	plan.add_permanent(ev = State.on_delta(:yaw => 2, :d => 10))
+	plan.add_permanent(ev = State.on_delta(yaw: 2, d: 10))
 	assert_kind_of(AndGenerator, ev)
 
 	engine.process_events
@@ -136,9 +136,9 @@ class TC_StateEvents < Minitest::Test
 
     def test_or_state_events
 	State.pos = Pos::Euler3D.new
-	plan.add_permanent(y = State.on_delta(:yaw => 2))
+	plan.add_permanent(y = State.on_delta(yaw: 2))
 
-	ev = y.or(:d => 10)
+	ev = y.or(d: 10)
 	engine.process_events
 	assert_equal(0, ev.history.size)
 
@@ -155,7 +155,7 @@ class TC_StateEvents < Minitest::Test
 	engine.process_events
 	assert_equal(2, ev.history.size)
 
-	ev = ev.or(:t => 3600)
+	ev = ev.or(t: 3600)
 	engine.process_events
 	assert_equal(0, ev.history.size)
 

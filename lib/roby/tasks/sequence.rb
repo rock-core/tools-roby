@@ -21,11 +21,11 @@ module Roby::Tasks
         # For instance:
         #   
         #   seq = (Sequence.new <<
-        #       GoTo.new(:target => a) <<
-        #       Pickup.new(:object => b) <<
-        #       GoTo.new(:target => c)
+        #       GoTo.new(target: a) <<
+        #       Pickup.new(object: b) <<
+        #       GoTo.new(target: c)
         #
-        #   mission = GetObject.new(:object => b)
+        #   mission = GetObject.new(object: b)
         #   seq.child_of(mission)
         #
         def child_of(task = nil)

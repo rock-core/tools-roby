@@ -54,7 +54,7 @@ module Roby
 
                 super
 
-                @watch_events_handler_id = engine.add_propagation_handler(:type => :external_events) do |plan|
+                @watch_events_handler_id = engine.add_propagation_handler(type: :external_events) do |plan|
                     Test.verify_watched_events
                 end
                 @received_exceptions = Array.new

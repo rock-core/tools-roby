@@ -30,7 +30,7 @@ module Roby
 
 	# Added a :bind option
 	def initialize(ts, options = {})
-	    options = validate_options options, :bind => Socket.gethostname, :port => Rinda::Ring_PORT
+	    options = validate_options options, bind: Socket.gethostname, port: Rinda::Ring_PORT
 
 	    @bind = options[:bind]
 	    @port = options[:port]
