@@ -6,10 +6,12 @@ module Roby
         # Roby idioms as e.g. using pretty-print to format exception messages
         module MinitestHelpers
             def assert_raises(*exp, &block)
-                # Avoid having it displayed by the execution engine. We're going
-                # to display any unexpected exception anyways
-                display_exceptions_enabled, plan.execution_engine.display_exceptions =
-                    plan.execution_engine.display_exceptions?, false
+                if plan.execution_engine
+                    # Avoid having it displayed by the execution engine. We're going
+                    # to display any unexpected exception anyways
+                    display_exceptions_enabled, plan.execution_engine.display_exceptions =
+                        plan.execution_engine.display_exceptions?, false
+                end
 
                 msg = exp.pop if String === exp.last
                 if exp.any? { |e| !e.kind_of?(LocalizedError) }
@@ -26,8 +28,10 @@ module Roby
                 end
 
             ensure
-                plan.execution_engine.display_exceptions =
-                    display_exceptions_enabled
+                if plan.execution_engine
+                    plan.execution_engine.display_exceptions =
+                        display_exceptions_enabled
+                end
             end
 
             def to_s
