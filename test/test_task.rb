@@ -76,113 +76,89 @@ module Roby
                 assert_equal task.stop_event.last, task.last_event
             end
         end
+
+        describe "abstract-ness" do
+            it "is not abstract if its model is not" do
+                plan.add(task = Roby::Task.new_submodel.new)
+                assert !task.abstract?
+            end
+            it "is abstract if its model is" do
+                plan.add(task = Roby::Task.new_submodel { abstract }.new)
+                assert task.abstract?
+            end
+            it "is overriden with #abstract=" do
+                plan.add(task = Roby::Task.new_submodel { abstract }.new)
+                task.abstract = false
+                assert !task.abstract?
+                task.abstract = true
+                assert task.abstract?
+            end
+            it "is not executable if it is abstract" do
+                plan.add(task = Roby::Task.new_submodel { abstract }.new)
+                task.abstract = false
+                assert task.executable?
+                task.abstract = true
+                assert !task.executable?
+            end
+        end
+        
+        describe "#instanciate_model_event_relations" do
+            def self.common_instanciate_model_event_relations_behaviour
+                it "adds a precedence link between the start event and all root intermediate events" do
+                    # Add one root that forwards to something and one standalone
+                    # event
+                    plan.add(task = task_m.new)
+                    assert(task.start_event.child_object?(
+                        task.ev1_event, Roby::EventStructure::Precedence))
+                    assert(!task.start_event.child_object?(
+                        task.ev2_event, Roby::EventStructure::Precedence))
+                    assert(task.start_event.child_object?(
+                        task.ev3_event, Roby::EventStructure::Precedence))
+                end
+
+                it "adds a precedence link between the leaf intermediate events and the root terminal events" do
+                    task.each_event do |ev|
+                        if ev.terminal?
+                            assert(!task.ev1_event.child_object?(
+                                ev, Roby::EventStructure::Precedence))
+                        end
+                    end
+                    [:success, :aborted, :internal_error].each do |terminal|
+                        assert(task.ev2_event.child_object?(
+                            task.event(terminal), Roby::EventStructure::Precedence), "ev2 is not marked as preceding #{terminal}")
+                        assert(task.ev3_event.child_object?(
+                            task.event(terminal), Roby::EventStructure::Precedence), "ev3 is not marked as preceding #{terminal}")
+                    end
+                end
+            end
+
+            describe "start is not terminal" do
+                let(:task_m) do
+                    Roby::Tasks::Simple.new_submodel do
+                        event :ev1
+                        event :ev2
+                        event :ev3
+                        forward :ev1 => :ev2
+                    end
+                end
+            end
+
+            describe "start is terminal" do
+                let(:task_m) do
+                    Roby::Tasks::Simple.new_submodel do
+                        event :ev1
+                        event :ev2
+                        event :ev3
+                        forward :ev1 => :ev2
+                        forward :start => :stop
+                    end
+                end
+            end
+        end
     end
 end
 
-
 class TC_Task < Minitest::Test 
-    def setup
-        super
-        Roby.app.filter_backtraces = false
-    end
-
-    def test_model_allows_to_get_events_using_the_blabla_event_syntax
-        model = Roby::Task.new_submodel do
-            event :custom
-            event :other
-        end
-        event_model = model.custom_event
-        assert_same model.find_event_model('custom'), event_model
-    end
-
-    def test_subclasses_of_task_are_registered_on_Task
-        subclass = Roby::Task.new_submodel
-        assert_equal Roby::Task, subclass.supermodel
-        assert Roby::Task.each_submodel.to_a.include?(subclass)
-    end
-
-    def test_task_service_model
-        tag1 = TaskService.new_submodel { argument :model_tag_1 }
-        assert tag1.has_argument?(:model_tag_1)
-
-	tag2 = tag1.new_submodel do
-            argument :model_tag_2
-        end
-	assert(tag2 < tag1)
-        assert tag2.has_argument?(:model_tag_1)
-        assert tag2.has_argument?(:model_tag_2)
-
-	task = Task.new_submodel do
-	    provides tag2
-	    argument :task_tag
-	end
-	assert_equal([:task_tag, :model_tag_2, :model_tag_1].to_set, task.arguments.to_set)
-    end
-
-    def test_abstract
-        assert Roby::Task.abstract?
-
-        model = Roby::Task.new_submodel
-        assert !model.abstract?
-
-        abstract_model = model.new_submodel do
-            abstract
-        end
-        assert abstract_model.abstract?
-
-        plan.add(task = model.new)
-        assert !task.abstract?
-        assert task.executable?
-        task.abstract = true
-        assert task.abstract?
-        assert !task.executable?
-
-        plan.add(task = abstract_model.new)
-        assert task.abstract?
-        assert !task.executable?
-        task.abstract = false
-        assert !task.abstract?
-        assert task.executable?
-    end
-
-    def test_instanciate_model_event_relations(make_start_terminal = false)
-        model = Roby::Tasks::Simple.new_submodel do
-            event :ev1
-            event :ev2
-            event :ev3
-            forward ev1: :ev2
-            if make_start_terminal
-                forward start: :stop
-            end
-        end
-        plan.add(task = model.new)
-
-
-        assert(task.start_event.child_object?(
-            task.ev1_event, Roby::EventStructure::Precedence))
-        assert(!task.start_event.child_object?(
-            task.ev2_event, Roby::EventStructure::Precedence))
-        assert(task.start_event.child_object?(
-            task.ev3_event, Roby::EventStructure::Precedence))
-
-        task.each_event do |ev|
-            if ev.terminal?
-                assert(!task.ev1_event.child_object?(
-                    ev, Roby::EventStructure::Precedence))
-            end
-        end
-        [:success, :aborted, :internal_error].each do |terminal|
-            assert(task.ev2_event.child_object?(
-                task.event(terminal), Roby::EventStructure::Precedence), "ev2 is not marked as preceding #{terminal}")
-            assert(task.ev3_event.child_object?(
-                task.event(terminal), Roby::EventStructure::Precedence), "ev3 is not marked as preceding #{terminal}")
-        end
-    end
-
-    def test_instanciate_model_event_relations_with_terminal_start_event
-        test_instanciate_model_event_relations(true)
-    end
-
     def test_arguments_declaration
 	model = Task.new_submodel { argument :from; argument :to }
 	assert_equal([], Task.arguments.to_a)

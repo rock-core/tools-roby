@@ -1,7 +1,4 @@
 module Roby
-    TaskService = Models::TaskServiceModel.new
-    TaskService.root = true
-
     # In a plan, Task objects represent the activities of the robot. 
     # 
     # === Task models
