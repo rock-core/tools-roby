@@ -14,17 +14,23 @@ module Roby
                 end
 
                 msg = exp.pop if String === exp.last
-                if exp.any? { |e| !e.kind_of?(LocalizedError) }
-                    # The caller expects a non-Roby exception. It is going to be
-                    # wrapped in a LocalizedError, so make sure we properly
-                    # process it
-                    exception = super(*([Roby::UserExceptionWrapper] + exp), &block)
-                    if exception.kind_of?(Roby::UserExceptionWrapper) && exception.original_exception
-                        assert_raises(*exp) { raise exception.original_exception }
-                    else exception
-                    end
+                if !exp.any? { |expected_e| !(expected_e <= Roby::UserExceptionWrapper) }
+                    return super
+                end
+
+                # The caller expects a non-Roby exception. It is going to be
+                # wrapped in a LocalizedError, so make sure we properly
+                # process it
+                exception = super(*([Roby::UserExceptionWrapper] + exp), &block)
+                if exp.any? { |expected_e| exception.kind_of?(expected_e) }
+                    exception
+                elsif exception.kind_of?(Roby::UserExceptionWrapper) && exception.original_exception
+                    # Recursively call ourselves, it might be that the exception
+                    # we except is deeper in the chain
+                    assert_raises(*exp) { raise exception.original_exception }
                 else
-                    super
+                    # Get minitest's error message
+                    super(*exp) { raise exception }
                 end
 
             ensure
