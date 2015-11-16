@@ -40,7 +40,6 @@ module Roby
     module Self
         include Roby::Test
         include Roby::Test::Assertions
-        include Roby::Test::MinitestHelpers
 
         def setup
             Roby.app.log['server'] = false
@@ -100,7 +99,8 @@ end
 
 module Minitest
     class Test
-        prepend Roby::Test::Self
+        include Roby::Test::Self
+        prepend Roby::Test::MinitestHelpers
     end
 end
 
