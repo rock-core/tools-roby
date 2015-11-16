@@ -2,6 +2,68 @@ require 'roby/test/self'
 require 'roby/tasks/group'
 require 'roby/tasks/virtual'
 
+module Roby
+    describe Task do
+        describe "the argument handling" do
+            describe "__assign_arguments__" do
+                let(:task_m) do
+                    Task.new_submodel do
+                        argument :high_level_arg
+                        argument :low_level_arg
+                        def high_level_arg=(value)
+                            arguments[:low_level_arg] = 10
+                            arguments[:high_level_arg] = 10
+                        end
+                    end
+                end
+
+                it "allows for the same argument to be set twice to the same value" do
+                    task = task_m.new
+                    task.__assign_arguments__(low_level_arg: 10, high_level_arg: 10)
+                    assert_equal 10, task.low_level_arg
+                    assert_equal 10, task.high_level_arg
+                end
+                it "raises if the same argument is set twice to different values" do
+                    task = task_m.new
+                    assert_raises(ArgumentError) do
+                        task.__assign_arguments__(low_level_arg: 20, high_level_arg: 10)
+                    end
+                end
+                it "properly overrides a delayed argument" do
+                    # There was a bug in which a delayed argument would not be
+                    # overriden because it would be set when the first argument
+                    # was handled and then reset when the second was
+                    delayed_arg = flexmock
+                    delayed_arg.should_receive(:evaluate_delayed_argument).with(task_m).and_return(10)
+                    task = task_m.new(high_level_arg: delayed_arg)
+                    task.__assign_arguments__(high_level_arg: 10, low_level_arg: 10)
+                    assert_equal 10, task.high_level_arg
+                    assert_equal 10, task.low_level_arg
+                end
+
+                it "does parallel-assignment of arguments given to it at initialization" do
+                    flexmock(task_m).new_instances.
+                        should_receive(:__assign_arguments__).
+                        with(high_level_arg: 10, low_level_arg: 10)
+
+                    plan.add(task = task_m.new(high_level_arg: 10, low_level_arg: 10))
+                end
+
+                it "does parallel-assignment of delayed arguments in #freeze_delayed_arguments" do
+                    delayed_arg = flexmock
+                    delayed_arg.should_receive(:evaluate_delayed_argument).with(task_m).and_return(10)
+
+                    plan.add(task = task_m.new(high_level_arg: delayed_arg))
+                    flexmock(task).should_receive(:__assign_arguments__).
+                        once.with(high_level_arg: 10)
+                    task.freeze_delayed_arguments
+                end
+            end
+        end
+    end
+end
+
+
 class TC_Task < Minitest::Test 
     def setup
         super
