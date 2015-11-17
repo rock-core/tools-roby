@@ -1,7 +1,24 @@
-require 'facets/string/pathize'
 module Roby
     module App
         class GenModelClass < GenBase
+            # Converts an input string that is in camelcase into a path string
+            #
+            # NOTE: Facets' String#pathize and String#snakecase have corner
+            # cases that really don't work for us:
+            #   '2D'.snakecase => '2_d'
+            #   'GPS'.pathize => 'gp_s'
+            #
+            def self.pathize(string)
+                string.
+                    gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
+                    gsub(/([a-z])([A-Z][a-z])/,'\1_\2').
+                    gsub('__','/').
+                    gsub('::','/').
+                    gsub(/\s+/, '').                # spaces are bad form
+                    gsub(/[?%*:|"<>.]+/, '').   # reserved characters
+                    downcase
+            end
+
             attr_reader :class_name
             attr_reader :file_name
             attr_reader :model_type
@@ -9,8 +26,8 @@ module Roby
             def initialize(runtime_args, runtime_options = Hash.new)
                 super
 
-                target_path = args.shift
-                given_name = target_path.gsub(/\.rb$/, '')
+                target_path  = args.shift
+                given_name   = target_path.gsub(/\.rb$/, '')
 
                 robot_module =
                     if robot_name
@@ -23,7 +40,10 @@ module Roby
                     Array(model_type).map { |t| t.camelcase(:upper) } +
                     robot_module +
                     given_name.camelcase(:upper).split("::")
-                @file_name = *class_name[1..-1].map(&:pathize)
+
+                @file_name = *class_name[1..-1].map do |camel|
+                    GenModelClass.pathize(camel)
+                end
             end
 
             def manifest
