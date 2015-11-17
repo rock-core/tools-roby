@@ -103,13 +103,15 @@ module Roby
         # arguments (if there are any)
         def freeze_delayed_arguments
             if !arguments.static?
-                arguments.dup.each do |key, value|
+                result = Hash.new
+                arguments.each do |key, value|
                     if TaskArguments.delayed_argument?(value)
                         catch(:no_value) do
-                            __assign_argument__(key, value.evaluate_delayed_argument(self))
+                            result[key] = value.evaluate_delayed_argument(self)
                         end
                     end
                 end
+                __assign_arguments__(result)
             end
         end
 
@@ -137,6 +139,42 @@ module Roby
 		    end
 	    "#<#{to_s} executable=#{executable?} state=#{state} plan=#{plan.to_s}>"
 	end
+
+        # @api private
+        #
+        # Helper to assign multiple argument values at once
+        #
+        # It differs from calling __assign_arguments__ in a loop in two ways:
+        # 
+        # - it is common for subclasses to define a high-level argument that is,
+        #   in the end, propagated to lower-level arguments. This method handles
+        #   the fact that, when doing this, one will get parallel assignment of
+        #   the high-level and low-level values during e.g. log replay which would
+        #   fail in __assign_arguments__ since arguments are single-assignation
+        #
+        # - assignation is all-or-nothing
+        def __assign_arguments__(arguments)
+            initial_arguments = @arguments
+            initial_set_arguments = initial_arguments.assigned_arguments
+            current_arguments = initial_set_arguments.dup
+
+            # First assign normal values
+            arguments.each do |key, value|
+                @arguments = TaskArguments.new(self)
+                @arguments.merge!(initial_set_arguments)
+                __assign_argument__(key, value)
+                current_arguments.merge!(@arguments) do |k, v1, v2|
+                    if v1 != v2
+                        raise ArgumentError, "trying to override #{k}=#{v1} to #{v2}"
+                    end
+                    v1
+                end
+            end
+            initial_arguments.merge!(current_arguments)
+
+        ensure
+            @arguments = initial_arguments
+        end
 
         # Internal helper to set arguments by either using the argname= accessor
         # if there is one, or direct access to the @arguments instance variable
@@ -176,10 +214,7 @@ module Roby
             @reusable = true
 
 	    @arguments = TaskArguments.new(self)
-            # First assign normal values
-            arguments.each do |key, value|
-                __assign_argument__(key, value)
-            end
+            __assign_arguments__(arguments)
             # Now assign default values for the arguments that have not yet been
             # set
             model.arguments.each do |argname|

@@ -68,6 +68,13 @@ describe Roby::TaskArguments do
         end
     end
 
+    describe "#merge!" do
+        it "resets the static flag if new delayed values are added" do
+            args = Roby::TaskArguments.new(task_m.new)
+            args.merge!(key: flexmock(evaluate_delayed_argument: 10))
+            assert !args.static?
+        end
+    end
 end
 
 describe Roby::DelayedArgumentFromObject do

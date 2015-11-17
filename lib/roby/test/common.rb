@@ -197,25 +197,6 @@ module Roby
             PP.pp(e, "") # verify that the exception can be pretty-printed, all Roby exceptions should
         end
 
-        def assert_raises(exception, &block)
-            super(exception) do
-                begin
-                    yield
-                rescue Exception => e
-                    assert_exception_can_be_pretty_printed(e)
-                    if e.kind_of?(Roby::SynchronousEventProcessingMultipleErrors)
-                        match = e.errors.find do |original_e, _|
-                            original_e.exception.kind_of?(exception)
-                        end
-                        if match
-                            raise match[0].exception
-                        end
-                    end
-                    raise
-                end
-            end
-        end
-
         def inhibit_fatal_messages(&block)
             with_log_level(Roby, Logger::FATAL, &block)
         end

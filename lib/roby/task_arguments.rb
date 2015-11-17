@@ -212,6 +212,8 @@ module Roby
 		    raise ArgumentError, "cannot override task argument #{key}: trying to replace #{old} by #{new}"
 		end
 	    end
+            @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
+            self
 	end
 
         include Enumerable

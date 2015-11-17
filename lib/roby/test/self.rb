@@ -25,6 +25,7 @@ end
 require 'minitest/autorun'
 require 'flexmock/minitest'
 require 'roby/test/common'
+require 'roby/test/minitest_helpers'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 
@@ -99,6 +100,7 @@ end
 module Minitest
     class Test
         include Roby::Test::Self
+        prepend Roby::Test::MinitestHelpers
     end
 end
 
