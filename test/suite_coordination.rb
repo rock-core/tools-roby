@@ -1,3 +1,4 @@
+require 'roby/test/self'
 require './test/coordination/test_task_base'
 require './test/coordination/models/test_task'
 

@@ -1,3 +1,4 @@
+require 'roby/test/self'
 require './test/test_relations'
 require './test/relations/test_dependency'
 require './test/relations/test_executed_by'

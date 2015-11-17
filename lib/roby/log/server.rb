@@ -216,13 +216,20 @@ module Roby
             include Hooks
             include Hooks::InstanceHooks
 
+            # @!group Hooks
+
             # @!method on_init_progress()
+            #   @yieldparam [Integer] rx the amount of bytes processed so far
+            #   @yieldparam [Integer] init_size the amount of bytes expected to
+            #     be received for the init phase
             #   @return [void]
             define_hooks :on_init_progress
+
             # @!method on_init_done()
             #   Hooks called when we finished processing the initial set of data
             #   @return [void]
             define_hooks :on_init_done
+
             # @!method on_data
             #   Hooks called with one cycle worth of data
             #
@@ -233,6 +240,8 @@ module Roby
             #     in {Roby::Log}
             #   @return [void]
             define_hooks :on_data
+
+            # @!endgroup
 
             # The socket through which we are connected to the remote host
             attr_reader :socket

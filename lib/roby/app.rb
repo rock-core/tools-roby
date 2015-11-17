@@ -95,12 +95,18 @@ module Roby
         class PluginsDisabled < RuntimeError; end
 
         # The main plan on which this application acts
+        #
+        # @return [Plan]
         attr_reader :plan
 
         # The engine associated with {#plan}
+        #
+        # @return [ExecutionEngine,nil]
         def engine; plan.engine if plan end
         
 	# A set of planners declared in this application
+        # 
+        # @return [Array]
 	attr_reader :planners
 
 	# Applicatio configuration information is stored in a YAML file
@@ -113,10 +119,13 @@ module Roby
         # A set of exceptions that have been encountered by the application
         # The associated string, if given, is a hint about in which context
         # this exception got raised
+        #
         # @return [Array<(Exception,String)>]
         # @see #register_exception #clear_exceptions
         attr_reader :registered_exceptions
 
+        # @!method development_mode?
+        #
         # Whether the app should run in development mode
         #
         # Some expensive tests are disabled when not in development mode. This
@@ -201,6 +210,9 @@ module Roby
         # Allows to override the application base directory. See #app_dir
         attr_writer :app_dir
 
+        # @!method ignore_all_load_errors?
+        # @!method ignore_all_load_errors=(flag)
+        #
         # If set to true, files that generate errors while loading will be
         # ignored. This is used for model browsing GUIs to be usable even if
         # there are errors
@@ -208,6 +220,9 @@ module Roby
         # It is false by default
         attr_predicate :ignore_all_load_errors?, true
 
+        # @!method backward_compatible_naming?
+        # @!method backward_compatible_naming=(flag)
+        #
         # If set to true, the app will enable backward-compatible behaviour
         # related to naming schemes, file placements and so on
         #
@@ -249,6 +264,8 @@ module Roby
         end
 
         # Returns the application base directory
+        #
+        # @return [String,nil]
         def app_dir
             if defined?(APP_DIR)
                 APP_DIR
@@ -258,6 +275,8 @@ module Roby
         end
 
         # Tests if the given directory looks like the root of a Roby app
+        #
+        # @param [String] test_dir the path to test
         def self.is_app_dir?(test_dir)
             File.file?(File.join(test_dir, 'config', 'app.yml')) ||
                 File.directory?(File.join(test_dir, 'models')) ||
@@ -278,12 +297,13 @@ module Roby
             end
         end
 
+        # Whether there is a supporting app directory
         def has_app?
             !!@app_dir
         end
 
         # Guess the app directory based on the current directory, and sets
-        # {@app_dir} It will not do anything if the current directory is not in
+        # {#app_dir}. It will not do anything if the current directory is not in
         # a Roby app. Moreover, it does nothing if #app_dir is already set
         #
         # @return [String] the selected app directory
@@ -318,13 +338,15 @@ module Roby
             end
         end
 
-        # A list of paths in which files should be looked for in #find_dirs,
-        # #find_files and #find_files_in_dirs
+        # A list of paths in which files should be looked for in {#find_dirs},
+        # {#find_files} and {#find_files_in_dirs}
         #
         # If uninitialized, [app_dir] is used
         attr_writer :search_path
 
         # The list of paths in which the application should be looking for files
+        #
+        # @return [Array<String>]
         def search_path
             if !@search_path
                 if app_dir
@@ -369,14 +391,33 @@ module Roby
 	#              detected
 	attr_config :droby
 	
-	# If true, abort if an unhandled exception is found
+        # @!method abort_on_exception?
+        # @!method abort_on_exception=(flag)
+        #
+	# Controls whether the application should quit if an unhandled plan
+        # exception is received
+        #
+        # The default is false
 	attr_predicate :abort_on_exception, true
-	# If true, abort if an application exception is found
+
+        # @!method abort_on_application_exception?
+        # @!method abort_on_application_exception=(flag)
+        #
+        # Controls whether the Roby app should quit if an application (i.e.
+        # non-plan) exception is received
+        #
+        # The default is true
 	attr_predicate :abort_on_application_exception, true
 
+        # @!method automatic_testing?
+        # @!method automatic_testing=(flag)
+        #
 	# True if user interaction is disabled during tests
 	attr_predicate :automatic_testing?, true
 
+        # @!method plugins_enabled?
+        # @!method plugins_enabled=(flag)
+        #
         # True if plugins should be discovered, registered and loaded (true by
         # default)
         attr_predicate :plugins_enabled?, true
@@ -391,11 +432,11 @@ module Roby
         attr_reader :init_handlers
 
         # @return [Array<#call>] list of objects called when the app gets
-        #   initialized (i.e. in {setup} after {base_setup})
+        #   initialized (i.e. in {#setup} after {#base_setup})
         attr_reader :setup_handlers
 
         # @return [Array<#call>] list of objects called when the app gets
-        #   to require its models (i.e. after {require_models})
+        #   to require its models (i.e. after {#require_models})
         attr_reader :require_handlers
 
         # @return [Array<#call>] list of objects called when the app is doing
@@ -597,7 +638,7 @@ module Roby
         end
 
         # Declares a block that should be executed when the Roby app loads
-        # models (i.e. in {require_models})
+        # models (i.e. in {#require_models})
         def on_require(&block)
             require_handlers << block
         end
@@ -1166,7 +1207,7 @@ module Roby
 
         # Loads the planner models
         #
-        # This method is called at the end of require_models, before the
+        # This method is called at the end of {#require_models}, before the
         # plugins' require_models hook is called
         def require_planners
             search_path = self.auto_load_search_path
@@ -1811,7 +1852,7 @@ module Roby
         # @overload find_files_in_dirs(*path, options)
         #
         # Enumerates the files that are present in subdirectories of paths in
-        # {#search_dir}. The subdirectories are resolved using File.join(*path)
+        # {#search_path}. The subdirectories are resolved using File.join(*path)
         # If one of the elements of the path is the string 'ROBOT', it gets
         # replaced by the robot name and type.
         #
@@ -1978,17 +2019,20 @@ module Roby
         # This is used in {#setup} and {#cleanup}
         attr_predicate :manage_drb?, true
 
-        # If set to true, this Roby application will publish a public shell
-        # interface. Otherwise, no shell interface is going to be published at
-        # all
+        # @!method public_shell_interface?
+        # @!method public_shell_interface=(flag)
         #
-        # Only the run modes have a public shell interface
+        # If set to true, this Roby application will publish a
+        # {Interface::Interface} object as a TCP server.
         attr_predicate :public_shell_interface?, true
 
+        # @!method public_logs?
+        # @!method public_logs=(flag)
+        #
         # If set to true, this Roby application will make its logs public, i.e.
         # will save the logs in logs/ and update the logs/current symbolic link
-        # accordingly. Otherwise, the logs are saved in a temporary folder in
-        # logs/ and current is not updated
+        # accordingly. Otherwise, the logs are saved in a folder in logs/ that
+        # is deleted on teardown, and current is not updated
         #
         # Only the run modes have public logs by default
         attr_predicate :public_logs?, true
@@ -2006,17 +2050,27 @@ module Roby
         attr_predicate :modelling_only?, true
         def modelling_only; self.modelling_only = true end
 
-        # @return [Boolean] true if Roby's auto-load feature should load all
-        #   models in {search_path} or only the ones in {app_dir}. It influences
-        #   the return value of {auto_load_search_path}
+        # @!method auto_load_all?
+        # @!method auto_load_all=(flag)
+        #
+        # Controls whether Roby's auto-load feature should load all models in
+        # {#search_path} or only the ones in {#app_dir}. It influences the
+        # return value of {#auto_load_search_path}
+        #
+        # @return [Boolean]
 	attr_predicate :auto_load_all?, true
 
-        # @return [Boolean] true if Roby should load the available the model
-        #   files automatically in {require_models}
+        # @!method auto_load_models?
+        # @!method auto_load_models=(flag)
+        # 
+        # Controls whether Roby should load the available the model files
+        # automatically in {#require_models}
+        #
+        # @return [Boolean]
 	attr_predicate :auto_load_models?, true
 
         # @return [Array<String>] the search path for the auto-load feature. It
-        #   depends on the value of {auto_load_all}
+        #   depends on the value of {#auto_load_all?}
         def auto_load_search_path
             if auto_load_all? then search_path
             elsif app_dir then [app_dir]
@@ -2046,6 +2100,7 @@ module Roby
 
         # Returns the path in search_path that contains the given file or path
         #
+        # @param [String] path
         # @return [nil,String]
         def find_base_path_for(path)
             candidates = search_path.find_all do |app_dir|
@@ -2056,10 +2111,15 @@ module Roby
         end
 
         # Returns true if the given path points to a file in the Roby app
+        #
+        # @param [String] path
 	def app_file?(path)
             !!find_base_path_for(path)
 	end
 
+        # Tests whether a path is within a framework library
+        #
+        # @param [String] path
 	def framework_file?(path)
 	    if path =~ /roby\/.*\.rb$/
 		true
@@ -2071,6 +2131,8 @@ module Roby
 	    end
 	end
 
+        # Ensure tha require'd files that match the given pattern can be
+        # re-required
         def unload_features(*pattern)
             patterns = search_path.map { |p| Regexp.new(File.join(p, *pattern)) }
             patterns << Regexp.new("^#{File.join(*pattern)}")
@@ -2084,6 +2146,7 @@ module Roby
             call_plugins(:reload_config, self)
         end
 
+        # Reload files in config/
         def reload_config
             clear_config
             unload_features("config", ".*\.rb$")
@@ -2093,6 +2156,7 @@ module Roby
             call_plugins(:require_config, self)
         end
 
+        # Tests whether a model class has been defined in this app's code
         def model_defined_in_app?(model)
             model.definition_location.each do |file, _, method|
                 return if method == :require
@@ -2101,6 +2165,10 @@ module Roby
             false
         end
 
+        # The list of model classes that allow to discover all models in this
+        # app
+        #
+        # @return [Array<#each_submodel>]
         def root_models
             models = [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
              Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript]
@@ -2111,6 +2179,13 @@ module Roby
             models
         end
 
+        # Enumerate all models registered in this app
+        #
+        # It basically enumerate all submodels of all models in {#root_models}
+        #
+        # @param [nil,#each_submodel] root_model if non-nil, limit the
+        #   enumeration to the submodels of this root
+        # @yieldparam [#each_submodel]
         def each_model(root_model = nil)
             return enum_for(__method__, root_model) if !block_given?
 
@@ -2125,11 +2200,18 @@ module Roby
             end
         end
 
+        # Whether this model should be cleared in {#clear_models}
+        #
+        # The default implementation returns true for the models that are not
+        # registered as constants (more precisely, for which MetaRuby's
+        # #permanent_model? returns false) and for the models defined in this
+        # app.
         def clear_model?(m)
             !m.permanent_model? ||
                 (!testing? && model_defined_in_app?(m))
         end
 
+        # Clear all models for which {#clear_model?} returns true
         def clear_models
             root_models.each do |root_model|
                 submodels = root_model.each_submodel.to_a.dup
@@ -2147,6 +2229,7 @@ module Roby
             call_plugins(:clear_models, self)
         end
 
+        # Reload model files in models/
         def reload_models
             clear_models
             unload_features("models", ".*\.rb$")
@@ -2156,6 +2239,7 @@ module Roby
             require_models
         end
 
+        # Reload action models defined in models/actions/
         def reload_actions
             unload_features("actions", ".*\.rb$")
             unload_features("models", "actions", ".*\.rb$")
@@ -2223,7 +2307,7 @@ module Roby
 
         # Finds the action matching the given name
         #
-        # Unlike {#find_action_by_name}, it raises if no matching action has
+        # Unlike {#find_action_from_name}, it raises if no matching action has
         # been found
         #
         # @return [Actions::Models::Action]
@@ -2268,7 +2352,7 @@ module Roby
 
         # @return [#call] the blocks that listen to notifications. They are
         #   added with {#on_notification} and removed with
-        #   {#remove_listener}
+        #   {#remove_notification_listener}
         attr_reader :notification_listeners
 
         # Enumerates the listeners currently registered through
@@ -2287,13 +2371,13 @@ module Roby
         end
 
         # Registers a block to be called when a message needs to be
-        # dispatched
+        # dispatched from {#notify}
         #
         # @yieldparam [String] source the source of the message
         # @yieldparam [String] level the log level
         # @yieldparam [String] message the message itself
         # @return [Object] the listener ID that can be given to
-        #   {#remove_notification}
+        #   {#remove_notification_listener}
         def on_notification(&block)
             notification_listeners << block
             block

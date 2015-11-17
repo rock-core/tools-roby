@@ -22,9 +22,10 @@ class Exception
         attr_reader :exception_class
         attr_reader :formatted_message
 
-        def initialize(exception_class, formatted_message)
+        def initialize(exception_class, formatted_message, message = nil)
             @exception_class, @formatted_message =
                 exception_class, formatted_message
+            super(message)
         end
 
         def pretty_print(pp)
@@ -34,7 +35,7 @@ class Exception
         end
 
         def proxy(peer)
-            exception = self.class.new(peer.local_object(exception_class), formatted_message)
+            exception = self.class.new(peer.local_object(exception_class), formatted_message, message)
             exception.set_backtrace backtrace
             exception
         end
@@ -53,7 +54,8 @@ class Exception
         formatted = Roby.format_exception(self)
         droby = DRoby.new(
             Roby::Distributed.format(self.class, peer),
-            formatted)
+            formatted,
+            message)
         droby.set_backtrace backtrace
         droby
     end

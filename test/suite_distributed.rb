@@ -1,3 +1,4 @@
+require 'roby/test/self'
 require './test/distributed/test_communication'
 require './test/distributed/test_connection'
 require './test/distributed/test_execution'

@@ -1,7 +1,4 @@
 module Roby
-    # Implementation of a job-oriented interface for Roby controllers
-    #
-    # This is the implementation of e.g. the Roby shell
     module Interface
         # The job's planning task is ready to be executed
         JOB_PLANNING_READY   = :planning_ready
@@ -9,7 +6,7 @@ module Roby
         JOB_PLANNING         = :planning
         # The job's planning task has failed
         JOB_PLANNING_FAILED  = :planning_failed
-        # The job's planning result is ready to be executed
+        # The job's main task is ready to be executed
         JOB_READY            = :ready
         # The job is started
         JOB_STARTED          = :started
@@ -33,18 +30,26 @@ module Roby
         # under the same job
         JOB_REPLACED         = :replaced
 
+        # Tests if the given state (one of the JOB_ constants) is terminal, e.g.
+        # means that the job is finished
         def self.terminal_state?(state)
             [JOB_PLANNING_FAILED, JOB_FAILED, JOB_FINISHED, JOB_FINALIZED].include?(state)
         end
 
+        # Tests if the given state (one of the JOB_ constants) means that the
+        # job finished successfully
         def self.success_state?(state)
             [JOB_SUCCESS].include?(state)
         end
 
+        # Tests if the given state (one of the JOB_ constants) means that the
+        # job finished with error
         def self.error_state?(state)
             [JOB_PLANNING_FAILED, JOB_FAILED].include?(state)
         end
 
+        # Tests if the given state (one of the JOB_ constants) means that the
+        # job is still running
         def self.running_state?(state)
             [JOB_STARTED].include?(state)
         end
@@ -75,6 +80,12 @@ module Roby
             #   added with {#on_job_notification} and removed with
             #   {#remove_job_listener}
             attr_reader :job_listeners
+
+            # @return [#call] the blocks that listen to end-of-cycle
+            #   notifications. They are added with {#on_cycle_end} and
+            #   removed with {#remove_cycle_end}
+            attr_reader :cycle_end_listeners
+
             # @api private
             #
             # @return [Set<Integer>] the set of tracked jobs
@@ -97,11 +108,13 @@ module Roby
                 end
                 engine.at_cycle_end do
                     push_pending_job_notifications
+                    notify_cycle_end
                 end
 
                 @tracked_jobs = Set.new
                 @job_notifications = Array.new
                 @job_listeners = Array.new
+                @cycle_end_listeners = Array.new
             end
 
             # Returns the port of the log server
@@ -234,8 +247,8 @@ module Roby
             end
 
             # @param (see Application#remove_notification_listener)
-            def remove_notification_listener(&listener)
-                app.remove_notification_listener(&listener)
+            def remove_notification_listener(listener)
+                app.remove_notification_listener(listener)
             end
 
             # Registers a block to be called when a job changes state
@@ -266,7 +279,7 @@ module Roby
             #   @yieldparam [String] job_name the job name (non-unique)
             #   @yieldparam [Task] task the new task this job is now tracking
             #
-            #   Interface for JOB_REPLACED notifications
+            #   Interface for JOB_REPLACED and JOB_LOST notifications
             #
             # @return [Object] the listener ID that can be given to
             #   {#remove_job_listener}
@@ -384,7 +397,7 @@ module Roby
             # The jobs currently running on {#app}'s plan
             #
             # @return [Hash<Integer,(Symbol,Roby::Task,Roby::Task)>] the mapping
-            #   from job ID to the job's state (as returned by {job_state}), the
+            #   from job ID to the job's state (as returned by {#job_state}), the
             #   placeholder job task and the job task itself
             def jobs
                 result = Hash.new
@@ -468,14 +481,10 @@ module Roby
                     engine.on_exception do |kind, exception, tasks|
                         involved_job_ids = tasks.map do |t|
                             job_id_of_task(t)
-                        end.to_set
+                        end.compact.to_set
                         block.call(kind, exception, tasks, involved_job_ids)
                     end
                 end
-            end
-
-            def on_cycle_end(&block)
-                engine.at_cycle_end(&block)
             end
 
             # @see ExecutionEngine#remove_exception_listener
@@ -483,6 +492,38 @@ module Roby
                 engine.execute do
                     engine.remove_exception_listener(listener)
                 end
+            end
+
+            # Add a handler called at each end of cycle
+            #
+            # Interface-related objects that need to be notified must use this
+            # method instead of using {ExecutionEngine#at_cycle_end} on
+            # {#engine}, because the listener is guaranteed to be ordered
+            # properly w.r.t. {#push_pending_job_notifications}
+            #
+            # @param [#call] block the listener
+            # @yieldparam [ExecutionEngine] the underlying execution engine
+            # @return [Object] and ID that can be passed to {#remove_cycle_end}
+            def on_cycle_end(&block)
+                engine.execute do
+                    cycle_end_listeners << block
+                    block
+                end
+            end
+
+            # @api private
+            #
+            # Notify the end-of-cycle to the listeners registered with
+            # {#on_cycle_end}
+            def notify_cycle_end
+                cycle_end_listeners.each do |listener|
+                    listener.call
+                end
+            end
+
+            # Remove a handler that has been added to {#on_cycle_end}
+            def remove_cycle_end(listener)
+                cycle_end_listeners.delete(listener)
             end
 
             # Requests for the Roby application to quit

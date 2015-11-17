@@ -154,7 +154,7 @@ module Roby
                 result
             end
 
-            # Helper method for {action_state_machine} and {action_script}
+            # Helper method for {#action_state_machine} and {#action_script}
             def action_coordination(name, model, &block)
                 if !@current_description
                     raise ArgumentError, "you must describe the action with #describe before calling #action_coordination"
@@ -215,7 +215,7 @@ module Roby
                 action_coordination(name, Coordination::ActionStateMachine, &block)
             end
 
-            # @deprecated use {action_state_machine} instead
+            # @deprecated use {#action_state_machine} instead
             def state_machine(name, &block)
                 action_state_machine(name, &block)
             end

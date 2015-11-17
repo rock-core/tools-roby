@@ -348,7 +348,9 @@ module Roby
             #
             # @return [Time]
             def cycle_start_time
-                Time.at(*stats[:start]) + stats[:real_start]
+                if stats[:start] && stats[:real_start]
+                    Time.at(*stats[:start]) + stats[:real_start]
+                end
             end
 
             # The time of the last processed log item

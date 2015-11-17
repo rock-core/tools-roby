@@ -52,9 +52,8 @@ module Roby
                     if async && !async.terminated?
                         batch.kill_job(async.job_id)
                     end
-                    batch.send("#{action_name}!", static_arguments.merge(arguments))
-                    job_id = batch.process.last
-                    self.async = interface.monitor_job(job_id)
+                    batch.start_job(action_name, static_arguments.merge(arguments))
+                    batch.__process
                 end
 
                 def initialize(interface, action_name, static_arguments = Hash.new)

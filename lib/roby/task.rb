@@ -1031,20 +1031,64 @@ module Roby
         # Converts this object into a task object
 	def to_task; self end
 	
-	event :start, :command => true
+        # Event emitted when the task is started
+        #
+        # It is controlable by default, its command simply emitting the start
+        # event
+	event :start, command: true
 
-	# Define :stop before any other terminal event
+        # Event emitted when the task has stopped
+        #
+        # It is not controlable by default. If the task can be stopped without
+        # any specific action, call {Models::Task#terminates} on the task model. If it
+        # needs specific actions, define a controlable failed event and call
+        # {Models::Task#interruptible}
+        #
+        # @example task with simple termination
+        #   class MyTask < Roby::Task
+        #     terminates
+        #   end
+        #
+        # @example task with complex termination
+        #   class Mytask < Roby::Task
+        #     event :failed do
+        #       # Terminate the underlying process
+        #     end
+        #     interruptible
+        #   end
 	event :stop
-	event :success, :terminal => true
-	event :failed,  :terminal => true
 
+        # Event emitted when the task has successfully finished
+        #
+        # It is obviously forwarded to {#stop_event}
+	event :success, terminal: true
+
+        # Event emitted when the task has finished without performing its duty
+        #
+        # It is obviously forwarded to {#stop_event}
+	event :failed,  terminal: true
+
+        # Event emitted when the task's underlying {#execution_agent} finished
+        # while the task was running
+        #
+        # It is obviously forwarded to {#failed_event}
 	event :aborted
 	forward :aborted => :failed
 
+        # Event emitted when a task internal code block ({Models::Task#on} handler,
+        # {Models::Task#poll} block) raised an exception
+        #
+        # It signals {#stop_event} if {#stop_event} is controlable
         event :internal_error
-        # Forcefully mark internal_error as a failure event, even though it does
-        # not forwards to failed
-        class Task::InternalError; def failure?; true end end
+
+        class InternalError
+            # Mark the InternalError event as a failure event, even if it is not
+            # forwarded to the stop event at the model level
+            def failure?
+                true
+            end
+        end
+
         on :internal_error do |error|
             if error.context
                 @failure_reason = error.context.first

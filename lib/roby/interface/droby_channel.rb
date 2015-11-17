@@ -40,29 +40,47 @@ module Roby
                 io.eof?
             end
 
+            def flush
+                io.flush
+            end
+
             # Read one packet from {#io} and unmarshal it
-            #
-            # It is non-blocking
             #
             # @return [Object,nil] returns the unmarshalled object, or nil if no
             #   full object can be found in the data received so far
-            def read_packet
-                data = begin io.read_nonblock(1024 ** 2)
-                       rescue IO::WaitReadable
-                       end
-                if data
-                    @incoming << data
+            def read_packet(timeout = 0)
+                start = Time.now
+
+                begin
+                    if data = io.read_nonblock(1024 ** 2)
+                        @incoming << data
+                    end
+                rescue IO::WaitReadable
                 end
 
-                if packet = @incoming.next
-                    unmarshalled = begin Marshal.load(packet.to_s)
-                                   rescue TypeError => e
-                                       raise ProtocolError, "failed to unmarshal received packet: #{e.message}"
-                                   end
-                    remote_object_manager.local_object(unmarshalled)
+                while !(packet = @incoming.next)
+                    if timeout
+                        remaining_time = timeout - (Time.now - start)
+                        return if remaining_time < 0
+                    end
+
+                    if IO.select([io], [], [], remaining_time)
+                        begin
+                           if data = io.read_nonblock(1024 ** 2)
+                               @incoming << data
+                           end
+                        rescue IO::WaitReadable
+                        end
+                    end
                 end
 
-            rescue Errno::ECONNRESET, EOFError
+                unmarshalled = begin Marshal.load(packet.to_s)
+                               rescue TypeError => e
+                                   raise ProtocolError, "failed to unmarshal received packet: #{e.message}"
+                               end
+                remote_object_manager.local_object(unmarshalled)
+
+            rescue Errno::ECONNRESET, EOFError, IOError
                 raise ComError, "closed communication"
             rescue Errno::EPIPE
                 raise ComError, "broken communication channel"
@@ -86,6 +104,12 @@ module Roby
                 nil
             rescue Errno::EPIPE, IOError, Errno::ECONNRESET
                 raise ComError, "broken communication channel"
+            rescue RuntimeError => e
+                # Workaround what seems to be a Ruby bug ...
+                if e.message =~ /can.t modify frozen IOError/
+                    raise ComError, "broken communication channel"
+                else raise
+                end
             end
         end
     end

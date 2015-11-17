@@ -4,7 +4,7 @@ module Roby
             # Creates a connection between a Syskit job and a Qt-based GUI
             #
             # A job is a placeholder for an action with some arguments set. It
-            # is created by {Interface#connect_job}. More than one job can exist
+            # is created by {Interface#connect_to_ui}. More than one job can exist
             # based on a given action (as long as they differ by their
             # arguments), but a given job can be started by the GUI only once.
             #
