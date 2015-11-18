@@ -74,7 +74,7 @@ module Roby
                         batch.kill_job(job_id)
                     end
                     batch.send("#{action_name}!", action_arguments)
-                    job_id = batch.process.last
+                    job_id = batch.__process.last
                     interface.monitor_job(job_id)
                 end
 
