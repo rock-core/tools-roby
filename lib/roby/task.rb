@@ -301,22 +301,29 @@ module Roby
 	# the task is not running.
 	def lifetime
 	    if running?
-		Time.now - history.first.time
+		Time.now - start_time
 	    end
 	end
 
         # Returns when this task has been started
         def start_time
-            if !history.empty?
-                history.first.time
+            if ev = start_event.last
+                ev.time
             end
         end
 
         # Returns when this task has finished
         def end_time
-            if finished?
-                history.last.time
+            if ev = stop_event.last
+                ev.time
             end
+        end
+
+        # The last event emitted by this task
+        #
+        # @return [TaskEvent,nil]
+        def last_event
+            each_event.map(&:last).compact.min_by(&:time)
         end
 
         def create_fresh_copy
@@ -327,7 +334,6 @@ module Roby
 	    super
 
 	    @name    = nil
-	    @history = old.history.dup
 
 	    @arguments = TaskArguments.new(self)
 	    arguments.force_merge! old.arguments
@@ -706,13 +712,13 @@ module Roby
 
             if finished? && !event.terminal?
                 raise EmissionFailed.new(nil, event),
-		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
+                    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{stop_event.last.sources}."
             elsif pending? && event.symbol != :start
                 raise EmissionFailed.new(nil, event),
 		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
             elsif running? && event.symbol == :start
                 raise EmissionFailed.new(nil, event),
-		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
+                    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{start_event.last.sources}."
             end
 
 	    super if defined? super

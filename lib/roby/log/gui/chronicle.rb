@@ -585,13 +585,14 @@ module Roby
                     top_y = bottom_y + task_separation + text_height
                     break if max_height && top_y > max_height
 
-                    if task.history.empty?
+                    last_event = task.last_event
+                    if !last_event
                         state = :pending
                         end_time = task.finalization_time
                     else
-                        state = task.current_display_state(task.history.last.time)
+                        state = task.current_display_state(last_event.time)
                         if state != :running
-                            end_time = task.history.last.time
+                            end_time = last_event.time
                         end
                     end
                     add_point = time_to_pixel * (task.addition_time - display_time) + display_point
