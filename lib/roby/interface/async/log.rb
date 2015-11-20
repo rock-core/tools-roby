@@ -219,6 +219,7 @@ module Roby
                                 plan_rebuilder.process(data)
                                 cycle = plan_rebuilder.cycle_index
                                 time  = plan_rebuilder.cycle_start_time
+                                Roby::Log.debug "Async update(#{cycle}, #{time})"
                                 run_hook :on_update, cycle, time
                             end
                         else
