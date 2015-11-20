@@ -18,6 +18,8 @@ module Roby
             # It must be integrated into your application's event loop by
             # calling {#poll}.
             class Log
+                extend Logger::Hierarchy
+
                 # The plan rebuilder object, which processes the log stream to
                 # rebuild {#plan}
                 #
@@ -131,15 +133,15 @@ module Roby
                     raise
 
                 rescue ComError
-                    Interface.info "link closed, trying to reconnect"
+                    Log.info "link closed, trying to reconnect"
                     unreachable!
                     if !closed?
                         attempt_connection
                     end
                     false
                 rescue Exception => e
-                    Interface.warn "error while polling connection, trying to reconnect"
-                    Roby.log_exception_with_backtrace(e, Interface, :warn)
+                    Log.warn "error while polling connection, trying to reconnect"
+                    Roby.log_exception_with_backtrace(e, Log, :warn)
                     unreachable!
                     if !closed?
                         attempt_connection
