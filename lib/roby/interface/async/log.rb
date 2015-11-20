@@ -216,7 +216,7 @@ module Roby
                                 run_hook :on_init_done
                             end
                             client.on_data do |data|
-                                plan_rebuilder.push_data(data)
+                                plan_rebuilder.process(data)
                                 cycle = plan_rebuilder.cycle_index
                                 time  = plan_rebuilder.cycle_start_time
                                 run_hook :on_update, cycle, time
