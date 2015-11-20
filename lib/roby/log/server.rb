@@ -18,7 +18,7 @@ module Roby
 
             DEFAULT_PORT  = 20200
             DEFAULT_SAMPLING_PERIOD = 0.05
-            DATA_CHUNK_SIZE = 16 * 1024
+            DATA_CHUNK_SIZE = 512 * 1024
 
             # The port we are listening on
             attr_reader :port
@@ -299,10 +299,11 @@ module Roby
             #   false otherwise. It is an indicator of whether there could be
             #   still some data pending
             def read_and_process_pending(max: 0)
-                start = Time.now
-                while (processed_something_last = read_and_process_one_pending_chunk) && (Time.now - start) < max
+                current_time = start = Time.now
+                while (processed_one_cycle = read_and_process_one_pending_cycle) && (current_time - start) <= max
+                    current_time = Time.now
                 end
-                processed_something_last
+                processed_one_cycle
             end
 
             # The number of bytes that have to be transferred to finish
@@ -315,45 +316,62 @@ module Roby
 
             # @api private
             #
-            # Reads the socket and processes at most one chunk of data
-            def read_and_process_one_pending_chunk
-                begin
-                    buffer = @buffer + socket.read_nonblock(Server::DATA_CHUNK_SIZE)
-                rescue EOFError, Errno::ECONNRESET, Errno::EPIPE => e
-                    raise Interface::ComError, e.message, e.backtrace
-                end
+            # Read data from the underlying socket
+            #
+            # @return [Boolean] true if some data was read, false otherwise
+            def read_from_socket(size = Server::DATA_CHUNK_SIZE)
+                @buffer.concat(socket.read_nonblock(size))
+                true
+            rescue EOFError, Errno::ECONNRESET, Errno::EPIPE => e
+                raise Interface::ComError, e.message, e.backtrace
+            rescue Errno::EAGAIN
+                false
+            end
+
+            # @api private
+            #
+            # Reads the socket and processes at most one cycle of data
+            #
+            # @return [Boolean] whether there might be one more cyc
+            def read_and_process_one_pending_cycle
                 Log.debug "#{buffer.size} bytes of data in buffer"
 
                 while true
-                    if buffer.size < 4
-                        break
+                    if buffer.size > 4
+                        data_size = buffer.unpack('I').first
+                        Log.debug "expecting data block of #{data_size} bytes"
+                        if buffer.size >= data_size + 4
+                            break
+                        end
+                        return if !read_from_socket([Server::DATA_CHUNK_SIZE, buffer.size - data_size].max)
+                    else
+                        return if !read_from_socket
                     end
 
-                    data_size = buffer.unpack('I').first
-                    if buffer.size > data_size + 4
-                        data = Marshal.load_with_missing_constants(buffer[4, data_size])
-                        if data.kind_of?(Hash)
-                            Roby::Log::Logfile.process_options_hash(data)
-                        elsif data == Server::CONNECTION_INIT_DONE
-                            @init_done = true
-                            run_hook :on_init_done
-                        elsif data[0] == Server::CONNECTION_INIT
-                            @init_size = data[1]
-                        else
-                            @rx += (data_size + 4)
-                            if !init_done?
-                                run_hook :on_init_progress, rx, init_size
-                            end
-                            run_hook :on_data, data
-                        end
-                        buffer = buffer[(data_size + 4)..-1]
-                    else
-                        break
-                    end
                 end
 
-                @buffer = buffer
-                !buffer.empty?
+                if data_size && (buffer.size >= data_size + 4)
+                    cycle_data = buffer[4, data_size]
+                    @buffer = buffer[(data_size + 4)..-1]
+                    data = Marshal.load_with_missing_constants(cycle_data)
+                    if data.kind_of?(Hash)
+                        Roby::Log::Logfile.process_options_hash(data)
+                    elsif data == Server::CONNECTION_INIT_DONE
+                        @init_done = true
+                        run_hook :on_init_done
+                    elsif data[0] == Server::CONNECTION_INIT
+                        @init_size = data[1]
+                    else
+                        @rx += (data_size + 4)
+                        if !init_done?
+                            run_hook :on_init_progress, rx, init_size
+                        end
+                        run_hook :on_data, data
+                    end
+                    Log.debug "processed #{data_size} bytes of data, #{@buffer.size} remaining in buffer"
+                    true
+                end
+
             rescue Errno::EAGAIN
             end
         end

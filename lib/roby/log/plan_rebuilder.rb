@@ -372,7 +372,10 @@ module Roby
                 has_structure_updates? || has_event_propagation_updates?
             end
 
-            # Push one cycle worth of data
+            # Process one cycle worth of data, and pushes it into history if
+            # needed
+            #
+            # @see process
             def push_data(data)
                 process(data)
                 interesting = has_interesting_events?
