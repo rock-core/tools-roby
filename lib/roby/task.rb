@@ -323,7 +323,7 @@ module Roby
         #
         # @return [TaskEvent,nil]
         def last_event
-            each_event.map(&:last).compact.min_by(&:time)
+            each_event.map(&:last).compact.max_by(&:time)
         end
 
         def create_fresh_copy

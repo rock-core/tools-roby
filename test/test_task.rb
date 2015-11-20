@@ -60,6 +60,22 @@ module Roby
                 end
             end
         end
+
+        describe "#last_event" do
+            attr_reader :task
+            before do
+                plan.add(@task = Roby::Tasks::Simple.new)
+            end
+            it "returns nil if no event has ever been emitted" do
+                assert_equal nil, task.last_event
+            end
+            it "returns the last emitted event if some where emitted" do
+                task.start_event.emit
+                assert_equal task.start_event.last, task.last_event
+                task.stop_event.emit
+                assert_equal task.stop_event.last, task.last_event
+            end
+        end
     end
 end
 
