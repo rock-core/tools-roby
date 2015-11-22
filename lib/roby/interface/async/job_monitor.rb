@@ -140,12 +140,12 @@ module Roby
 
                 # Tests whether this job is running
                 def running?
-                    state == :started
+                    Roby::Interface.running_state?(state)
                 end
                 
                 # Tests whether this job has been finalized
                 def finalized?
-                    state == :finalized
+                    Roby::Interface.finalized_state?(state)
                 end
 
                 # Start monitoring this job's state

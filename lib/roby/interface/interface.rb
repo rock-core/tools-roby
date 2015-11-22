@@ -54,6 +54,12 @@ module Roby
             [JOB_STARTED].include?(state)
         end
 
+        # Tests if the given state (one of the JOB_ constants) means that the
+        # job has been finalized (removed from plan)
+        def self.finalized_state?(state)
+            [JOB_FINALIZED].include?(state)
+        end
+
         # The server-side implementation of the command-based interface
         #
         # This exports all the services and/or APIs that are available through e.g.
