@@ -663,7 +663,7 @@ module Roby
                 if error
                     if !unreachability_reason.empty?
                         msg = format_unreachability_message(unreachability_reason)
-                        flunk("#{msg} all positive events are unreachable for the following reason:\n  #{msg}")
+                        flunk("all positive events are unreachable for the following reason:\n  #{msg}")
                     elsif msg
                         flunk("#{msg} failed: #{result}")
                     else
@@ -733,19 +733,43 @@ module Roby
                     if reason.kind_of?(Exception)
                         Roby.format_exception(reason).join("\n")
                     elsif reason.respond_to?(:context)
-                        "the emission of #{reason}" + Roby.format_exception(reason.context).join("\n")
+                        context = if reason.context
+                                      Roby.format_exception(reason.context).join("\n")
+                                  end
+                        "the emission of #{reason}#{context}"
                     end
                 end
                 msg.join("\n  ")
             end
 
+            # Asserts that the given task is going to be added to the quarantine
+            def assert_task_quarantined(task, timeout: 5)
+                yield
+                while !task.plan.quarantined_task?(task) && (Time.now - start) < timeout
+                    task.plan.execution_engine.process_events
+                end
+            end
 
-            # DEPRECATED. Use #assert_event_emission instead
+            # @deprecated use #assert_event_emission instead
 	    def assert_any_event(positive = [], negative = [], msg = nil, timeout = 5, &block)
+                Roby.warn_deprecated "#assert_any_event is deprecated, use #assert_event_emission instead"
                 assert_event_emission(positive, negative, msg, timeout, &block)
 	    end
 
-            def assert_becomes_unreachable(event, timeout = 5, &block)
+            # @deprecated use #assert_event_becomes_unreachable instead
+            def assert_becomes_unreachable(*args, &block)
+                Roby.warn_deprecated "#assert_becomes_unreachable is deprecated, use #assert_event_becomes_unreachable instead"
+                assert_event_becomes_unreachable(*args, &block)
+            end
+
+            # Verifies that the provided event becomes unreachable within a
+            # certain time frame
+            #
+            # @param [EventGenerator] event
+            # @param [Float] timeout in seconds
+            # @yield a block of code that performs the action that should turn
+            #   the event into unreachable
+            def assert_event_becomes_unreachable(event, timeout = 5, &block)
                 old_level = Roby.logger.level
                 Roby.logger.level = Logger::FATAL
                 error, message, unreachability_reason = watch_events(event, [], timeout, &block)
