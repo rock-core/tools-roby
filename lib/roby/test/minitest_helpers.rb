@@ -31,9 +31,6 @@ module Roby
                 end
 
                 msg = exp.pop if String === exp.last
-                if !exp.any? { |expected_e| !(expected_e <= Roby::UserExceptionWrapper) }
-                    return super
-                end
 
                 # The caller expects a non-Roby exception. It is going to be
                 # wrapped in a LocalizedError, so make sure we properly
