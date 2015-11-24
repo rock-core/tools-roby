@@ -156,7 +156,7 @@ module Roby
 
                     if connection_future.complete?
                         case e = connection_future.reason
-                        when ConnectionError, ComError
+                        when ConnectionError, ComError, ProtocolError
                             Interface.info "failed connection attempt: #{e}"
                             attempt_connection
                             if @first_connection_attempt
