@@ -249,23 +249,12 @@ module Roby
                     client.cycle_index
                 end
 
-                # Active part of the async. This has to be called regularly within
-                # the system's main event loop (e.g. Roby's, Vizkit's or Qt's)
-                #
-                # @return [Boolean] true if we are connected to the remote server
-                #   and false otherwise
-                def poll
-                    if connected?
-                        has_cycle_end = true
-                        while has_cycle_end
-                            cleanup_dead_monitors
-                            _, has_cycle_end = client.poll
-                            process_message_queues
-                        end
-                        true
-                    else
-                        poll_connection_attempt
-                        !!client
+                def poll_messages
+                    has_cycle_end = true
+                    while has_cycle_end
+                        cleanup_dead_monitors
+                        _, has_cycle_end = client.poll
+                        process_message_queues
                     end
                 rescue ComError
                     Interface.info "link closed, trying to reconnect"
@@ -278,6 +267,21 @@ module Roby
                     unreachable!
                     attempt_connection
                     false
+                end
+
+                # Active part of the async. This has to be called regularly within
+                # the system's main event loop (e.g. Roby's, Vizkit's or Qt's)
+                #
+                # @return [Boolean] true if we are connected to the remote server
+                #   and false otherwise
+                def poll
+                    if connected?
+                        poll_messages
+                        true
+                    else
+                        poll_connection_attempt
+                        !!client
+                    end
                 end
 
                 def unreachable!

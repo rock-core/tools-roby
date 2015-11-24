@@ -60,7 +60,7 @@ module Roby
                     if batch
                         yield(batch)
                     else
-                        yield(batch = interface.client.create_batch)
+                        yield(batch = interface.create_batch)
                         batch.__process
                     end
                 end
@@ -71,6 +71,10 @@ module Roby
                 #   commands will be added to this batch. Otherwise, a new batch
                 #   is created and {Client::BatchContext#__process} is called.
                 def kill(batch: nil)
+                    if !running?
+                        raise InvalidState, "cannot kill a non-running action"
+                    end
+
                     handle_batch_argument(batch) do |b|
                         b.kill_job(async.job_id)
                     end
@@ -86,7 +90,7 @@ module Roby
                 def restart(arguments = self.action_arguments, batch: nil)
                     handle_batch_argument(batch) do |b|
                         if running?
-                            kill(b)
+                            kill(batch: b)
                         end
                         b.start_job(action_name, arguments)
                     end
@@ -106,7 +110,7 @@ module Roby
                     interface.on_job(action_name: action_name) do |job|
                         if !self.async || self.job_id != job.job_id || terminated?
                             matching = static_arguments.all? do |arg_name, arg_val|
-                                job.task.action_arguments[arg_name,to_sym] == arg_val
+                                job.action_arguments[arg_name.to_sym] == arg_val
                             end
                             if matching
                                 self.async = job

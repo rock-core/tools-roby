@@ -44,7 +44,7 @@ module Roby
                 # Tests whether the provided job matches what this listener
                 # wants
                 def matches?(job)
-                    !action_name || (job.task && job.task.action_model.name == action_name)
+                    !action_name || (job.action_name == action_name)
                 end
 
                 # Call the listener for the given job
