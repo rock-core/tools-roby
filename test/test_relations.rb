@@ -27,7 +27,7 @@ class TC_Relations < Minitest::Test
     end
 
     def test_relation_info
-	klass = Class.new { include Roby::DirectedRelationSupport }
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 
 	space = Roby::RelationSpace(klass)
         r2 = space.relation :R2
@@ -57,7 +57,7 @@ class TC_Relations < Minitest::Test
     end
 
     def test_relation_each_edge
-	klass = Class.new { include Roby::DirectedRelationSupport }
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
 
         r1 = space.relation :R1
@@ -69,7 +69,7 @@ class TC_Relations < Minitest::Test
     end
 
     def test_relation_info_in_subgraphs
-	klass = Class.new { include Roby::DirectedRelationSupport }
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r2 = space.relation :R2
         r1 = space.relation :R1, subsets: [r2]
@@ -95,7 +95,7 @@ class TC_Relations < Minitest::Test
     end
 
     def test_add_remove_relations
-	klass = Class.new { include Roby::DirectedRelationSupport }
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 
 	r1, r2 = nil
 	space = Roby::RelationSpace(klass)
@@ -154,7 +154,7 @@ class TC_Relations < Minitest::Test
 	    end
 
 	    klass = Class.new do
-		include Roby::DirectedRelationSupport 
+		include Roby::Relations::DirectedRelationSupport 
 		include hooks
 	    end
 		
@@ -175,7 +175,7 @@ class TC_Relations < Minitest::Test
 	    klass = Class.new do
 		def initialize(index); @index = index end
 		def to_s; "v#{@index.to_s}" end
-		include Roby::DirectedRelationSupport
+		include Roby::Relations::DirectedRelationSupport
 		define_method(:added_child_object) do |child, relations, info|
 		    super(child, relations, info) if defined? super
 		    mock.hooked_addition(child, relations)
@@ -218,17 +218,17 @@ class TC_Relations < Minitest::Test
     end
 
     def test_dag_checking
-	klass = Class.new { include Roby::DirectedRelationSupport }
-	graph = RelationGraph.new("test", dag: true)
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
+	graph = Relations::Graph.new("test", dag: true)
 
 	v1, v2, v3 = (1..3).map { v = klass.new; graph.insert(v); v }
 	graph.add_relation(v1, v2, nil)
 	graph.add_relation(v2, v3, nil)
-	assert_raises(CycleFoundError) { graph.add_relation(v3, v1, nil) }
+	assert_raises(Relations::CycleFoundError) { graph.add_relation(v3, v1, nil) }
     end
 
     def test_single_child
-	klass = Class.new { include Roby::DirectedRelationSupport }
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 
 	r1 = nil
 	space = Roby::RelationSpace(klass)
@@ -253,14 +253,14 @@ class TC_Relations < Minitest::Test
     end
 
     def test_relations
-	klass = Class.new { include Roby::DirectedRelationSupport }
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r1 = space.relation :R1
         assert_equal [r1], space.relations
     end
 
     def test_child_enumeration_without_info
-	klass = Class.new { include Roby::DirectedRelationSupport }
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r1 = space.relation :R1, child_name: 'child', noinfo: true
 
@@ -270,7 +270,7 @@ class TC_Relations < Minitest::Test
         assert_equal([v2], v1.each_child.to_a)
     end
     def test_child_enumeration_with_info
-	klass = Class.new { include Roby::DirectedRelationSupport }
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r1 = space.relation :R1, child_name: 'child'
 
@@ -281,7 +281,7 @@ class TC_Relations < Minitest::Test
     end
 
     def test_clear_relations
-	klass = Class.new { include Roby::DirectedRelationSupport }
+	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r1 = space.relation :R1, child_name: 'child', noinfo: true
         r2 = space.relation :R2, child_name: 'child2', noinfo: true
@@ -300,10 +300,10 @@ class TC_Relations < Minitest::Test
             def initialize(task)
                 @task = task
             end
-            include Roby::DirectedRelationSupport
+            include Roby::Relations::DirectedRelationSupport
         end
 	space = Roby::RelationSpace(klass)
-        space.default_graph_class = EventRelationGraph
+        space.default_graph_class = Relations::EventRelationGraph
         r = space.relation :R, child_name: 'child', noinfo: true
 
         ta = Object.new

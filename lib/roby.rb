@@ -63,14 +63,20 @@ rescue LoadError
     exit 1
 end
 
+
 require 'roby/graph'
 require 'roby/relations'
-
-require 'roby/queries'
 require 'roby/models/plan_object'
 require 'roby/plan_object'
-require 'roby/event'
 require 'roby/event_generator'
+require "roby/event_structure/signal"
+require "roby/event_structure/forwarding"
+require "roby/event_structure/causal_link"
+require "roby/event_structure/precedence"
+require "roby/event_structure/temporal_constraints"
+
+require 'roby/queries'
+require 'roby/event'
 require 'roby/filter_generator'
 require 'roby/and_generator'
 require 'roby/or_generator'
@@ -84,19 +90,16 @@ require 'roby/task_event_generator'
 require 'roby/task_arguments'
 require 'roby/task_service'
 require 'roby/task'
+require "roby/task_structure/conflicts"
+require "roby/task_structure/dependency"
+require "roby/task_structure/error_handling"
+require "roby/task_structure/executed_by"
+require "roby/task_structure/planned_by"
 require 'roby/plan_service'
 require 'roby/tasks/aggregator'
 require 'roby/tasks/parallel'
 require 'roby/tasks/sequence'
 require 'roby/event_constraints'
-
-require 'roby/relations/conflicts'
-require 'roby/relations/error_handling'
-require 'roby/relations/events'
-require 'roby/relations/executed_by'
-require 'roby/relations/dependency'
-require 'roby/relations/planned_by'
-require 'roby/relations/temporal_constraints'
 
 require 'roby/plan'
 require 'roby/transactions/proxy'

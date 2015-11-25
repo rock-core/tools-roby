@@ -92,7 +92,7 @@ module Roby
 
             # Generic implementation of the constant-dumping method. This is to
             # be included in all kind of classes which should be dumped by their
-            # constant name (for intance RelationGraph).
+            # constant name (for intance Relations::Graph).
 	    module Dump
                 # Returns a DRobyConstant object which references +self+. It
                 # checks that +self+ can actually be referenced locally by
@@ -126,7 +126,7 @@ module Roby
         class Roby::LocalizedError
             extend Roby::Distributed::DRobyConstant::Dump
         end
-	class Roby::RelationGraph
+	class Roby::Relations::Graph
 	    include Roby::Distributed::DRobyConstant::Dump
 	end
 

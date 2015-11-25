@@ -531,7 +531,6 @@ module Roby
             end
         end
         Roby::Task.include TaskTemporalConstraints
-
     end
 end
 

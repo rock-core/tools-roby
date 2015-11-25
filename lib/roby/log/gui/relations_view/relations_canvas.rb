@@ -15,7 +15,7 @@ module Roby
                 @all_task_relations
             else
                 result = []
-                ObjectSpace.each_object(Roby::RelationSpace) do |space|
+                ObjectSpace.each_object(Roby::Relations::Space) do |space|
                     result.concat(space.relations) if space.applied.find { |t| t <= Roby::Task }
                 end
                 @all_task_relations = result

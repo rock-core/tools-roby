@@ -690,7 +690,7 @@ module Roby
         #
         # @param [PlanObject] parent the parent object represented by its proxy in self
         # @param [PlanObject] child the child object represented by its proxy in self
-        # @param [Array<RelationGraph>] relations the graphs in which a relation
+        # @param [Array<Relations::Graph>] relations the graphs in which a relation
         #   has been added
         # @param [Object] info the added information for the new edges
         #   (relation specific)
@@ -714,7 +714,7 @@ module Roby
         #
         # @param [PlanObject] parent the parent object represented by its proxy in self
         # @param [PlanObject] child the child object represented by its proxy in self
-        # @param [Array<RelationGraph>] relations the graphs in which a relation
+        # @param [Array<Relations::Graph>] relations the graphs in which a relation
         #   has been added
         # @return [void]
 	def removing_plan_relation(parent, child, relations)

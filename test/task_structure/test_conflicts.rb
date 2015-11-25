@@ -1,6 +1,5 @@
 require 'roby/test/self'
 require 'roby/tasks/simple'
-require 'roby/relations/conflicts'
 
 class TC_Conflicts < Minitest::Test
     def test_model_relations

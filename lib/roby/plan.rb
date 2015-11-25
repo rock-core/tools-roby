@@ -900,7 +900,7 @@ module Roby
         #
         # @param [Task] parent
         # @param [Task] child
-        # @param [Array<RelationGraph>] relations the relation graphs in which
+        # @param [Array<Relations::Graph>] relations the relation graphs in which
         #   the new relation has been created
         # @return [void]
         def added_task_relation(parent, child, relations)
@@ -912,7 +912,7 @@ module Roby
         #
         # @param [Task] parent
         # @param [Task] child
-        # @param [Array<RelationGraph>] relations the relation graphs in which
+        # @param [Array<Relations::Graph>] relations the relation graphs in which
         #   the relation has been removed
         # @return [void]
         def removed_task_relation(parent, child, relations)
@@ -924,7 +924,7 @@ module Roby
         #
         # @param [Task] parent
         # @param [Task] child
-        # @param [Array<RelationGraph>] relations the relation graphs in which
+        # @param [Array<Relations::Graph>] relations the relation graphs in which
         #   the new relation has been created
         # @return [void]
         def added_event_relation(parent, child, relations)
@@ -939,7 +939,7 @@ module Roby
         #
         # @param [Task] parent
         # @param [Task] child
-        # @param [Array<RelationGraph>] relations the relation graphs in which
+        # @param [Array<Relations::Graph>] relations the relation graphs in which
         #   the relation has been removed
         # @return [void]
         def removed_event_relation(parent, child, relations)
