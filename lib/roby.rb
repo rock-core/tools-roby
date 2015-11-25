@@ -1,3 +1,5 @@
+require 'utilrb/logger'
+
 # The main namespace for the Roby library. The namespace is divided as follows:
 #
 # [Roby] core namespace for the Roby kernel
@@ -16,6 +18,8 @@ module Roby
     class Control; end
     class EventGenerator < PlanObject; end
     class Task < PlanObject; end
+
+    extend Logger::Root('Roby', Logger::WARN)
 end
 
 require 'drb'

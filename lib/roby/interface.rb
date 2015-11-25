@@ -114,6 +114,10 @@ module Roby
 
     module Interface
         extend Logger::Hierarchy
+
+        module Async
+            extend Logger::Hierarchy
+        end
     end
 end
 
