@@ -9,7 +9,9 @@ module Roby
         attr_reader :plan
 	# The set of proxies for object from this remote peer
 	attr_reader :proxies
-	# The set of proxies we are currently removing. See BasicObject#forget_peer
+	# The set of proxies we are currently removing
+        #
+        # @see DistributedObject#forget_peer
 	attr_reader :removing_proxies
         # This method is used by Distributed.format to determine the dumping
         # policy for +object+. If the method returns true, then only the
@@ -105,8 +107,9 @@ module Roby
                         end
 			local_object = marshalled.proxy(self)
 
-                        # NOTE: the proxies[] hash is updated by the BasicObject
-                        # and BasicObject::DRoby classes, mostly in #update()
+                        # NOTE: the proxies[] hash is updated by the
+                        # DistributedObject and DistributedObject::DRoby
+                        # classes, mostly in #update()
                         #
                         # This is so as we have to distinguish between "register
                         # proxy locally" (#add_sibling_for) and "register proxy
@@ -165,7 +168,7 @@ module Roby
 
         # Called when +remote_object+ is a sibling that should be "forgotten"
         #
-        # It is usually called by Roby::BasicObject#remove_sibling_for
+        # It is usually called by {DistributedObject#remove_sibling_for}
         def removed_sibling(remote_object)
             if remote_object.respond_to?(:remote_siblings)
                 remote_object.remote_siblings.each_value do |remote_id|

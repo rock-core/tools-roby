@@ -551,7 +551,7 @@ module Roby
         # given siblings. +siblings+ is a remote_drbobject => local_object
         # hash
         #
-        # It is also used by BasicObject#sibling_of to register a new
+        # It is also used by {DistributedObject#sibling_of} to register a new
         # sibling
         def added_sibling(local_id, remote_id)
             local_id.local_object.add_sibling_for(peer, remote_id)
@@ -561,7 +561,7 @@ module Roby
         # Called by the remote peer to announce that it has removed the
         # given siblings. +objects+ is the list of local objects.
         #
-        # It is also used by BasicObject#forget_peer to remove references
+        # It is also used by {DistributedObject#forget_peer} to remove references
         # to an old sibling
         def removed_sibling(local_id, remote_id)
             local_object = local_id.local_object

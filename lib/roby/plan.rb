@@ -26,7 +26,7 @@ module Roby
     #   garbage collection mechanism. As for missions, task that are useful to
     #   permanent tasks are also 
     #
-    class Plan < BasicObject
+    class Plan < DistributedObject
 	extend Logger::Hierarchy
 	extend Logger::Forward
 

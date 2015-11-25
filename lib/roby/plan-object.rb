@@ -1,6 +1,6 @@
 module Roby
     # Base class for all objects which are included in a plan.
-    class PlanObject < BasicObject
+    class PlanObject < DistributedObject
         # This object's model
         #
         # This is usually self.class

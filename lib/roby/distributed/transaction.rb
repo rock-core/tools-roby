@@ -317,7 +317,7 @@ module Roby
             # Intermediate representation of a Roby::Distributed::Transaction
             # object, suitable for representing that transaction in the dRoby
             # protocol.
-	    class DRoby < Roby::BasicObject::DRoby
+	    class DRoby < Roby::DistributedObject::DRoby
 		attr_reader :plan, :options
 		def initialize(remote_siblings, owners, plan, options)
 		    super(remote_siblings, owners)
@@ -389,7 +389,7 @@ module Roby
 
             # A representation of a distributed transaction proxy suitable for
             # communication with the remote plan managers.
-	    class DRoby < Roby::BasicObject::DRoby
+	    class DRoby < Roby::DistributedObject::DRoby
                 # The DRoby version of the underlying object
 		attr_reader :real_object
                 # The DRoby representation of the transaction

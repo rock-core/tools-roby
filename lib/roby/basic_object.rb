@@ -30,7 +30,7 @@ module Roby
     # This class contains the information and manipulation attributes that are
     # at the core of Roby object management. In particular, it maintains the
     # distributed object information (needed in multi-Roby setups).
-    class BasicObject
+    class DistributedObject
 	include DRbUndumped
 
         def initialize # :nodoc:
@@ -73,16 +73,16 @@ module Roby
 	end
 
         # True if instances of this class can be transmitted to remote hosts. It
-        # is true by default and can be changed with BasicObject.local_only?
+        # is true by default and can be changed with {DistributedObject#local_only?}
         #
         # This can also be overriden on a per-instance basis by using
-        # BasicObject#distribute=
+        # {DistributedObject#distribute=}
 	def self.distribute?; !(instance_variable_defined?(:@distribute) && @distribute == false) end
 	# Specifies that instances of this class must not be transmitted to
         # remote hosts. By default, it can.
         #
         # This can be overriden on a per-instance basis by using
-        # BasicObject#distribute=
+        # {DistributedObject#distribute=}
 	def self.local_only; @distribute = false end
 
 	def finalized?; !remote_siblings[Distributed] end

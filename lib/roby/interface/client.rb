@@ -2,7 +2,7 @@ module Roby
     module Interface
         # The client-side object that allows to access an interface (e.g. a Roby
         # app) from another process than the Roby controller
-        class Client < BasicObject
+        class Client
             # @return [DRobyChannel] the IO to the server
             attr_reader :io
             # @return [Array<Roby::Actions::Model::Action>] set of known actions
@@ -272,7 +272,7 @@ module Roby
                 # @param [Object] context the underlying interface object
                 def initialize(context)
                     @context = context
-                    @calls = Array.new
+                    @calls = ::Array.new
                 end
 
                 # The set of operations that have been gathered so far
@@ -293,7 +293,8 @@ module Roby
                 def start_job(action_name, *args)
                     if @context.has_action?(action_name)
                         __push([], :start_job, action_name, *args)
-                    else raise NoSuchAction, "there is no action called #{action_name} on #{@context}"
+                    else
+                        ::Kernel.raise ::Roby::Interface::Client::NoSuchAction, "there is no action called #{action_name} on #{@context}"
                     end
                 end
 
@@ -311,7 +312,7 @@ module Roby
                     if m.to_s =~ /(.*)!$/
                         start_job($1, *args)
                     else
-                        raise NoMethodError.new(m), "#{m} either does not exist, or is not supported in batch context (only starting and killing jobs is)"
+                        ::Kernel.raise ::NoMethodError.new(m), "#{m} either does not exist, or is not supported in batch context (only starting and killing jobs is)"
                     end
                 end
 

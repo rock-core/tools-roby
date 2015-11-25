@@ -348,14 +348,14 @@ module Roby
 	Roby::Task.extend Distributed::DRobyTaskModel::Dump
     end
 
-    class BasicObject::DRoby
+    class DistributedObject::DRoby
         # The set of remote siblings for that object, as known by the peer who
         # called #droby_dump. This is used to match object identity among plan
         # managers.
 	attr_reader :remote_siblings
         # The set of owners for that object.
         attr_reader :owners
-        # Create a BasicObject::DRoby object with the given information
+        # Create a DistributedObject::DRoby object with the given information
 	def initialize(remote_siblings, owners)
 	    @remote_siblings, @owners = remote_siblings, owners
 	end
@@ -364,13 +364,13 @@ module Roby
 	    "{ " << remote_siblings.map { |peer, id| id.to_s(peer) }.join(", ") << " }"
 	end
 	def owners_to_s # :nodoc:
-	    BasicObject::DRoby.owners_to_s(self)
+	    DistributedObject::DRoby.owners_to_s(self)
 	end
         def self.owners_to_s(object)
 	    "[ " << object.owners.map(&:name).join(", ") << " ]"
         end
 	def to_s # :nodoc:
-            "#<dRoby:BasicObject#{remote_siblings_to_s} owners=#{owners_to_s}>" 
+            "#<dRoby:DistributedObject#{remote_siblings_to_s} owners=#{owners_to_s}>" 
         end
 
         # If we know of a sibling on +peer+, return it. Otherwise, raises RemotePeerMismatch.
@@ -406,14 +406,15 @@ module Roby
     end
 
     # Base class for all marshalled plan objects.
-    class PlanObject::DRoby < BasicObject::DRoby
+    class PlanObject::DRoby < DistributedObject::DRoby
         # The model for this plan object
 	attr_reader :model
         # The plan of this object
         attr_reader :plan
 
-        # Create a DRoby object with the given information.  See also
-        # BasicObject::DRoby
+        # Create a DRoby object with the given information
+        #
+        # @see DistributedObject::DRoby
 	def initialize(remote_siblings, owners, model, plan)
 	    super(remote_siblings, owners)
 	    @model, @plan = model, plan
@@ -714,7 +715,9 @@ module Roby
 	    def remote_siblings; @remote_siblings ||= Hash[peer, id] end
             # If +peer+ is the plan's owner, returns #id. Otherwise, raises
             # RemotePeerMismatch. This is used to avoid creating proxies when not
-            # needed. See BasicObject::DRoby#sibling_on.
+            # needed
+            #
+            # @see DistributedObject::DRoby#sibling_on.
 	    def sibling_on(peer)
 		if peer.remote_id == self.peer.peer_id then id
 		else raise RemotePeerMismatch, "no known sibling for #{self} on #{peer}"
@@ -741,7 +744,7 @@ module Roby
         # Since it is meant for non-distributed transactions, it cannot be
         # unmarshalled into the local peer plan. It is only meant as a way to
         # convey information
-	class DRoby < BasicObject::DRoby
+	class DRoby < DistributedObject::DRoby
             # The peer which manages this transaction
 	    attr_accessor :peer
             # The transaction remote_id

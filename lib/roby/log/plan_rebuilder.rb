@@ -164,7 +164,7 @@ module Roby
         # that and make sure the plan rebuilder takes care of it
         module PlanObjectLogRebuilder
             def update(peer, proxy)
-                BasicObject::DRoby.instance_method(:update).bind(self).call(peer, proxy)
+                DistributedObject::DRoby.instance_method(:update).bind(self).call(peer, proxy)
             end
         end
 

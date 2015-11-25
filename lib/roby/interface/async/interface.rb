@@ -14,7 +14,7 @@ module Roby
             # Notification callbacks can be registered with one of the on_
             # methods (on_job, ...). A Qt-oriented declarative approach to
             # binding jobs to a UI can be found in {UIConnector}
-            class Interface < BasicObject
+            class Interface
                 extend Logger::Hierarchy
                 extend Logger::Forward
 

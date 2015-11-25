@@ -10,9 +10,9 @@
 # [Roby::TaskStructure] main namespace for task relations. The methods listed in
 # the documentation of TaskStructure are actually methods of Roby::Task
 module Roby
-    class BasicObject; end
-    class PlanObject < BasicObject; end
-    class Plan < BasicObject; end
+    class DistributedObject; end
+    class PlanObject < DistributedObject; end
+    class Plan < DistributedObject; end
     class Control; end
     class EventGenerator < PlanObject; end
     class Task < PlanObject; end

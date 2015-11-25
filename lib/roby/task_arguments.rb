@@ -271,7 +271,7 @@ module Roby
     # attribute, reading the attribute only when the task is started
     #
     # This will usually not be used directly. One should use Task.from instead
-    class DelayedArgumentFromObject < BasicObject
+    class DelayedArgumentFromObject
         def initialize(object, weak = true)
             @object = object
             @methods = []

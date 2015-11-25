@@ -933,7 +933,7 @@ module Roby
 
         # True if we are explicitely subscribed to +object+. Automatically
         # subscribed objects will not be included here, but
-        # BasicObject#updated? will return true for them
+        # {DistributedObject#updated?} will return true for them
         #
         # See also #subscriptions, #subscribe and #unsubscribe
         def subscribed?(object)
