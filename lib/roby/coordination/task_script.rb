@@ -235,9 +235,7 @@ module Roby
     end
 
     class Task
-        class << self
-            inherited_attribute(:script, :scripts) { Array.new }
-        end
+        Models::Task.inherited_attribute(:script, :scripts) { Array.new }
 
         event :poll_transition
 

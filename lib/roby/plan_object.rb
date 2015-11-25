@@ -1,9 +1,13 @@
 module Roby
     # Base class for all objects which are included in a plan.
     class PlanObject < DistributedObject
+        extend Models::PlanObject
+	include DirectedRelationSupport
+
         # This object's model
         #
-        # This is usually self.class
+        # This is usually self.class, unless {#specialize} has been called in
+        # which case it is this object's singleton class
 	attr_reader :model
 
         # The non-specialized model for self
@@ -95,8 +99,6 @@ module Roby
                     @block == other.block
             end
         end
-
-	include DirectedRelationSupport
 
         def initialize
             super
@@ -347,48 +349,6 @@ module Roby
         # Iterates on all the children of this root object
 	def each_plan_child; self end
 
-        # This class method sets up the enclosing class as a child object,
-        # with the root object being returned by the given attribute.
-        # Task event generators are for instance defined by
-        #
-        #   class TaskEventGenerator < EventGenerator
-        #       # The task this generator belongs to
-        #       attr_reader :task
-        #
-        #       child_plan_object :task
-        #   end
-	def self.child_plan_object(attribute)
-	    class_eval <<-EOD, __FILE__, __LINE__+1
-	    def root_object; #{attribute} end
-	    def root_object?; false end
-	    def owners; #{attribute}.owners end
-	    def distribute?; #{attribute}.distribute? end
-	    def plan; #{attribute}.plan end
-	    def executable?; #{attribute}.executable? end
-
-	    def subscribed?; #{attribute}.subscribed? end
-	    def updated?; #{attribute}.updated? end
-	    def updated_by?(peer); #{attribute}.updated_by?(peer) end
-	    def update_on?(peer); #{attribute}.update_on?(peer) end
-	    def updated_peers; #{attribute}.updated_peers end
-	    def remotely_useful?; #{attribute}.remotely_useful? end
-
-	    def forget_peer(peer)
-		remove_sibling_for(peer)
-	    end
-	    def sibling_of(remote_object, peer)
-		if !distribute?
-		    raise ArgumentError, "#{self} is local only"
-		end
-
-		add_sibling_for(peer, remote_object)
-	    end
-	
-	    private :plan=
-	    private :executable=
-	    EOD
-	end
-
         # Transfers a set of relations from this plan object to +object+.
         # +changes+ is formatted as a sequence of <tt>relation, parents,
         # children</tt> slices, where +parents+ and +children+ are sets of
@@ -539,28 +499,6 @@ module Roby
         # @see when_finalized
         attr_reader :finalization_handlers
 
-        class << self
-            extend MetaRuby::Attributes
-
-            # @return [Array<UnboundMethod>] set of finalization handlers
-            #   defined at the model level
-            # @see PlanObject.when_finalized
-            inherited_attribute(:finalization_handler, :finalization_handlers) { Array.new }
-        end
-
-        # Adds a model-level finalization handler, i.e. a handler that will be
-        # called on every instance of the class
-        #
-        # The block is called in the context of the task that got finalized
-        # (i.e. in the block, self is this task)
-        #
-        # @return [void]
-        def self.when_finalized(&block)
-            method_name = "finalization_handler_#{block.object_id}"
-            define_method(method_name, &block)
-            finalization_handlers << instance_method(method_name)
-        end
-
         # Enumerates the finalization handlers that should be applied in
         # finalized!
         #
@@ -573,16 +511,6 @@ module Roby
             self.class.each_finalization_handler do |model_handler|
                 model_handler.bind(self).call(&block)
             end
-        end
-
-        class << self
-            # If true, the backtrace at which a plan object is finalized is
-            # stored in this object's {PlanObject#removed_at} attribute.
-            #
-            # It defaults to false
-            #
-            # @see PlanObject#finalized!
-            attr_predicate :debug_finalization_place?, true
         end
 
         # Called when a particular object has been removed from its plan
