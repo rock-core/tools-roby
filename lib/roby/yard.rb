@@ -69,7 +69,7 @@ module Roby
                 name = statement.parameters[0].jump(:tstring_content, :ident).source
 
 
-                graph_class = YARD::CodeObjects::ClassObject.new(namespace, "#{name}GraphClass")
+                graph_class = YARD::CodeObjects::ClassObject.new(namespace, "#{name}")
                 register(graph_class)
                 instance_module = YARD::CodeObjects::ModuleObject.new(graph_class, "Extension")
                 register(instance_module)

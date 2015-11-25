@@ -14,12 +14,24 @@ module Roby
             alias :child_object?	    :child_vertex?
             alias :parent_object?	    :parent_vertex?
             alias :related_object?	    :related_vertex?
-            alias :each_child_object    :each_child_vertex
-            alias :each_parent_object   :each_parent_vertex
+
+            attr_reader :relation_graphs
+
+            def each_parent_object(graph)
+                each_parent_vertex(relation_graphs[graph]) do |parent|
+                    yield(parent)
+                end
+            end
+
+            def each_child_object(graph)
+                each_child_vertex(relation_graphs[graph]) do |child|
+                    yield(child)
+                end
+            end
 
             def each_relation
-                each_graph do |g|
-                    yield(g) if g.kind_of?(Relations::Graph)
+                relation_graphs do |k, g|
+                    yield(g) if k == g
                 end
             end
 
@@ -96,7 +108,7 @@ module Roby
             # * #added_child_object on +self+ and #added_parent_object on +child+
             #   just after
             def add_child_object(child, relation, info = nil)
-                relation.add_relation(self, child, info)
+                relation_graphs[relation].add_relation(self, child, info)
             end
 
             # Add a new parent object in the +relation+ relation
@@ -105,7 +117,7 @@ module Roby
             # * #added_child_object on +parent+ and #added_child_object on +self+
             #   just after
             def add_parent_object(parent, relation, info = nil)
-                parent.add_child_object(self, relation, info)
+                relation_graphs[parent].add_child_object(self, relation, info)
             end
 
             # Remove all edges in which +self+ is the source and +child+ the
@@ -170,9 +182,9 @@ module Roby
                         remove_relations(rel)
                     end
                     return
-                elsif !relation.include?(self)
-                    return
                 end
+                relation = relation_graphs[relation]
+                return if !relation.include?(self)
 
                 each_parent_object(relation) do |parent|
                     relation.remove_relation(parent, self)
@@ -181,6 +193,10 @@ module Roby
                 each_child_object(relation) do |child|
                     relation.remove_relation(self, child)
                 end
+            end
+
+            def [](object, graph)
+                super(object, relation_graphs[graph])
             end
 
             def []=(object, relation, value)

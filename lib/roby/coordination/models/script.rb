@@ -180,7 +180,7 @@ module Roby
                 # @param [Task] task the action-task. It must be created by
                 #   calling {Base#task} on the relevant object
                 # @param [Hash] options the dependency relation options. See
-                #   {Roby::TaskStructure::DependencyGraphClass::Extension#depends_on}
+                #   {Roby::TaskStructure::Dependency::Extension#depends_on}
                 def start(task, options = Hash.new)
                     task = validate_or_create_task task
                     add Start.new(task, options)
@@ -192,7 +192,7 @@ module Roby
                 # @param [Task] task the action-task. It must be created by
                 #   calling {Base#task} on the relevant object
                 # @param [Hash] options the dependency relation options. See
-                #   {Roby::TaskStructure::DependencyGraphClass::Extension#depends_on}
+                #   {Roby::TaskStructure::Dependency::Extension#depends_on}
                 def execute(task, options = Hash.new)
                     task = validate_or_create_task task
                     start(task, options)

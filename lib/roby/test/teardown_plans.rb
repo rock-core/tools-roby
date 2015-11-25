@@ -22,6 +22,9 @@ module Roby
 
             def teardown_registered_plans
                 old_gc_roby_logger_level = Roby.logger.level
+                if self.registered_plans.all? { |p| p.empty? }
+                    return
+                end
 
                 plans = self.registered_plans.map do |p|
                     if p.execution_engine

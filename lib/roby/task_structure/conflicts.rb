@@ -2,7 +2,7 @@ module Roby
     module TaskStructure
 	relation :Conflicts, noinfo: true
 
-        class ConflictsGraphClass
+        class Conflicts
             module Extension
                 def conflicts_with(task)
                     # task.event(:stop).add_precedence event(:start)
@@ -71,6 +71,6 @@ module Roby
         end
     end
 
-    Roby::TaskEventGenerator.include TaskStructure::ConflictsGraphClass::EventGeneratorExtension
+    Roby::TaskEventGenerator.include TaskStructure::Conflicts::EventGeneratorExtension
 end
 

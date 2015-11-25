@@ -1,6 +1,8 @@
 require "roby/relations/directed_relation_support"
+require "roby/relations/models/graph"
 require "roby/relations/graph"
 require "roby/relations/event_relation_graph"
+require "roby/relations/models/task_relation_graph"
 require "roby/relations/task_relation_graph"
 require "roby/relations/space"
 

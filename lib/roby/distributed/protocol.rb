@@ -127,7 +127,7 @@ module Roby
             extend Roby::Distributed::DRobyConstant::Dump
         end
 	class Roby::Relations::Graph
-	    include Roby::Distributed::DRobyConstant::Dump
+	    extend Roby::Distributed::DRobyConstant::Dump
 	end
 
         # Dumps a model. When unmarshalling, it tries to search for the same

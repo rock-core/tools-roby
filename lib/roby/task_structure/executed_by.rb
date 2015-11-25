@@ -18,7 +18,7 @@ module Roby::TaskStructure
 	end
     end
 
-    class ExecutionAgentGraphClass
+    class ExecutionAgent
         def self.execution_agent_failed_to_start(reason, ready_event)
             execution_agent = ready_event.task
 
@@ -181,25 +181,25 @@ module Roby::TaskStructure
                             execution_agent.forward_to(:stop, self, :aborted)
                         end
                     else
-                        start_event.on(&ExecutionAgentGraphClass.method(:establish_agent_aborted_relation))
+                        start_event.on(&ExecutionAgent.method(:establish_agent_aborted_relation))
                     end
 
-                    stop_event.on(&ExecutionAgentGraphClass.method(:remove_agent_aborted_relation))
+                    stop_event.on(&ExecutionAgent.method(:remove_agent_aborted_relation))
                     self.used_with_an_execution_agent = true
                 end
 
                 if !child.used_as_execution_agent?
                     child.ready_event.when_unreachable(
-                        true, &ExecutionAgentGraphClass.method(:execution_agent_failed_to_start))
+                        true, &ExecutionAgent.method(:execution_agent_failed_to_start))
                     child.stop_event.on(
-                        &ExecutionAgentGraphClass.method(:pending_execution_agent_failed))
+                        &ExecutionAgent.method(:pending_execution_agent_failed))
                     child.used_as_execution_agent = true
                 end
             end
         end
     end
 
-    Roby::Task.extend ExecutionAgentGraphClass::ModelExtension
+    Roby::Task.extend ExecutionAgent::ModelExtension
     
     # This module is hooked in Roby::TaskEventGenerator to check that a task
     # which is being started has a suitable execution agent, and to start it if

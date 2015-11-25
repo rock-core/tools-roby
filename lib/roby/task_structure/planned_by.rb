@@ -5,7 +5,7 @@ module Roby::TaskStructure
         noinfo: true,
         single_child: true
 
-    class PlannedByGraphClass
+    class PlannedBy
         module Extension
             # Returns the first child enumerated by planned_tasks. This is a
             # convenience method that can be used if it is known that the planning

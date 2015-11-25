@@ -255,7 +255,7 @@ module Roby
             dag: false,
             noinfo: true
 
-        class SchedulingConstraintsGraphClass
+        class SchedulingConstraints
             module Extension
                 def schedule_as(event)
                     event.add_forward_scheduling_constraint(self)
@@ -297,7 +297,7 @@ module Roby
             parent_name: :backward_temporal_constraint,
             dag: false
 
-        class TemporalConstraintsGraphClass
+        class TemporalConstraints
             module Extension
                 # Shortcut to specify that +self+ should be emitted after
                 # +other_event+

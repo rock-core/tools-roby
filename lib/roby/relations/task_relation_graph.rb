@@ -4,13 +4,15 @@ module Roby
         #
         # It adds attributes that are specific to tasks
         class TaskRelationGraph < Relations::Graph
+            extend Models::TaskRelationGraph
+
             # If true, the tasks that have a parent in this relation will still be
             # available for scheduling. Otherwise, they won't get scheduled
             attr_predicate :scheduling?, true
 
-            def initialize(*args)
-                super
-                @scheduling = options.fetch(:scheduling, true)
+            def initialize(*args, scheduling: self.class.scheduling?, **options)
+                super(*args, **options)
+                @scheduling = scheduling
             end
         end
     end

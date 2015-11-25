@@ -33,9 +33,9 @@ module Roby::TaskStructure
 	end
     end
 
-    relation :ErrorHandling, child_name: :error_handler, strong: true
+    relation :ErrorHandling, child_name: :error_handler, strong: true, scheduling: true
 
-    module ErrorHandlingGraphClass::Extension
+    module ErrorHandling::Extension
         def repaired_tasks
 	    enum_parent_objects(ErrorHandling).to_a
         end
@@ -117,12 +117,10 @@ module Roby::TaskStructure
         end
     end
 
-    class ErrorHandlingGraphClass
+    class ErrorHandling
         def merge_info(parent, child, opt1, opt2)
             opt1 | opt2
         end
     end
-
-    ErrorHandling.scheduling = false
 end
 

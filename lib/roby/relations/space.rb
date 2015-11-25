@@ -37,6 +37,26 @@ module Roby
                 super
             end
 
+            # Instanciate this space's relation graphs
+            #
+            # It instanciates a graph per relation defined on self, and sets
+            # their subset/superset relationships accordingly
+            #
+            # @return [Hash<Models<Graph>,Graph>]
+            def instanciate
+                graphs = Hash.new
+                relations.each do |rel|
+                    g = rel.new(name || to_s)
+                    graphs[g] = graphs[rel] = g
+                end
+                relations.each do |rel|
+                    rel.subsets.each do |subset_rel|
+                        graphs[rel].superset_of(graphs[subset_rel])
+                    end
+                end
+                graphs
+            end
+
             # This relation applies on +klass+. It mainly means that a relation
             # defined on this Space will define the relation-access methods
             # and include its support module (if any) in +klass+. Note that the
@@ -45,15 +65,15 @@ module Roby
             def apply_on(klass)
                 klass.include DirectedRelationSupport
                 each_relation do |graph|
-                    klass.include graph.support
+                    klass.include graph::Extension
                 end
-
                 applied << klass
             end
 
             # Yields the relations that are defined on this space
             def each_relation
-                for rel in relations
+                return enum_for(__method__) if !block_given?
+                relations.each do |rel|
                     yield(rel)
                 end
             end
@@ -62,8 +82,9 @@ module Roby
             # is a root relation when it has no parent relation (i.e. it is the
             # subset of no other relations).
             def each_root_relation
-                for rel in relations
-                    yield(rel) unless rel.parent
+                return enum_for(__method__) if !block_given?
+                relations.each do |rel|
+                    yield(rel) if !rel.parent
                 end
             end
 
@@ -73,13 +94,17 @@ module Roby
             # +obj+ and ending at +v+ in the union graph of all the relations.
             # 
             # If +strict+ is true, +obj+ is not included in the returned set
+            #
+            # TODO: REIMPLEMENT
             def children_of(obj, strict = true, relations = nil)
-                set = compute_children_of([obj].to_set, relations || self.relations)
+                set = compute_children_of([obj].to_set, relations || self.relations.values)
                 set.delete(obj) if strict
                 set
             end
 
             # Internal implementation method for +children_of+
+            #
+            # TODO: REIMPLEMENT
             def compute_children_of(current, relations) # :nodoc:
                 old_size = current.size
                 for rel in relations
@@ -171,186 +196,195 @@ module Roby
             #
             # Finally, if a block is given, it gets included in the target class
             # (i.e. for a TaskStructure relation, Roby::Task)
-            def relation(relation_name, options = {})
-                options = validate_options options,
+            def relation(relation_name,
                             child_name:  relation_name.to_s.snakecase,
                             const_name:  relation_name,
                             parent_name: nil,
-                            subsets:     Set.new,
-                            noinfo:      false,
                             graph:       default_graph_class,
+                            single_child: false,
+
                             distribute:  true,
                             dag:         true,
-                            single_child: false,
                             weak:        false,
                             strong:      false,
-                            copy_on_replace: false
+                            copy_on_replace: false,
+                            noinfo:      false,
+                            subsets:     Set.new,
+                            **submodel_options)
 
                 if block_given?
-                    raise ArgumentError, "calling relation with a block is not supported anymore. Reopen #{options[:const_name]}GraphClass::Extension after the relation call to add helper methods"
-                elsif options[:strong] && options[:weak]
+                    raise ArgumentError, "calling relation with a block is not supported anymore. Reopen #{const_name}::Extension after the relation call to add helper methods"
+                elsif strong && weak
                     raise ArgumentError, "a relation cannot be both strong and weak"
                 end
 
                 # Check if this relation is already defined. If it is the case, reuse it.
                 # This is needed mostly by the reloading code
-                graph = define_or_reuse(options[:const_name]) do
-                    klass = Class.new(options[:graph])
-                    graph = klass.new "#{self.name}::#{options[:const_name]}", options
-                    mod = Module.new do
-                        singleton_class.class_eval do
-                            define_method("__r_#{relation_name}__") { graph }
-                        end
-                        class_eval "@@__r_#{relation_name}__ = __r_#{relation_name}__"
+                graph_class = define_or_reuse(const_name) do
+                    klass = graph.new_submodel(
+                        distribute: distribute, dag: dag, weak: weak, strong: strong,
+                        copy_on_replace: copy_on_replace, noinfo: noinfo, subsets: subsets,
+                        **submodel_options)
+                    extension = Module.new do
+                        define_method("__r_#{relation_name}__") { relation_graphs[klass] }
                     end
-                    const_set("#{options[:const_name]}GraphClass", klass)
-                    klass.const_set("Extension", mod)
-                    mod.const_set("ClassExtension", Module.new)
-                    klass.const_set("ModelExtension", mod::ClassExtension)
-                    relations << graph
-                    graph.support = mod
-                    graph
+                    class_extension = Module.new
+                    klass.const_set("Extension", extension)
+                    klass.const_set("ModelExtension", class_extension)
+                    extension.const_set("ClassExtension", class_extension)
+                    klass
                 end
-                mod = graph.support
+                subsets.each do |subset_rel|
+                    graph_class.superset_of(subset_rel)
+                end
+                extension = graph_class::Extension
 
-                if parent_enumerator = options[:parent_name]
-                    mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
-                    def each_#{parent_enumerator}(&iterator)
+                if parent_name
+                    extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    def each_#{parent_name}(&iterator)
                         if !block_given?
-                            return enum_parent_objects(@@__r_#{relation_name}__)
+                            return enum_parent_objects(__r_#{relation_name}__)
                         end
 
-                        self.each_parent_object(@@__r_#{relation_name}__, &iterator)
+                        self.each_parent_object(__r_#{relation_name}__, &iterator)
                     end
                     EOD
                 end
 
-                if options[:noinfo]
-                    mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
-                    def each_#{options[:child_name]}
+                if noinfo
+                    extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    def each_#{child_name}
                         if !block_given?
-                            return enum_child_objects(@@__r_#{relation_name}__)
+                            return enum_child_objects(__r_#{relation_name}__)
                         end
 
-                        each_child_object(@@__r_#{relation_name}__) { |child| yield(child) }
+                        each_child_object(__r_#{relation_name}__) { |child| yield(child) }
                     end
-                    def find_#{options[:child_name]}
-                        each_child_object(@@__r_#{relation_name}__) do |child|
+                    def find_#{child_name}
+                        each_child_object(__r_#{relation_name}__) do |child|
                             return child if yield(child)
                         end
                         nil
                     end
                     EOD
                 else
-                    mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
-                    cached_enum("#{options[:child_name]}", "#{options[:child_name]}", true)
-                    def each_#{options[:child_name]}(with_info = true)
+                    extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    cached_enum("#{child_name}", "#{child_name}", true)
+                    def each_#{child_name}(with_info = true)
                         if !block_given?
-                            return enum_#{options[:child_name]}(with_info)
+                            return enum_#{child_name}(with_info)
                         end
 
                         if with_info
-                            each_child_object(@@__r_#{relation_name}__) do |child|
-                                yield(child, self[child, @@__r_#{relation_name}__])
+                            each_child_object(__r_#{relation_name}__) do |child|
+                                yield(child, self[child, __r_#{relation_name}__])
                             end
                         else
-                            each_child_object(@@__r_#{relation_name}__) do |child|
+                            each_child_object(__r_#{relation_name}__) do |child|
                                 yield(child)
                             end
                         end
                     end
-                    def find_#{options[:child_name]}
-                        each_child_object(@@__r_#{relation_name}__) do |child|
-                            return child if yield(child, self[child, @@__r_#{relation_name}__])
+                    def find_#{child_name}(with_info = true)
+                        if with_info
+                            each_child_object(__r_#{relation_name}__) do |child|
+                                return child if yield(child, self[child, __r_#{relation_name}__])
+                            end
+                        else
+                            each_child_object(__r_#{relation_name}__) do |child|
+                                return child if yield(child)
+                            end
                         end
                         nil
                     end
                     EOD
                 end
 
-                mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
                 def adding_child_object(to, relations, info)
                     super
-                    if relations.include?(@@__r_#{relation_name}__)
-                        adding_#{options[:child_name]}(to, info)
+                    if relations.include?(__r_#{relation_name}__)
+                        adding_#{child_name}(to, info)
                     end
                 end
                 def removing_child_object(to, relations)
                     super
-                    if relations.include?(@@__r_#{relation_name}__)
-                        removing_#{options[:child_name]}(to)
+                    if relations.include?(__r_#{relation_name}__)
+                        removing_#{child_name}(to)
                     end
                 end
-                def add_#{options[:child_name]}(to, info = nil)
-                    add_child_object(to, @@__r_#{relation_name}__, info)
+                def add_#{child_name}(to, info = nil)
+                    add_child_object(to, __r_#{relation_name}__, info)
                     self
                 end
-                def remove_#{options[:child_name]}(to)
-                    remove_child_object(to, @@__r_#{relation_name}__)
+                def remove_#{child_name}(to)
+                    remove_child_object(to, __r_#{relation_name}__)
                     self
                 end
 
-                def adding_#{options[:child_name]}(to, info)
+                def adding_#{child_name}(to, info)
                 end
-                def added_#{options[:child_name]}(to, info)
+                def added_#{child_name}(to, info)
                 end
-                def removing_#{options[:child_name]}(to)
+                def removing_#{child_name}(to)
                 end
-                def removed_#{options[:child_name]}(to)
+                def removed_#{child_name}(to)
                 end
                 EOD
 
-                if options[:single_child]
-                    mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
-                    attr_reader :#{options[:child_name]}
+                if single_child
+                    extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    attr_reader :#{child_name}
 
                     def added_child_object(child, relations, info)
-                        if relations.include?(@@__r_#{relation_name}__)
-                            instance_variable_set :@#{options[:child_name]}, child
+                        if relations.include?(__r_#{relation_name}__)
+                            instance_variable_set :@#{child_name}, child
                         end
                         super if defined? super
-                        if relations.include?(@@__r_#{relation_name}__)
-                            added_#{options[:child_name]}(child, info)
+                        if relations.include?(__r_#{relation_name}__)
+                            added_#{child_name}(child, info)
                         end
                     end
 
                     def removed_child_object(child, relations)
-                        if relations.include?(@@__r_#{relation_name}__)
-                            instance_variable_set :@#{options[:child_name]}, nil
-                            each_child_object(@@__r_#{relation_name}__) do |child|
-                                instance_variable_set :@#{options[:child_name]}, child
+                        if relations.include?(__r_#{relation_name}__)
+                            instance_variable_set :@#{child_name}, nil
+                            each_child_object(__r_#{relation_name}__) do |child|
+                                instance_variable_set :@#{child_name}, child
                                 break
                             end
                         end
                         super if defined? super
-                        if relations.include?(@@__r_#{relation_name}__)
-                            removed_#{options[:child_name]}(child)
+                        if relations.include?(__r_#{relation_name}__)
+                            removed_#{child_name}(child)
                         end
                     end
                     EOD
                 else
-                    mod.class_eval <<-EOD, __FILE__, __LINE__ + 1
+                    extension.class_eval <<-EOD, __FILE__, __LINE__ + 1
                     def added_child_object(to, relations, info)
                         super
-                        if relations.include?(@@__r_#{relation_name}__)
-                            added_#{options[:child_name]}(to, info)
+                        if relations.include?(__r_#{relation_name}__)
+                            added_#{child_name}(to, info)
                         end
                     end
                     def removed_child_object(to, relations)
                         super
-                        if relations.include?(@@__r_#{relation_name}__)
-                            removed_#{options[:child_name]}(to)
+                        if relations.include?(__r_#{relation_name}__)
+                            removed_#{child_name}(to)
                         end
                     end
                     EOD
                 end
 
-                graph.support = mod
-                applied.each { |klass| klass.include mod }
+                applied.each { |klass| klass.include extension }
+                add_relation(graph_class)
+                graph_class
+            end
 
-                Roby::Relations.add_relation(graph)
-
-                graph
+            def add_relation(rel)
+                relations << rel
+                Roby::Relations.add_relation(rel)
             end
 
             # Remove +rel+ from the set of relations managed in this space

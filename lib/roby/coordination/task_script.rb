@@ -99,7 +99,7 @@ module Roby
             #
             # @param [Task] task the task that should be started
             # @param [Hash] dependency_options options that should be passed to
-            #   TaskStructure::DependencyGraphClass::Extension#depends_on
+            #   TaskStructure::Dependency::Extension#depends_on
             def start(task, dependency_options = Hash.new)
                 task, model_task = resolve_task(task)
                 model.start(model_task, dependency_options)

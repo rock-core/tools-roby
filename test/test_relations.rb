@@ -1,31 +1,5 @@
-require 'roby/test/self'
 
 class TC_Relations < Minitest::Test
-    def test_definition
-	klass = Class.new
-
-	r1, r2 = nil
-	space = Roby::RelationSpace(klass)
-        r1 = space.relation :R1
-        r1.class::Extension.module_eval do
-            def specific_relation_method
-            end
-        end
-        r2 = space.relation :R2s, child_name: :child, parent_name: :parent
-	assert(Module === space)
-
-	n = klass.new
-	assert_equal(r2, space.constant('R2s'))
-        assert(r2.embeds_info?)
-	assert( n.respond_to?(:each_child) )
-	assert( n.respond_to?(:add_child) )
-	assert( n.respond_to?(:remove_child) )
-	assert( n.respond_to?(:each_parent) )
-	assert( n.respond_to?(:add_r1) )
-	assert( n.respond_to?(:add_child) )
-	assert( n.respond_to?(:specific_relation_method) )
-    end
-
     def test_relation_info
 	klass = Class.new { include Roby::Relations::DirectedRelationSupport }
 

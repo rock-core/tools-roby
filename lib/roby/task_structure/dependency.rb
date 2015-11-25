@@ -4,7 +4,7 @@ module Roby::TaskStructure
 
     relation :Dependency, child_name: :child, parent_name: :parent_task
 
-    module DependencyGraphClass::Extension
+    module Dependency::Extension
 	# True if +obj+ is a parent of this object in the hierarchy relation
 	# (+obj+ is realized by +self+)
 	def depended_upon_by?(obj);	parent_object?(obj, Dependency) end
@@ -234,7 +234,7 @@ module Roby::TaskStructure
                 raise ArgumentError, "cannot add a dependency of a task to itself"
             end
 
-            options = DependencyGraphClass.validate_options options, 
+            options = Dependency.validate_options options, 
 		model: [task.provided_models, task.meaningful_arguments], 
 		success: :success.to_unbound_task_predicate, 
 		failure: false.to_unbound_task_predicate,
@@ -512,7 +512,7 @@ module Roby::TaskStructure
         end
     end
 
-    module DependencyGraphClass::ModelExtension
+    module Dependency::ModelExtension
         # True if a fullfilled model has been explicitly set on self
         # @return [Boolean]
         def explicit_fullfilled_model?; !!@fullfilled_model end
@@ -561,7 +561,7 @@ module Roby::TaskStructure
 
         # Returns the model that all instances of this taks model fullfill
         #
-        # (see DependencyGraphClass::Extension#fullfilled_model)
+        # (see Dependency::Extension#fullfilled_model)
         def fullfilled_model
             explicit_fullfilled_model || implicit_fullfilled_model
         end
@@ -575,7 +575,7 @@ module Roby::TaskStructure
         end
     end
 
-    class DependencyGraphClass
+    class Dependency
 	# The set of events that have been fired in this cycle and are involved in a Hierarchy relation
 	attribute(:interesting_events) { Array.new }
 
@@ -602,7 +602,7 @@ module Roby::TaskStructure
 
             if !events.empty?
                 for ev in events
-                    ev.if_unreachable(&DependencyGraphClass.method(:register_interesting_event_if_unreachable))
+                    ev.if_unreachable(&Dependency.method(:register_interesting_event_if_unreachable))
                 end
                 Roby::EventGenerator.gather_events(Dependency.interesting_events, [parent.event(:start)])
                 Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
@@ -730,9 +730,9 @@ module Roby::TaskStructure
         # Called by the relation management when two dependency relations need
         # to be merged
         #
-        # @see DependencyGraphClass.merge_dependency_options
+        # @see Dependency.merge_dependency_options
         def merge_info(parent, child, opt1, opt2)
-            result = DependencyGraphClass.merge_dependency_options(opt1, opt2)
+            result = Dependency.merge_dependency_options(opt1, opt2)
             update_triggers_for(parent, child, result)
             result
         rescue Exception => e

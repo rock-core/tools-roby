@@ -20,18 +20,33 @@ module Roby
         # TaskStructure manages all relations whose vertices are Task instances).
         # In these cases, Relations::Space#relation allow to define new relations easily.
         class Graph < BGL::Graph
+            extend Models::Graph
+
             # The relation name
             attr_reader   :name
             # The relation parent (if any). See #superset_of.
             attr_accessor :parent
             # The set of graphs that are directly children of self in the graph
             # hierarchy. They are subgraphs of self, but not all the existing
-            # subgraphs of self. See {#recursive_subsets} to get all subsets
+            # subgraphs of self
+            #
+            # @see recursive_subsets
             attr_reader   :subsets
             # The set of all graphs that are known to be subgraphs of self
             attr_reader :recursive_subsets
-            # The graph options as given to Relations::Space#relation
-            attr_reader   :options
+
+            # Compute the set of all graphs that are subsets of this one in the
+            # subset hierarchy
+            def recursive_subsets
+                result = Set.new
+                queue = subsets.to_a.dup
+                while !queue.empty?
+                    g = queue.shift
+                    result << g
+                    queue.concat(g.subsets.to_a)
+                end
+                result
+            end
 
             # Creates a relation graph with the given name and options. The
             # following options are recognized:
@@ -43,22 +58,28 @@ module Roby
             #   See #superset_of.
             # +distributed+:: 
             #   if this relation graph should be seen by remote hosts
-            def initialize(name, options = {})
+            def initialize(
+                name,
+                distribute: self.class.distribute?,
+                dag: self.class.dag?,
+                weak: self.class.weak?,
+                strong: self.class.strong?,
+                copy_on_replace: self.class.copy_on_replace?,
+                noinfo: !self.class.embeds_info?,
+                subsets: Set.new)
+
                 self.name = name
                 @name    = name
-                @options = options
+                @distribute = distribute
+                @dag     = dag
+                @weak    = weak
+                @strong  = strong
+                @copy_on_replace = copy_on_replace
+                @embeds_info = !noinfo
+
                 @subsets = Set.new
                 @recursive_subsets = Set.new
-                @distribute = options[:distribute]
-                @dag     = options[:dag]
-                @weak    = options[:weak]
-                @strong  = options[:strong]
-                @copy_on_replace = options[:copy_on_replace]
-                @embeds_info = !options[:noinfo]
-
-                if options[:subsets]
-                    options[:subsets].each { |g| superset_of(g) }
-                end
+                subsets.each { |g| superset_of(g) }
             end
 
             # True if this relation graph is a DAG
@@ -142,11 +163,12 @@ module Roby
                 end
 
                 if !new_relations.empty?
+                    new_relations_ids = new_relations.map(&:class)
                     if from.respond_to?(:adding_child_object)
-                        from.adding_child_object(to, new_relations, info)
+                        from.adding_child_object(to, new_relations_ids, info)
                     end
                     if to.respond_to?(:adding_parent_object)
-                        to.adding_parent_object(from, new_relations, info)
+                        to.adding_parent_object(from, new_relations_ids, info)
                     end
 
                     for rel in new_relations
@@ -154,10 +176,10 @@ module Roby
                     end
 
                     if from.respond_to?(:added_child_object)
-                        from.added_child_object(to, new_relations, info)
+                        from.added_child_object(to, new_relations_ids, info)
                     end
                     if to.respond_to?(:added_parent_object)
-                        to.added_parent_object(from, new_relations, info)
+                        to.added_parent_object(from, new_relations_ids, info)
                     end
                 end
             end
@@ -283,9 +305,6 @@ module Roby
                     source.add_child_object(target, self, info)
                 end
             end
-
-            # The Ruby module that gets included in graph objects
-            attr_accessor :support
 
             # Recomputes the recursive_subsets attribute, and triggers the
             # recomputation on its parents as well
