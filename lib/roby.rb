@@ -38,11 +38,6 @@ require 'utilrb/kernel/options'
 require 'utilrb/module/attr_enumerable'
 require 'utilrb/module/attr_predicate'
 require 'utilrb/module/include'
-begin
-    require 'utilrb/module/singleton_class_p'
-rescue LoadError
-    require 'utilrb/module/is_singleton'
-end
 require 'utilrb/kernel/arity'
 require 'utilrb/exception/full_message'
 require 'utilrb/unbound_method/call'
