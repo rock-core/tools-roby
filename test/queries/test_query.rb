@@ -1,6 +1,5 @@
 require 'roby/test/self'
 require 'roby/tasks/simple'
-require 'roby/state/information'
 
 class TC_Queries_Query < Minitest::Test
     TaskMatcher = Queries::TaskMatcher
