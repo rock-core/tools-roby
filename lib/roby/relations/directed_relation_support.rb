@@ -230,6 +230,12 @@ module Roby
             # @param [Object] info the associated edge info that applies to
             #   relations.first
             def adding_child_object(child, relations, info)
+                super if defined? super
+                relations.each do |rel|
+                    if name = rel.child_name
+                        send("adding_#{rel.child_name}", child, info)
+                    end
+                end
             end
 
             # Hook called after a new child has been added to this object
@@ -242,6 +248,12 @@ module Roby
             # @param [Object] info the associated edge info that applies to
             #   relations.first
             def added_child_object(child, relations, info)
+                super if defined? super
+                relations.each do |rel|
+                    if name = rel.child_name
+                        send("added_#{rel.child_name}", child, info)
+                    end
+                end
             end
 
             # Hook called before a new child is added to this object
@@ -254,6 +266,12 @@ module Roby
             # @param [Array<Relations::Graph>] relations the graphs in which an edge
             #   is being removed
             def removing_child_object(child, relations)
+                super if defined? super
+                relations.each do |rel|
+                    if name = rel.child_name
+                        send("removing_#{rel.child_name}", child)
+                    end
+                end
             end
 
             # Hook called after a child has been removed from this object
@@ -264,6 +282,12 @@ module Roby
             # @param [Array<Relations::Graph>] relations the graphs in which an edge
             #   has been removed
             def removed_child_object(child, relations)
+                super if defined? super
+                relations.each do |rel|
+                    if name = rel.child_name
+                        send("removed_#{rel.child_name}", child)
+                    end
+                end
             end
         end
     end

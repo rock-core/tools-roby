@@ -7,8 +7,9 @@ module Roby
                 # @api private
                 #
                 # Hook method called to setup a new relation graph
-                def setup_submodel(submodel, distribute: true, dag: false, weak: false, strong: false, copy_on_replace: false, noinfo: true, subsets: Set.new)
+                def setup_submodel(submodel, child_name: nil, distribute: true, dag: false, weak: false, strong: false, copy_on_replace: false, noinfo: true, subsets: Set.new)
                     super
+                    submodel.instance_variable_set :@child_name, child_name
                     submodel.distribute = distribute
                     submodel.dag = dag
                     submodel.weak = weak
@@ -29,6 +30,11 @@ module Roby
                 attr_predicate :copy_on_replace?, true
                 attr_predicate :embeds_info?, true
 
+                # The child_name as given to Space#relation
+                #
+                # This is used to dispatch to the relation-specific hooks in
+                # {DirectedRelationSupport}
+                attr_reader :child_name
 
                 # The set of graphs that are subsets of self
                 #

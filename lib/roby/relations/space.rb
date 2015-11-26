@@ -224,7 +224,7 @@ module Roby
                     klass = graph.new_submodel(
                         distribute: distribute, dag: dag, weak: weak, strong: strong,
                         copy_on_replace: copy_on_replace, noinfo: noinfo, subsets: subsets,
-                        **submodel_options)
+                        child_name: child_name, **submodel_options)
                     synthetized_methods = Module.new do
                         define_method("__r_#{relation_name}__") { relation_graphs[klass] }
                     end
@@ -308,30 +308,6 @@ module Roby
                 end
 
                 synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
-                def added_child_object(to, relations, info)
-                    super
-                    if relations.include?(__r_#{relation_name}__.class)
-                        added_#{child_name}(to, info)
-                    end
-                end
-                def removed_child_object(to, relations)
-                    super
-                    if relations.include?(__r_#{relation_name}__.class)
-                        removed_#{child_name}(to)
-                    end
-                end
-                def adding_child_object(to, relations, info)
-                    super
-                    if relations.include?(__r_#{relation_name}__.class)
-                        adding_#{child_name}(to, info)
-                    end
-                end
-                def removing_child_object(to, relations)
-                    super
-                    if relations.include?(__r_#{relation_name}__.class)
-                        removing_#{child_name}(to)
-                    end
-                end
                 def add_#{child_name}(to, info = nil)
                     add_child_object(to, __r_#{relation_name}__, info)
                     self
