@@ -225,10 +225,12 @@ module Roby
                         distribute: distribute, dag: dag, weak: weak, strong: strong,
                         copy_on_replace: copy_on_replace, noinfo: noinfo, subsets: subsets,
                         **submodel_options)
-                    extension = Module.new do
+                    synthetized_methods = Module.new do
                         define_method("__r_#{relation_name}__") { relation_graphs[klass] }
                     end
+                    extension = Module.new
                     class_extension = Module.new
+                    klass.const_set("SynthetizedMethods", synthetized_methods)
                     klass.const_set("Extension", extension)
                     klass.const_set("ModelExtension", class_extension)
                     extension.const_set("ClassExtension", class_extension)
@@ -237,10 +239,15 @@ module Roby
                 subsets.each do |subset_rel|
                     graph_class.superset_of(subset_rel)
                 end
+                synthetized_methods = graph_class::SynthetizedMethods
                 extension = graph_class::Extension
+                applied.each do |klass|
+                    klass.include synthetized_methods
+                    klass.include extension
+                end
 
                 if parent_name
-                    extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
                     def each_#{parent_name}(&iterator)
                         if !block_given?
                             return enum_parent_objects(__r_#{relation_name}__)
@@ -252,7 +259,7 @@ module Roby
                 end
 
                 if noinfo
-                    extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
                     def each_#{child_name}
                         if !block_given?
                             return enum_child_objects(__r_#{relation_name}__)
@@ -268,7 +275,7 @@ module Roby
                     end
                     EOD
                 else
-                    extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
                     cached_enum("#{child_name}", "#{child_name}", true)
                     def each_#{child_name}(with_info = true)
                         if !block_given?
@@ -300,16 +307,28 @@ module Roby
                     EOD
                 end
 
-                extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                def added_child_object(to, relations, info)
+                    super
+                    if relations.include?(__r_#{relation_name}__.class)
+                        added_#{child_name}(to, info)
+                    end
+                end
+                def removed_child_object(to, relations)
+                    super
+                    if relations.include?(__r_#{relation_name}__.class)
+                        removed_#{child_name}(to)
+                    end
+                end
                 def adding_child_object(to, relations, info)
                     super
-                    if relations.include?(__r_#{relation_name}__)
+                    if relations.include?(__r_#{relation_name}__.class)
                         adding_#{child_name}(to, info)
                     end
                 end
                 def removing_child_object(to, relations)
                     super
-                    if relations.include?(__r_#{relation_name}__)
+                    if relations.include?(__r_#{relation_name}__.class)
                         removing_#{child_name}(to)
                     end
                 end
@@ -323,61 +342,42 @@ module Roby
                 end
 
                 def adding_#{child_name}(to, info)
-                end
-                def added_#{child_name}(to, info)
+                    super if defined? super
                 end
                 def removing_#{child_name}(to)
-                end
-                def removed_#{child_name}(to)
+                    super if defined? super
                 end
                 EOD
 
                 if single_child
-                    extension.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
                     attr_reader :#{child_name}
 
-                    def added_child_object(child, relations, info)
-                        if relations.include?(__r_#{relation_name}__)
-                            instance_variable_set :@#{child_name}, child
-                        end
+                    def added_#{child_name}(child, info)
                         super if defined? super
-                        if relations.include?(__r_#{relation_name}__)
-                            added_#{child_name}(child, info)
-                        end
+                        @#{child_name} = child
                     end
 
-                    def removed_child_object(child, relations)
-                        if relations.include?(__r_#{relation_name}__)
-                            instance_variable_set :@#{child_name}, nil
+                    def removed_#{child_name}(child)
+                        super if defined? super
+                        if @#{child_name} == child
+                            @#{child_name} = nil
                             each_child_object(__r_#{relation_name}__) do |child|
-                                instance_variable_set :@#{child_name}, child
+                                @#{child_name} = child
                                 break
                             end
-                        end
-                        super if defined? super
-                        if relations.include?(__r_#{relation_name}__)
-                            removed_#{child_name}(child)
                         end
                     end
                     EOD
                 else
-                    extension.class_eval <<-EOD, __FILE__, __LINE__ + 1
-                    def added_child_object(to, relations, info)
-                        super
-                        if relations.include?(__r_#{relation_name}__)
-                            added_#{child_name}(to, info)
-                        end
+                    synthetized_methods.class_eval <<-EOD, __FILE__, __LINE__ + 1
+                    def added_#{child_name}(to, info)
                     end
-                    def removed_child_object(to, relations)
-                        super
-                        if relations.include?(__r_#{relation_name}__)
-                            removed_#{child_name}(to)
-                        end
+                    def removed_#{child_name}(to)
                     end
                     EOD
                 end
 
-                applied.each { |klass| klass.include extension }
                 add_relation(graph_class)
                 graph_class
             end

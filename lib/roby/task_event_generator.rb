@@ -127,30 +127,34 @@ module Roby
 
         # Invalidates the task's terminal flag when the Forwarding and/or the
         # Signal relation gets modified.
-	def added_child_object(child, relations, info) # :nodoc:
-	    super if defined? super
+	def added_signal(child, info) # :nodoc:
+	    super
+            invalidate_task_terminal_flag_if_needed(child)
+        end
 
-            if !task.invalidated_terminal_flag?
-                if (relations.include?(EventStructure::Forwarding) || relations.include?(EventStructure::Signal)) && 
-                    child.respond_to?(:task) && child.task == task
-
-                    task.invalidate_terminal_flag
-                end
+        def invalidate_task_terminal_flag_if_needed(child)
+            if child.respond_to?(:task) && child.task == task
+                task.invalidate_terminal_flag
             end
+        end
+
+        # Invalidates the task's terminal flag when the Forwarding and/or the
+        # Signal relation gets modified.
+	def added_forwarding(child, info) # :nodoc:
+	    super
+            invalidate_task_terminal_flag_if_needed(child)
 	end
 
         # Invalidates the task's terminal flag when the Forwarding and/or the
         # Signal relation gets modified.
-	def removed_child_object(child, relations)
+	def removed_signal(child)
 	    super if defined? super
+            invalidate_task_terminal_flag_if_needed(child)
+	end
 
-            if !task.invalidated_terminal_flag?
-                if (relations.include?(EventStructure::Forwarding) || relations.include?(EventStructure::Signal)) && 
-                    child.respond_to?(:task) && child.task == task
-
-                    task.invalidate_terminal_flag
-                end
-            end
+	def removed_forwarding(child)
+	    super if defined? super
+            invalidate_task_terminal_flag_if_needed(child)
 	end
 
         # See EventGenerator#new

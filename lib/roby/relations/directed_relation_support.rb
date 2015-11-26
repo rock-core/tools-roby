@@ -11,11 +11,19 @@ module Roby
         module DirectedRelationSupport
             include BGL::Vertex
 
-            alias :child_object?	    :child_vertex?
-            alias :parent_object?	    :parent_vertex?
-            alias :related_object?	    :related_vertex?
-
             attr_reader :relation_graphs
+
+            def child_object?(object, relation)
+                child_vertex?(object, relation_graphs[relation])
+            end
+
+            def parent_object?(object, relation)
+                parent_vertex?(object, relation_graphs[relation])
+            end
+
+            def related_object?(object, relation)
+                related_vertex?(object, relation_graphs[relation])
+            end
 
             def each_parent_object(graph)
                 each_parent_vertex(relation_graphs[graph]) do |parent|

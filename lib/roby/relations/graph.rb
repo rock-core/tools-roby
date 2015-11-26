@@ -164,23 +164,11 @@ module Roby
 
                 if !new_relations.empty?
                     new_relations_ids = new_relations.map(&:class)
-                    if from.respond_to?(:adding_child_object)
-                        from.adding_child_object(to, new_relations_ids, info)
-                    end
-                    if to.respond_to?(:adding_parent_object)
-                        to.adding_parent_object(from, new_relations_ids, info)
-                    end
-
+                    from.adding_child_object(to, new_relations_ids, info)
                     for rel in new_relations
                         rel.__bgl_link(from, to, (info if self == rel))
                     end
-
-                    if from.respond_to?(:added_child_object)
-                        from.added_child_object(to, new_relations_ids, info)
-                    end
-                    if to.respond_to?(:added_parent_object)
-                        to.added_parent_object(from, new_relations_ids, info)
-                    end
+                    from.added_child_object(to, new_relations_ids, info)
                 end
             end
 
@@ -243,23 +231,12 @@ module Roby
                     rel = rel.parent
                 end
 
-                if from.respond_to?(:removing_child_object)
-                    from.removing_child_object(to, relations)
-                end
-                if to.respond_to?(:removing_parent_object)
-                    to.removing_parent_object(from, relations)
-                end
-
+                relations_ids = relations.map(&:class)
+                from.removing_child_object(to, relations_ids)
                 for rel in relations
                     rel.unlink(from, to)
                 end
-
-                if from.respond_to?(:removed_child_object)
-                    from.removed_child_object(to, relations)
-                end
-                if to.respond_to?(:removed_parent_object)
-                    to.removed_parent_object(from, relations)
-                end
+                from.removed_child_object(to, relations_ids)
             end
 
             # Returns true if +relation+ is included in this relation (i.e. it is
