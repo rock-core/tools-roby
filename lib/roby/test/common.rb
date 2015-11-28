@@ -790,6 +790,23 @@ module Roby
                 Roby.logger.level = old_level
             end
 
+            def assert_child_of(parent, child, relation, *info)
+                assert_same parent.relation_graphs, child.relation_graphs, "#{parent} and #{child} cannot be related as they are not acting on the same relation graphs"
+                graph = parent.relation_graph_for(relation)
+                assert graph.include?(parent), "#{parent} and #{child} canot be related in #{relation} as the former is not in the graph"
+                assert graph.include?(child),  "#{parent} and #{child} canot be related in #{relation} as the latter is not in the graph"
+                assert parent.child_object?(child, relation), "#{child} is not a child of #{parent} in #{relation}"
+                if !info.empty?
+                    assert_equal info.first, parent[child, relation], "info differs"
+                end
+            end
+
+            def refute_child_of(parent, child, relation)
+                assert_same parent.relation_graphs, child.relation_graphs, "#{parent} and #{child} cannot be related as they are not acting on the same relation graphs"
+                graph = parent.relation_graph_for(relation)
+                refute(graph.include?(parent) && graph.include?(child) && parent.child_object?(child, relation))
+            end
+
 	    # Starts +task+ and checks it succeeds
 	    def assert_succeeds(task, *args)
 		control_priority do
