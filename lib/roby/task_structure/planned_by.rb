@@ -14,24 +14,20 @@ module Roby::TaskStructure
             # The set of tasks which are planned by this one
             def planned_tasks; parent_objects(PlannedBy) end
             # Set +task+ as the planning task of +self+
-            def planned_by(task, options = {})
+            def planned_by(task, replace: false, optional: false, plan_early: true)
                 if task.respond_to?(:as_plan)
                     task = task.as_plan
                 end
 
-                options = Kernel.validate_options options,
-                    replace: false, optional: false, plan_early: true
-
-                allow_replace = options.delete(:replace)
                 if old = planning_task
-                    if allow_replace
+                    if replace
                         remove_planning_task(old)
                     else
                         raise ArgumentError, "this task already has a planner"
                     end
                 end
-                add_planning_task(task, options)
-                if !options[:plan_early]
+                add_planning_task(task, optional: optional, plan_early: true)
+                if !plan_early
                     task.schedule_as(self)
                 end
 
