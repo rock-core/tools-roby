@@ -622,7 +622,7 @@ module Roby
             end
 
             failed_to_emit(error)
-            plan.engine.add_error(error)
+            plan.execution_engine.add_error(error)
 	ensure
 	    @pending = false
 	end
@@ -906,7 +906,7 @@ module Roby
 	
 	# Checks that ownership allows to add the self => child relation
 	def add_child_object(child, type, info) # :nodoc:
-	    unless child.read_write?
+	    if !child.read_write?
 		raise OwnershipError, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (plan is owned by #{plan.owners.to_a if plan})"
 	    end
 

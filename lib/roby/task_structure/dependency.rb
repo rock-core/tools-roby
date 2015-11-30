@@ -579,6 +579,11 @@ module Roby::TaskStructure
 	# The set of tasks that are currently failing 
 	attribute(:failing_tasks) { Set.new }
 
+
+        # @api private
+        #
+        # Updates the dependency internal data to trigger errors / success when
+        # relevant events are emitted
         def update_triggers_for(parent, child, info)
             events = Set.new
             if info[:success]
@@ -737,7 +742,7 @@ module Roby::TaskStructure
             update_triggers_for(parent, child, result)
             result
         rescue Exception => e
-            raise e, e.message + " while updating the dependency information for #{parent} -> #{child}"
+            raise e, e.message + " while updating the dependency information for #{parent} -> #{child}", e.backtrace
         end
 
         # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
