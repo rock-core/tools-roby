@@ -818,26 +818,23 @@ class TC_ExecutionEngine < Minitest::Test
     
     def test_stats
         require 'roby/log'
-	engine.run
 
 	capture = CaptureLastStats.new
 	Roby::Log.add_logger capture
 
 	time_events = [:real_start, :events, :structure_check, :exception_propagation, :exception_fatal, :garbage_collect, :application_errors, :ruby_gc, :sleep, :end]
 	10.times do
-	    engine.wait_one_cycle
+	    engine.process_events
 	    next unless capture.last_stats
 
-	    Roby.synchronize do
-		timepoints = capture.last_stats.slice(*time_events)
-		assert(timepoints.all? { |name, d| d > 0 })
+            timepoints = capture.last_stats.slice(*time_events)
+            assert(timepoints.all? { |name, d| d > 0 })
 
-		sorted_by_time = timepoints.sort_by { |name, d| d }
-		sorted_by_name = timepoints.sort_by { |name, d| time_events.index(name) }
-		sorted_by_time.each_with_index do |(name, d), i|
-		    assert(sorted_by_name[i][1] == d)
-		end
-	    end
+            sorted_by_time = timepoints.sort_by { |name, d| d }
+            sorted_by_name = timepoints.sort_by { |name, d| time_events.index(name) }
+            sorted_by_time.each_with_index do |(name, d), i|
+                assert(sorted_by_name[i][1] == d)
+            end
 	end
 
     ensure

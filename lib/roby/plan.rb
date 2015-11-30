@@ -616,9 +616,7 @@ module Roby
 
 	def edit
 	    if block_given?
-		Roby.synchronize do
-		    yield
-		end
+                yield
 	    end
 	end
 

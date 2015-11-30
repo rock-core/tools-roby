@@ -257,15 +257,13 @@ module Roby
 	    if engine.gathering?
 		engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
             else
-		Roby.synchronize do
-                    seeds = engine.gather_propagation do
-			engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
-                    end
-		    engine.process_events_synchronous(seeds)
-                    if unreachable? && unreachability_reason.kind_of?(Exception)
-                        raise unreachability_reason
-                    end
-		end
+                seeds = engine.gather_propagation do
+                    engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
+                end
+                engine.process_events_synchronous(seeds)
+                if unreachable? && unreachability_reason.kind_of?(Exception)
+                    raise unreachability_reason
+                end
 	    end
 	end
 
@@ -682,15 +680,13 @@ module Roby
 
 		engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
             else
-		Roby.synchronize do
-                    seeds = engine.gather_propagation do
-			engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
-                    end
-		    engine.process_events_synchronous(seeds)
-                    if unreachable? && unreachability_reason.kind_of?(Exception)
-                        raise unreachability_reason
-                    end
-		end
+                seeds = engine.gather_propagation do
+                    engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
+                end
+                engine.process_events_synchronous(seeds)
+                if unreachable? && unreachability_reason.kind_of?(Exception)
+                    raise unreachability_reason
+                end
 	    end
 	end
 
@@ -987,14 +983,12 @@ module Roby
             elsif engine.gathering?
                 unreachable_without_propagation(reason, plan)
             elsif !@unreachable
-		Roby.synchronize do
-		    engine.process_events_synchronous do
-                        unreachable_without_propagation(reason, plan)
-                    end
-                    if unreachability_reason.kind_of?(Exception)
-                        raise unreachability_reason
-                    end
-		end
+                engine.process_events_synchronous do
+                    unreachable_without_propagation(reason, plan)
+                end
+                if unreachability_reason.kind_of?(Exception)
+                    raise unreachability_reason
+                end
             end
 	end
 

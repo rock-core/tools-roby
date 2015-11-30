@@ -1877,16 +1877,14 @@ module Roby
                             event_loop
 
                         ensure
-                            Roby.synchronize do
-                                # reset the options only if we are in the control thread
-                                @thread = nil
-                                waiting_threads.each do |th|
-                                    th.raise ExecutionQuitError
-                                end
-                                finalizers.each { |blk| blk.call rescue nil }
-                                @quit = 0
-                                @allow_propagation = true
+                            # reset the options only if we are in the control thread
+                            @thread = nil
+                            waiting_threads.each do |th|
+                                th.raise ExecutionQuitError
                             end
+                            finalizers.each { |blk| blk.call rescue nil }
+                            @quit = 0
+                            @allow_propagation = true
                         end
                     end
                     while !cycle_length
@@ -1905,47 +1903,45 @@ module Roby
         # otherwise. Note that quaranteened tasks are not counted as remaining,
         # as it is not possible for the execution engine to stop them.
 	def clear
-	    Roby.synchronize do
-		plan.missions.dup.each { |t| plan.unmark_mission(t) }
-		plan.permanent_tasks.dup.each { |t| plan.unmark_permanent(t) }
-		plan.permanent_events.dup.each { |t| plan.unmark_permanent(t) }
-		plan.force_gc.merge( plan.known_tasks )
+            plan.missions.dup.each { |t| plan.unmark_mission(t) }
+            plan.permanent_tasks.dup.each { |t| plan.unmark_permanent(t) }
+            plan.permanent_events.dup.each { |t| plan.unmark_permanent(t) }
+            plan.force_gc.merge( plan.known_tasks )
 
-		quaranteened_subplan = plan.useful_task_component(nil, Set.new, plan.gc_quarantine.dup)
-		remaining = plan.known_tasks - quaranteened_subplan
+            quaranteened_subplan = plan.useful_task_component(nil, Set.new, plan.gc_quarantine.dup)
+            remaining = plan.known_tasks - quaranteened_subplan
 
-		if remaining.empty?
-		    # Have to call #garbage_collect one more to make
-		    # sure that unneeded events are removed as well
-		    garbage_collect
-		    # Done cleaning the tasks, clear the remains
-		    plan.transactions.each do |trsc|
-			trsc.discard_transaction if trsc.self_owned?
-		    end
-		    plan.clear
-                    emitted_events.clear
-		    return
-		end
+            if remaining.empty?
+                # Have to call #garbage_collect one more to make
+                # sure that unneeded events are removed as well
+                garbage_collect
+                # Done cleaning the tasks, clear the remains
+                plan.transactions.each do |trsc|
+                    trsc.discard_transaction if trsc.self_owned?
+                end
+                plan.clear
+                emitted_events.clear
+                return
+            end
 
-		if last_stop_count != remaining.size
-		    if last_stop_count == 0
-			ExecutionEngine.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
-                        remaining.each do |task|
-                            ExecutionEngine.info "  #{task}"
-                        end
-		    else
-			ExecutionEngine.info "waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
-                        remaining.each do |task|
-                            ExecutionEngine.info "  #{task}"
-                        end
-		    end
-		    if plan.gc_quarantine.size != 0
-			ExecutionEngine.info "#{plan.gc_quarantine.size} tasks in quarantine"
-		    end
-		    @last_stop_count = remaining.size
-		end
-		remaining
-	    end
+            if last_stop_count != remaining.size
+                if last_stop_count == 0
+                    ExecutionEngine.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
+                    remaining.each do |task|
+                        ExecutionEngine.info "  #{task}"
+                    end
+                else
+                    ExecutionEngine.info "waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
+                    remaining.each do |task|
+                        ExecutionEngine.info "  #{task}"
+                    end
+                end
+                if plan.gc_quarantine.size != 0
+                    ExecutionEngine.info "#{plan.gc_quarantine.size} tasks in quarantine"
+                end
+                @last_stop_count = remaining.size
+            end
+            remaining
 	end
 
         # How much time remains before the end of the cycle. Updated by
@@ -2016,9 +2012,7 @@ module Roby
                     stats[:start] = cycle_start
 		    stats[:cycle_index] = cycle_index
 
-                    Roby.synchronize do
-                        process_events(stats) 
-                    end
+                    process_events(stats) 
 
                     @remaining_cycle_time = cycle_length - stats[:end]
 		    
@@ -2060,9 +2054,7 @@ module Roby
 
 		    stats[:start] = [cycle_start.tv_sec, cycle_start.tv_usec]
                     stats[:state] = Roby::State
-                    Roby.synchronize do
-                        cycle_end(stats)
-                    end
+                    cycle_end(stats)
                     stats = Hash.new
 
 		    @cycle_start += cycle_length
@@ -2133,18 +2125,16 @@ module Roby
 	    thread.join if thread
 
 	rescue Interrupt
-	    Roby.synchronize do
-		return unless thread
+            return unless thread
 
-		ExecutionEngine.logger.level = Logger::INFO
-		ExecutionEngine.warn "received interruption request"
-                if quitting?
-                    force_quit
-                    thread.raise Interrupt, "interrupting control thread at user request"
-                else
-                    quit
-                end
-	    end
+            ExecutionEngine.logger.level = Logger::INFO
+            ExecutionEngine.warn "received interruption request"
+            if quitting?
+                force_quit
+                thread.raise Interrupt, "interrupting control thread at user request"
+            else
+                quit
+            end
 
 	    retry
 	end
@@ -2159,7 +2149,7 @@ module Roby
         # Roby.global_lock
         def execute
 	    if inside_control?
-		return Roby.synchronize { yield }
+		return yield
 	    end
 
 	    cv = Roby.condition_variable

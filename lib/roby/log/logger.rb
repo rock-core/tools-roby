@@ -88,28 +88,22 @@ module Roby::Log
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
 	    if m == :added_tasks || m == :added_events
-		Roby.synchronize do
-		    args ||= yield
-		    objects = args[1]
-		    # Do not give a 'peer' argument at Distributed.format, to
-		    # make sure we do a full dump
-		    args = Roby::Distributed.format(args) if has_logger?(m)
-		    known_objects.merge(objects)
-		end
+                args ||= yield
+                objects = args[1]
+                # Do not give a 'peer' argument at Distributed.format, to
+                # make sure we do a full dump
+                args = Roby::Distributed.format(args) if has_logger?(m)
+                known_objects.merge(objects)
 	    elsif m == :finalized_task || m == :finalized_event
-		Roby.synchronize do
-		    args ||= yield
-		    object = args[1]
-		    args = Roby::Distributed.format(args, self) if has_logger?(m)
-		    known_objects.delete(object)
-		end
+                args ||= yield
+                object = args[1]
+                args = Roby::Distributed.format(args, self) if has_logger?(m)
+                known_objects.delete(object)
 	    end
 
 	    if has_logger?(m)
 		if !args && block_given?
-		    Roby.synchronize do 
-			args = Roby::Distributed.format(yield, self)
-		    end
+                    args = Roby::Distributed.format(yield, self)
 		end
 
 		logged_events << [m, Time.now, args]

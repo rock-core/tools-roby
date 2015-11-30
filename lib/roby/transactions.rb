@@ -96,22 +96,20 @@ module Roby
 	# This method copies on +proxy+ all relations of +object+ for which
 	# both ends of the relation are already in the transaction.
 	def copy_object_relations(object, proxy)
-	    Roby.synchronize do
-		# Create edges between the neighbours that are really in the transaction
-		object.each_relation do |rel|
-		    object.each_parent_object(rel) do |parent|
-			if parent_proxy = self[parent, false]
-			    parent_proxy.add_child_object(proxy, rel, parent[object, rel])
-			end
-		    end
+            # Create edges between the neighbours that are really in the transaction
+            object.each_relation do |rel|
+                object.each_parent_object(rel) do |parent|
+                    if parent_proxy = self[parent, false]
+                        parent_proxy.add_child_object(proxy, rel, parent[object, rel])
+                    end
+                end
 
-		    object.each_child_object(rel) do |child|
-			if child_proxy = self[child, false]
-			    proxy.add_child_object(child_proxy, rel, object[child, rel])
-			end
-		    end
-		end
-	    end
+                object.each_child_object(rel) do |child|
+                    if child_proxy = self[child, false]
+                        proxy.add_child_object(child_proxy, rel, object[child, rel])
+                    end
+                end
+            end
 	end
 
         # Tests whether a plan object has a proxy in self
@@ -174,23 +172,21 @@ module Roby
 	def restore_relation(proxy, relation)
 	    object = proxy.__getobj__
 
-	    Roby.synchronize do
-		proxy_children = proxy.child_objects(relation)
-		object.child_objects(relation).each do |object_child| 
-		    next unless proxy_child = wrap(object_child, false)
-		    if proxy_children.include?(proxy_child)
-			relation.unlink(proxy, proxy_child)
-		    end
-		end
+            proxy_children = proxy.child_objects(relation)
+            object.child_objects(relation).each do |object_child| 
+                next unless proxy_child = wrap(object_child, false)
+                if proxy_children.include?(proxy_child)
+                    relation.unlink(proxy, proxy_child)
+                end
+            end
 
-		proxy_parents = proxy.parent_objects(relation)
-		object.parent_objects(relation).each do |object_parent| 
-		    next unless proxy_parent = wrap(object_parent, false)
-		    if proxy_parents.include?(proxy_parent)
-			relation.unlink(parent, proxy_parent)
-		    end
-		end
-	    end
+            proxy_parents = proxy.parent_objects(relation)
+            object.parent_objects(relation).each do |object_parent| 
+                next unless proxy_parent = wrap(object_parent, false)
+                if proxy_parents.include?(proxy_parent)
+                    relation.unlink(parent, proxy_parent)
+                end
+            end
 
 	    added_objects.delete(proxy)
 	    proxy.discovered_relations.delete(relation)
@@ -291,10 +287,8 @@ module Roby
 	    @discarded_tasks    = Set.new
 	    @auto_tasks	        = Set.new
 
-	    Roby.synchronize do
-		plan.transactions << self
-		plan.added_transaction(self)
-	    end
+            plan.transactions << self
+            plan.added_transaction(self)
 	end
 
         # Calls the given block in the execution thread of the engine of the
@@ -674,9 +668,7 @@ module Roby
 	    clear
 
 	    discarded_transaction
-	    plan.execute do
-		plan.remove_transaction(self)
-	    end
+            plan.remove_transaction(self)
 	    @plan = nil
 	end
 
