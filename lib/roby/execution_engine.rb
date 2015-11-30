@@ -169,7 +169,7 @@ module Roby
         # See Roby::Plan and Roby::DecisionControl
         def initialize(plan, control = Roby::DecisionControl.new)
             @plan = plan
-            plan.engine = self
+            plan.execution_engine = self
             @control = control
             @scheduler = Schedulers::Null.new
 
@@ -1727,7 +1727,7 @@ module Roby
 
         # Calls the periodic blocks which should be called
         def self.call_every(plan) # :nodoc:
-            engine = plan.engine
+            engine = plan.execution_engine
             now        = engine.cycle_start
             length     = engine.cycle_length
             engine.process_every.map! do |block, last_call, duration|

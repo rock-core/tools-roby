@@ -28,7 +28,7 @@ module Roby::TaskStructure
             end
 
             plan = execution_agent.plan
-            if !tasks.empty? && plan.engine
+            if !tasks.empty?
                 plan.control.execution_agent_failed_to_start(execution_agent, tasks)
             end
         end

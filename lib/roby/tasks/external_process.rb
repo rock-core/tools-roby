@@ -48,10 +48,8 @@ module Roby
         # has finished. It calls #dead!(result) in the context of the execution
         # thread, on the corresponding task
         def self.dead!(pid, result) # :nodoc:
-            task = processes[pid]
-            return if !task
-            if engine = task.plan.engine
-                engine.once { task.dead!(result) }
+            if task = processes[pid]
+                task.execution_engine.once { task.dead!(result) }
             end
         end
 

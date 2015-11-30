@@ -98,7 +98,7 @@ module Roby
                 end
 
                 def execute(script)
-                    script.root_task.plan.engine.delayed(model.seconds) do
+                    script.root_task.execution_engine.delayed(model.seconds) do
                         if !self.disabled?
                             # Remove all instructions that are within the
                             # timeout's scope

@@ -7,7 +7,7 @@ class TC_ExecutionEngine < Minitest::Test
 	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
 	plan.add [e1, e2, e3]
 
-	set = engine.gather_propagation do
+	set = execution_engine.gather_propagation do
 	    e1.call(1)
 	    e1.call(4)
 	    e2.emit(2)
@@ -46,7 +46,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_add_propagation_handlers_for_external_events
         FlexMock.use do |mock|
             handler = PropagationHandlerTest.new(plan, mock)
-            id = engine.add_propagation_handler(type: :external_events) { |plan| handler.handler(plan) }
+            id = execution_engine.add_propagation_handler(type: :external_events) { |plan| handler.handler(plan) }
 
             mock.should_receive(:called).with(plan).twice
 
@@ -57,7 +57,7 @@ class TC_ExecutionEngine < Minitest::Test
             process_events
             assert_equal(1, handler.event.history.size)
 
-            engine.remove_propagation_handler id
+            execution_engine.remove_propagation_handler id
             handler.reset_event
             process_events
             assert_equal(0, handler.event.history.size)
@@ -67,7 +67,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_add_propagation_handlers_for_propagation
         FlexMock.use do |mock|
             handler = PropagationHandlerTest.new(plan, mock)
-            id = engine.add_propagation_handler(type: :propagation) { |plan| handler.handler(plan) }
+            id = execution_engine.add_propagation_handler(type: :propagation) { |plan| handler.handler(plan) }
 
             # In the handler, we call the event two times
             #
@@ -83,7 +83,7 @@ class TC_ExecutionEngine < Minitest::Test
             process_events
             assert_equal(2, handler.event.history.size)
 
-            engine.remove_propagation_handler id
+            execution_engine.remove_propagation_handler id
             handler.reset_event
             process_events
             assert_equal(0, handler.event.history.size)
@@ -100,13 +100,13 @@ class TC_ExecutionEngine < Minitest::Test
             late_event.on { |_| mock.late_event_emitted(index += 1) }
 
 
-            id = engine.add_propagation_handler(type: :propagation) do |plan|
+            id = execution_engine.add_propagation_handler(type: :propagation) do |plan|
                 mock.handler_called(index += 1)
                 if !event.happened?
                     event.emit
                 end
             end
-            late_id = engine.add_propagation_handler(type: :propagation, late: true) do |plan|
+            late_id = execution_engine.add_propagation_handler(type: :propagation, late: true) do |plan|
                 mock.late_handler_called(index += 1)
                 if !late_event.happened?
                     late_event.emit
@@ -122,8 +122,8 @@ class TC_ExecutionEngine < Minitest::Test
             mock.should_receive(:late_handler_called).with(6).once.ordered
 
             process_events
-            engine.remove_propagation_handler(id)
-            engine.remove_propagation_handler(late_id)
+            execution_engine.remove_propagation_handler(id)
+            execution_engine.remove_propagation_handler(late_id)
             process_events
         end
     end
@@ -131,12 +131,12 @@ class TC_ExecutionEngine < Minitest::Test
     def test_add_propagation_handlers_accepts_method_object
         FlexMock.use do |mock|
             handler = PropagationHandlerTest.new(plan, mock)
-            id = engine.add_propagation_handler(type: :external_events, &handler.method(:handler))
+            id = execution_engine.add_propagation_handler(type: :external_events, &handler.method(:handler))
 
             mock.should_receive(:called).with(plan).twice
             process_events
             process_events
-            engine.remove_propagation_handler id
+            execution_engine.remove_propagation_handler id
             process_events
 
             assert_equal(2, handler.event.history.size)
@@ -146,7 +146,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_add_propagation_handler_validates_arity
         # Validate the arity
         assert_raises(ArgumentError) do
-            engine.add_propagation_handler { |plan, failure| mock.called(plan) }
+            execution_engine.add_propagation_handler { |plan, failure| mock.called(plan) }
         end
 
         process_events
@@ -154,7 +154,7 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_propagation_handlers_raises_on_error
         FlexMock.use do |mock|
-            engine.add_propagation_handler do |plan|
+            execution_engine.add_propagation_handler do |plan|
                 mock.called
                 raise SpecificException
             end
@@ -166,7 +166,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_propagation_handlers_disabled_on_error
         Roby.logger.level = Logger::FATAL
         FlexMock.use do |mock|
-            engine.add_propagation_handler on_error: :disable do |plan|
+            execution_engine.add_propagation_handler on_error: :disable do |plan|
                 mock.called
                 raise
             end
@@ -179,14 +179,14 @@ class TC_ExecutionEngine < Minitest::Test
     def test_propagation_handlers_ignore_on_error
         spy = flexmock { |s| s.should_receive(:called).twice }
 
-        handler = engine.add_propagation_handler on_error: :ignore do |plan|
+        handler = execution_engine.add_propagation_handler on_error: :ignore do |plan|
             spy.called
             raise
         end
         inhibit_fatal_messages { process_events }
         inhibit_fatal_messages { process_events }
     ensure
-        engine.remove_propagation_handler(handler) if handler
+        execution_engine.remove_propagation_handler(handler) if handler
     end
 
     def test_prepare_propagation
@@ -194,25 +194,25 @@ class TC_ExecutionEngine < Minitest::Test
 	ev = Event.new(g2, 0, nil)
 
 	step = [nil, [1], nil, nil, [4], nil]
-	source_events, source_generators, context = engine.prepare_propagation(nil, false, step)
+	source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
 	assert_equal(Set.new, source_events)
 	assert_equal(Set.new, source_generators)
 	assert_equal([1, 4], context)
 
 	step = [nil, [], nil, nil, [4], nil]
-	source_events, source_generators, context = engine.prepare_propagation(nil, false, step)
+	source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
 	assert_equal(Set.new, source_events)
 	assert_equal(Set.new, source_generators)
 	assert_equal([4], context)
 
 	step = [g1, [], nil, ev, [], nil]
-	source_events, source_generators, context = engine.prepare_propagation(nil, false, step)
+	source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
 	assert_equal([g1, g2].to_set, source_generators)
 	assert_equal([ev].to_set, source_events)
 	assert_equal(nil, context)
 
 	step = [g2, [], nil, ev, [], nil]
-	source_events, source_generators, context = engine.prepare_propagation(nil, false, step)
+	source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
 	assert_equal([g2].to_set, source_generators)
 	assert_equal([ev].to_set, source_events)
 	assert_equal(nil, context)
@@ -220,25 +220,25 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_precedence_graph
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
-	engine.event_ordering << :bla
+	execution_engine.event_ordering << :bla
 	plan.add e1
-	assert(engine.event_ordering.empty?)
+	assert(execution_engine.event_ordering.empty?)
 	plan.add e2
 	
-	engine.event_ordering << :bla
+	execution_engine.event_ordering << :bla
 	task = Roby::Task.new
 	plan.add(task)
-	assert(engine.event_ordering.empty?)
+	assert(execution_engine.event_ordering.empty?)
         assert_child_of task.start_event, task.updated_data_event, EventStructure::Precedence
 
-	engine.event_ordering << :bla
+	execution_engine.event_ordering << :bla
 	e1.signals e2
         assert_child_of e1, e2, EventStructure::Precedence
-	assert(engine.event_ordering.empty?)
+	assert(execution_engine.event_ordering.empty?)
 
-	engine.event_ordering << :bla
+	execution_engine.event_ordering << :bla
 	e1.remove_signal e2
-	assert(engine.event_ordering.empty?)
+	assert(execution_engine.event_ordering.empty?)
         refute_child_of e1, e2, EventStructure::Precedence
     end
 
@@ -260,20 +260,20 @@ class TC_ExecutionEngine < Minitest::Test
         # forwarding/signalling and/or step_id
         pending.clear
 	pending << [e1, [0, nil, []]] << [e2, [1, [], nil]]
-	assert_equal(e2, engine.next_event(pending).first)
+	assert_equal(e2, execution_engine.next_event(pending).first)
         pending.clear
 	pending << [e1, [1, [], nil]] << [e2, [0, [], nil]]
-	assert_equal(e2, engine.next_event(pending).first)
+	assert_equal(e2, execution_engine.next_event(pending).first)
 
         # If there *is* a precedence relation, we must follow it
         pending.clear
 	pending << [e1, [0, [], nil]] << [e2, [1, [], nil]]
 
 	e1.add_precedence e2
-	assert_equal(e1, engine.next_event(pending).first)
+	assert_equal(e1, execution_engine.next_event(pending).first)
 	e1.remove_precedence e2
 	e2.add_precedence e1
-	assert_equal(e2, engine.next_event(pending).first)
+	assert_equal(e2, execution_engine.next_event(pending).first)
     end
 
     def test_delay
@@ -284,7 +284,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    plan.add_mission(t = Tasks::Simple.new)
 	    e = EventGenerator.new(true)
 	    t.event(:start).signals e, delay: 0.1
-	    engine.once { t.start! }
+	    execution_engine.once { t.start! }
 	    process_events
 	    assert(!e.happened?)
 	    current_time += 0.1
@@ -309,9 +309,9 @@ class TC_ExecutionEngine < Minitest::Test
         inhibit_fatal_messages { sink1.failed_to_start!("test") }
         assert(sink0.start_event.unreachable?)
         assert(sink1.start_event.unreachable?)
-        assert(! engine.delayed_events.
+        assert(! execution_engine.delayed_events.
                find { |_, _, _, target, _| target == sink0.start_event })
-        assert(! engine.delayed_events.
+        assert(! execution_engine.delayed_events.
                find { |_, _, _, target, _| target == sink1.start_event })
 
         current_time += 0.1
@@ -396,13 +396,13 @@ class TC_ExecutionEngine < Minitest::Test
 	    forward.forward_to sink
 	    signal.signals   sink
 
-	    seeds = engine.gather_propagation do
+	    seeds = execution_engine.gather_propagation do
 		forward.call(24)
 		signal.call(42)
 	    end
 	    mock.should_receive(:command_called).with([42]).once.ordered
 	    mock.should_receive(:handler_called).with([42, 24]).once.ordered
-	    engine.event_propagation_phase(seeds)
+	    execution_engine.event_propagation_phase(seeds)
 	end
     end
 
@@ -410,7 +410,7 @@ class TC_ExecutionEngine < Minitest::Test
 	class << self
 	    attr_accessor :mockup
 	    def handle(name, obj)
-		mockup.send(name, obj, obj.engine.propagation_sources) if mockup
+		mockup.send(name, obj, obj.execution_engine.propagation_sources) if mockup
 	    end
 	end
 
@@ -459,10 +459,10 @@ class TC_ExecutionEngine < Minitest::Test
 		    end
 
 	Roby.app.abort_on_application_exception = false
-	engine.add_framework_error(exception, :exceptions)
+	execution_engine.add_framework_error(exception, :exceptions)
 
 	Roby.app.abort_on_application_exception = true
-	assert_raises(RuntimeError) { engine.add_framework_error(exception, :exceptions) }
+	assert_raises(RuntimeError) { execution_engine.add_framework_error(exception, :exceptions) }
     end
 
     def test_event_loop
@@ -472,7 +472,7 @@ class TC_ExecutionEngine < Minitest::Test
         start_node.stop_event.on { |ev| next_event = [if_node, :start] }
 	if_node.stop_event.on { |ev| }
             
-        engine.add_propagation_handler(type: :external_events) do |plan|
+        execution_engine.add_propagation_handler(type: :external_events) do |plan|
             next unless next_event
             task, event = *next_event
             next_event = nil
@@ -487,14 +487,14 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_every
 	# Check that every(cycle_length) works fine
-	engine.run
+	execution_engine.run
 
 	samples = []
-	id = engine.every(0.1) do
-	    samples << engine.cycle_start
+	id = execution_engine.every(0.1) do
+	    samples << execution_engine.cycle_start
 	end
 	sleep(1)
-	engine.remove_periodic_handler(id)
+	execution_engine.remove_periodic_handler(id)
 	size = samples.size
 	assert(size > 2, "expected 2 samples, got #{samples.map { |t| t.to_hms }.join(", ")}")
 
@@ -508,14 +508,14 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_once_blocks_are_called_by_proces_events
 	FlexMock.use do |mock|
-	    engine.once { mock.called }
+	    execution_engine.once { mock.called }
 	    mock.should_receive(:called).once
 	    process_events
 	end
     end
     def test_once_blocks_are_called_only_once
 	FlexMock.use do |mock|
-	    engine.once { mock.called }
+	    execution_engine.once { mock.called }
 	    mock.should_receive(:called).once
 	    process_events
 	    process_events
@@ -525,7 +525,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_failing_once
         spy = flexmock
         spy.should_receive(:called).once
-        engine.once { spy.called; raise }
+        execution_engine.once { spy.called; raise }
 
         assert_raises(RuntimeError) do
             process_events
@@ -554,7 +554,7 @@ class TC_ExecutionEngine < Minitest::Test
 		event :start do |context|
 		    mock.command_called
 		    raise SpecificException, "bla"
-		    emit :start
+		    start_event.emit
                 end
 		on(:start) { |ev| mock.handler_called }
 	    end.new(id: 2)
@@ -563,7 +563,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    mock.should_receive(:command_called).once
 	    mock.should_receive(:handler_called).never
 
-	    engine.once { t.start!(nil) }
+	    execution_engine.once { t.start!(nil) }
 	    assert_original_error(SpecificException, CommandFailed) { process_events }
 	    assert(!t.event(:start).pending)
             assert(t.failed_to_start?)
@@ -584,10 +584,10 @@ class TC_ExecutionEngine < Minitest::Test
 	end
 
         plan.add_permanent(t = model.new)
-        engine.run
-
         assert_event_emission(t.failed_event) do
-            t.start!
+            assert_raises(SpecificException) do
+                t.start!
+            end
         end
 
 	# Check that the task has been garbage collected in the process
@@ -615,13 +615,13 @@ class TC_ExecutionEngine < Minitest::Test
         handler = proc { errors }
 	Plan.structure_checks << handler
 
-        engine = flexmock(self.engine)
-        engine.should_receive(:propagate_exceptions).with([]).and_return([])
-        engine.should_receive(:propagate_exceptions).with(errors).once
-        engine.should_receive(:remove_inhibited_exceptions).with(errors).
+        execution_engine = flexmock(self.execution_engine)
+        execution_engine.should_receive(:propagate_exceptions).with([]).and_return([])
+        execution_engine.should_receive(:propagate_exceptions).with(errors).once
+        execution_engine.should_receive(:remove_inhibited_exceptions).with(errors).
             and_return([[LocalizedError.new(t0), [t2]]])
         assert_equal [[LocalizedError.new(t0), [t2]]],
-            engine.compute_fatal_errors(Hash[start: Time.now], [])
+            execution_engine.compute_fatal_errors(Hash[start: Time.now], [])
     ensure
         Plan.structure_checks.delete(handler) if handler
     end
@@ -636,56 +636,56 @@ class TC_ExecutionEngine < Minitest::Test
             mock.should_receive(:after_error).never
             mock.should_receive(:called).at_least.once
 
-            engine.at_cycle_end do
+            execution_engine.at_cycle_end do
 		mock.before_error
 		raise
 		mock.after_error
             end
 
-            engine.at_cycle_end do
+            execution_engine.at_cycle_end do
 		mock.called
-		unless engine.quitting?
-		    engine.quit
+		unless execution_engine.quitting?
+		    execution_engine.quit
 		end
             end
-            engine.run
-            engine.join
+            execution_engine.run
+            execution_engine.join
         end
     end
 
     def test_inside_outside_control
 	# First, no control thread
-	assert(engine.inside_control?)
-	assert(engine.outside_control?)
+	assert(execution_engine.inside_control?)
+	assert(execution_engine.outside_control?)
 
 	# Add a fake control thread
 	begin
-	    engine.thread = Thread.main
-	    assert(engine.inside_control?)
-	    assert(!engine.outside_control?)
+	    execution_engine.thread = Thread.main
+	    assert(execution_engine.inside_control?)
+	    assert(!execution_engine.outside_control?)
 
 	    t = Thread.new do
-		assert(!engine.inside_control?)
-		assert(engine.outside_control?)
+		assert(!execution_engine.inside_control?)
+		assert(execution_engine.outside_control?)
 	    end
 	    t.value
 	ensure
-	    engine.thread = nil
+	    execution_engine.thread = nil
 	end
 
 	# .. and test with the real one
-	engine.run
-	engine.execute do
-	    assert(engine.inside_control?)
-	    assert(!engine.outside_control?)
+	execution_engine.run
+	execution_engine.execute do
+	    assert(execution_engine.inside_control?)
+	    assert(!execution_engine.outside_control?)
 	end
-	assert(!engine.inside_control?)
-	assert(engine.outside_control?)
+	assert(!execution_engine.inside_control?)
+	assert(execution_engine.outside_control?)
     end
 
     def test_execute
 	# Set a fake control thread
-	engine.thread = Thread.main
+	execution_engine.thread = Thread.main
 
 	FlexMock.use do |mock|
 	    mock.should_receive(:thread_before).once.ordered
@@ -697,7 +697,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    returned_value = nil
 	    t = Thread.new do
 		mock.thread_before
-		returned_value = engine.execute do
+		returned_value = execution_engine.execute do
 		    mock.execute(Thread.current)
 		end
 		mock.thread_after
@@ -707,9 +707,9 @@ class TC_ExecutionEngine < Minitest::Test
 	    while !t.stop?; sleep(0.1) end
 	    mock.main_before
 	    assert(t.alive?)
-            # We use engine.process_events as we are making the engine
+            # We use execution_engine.process_events as we are making the execution_engine
             # believe that it is running while it is not
-	    engine.process_events
+	    execution_engine.process_events
 	    mock.main_after
 	    t.join
 
@@ -717,19 +717,19 @@ class TC_ExecutionEngine < Minitest::Test
 	end
 
     ensure
-	engine.thread = nil
+	execution_engine.thread = nil
     end
 
     def test_execute_error
-	assert(!engine.thread)
+	assert(!execution_engine.thread)
 	# Set a fake control thread
-	engine.thread = Thread.main
-	assert(!engine.quitting?)
+	execution_engine.thread = Thread.main
+	assert(!execution_engine.quitting?)
 
 	returned_value = nil
 	t = Thread.new do
 	    returned_value = begin
-				 engine.execute do
+				 execution_engine.execute do
 				     raise ArgumentError
 				 end
 			     rescue ArgumentError => e
@@ -740,47 +740,47 @@ class TC_ExecutionEngine < Minitest::Test
 	# Wait for the thread to block
 	while !t.stop?; sleep(0.1) end
         assert(t.alive?)
-        # We use engine.process_events as we are making the engine
+        # We use execution_engine.process_events as we are making the execution_engine
         # believe that it is running while it is not
-	engine.process_events
+	execution_engine.process_events
 	t.join
 
 	assert_kind_of(ArgumentError, returned_value)
-	assert(!engine.quitting?)
+	assert(!execution_engine.quitting?)
 
     ensure
-	engine.thread = nil
+	execution_engine.thread = nil
     end
     
     def test_wait_until
 	# Set a fake control thread
-	engine.thread = Thread.main
+	execution_engine.thread = Thread.main
 
 	plan.add_permanent(task = Tasks::Simple.new)
 	t = Thread.new do
-	    engine.wait_until(task.event(:start)) do
+	    execution_engine.wait_until(task.event(:start)) do
 		task.start!
 	    end
 	end
 
 	while !t.stop?; sleep(0.1) end
-        # We use engine.process_events as we are making the engine
+        # We use execution_engine.process_events as we are making the execution_engine
         # believe that it is running while it is not
-	engine.process_events
+	execution_engine.process_events
 	t.value
 
     ensure
-	engine.thread = nil
+	execution_engine.thread = nil
     end
  
     def test_wait_until_unreachable
 	# Set a fake control thread
-	engine.thread = Thread.main
+	execution_engine.thread = Thread.main
 
 	plan.add_permanent(task = Tasks::Simple.new)
 	t = Thread.new do
 	    begin
-		engine.wait_until(task.event(:success)) do
+		execution_engine.wait_until(task.event(:success)) do
 		    task.start!
                     task.stop!
 		end
@@ -793,9 +793,9 @@ class TC_ExecutionEngine < Minitest::Test
 	while !t.stop?; sleep(0.1) end
         # And process the events
         with_log_level(Roby, Logger::FATAL) do
-            # We use engine.process_events as we are making the engine
+            # We use execution_engine.process_events as we are making the execution_engine
             # believe that it is running while it is not
-            engine.process_events
+            execution_engine.process_events
         end
 
 	result = t.value
@@ -803,7 +803,7 @@ class TC_ExecutionEngine < Minitest::Test
 	assert_equal(task.event(:success), result.failed_generator)
 
     ensure
-	engine.thread = nil
+	execution_engine.thread = nil
     end
 
     class CaptureLastStats
@@ -824,7 +824,7 @@ class TC_ExecutionEngine < Minitest::Test
 
 	time_events = [:real_start, :events, :structure_check, :exception_propagation, :exception_fatal, :garbage_collect, :application_errors, :ruby_gc, :sleep, :end]
 	10.times do
-	    engine.process_events
+	    execution_engine.process_events
 	    next unless capture.last_stats
 
             timepoints = capture.last_stats.slice(*time_events)
@@ -858,8 +858,8 @@ class TC_ExecutionEngine < Minitest::Test
 
             yield if block_given?
 
-            engine.garbage_collect
-            engine.garbage_collect
+            execution_engine.garbage_collect
+            execution_engine.garbage_collect
             if unneeded
                 assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
             end
@@ -875,7 +875,7 @@ class TC_ExecutionEngine < Minitest::Test
 		if delays
 		    return
 		else
-		    emit(:stop)
+		    stop_event.emit
 		end
             end
 	end
@@ -921,7 +921,7 @@ class TC_ExecutionEngine < Minitest::Test
 	plan.add_mission(t1)
 	t1.start!
 	assert_finalizes(plan, []) do
-	    engine.garbage_collect([t1])
+	    execution_engine.garbage_collect([t1])
 	end
 	assert(t1.event(:stop).pending?)
 
@@ -973,24 +973,24 @@ class TC_ExecutionEngine < Minitest::Test
 		mock.should_receive(:stop).with(t).once
 	    end
 		
-	    engine.garbage_collect
+	    execution_engine.garbage_collect
 	    process_events
 
 	    assert(!plan.include?(t1))
 	    assert(!plan.include?(t2))
 	    running_tasks.each do |t|
 		assert(t.finishing?)
-		t.emit(:stop)
+		t.stop_event.emit
 	    end
 
-	    engine.garbage_collect
+	    execution_engine.garbage_collect
 	    running_tasks.each do |t|
 		assert(!plan.include?(t))
 	    end
 	end
 
     ensure
-	running_task.emit(:stop) if running_task && !running_task.finished?
+	running_task.stop_event.emit if running_task && !running_task.finished?
     end
 
     def test_garbage_collect_events
@@ -1067,7 +1067,7 @@ class TC_ExecutionEngine < Minitest::Test
                     if !stop_called
                         raise ArgumentError, "ordering failed"
                     end
-                    emit :start
+                    start_event.emit
                 end
             end.new(id: 'target')
             plan.add(source)
@@ -1091,7 +1091,7 @@ class TC_ExecutionEngine < Minitest::Test
 
         recorder = flexmock
         recorder.should_receive(:triggered).once.with(time + 6)
-        engine.delayed(5) { recorder.triggered(Time.now) }
+        execution_engine.delayed(5) { recorder.triggered(Time.now) }
         process_events
         time = time + 2
         process_events
@@ -1103,7 +1103,7 @@ class TC_ExecutionEngine < Minitest::Test
         plan = flexmock(self.plan)
         plan.add(task = Roby::Tasks::Simple.new)
         task.stop_event.when_unreachable do
-            engine.add_error LocalizedError.new(task)
+            execution_engine.add_error LocalizedError.new(task)
         end
         inhibit_fatal_messages { process_events }
     end
@@ -1163,7 +1163,7 @@ class TC_ExecutionEngine < Minitest::Test
         error = ExecutionException.new(SpecializedError.new(t2))
         mock.should_receive(:handler).once.
             with(on { |e| e.trace == [t2, t1, t0] && e.origin == t2 }, t0)
-        assert_equal([], engine.propagate_exceptions([error]))
+        assert_equal([], execution_engine.propagate_exceptions([error]))
     end
 
     def test_it_ignores_handlers_that_do_not_match_the_filter
@@ -1173,7 +1173,7 @@ class TC_ExecutionEngine < Minitest::Test
 
         error = ExecutionException.new(SpecializedError.new(t2))
 
-        remaining = engine.propagate_exceptions([error])
+        remaining = execution_engine.propagate_exceptions([error])
         assert_equal 1, remaining.size
         remaining_error, affected_tasks = remaining.first
         assert_equal error, remaining_error
@@ -1193,7 +1193,7 @@ class TC_ExecutionEngine < Minitest::Test
         end
         mock.should_receive(:handler).with(error, t0).once
         mock.should_receive(:handler).with(error, plan).never
-        assert_equal([], engine.propagate_exceptions([error]))
+        assert_equal([], execution_engine.propagate_exceptions([error]))
     end
 
     def test_it_uses_global_handlers_to_filter_exceptions_that_have_not_been_handled_by_a_task
@@ -1207,7 +1207,7 @@ class TC_ExecutionEngine < Minitest::Test
             mock.handler(e, p)
         end
         mock.should_receive(:handler).with(error, plan).once
-        assert_equal([], engine.propagate_exceptions([error]))
+        assert_equal([], execution_engine.propagate_exceptions([error]))
     end
 
     def dependency_chain(*tasks)
@@ -1234,11 +1234,11 @@ class TC_ExecutionEngine < Minitest::Test
 
         mock.should_receive(:handler).
             with(ExecutionException, [t2, t1, t0], t0).once
-        flexmock(engine).should_receive(:handled_exception).
+        flexmock(execution_engine).should_receive(:handled_exception).
             with(on { |e| e.trace == [t2, t1, t0] }, t0)
 
         error = ExecutionException.new(CodeError.new(nil, t2))
-        fatal = engine.propagate_exceptions([error])
+        fatal = execution_engine.propagate_exceptions([error])
         assert_equal 1, fatal.size
 
         exception, affected_tasks = fatal.first
@@ -1262,7 +1262,7 @@ class TC_ExecutionEngine < Minitest::Test
         error = ExecutionException.new(LocalizedError.new(t2))
         mock.should_receive(:handler).once.
             with(on { |e| e.trace.flatten.to_set == [t0, t2, t12, t11].to_set && e.origin == t2 }, t0)
-        assert_equal([], engine.propagate_exceptions([error]))
+        assert_equal([], execution_engine.propagate_exceptions([error]))
     end
 
     def test_event_propagation_with_exception
@@ -1314,7 +1314,7 @@ class TC_ExecutionEngine < Minitest::Test
 
 	task = Tasks::Simple.new_submodel do
 	    event :start do |context|
-		emit(:start)
+		start_event.emit
 		raise RuntimeError, "failed"
             end
 	end.new(id: 'child')
@@ -1331,12 +1331,12 @@ class TC_ExecutionEngine < Minitest::Test
 	    parent.depends_on task
 	    plan.add_permanent(parent)
             
-	    engine.once { parent.start!; task.start! }
+	    execution_engine.once { parent.start!; task.start! }
 
 	    mock.should_receive(:other_once_handler).once
 	    mock.should_receive(:other_event_processing).once
-	    engine.once { mock.other_once_handler }
-	    engine.add_propagation_handler(type: :external_events) { |plan| mock.other_event_processing }
+	    execution_engine.once { mock.other_once_handler }
+	    execution_engine.add_propagation_handler(type: :external_events) { |plan| mock.other_event_processing }
 
             assert_raises(Roby::ChildFailedError) do
 		process_events
@@ -1373,11 +1373,11 @@ class TC_ExecutionEngine < Minitest::Test
 
 	parent.start!
 	child.start!
-	child.emit error_event
+        child.event(error_event).emit
 
 	exceptions = plan.check_structure
-        assert engine.remove_inhibited_exceptions(exceptions).empty?
-	assert_equal([], engine.propagate_exceptions(exceptions))
+        assert execution_engine.remove_inhibited_exceptions(exceptions).empty?
+	assert_equal([], execution_engine.propagate_exceptions(exceptions))
 
         repairs = child.find_all_matching_repair_tasks(child.terminal_event)
         assert_equal 1, repairs.size
@@ -1420,7 +1420,7 @@ class TC_ExecutionEngine < Minitest::Test
 	mission = prepare_plan missions: 1, model: Tasks::Simple
 	mission.start!
         error = inhibit_fatal_messages do
-            assert_raises(MissionFailedError) { mission.emit(:failed) }
+            assert_raises(MissionFailedError) { mission.failed_event.emit }
         end
 
 	assert_kind_of(Roby::MissionFailedError, error)
@@ -1444,7 +1444,7 @@ class TC_ExecutionEngine < Minitest::Test
     def test_fatal_exception_handling
         task_model = Tasks::Simple.new_submodel do
             event :intermediate do |context|
-                emit :intermediate
+                intermediate_event.emit
             end
         end
         
@@ -1458,7 +1458,7 @@ class TC_ExecutionEngine < Minitest::Test
         plan.add_permanent(t3)
         t3.start!
 
-        flexmock(engine).should_receive(:fatal_exception).
+        flexmock(execution_engine).should_receive(:fatal_exception).
             with(any, ->tasks{tasks.to_set == [t1, t2, t3].to_set}).
             once
 
@@ -1496,7 +1496,7 @@ class TC_ExecutionEngine < Minitest::Test
         a1.depends_on b
         mock.should_receive(:called).with(a0).once
         mock.should_receive(:called).with(a1).never
-        engine.propagate_exceptions([[b.to_execution_exception, [a0]]])
+        execution_engine.propagate_exceptions([[b.to_execution_exception, [a0]]])
     end
 
     def test_the_propagation_is_robust_to_badly_specified_parents
@@ -1506,7 +1506,7 @@ class TC_ExecutionEngine < Minitest::Test
 
         error = LocalizedError.new(child).to_execution_exception
         result = inhibit_fatal_messages do
-            engine.propagate_exceptions([[error, [task]]])
+            execution_engine.propagate_exceptions([[error, [task]]])
         end
         assert_equal error, result.first.first
         assert_equal [parent, child].to_set, result.first.last.to_set
@@ -1526,7 +1526,7 @@ class TC_ExecutionEngine < Minitest::Test
             event :start, controlable: true
             event :stop do |_|
                 obj.stop
-                emit :stop
+                stop_event.emit
             end
         end
         plan.add(task = task_model.new(obj: obj))

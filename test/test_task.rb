@@ -1,6 +1,5 @@
 require 'roby/test/self'
 require 'roby/tasks/group'
-require 'roby/tasks/virtual'
 
 module Roby
     describe Task do
@@ -1310,7 +1309,7 @@ class TC_Task < Minitest::Test
 	    task.start!
 	    task.success!
 	end
-	engine.garbage_collect
+	execution_engine.garbage_collect
 
 	# Test that it works on pending tasks too
 	FlexMock.use do |mock|
@@ -1327,7 +1326,7 @@ class TC_Task < Minitest::Test
 	    mock.should_receive(:ready_called).once
 	    mock.should_receive(:ready_cancel_called).once
 
-	    engine.garbage_collect
+	    execution_engine.garbage_collect
 	end
 
     end
@@ -1439,10 +1438,10 @@ class TC_Task < Minitest::Test
 
         poll_cycles = []
         model = Tasks::Simple.new_submodel do
-            poll { poll_cycles << plan.engine.propagation_id }
+            poll { poll_cycles << plan.execution_engine.propagation_id }
         end
         t = prepare_plan permanent: 1, model: model
-        t.poll { |task| poll_cycles << task.plan.engine.propagation_id }
+        t.poll { |task| poll_cycles << task.plan.execution_engine.propagation_id }
         t.start!
         expected = t.start_event.history.first.propagation_id
         assert_equal [expected, expected], poll_cycles
@@ -1541,12 +1540,7 @@ class TC_Task < Minitest::Test
 		end
 	    end
 
-            engine.run
-
-            t = nil
-            engine.execute do
-                plan.add_permanent(t = klass.new)
-            end
+            plan.add_permanent(t = klass.new)
             assert_event_emission(t.internal_error_event) do
                 t.start!
             end
@@ -1569,20 +1563,14 @@ class TC_Task < Minitest::Test
                 end
 	    end
 
-            engine.run
-
-            engine.execute do
-                plan.add_permanent(t = klass.new)
-            end
+            plan.add_permanent(t = klass.new)
             assert_event_emission(t.internal_error_event) do
                 t.start!
             end
             assert(t.failed?)
             assert(t.running?)
             assert(t.finishing?)
-            engine.execute do
-                t.emit :stop
-            end
+            t.stop_event.emit
             assert(t.failed?)
             assert(!t.running?)
             assert(t.finished?)
@@ -1590,7 +1578,7 @@ class TC_Task < Minitest::Test
 
     ensure
         if t.running?
-            engine.execute { t.emit :stop }
+            t.stop_event.emit
         end
     end
 
@@ -1613,12 +1601,7 @@ class TC_Task < Minitest::Test
                 end
 	    end
 
-            engine.run
-
-            t = nil
-            engine.execute do
-                plan.add_permanent(t = klass.new)
-            end
+            plan.add_permanent(t = klass.new)
             assert_event_emission(t.stop_event) do
                 t.start!
             end
@@ -1640,37 +1623,6 @@ class TC_Task < Minitest::Test
 	ev.call
 	assert_equal([task.failed_event.last], task.stop_event.last.task_sources.to_a)
 	assert_equal([task.specialized_failure_event.last, task.failed_event.last].to_set, task.stop_event.last.all_task_sources.to_set)
-    end
-
-    def test_virtual_task
-	start, success = EventGenerator.new(true), EventGenerator.new
-	assert_raises(ArgumentError) { VirtualTask.create(success, start) }
-
-	assert_kind_of(VirtualTask, task = VirtualTask.create(start, success))
-	plan.add(task)
-	assert_equal(start, task.actual_start_event)
-	assert_equal(success, task.actual_success_event)
-	FlexMock.use do |mock|
-	    start.on { |event| mock.start_event }
-	    task.start_event.on { |event| mock.start_task }
-	    mock.should_receive(:start_event).once.ordered
-	    mock.should_receive(:start_task).once.ordered
-	    task.start!
-
-	    success.emit
-	    assert(task.success?)
-	end
-
-	start, success = EventGenerator.new(true), EventGenerator.new
-	plan.add(task = VirtualTask.create(start, success))
-	task.start!
-	plan.remove_object(success)
-	assert(task.failed?)
-
-	start, success = EventGenerator.new(true), EventGenerator.new
-	plan.add(success)
-	plan.add(task = VirtualTask.create(start, success))
-	success.emit
     end
 
     def test_dup
@@ -2286,8 +2238,8 @@ class TC_Task < Minitest::Test
         error_m = Class.new(LocalizedError)
         error = error_m.new(Roby::Task.new)
         error = error.to_execution_exception
-        flexmock(engine).should_receive(:process_events_synchronous).with([], [error]).once
-        plan.engine.add_error(error)
+        flexmock(execution_engine).should_receive(:process_events_synchronous).with([], [error]).once
+        execution_engine.add_error(error)
     end
 
     def test_unreachable_handlers_are_called_after_on_stop

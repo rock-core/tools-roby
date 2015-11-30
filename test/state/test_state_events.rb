@@ -112,25 +112,25 @@ class TC_StateEvents < Minitest::Test
 	plan.add_permanent(ev = State.on_delta(yaw: 2, d: 10))
 	assert_kind_of(AndGenerator, ev)
 
-	engine.process_events
+	process_events
 	assert_equal(0, ev.history.size)
 
 	State.pos.yaw = 1
 	State.pos.x = 15
-	engine.process_events
+	process_events
 	assert_equal(0, ev.history.size)
 
 	State.pos.yaw = 2
-	engine.process_events
+	process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 3
 	State.pos.x = 25
-	engine.process_events
+	process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 4
-	engine.process_events
+	process_events
 	assert_equal(2, ev.history.size, ev.waiting.to_a)
     end
 
@@ -139,29 +139,29 @@ class TC_StateEvents < Minitest::Test
 	plan.add_permanent(y = State.on_delta(yaw: 2))
 
 	ev = y.or(d: 10)
-	engine.process_events
+	process_events
 	assert_equal(0, ev.history.size)
 
 	State.pos.yaw = 1
 	State.pos.x = 15
-	engine.process_events
+	process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 2
-	engine.process_events
+	process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 3
-	engine.process_events
+	process_events
 	assert_equal(2, ev.history.size)
 
 	ev = ev.or(t: 3600)
-	engine.process_events
+	process_events
 	assert_equal(0, ev.history.size)
 
 	time_event = plan.free_events.find { |t| t.kind_of?(TimeDeltaEvent) }
 	time_event.instance_variable_set(:@last_value, Time.now - 3600)
-	engine.process_events
+	process_events
 	assert_equal(1, ev.history.size)
     end
 
@@ -176,22 +176,22 @@ class TC_StateEvents < Minitest::Test
             mock.should_receive(:condition).once.with(20)
             mock.should_receive(:condition).once.with(30)
 
-            engine.process_events
+            process_events
             assert(!event.happened?)
 
             State.x = 2
-            engine.process_events
+            process_events
             assert(!event.happened?)
 
             State.x = 20
             assert(event.armed?)
-            engine.process_events
+            process_events
             assert(event.happened?)
 
             event.reset
 
             State.x = 30
-            engine.process_events
+            process_events
         end
     end
 
@@ -215,15 +215,15 @@ class TC_StateEvents < Minitest::Test
             mock.should_receive(:reset_condition).at_least.once.with(2)
 
             State.x = 2
-            engine.process_events # does not emit (low value)
+            process_events # does not emit (low value)
             State.x = 20
-            engine.process_events # emits
+            process_events # emits
             State.x = 30
-            engine.process_events # does not emit (not reset yet)
+            process_events # does not emit (not reset yet)
             State.x = 2
-            engine.process_events # resets
+            process_events # resets
             State.x = 30
-            engine.process_events # emits
+            process_events # emits
             assert_equal 1, reset_event.history.size
             assert_equal 2, event.history.size
         end

@@ -50,9 +50,9 @@ module Roby
             Roby.app.setup
             Roby.app.prepare
 
-            @plan    = Plan.new
+            @plan    = ExecutablePlan.new
             @control = DecisionControl.new
-            if !plan.engine
+            if !plan.execution_engine
                 ExecutionEngine.new(@plan, @control)
             end
 
@@ -61,19 +61,11 @@ module Roby
             super
 
 	    # Save and restore some arrays
-	    save_collection engine.propagation_handlers
-	    save_collection engine.external_events_handlers
 	    save_collection Roby::ExecutionEngine.propagation_handlers
 	    save_collection Roby::ExecutionEngine.external_events_handlers
-	    save_collection plan.structure_checks
 	    save_collection Roby::Plan.structure_checks
-	    save_collection engine.at_cycle_end_handlers
 	    Roby.app.abort_on_exception = false
 	    Roby.app.abort_on_application_exception = true
-
-	    save_collection engine.event_ordering
-	    save_collection engine.delayed_events
-	    save_collection plan.exception_handlers
         end
 
         def teardown

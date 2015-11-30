@@ -23,7 +23,7 @@ module Roby
             end
 
             def assert_raises(*exp, &block)
-                if plan.execution_engine
+                if plan.executable?
                     # Avoid having it displayed by the execution engine. We're going
                     # to display any unexpected exception anyways
                     display_exceptions_enabled, plan.execution_engine.display_exceptions =
@@ -46,7 +46,7 @@ module Roby
                 flunk("#{exp.map(&:to_s).join(", ")} exceptions expected but received nothing")
 
             ensure
-                if plan.execution_engine
+                if plan.executable?
                     plan.execution_engine.display_exceptions =
                         display_exceptions_enabled
                 end

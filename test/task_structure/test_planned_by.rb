@@ -83,12 +83,8 @@ class TC_PlannedBy < Minitest::Test
         plan.add_permanent(task)
 
         planner.start!
-        engine.run
         assert !task.finalized?
-        engine.wait_one_cycle
-        engine.execute { planner.failed! }
-        engine.wait_one_cycle
-        engine.wait_one_cycle
+        assert_raises(PlanningFailedError) { planner.failed! }
         assert task.finalized?
     end
 end

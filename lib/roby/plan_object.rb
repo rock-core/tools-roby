@@ -15,9 +15,7 @@ module Roby
         # It is always self.class
         def concrete_model; self.class end
 
-        def execution_engine
-            plan.execution_engine
-        end
+        attr_reader :execution_engine
 
         def connection_space
             if plan
@@ -129,7 +127,7 @@ module Roby
 	attr_reader :plan
 
         # The engine which acts on +plan+ (if there is one)
-        def engine; plan.engine if plan end
+        def engine; plan.execution_engine if plan && plan.executable? end
 
         # True if this object is a transaction proxy, false otherwise
         def transaction_proxy?; false end
@@ -158,6 +156,10 @@ module Roby
                 @addition_time = Time.now
             end
 	    @plan = new_plan
+            @execution_engine =
+                if new_plan && new_plan.executable?
+                    new_plan.execution_engine
+                end
 	end
 
         # Used in plan management as a way to extract a plan object from any

@@ -58,7 +58,7 @@ describe Roby::Coordination::Models::FaultHandler do
         it "removes children so that the relevant ones are garbage-collected" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([m0, m1].to_set)
             handler.activate(flexmock(origin: t2))
-            plan.engine.garbage_collect_synchronous
+            plan.execution_engine.garbage_collect_synchronous
             assert !t1.plan
             assert !t2.plan
             assert !t0.plan

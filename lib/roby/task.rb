@@ -30,7 +30,7 @@ module Roby
     #       end
     #
     #       event :other_event do |context|
-    #           engine.once { emit :other_event }
+    #           execution_engine.once { emit :other_event }
     #       end
     #   end
     #
@@ -546,7 +546,7 @@ module Roby
 	def starting?; event(:start).pending? end
 	# True if this task can be started
 	def pending?; !failed_to_start? && !starting? && !started? &&
-            (!engine || !engine.has_error_from?(self))
+            (!execution_engine || !execution_engine.has_error_from?(self))
         end
         # True if this task is currently running (i.e. is has already started,
         # and is not finished)
@@ -718,13 +718,13 @@ module Roby
 
             if finished? && !event.terminal?
                 raise EmissionFailed.new(nil, event),
-                    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{stop_event.last.sources}."
+                    "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{stop_event.last.sources}."
             elsif pending? && event.symbol != :start
                 raise EmissionFailed.new(nil, event),
-		    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
+		    "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task has never been started"
             elsif running? && event.symbol == :start
                 raise EmissionFailed.new(nil, event),
-                    "#{self}.emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{start_event.last.sources}."
+                    "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task is already running. Task has been started by #{start_event.last.sources}."
             end
 
 	    super if defined? super
@@ -1143,7 +1143,7 @@ module Roby
 
         def ensure_poll_handler_called
             if !transaction_proxy? && running?
-                @poll_handler_id ||= engine.add_propagation_handler(type: :external_events, &method(:do_poll))
+                @poll_handler_id ||= execution_engine.add_propagation_handler(type: :external_events, &method(:do_poll))
             end
         end
 
@@ -1182,7 +1182,7 @@ module Roby
         end
 
         on :start do |ev|
-            engine = plan.engine
+            engine = execution_engine
 
             # Register poll:
             #  - single class poll_handler add be class method Task#poll
@@ -1195,7 +1195,7 @@ module Roby
 
         on :stop do |ev|
             if @poll_handler_id
-                plan.engine.remove_propagation_handler(@poll_handler_id)
+                execution_engine.remove_propagation_handler(@poll_handler_id)
             end
         end
 

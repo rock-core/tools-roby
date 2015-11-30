@@ -30,25 +30,6 @@ module Roby
 	extend Logger::Hierarchy
 	extend Logger::Forward
 
-        # The ExecutionEngine object which handles this plan. The role of this
-        # object is to provide the event propagation, error propagation and
-        # garbage collection mechanisms for the execution.
-        attr_accessor :execution_engine
-
-        # The ConnectionSpace object which handles this plan. The role of this
-        # object is to sharing with other Roby plan managers
-        attr_accessor :connection_space
-
-        # @deprecated use {#execution_engine} instead
-        def engine; execution_engine end
-        # @deprecated use {#execution_engine=} instead
-        def engine=(engine); self.execution_engine = engine end
-
-        # The DecisionControl object which is associated with this plan. This
-        # object's role is to handle the conflicts that can occur during event
-        # propagation.
-        def control; execution_engine.control end
-
 	# The task index for this plan. This is a {Queries::Index} object which allows
         # efficient resolving of queries.
 	attr_reader :task_index
@@ -74,44 +55,6 @@ module Roby
         # See {#add_trigger}
         attr_reader :triggers
 
-	# A set of tasks which are useful (and as such would not been garbage
-	# collected), but we want to GC anyway
-	attr_reader :force_gc
-
-	# A set of task for which GC should not be attempted, either because
-	# they are not interruptible or because their start or stop command
-	# failed
-	attr_reader :gc_quarantine
-
-        # Put the given task in quarantine. In practice, it means that all the
-        # event relations of that task's events are removed, as well as its
-        # children. Then, the task is added to gc_quarantine (the task will not
-        # be GCed anymore).
-        #
-        # This is used as a last resort, when the task cannot be stopped/GCed by
-        # normal means.
-        def quarantine(task)
-            task.each_event do |ev|
-                ev.clear_relations
-            end
-            for rel in task.sorted_relations
-                next if rel == Roby::TaskStructure::ExecutionAgent
-                for child in task.child_objects(rel).to_a
-                    task.remove_child_object(child, rel)
-                end
-            end
-            Roby::ExecutionEngine.warn "putting #{task} in quarantine"
-            gc_quarantine << task
-            self
-        end
-
-        # Tests whether a task is in the quarantine
-        #
-        # @see #quarantine
-        def quarantined_task?(task)
-            gc_quarantine.include?(task)
-        end
-
 	# The set of transactions which are built on top of this plan
 	attr_reader :transactions
 
@@ -125,9 +68,6 @@ module Roby
 
         # The set of PlanService instances that are defined on this plan
         attr_reader :plan_services
-        # The list of fault response tables that are currently globally active
-        # on this plan
-        attr_reader :active_fault_response_tables
 
         # A template plan is meant to be injected in another plan
         #
@@ -138,6 +78,10 @@ module Roby
         # @see TemplatePlan
         def template?; false end
 
+	# Check that this is an executable plan. This is always true for
+	# plain Plan objects and false for transcations
+	def executable?; false end
+
 	def initialize
 	    @missions	 = Set.new
 	    @permanent_tasks  = Set.new
@@ -145,22 +89,15 @@ module Roby
 	    @known_tasks = Set.new
 	    @free_events = Set.new
 	    @task_events = Set.new
-	    @force_gc    = Set.new
-	    @gc_quarantine = Set.new
 	    @transactions = Set.new
-            @exception_handlers = Array.new
             @fault_response_tables = Array.new
-            @active_fault_response_tables = Array.new
             @triggers = []
-
-            on_exception LocalizedError do |plan, error|
-                plan.default_localized_error_handling(error)
-            end
 
             @plan_services = Hash.new
 
             @task_relation_graphs  = TaskStructure.instanciate
             @event_relation_graphs = EventStructure.instanciate
+            @active_fault_response_tables = Array.new
 
             @structure_checks = Array.new
             each_relation_graph do |graph|
@@ -228,85 +165,6 @@ module Roby
             task_relation_graphs.fetch(model)
         end
 
-        def default_localized_error_handling(error)
-            matching_handlers = Array.new
-            active_fault_response_tables.each do |table|
-                table.find_all_matching_handlers(error).each do |handler|
-                    matching_handlers << [table, handler]
-                end
-            end
-            handlers = matching_handlers.sort_by { |_, handler| handler.priority }
-
-            while !handlers.empty?
-                table, handler = handlers.shift
-                if handler
-                    begin
-                        handler.activate(error, table.arguments)
-                        return
-                    rescue Exception => e
-                        Robot.warn "ignored exception handler #{handler} because of exception"
-                        Roby.log_exception_with_backtrace(e, Robot, :warn)
-                    end
-                end
-            end
-
-            error.each_involved_task.
-                find_all { |t| mission?(t) && t != error.origin }.
-                each do |m|
-                    add_error(MissionFailedError.new(m, error.exception))
-                end
-
-            error.each_involved_task.
-                find_all { |t| permanent?(t) && t != error.origin }.
-                each do |m|
-                    add_error(PermanentTaskError.new(m, error.exception))
-                end
-
-            pass_exception
-        end
-
-        # Enables a fault response table on this plan
-        #
-        # @param [Model<Coordination::FaultResponseTable>] table_model the fault
-        #   response table model
-        # @param [Hash] arguments the arguments that should be passed to the
-        #   created table
-        # @return [Coordination::FaultResponseTable] the fault response table
-        #   that got added to this plan. It can be removed using
-        #   {#remove_fault_response_table}
-        # @return [void]
-        # @see remove_fault_response_table
-        def use_fault_response_table(table_model, arguments = Hash.new)
-            table = table_model.new(self, arguments)
-            table.attach_to(self)
-            active_fault_response_tables << table
-            table
-        end
-
-        # Remove a fault response table that has been added with
-        # {#use_fault_response_table}
-        #
-        # @overload remove_fault_response_table(table)
-        #   @param [Coordination::FaultResponseTable] table the table that
-        #     should be removed. This is the return value of
-        #     {#use_fault_response_table}
-        #
-        # @overload remove_fault_response_table(table_model)
-        #   Removes all the tables whose model is the given table model
-        #
-        #   @param [Model<Coordination::FaultResponseTable>] table_model
-        #
-        # @return [void]
-        # @see use_fault_response_table
-        def remove_fault_response_table(table_model)
-            active_fault_response_tables.delete_if do |t|
-                if (table_model.kind_of?(Class) && t.kind_of?(table_model)) || t == table_model
-                    t.removed!
-                    true
-                end
-            end
-        end
-
         def dup
             new_plan = Plan.new
             copy_to(new_plan)
@@ -322,11 +180,7 @@ module Roby
         #
         # See ExecutionEngine#execute
         def execute(&block)
-            if execution_engine
-                execution_engine.execute(&block)
-            else
-                yield
-            end
+            yield
         end
 
         # @deprecated use {#merge} instead
@@ -761,10 +615,6 @@ module Roby
             super if defined? super
         end
 
-	# Check that this is an executable plan. This is always true for
-	# plain Plan objects and false for transcations
-	def executable?; true end
-
         def add_mission_task(task)
 	    return if missions.include?(task)
             add([task])
@@ -847,10 +697,6 @@ module Roby
                     raise ModelViolation, "cannot add #{plan_object} in #{self}, it is already included in #{p}"
                 end
                 plans << p
-            end
-
-            if execution_engine
-                execution_engine.event_ordering.clear
             end
 
             triggered = Array.new
@@ -956,9 +802,6 @@ module Roby
         #   the new relation has been created
         # @return [void]
         def added_event_relation(parent, child, relations)
-            if execution_engine && relations.include?(Roby::EventStructure::Precedence)
-                execution_engine.event_ordering.clear
-            end
             super if defined? super
         end
 
@@ -971,9 +814,6 @@ module Roby
         #   the relation has been removed
         # @return [void]
         def removed_event_relation(parent, child, relations)
-            if execution_engine && relations.include?(Roby::EventStructure::Precedence)
-                execution_engine.event_ordering.clear
-            end
             super if defined? super
         end
 
@@ -1237,9 +1077,7 @@ module Roby
 	    @known_tasks.delete(object)
 	    @permanent_tasks.delete(object)
 	    @permanent_events.delete(object)
-	    @force_gc.delete(object)
             @task_index.remove(object)
-            @gc_quarantine.delete(object)
             
             case object
             when Task
@@ -1265,10 +1103,8 @@ module Roby
 	    @known_tasks.clear
 	    @permanent_tasks.clear
 	    @permanent_events.clear
-            @force_gc.clear
             @task_index.clear
             @task_events.clear
-            @gc_quarantine.clear
         end
 
 	# Remove all tasks
@@ -1299,27 +1135,6 @@ module Roby
             self
 	end
 
-
-	# Hook called when +task+ is marked as garbage. It will be garbage
-	# collected as soon as possible
-	def garbage(task_or_event)
-	    # Remove all signals that go *to* the task
-	    #
-	    # While we want events which come from the task to be properly
-	    # forwarded, the signals that go to the task are to be ignored
-	    if task_or_event.respond_to?(:each_event) && task_or_event.self_owned?
-		task_or_event.each_event do |ev|
-		    for signalling_event in ev.parent_objects(EventStructure::Signal).to_a
-			signalling_event.remove_signal ev
-		    end
-		end
-	    end
-
-	    super if defined? super
-
-            remove_object(task_or_event)
-	end
-
 	# backward compatibility
 	def finalized(task) # :nodoc:
 	    super if defined? super
@@ -1334,9 +1149,6 @@ module Roby
 
 	# Hook called when +event+ has been removed from this plan
 	def finalized_event(event)
-            if execution_engine && executable?
-                execution_engine.finalized_event(event)
-            end
             finalized_transaction_object(event) { |trsc, proxy| trsc.finalized_plan_event(proxy) }
             super if defined? super 
         end
@@ -1366,15 +1178,6 @@ module Roby
 	    replace_task(task, new_task)
             new_task
         end
-
-	# Replace +task+ with a fresh copy of itself and start it.
-        #
-        # See #recreate for details about the new task.
-	def respawn(task)
-            new = recreate(task)
-            execution_engine.once { new.start!(nil) }
-	    new
-	end
 
         # Creates a new planning pattern replacing the given task and its
         # current planner
@@ -1451,6 +1254,10 @@ module Roby
             result
         end
 
+        def call_structure_check_handler(handler)
+            handler.call(self)
+        end
+
         # Perform the structure checking step by calling the procs registered
         # in {#structure_checks} and {Plan.structure_checks}
         #
@@ -1459,15 +1266,7 @@ module Roby
 	    # Do structure checking and gather the raised exceptions
             exceptions = Hash.new
 	    for prc in (Plan.structure_checks + structure_checks)
-		begin
-		    new_exceptions = prc.call(self)
-		rescue Exception => e
-                    if execution_engine
-                        execution_engine.add_framework_error(e, 'structure checking')
-                    else
-                        raise
-                    end
-		end
+                new_exceptions = call_structure_check_handler(prc)
 		next unless new_exceptions
 
                 format_exception_set(exceptions, new_exceptions)
@@ -1492,15 +1291,6 @@ module Roby
                     remove_object(t)
                 end
             end
-        end
-
-        include Roby::ExceptionHandlingObject
-
-        attr_reader :exception_handlers
-        def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
-        def on_exception(matcher, &handler)
-            check_arity(handler, 2)
-            exception_handlers.unshift [matcher.to_execution_exception_matcher, handler]
         end
 
         # Finds a single difference between this plan and the other plan, using
@@ -1627,6 +1417,52 @@ module Roby
 	    end
 	    found
 	end
+
+        # The list of fault response tables that are currently globally active
+        # on this plan
+        attr_reader :active_fault_response_tables
+
+        # Enables a fault response table on this plan
+        #
+        # @param [Model<Coordination::FaultResponseTable>] table_model the fault
+        #   response table model
+        # @param [Hash] arguments the arguments that should be passed to the
+        #   created table
+        # @return [Coordination::FaultResponseTable] the fault response table
+        #   that got added to this plan. It can be removed using
+        #   {#remove_fault_response_table}
+        # @return [void]
+        # @see remove_fault_response_table
+        def use_fault_response_table(table_model, arguments = Hash.new)
+            table = table_model.new(self, arguments)
+            table.attach_to(self)
+            active_fault_response_tables << table
+            table
+        end
+
+        # Remove a fault response table that has been added with
+        # {#use_fault_response_table}
+        #
+        # @overload remove_fault_response_table(table)
+        #   @param [Coordination::FaultResponseTable] table the table that
+        #     should be removed. This is the return value of
+        #     {#use_fault_response_table}
+        #
+        # @overload remove_fault_response_table(table_model)
+        #   Removes all the tables whose model is the given table model
+        #
+        #   @param [Model<Coordination::FaultResponseTable>] table_model
+        #
+        # @return [void]
+        # @see use_fault_response_table
+        def remove_fault_response_table(table_model)
+            active_fault_response_tables.delete_if do |t|
+                if (table_model.kind_of?(Class) && t.kind_of?(table_model)) || t == table_model
+                    t.removed!
+                    true
+                end
+            end
+        end
     end
 end
 

@@ -385,11 +385,12 @@ module TC_PlanStatic
     end
 
     # Checks that a garbage collected object (event or task) cannot be added back into the plan
-    def test_garbage_collection_final
+    def test_removal_is_final
 	t = Roby::Tasks::Simple.new
 	e = EventGenerator.new(true)
 	plan.real_plan.add [t, e]
-	engine.garbage_collect
+        plan.real_plan.remove_object(t)
+        plan.real_plan.remove_object(e)
 	assert_raises(ArgumentError) { plan.add(t) }
         assert !plan.known_tasks.include?(t)
 	assert_raises(ArgumentError) { plan.add(e) }

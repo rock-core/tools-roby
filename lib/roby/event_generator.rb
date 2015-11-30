@@ -165,9 +165,9 @@ module Roby
                 else
                     raise UnreachableEvent.new(self, unreachability_reason), "#call called on #{self} which has been made unreachable"
                 end
-            elsif !engine.allow_propagation?
+            elsif !execution_engine.allow_propagation?
                 raise PhaseMismatch, "call to #emit is not allowed in this context"
-	    elsif !engine.inside_control?
+	    elsif !execution_engine.inside_control?
 		raise ThreadMismatch, "#call called while not in control thread"
 	    end
 	end
@@ -183,9 +183,9 @@ module Roby
                 else
                     raise UnreachableEvent.new(self, unreachability_reason), "#emit called on #{self} which has been made unreachable"
                 end
-            elsif !engine.allow_propagation?
+            elsif !execution_engine.allow_propagation?
                 raise PhaseMismatch, "call to #emit is not allowed in this context"
-	    elsif !engine.inside_control?
+	    elsif !execution_engine.inside_control?
 		raise ThreadMismatch, "#emit called while not in control thread"
 	    end
 	end
@@ -209,8 +209,8 @@ module Roby
                 end
 
 		@pending = true
-                @pending_sources = plan.engine.propagation_source_events
-		plan.engine.propagation_context([self]) do
+                @pending_sources = execution_engine.propagation_source_events
+		execution_engine.propagation_context([self]) do
                     begin
                         @calling_command = true
                         @command_emitted = false
@@ -253,7 +253,7 @@ module Roby
             end
 
 	    context.compact!
-            engine = plan.engine
+            engine = execution_engine
 	    if engine.gathering?
 		engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
             else
@@ -537,7 +537,7 @@ module Roby
 
 	# Create a new event object for +context+
         def new(context, propagation_id = nil, time = nil) # :nodoc:
-            event_model.new(self, propagation_id || plan.engine.propagation_id, context, time || Time.now)
+            event_model.new(self, propagation_id || execution_engine.propagation_id, context, time || Time.now)
         end
 
 	# Adds a propagation originating from this event to event propagation
@@ -548,7 +548,7 @@ module Roby
 		raise PropagationError, "trying to signal #{signalled} from #{self}"
 	    end
 
-	    plan.engine.add_event_propagation(only_forward, [event], signalled, context, timespec)
+	    execution_engine.add_event_propagation(only_forward, [event], signalled, context, timespec)
 	end
 	private :add_propagation
 
@@ -557,7 +557,7 @@ module Roby
 	#
 	# This method is always called in a propagation context
 	def fire(event)
-	    plan.engine.propagation_context([event]) do |result|
+	    execution_engine.propagation_context([event]) do |result|
 		@happened = true
                 @pending = false
 		fired(event)
@@ -585,9 +585,9 @@ module Roby
 		begin
 		    h.call(event)
                 rescue LocalizedError => e
-                    plan.engine.add_error( e )
+                    execution_engine.add_error( e )
 		rescue Exception => e
-		    plan.engine.add_error( EventHandlerError.new(e, event) )
+		    execution_engine.add_error( EventHandlerError.new(e, event) )
 		end
 	    end
             handlers.delete_if { |h| h.once? }
@@ -649,7 +649,7 @@ module Roby
 	    unless event.respond_to?(:context)
 		raise TypeError, "#{event} is not a valid event object in #{self}"
 	    end
-	    event.sources = plan.engine.propagation_source_events
+	    event.sources = execution_engine.propagation_source_events
 	    fire(event)
             if @pending_sources
                 event.add_sources(@pending_sources)
@@ -673,7 +673,7 @@ module Roby
             end
 
 	    context.compact!
-            engine = plan.engine
+            engine = execution_engine
 	    if engine.gathering?
                 if @calling_command
                     @command_emitted = true
@@ -733,36 +733,28 @@ module Roby
         # @option [#call] :callback (nil) if given, it gets called in Roby's
         #   event thread with the return value of the block as argument if the
         #   block got called successfully
-        def achieve_asynchronously(options = Hash.new, &block)
-            options = Kernel.validate_options options,
-                emit_on_success: true,
-                callback: proc { }
-
+        def achieve_asynchronously(emit_on_success: true, callback: proc { }, &block)
             worker_thread = Thread.new do
                 begin
                     result = block.call
-                    if engine
-                        engine.queue_worker_completion_block do |plan|
-                            begin
-                                options[:callback].call(result)
-                                if options[:emit_on_success]
-                                    emit
-                                end
-                            rescue Exception => e
-                                emit_failed(e)
+                    execution_engine.queue_worker_completion_block do |plan|
+                        begin
+                            callback.call(result)
+                            if emit_on_success
+                                emit
                             end
+                        rescue Exception => e
+                            emit_failed(e)
                         end
                     end
 
                 rescue Exception => e
-                    if engine
-                        engine.queue_worker_completion_block do |plan|
-                            emit_failed(e)
-                        end
+                    execution_engine.queue_worker_completion_block do |plan|
+                        emit_failed(e)
                     end
                 end
             end
-            engine.register_worker_thread(worker_thread)
+            execution_engine.register_worker_thread(worker_thread)
             worker_thread
         end
 
@@ -952,15 +944,9 @@ module Roby
 		begin
 		    handler.call(reason, self)
                 rescue LocalizedError => e
-                    if engine
-                        engine.add_error(e)
-                    else raise
-                    end
+                    execution_engine.add_error(e)
 		rescue Exception => e
-                    if engine
-                        engine.add_error(EventHandlerError.new(e, self))
-                    else raise
-                    end
+                    execution_engine.add_error(EventHandlerError.new(e, self))
 		end
 	    end
 	    unreachable_handlers.clear
@@ -971,20 +957,18 @@ module Roby
 	    @unreachable = true
             @unreachability_reason = reason
 
-            if engine = plan.execution_engine
-                engine.unreachable_event(self)
-            end
+            execution_engine.unreachable_event(self)
             call_unreachable_handlers(reason)
         end
 
 	# Called internally when the event becomes unreachable
 	def unreachable!(reason = nil, plan = self.plan)
-            if !plan || !plan.engine
+            if !plan
                 unreachable_without_propagation(reason)
-            elsif engine.gathering?
+            elsif execution_engine.gathering?
                 unreachable_without_propagation(reason, plan)
             elsif !@unreachable
-                engine.process_events_synchronous do
+                execution_engine.process_events_synchronous do
                     unreachable_without_propagation(reason, plan)
                 end
                 if unreachability_reason.kind_of?(Exception)

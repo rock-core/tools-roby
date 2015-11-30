@@ -14,15 +14,17 @@ class TC_Tasks_ExternalProcess < Minitest::Test
 
     def test_nominal
         plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--no-output"]))
-        engine.run
-        assert_succeeds(task)
+        assert_event_emission(task.success_event) do
+            task.start!
+        end
     end
 
     def test_nominal_array_with_one_element
         plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
         task.redirect_output "mockup-%p.log"
-        engine.run
-        assert_succeeds(task)
+        assert_event_emission(task.success_event) do
+            task.start!
+        end
     ensure
         FileUtils.rm_f "mockup-#{task.pid}.log"
     end
@@ -30,8 +32,9 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     def test_nominal_no_array
         plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: MOCKUP))
         task.redirect_output "mockup-%p.log"
-        engine.run
-        assert_succeeds(task)
+        assert_event_emission(task.success_event) do
+            task.start!
+        end
     ensure
         FileUtils.rm_f "mockup-#{task.pid}.log"
     end
@@ -39,18 +42,16 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     def test_inexistent_program
         Roby.logger.level = Logger::FATAL
         plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: ['does_not_exist', "--error"]))
-        engine.run
-        assert_becomes_unreachable(task.start_event) do
+        e = assert_raises(RuntimeError) do
             task.start!
         end
-
+        assert_match /provided command does not exist/, e.original_exception.message
         assert task.failed?
     end
 
     def test_failure
         Roby.logger.level = Logger::FATAL
         plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--error"]))
-        engine.run
         assert_event_emission(task.failed_event) do
             task.start!
         end
@@ -60,26 +61,25 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     def test_signaling
         Roby.logger.level = Logger::FATAL
         plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--block"]))
-        engine.run
-        assert_any_event(task.start_event) do
+        assert_event_emission(task.start_event) do
             task.start!
         end
-
-        assert_any_event(task.failed_event) do
+        assert_event_emission(task.failed_event) do
             Process.kill 'KILL', task.pid
         end
         assert task.signaled?
 
-        ev = task.event(:signaled).last
+        ev = task.signaled_event.last
         assert_equal 9, ev.context.first.termsig
     end
 
     def do_redirection(expected)
         plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
         yield(task)
-        engine.run
 
-        assert_succeeds(task)
+        assert_event_emission(task.success_event) do
+            task.start!
+        end
 
         assert File.exists?("mockup-#{task.pid}.log")
         File.read("mockup-#{task.pid}.log")

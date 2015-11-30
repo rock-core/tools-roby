@@ -22,7 +22,7 @@ module Roby
 
                 interface.on_cycle_end do
                     begin
-                        io.write_packet([:cycle_end, interface.engine.cycle_index, interface.engine.cycle_start])
+                        io.write_packet([:cycle_end, interface.execution_engine.cycle_index, interface.execution_engine.cycle_start])
                     rescue ComError
                         # The disconnection is going to be handled by the caller
                         # of #poll

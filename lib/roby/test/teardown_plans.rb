@@ -27,7 +27,7 @@ module Roby
                 end
 
                 plans = self.registered_plans.map do |p|
-                    if p.execution_engine
+                    if p.executable?
                         [p, p.execution_engine, p.known_tasks.to_set, p.gc_quarantine.to_set]
                     end
                 end.compact

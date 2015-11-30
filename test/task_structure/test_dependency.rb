@@ -189,7 +189,7 @@ class TC_Dependency < Minitest::Test
                 end
             end
 
-            plan.engine.control = decision_control
+            plan.execution_engine.control = decision_control
             parent, child = create_pair success: [], failure: [:stop], start: false
             child.start!
 
@@ -209,7 +209,7 @@ class TC_Dependency < Minitest::Test
                 end
             end
 
-            plan.engine.control = decision_control
+            plan.execution_engine.control = decision_control
             parent, child = create_pair success: [], failure: [:stop], start: false
             child.start!
 
@@ -234,7 +234,7 @@ class TC_Dependency < Minitest::Test
             end
         end
 
-        plan.engine.control = decision_control
+        plan.execution_engine.control = decision_control
         # Called once for the initial error handling and once for the
         # post-recovery check
         mock.should_receive(:decision_control_called).twice

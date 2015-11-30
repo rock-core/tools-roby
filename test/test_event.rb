@@ -186,13 +186,14 @@ class TC_Event < Minitest::Test
     end
 
     def test_pending_includes_queued_events
-        engine.run
-        engine.execute do
-            plan.add_permanent(e = EventGenerator.new { })
-            e.call
+        plan.add_permanent(e = EventGenerator.new { })
+        execution_engine.process_events_synchronous do
+            e.emit
             assert e.pending?
             assert !e.happened?
         end
+        assert !e.pending?
+        assert e.happened?
     end
 
     def test_command_failure_does_not_remove_pending
@@ -749,8 +750,8 @@ class TC_Event < Minitest::Test
         end
 
 	generator = Class.new(EventGenerator) do
-	    def new(context); 
-		FakeEvent.new(plan.engine.propagation_id, context, self, Time.now)
+	    def new(context)
+                FakeEvent.new(plan.execution_engine.propagation_id, context, self, Time.now)
 	    end
 	end.new(true)
 	plan.add(generator)
@@ -997,7 +998,7 @@ class TC_Event < Minitest::Test
 
 	    mock.should_receive(:called).once
 	    mock.should_receive(:canceled_called).never
-	    engine.garbage_collect
+	    execution_engine.garbage_collect
 	end
     end
 

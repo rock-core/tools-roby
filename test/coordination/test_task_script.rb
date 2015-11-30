@@ -5,7 +5,7 @@ require 'roby/schedulers/temporal'
 class TC_Coordination_TaskScript < Minitest::Test
     def setup
         super
-        engine.scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
+        execution_engine.scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
     end
 
     def test_execute
@@ -394,7 +394,7 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_model_level_script
-        engine.scheduler.enabled = false
+        execution_engine.scheduler.enabled = false
         mock = flexmock
         model = Roby::Tasks::Simple.new_submodel do
             event :do_it

@@ -6,6 +6,7 @@ describe Roby::Application do
     before do
         @app = Roby::Application.new
         register_plan(@app.plan)
+        app.base_setup
         @app_dir = "/test/roby_app"
     end
 

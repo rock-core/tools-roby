@@ -6,12 +6,8 @@ class TC_PlanObject < Minitest::Test
         Roby.app.filter_backtraces = false
     end
 
-    class MockupPlan
-        def executable?; !!@executable end
-        def initialize(exec); @executable = exec end
-    end
     def test_model_finalization_handler
-        mockup_plan = MockupPlan.new(true)
+        mockup_plan = ExecutablePlan.new
         FlexMock.use do |mock|
             klass = Class.new(PlanObject) do
                 when_finalized do
@@ -27,7 +23,7 @@ class TC_PlanObject < Minitest::Test
     end
 
     def test_model_finalization_handler_on_non_executable_plan
-        mockup_plan = MockupPlan.new(false)
+        mockup_plan = Plan.new
         FlexMock.use do |mock|
             klass = Class.new(PlanObject) do
                 when_finalized do
@@ -46,16 +42,16 @@ class TC_PlanObject < Minitest::Test
     end
 
     def test_finalization_handler
-        mockup_plan = MockupPlan.new(true)
-        obj = PlanObject.new
-        obj.plan = mockup_plan
+        plan = ExecutablePlan.new
+        ExecutionEngine.new(plan)
+        plan.add(obj = Task.new)
 
         FlexMock.use do |mock|
             obj.when_finalized do
                 mock.finalized
             end
             mock.should_receive(:finalized).once
-            obj.finalized!
+            plan.remove_object(obj)
         end
     end
 

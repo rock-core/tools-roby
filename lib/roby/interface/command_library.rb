@@ -41,7 +41,7 @@ module Roby
             # @return [Roby::Plan] the {#app}'s plan
             def plan; app.plan end
             # @return [Roby::ExecutionEngine] the {#plan}'s engine
-            def engine; plan.engine end
+            def execution_engine; plan.execution_engine end
             # @return [Hash<String,CommandInterface>] the set of command subcommands
             #   attached to this command interface
             attr_reader :subcommands

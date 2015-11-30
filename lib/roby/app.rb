@@ -584,7 +584,7 @@ module Roby
             @search_path = nil
 	    @plugins = Array.new
             @plugins_enabled = true
-            @plan = Plan.new
+            @plan = ExecutablePlan.new
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
             @created_log_dirs = []
@@ -1316,8 +1316,8 @@ module Roby
             if !Roby.control
                 Roby.control = DecisionControl.new
             end
-            if !plan.engine || (plan.engine.plan != plan)
-                plan.engine = ExecutionEngine.new(plan, Roby.control)
+            if !plan.execution_engine || (plan.execution_engine.plan != plan)
+                plan.execution_engine = ExecutionEngine.new(plan, Roby.control)
             end
             if Roby.scheduler
                 plan.engine.scheduler = Roby.scheduler

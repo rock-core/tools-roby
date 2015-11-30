@@ -14,7 +14,7 @@ module Roby
         end
 
         def initialize(task, model)
-            @plan = task.plan
+            self.plan = task.plan
 	    super(model.respond_to?(:call))
             @task, @event_model = task, model
 	    @symbol = model.symbol
@@ -43,8 +43,12 @@ module Roby
 	# by task.plan=. It is redefined here for performance reasons.
         def plan=(plan)
             @plan = plan
-            @relation_graphs = if plan then plan.event_relation_graphs
-                               end
+            @relation_graphs =
+                if plan then plan.event_relation_graphs
+                end
+            @execution_engine =
+                if plan && plan.executable? then plan.execution_engine
+                end
         end
 
 	# Hook called just before the event is emitted. If it raises, the event
@@ -168,7 +172,7 @@ module Roby
 
         # See EventGenerator#new
         def new(context, propagation_id = nil, time = nil) # :nodoc:
-            event_model.new(task, self, propagation_id || plan.engine.propagation_id, context, time || Time.now)
+            event_model.new(task, self, propagation_id || execution_engine.propagation_id, context, time || Time.now)
         end
 
 	def to_s # :nodoc:
@@ -217,19 +221,19 @@ module Roby
 
             if task.failed_to_start?
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task has failed to start: #{task.failure_reason}"
+		    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task has failed to start: #{task.failure_reason}"
             elsif task.event(:stop).happened?
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
+		    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
             elsif task.finished? && !terminal?
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
+		    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
             elsif task.pending? && symbol != :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
+		    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task has never been started"
             elsif task.running? && symbol == :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
+		    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
             end
 
     	rescue EventNotExecutable => e

@@ -112,7 +112,7 @@ module Roby
                         monitor_job(task, planned_task)
                     end
                 end
-                engine.at_cycle_end do
+                execution_engine.at_cycle_end do
                     push_pending_job_notifications
                     notify_cycle_end
                 end
@@ -150,7 +150,7 @@ module Roby
             #
             # @return [Integer] the job ID
             def start_job(m, arguments = Hash.new)
-                engine.execute do
+                execution_engine.execute do
                     task, planning_task = app.prepare_action(m, mission: true, job_id: Job.allocate_job_id, **arguments)
                     planning_task.job_id
                 end
@@ -407,7 +407,7 @@ module Roby
             #   placeholder job task and the job task itself
             def jobs
                 result = Hash.new
-                engine.execute do
+                execution_engine.execute do
                     planning_tasks = plan.find_tasks(Job).to_a
                     planning_tasks.each do |job_task|
                         job_id = job_task.job_id
@@ -421,7 +421,7 @@ module Roby
             command :jobs, 'returns the list of non-finished jobs'
 
             def find_job_info_by_id(id)
-                engine.execute do
+                execution_engine.execute do
                     if planning_task = plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
                         task = planning_task.planned_task || planning_task
                         return job_state(task), task, planning_task
@@ -434,7 +434,7 @@ module Roby
             # @param [Integer] id
             # @return [Roby::Task,nil]
             def find_job_by_id(id)
-                engine.execute do
+                execution_engine.execute do
                     return plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
                 end
             end
@@ -453,7 +453,7 @@ module Roby
             #
             # Do NOT do this while the robot does critical things
             def reload_models
-                engine.execute do
+                execution_engine.execute do
                     app.reload_models
                 end
                 nil
@@ -466,7 +466,7 @@ module Roby
 
             # Reload the actions defined under the actions/ subfolder
             def reload_actions
-                engine.execute do
+                execution_engine.execute do
                     app.reload_actions
                 end
                 actions
@@ -483,8 +483,8 @@ module Roby
             #
             # @see ExecutionEngine#on_exception
             def on_exception(&block)
-                engine.execute do
-                    engine.on_exception do |kind, exception, tasks|
+                execution_engine.execute do
+                    execution_engine.on_exception do |kind, exception, tasks|
                         involved_job_ids = tasks.map do |t|
                             job_id_of_task(t)
                         end.compact.to_set
@@ -495,8 +495,8 @@ module Roby
 
             # @see ExecutionEngine#remove_exception_listener
             def remove_exception_listener(listener)
-                engine.execute do
-                    engine.remove_exception_listener(listener)
+                execution_engine.execute do
+                    execution_engine.remove_exception_listener(listener)
                 end
             end
 
@@ -504,14 +504,14 @@ module Roby
             #
             # Interface-related objects that need to be notified must use this
             # method instead of using {ExecutionEngine#at_cycle_end} on
-            # {#engine}, because the listener is guaranteed to be ordered
+            # {#execution_engine}, because the listener is guaranteed to be ordered
             # properly w.r.t. {#push_pending_job_notifications}
             #
             # @param [#call] block the listener
-            # @yieldparam [ExecutionEngine] the underlying execution engine
+            # @yieldparam [ExecutionEngine] the underlying execution execution_engine
             # @return [Object] and ID that can be passed to {#remove_cycle_end}
             def on_cycle_end(&block)
-                engine.execute do
+                execution_engine.execute do
                     cycle_end_listeners << block
                     block
                 end
@@ -534,7 +534,7 @@ module Roby
 
             # Requests for the Roby application to quit
             def quit
-                engine.quit
+                execution_engine.quit
             end
             command :quit, 'requests that the Roby application quits'
 

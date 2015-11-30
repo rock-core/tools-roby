@@ -60,12 +60,12 @@ module Roby
         attr_reader :plan
         # The decision control component used by the tests
         attr_reader :control
-        def engine; plan.engine if plan end
+        def execution_engine; plan.execution_engine if plan && plan.executable? end
 
         attr_reader :connection_spaces
 
         def execute(&block)
-            engine.execute(&block)
+            execution_engine.execute(&block)
         end
 
 	# Clear the plan and return it
@@ -164,10 +164,10 @@ module Roby
 		DRb.start_service 'druby://localhost:0'
 	    end
 
-            plan.engine.gc_warning = false
+            plan.execution_engine.gc_warning = false
 
             @handler_ids = Array.new
-            @handler_ids << engine.add_propagation_handler(type: :external_events) do |plan|
+            @handler_ids << execution_engine.add_propagation_handler(type: :external_events) do |plan|
                 Test.verify_watched_events
             end
 	end
@@ -238,9 +238,9 @@ module Roby
             end
             teardown_registered_plans
 
-            if @handler_ids && engine
+            if @handler_ids && execution_engine
                 @handler_ids.each do |handler_id|
-                    engine.remove_propagation_handler(handler_id)
+                    execution_engine.remove_propagation_handler(handler_id)
                 end
             end
             Test.verify_watched_events
@@ -290,15 +290,14 @@ module Roby
 	def process_events
             registered_plans.each do |p|
                 engine = p.execution_engine
+                if engine.running?
+                    raise NotImplementedError, "using running engines in tests is not supported anymore"
+                end
 
                 engine.join_all_worker_threads
-                if !engine.running?
-                    engine.start_new_cycle
-                    engine.process_events
-                    engine.cycle_end(Hash.new)
-                else
-                    engine.wait_one_cycle
-                end
+                engine.start_new_cycle
+                engine.process_events
+                engine.cycle_end(Hash.new)
             end
 	end
 
@@ -651,6 +650,10 @@ module Roby
                 end
             end
             def watch_events(positive, negative, timeout, &block)
+                if execution_engine.running?
+                    raise NotImplementedError, "using running engines in tests is not supported anymore"
+                end
+
                 positive = Array[*(positive || [])].to_set
                 negative = Array[*(negative || [])].to_set
                 if positive.empty? && negative.empty? && !block
@@ -658,12 +661,12 @@ module Roby
                 end
 
 		control_priority do
-                    engine.waiting_threads << Thread.current
+                    execution_engine.waiting_threads << Thread.current
 
                     unreachability_reason = Set.new
                     result_queue = Queue.new
 
-                    engine.execute do
+                    execution_engine.execute do
                         if positive.empty? && negative.empty?
                             positive, negative = yield
                             positive = Array[*(positive || [])].to_set
@@ -680,7 +683,7 @@ module Roby
                             result_queue.push([error, result])
                         else
                             positive.each do |ev|
-                                ev.if_unreachable(true) do |reason, event|
+                                ev.if_unreachable(cancel_at_emission: true) do |reason, event|
                                     unreachability_reason << [event, reason]
                                 end
                             end
@@ -689,22 +692,18 @@ module Roby
                     end
 
                     begin
-                        if engine.running?
-                            error, result = result_queue.pop
-                        else
-                            while result_queue.empty?
-                                process_events
-                                sleep(0.05)
-                            end
-                            error, result = result_queue.pop
+                        while result_queue.empty?
+                            process_events
+                            sleep(0.05)
                         end
+                        error, result = result_queue.pop
                     ensure
                         Test.watched_events.delete_if { |_, q, _| q == result_queue }
                     end
                     return error, result, unreachability_reason
 		end
             ensure
-                engine.waiting_threads.delete(Thread.current)
+                execution_engine.waiting_threads.delete(Thread.current)
             end
 
             def format_unreachability_message(unreachability_reason)
@@ -790,7 +789,7 @@ module Roby
 	    def assert_succeeds(task, *args)
 		control_priority do
 		    if !task.kind_of?(Roby::Task)
-			engine.execute do
+			execution_engine.execute do
 			    plan.add_mission(task = planner.send(task, *args))
 			end
 		    end
@@ -804,12 +803,12 @@ module Roby
 	    end
 
 	    def control_priority
-                if !engine.thread
+                if !execution_engine.thread
                     return yield
                 end
 
 		old_priority = Thread.current.priority 
-		Thread.current.priority = engine.thread.priority + 1
+		Thread.current.priority = execution_engine.thread.priority + 1
 
 		yield
 	    ensure
