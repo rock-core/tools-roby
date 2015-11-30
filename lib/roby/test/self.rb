@@ -24,6 +24,7 @@ end
 
 require 'minitest/autorun'
 require 'flexmock/minitest'
+require 'roby'
 require 'roby/test/common'
 require 'roby/test/minitest_helpers'
 require 'roby/tasks/simple'
