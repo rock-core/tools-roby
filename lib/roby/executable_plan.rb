@@ -141,6 +141,7 @@ module Roby
             if !plan.event_relation_graph_for(EventStructure::Precedence).empty?
                 execution_engine.event_ordering.clear
             end
+            super
         end
 
 	# Hook called when +task+ is marked as garbage. It will be garbage

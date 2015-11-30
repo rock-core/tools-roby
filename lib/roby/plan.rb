@@ -222,6 +222,8 @@ module Roby
                 next if !(this_rel = event_relation_graphs.fetch(rel_id, nil))
                 this_rel.merge!(rel)
             end
+
+            merged_plan(plan)
         end
 
         # Moves the content of other_plan into self, and clears other_plan
