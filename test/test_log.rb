@@ -1,4 +1,4 @@
-require 'roby/test/distributed'
+require 'roby/test/self'
 
 class TC_Log < Minitest::Test
     def teardown

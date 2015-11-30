@@ -1,4 +1,3 @@
-require 'roby/distributed'
 require 'stringio'
 require 'roby/schedulers/state'
 

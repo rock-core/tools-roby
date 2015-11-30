@@ -23,39 +23,6 @@ module Roby
 	    end
 	end
 
-        # Replaying logged data is a bit tricky, as the local ID manager will
-        # think that we are unmarshalling stuff that we marshalled ...
-        #
-        # The proper solution is a big refactoring of the object management.
-        # Unfortunately, it is not that high on the TODO list. For now, create
-        # unique remote_id and droby_dump values to make the local process look
-        # different from a normal Roby process
-        def self.setup_log_replay(object_manager)
-            @__single_remote_id__ = RemoteID.new('log_replay', 1)
-            @__single_marshalled_peer__ = Peer::DRoby.new('single', remote_id)
-            peers[RemoteID.new('local', 0)] = object_manager
-        end
-
-        # Returns a RemoteID object suitable to represent this plan manager on
-        # the network.
-        #
-        # This makes Roby::Distributed behave like a Peer object
-	def self.remote_id
-	    if state then state.remote_id
-	    else @__single_remote_id__ ||= RemoteID.new('local', 0)
-	    end
-	end
-
-        # Returns a Peer::DRoby object which can be used in the dRoby
-        # connection to represent this plan manager.
-        #
-        # This makes Roby::Distributed behave like a Peer object
-	def self.droby_dump(dest = nil)
-	    if state then state.droby_dump(dest)
-	    else @__single_marshalled_peer__ ||= Peer::DRoby.new('single', remote_id)
-	    end
-	end
-
         # Execute the given message without blocking. If a block is given,
         # yield the result to that block.
         #

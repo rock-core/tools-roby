@@ -51,7 +51,7 @@ end
 
 class Module
     def droby_dump(dest)
-	raise "can't dump modules"
+	raise "can't dump modules (#{self})"
     end
 end
 class Class
