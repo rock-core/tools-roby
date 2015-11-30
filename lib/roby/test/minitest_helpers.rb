@@ -35,13 +35,15 @@ module Roby
                 # The caller expects a non-Roby exception. It is going to be
                 # wrapped in a LocalizedError, so make sure we properly
                 # process it
-                exception = super(*([Roby::UserExceptionWrapper] + exp), &block)
-                if resolved_exception = roby_find_matching_exception(exp, exception)
-                    return resolved_exception
-                else
-                    # Get minitest's error message
-                    super(*exp) { raise exception }
+                begin
+                    yield
+                rescue *([Roby::UserExceptionWrapper] + exp) => e
+                    return e
+                rescue Exception => e
+                    actually_caught = roby_exception_to_string(e)
+                    flunk("#{exp.map(&:to_s).join(", ")} exceptions expected, not #{e.class} #{actually_caught}")
                 end
+                flunk("#{exp.map(&:to_s).join(", ")} exceptions expected but received nothing")
 
             ensure
                 if plan.execution_engine
@@ -50,29 +52,33 @@ module Roby
                 end
             end
 
+            def roby_exception_to_string(*queue)
+                msg = ""
+                seen = Set.new
+                while e = queue.shift
+                    next if seen.include?(e)
+                    seen << e
+                    e_bt = Minitest.filter_backtrace(e.backtrace).join "\n    "
+                    msg << "\n\n" << Roby.format_exception(e).join("\n") +
+                        "\n    #{e_bt}"
+
+                    queue.concat(e.original_exceptions) if e.respond_to?(:original_exceptions)
+                end
+                msg
+            end
+
             def to_s
                 if !error?
                     super
                 else
                     failures.map { |failure|
                         bt = Minitest.filter_backtrace(failure.backtrace).join "\n    "
-                        msg = ""
-                        if failure.kind_of?(Minitest::UnexpectedError)
-                            base = failure.exception
-                            seen = Set.new
-                            queue = [base]
-                            while e = queue.shift
-                                next if seen.include?(e)
-                                seen << e
-                                e_bt = Minitest.filter_backtrace(e.backtrace).join "\n    "
-                                msg << "\n\n" << Roby.format_exception(e).join("\n") +
-                                    "\n    #{e_bt}"
-
-                                queue.concat(e.original_exceptions) if e.respond_to?(:original_exceptions)
+                        msg = 
+                            if failure.kind_of?(Minitest::UnexpectedError)
+                                roby_exception_to_string(failure.exception)
+                            else
+                                failure.message
                             end
-                        else
-                            msg = failure.message
-                        end
                         "#{failure.result_label}:\n#{self.location}:\n#{msg}\n"
                     }.join "\n"
                 end
