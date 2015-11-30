@@ -14,8 +14,7 @@ module Roby
         # generators
 	def initialize(source = nil, limit = nil)
 	    super() do |context|
-		plan.remove_object(self) if plan 
-		clear_relations
+		plan.remove_object(self)
 	    end
 
 	    if source && limit

@@ -207,7 +207,14 @@ module Roby
             @gc_warning = true
 
             self.display_exceptions = true
+
+            @dependency_graph = plan.task_relation_graph_for(TaskStructure::Dependency)
+            @precedence_graph = plan.event_relation_graph_for(EventStructure::Precedence)
 	end
+
+        attr_reader :precedence_graph
+
+        attr_reader :dependency_graph
 
         # The Plan this engine is acting on
         attr_accessor :plan
@@ -923,9 +930,9 @@ module Roby
                                   end
 
                 do_select = if selected_event
-                                if EventStructure::Precedence.reachable?(selected_event, target_event)
+                                if precedence_graph.reachable?(selected_event, target_event)
                                     false
-                                elsif EventStructure::Precedence.reachable?(target_event, selected_event)
+                                elsif precedence_graph.reachable?(target_event, selected_event)
                                     true
                                 elsif priority < target_priority
                                     true
@@ -1126,7 +1133,7 @@ module Roby
                     debug { "handled by #{task}" }
                     handled_exception(e, task)
                     handled_exceptions[e.exception] << e
-                    TaskStructure::Dependency.prune
+                    dependency_graph.prune
                 else
                     debug { "not handled by #{task}" }
                 end
@@ -1158,11 +1165,11 @@ module Roby
                 end
                 parents = filtered_parents
                 handled_exceptions[exception.exception] = Set.new
-                remaining = TaskStructure::Dependency.reverse.
+                remaining = dependency_graph.reverse.
                     fork_merge_propagation(origin, exception, vertex_visitor: visitor) do |from, to, e|
                         if !parents.empty?
                             if from == origin && !parents.include?(to)
-                                TaskStructure::Dependency.prune
+                                dependency_graph.prune
                             end
                         end
                         e.trace << to
@@ -1640,7 +1647,7 @@ module Roby
 
                     local_tasks.each do |t|
                         for rel in t.sorted_relations
-                            rel.remove(t) if rel.weak?
+                            t.relation_graph_for(rel).remove(t) if rel.weak?
                         end
                     end
                 end

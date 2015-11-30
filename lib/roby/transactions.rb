@@ -39,9 +39,7 @@ module Roby
 
             if proxy.root_object?
                 if proxy.class == Roby::PlanService
-                elsif proxy.respond_to?(:to_task)
-                    add_task(proxy)
-                else add_event(proxy)
+                else add(proxy)
                 end
             end
 
@@ -70,7 +68,7 @@ module Roby
         end
 
         def create_and_register_proxy(object)
-            proxy = object.dup
+            proxy = object.dup(plan: self)
             setup_and_register_proxy(proxy, object)
         end
 
@@ -134,17 +132,16 @@ module Roby
             if object.kind_of?(PlanService)
                 PlanService.get(wrap(object.task))
 	    elsif object.kind_of?(PlanObject)
-		if object.plan == self then return object
-		elsif proxy = proxy_objects[object] then return proxy
-		end
-
-                if !object.plan
-                    object.plan = self
+		if object.plan == self
+                    return object
+		elsif proxy = proxy_objects[object]
+                    return proxy
+                elsif !object.plan
+                    raise ArgumentError, "#{object} has been removed from plan"
+                elsif object.plan.template?
                     add(object)
                     return object
-                end
-
-		if create
+		elsif create
 		    if object.plan != self.plan
 			raise ArgumentError, "#{object} is in #{object.plan}, this transaction #{self} applies on #{self.plan}"
                     end
@@ -210,8 +207,10 @@ module Roby
 
 	    object = may_unwrap(object)
             proxy  = proxy_objects.delete(object)
-            if (proxy || object).plan != self
-                raise InternalError, "inconsistency"
+            actual_plan = (proxy || object).plan
+
+            if actual_plan != self
+                raise InternalError, "inconsistency: #{proxy || object} plan is #{actual_plan}, was expected to be #{self}"
             end
 
             if proxy
@@ -445,6 +444,66 @@ module Roby
 	    raise InvalidTransaction, "invalid transaction: #{message}"
 	end
 
+        # @api private
+        #
+        # Apply the graph modifications returned by
+        # {#compute_graph_modifications_for}
+        def apply_graph_modifications(added, removed, updated)
+            added.each do |graph, parent, child, info|
+                graph.add_relation(parent, child, info)
+            end
+            removed.each do |graph, parent, child|
+                graph.remove_relation(parent, child)
+            end
+            updated.each do |graph, parent, child, info|
+                graph.set_edge_info(parent, child, info)
+            end
+        end
+
+        # @api private
+        #
+        # Compute the graph modifications that are involving the given proxy
+        #
+        # It only computes the parent modifications involving objects that are
+        # not proxies themselves. It computes the child modifications for every
+        # child
+        def compute_graph_modifications_for(proxy, new_relations, removed_relations, updated_relations)
+            real_object = proxy.__getobj__
+            proxy.partition_new_old_relations(:each_parent_object, include_proxies: false) do |trsc_objects, rel, new, del, existing|
+                trsc_graph = proxy.relation_graph_for(rel)
+                plan_graph = proxy.__getobj__.relation_graph_for(rel)
+
+                new.each do |task|
+                    edge_info = trsc_graph.edge_info(trsc_objects[task], proxy)
+                    new_relations << [plan_graph, task, real_object, edge_info]
+                end
+                del.each do |task|
+                    removed_relations << [plan_graph, task, real_object]
+                end
+                existing.each do |task|
+                    edge_info = trsc_graph.edge_info(trsc_objects[task], proxy)
+                    updated_relations << [plan_graph, task, real_object, edge_info]
+                end
+	    end
+
+            proxy.partition_new_old_relations(:each_child_object) do |trsc_objects, rel, new, del, existing|
+                trsc_graph = proxy.relation_graph_for(rel)
+                plan_graph = proxy.__getobj__.relation_graph_for(rel)
+
+                new.each do |task|
+                    edge_info = trsc_graph.edge_info(proxy, trsc_objects[task])
+                    new_relations << [plan_graph, real_object, task, edge_info]
+                end
+                del.each do |task|
+                    removed_relations << [plan_graph, real_object, task]
+                end
+                existing.each do |task|
+                    edge_info = trsc_graph.edge_info(proxy, trsc_objects[task])
+                    updated_relations << [plan_graph, real_object, task, edge_info]
+                end
+	    end
+        end
+
         # Apply the modifications represented by self to the underlying plan
         #
         # It can be used as a hook, by defining a module that defines
@@ -455,63 +514,63 @@ module Roby
         #
         # snippet in your redefinition if you do so.
         def apply_modifications_to_plan
-            discover_tasks  = Set.new
-            discover_events  = Set.new
             new_missions    = Set.new
-            new_permanent_tasks  = Set.new
-            new_permanent_events = Set.new
-            known_tasks.dup.each do |t|
-                unwrapped = if t.transaction_proxy?
-                                finalized_task(t)
-                                t.__getobj__
-                            else
-                                known_tasks.delete(t)
-                                t
-                            end
+            new_permanent  = Set.new
 
-                if missions.include?(t) && t.self_owned?
-                    missions.delete(t)
-                    new_missions << unwrapped
-                elsif permanent_tasks.include?(t) && t.self_owned?
-                    permanent_tasks.delete(t)
-                    new_permanent_tasks << unwrapped
+            added_relations   = Array.new
+            removed_relations = Array.new
+            updated_relations = Array.new
+
+            # We're doing a lot of modifications of this plan .. store some of
+            # the sets we need for later, one part to keep them unchanged, one
+            # part to make sure we don't do modify-while-iterate
+            proxy_objects   = self.proxy_objects.dup
+            plan_services   = self.plan_services.dup
+            auto_tasks      = self.auto_tasks.dup
+            discarded_tasks = self.discarded_tasks.dup
+            # We're taking care of the proxies first, so that we can merge the
+            # transaction using Plan#merge!. However, this means that
+            # #may_unwrap does not work after the first few steps. We therefore
+            # have to store the object-to-proxy mapping
+            real_objects  = Hash.new
+
+            # First apply all changes related to the proxies to the underlying
+            # plan. This adds some new tasks to the plan graph, but does not add
+            # them to the plan itself
+            #
+            # Note that we need to do that in two passes. The first one keeps
+            # the transaction unchanged, the second one removes the proxies from
+            # the transaction. This is needed so that #commit_transaction sees
+            # the graph unchanged
+            proxy_objects.each do |object, proxy|
+                real_objects[proxy] = object
+                compute_graph_modifications_for(proxy, added_relations, removed_relations, updated_relations)
+
+                proxy.commit_transaction
+                if proxy.self_owned?
+                    if proxy.respond_to?(:to_task) && mission?(proxy)
+                        new_missions << object
+                    elsif permanent?(proxy)
+                        new_permanent << object
+                    end
                 end
-
-                discover_tasks << unwrapped
             end
-
-            free_events.dup.each do |ev|
-                unwrapped = if ev.kind_of?(Transaction::Proxying)
-                                finalized_event(ev)
-                                ev.__getobj__
-                            else
-                                free_events.delete(ev)
-                                ev
-                            end
-
-                if permanent_events.include?(ev) && ev.self_owned?
-                    permanent_events.delete(ev)
-                    new_permanent_events << unwrapped
+            proxy_objects.each_value do |proxy|
+                if proxy.root_object?
+                    remove_object(proxy)
                 end
-
-                discover_events << unwrapped
             end
 
-            new_tasks = discover_tasks - plan.known_tasks
-            new_tasks.each do |t|
-                t.commit_transaction
-            end
-            plan.add_task_set(new_tasks)
-            new_events = discover_events - plan.free_events
-            new_events.each do |e|
-                e.commit_transaction
-            end
-            plan.add_event_set(new_events)
+            # Apply #commit_transaction on the remaining tasks
+            known_tasks.each(&:commit_transaction)
+            free_events.each(&:commit_transaction)
 
-            # Set the plan to nil in known tasks to avoid having the checks on
-            # #plan to raise an exception
-            proxy_objects.each_value { |proxy| proxy.commit_transaction }
-            proxy_objects.each_value { |proxy| proxy.clear_relations  }
+            # What is left in the transaction is the network of new tasks. Just
+            # merge it
+            plan.merge!(self)
+
+            # Now that everything is in the main plan, apply the changes
+            apply_graph_modifications(added_relations, removed_relations, updated_relations)
 
             # Update the plan services on the underlying plan. The only
             # thing we need to take care of is replacements and new
@@ -521,7 +580,9 @@ module Roby
                     if srv.transaction_proxy?
                         # Modified service. Might be moved to a new task
                         original = srv.__getobj__
-                        task     = may_unwrap(task)
+                        # Do NOT use may_unwrap here ... See comments at the top
+                        # of the method
+                        task     = real_objects[task] || task
                         srv.commit_transaction
                         if original.task != task
                             plan.move_plan_service(original, task)
@@ -537,9 +598,8 @@ module Roby
                 end
             end
 
-            new_missions.each    { |t| plan.add_mission_task(t) }
-            new_permanent_tasks.each { |t| plan.add_permanent_task(t) }
-            new_permanent_events.each { |e| plan.add_permanent_event(e) }
+            new_missions.each  { |t| plan.add_mission(t) }
+            new_permanent.each { |t| plan.add_permanent(t) }
 
             active_fault_response_tables.each do |tbl|
                 plan.use_fault_response_table tbl.model, tbl.arguments
@@ -548,38 +608,29 @@ module Roby
             auto_tasks.each      { |t| plan.unmark_permanent(t) }
             discarded_tasks.each { |t| plan.unmark_mission(t) }
 
+            proxy_objects.each do |object, proxy|
+                forwarder_module = Transaction::Proxying.forwarder_module_for(object.model)
+                proxy.extend forwarder_module
+                proxy.__getobj__ = object
+                proxy.__freeze__
+            end
+
             super if defined? super
         end
 
 	# Commit all modifications that have been registered
 	# in this transaction
 	def commit_transaction
-	    # if !Roby.control.running?
-	    #     raise "#commit_transaction requires the presence of a control thread"
-	    # end
-
 	    check_valid_transaction
+            apply_modifications_to_plan
 	    frozen!
 
-	    plan.execute do
-                apply_modifications_to_plan
+            @committed = true
+            committed_transaction
+            plan.remove_transaction(self)
+            @plan = nil
 
-                proxies     = proxy_objects.dup
-                clear
-                # Replace proxies by forwarder objects
-                proxies.each do |object, proxy|
-                    forwarder_module = Transaction::Proxying.forwarder_module_for(object.model)
-                    proxy.extend forwarder_module
-                    proxy.__freeze__
-                end
-
-                @committed = true
-		committed_transaction
-		plan.remove_transaction(self)
-		@plan = nil
-
-		yield if block_given?
-	    end
+            yield if block_given?
 	end
 
         # Hook called just after this transaction has been committed
@@ -620,7 +671,6 @@ module Roby
 	    end
 
 	    frozen!
-	    proxy_objects.each_value { |proxy| proxy.discard_transaction }
 	    clear
 
 	    discarded_transaction
@@ -739,17 +789,20 @@ module Roby
 	    plan_seeds	      = plan_seeds.to_set
 	    transaction_seeds = transaction_seeds.to_a
 
+            transaction_graph = task_relation_graph_for(relation)
+            plan_graph        = plan.task_relation_graph_for(relation)
+
 	    loop do
 		old_transaction_set = transaction_set.dup
 		transaction_set.merge(transaction_seeds)
-		for new_set in relation.generated_subgraphs(transaction_seeds, false)
+		for new_set in transaction_graph.generated_subgraphs(transaction_seeds, false)
 		    transaction_set.merge(new_set)
 		end
 
 		if old_transaction_set.size != transaction_set.size
 		    for o in (transaction_set - old_transaction_set)
 			if o.respond_to?(:__getobj__)
-			    o.__getobj__.each_child_object(relation) do |child|
+			    o.__getobj__.each_child_object(plan_graph) do |child|
 				plan_seeds << child unless self[child, false]
 			    end
 			end
@@ -759,14 +812,14 @@ module Roby
 
 		plan_set.merge(plan_seeds)
 		plan_seeds.each do |seed|
-		    relation.each_dfs(seed, BGL::Graph::TREE) do |_, dest, _, kind|
+		    plan_graph.each_dfs(seed, BGL::Graph::TREE) do |_, dest, _, kind|
 			next if plan_set.include?(dest)
 			if self[dest, false]
 			    proxy = wrap(dest, false)
 			    unless transaction_set.include?(proxy)
 				transaction_seeds << proxy
 			    end
-			    relation.prune # transaction branches must be developed inside the transaction
+			    plan_graph.prune # transaction branches must be developed inside the transaction
 			else
 			    plan_set << dest
 			end

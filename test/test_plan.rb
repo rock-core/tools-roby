@@ -5,68 +5,112 @@ module TC_PlanStatic
     def assert_task_state(task, state)
         assert_planobject_state(task, state)
         if state == :removed
-            assert(!plan.mission?(task))
-            assert(!task.mission?)
+            assert(!plan.mission?(task), "task was meant to be removed, but Plan#mission? returns true")
+            assert(!task.mission?, "task was meant to be removed, but Task#mission? returns true")
         else
             if state == :mission
-                assert(plan.mission?(task))
-                assert(task.mission?)
+                assert(plan.mission?(task), "task was meant to be a mission, but Plan#mission? returned false")
+                assert(task.mission?, "task was meant to be a mission, but Task#mission? returned false")
             elsif state == :permanent
-                assert(!plan.mission?(task))
-                assert(!task.mission?)
+                assert(!plan.mission?(task), "task was meant to be permanent but Plan#mission? returned true")
+                assert(!task.mission?, "task was meant to be permanent but Task#mission? returned true")
             elsif state == :normal
-                assert(!plan.mission?(task))
-                assert(!task.mission?)
+                assert(!plan.mission?(task), "task was meant to be permanent but Plan#mission? returned true")
+                assert(!task.mission?, "task was meant to be permanent but Task#mission? returned true")
             end
         end
     end
     def assert_planobject_state(obj, state)
         if state == :removed
-            assert(!plan.include?(obj))
-            assert(!plan.permanent?(obj))
-            assert_equal(nil, obj.plan)
+            assert(!plan.include?(obj), "object was meant to be removed, but Plan#include? still returns true")
+            assert(!plan.permanent?(obj), "object was meant to be removed, but Plan#permanent? still returns true")
+            assert_equal(nil, obj.plan, "object was meant to be removed, but PlanObject#plan returns a non-nil value")
         else
-            assert_equal(plan, obj.plan)
-            assert(plan.include?(obj))
+            assert_equal(plan, obj.plan, "object was meant to be included in a plan but PlanObject#plan returns nil")
+            assert(plan.include?(obj), "object was meant to be included in a plan but Plan#include? returned false")
             if state == :permanent
-                assert(plan.permanent?(obj))
+                assert(plan.permanent?(obj), "object was meant to be permanent but Plan#permanent? returned false")
             else
-                assert(!plan.permanent?(obj))
+                assert(!plan.permanent?(obj), "object was not meant to be permanent but Plan#permanent? returned true")
             end
         end
     end
 
     def test_add_task
 	plan.add(t = Task.new)
+        assert_same t.relation_graphs, plan.task_relation_graphs
         assert_task_state(t, :normal)
+        assert_equal plan, t.plan
 
         other_plan = Plan.new
         assert_raises(ModelViolation) { other_plan.add(t) }
+        assert !other_plan.include?(t)
+        assert_same t.relation_graphs, plan.task_relation_graphs
     end
-    def test_remove_task
+
+    def test_add_plan
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
+        ev = EventGenerator.new
 	t1.depends_on t2
-	t1.signals(:stop, t3, :start)
+	t2.depends_on t3
+        t1.stop_event.signals t3.start_event
+        t3.stop_event.forward_to ev
+        plan.add(t1)
 
-	plan.add_mission(t1)
-	plan.add_mission(t3)
+        assert_equal [t1, t2, t3].to_set, plan.known_tasks
+        expected = [t1, t2, t3].flat_map { |t| t.each_event.to_a }.to_set
+        assert_equal expected, plan.task_events
+        assert_equal [ev].to_set, plan.free_events
+        assert t1.child_object?(t2, TaskStructure::Dependency)
+        assert t2.child_object?(t3, TaskStructure::Dependency)
+        assert t1.stop_event.child_object?(t3.start_event, EventStructure::Signal)
+        assert t3.stop_event.child_object?(ev, EventStructure::Forwarding)
+    end
 
-	assert(!t1.leaf?)
-	plan.remove_object(t2)
-        assert_task_state(t2, :removed)
-	assert(t1.leaf?(TaskStructure::Dependency))
-	assert(!plan.include?(t2))
+    def test_removing_a_task_deregisters_it_from_the_plan
+        t = prepare_plan add: 1
+        assert_task_state(t, :normal)
+        plan.remove_object(t)
+        assert_task_state(t, :removed)
+    end
 
-	assert(!t1.event(:stop).leaf?(EventStructure::Signal))
-	plan.remove_object(t3)
-        assert_task_state(t3, :removed)
-	assert(t1.event(:stop).leaf?(EventStructure::Signal))
+    def test_removing_a_task_removes_it_from_the_task_structure
+        t1, t2 = prepare_plan add: 2
+        t1.depends_on t2
+	assert !t1.leaf?(TaskStructure::Dependency)
+        plan.remove_object(t2)
+	assert t1.leaf?(TaskStructure::Dependency)
+    end
+
+    def test_remove_task_removes_its_events_from_the_event_structure
+        t1, t2 = prepare_plan add: 2
+        t1.stop_event.signals t2.start_event
+        assert !t1.stop_event.leaf?(EventStructure::Signal)
+        plan.remove_object(t2)
+        assert t1.stop_event.leaf?(EventStructure::Signal)
+    end
+
+    def test_remove_task_removes_it_from_all_plan_graphs
+        t = Roby::Task.new
+        plan.add(t)
+        plan.remove_object(t)
+        assert_equal [], t.enum_for(:each_graph).to_a
+    end
+
+    def test_passing_a_task_from_plan_to_plan_does_not_leave_it_included_in_graphs
+        t1, t2 = prepare_plan add: 2
+        t1.depends_on t2
+        t1.stop_event.signals t2.start_event
+        plan.add(t1)
+        plan.remove_object(t1)
+        assert_equal [], t1.enum_for(:each_graph).to_a
     end
 
     def test_add_mission
 	plan.add_mission(t = Task.new)
         assert_task_state(t, :mission)
     end
+    
     def test_unmark_mission
 	plan.add_mission(t = Task.new)
 	plan.unmark_mission(t)
@@ -142,31 +186,15 @@ module TC_PlanStatic
     #    assert_equal(plan, a.plan)
     #end
 
-    def test_useful_task_components
-	t1, t2, t3, t4 = prepare_plan tasks: 4, model: Roby::Tasks::Simple
-	t1.depends_on t2
-	t2.signals(:start, t3, :stop)
-	t2.planned_by t4
-
-	plan.add_mission(t1)
-
-	assert_equal([t1, t2, t4].to_set, plan.locally_useful_tasks)
-	plan.add_mission(t3)
-	assert_equal([t1, t2, t3, t4].to_set, plan.locally_useful_tasks)
-	plan.unmark_mission(t1)
-	assert_equal([t3].to_set, plan.locally_useful_tasks)
-	assert_equal([t1, t2, t4].to_set, plan.unneeded_tasks)
-    end
-
     def test_replace_task
 	(p, c1), (c11, c12, c2, c3) = prepare_plan missions: 2, tasks: 4, model: Roby::Tasks::Simple
 	p.depends_on c1, model: [Roby::Tasks::Simple, {}]
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2
-	c1.signals(:stop, c2, :start)
-	c1.forward_to :start, c1, :stop
-	c11.forward_to :success, c1, :success
+        c1.stop_event.signals c2.start_event
+        c1.start_event.forward_to c1.stop_event
+        c11.success_event.forward_to c1.success_event
 
 	# Replace c1 by c3 and check that the hooks are properly called
 	FlexMock.use do |mock|
@@ -175,18 +203,10 @@ module TC_PlanStatic
 		    mock.removed_hook(self, child, relations)
 		end
 	    end
-	    c1.singleton_class.class_eval do
-		define_method('removed_parent_object') do |parent, relations|
-		    mock.removed_hook(self, parent, relations)
-		end
-	    end
 
 	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Dependency]).once
-	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Dependency]).once
 	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Dependency])
-	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Dependency])
 	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Dependency])
-	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Dependency])
 	    plan.replace_task(c1, c3)
 	end
 
@@ -227,9 +247,9 @@ module TC_PlanStatic
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2
-	c1.signals(:stop, c2, :start)
-	c1.forward_to :start, c1, :stop
-	c11.forward_to :success, c1, :success
+        c1.stop_event.signals c2.start_event
+        c1.start_event.forward_to c1.stop_event
+        c11.success_event.forward_to c1.success_event
 
 	# Replace c1 by c3 and check that the hooks are properly called
 	FlexMock.use do |mock|
@@ -238,18 +258,10 @@ module TC_PlanStatic
 		    mock.removed_hook(self, child, relations)
 		end
 	    end
-	    c1.singleton_class.class_eval do
-		define_method('removed_parent_object') do |parent, relations|
-		    mock.removed_hook(self, parent, relations)
-		end
-	    end
 
 	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Dependency]).once
-	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Dependency]).once
 	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Dependency])
-	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Dependency])
 	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Dependency])
-	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Dependency])
 	    plan.replace(c1, c3)
 	end
 
@@ -260,13 +272,13 @@ module TC_PlanStatic
 	assert( c1.child_object?(c11, TaskStructure::Dependency) )
 	assert( !c3.child_object?(c11, TaskStructure::Dependency) )
 
-	assert( !c1.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
-	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
-	assert( c1.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
-	assert( !c3.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
+	assert( !c1.stop_event.child_object?(c2.start_event, EventStructure::Signal) )
+	assert( c3.stop_event.child_object?(c2.start_event, EventStructure::Signal) )
+	assert( c1.success_event.parent_object?(c11.success_event, EventStructure::Forwarding) )
+	assert( !c3.success_event.parent_object?(c11.success_event, EventStructure::Forwarding) )
 	# Also check that the internal event structure has *not* been transferred
-	assert( !c3.event(:start).child_object?(c3.event(:stop), EventStructure::Forwarding) )
-	assert( c1.event(:start).child_object?(c1.event(:stop), EventStructure::Forwarding) )
+	assert( !c3.start_event.child_object?(c3.stop_event, EventStructure::Forwarding) )
+	assert( c1.start_event.child_object?(c1.stop_event, EventStructure::Forwarding) )
 
 	# Check that +c1+ is no more marked as mission, and that c3 is marked. c1 should
 	# still be in the plan
@@ -340,17 +352,16 @@ module TC_PlanStatic
 
     def test_plan_synchronization
 	t1, t2 = prepare_plan tasks: 2
+
 	plan.add_mission(t1)
 	assert_equal(plan, t1.plan)
-	assert_equal(nil, t2.plan)
 	t1.depends_on t2
 	assert_equal(plan, t1.plan)
 	assert_equal(plan, t2.plan)
 	assert(plan.include?(t2))
 
 	e = EventGenerator.new(true)
-	assert_equal(nil, e.plan)
-	t1.signals(:start, e, :start)
+        t1.start_event.signals e
 	assert_equal(plan, e.plan)
 	assert(plan.free_events.include?(e))
 
@@ -367,7 +378,6 @@ module TC_PlanStatic
 	t1, t2 = model.new, model.new
 	plan.add_mission(t1)
 	assert_equal(plan, t1.plan)
-	assert_equal(nil, t2.plan)
 	assert_raises(RuntimeError) { t1.depends_on t2 }
 	assert_equal(plan, t1.plan)
 	assert_equal(plan, t2.plan)
@@ -446,8 +456,8 @@ class TC_Plan < Minitest::Test
         t2.depends_on t3
         t2.planned_by p
 
-        t1.signals :start, p, :start
-        t2.signals :success, p, :start
+        t1.start_event.signals p.start_event
+        t2.success_event.signals p.start_event
 
         plan.add(t2)
         with_log_level(Roby, Logger::FATAL) do
@@ -462,10 +472,6 @@ class TC_Plan < Minitest::Test
     end
     
     def test_failed_mission
-        # The Plan object should emit a MissionFailed error if an exception
-        # involves a mission ...
-        Roby::ExecutionEngine.logger.level = Logger::FATAL
-
         t1, t2, t3, t4 = prepare_plan add: 4, model: Tasks::Simple
         t1.depends_on t2
         t2.depends_on t3
@@ -487,145 +493,244 @@ class TC_Plan < Minitest::Test
         assert mission_failed
         assert_equal t2, mission_failed.first.origin
     end
-
-    def test_plan_discovery_when_adding_child_task
-        root, t1, t2 = (1..3).map { Roby::Task.new }
-        assert !root.plan
-        assert !t1.plan
-
-        root.depends_on t1, role: 'bla'
-        plan.add(t1)
-
-        assert_equal plan, root.plan
-        assert_equal plan, t1.plan
-    end
-
-    def test_discover_new_objects_single_object
-        t = Roby::Task.new
-        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = Set.new), [t].to_set)
-        assert_equal [t], new.to_a
-        assert_equal [t], set.to_a
-    end
-
-    def test_discover_new_objects_with_child
-        t = Roby::Task.new
-        child = Roby::Task.new
-        t.depends_on child
-        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = Set.new), [t].to_set)
-        assert_equal [t, child].to_set, new
-        assert_equal [t, child].to_set, set
-        plan.add([t, child])
-    end
-
-    def test_discover_new_objects_with_recursive
-        t = Roby::Task.new
-        child = Roby::Task.new
-        t.depends_on child
-        next_task = Roby::Task.new
-        child.planned_by next_task
-
-        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = Set.new), [t].to_set)
-        assert_equal [t, child, next_task].to_set, new
-        assert_equal [t, child, next_task].to_set, set
-        plan.add([t, child, next_task])
-    end
-
-    def test_discover_new_objects_does_no_account_for_already_discovered_objects
-        t = Roby::Task.new
-        child = Roby::Task.new
-        t.depends_on child
-        next_task = Roby::Task.new
-        child.planned_by next_task
-
-        new = plan.discover_new_objects(TaskStructure.relations, nil, (set = [child].to_set), [t].to_set)
-        assert_equal [t].to_set, new
-        assert_equal [t, child].to_set, set
-        plan.add([t, child, next_task])
-    end
 end
 
-describe Roby::Plan do
-    describe "#add_trigger" do
-        it "yields new tasks that match the given object" do
-            match = flexmock
-            match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
-            recorder = flexmock
-            recorder.should_receive(:called).once.with(task)
-            plan.add_trigger match do |task|
-                recorder.called(task)
+module Roby
+    describe Plan do
+        describe "#locally_useful_tasks" do
+            it 'computes the merge of all strong relation graphs from permanent tasks' do
+                parent, (child, planner, planner_child) = prepare_plan permanent: 1, add: 3, model: Roby::Tasks::Simple
+                parent.depends_on child
+                child.planned_by planner
+                planner.depends_on planner_child
+                assert_equal [parent, child, planner, planner_child].to_set, plan.locally_useful_tasks
             end
-            plan.add task
-        end
-        it "does not yield new tasks that do not match the given object" do
-            match = flexmock
-            match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
-            recorder = flexmock
-            recorder.should_receive(:called).never
-            plan.add_trigger match do |task|
-                recorder.called(task)
+            it "ignores tasks that are not used by a permanent task" do
+                parent, (other_root, child, planner, planner_child) = prepare_plan permanent: 1, add: 4, model: Roby::Tasks::Simple
+                parent.depends_on child
+                child.planned_by planner
+                planner.depends_on planner_child
+                other_root.depends_on planner
+                assert_equal [parent, child, planner, planner_child].to_set, plan.locally_useful_tasks
             end
-            plan.add task
-        end
-        it "yields matching tasks that already are in the plan" do
-            match = flexmock
-            match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
-            recorder = flexmock
-            recorder.should_receive(:called).once
-            plan.add task
-            plan.add_trigger match do |task|
-                recorder.called(task)
-            end
-        end
-        it "does not yield not matching tasks that already are in the plan" do
-            match = flexmock
-            match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
-            recorder = flexmock
-            recorder.should_receive(:called).never
-            plan.add task
-            plan.add_trigger match do |task|
-                recorder.called(task)
-            end
-        end
-    end
 
-    describe "#remove_trigger" do
-        it "allows to remove a trigger added by #add_trigger" do
-            match = flexmock
-            trigger = plan.add_trigger match do |task|
+            it 'computes the merge of all strong relation graphs from mission tasks' do
+                parent, (child, planner, planner_child) = prepare_plan missions: 1, add: 3, model: Roby::Tasks::Simple
+                parent.depends_on child
+                child.planned_by planner
+                planner.depends_on planner_child
+                assert_equal [parent, child, planner, planner_child].to_set, plan.locally_useful_tasks
             end
-            plan.remove_trigger trigger
-            match.should_receive(:===).never
-            plan.add Roby::Task.new
+            it "ignores tasks that are not used by a missions" do
+                parent, (other_root, child, planner, planner_child) = prepare_plan missions: 1, add: 4, model: Roby::Tasks::Simple
+                parent.depends_on child
+                child.planned_by planner
+                planner.depends_on planner_child
+                other_root.depends_on planner
+                assert_equal [parent, child, planner, planner_child].to_set, plan.locally_useful_tasks
+            end
         end
-    end
 
-    describe "#add_task_set" do
-        it "registers the task events in #task_events" do
-            plan.add_task_set([task = Roby::Task.new])
-            assert(plan.task_events.to_set.subset?(task.bound_events.values.to_set))
+        describe "#add_trigger" do
+            it "yields new tasks that match the given object" do
+                match = flexmock
+                match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
+                recorder = flexmock
+                recorder.should_receive(:called).once.with(task)
+                plan.add_trigger match do |task|
+                    recorder.called(task)
+                end
+                plan.add task
+            end
+            it "does not yield new tasks that do not match the given object" do
+                match = flexmock
+                match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
+                recorder = flexmock
+                recorder.should_receive(:called).never
+                plan.add_trigger match do |task|
+                    recorder.called(task)
+                end
+                plan.add task
+            end
+            it "yields matching tasks that already are in the plan" do
+                match = flexmock
+                match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
+                recorder = flexmock
+                recorder.should_receive(:called).once
+                plan.add task
+                plan.add_trigger match do |task|
+                    recorder.called(task)
+                end
+            end
+            it "does not yield not matching tasks that already are in the plan" do
+                match = flexmock
+                match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
+                recorder = flexmock
+                recorder.should_receive(:called).never
+                plan.add task
+                plan.add_trigger match do |task|
+                    recorder.called(task)
+                end
+            end
         end
-    end
 
-    describe "#unneeded_events" do
-        it "returns free events that are connected to nothing" do
-            plan.add(ev = Roby::EventGenerator.new)
-            assert_equal [ev].to_set, plan.unneeded_events.to_set
+        describe "#remove_trigger" do
+            it "allows to remove a trigger added by #add_trigger" do
+                match = flexmock
+                trigger = plan.add_trigger match do |task|
+                end
+                plan.remove_trigger trigger
+                match.should_receive(:===).never
+                plan.add Roby::Task.new
+            end
         end
-        it "does not return free events that are reachable from a permanent event" do
-            plan.add_permanent(ev = Roby::EventGenerator.new)
-            assert plan.unneeded_events.empty?
+
+        describe "#unneeded_events" do
+            it "returns free events that are connected to nothing" do
+                plan.add(ev = Roby::EventGenerator.new)
+                assert_equal [ev].to_set, plan.unneeded_events.to_set
+            end
+            it "does not return free events that are reachable from a permanent event" do
+                plan.add_permanent(ev = Roby::EventGenerator.new)
+                assert plan.unneeded_events.empty?
+            end
+            it "does not return free events that are reachable from a task event" do
+                plan.add(t = Roby::Task.new)
+                ev = Roby::EventGenerator.new
+                t.start_event.forward_to ev
+                assert plan.unneeded_events.empty?
+            end
+            it "does not return free events that can reach a task event" do
+                plan.add(t = Roby::Task.new)
+                ev = Roby::EventGenerator.new
+                ev.forward_to t.start_event
+                assert plan.unneeded_events.empty?
+            end
         end
-        it "does not return free events that are reachable from a task event" do
-            plan.add(t = Roby::Task.new)
-            ev = Roby::EventGenerator.new
-            t.start_event.forward_to ev
-            assert plan.unneeded_events.empty?
+        
+        describe "deep_copy" do
+            it "copies the plan objects and their structure" do
+                parent, (child, planner) = prepare_plan missions: 1, add: 2, model: Roby::Tasks::Simple
+                plan.add(ev = Roby::EventGenerator.new)
+
+                child.success_event.forward_to ev
+                parent.depends_on child
+                child.planned_by planner
+
+                copy, mappings = plan.deep_copy
+                assert_equal (plan.known_tasks | plan.free_events | plan.task_events), mappings.keys.to_set
+                assert plan.same_plan?(copy, mappings)
+            end
         end
-        it "does not return free events that can reach a task event" do
-            plan.add(t = Roby::Task.new)
-            ev = Roby::EventGenerator.new
-            ev.forward_to t.start_event
-            assert plan.unneeded_events.empty?
+
+        describe "#same_plan?" do
+            attr_reader :plan, :copy
+            before do
+                @plan = Plan.new
+                @copy = Plan.new
+            end
+
+            def prepare_mappings(mappings)
+                task_event_mappings = Hash.new
+                mappings.each do |original, copy|
+                    if original.respond_to?(:each_event)
+                        original.each_event do |ev|
+                            task_event_mappings[ev] = copy.event(ev.symbol)
+                        end
+                    end
+                end
+                task_event_mappings.merge(mappings)
+            end
+
+            it "returns true on two empty plans" do
+                plan.same_plan?(copy, Hash.new)
+            end
+
+            it "returns true on a plan with a single task" do
+                plan.add(task = Task.new)
+                copy.add(task_copy = Task.new)
+                mappings = prepare_mappings(task => task_copy)
+                assert plan.same_plan?(copy, mappings)
+            end
+
+            it "returns true on a plan with a single event" do
+                plan.add(event = EventGenerator.new)
+                copy.add(event_copy = EventGenerator.new)
+                mappings = prepare_mappings(event => event_copy)
+                assert plan.same_plan?(copy, mappings)
+            end
+
+            it "returns true on a plan with identical task relations" do
+                plan.add(task_parent = Task.new)
+                task_parent.depends_on(task_child = Task.new)
+                copy.add(task_parent_copy = Task.new)
+                task_parent_copy.depends_on(task_child_copy = Task.new)
+                mappings = prepare_mappings(task_parent => task_parent_copy, task_child => task_child_copy)
+                assert plan.same_plan?(copy, mappings)
+            end
+
+            it "returns false for a plan with differing task relations" do
+                plan.add(task_parent = Task.new)
+                task_parent.depends_on(task_child = Task.new)
+                copy.add(task_parent_copy = Task.new)
+                copy.add(task_child_copy = Task.new)
+                mappings = prepare_mappings(task_parent => task_parent_copy, task_child => task_child_copy)
+                assert !plan.same_plan?(copy, mappings)
+            end
+
+            it "returns false for a plan with a missing task" do
+                plan.add(task = Task.new)
+                assert !plan.same_plan?(copy, Hash.new)
+            end
+
+            it "returns false if the plans mission sets differ" do
+                plan.add_mission(task = Task.new)
+                copy.add(task_copy = Task.new)
+                mappings = prepare_mappings(task => task_copy)
+                assert !plan.same_plan?(copy, mappings)
+            end
+
+            it "returns false if the plans permanent tasks differ" do
+                plan.add_permanent(task = Task.new)
+                copy.add(task_copy = Task.new)
+                mappings = prepare_mappings(task => task_copy)
+                assert !plan.same_plan?(copy, mappings)
+            end
+
+            it "returns false if the plans permanent events differ" do
+                plan.add_permanent(event = EventGenerator.new)
+                copy.add(event_copy = EventGenerator.new)
+                mappings = prepare_mappings(event => event_copy)
+                assert !plan.same_plan?(copy, mappings)
+            end
+
+            it "returns true on a plan with identical event relations" do
+                plan.add(event_parent = EventGenerator.new)
+                event_parent.add_signal(event_child = EventGenerator.new)
+                copy.add(event_parent_copy = EventGenerator.new)
+                event_parent_copy.add_signal(event_child_copy = EventGenerator.new)
+                mappings = prepare_mappings(event_parent => event_parent_copy, event_child => event_child_copy)
+                assert plan.same_plan?(copy, mappings)
+            end
+
+            it "returns false on a plan with differing event relations" do
+                plan.add(event_parent = EventGenerator.new)
+                event_parent.add_signal(event_child = EventGenerator.new)
+                copy.add(event_parent_copy = EventGenerator.new)
+                copy.add(event_child_copy = EventGenerator.new)
+                mappings = prepare_mappings(event_parent => event_parent_copy, event_child => event_child_copy)
+                assert !plan.same_plan?(copy, mappings)
+            end
+
+            it "returns false on a plan with differing task event relations" do
+                plan.add(task_parent = Task.new)
+                plan.add(task_child = Task.new)
+                copy.add(task_parent_copy = Task.new)
+                copy.add(task_child_copy = Task.new)
+                task_parent.start_event.forward_to task_child.start_event
+                mappings = prepare_mappings(task_parent => task_parent_copy, task_child => task_child_copy)
+                assert !plan.same_plan?(copy, mappings)
+            end
         end
     end
 end

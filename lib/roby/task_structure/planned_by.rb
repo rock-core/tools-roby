@@ -43,7 +43,7 @@ module Roby::TaskStructure
         # for which planning has failed
         def check_structure(plan)
             result = []
-            PlannedBy.each_edge do |planned_task, planning_task, options|
+            each_edge do |planned_task, planning_task, options|
                 next if plan != planning_task.plan
                 next if !planning_task.failed?
                 next if !planned_task.self_owned?

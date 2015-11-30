@@ -102,6 +102,7 @@ require 'roby/tasks/sequence'
 require 'roby/event_constraints'
 
 require 'roby/plan'
+require 'roby/template_plan'
 require 'roby/transactions/proxy'
 require 'roby/transactions'
 

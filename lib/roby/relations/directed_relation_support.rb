@@ -13,15 +13,73 @@ module Roby
 
             attr_reader :relation_graphs
 
-            def child_object?(object, relation)
+            def relation_graph_for(rel)
+                relation_graphs.fetch(rel)
+            end
+
+            # Enumerate all relations that are relevant for this plan object
+            #
+            # Unlike {#each_relation_graph}, which enumerate only the graphs
+            # that include self, it enumerates all possible relations for self
+            #
+            # @yieldparam [Class<Graph>]
+            def each_relation
+                return enum_for(__method__) if !block_given?
+                relation_graphs.each do |k, g|
+                    yield(k) if k != g
+                end
+            end
+
+            # Enumerate the relation graphs that include this vertex
+            #
+            # @yieldparam [Graph]
+            def each_relation_graph
+                return enum_for(__method__) if !block_given?
+                relation_graphs.each do |k, g|
+                    yield(g) if g.include?(self) && (k == g)
+                end
+            end
+
+            # Enumerate the relation graphs that include this vertex and that
+            # are subgraphs of no other graphs
+            #
+            # @yieldparam [Graph]
+            def each_root_relation_graph
+                return enum_for(__method__) if !block_given?
+                each_relation_graph do |g|
+                    yield(g) if g.root_relation?
+                end
+            end
+
+            def generated_subgraph(relation = nil)
+                super(relation_graphs[relation])
+            end
+
+            def root?(relation = nil)
+                if relation
+                    super(relation_graphs[relation])
+                else
+                    each_relation_graph.all? { |g| g.root?(self) }
+                end
+            end
+
+            def leaf?(relation = nil)
+                if relation
+                    super(relation_graphs[relation])
+                else
+                    each_relation_graph.all? { |g| g.leaf?(self) }
+                end
+            end
+
+            def child_object?(object, relation = nil)
                 child_vertex?(object, relation_graphs[relation])
             end
 
-            def parent_object?(object, relation)
+            def parent_object?(object, relation = nil)
                 parent_vertex?(object, relation_graphs[relation])
             end
 
-            def related_object?(object, relation)
+            def related_object?(object, relation = nil)
                 related_vertex?(object, relation_graphs[relation])
             end
 
@@ -39,21 +97,11 @@ module Roby
                 end
             end
 
-            def each_relation
-                relation_graphs do |k, g|
-                    yield(g) if k == g
-                end
-            end
-
-            def each_root_relation
-                each_graph do |g|
-                    yield(g) if g.kind_of?(Relations::Graph) && g.root_relation?
-                end
-            end
-
             def sorted_relations
                 Relations.all_relations.
-                    find_all { |rel| rel.include?(self) }
+                    find_all do |rel|
+                        (rel = relation_graphs.fetch(rel, nil)) && rel.include?(self)
+                    end
             end
 
             # Yields each relation this vertex is part of, starting with the most
@@ -68,7 +116,7 @@ module Roby
             # Removes +self+ from all the graphs it is included in.
             def clear_vertex
                 for rel in sorted_relations
-                    rel.remove(self)
+                    relation_graphs[rel].remove(self)
                 end
             end
             alias :clear_relations :clear_vertex
@@ -139,7 +187,7 @@ module Roby
                         rel.remove_relation(self, child)
                     end
                 else
-                    relation.remove_relation(self, child)
+                    relation_graphs[relation].remove_relation(self, child)
                 end
             end
 
@@ -210,7 +258,7 @@ module Roby
             end
 
             def []=(object, relation, value)
-                super
+                super(object, relation_graphs[relation], value)
 
                 if respond_to?(:updated_edge_info)
                     updated_edge_info(object, relation, value)

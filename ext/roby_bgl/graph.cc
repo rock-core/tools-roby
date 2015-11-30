@@ -579,19 +579,11 @@ static VALUE graph_out_degree(VALUE _graph, VALUE _vertex)
     else return INT2NUM(out_degree(s, graph));
 }
 
-/* @overload self[child, graph]
- *
- * Get the data associated with the self => child edge in graph.
- *
- * @param [BGL::Vertex] child
- * @param [BGL::Graph] graph
- * @raise ArgumentError if there is no such edge.
- */
-static VALUE vertex_get_info(VALUE self, VALUE child, VALUE rb_graph)
+static VALUE graph_edge_info(VALUE rb_graph, VALUE parent, VALUE child)
 {
     vertex_descriptor source, target; bool exists;
 
-    tie(source, exists) = rb_to_vertex(self, rb_graph);
+    tie(source, exists) = rb_to_vertex(parent, rb_graph);
     if (! exists)
 	rb_raise(rb_eArgError, "self is not in graph");
     tie(target, exists) = rb_to_vertex(child, rb_graph);
@@ -607,20 +599,11 @@ static VALUE vertex_get_info(VALUE self, VALUE child, VALUE rb_graph)
     return graph[e].info;
 }
 
-/* @overload self[child, graph] = value
- *
- * Sets the data associated with the self => child edge in graph.
- *
- * @param [BGL::Vertex] child
- * @param [BGL::Graph] graph
- * @param [Object] value
- * @raise ArgumentError if there is no such edge.
- */
-static VALUE vertex_set_info(VALUE self, VALUE child, VALUE rb_graph, VALUE new_value)
+static VALUE graph_set_edge_info(VALUE rb_graph, VALUE parent, VALUE child, VALUE new_value)
 {
     vertex_descriptor source, target; bool exists;
 
-    tie(source, exists) = rb_to_vertex(self, rb_graph);
+    tie(source, exists) = rb_to_vertex(parent, rb_graph);
     if (! exists)
 	rb_raise(rb_eArgError, "self is not in graph");
     tie(target, exists) = rb_to_vertex(child, rb_graph);
@@ -634,6 +617,32 @@ static VALUE vertex_set_info(VALUE self, VALUE child, VALUE rb_graph, VALUE new_
 	rb_raise(rb_eArgError, "no such edge in graph");
 
     return (graph[e].info = new_value);
+}
+/* @overload self[child, graph]
+ *
+ * Get the data associated with the self => child edge in graph.
+ *
+ * @param [BGL::Vertex] child
+ * @param [BGL::Graph] graph
+ * @raise ArgumentError if there is no such edge.
+ */
+static VALUE vertex_get_info(VALUE self, VALUE child, VALUE rb_graph)
+{
+    return graph_edge_info(rb_graph, self, child);
+}
+
+/* @overload self[child, graph] = value
+ *
+ * Sets the data associated with the self => child edge in graph.
+ *
+ * @param [BGL::Vertex] child
+ * @param [BGL::Graph] graph
+ * @param [Object] value
+ * @raise ArgumentError if there is no such edge.
+ */
+static VALUE vertex_set_info(VALUE self, VALUE child, VALUE rb_graph, VALUE new_value)
+{
+    return graph_set_edge_info(rb_graph, self, child, new_value);
 }
 
 /* @overload root?(vertex)
@@ -721,6 +730,8 @@ extern "C" void Init_roby_bgl()
     rb_define_method(bglGraph, "out_degree",		RUBY_METHOD_FUNC(graph_out_degree), 1);
     rb_define_method(bglGraph, "clear",	RUBY_METHOD_FUNC(graph_clear), 0);
     rb_define_method(bglGraph, "name=",	RUBY_METHOD_FUNC(graph_set_name), 1);
+    rb_define_method(bglGraph, "edge_info",  RUBY_METHOD_FUNC(graph_edge_info), 2);
+    rb_define_method(bglGraph, "set_edge_info",  RUBY_METHOD_FUNC(graph_set_edge_info), 3);
 
     bglVertex = rb_define_module_under(bglModule, "Vertex");
     rb_define_method(bglVertex, "related_vertex?",	RUBY_METHOD_FUNC(vertex_related_p), -1);

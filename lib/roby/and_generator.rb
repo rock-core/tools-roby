@@ -109,9 +109,9 @@ module Roby
 	end
 
 	# The set of source events
-	def events;  parent_objects(EventStructure::Signal) end
+        def events;  each_parent_object(EventStructure::Signal).to_set end
         # The set of generators that have not been emitted yet.
-	def waiting; parent_objects(EventStructure::Signal).find_all { |ev| @events[ev] == ev.last } end
+	def waiting; each_parent_object(EventStructure::Signal).find_all { |ev| @events[ev] == ev.last } end
 	
 	# Add a new source to this generator
 	def << (generator)

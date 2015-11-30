@@ -4,6 +4,10 @@ require 'roby/schedulers/temporal'
 class TC_TemporalConstraints < Minitest::Test
     TemporalConstraints = EventStructure::TemporalConstraints
 
+    def temporal_constraints_graph
+        @temporal_constraints_graph ||= plan.event_relation_graph_for(TemporalConstraints)
+    end
+
     def test_empty_constraints
         t1, t2 = prepare_plan add: 2, model: Tasks::Simple
         e1 = t1.start_event
@@ -153,9 +157,9 @@ class TC_TemporalConstraints < Minitest::Test
 
         assert_raises(ArgumentError) { e1.add_temporal_constraint(e2, 5, 0) }
 
-        assert TemporalConstraints.linked?(e1, e2)
+        assert temporal_constraints_graph.linked?(e1, e2)
         assert_equal [[-5, 10]], e1[e2, TemporalConstraints].intervals
-        assert TemporalConstraints.linked?(e2, e1)
+        assert temporal_constraints_graph.linked?(e2, e1)
         assert_equal [[-10, 5]],  e2[e1, TemporalConstraints].intervals
 
         t1.start_event.add_temporal_constraint(t2.start_event, 12, 13)
@@ -179,9 +183,9 @@ class TC_TemporalConstraints < Minitest::Test
             time.should_receive(:now).and_return { current_time }
 
             e1.emit
-            assert_equal [], TemporalConstraints.check_structure(plan)
+            assert_equal [], temporal_constraints_graph.check_structure(plan)
             current_time += 11
-            errors = TemporalConstraints.check_structure(plan)
+            errors = temporal_constraints_graph.check_structure(plan)
             assert_equal 1, errors.size
 
             err = errors.first
@@ -202,13 +206,13 @@ class TC_TemporalConstraints < Minitest::Test
             time.should_receive(:now).and_return { current_time }
 
             e1.emit
-            assert_equal [], TemporalConstraints.check_structure(plan)
+            assert_equal [], temporal_constraints_graph.check_structure(plan)
             current_time += 2
-            assert_equal [], TemporalConstraints.check_structure(plan)
+            assert_equal [], temporal_constraints_graph.check_structure(plan)
             e2.emit
             assert plan.emission_deadlines.deadlines.empty?
             current_time += 10
-            assert_equal [], TemporalConstraints.check_structure(plan)
+            assert_equal [], temporal_constraints_graph.check_structure(plan)
         end
     end
 
@@ -229,9 +233,9 @@ class TC_TemporalConstraints < Minitest::Test
             time.should_receive(:now).and_return { current_time }
 
             e1.emit
-            assert_equal [], TemporalConstraints.check_structure(plan)
+            assert_equal [], temporal_constraints_graph.check_structure(plan)
             current_time += 2
-            assert_equal [], TemporalConstraints.check_structure(plan)
+            assert_equal [], temporal_constraints_graph.check_structure(plan)
             assert_equal 2, plan.emission_deadlines.size
             e2.emit
             assert_equal 1, plan.emission_deadlines.size
@@ -240,7 +244,7 @@ class TC_TemporalConstraints < Minitest::Test
             assert_equal 1, plan.emission_deadlines.size
             current_time += 6
 
-            errors = TemporalConstraints.check_structure(plan)
+            errors = temporal_constraints_graph.check_structure(plan)
             assert_equal 1, errors.size
             err = errors.first
             # Try formatting it to check that there are no hard errors (does not

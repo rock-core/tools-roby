@@ -191,15 +191,11 @@ module Roby
         end
 
 	
-        # Builds a task object using this task model
-	#
-        # The task object can be configured by a given block. After the 
-        # block is called, two things are checked:
-        # * the task shall have a +start+ event
-        # * the task shall have at least one terminal event. If no +stop+ event
-        #   is defined, then all terminal events are aliased to +stop+
-        def initialize(arguments = Hash.new) #:yields: task_object
-	    super() if defined? super
+        # Create a new task object
+        #
+        # The task is initially added to a {TemplatePlan} object in which all of
+        # the model's event relations are already instantiated.
+        def initialize(arguments = Hash.new)
 	    @model   = self.class
             @abstract = @model.abstract?
             
@@ -226,15 +222,14 @@ module Roby
             @poll_handlers = []
             @execute_handlers = []
 
-            yield(self) if block_given?
-
             @terminal_flag_invalid = true
 
-            # Create the EventGenerator instances that represent this task's
-            # events. Note that the event relations are instanciated by
-            # Plan#discover when this task is included in a plan, thus avoiding
-            # filling up the relation graphs with unused relations.
+            @bound_events = Hash.new
+
+	    super()
 	    initialize_events
+            plan.register_task(self)
+            instantiate_model_event_relations
 
             if self.model.state_machine
                 @state_machine = TaskStateMachine.new(self.model.state_machine)
@@ -289,7 +284,9 @@ module Roby
 	    # Create all event generators
 	    bound_events = Hash.new
 	    model.each_event do |ev_symbol, ev_model|
-		bound_events[ev_symbol.to_sym] = TaskEventGenerator.new(self, ev_model)
+                ev = TaskEventGenerator.new(self, ev_model)
+                ev.plan = plan
+		bound_events[ev_symbol.to_sym] = ev
 	    end
 	    @bound_events = bound_events
 
@@ -329,6 +326,15 @@ module Roby
 	    model.new(arguments.dup)
         end
 
+        def dup(plan: TemplatePlan.new)
+            copy = super()
+            if plan
+                copy.plan = plan
+                plan.register_task(copy)
+            end
+            copy
+        end
+
 	def initialize_copy(old) # :nodoc:
 	    super
 
@@ -344,7 +350,7 @@ module Roby
 	    bound_events = Hash.new
 	    model.each_event do |ev_symbol, ev_model|
                 if old.has_event?(ev_symbol)
-                    ev = old.event(ev_symbol).dup
+                    ev = old.event(ev_symbol).dup(plan: nil)
                     ev.instance_variable_set(:@task, self)
                     bound_events[ev_symbol.to_sym] = ev
                 end
@@ -423,7 +429,7 @@ module Roby
 	end
 
 	def plan=(new_plan) # :nodoc:
-	    if plan != new_plan
+            if (plan != new_plan) && plan && !plan.template?
                 # Event though I don't like it, there is a special case here.
                 #
                 # Namely, if plan is nil and we are running, it most likely
@@ -432,17 +438,18 @@ module Roby
                 #
                 # Note that PlanObject#plan= will catch the case of a removed
                 # object that is being re-added in a plan.
-		if plan 
-                    if plan.include?(self)
-                        raise ModelViolation.new, "#{self} still included in #{plan}, cannot change the plan to #{new_plan}"
-                    elsif !kind_of?(Proxying) && self_owned? && running?
-                        raise ModelViolation.new, "cannot change the plan of #{self} from #{plan} to #{new_plan} as the task is running"
-                    end
+                if plan.include?(self)
+                    raise ModelViolation.new, "#{self} still included in #{plan}, cannot change the plan to #{new_plan}"
+                elsif !kind_of?(Proxying) && self_owned? && running?
+                    raise ModelViolation.new, "cannot change the plan of #{self} from #{plan} to #{new_plan} as the task is running"
                 end
 	    end
 
 	    super
 
+            @relation_graphs =
+                if plan then plan.task_relation_graphs
+                end
 	    for _, ev in bound_events
 		ev.plan = plan
 	    end
@@ -1281,6 +1288,8 @@ module Roby
         #
         # @param [ExecutionException] e
         def handle_exception(e)
+            return if !plan
+
             tasks = find_all_matching_repair_tasks(e)
             return super if tasks.empty?
             if !tasks.any? { |t| t.running? }
@@ -1332,16 +1341,16 @@ module Roby
 	    # Compute the set of tasks that are in our subtree and not in
 	    # object's *after* the replacement
 	    tree = Set.new
-	    TaskStructure.each_root_relation do |rel|
+            each_root_relation_graph do |rel|
 		tree.merge generated_subgraph(rel)
                 tree.merge object.generated_subgraph(rel)
 	    end
             tree << self << object
 
-	    changes = []
 	    each_event do |event|
 		next unless object.has_event?(event.symbol)
-		changes.clear
+
+                changes = []
 
 		event.each_relation do |rel|
 		    parents = []

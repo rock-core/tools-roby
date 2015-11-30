@@ -1093,7 +1093,7 @@ class TC_Task < Minitest::Test
         
     def test_exception_refinement
         # test for a task that is in no plan
-        assert_direct_call_validity_check(/no plan/,false) do
+        assert_direct_call_validity_check(/plan is not executable/,false) do
             Tasks::Simple.new
 	end
 
@@ -1197,11 +1197,9 @@ class TC_Task < Minitest::Test
 	assert(seq.child_object?(t2, TaskStructure::Dependency))
 
 	task = seq.child_of(model)
+        assert !seq.plan
 
 	plan.add_mission(task)
-
-	assert(!seq.child_object?(t1, TaskStructure::Dependency))
-	assert(!seq.child_object?(t2, TaskStructure::Dependency))
 
 	task.start!
 	assert(t1.running?)
@@ -1650,8 +1648,8 @@ class TC_Task < Minitest::Test
 
 	assert_kind_of(VirtualTask, task = VirtualTask.create(start, success))
 	plan.add(task)
-	assert_equal(start, task.start_event)
-	assert_equal(success, task.success_event)
+	assert_equal(start, task.actual_start_event)
+	assert_equal(success, task.actual_success_event)
 	FlexMock.use do |mock|
 	    start.on { |event| mock.start_event }
 	    task.start_event.on { |event| mock.start_task }
@@ -1688,26 +1686,14 @@ class TC_Task < Minitest::Test
 	assert_same(new, new.stop_event.task)
 
 	assert(!plan.include?(new))
-        assert_equal(nil, new.plan)
 
 	assert_kind_of(Roby::TaskArguments, new.arguments)
 	assert_equal(task.arguments.to_hash, new.arguments.to_hash)
-
-        plan.add(new)
-	assert_equal([new.stop_event], new.failed_event.child_objects(Roby::EventStructure::Forwarding).to_a)
 
         assert(task.running?)
         assert(new.running?)
         assert(task.intermediate?)
         assert(new.intermediate?)
-
-	task.stop!
-	assert(!task.running?)
-	assert(new.running?)
-
-	new.stop_event.call
-	assert(new.stop?, "#{new} should have emitted stop but did not, history: #{new.history.map(&:to_s).join(", ")}")
-	assert(new.finished?, "#{new} should have finished but did not, history: #{new.history.map(&:to_s).join(", ")}")
     end
 
     def test_failed_to_start
@@ -2202,34 +2188,6 @@ class TC_Task < Minitest::Test
 
         plan.add(as_plan = task_t.as_plan)
         assert_same task, as_plan
-    end
-    
-    def test_gather_events_cleanup_on_removal
-        plan.add(task = Roby::Task.new)
-        EventGenerator.gather_events([], [task.start_event])
-        assert(EventGenerator.event_gathering.has_key?(task.start_event))
-        plan.remove_object(task)
-        assert(!EventGenerator.event_gathering.has_key?(task.start_event))
-    end
-
-    def test_gather_events_cleanup_on_transaction_removal
-        task = nil
-        plan.in_transaction do |trsc|
-            trsc.add(task = Roby::Task.new)
-            EventGenerator.gather_events([], [task.start_event])
-            assert(EventGenerator.event_gathering.has_key?(task.start_event))
-            trsc.commit_transaction
-        end
-        assert(EventGenerator.event_gathering.has_key?(task.start_event))
-
-        plan.in_transaction do |trsc|
-            trsc.add(task = Roby::Task.new)
-            EventGenerator.gather_events([], [task.start_event])
-            assert(EventGenerator.event_gathering.has_key?(task.start_event))
-            trsc.remove_object(task)
-        end
-        assert(!EventGenerator.event_gathering.has_key?(task.start_event),
-            "event gathering kept for discarded event")
     end
 
     def test_start_command_raises_before_emission

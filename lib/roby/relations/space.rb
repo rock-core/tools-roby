@@ -44,9 +44,20 @@ module Roby
             #
             # @return [Hash<Models<Graph>,Graph>]
             def instanciate
-                graphs = Hash.new
+                graphs = Hash.new do |h, k|
+                    if k
+                        if k.kind_of?(Class)
+                            known_relations = h.each_key.find_all { |rel| rel.kind_of?(Class) }
+                            raise ArgumentError, "#{k} is not a known relation (known relations are #{known_relations.map { |o| "#{o.name}" }.join(", ")})"
+                        elsif known_graph = h.fetch(k.class)
+                            raise ArgumentError, "it seems that you're trying to use the relation API to access a graph that is not part of this object's current plan. Given graph was #{k.object_id}, and the current graph for #{k.class} is #{known_graph.object_id}"
+                        else
+                            raise ArgumentError, "graph object #{known_graph} is not a known relation graph"
+                        end
+                    end
+                end
                 relations.each do |rel|
-                    g = rel.new(name || to_s)
+                    g = rel.new(rel.name || to_s)
                     graphs[g] = graphs[rel] = g
                 end
                 relations.each do |rel|
@@ -226,7 +237,7 @@ module Roby
                         copy_on_replace: copy_on_replace, noinfo: noinfo, subsets: subsets,
                         child_name: child_name, **submodel_options)
                     synthetized_methods = Module.new do
-                        define_method("__r_#{relation_name}__") { relation_graphs[klass] }
+                        define_method("__r_#{relation_name}__") { self.relation_graphs[klass] }
                     end
                     extension = Module.new
                     class_extension = Module.new

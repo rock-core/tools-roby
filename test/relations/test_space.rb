@@ -151,7 +151,7 @@ module Roby
                     end
 
                     it "resets the accessor to other children if there are some" do
-                        parent, child, other_child = create_node, create_node
+                        parent, child, other_child = create_node, create_node, create_node
                         parent.add_child child
                         parent.add_child other_child
                         parent.remove_child other_child

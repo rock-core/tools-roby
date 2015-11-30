@@ -153,12 +153,12 @@ module Roby
                 # Now check that we're not changing the edge info. This is ignored
                 # if +self+ has the noinfo flag set.
                 if linked?(from, to)
-                    if !(old_info = from[to, self]).nil?
+                    if !(old_info = edge_info(from, to)).nil?
                         if old_info != info && !(info = merge_info(from, to, old_info, info))
                             raise ArgumentError, "trying to change edge information in #{self} for #{from} => #{to}: old was #{old_info} and new is #{info}"
                         end
                     end
-                    from[to, self] = info
+                    set_edge_info(from, to, info)
                     return
                 end
 

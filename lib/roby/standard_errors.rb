@@ -62,6 +62,10 @@ class Exception
 end
 
 module Roby
+    # Exception base used for all errors that show an inconsistency inside Roby
+    # itself
+    class InternalError < RuntimeError; end
+
     # Module used to tag exceptions that "wrap" an original error from the user
     # code
     #

@@ -49,7 +49,7 @@ module Roby
         # propagation.
         def control; execution_engine.control end
 
-	# The task index for this plan. This is a TaskIndex object which allows
+	# The task index for this plan. This is a {Queries::Index} object which allows
         # efficient resolving of queries.
 	attr_reader :task_index
 
@@ -123,13 +123,20 @@ module Roby
 	    end
 	end
 
-        # The set of relations available for this plan
-        attr_reader :relations
         # The set of PlanService instances that are defined on this plan
         attr_reader :plan_services
         # The list of fault response tables that are currently globally active
         # on this plan
         attr_reader :active_fault_response_tables
+
+        # A template plan is meant to be injected in another plan
+        #
+        # When a {PlanObject} is included in a template plan, adding relations
+        # to other tasks causes the plans to merge as needed. Doing the same
+        # operation with plain plans causes an error
+        #
+        # @see TemplatePlan
+        def template?; false end
 
 	def initialize
 	    @missions	 = Set.new
@@ -152,15 +159,74 @@ module Roby
 
             @plan_services = Hash.new
 
-            @relations = TaskStructure.relations + EventStructure.relations
-            @structure_checks = relations.
-                map { |r| r.method(:check_structure) if r.respond_to?(:check_structure) }.
-                compact
+            @task_relation_graphs  = TaskStructure.instanciate
+            @event_relation_graphs = EventStructure.instanciate
+
+            @structure_checks = Array.new
+            each_relation_graph do |graph|
+                if graph.respond_to?(:check_structure)
+                    structure_checks << graph.method(:check_structure)
+                end
+            end
 
 	    @task_index  = Roby::Queries::Index.new
 
 	    super() if defined? super
 	end
+
+        # The graphs that make task relations, formatted as required by
+        # {Relations::DirectedRelationSupport#relation_graphs}
+        #
+        # @see each_task_relation_graph
+        attr_reader :task_relation_graphs
+
+        # The graphs that make event relations, formatted as required by
+        # {Relations::DirectedRelationSupport#relation_graphs}
+        #
+        # @see each_event_relation_graph
+        attr_reader :event_relation_graphs
+
+        # Enumerate the graph objects that contain this plan's relation
+        # information
+        #
+        # @yieldparam [Relations::Graph] graph
+        def each_relation_graph(&block)
+            return enum_for(__method__) if !block_given?
+            each_event_relation_graph(&block)
+            each_task_relation_graph(&block)
+        end
+
+        # Enumerate the graph objects that contain this plan's event relation
+        # information
+        #
+        # @yieldparam [Relations::EventRelationGraph] graph
+        def each_event_relation_graph
+            return enum_for(__method__) if !block_given?
+            event_relation_graphs.each do |k, v|
+                yield(v) if k == v
+            end
+        end
+
+        # Resolves an event graph object from the graph class (i.e. the graph model)
+        def event_relation_graph_for(model)
+            event_relation_graphs.fetch(model)
+        end
+
+        # Enumerate the graph objects that contain this plan's task relation
+        # information
+        #
+        # @yieldparam [Relations::TaskRelationGraph] graph
+        def each_task_relation_graph
+            return enum_for(__method__) if !block_given?
+            task_relation_graphs.each do |k, v|
+                yield(v) if k == v
+            end
+        end
+
+        # Resolves a task graph object from the graph class (i.e. the graph model)
+        def task_relation_graph_for(model)
+            task_relation_graphs.fetch(model)
+        end
 
         def default_localized_error_handling(error)
             matching_handlers = Array.new
@@ -263,16 +329,70 @@ module Roby
             end
         end
 
-        # Shallow copy of this plan's state (lists of tasks / events and their
-        # relations, but not copying the tasks themselves)
+        # @deprecated use {#merge} instead
         def copy_to(copy)
-            known_tasks.each { |t| copy.known_tasks << t }
-            free_events.each { |e| copy.free_events << e }
-            copy.instance_variable_set :@task_index, task_index.dup
+            copy.merge(self)
+        end
 
-            missions.each { |t| copy.missions << t }
-            permanent_tasks.each  { |t| copy.permanent_tasks << t }
-            permanent_events.each { |e| copy.permanent_events << e }
+        # Merges the content of a plan into self
+        #
+        # It is assumed that self and plan do not intersect.
+        #
+        # Unlike {#merge!}, it does not update its argument, neither update the
+        # plan objects to point to self afterwards
+        #
+        # @param [Roby::Plan] plan the plan to merge into self
+        def merge(plan)
+            return if plan == self
+            free_events.merge(plan.free_events)
+            missions.merge(plan.missions)
+            known_tasks.merge(plan.known_tasks)
+            permanent_tasks.merge(plan.permanent_tasks)
+            permanent_events.merge(plan.permanent_events)
+            task_index.merge(plan.task_index)
+            task_events.merge(plan.task_events)
+
+            # Now merge the relation graphs
+            #
+            # Since task_relation_graphs contains both Class<Graph>=>Graph and
+            # Graph=>Graph, we merge only the graphs for which
+            # self.task_relation_graphs has an entry (i.e. Class<Graph>) and
+            # ignore the rest
+            plan.task_relation_graphs.each do |rel_id, rel|
+                next if rel_id == rel
+                next if !(this_rel = task_relation_graphs.fetch(rel_id, nil))
+                this_rel.merge!(rel)
+            end
+            plan.event_relation_graphs.each do |rel_id, rel|
+                next if rel_id == rel
+                next if !(this_rel = event_relation_graphs.fetch(rel_id, nil))
+                this_rel.merge!(rel)
+            end
+        end
+
+        # Moves the content of other_plan into self, and clears other_plan
+        #
+        # It is assumed that other_plan and plan do not intersect
+        #
+        # Unlike {#merge}, it ensures that all plan objects have their {#plan}
+        # attribute properly updated, and it cleans plan
+        #
+        # @param [Roby::Plan] plan the plan to merge into self
+        def merge!(plan)
+            return if plan == self
+
+            merge(plan)
+
+            # Note: Task#plan= updates its bound events
+            tasks, events = plan.known_tasks.dup, plan.free_events.dup
+            plan.clear!
+            tasks.each { |t| t.plan = self }
+            events.each { |e| e.plan = self }
+        end
+
+        # Hook called when a {#merge} has been performed
+        def merged_plan(plan)
+            super if defined? super
         end
 
         def deep_copy
@@ -319,66 +439,40 @@ module Roby
             permanent_events.each { |e| copy.add_permanent(mappings[e]) }
 
             # We now have to copy the relations
-            known_tasks.each do |parent|
-                parent.each_relation do |rel|
-                    m_parent = mappings[parent]
-                    parent.each_child_object(rel) do |child|
-                        info = parent[child, rel]
-                        rel.add_relation(m_parent, mappings[child], info)
-                    end
-                end
-
-                parent.each_event do |parent_ev|
-                    m_parent_ev = mappings[parent_ev]
-                    parent_ev.each_relation do |rel|
-                        parent_ev.each_child_object(rel) do |child_ev, info|
-                            m_child_ev = mappings[child_ev]
-                            if !rel.linked?(m_parent_ev, m_child_ev)
-                                rel.add_relation(m_parent_ev, m_child_ev, info)
-                            end
-                        end
-                    end
+            each_task_relation_graph do |graph|
+                target_graph = copy.task_relation_graph_for(graph.class)
+                graph.each_edge do |parent, child|
+                    target_graph.add_relation(
+                        mappings[parent], mappings[child], graph.edge_info(parent, child))
                 end
             end
 
-            free_events.each do |parent_ev|
-                m_parent_ev = mappings[parent_ev]
-                parent_ev.each_relation do |rel|
-                    parent_ev.each_child_object(rel) do |child_ev, info|
-                        m_child_ev = mappings[child_ev]
-                        rel.add_relation(m_parent_ev, m_child_ev, info)
-                    end
+            each_event_relation_graph do |graph|
+                target_graph = copy.event_relation_graph_for(graph.class)
+                graph.each_edge do |parent, child|
+                    target_graph.add_relation(
+                        mappings[parent], mappings[child], graph.edge_info(parent, child))
                 end
             end
 
             mappings
         end
 
-	# call-seq:
-	#   plan.partition_event_task(objects) => events, tasks
-	#
-	def partition_event_task(objects)
-            if objects.respond_to?(:as_plan)
-                objects = objects.as_plan
+        # @api private
+        #
+        # Normalize an validate the arguments to {#add} into a list of plan objects
+	def normalize_add_arguments(objects)
+            if !objects.respond_to?(:each)
+                objects = [objects]
             end
 
-	    if objects.respond_to?(:to_task) then return nil, [objects.to_task]
-	    elsif objects.respond_to?(:to_event) then return [objects.to_event], nil
-	    elsif !objects.respond_to?(:each)
-		raise TypeError, "expecting a task, event, or a collection of tasks and events, got #{objects}"
-	    end
-
-	    evts, tasks = objects.partition do |o|
-                if o.respond_to?(:as_plan)
-                    o = o.as_plan
-                end
-
-		if o.respond_to?(:to_event) then true
-		elsif o.respond_to?(:to_task) then false
+	    objects.map do |o|
+                if o.respond_to?(:as_plan) then o.as_plan
+                elsif o.respond_to?(:to_event) then o.to_event
+                elsif o.respond_to?(:to_task) then o.to_task
 		else raise ArgumentError, "found #{o || 'nil'} which is neither a task nor an event"
 		end
 	    end
-	    return evts, tasks
 	end
 
 	# If this plan is a toplevel plan, returns self. If it is a
@@ -549,7 +643,9 @@ module Roby
         def handle_force_replace(from, to)
             if from.plan != self
                 raise ArgumentError, "trying to replace #{from} but its plan is #{from.plan}, expected #{self}"
-            elsif to.plan && to.plan != self
+            elsif to.plan.template?
+                add(to)
+            elsif to.plan != self
                 raise ArgumentError, "trying to replace #{to} but its plan is #{to.plan}, expected #{self}"
             elsif from == to
                 return 
@@ -673,7 +769,7 @@ module Roby
 
         def add_mission_task(task)
 	    return if missions.include?(task)
-            add_task(task)
+            add([task])
 
 	    missions << task
 	    task.mission = true if task.self_owned?
@@ -684,7 +780,7 @@ module Roby
 
         def add_permanent_task(task)
             return if permanent_tasks.include?(task)
-            add_task(task)
+            add([task])
 
             permanent_tasks << task
             notify_plan_status_change(task, :permanent)
@@ -693,37 +789,35 @@ module Roby
 
         def add_permanent_event(event)
             return if permanent_events.include?(event)
-            add_event(event)
+            add([event])
             permanent_events << event
             true
         end
-        
-        # Add a single task in the plan
-        def add_task(task)
-            return if include?(task)
 
-            if !task.kind_of?(Roby::Task)
-                raise ArgumentError, "can only add task objects in a plan with #add_task (got object of class #{task.class})"
-            elsif task.to_task != task
-                raise ArgumentError, "can only add task objects (not services) in a plan with #add_task (got object of class #{task.class})"
-            elsif task.frozen?
-                raise ArgumentError, "attempting to add a commited transaction proxy to the plan"
-            end
-
-            add_task_set([task])
+        # @api private
+        #
+        # Registers a task object in this plan
+        #
+        # It is for Roby internal usage only, for the creation of template
+        # plans. Use {#add}.
+        def register_task(task)
+            known_tasks << task
+            task_index.add(task)
+            task_events.merge(task.each_event)
         end
 
-        # Add a free event to the plan
-        def add_event(event)
-            return if include?(event)
-
-            if !event.kind_of?(Roby::EventGenerator)
-                raise ArgumentError, "can only add event objects in a plan with #add_event"
-            elsif !event.root_object?
-                raise ArgumentError, "can only add root events in a plan with #add_event"
+        # @api private
+        #
+        # Registers a task object in this plan
+        #
+        # It is for Roby internal usage only, for the creation of template
+        # plans. Use {#add}.
+        def register_event(event)
+            if event.root_object?
+                free_events << event
+            else
+                task_events << event
             end
-
-            add_event_set([event])
         end
 
 	# call-seq:
@@ -739,43 +833,38 @@ module Roby
         # #added_tasks hooks are called for the objects that were not in
         # the plan.
 	def add(objects)
-	    events, tasks = partition_event_task(objects)
+	    objects = normalize_add_arguments(objects)
 
-	    if tasks && !tasks.empty?
-                tasks = tasks.to_set
-		new_tasks = discover_new_objects(TaskStructure.relations, nil, known_tasks.dup, tasks)
-		if !new_tasks.empty?
-		    add_task_set(new_tasks)
-                    events ||= Set.new
-                    for t in new_tasks
-                        for ev in t.bound_events.values
-                            events << ev
-                        end
-                    end
-		end
-	    end
-
-	    if events && !events.empty?
-		events = events.to_set
-                new_events = discover_new_objects(EventStructure.relations, nil, free_events.dup, events)
-
-                # Issue added_task_relation hooks for the relations between the new
-                # events, including task events
-                #
-                # If some of these events already have relations with existing tasks,
-                # they will be triggered in Task#added_child_object
-                new_events.each do |e|
-                    e.each_root_relation do |rel|
-                        e.each_child_object do |child_e|
-                            if new_events.include?(child_e)
-                                added_event_relation(e, child_e, rel.recursive_subsets)
-                            end
-                        end
-                    end
+            plans = Set.new
+            objects.each do |plan_object|
+                p = plan_object.plan
+                next if p == self
+                if plan_object.removed_at
+                    raise ArgumentError, "cannot add #{plan_object} in #{self}, it has been removed from the plan"
+                elsif !p
+                    raise InternalError, "there seem to be an inconsistency, #{plan_object}#plan is nil but #removed_at is not set"
+                elsif p.empty?
+                    raise InternalError, "there seem to be an inconsistency, #{plan_object} is associated with #{p} but #{p} is empty"
+                elsif !p.template?
+                    raise ModelViolation, "cannot add #{plan_object} in #{self}, it is already included in #{p}"
                 end
-                new_events.delete_if { |ev| ev.respond_to?(:task) }
-		add_event_set(new_events)
-	    end
+                plans << p
+            end
+
+            if execution_engine
+                execution_engine.event_ordering.clear
+            end
+
+            triggered = Array.new
+            plans.each do |p|
+                triggered = p.known_tasks.map do |t|
+                    [t, triggers.find_all { |trigger| trigger === t }]
+                end
+                merge!(p)
+                triggered.each do |task, triggers|
+                    triggers.each { |trigger| trigger.call(task) }
+                end
+            end
 
 	    self
 	end
@@ -820,83 +909,21 @@ module Roby
             nil
         end
 
-	# Add +events+ to the set of known events and call added_events
-	# for the new events
-	#
-	# This is for internal use, use #add instead
-	def add_event_set(events)
-            for e in events
-                e.plan = self
-                free_events << e
-	    end
-
-	    if !events.empty?
-		added_events(events)
-	    end
-
-	    events
-	end
-
-	# Add +tasks+ to the set of known tasks and call added_tasks for
-	# the new tasks
-	#
-	# This is for internal use, use #add instead
-	def add_task_set(tasks)
-	    for t in tasks
-		t.plan = self
-                known_tasks << t
-		task_index.add t
-	    end
-	    added_tasks(tasks)
-
-	    for t in tasks
-		t.instantiate_model_event_relations
-                for ev in t.bound_events.values
-                    task_events << ev
-                end
-	    end
-	    nil
-	end
-
+	# Hook called when new tasks have been discovered in this plan
         def added_tasks(tasks)
-            if execution_engine
-                execution_engine.event_ordering.clear
-            end
-
-            # Issue added_task_relation hooks for the relations between the new
-            # tasks themselves
-            #
-            # If some of these tasks already have relations with existing tasks,
-            # they will be triggered in Task#added_child_object
-            tasks.each do |t|
-                t.each_root_relation do |rel|
-                    t.each_child_object do |child_t|
-                        if tasks.include?(child_t)
-                            added_task_relation(t, child_t, rel.recursive_subsets)
-                        end
-                    end
-                end
-                triggers.each do |trigger|
-                    if trigger === t
-                        trigger.call(t)
-                    end
-                end
-            end
-
-            super if defined? super
+            raise NotImplementedError, "the #added_tasks hook has been superseded by #merged_plan"
         end
 
 	# Hook called when new events have been discovered in this plan
 	def added_events(events)
-            if execution_engine
-                execution_engine.event_ordering.clear
-            end
-
-	    super if defined? super
+            raise NotImplementedError, "the #added_events hook has been superseded by #merged_plan"
 	end
 
         # Hook called when relations are created between tasks that are included
         # in this plan 
+        #
+        # Note that it is NOT triggered for relations created because of
+        # {#merge} or {#merge!}. Hook into {#merged_plan} for these two.
         #
         # @param [Task] parent
         # @param [Task] child
@@ -909,6 +936,9 @@ module Roby
 
         # Hook called when relations are removed between tasks that are included
         # in this plan 
+        #
+        # Note that it is NOT triggered for relations created because of
+        # {#merge} or {#merge!}. Hook into {#merged_plan} for these two.
         #
         # @param [Task] parent
         # @param [Task] child
@@ -972,49 +1002,12 @@ module Roby
 
 	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
 	# Only the tasks that are in +complete_set+ are included.
-	def discover_new_objects(relations, complete_set, useful_set, seeds, explored_relations = Hash.new)
-            new_objects = Set.new
-            useful_set.merge(seeds)
-	    for rel in relations
-		next if !rel.root_relation?
-
-                explored_relations[rel] ||= [Set.new, Set.new]
-
-                reverse_seeds = (seeds - explored_relations[rel][0]).to_a
-                for subgraph in rel.reverse.generated_subgraphs(reverse_seeds, false)
-                    explored_relations[rel][0].merge(subgraph)
-		    new_objects.merge(subgraph)
-		end
-
-                direct_seeds = (seeds - explored_relations[rel][1]).to_a
-                for subgraph in rel.generated_subgraphs(direct_seeds, false)
-                    explored_relations[rel][1].merge(subgraph)
-		    new_objects.merge(subgraph)
-		end
-	    end
-
-	    if complete_set
-		new_objects.delete_if { |obj| !complete_set.include?(obj) }
-	    end
-
-            new_objects.subtract(seeds)
-            new_objects.delete_if { |t| useful_set.include?(t) }
-            if new_objects.empty?
-                seeds
-            else
-                useful_set.merge(new_objects)
-                seeds.merge(discover_new_objects(relations, complete_set, useful_set, new_objects, explored_relations))
-            end
-	end
-
-	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
-	# Only the tasks that are in +complete_set+ are included.
 	def useful_task_component(complete_set, useful_set, seeds)
             seeds = seeds.to_a
 
 	    old_useful_set = useful_set.dup
-	    for rel in TaskStructure.relations
-		next if !rel.root_relation?
+	    for rel in each_task_relation_graph
+                next if !rel.root_relation? || rel.weak?
                 for subgraph in rel.generated_subgraphs(seeds, false)
 		    useful_set.merge(subgraph)
 		end
@@ -1097,7 +1090,7 @@ module Roby
         def compute_useful_free_events(useful_events, useless_events)
 	    current_size = useful_events.size
 
-	    for rel in EventStructure.relations
+	    for rel in each_event_relation_graph
 		next unless rel.root_relation?
 
                 for subgraph in rel.components(useless_events.to_a, true)
@@ -1146,7 +1139,7 @@ module Roby
 	# Count of tasks in this plan
 	def size; @known_tasks.size end
 	# Returns true if there is no task in this plan
-	def empty?; @known_tasks.empty? end
+        def empty?; @known_tasks.empty? && @free_events.empty? end
 	# Iterates on all tasks
         #
         # @yieldparam [Task] task
@@ -1161,7 +1154,7 @@ module Roby
 	#
 	# This method is provided for consistency with Transaction#[]
 	def [](object, create = true)
-            if !object.plan && !object.finalized?
+            if !object.finalized? && object.plan.template?
 		add(object)
             elsif object.finalized? && create
 		raise ArgumentError, "#{object} is has been finalized, and can't be reused"
@@ -1262,11 +1255,13 @@ module Roby
 	    self
 	end
 
-	# Remove all tasks
-	def clear
-	    known_tasks, @known_tasks = @known_tasks, Set.new
-	    free_events, @free_events = @free_events, Set.new
-
+        def clear!
+            each_task_relation_graph do |g|
+                g.clear
+            end
+            each_event_relation_graph do |g|
+                g.clear
+            end
 	    @free_events.clear
 	    @missions.clear
 	    @known_tasks.clear
@@ -1276,6 +1271,14 @@ module Roby
             @task_index.clear
             @task_events.clear
             @gc_quarantine.clear
+        end
+
+	# Remove all tasks
+	def clear
+	    known_tasks, @known_tasks = @known_tasks, Set.new
+	    free_events, @free_events = @free_events, Set.new
+
+            clear!
 
             remaining = known_tasks.find_all do |t|
                 if executable? && t.running?
@@ -1505,33 +1508,37 @@ module Roby
         # Finds a single difference between this plan and the other plan, using
         # the provided mappings to map objects from self to object in other_plan
         def find_plan_difference(other_plan, mappings)
-            all_self_objects = known_tasks | free_events
+            all_self_objects  = known_tasks | free_events | task_events
+            all_other_objects = (other_plan.known_tasks | other_plan.free_events | other_plan.task_events)
 
-            all_other_objects = (other_plan.known_tasks | other_plan.free_events)
             all_mapped_objects = all_self_objects.map do |obj|
                 if !mappings.has_key?(obj)
                     return [:new_object, obj]
                 end
                 mappings[obj]
             end.to_set
+
             if all_mapped_objects != all_other_objects
                 return [:removed_objects, all_other_objects - all_mapped_objects]
+            elsif missions.map { |m| mappings[m] }.to_set != other_plan.missions
+                return [:missions_differ]
+            elsif permanent_tasks.map { |p| mappings[p] }.to_set != other_plan.permanent_tasks
+                return [:permanent_tasks_differ]
+            elsif permanent_events.map { |p| mappings[p] }.to_set != other_plan.permanent_events
+                return [:permanent_events_differ]
             end
-            all_self_objects.each do |self_obj|
-                other_obj = mappings[self_obj]
 
-                self_obj.each_relation do |rel|
-                    self_children  = self_obj.enum_child_objects(rel).to_a
-                    other_children = other_obj.enum_child_objects(rel).to_a
-                    return [:child_mismatch, self_obj, other_obj] if self_children.size != other_children.size
+            each_task_relation_graph do |graph|
+                other_graph = other_plan.task_relation_graph_for(graph.class)
+                if diff = graph.find_edge_difference(other_graph, mappings)
+                    return [graph.class] + diff
+                end
+            end
 
-                    for self_child in self_children
-                        self_info = self_obj[self_child, rel]
-                        other_child = mappings[self_child]
-                        return [:removed_child, self_obj, rel, self_child, other_child] if !other_obj.child_object?(other_child, rel)
-                        other_info = other_obj[other_child, rel]
-                        return [:info_mismatch, self_obj, rel, self_child, other_child] if !other_obj.child_object?(other_child, rel)
-                    end
+            each_event_relation_graph do |graph|
+                other_graph = other_plan.event_relation_graph_for(graph.class)
+                if diff = graph.find_edge_difference(other_graph, mappings)
+                    return [graph.class] + diff
                 end
             end
             nil

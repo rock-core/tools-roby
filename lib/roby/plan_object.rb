@@ -102,7 +102,14 @@ module Roby
 
         def initialize
             super
-            @plan       = nil
+
+            # NOTE: it's the subclasses job to register the object in the plan ...
+            #
+            # Subclasses can set @plan explicitely, in which case we don't
+            # bother creating a new one
+            @plan ||= TemplatePlan.new
+            self.plan = @plan
+
             @removed_at = nil
             @executable = nil
             @finalization_handlers = Array.new
@@ -110,9 +117,11 @@ module Roby
         end
 
         def initialize_copy(other)
-            super if defined? super
-
+            # Consider whether subclasses initialized the plan before calling us
+            # ... in which case we handle it specially and propagate it
+            super
             @plan = nil
+            @relation_graphs = nil
             @finalization_handlers = other.finalization_handlers.dup
         end
 
@@ -295,6 +304,21 @@ module Roby
 	    end
 	end
 
+        # Method called to apply modifications needed to commit this object into
+        # the underlying plan
+        #
+        # For instance, {Task} will make sure that argument objects that are
+        # transaction proxies are unwrapped
+        #
+        # Note that the method should only deal with modifications that are
+        # internal to the task itself. Modifications of the relation graphs are
+        # handled by {Transaction} itself in
+        # {Transaction#apply_modifications_to_plan}
+        #
+        # The default implementation does nothing
+        def commit_transaction
+        end
+
         alias :__freeze__ :freeze
 
         # True if we should send updates about this object to +peer+
@@ -310,14 +334,15 @@ module Roby
         # It raises RuntimeError if both objects are already included in a
         # plan, but their plan mismatches.
 	def synchronize_plan(other) # :nodoc:
-	    if plan == other.plan
-	    elsif other.plan && plan
-		raise RuntimeError, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
-	    elsif plan
-		self.plan.add(other)
-	    elsif other.plan
-		other.plan.add(self)
-	    end
+	    return if plan == other.plan
+
+            if other.plan.template?
+                plan.add(other)
+            elsif plan.template?
+                other.plan.add(self)
+            else
+                raise RuntimeError, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
+            end
 	end
 	protected :synchronize_plan
 
@@ -337,6 +362,11 @@ module Roby
 	def add_child_object(child, type, info = nil) # :nodoc:
 	    if child.plan != plan
 		root_object.synchronize_plan(child.root_object)
+                if !type.kind_of?(Class)
+                    # If given a graph, we need to re-resolve it as #plan might
+                    # have changed
+                    type = relation_graphs.fetch(type.class)
+                end
 	    end
 
 	    super
@@ -407,13 +437,10 @@ module Roby
         # Replaces +self+ by +object+ in all graphs +self+ is part of. Unlike
         # BGL::Vertex#replace_by, this calls the various add/remove hooks
         # defined in {Relations::DirectedRelationSupport}
-	def replace_by(object, options = Hash.new)
-            options = Kernel.validate_options options, exclude: Array.new
-            exclusions = options[:exclude]
-
+        def replace_by(object, exclude: Array.new)
 	    changes = []
 	    each_relation_sorted do |rel|
-                next if exclusions.include?(rel)
+                next if exclude.include?(rel)
                 next if rel.strong?
 
 		parents = []
@@ -466,7 +493,6 @@ module Roby
         # relations and with the given information object.
         def adding_child_object(child, relations, info)
             super if defined? super
-            return if !plan
 
             for trsc in plan.transactions
                 next unless trsc.proxying?
@@ -484,7 +510,6 @@ module Roby
 	    end
 
             super if defined? super
-            return if !plan
 
             for trsc in plan.transactions
                 next unless trsc.proxying?

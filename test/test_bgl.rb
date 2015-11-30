@@ -705,6 +705,16 @@ describe BGL::Graph do
         end
     end
 
+    describe "#merge" do
+        it "copies the edge info" do
+            a, b = create_and_add_vertices(2)
+            graph.link(a, b, info = flexmock)
+            copy = BGL::Graph.new
+            copy.merge(graph)
+            assert_equal info, copy.edge_info(a, b)
+        end
+    end
+
     describe "#prune" do
         it "should be reset if calling next from the iteration block" do
             a, b1, b2, c1, c2 = create_and_add_vertices %w{a b1 b2 c1 c2}

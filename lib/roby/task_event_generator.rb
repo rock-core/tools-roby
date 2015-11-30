@@ -14,6 +14,7 @@ module Roby
         end
 
         def initialize(task, model)
+            @plan = task.plan
 	    super(model.respond_to?(:call))
             @task, @event_model = task, model
 	    @symbol = model.symbol
@@ -36,7 +37,15 @@ module Roby
 
 	# The event plan. It is the same as task.plan and is actually updated
 	# by task.plan=. It is redefined here for performance reasons.
-	attr_accessor :plan
+        attr_reader :plan
+
+	# The event plan. It is the same as task.plan and is actually updated
+	# by task.plan=. It is redefined here for performance reasons.
+        def plan=(plan)
+            @plan = plan
+            @relation_graphs = if plan then plan.event_relation_graphs
+                               end
+        end
 
 	# Hook called just before the event is emitted. If it raises, the event
         # will not be emitted at all.
@@ -244,7 +253,7 @@ module Roby
 			"The following arguments were not set: \n" +
 			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
 	    elsif !plan
-		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is in no plan"
+		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} but the task has been removed from its plan"
 	    elsif !plan.executable?
 		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} but the plan is not executable"
 	    elsif task.abstract?

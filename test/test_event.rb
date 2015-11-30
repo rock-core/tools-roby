@@ -715,19 +715,20 @@ class TC_Event < Minitest::Test
 
     def test_until
 	source, sink, filter, limit = 4.enum_for(:times).map { EventGenerator.new(true) }
-	plan.add [source, sink, filter, limit]
+        [source, sink, filter, limit].each do |ev|
+            plan.add_permanent ev
+        end
 
 	source.signals(filter)
 	filter.until(limit).signals(sink)
 
-	FlexMock.use do |mock|
-	    sink.on { |ev| mock.passed }
-	    mock.should_receive(:passed).once
+        mock = flexmock
+        sink.on { |ev| mock.passed }
+        mock.should_receive(:passed).once
 
-	    source.call(nil)
-	    limit.call(nil)
-	    source.call(nil)
-	end
+        source.call(nil)
+        limit.call(nil)
+        source.call(nil)
     end
 
     FakeEvent = Struct.new :propagation_id, :context, :generator, :sources, :time
@@ -946,55 +947,6 @@ class TC_Event < Minitest::Test
 	    mock.should_receive(:nil_filter).with(nil).once
 	    ev1.call(21)
 	end
-    end
-
-    def test_gather_events
-	e1, e2 = (1..2).map { EventGenerator.new(true) }.
-	    each { |e| plan.add(e) }
-
-	collection = []
-
-	EventGenerator.gather_events(collection, [e2])
-	e1.call
-	assert_equal([], collection.map { |ev| ev.generator })
-	e2.emit(nil)
-	assert_equal([e2], collection.map { |ev| ev.generator })
-
-	collection.clear
-	EventGenerator.gather_events(collection, [e1])
-	e1.call
-	assert_equal([e1], collection.map { |ev| ev.generator })
-	e2.emit(nil)
-	assert_equal([e1, e2], collection.map { |ev| ev.generator })
-
-	# Check that the triggering events are cleared when the events are
-	# removed from the plan
-        assert(EventGenerator.event_gathering.has_key?(e1))
-	plan.remove_object(e1)
-        assert(!EventGenerator.event_gathering.has_key?(e1))
-
-	EventGenerator.remove_event_gathering(collection)
-    end
-
-    def test_setup_gather_events_in_transaction
-        e = nil
-        plan.in_transaction do |trsc|
-            trsc.add(e = EventGenerator.new)
-            EventGenerator.gather_events([], [e])
-            assert(EventGenerator.event_gathering.has_key?(e))
-            trsc.commit_transaction
-        end
-        assert(EventGenerator.event_gathering.has_key?(e))
-        plan.remove_object(e)
-        assert(!EventGenerator.event_gathering.has_key?(e))
-
-        plan.in_transaction do |trsc|
-            trsc.add(e = EventGenerator.new)
-            EventGenerator.gather_events([], [e])
-            assert(EventGenerator.event_gathering.has_key?(e))
-            trsc.discard_transaction
-        end
-        assert(!EventGenerator.event_gathering.has_key?(e), "event gathering kept for discarded event")
     end
 
     def test_achieve_with

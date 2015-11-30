@@ -25,8 +25,21 @@ module Roby
 	    @by_owner = Hash.new
 	end
 
+        def merge(source)
+            source.by_model.each do |model, set|
+                by_model[model].merge(set)
+            end
+            source.by_predicate.each do |state, set|
+                by_predicate[state].merge(set)
+            end
+            source.by_owner.each do |owner, set|
+                (by_owner[owner] ||= Set.new).merge(set)
+            end
+        end
+
         def initialize_copy(source)
             super
+
 	    @by_model = Hash.new { |h, k| h[k] = Set.new }
             source.by_model.each do |model, set|
                 by_model[model] = set.dup
@@ -36,7 +49,11 @@ module Roby
             source.by_predicate.each do |state, set|
                 by_predicate[state] = set.dup
             end
-            @by_owner = source.by_owner.dup
+
+            @by_owner = Hash.new
+            source.by_owner.each do |owner, set|
+                by_owner[owner] = set.dup
+            end
         end
 
         def clear

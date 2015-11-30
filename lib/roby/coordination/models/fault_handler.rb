@@ -143,10 +143,12 @@ module Roby
                         end
 
                     result = Set.new
-                    Roby::TaskStructure::Dependency.reverse.each_dfs(origin, BGL::Graph::TREE) do |_, to, _|
+                    
+                    dependency_graph = origin.plan.task_relation_graph_for(TaskStructure::Dependency)
+                    dependency_graph.reverse.each_dfs(origin, BGL::Graph::TREE) do |_, to, _|
                         if predicate.call(to)
                             result << to
-                            Roby::TaskStructure::Dependency.prune
+                            dependency_graph.prune
                         end
                     end
                     result

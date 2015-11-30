@@ -27,15 +27,15 @@ module BGL
 
 	# Returns the connected component +self+ is part of in +graph+
 	def component(graph)
-	    graph.components([self], false).first || singleton_set
+	    relation_graphs[graph].components([self], false).first || singleton_set
 	end
 	# Returns the vertex set which are reachable from +self+ in +graph+
 	def generated_subgraph(graph)
-	    graph.generated_subgraphs([self], false).first || singleton_set
+	    relation_graphs[graph].generated_subgraphs([self], false).first || singleton_set
 	end
 	# Returns the vertex set which can reach +self+ in +graph+
 	def reverse_generated_subgraph(graph)
-	    graph.reverse.generated_subgraphs([self], false).first || singleton_set
+	    relation_graphs[graph].reverse.generated_subgraphs([self], false).first || singleton_set
 	end
 
 	# Replace this vertex by +to+ in all graphs. See Graph#replace_vertex.
@@ -229,12 +229,41 @@ module BGL
 
 	def initialize_copy(source) # :nodoc:
 	    super
-            source.copy_to(self)
+            merge(source)
 	end
 
         def copy_to(target)
-	    each_vertex { |v| target.insert(v) }
-	    each_edge { |s, t, i| target.link(s, t, i) }
+            target.merge(self)
+        end
+
+        def find_edge_difference(graph, mapping)
+            if graph.num_edges != num_edges
+                return [:num_edges_differ]
+            end
+
+            each_edge do |parent, child|
+                m_parent, m_child = mapping[parent], mapping[child]
+                if !m_parent
+                    return [:missing_mapping, parent]
+                elsif !m_child
+                    return [:missing_mapping, child]
+                elsif !graph.include?(m_parent) || !graph.include?(m_child) || !graph.linked?(m_parent, m_child)
+                    return [:missing_edge, parent, child]
+                elsif edge_info(parent, child) != graph.edge_info(m_parent, m_child)
+                    return [:differing_edge_info, parent, child]
+                end
+            end
+            nil
+        end
+
+        def merge(target)
+            target.each_vertex { |v| insert(v) }
+            target.each_edge { |s, t, i| link(s, t, i) }
+        end
+
+        def merge!(target)
+            merge(target)
+            target.clear
         end
 
 	# Replaces +from+ by +to+. This means +to+ takes the role of +from+ in
@@ -361,7 +390,7 @@ module BGL
 
                     other_parent = mapping[self_parent]
                     if other_graph.linked?(other_parent, other_v)
-                        if other_parent[other_v, other_graph] != self_parent[self_v, self]
+                        if other_graph.edge_info(other_parent, other_v) != edge_info(self_parent, self_v)
                             updated << [self_parent, self_v]
                         end
                         seen_connections << [other_parent, other_v]
@@ -377,7 +406,7 @@ module BGL
 
                     other_child = mapping[self_child]
                     if other_graph.linked?(other_v, other_child)
-                        if other_v[other_child, other_graph] != self_v[self_child, self]
+                        if other_graph.edge_info(other_v, other_child) != edge_info(self_v, self_child)
                             updated << [self_v, self_child]
                         end
                         seen_connections << [other_v, other_child]

@@ -4,8 +4,14 @@ class TC_Dependency < Minitest::Test
     # Set to true to have the tests display the pretty-printed errors.
     DISPLAY_FORMATTED_ERRORS = false
 
+    Dependency = TaskStructure::Dependency
+
+    def dependency_graph
+        plan.task_relation_graph_for(Dependency)
+    end
+
     def test_check_structure_registration
-        assert plan.structure_checks.include?(Dependency.method(:check_structure))
+        assert plan.structure_checks.include?(dependency_graph.method(:check_structure))
     end
 
     def assert_formatting_succeeds(object)
@@ -42,12 +48,12 @@ class TC_Dependency < Minitest::Test
 	plan.add(child = klass.new(id: 'good'))
 	assert_raises(ArgumentError) { t1.depends_on child, model: [klass, {id: 'bad'}] }
 	t1.depends_on child, model: [klass, {id: 'good'}]
-	assert_equal([[klass], { id: 'good' }], t1[child, TaskStructure::Dependency][:model])
+	assert_equal([[klass], { id: 'good' }], t1[child, Dependency][:model])
 
 	# Check edge annotation
 	t2 = Tasks::Simple.new
 	t1.depends_on t2, model: Tasks::Simple
-	assert_equal([[Tasks::Simple], {}], t1[t2, TaskStructure::Dependency][:model])
+	assert_equal([[Tasks::Simple], {}], t1[t2, Dependency][:model])
 	t2 = klass.new(id: 10)
 	t1.depends_on t2, model: [klass, { id: 10 }]
 
@@ -63,8 +69,6 @@ class TC_Dependency < Minitest::Test
 	t1.depends_on t2, model: [[Tasks::Simple], {id: 10}]
         assert_equal expected, t1[t2, Dependency][:model]
     end
-
-    Dependency = TaskStructure::Dependency
 
     def test_exception_printing
         parent, child = prepare_plan add: 2, model: Tasks::Simple
@@ -335,7 +339,7 @@ class TC_Dependency < Minitest::Test
         parent, child = prepare_plan add: 2, model: task_m
         child.arg = flexmock(evaluate_delayed_argument: nil)
 	parent.depends_on child
-        assert_equal Hash.new, parent[child, Roby::TaskStructure::Dependency][:model][1]
+        assert_equal Hash.new, parent[child, Dependency][:model][1]
     end
 
     def test_explicit_fullfilled_model
@@ -389,7 +393,7 @@ class TC_Dependency < Minitest::Test
 	p.depends_on c2
 	assert_equal([c1, c2].to_set, p.first_children)
 
-	c1.signals(:start, c2, :start)
+        c1.start_event.signals c2.start_event
 	assert_equal([c1].to_set, p.first_children)
     end
 
@@ -498,7 +502,7 @@ class TC_Dependency < Minitest::Test
         submodel.should_receive(:fullfills?).with(root).and_return(true)
         opt1 = Hash[model: [[root], Hash.new]]
         opt2 = Hash[model: [[submodel], Hash.new]]
-        result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(opt1, opt2)
+        result = Dependency.merge_dependency_options(opt1, opt2)
         assert_equal [[submodel], Hash.new], result[:model]
     end
     def test_merge_dependency_options_raises_ArgumentError_if_the_models_are_not_related
@@ -508,7 +512,7 @@ class TC_Dependency < Minitest::Test
         opt1 = Hash[model: [[m1], Hash.new]]
         opt2 = Hash[model: [[m2], Hash.new]]
         assert_raises(Roby::ModelViolation) do
-            Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(opt1, opt2)
+            Dependency.merge_dependency_options(opt1, opt2)
         end
     end
 
@@ -635,28 +639,6 @@ class TC_Dependency < Minitest::Test
         end
     end
 
-    def test_interesting_events
-        parent, child = prepare_plan add: 2
-        parent.depends_on(child, role: 'child')
-        assert(Dependency.interesting_events.empty?)
-        plan.remove_object(child)
-        assert(Dependency.interesting_events.empty?)
-    end
-
-    def test_interesting_events_in_transactions
-        plan.in_transaction do |trsc|
-            parent, child0, child1 = (1..3).map do |i|
-                t = Tasks::Simple.new
-                trsc.add(t)
-                t
-            end
-            parent.depends_on(child0, role: 'child0')
-            parent.depends_on(child1, role: 'child1')
-            assert(Dependency.interesting_events.empty?)
-        end
-        assert(Dependency.interesting_events.empty?)
-    end
-
     def test_each_fullfilled_model_returns_the_task_model_itself_by_default
         model = Roby::Task.new_submodel
         plan.add(task = model.new)
@@ -680,14 +662,14 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_merging_dependency_options_should_not_add_success_if_none_is_given
-        options = Roby::TaskStructure::DependencyGraphClass.validate_options(Hash.new)
-        result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(options, options)
+        options = Dependency.validate_options(Hash.new)
+        result = Dependency.merge_dependency_options(options, options)
         assert !result.has_key?(:success)
     end
 
     def test_merging_dependency_options_should_not_add_failure_if_none_is_given
-        options = Roby::TaskStructure::DependencyGraphClass.validate_options(Hash.new)
-        result = Roby::TaskStructure::DependencyGraphClass.merge_dependency_options(options, options)
+        options = Dependency.validate_options(Hash.new)
+        result = Dependency.merge_dependency_options(options, options)
         assert !result.has_key?(:failure)
     end
 
@@ -744,6 +726,10 @@ end
 module Roby
     module TaskStructure
         describe Dependency do
+            def dependency_graph
+                plan.task_relation_graph_for(Dependency)
+            end
+
             describe "#remove_roles" do
                 attr_reader :parent
                 attr_reader :child
@@ -832,6 +818,89 @@ module Roby
                     sub_m  = task_m.new_submodel
                     sub_m.fullfilled_model = [task_m]
                     assert_equal [task_m], task_m.new.provided_models
+                end
+            end
+
+            describe "interesting_events set" do
+                def self.runs(context)
+                    context.it "registers the start event of a parent" do
+                        parent, child = create_parent_child do |parent, child|
+                            parent.depends_on child, success: :start
+                        end
+                        flexmock(dependency_graph.interesting_events).should_receive(:<<).with(parent.start_event).once
+                        parent.start!
+                    end
+
+                    context.it "registers an event emitted that is positively involved in a dependency" do
+                        parent, child = create_parent_child do |parent, child|
+                            parent.depends_on child, success: :start
+                        end
+                        flexmock(dependency_graph.interesting_events).should_receive(:<<).with(child.start_event).once
+                        child.start!
+                    end
+
+                    context.it "registers an unreachable event that is positively involved in a dependency" do
+                        parent, child = create_parent_child do |parent, child|
+                            parent.depends_on child, success: :start
+                        end
+                        flexmock(dependency_graph.interesting_events).
+                            should_receive(:<<).with(child.start_event).once.pass_thru
+                        assert_raises(ChildFailedError) do
+                            child.failed_to_start!(nil)
+                        end
+                    end
+
+                    context.it "registers an event emitted that is negatively involved in a dependency" do
+                        parent, child = create_parent_child do |parent, child|
+                            parent.depends_on child, failure: :start
+                        end
+                        flexmock(dependency_graph.interesting_events).
+                            should_receive(:<<).with(child.start_event).once.pass_thru
+                        assert_raises(ChildFailedError) do
+                            child.start!
+                        end
+                    end
+                end
+
+                describe "when adding the dependency within the plan" do
+                    def create_parent_child
+                        parent, child = prepare_plan add: 2, model: Tasks::Simple
+                        yield(parent, child)
+                        return parent, child
+                    end
+                    runs(self)
+                end
+                describe "when adding the dependency outside the plan" do
+                    def create_parent_child
+                        parent, child = prepare_plan tasks: 2, model: Tasks::Simple
+                        yield(parent, child)
+                        plan.add(parent)
+                        return parent, child
+                    end
+                    runs(self)
+                end
+                describe "when adding the tasks and dependency within a transaction" do
+                    def create_parent_child
+                        parent, child = prepare_plan tasks: 2, model: Tasks::Simple
+                        plan.in_transaction do |trsc|
+                            trsc.add([parent, child])
+                            yield(parent, child)
+                            trsc.commit_transaction
+                        end
+                        return parent, child
+                    end
+                    runs(self)
+                end
+                describe "when adding the dependency within a transaction" do
+                    def create_parent_child
+                        parent, child = prepare_plan add: 2, model: Tasks::Simple
+                        plan.in_transaction do |trsc|
+                            yield(trsc[parent], trsc[child])
+                            trsc.commit_transaction
+                        end
+                        return parent, child
+                    end
+                    runs(self)
                 end
             end
         end

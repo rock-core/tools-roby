@@ -176,7 +176,7 @@ class TC_TransactionsProxy < Minitest::Test
 
 	assert_equal([], t1.enum_for(:each_child_object, Dependency).to_a)
 	t2.depends_on t3
-	assert(! Dependency.linked?(p2, p3))
+        assert(! p2.child_object?(p1, Dependency))
     end
 
     def test_proxy_plan

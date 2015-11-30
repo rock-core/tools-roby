@@ -3,6 +3,33 @@ require 'roby/test/self'
 module Roby
     module Relations
         describe Graph do
+            describe "DAG graph" do
+                let(:vertex_m) do
+                    Class.new do
+                        include DirectedRelationSupport
+                        attr_reader :relation_graphs
+                        def initialize(relation_graphs = Hash.new)
+                            @relation_graphs = relation_graphs
+                        end
+                    end
+                end
+
+                it "does not raise CycleFoundError if an edge creates a DAG if dag is false" do
+                    chain = (1..10).map { vertex_m.new }
+                    graph = Graph.new_submodel(dag: false).new("test")
+                    chain.each_cons(2) { |a, b| graph.add_relation(a, b, nil) }
+                    graph.add_relation(chain[-1], chain[0])
+                end
+                it "raises CycleFoundError if an edge creates a DAG if dag is true" do
+                    chain = (1..10).map { vertex_m.new }
+                    graph = Graph.new_submodel(dag: true).new("test")
+                    chain.each_cons(2) { |a, b| graph.add_relation(a, b, nil) }
+                    assert_raises(CycleFoundError) do
+                        graph.add_relation(chain[-1], chain[0])
+                    end
+                end
+            end
+
             describe "behaviour related to edge info" do
                 let(:graph_m) { Graph.new_submodel }
                 subject { graph_m.new("test") }

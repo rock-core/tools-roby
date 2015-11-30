@@ -1,20 +1,17 @@
 module Roby::TaskStructure
     class Roby::TaskEventGenerator
 	# Mark this event as being handled by the task +task+
-	def handle_with(repairing_task, options = Hash.new)
+	def handle_with(repairing_task, remove_when_done: true)
             if repairing_task.respond_to?(:as_plan)
                 repairing_task = repairing_task.as_plan
             end
-
-            options = Kernel.validate_options options,
-                remove_when_done: true
 
 	    if !task.child_object?(repairing_task, ErrorHandling)
 		task.add_error_handler repairing_task, Set.new
 	    end
 
-            if options[:remove_when_done]
-                repairing_task.on :stop do |event|
+            if remove_when_done
+                repairing_task.stop_event.on do |event|
                     repairing_task = event.task
                     if task.child_object?(repairing_task, ErrorHandling)
                         matcher_sets = task[repairing_task, ErrorHandling]
@@ -106,6 +103,7 @@ module Roby::TaskStructure
         #
         # @return [Boolean]
         def handles_error?(exception)
+            return if !plan
             exception = exception.to_execution_exception
             ((running? || starting?) && can_repair_error?(exception)) ||
                 find_all_matching_repair_tasks(exception).any? { |t| t.starting? || t.running? }

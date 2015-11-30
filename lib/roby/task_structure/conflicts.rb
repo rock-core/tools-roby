@@ -64,7 +64,7 @@ module Roby
                     super if defined? super
 
                     if symbol == :stop
-                        TaskStructure::Conflicts.remove(task)
+                        task.relation_graph_for(Conflicts).remove(task)
                     end
                 end
             end

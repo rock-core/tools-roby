@@ -59,24 +59,20 @@ class TC_PlanObject < Minitest::Test
         end
     end
 
-    def test_plan_synchronization
-        klass = Class.new(PlanObject)
-	space = Roby::RelationSpace(klass)
-        relation = space.relation :R
-
+    def test_plan_synchronization_adds_child_to_parents_plan
         plan = Roby::Plan.new
-        parent = klass.new
-        child = klass.new
-        parent.plan = plan
-        flexmock(plan).should_receive(:add).with(child).once
-        parent.add_r(child)
+        plan.add(parent = Roby::Task.new)
+        child = Roby::Task.new
+        flexmock(plan).should_receive(:add).with(child).once.pass_thru
+        parent.depends_on(child)
+    end
 
+    def test_plan_synchronization_adds_plan_to_childs_plan
         plan = Roby::Plan.new
-        parent = klass.new
-        child = klass.new
-        child.plan = plan
-        flexmock(plan).should_receive(:add).with(parent).once
-        child.add_r(parent)
+        parent = Roby::Task.new
+        plan.add(child = Roby::Task.new)
+        flexmock(plan).should_receive(:add).with(parent).once.pass_thru
+        child.depends_on(parent)
     end
 end
 

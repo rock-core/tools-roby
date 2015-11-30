@@ -33,9 +33,9 @@ class TC_ExecutedBy < Minitest::Test
 	task.executed_by(exec = ExecutionAgentModel.new)
 
 	FlexMock.use do |mock|
-	    exec.on(:start) { |ev| mock.agent_started }
-	    exec.on(:ready) { |ev| mock.agent_ready }
-	    task.on(:start) { |ev| mock.task_started }
+            exec.start_event.on { |ev| mock.agent_started }
+            exec.ready_event.on { |ev| mock.agent_ready }
+            task.start_event.on { |ev| mock.task_started }
 
 	    mock.should_receive(:agent_started).once.ordered
 	    mock.should_receive(:agent_ready).once.ordered

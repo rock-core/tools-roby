@@ -68,7 +68,6 @@ module Roby
 	    save_collection plan.structure_checks
 	    save_collection Roby::Plan.structure_checks
 	    save_collection engine.at_cycle_end_handlers
-	    save_collection Roby::EventGenerator.event_gathering
 	    Roby.app.abort_on_exception = false
 	    Roby.app.abort_on_application_exception = true
 

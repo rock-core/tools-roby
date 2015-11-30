@@ -49,6 +49,10 @@ module Roby
             def related_tasks?(ta, tb)
                 task_graph.linked?(ta, tb)
             end
+
+            def clear
+                task_graph.clear
+            end
         end
     end
 end

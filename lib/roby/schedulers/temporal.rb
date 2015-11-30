@@ -11,9 +11,14 @@ module Roby
             # temporal constraints are set.
             attr_predicate :basic_constraints?, true
 
+            # The proper graph object that contains the scheduling constraints
+            attr_reader :scheduling_constraints_graph
+
             def initialize(with_basic = true, with_children = true, plan = nil)
                 super(with_children, plan)
                 @basic_constraints = with_basic
+                @scheduling_constraints_graph = self.plan.
+                    event_relation_graph_for(EventStructure::SchedulingConstraints)
             end
 
             def can_schedule?(task, time = Time.now, stack = [])
@@ -30,7 +35,7 @@ module Roby
                     if ev.respond_to?(:task)
                         ev.task != task &&
                             !stack.include?(ev.task) &&
-                            !Roby::EventStructure::SchedulingConstraints.related_tasks?(ev.task, task)
+                            !scheduling_constraints_graph.related_tasks?(ev.task, task)
                     else true
                     end
                 end

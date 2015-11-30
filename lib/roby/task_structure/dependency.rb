@@ -340,10 +340,10 @@ module Roby::TaskStructure
         end
 
 	# Set up the event gathering needed by Dependency.check_structure
-	def added_child_object(child, relations, info) # :nodoc:
+	def added_child(child, info) # :nodoc:
 	    super if defined? super
-	    if relations.include?(Dependency) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
-                Dependency.update_triggers_for(self, child, info)
+	    if !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
+                relation_graphs[Dependency].update_triggers_for(self, child, info)
 	    end
 	end
 
@@ -504,11 +504,8 @@ module Roby::TaskStructure
         end
 
         def finalized!(timestamp = nil)
+            relation_graphs[Dependency].failing_tasks.delete(self)
             super
-            Dependency.failing_tasks.delete(self)
-            each_event do |ev|
-                Dependency.interesting_events.delete(ev)
-            end
         end
     end
 
@@ -582,10 +579,6 @@ module Roby::TaskStructure
 	# The set of tasks that are currently failing 
 	attribute(:failing_tasks) { Set.new }
 
-        def self.register_interesting_event_if_unreachable(reason, ev)
-            Dependency.interesting_events << ev
-        end
-
         def update_triggers_for(parent, child, info)
             events = Set.new
             if info[:success]
@@ -601,18 +594,26 @@ module Roby::TaskStructure
             end
 
             if !events.empty?
-                for ev in events
-                    ev.if_unreachable(&Dependency.method(:register_interesting_event_if_unreachable))
+                parent.start_event.on do |ev|
+                    ev.plan.task_relation_graph_for(self.class).interesting_events << ev.generator
                 end
-                Roby::EventGenerator.gather_events(Dependency.interesting_events, [parent.event(:start)])
-                Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
+                events.each do |e|
+                    e.if_unreachable do |reason, ev|
+                        # The actualy graph of 'ev' might be different than self
+                        # ... re-resolve
+                        ev.plan.task_relation_graph_for(self.class).interesting_events << ev
+                    end
+                    e.on do |ev|
+                        ev.plan.task_relation_graph_for(self.class).interesting_events << ev.generator
+                    end
+                end
             end
 
             # Initial triggers
-            Dependency.failing_tasks << child
+            failing_tasks << child
         end
 
-        def merge_fullfilled_model(model, required_models, required_arguments)
+        def self.merge_fullfilled_model(model, required_models, required_arguments)
             model, tags, arguments = *model
 
             tags = tags.dup

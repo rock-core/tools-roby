@@ -151,9 +151,6 @@ module Roby
             plan_status_handlers << handler
         end
 
-        def discard_transaction
-        end
-
         def commit_transaction
             super
 
@@ -191,19 +188,30 @@ module Roby
 	# relations that are in the transaction but not in the plan) and the
 	# set of deleted relation (relations that are in the plan but not in
 	# the transaction)
-	def partition_new_old_relations(enum) # :yield:
+	def partition_new_old_relations(enum, include_proxies: true) # :yield:
 	    trsc_objects = Hash.new
 	    each_relation do |rel|
-		trsc_others = send(enum, rel).
-		    map do |obj| 
-			plan_object = plan.may_unwrap(obj)
-			trsc_objects[plan_object] = obj
-			plan_object
-		    end.to_set
+                trsc_others = Set.new
+                send(enum, rel) do |obj|
+                    plan_object =
+                        if obj.transaction_proxy?
+                            next if !include_proxies
+                            obj.__getobj__
+                        else obj
+                        end
 
-		plan_others = __getobj__.send(enum, rel).
-		    find_all { |obj| plan[obj, false] }.
-		    to_set
+                    trsc_objects[plan_object] = obj
+                    trsc_others << plan_object
+                end
+
+                plan_others = Set.new
+                if include_proxies
+                    __getobj__.send(enum, rel) do |child|
+                        if plan[child, false]
+                            plan_others << child
+                        end
+                    end
+                end
 
                 new = (trsc_others - plan_others)
                 existing = (trsc_others - new)
@@ -213,39 +221,14 @@ module Roby
 	    end
 	end
 
-	# Discards the transaction by clearing this proxy
-	def discard_transaction
-	    clear_vertex
-	    super if defined? super
-	end
-
 	# Commits the modifications of this proxy. It copies the relations of
 	# the proxy on the proxied object
         def commit_transaction
-	    real_object = __getobj__
-	    partition_new_old_relations(:parent_objects) do |trsc_objects, rel, new, del, existing|
-		for other in new
-		    other.add_child_object(real_object, rel, trsc_objects[other][self, rel])
-		end
-		for other in del
-		    other.remove_child_object(real_object, rel)
-		end
-                for other in existing
-                    other[real_object, rel] = trsc_objects[other][self, rel]
-                end
-	    end
+            # The relation graph handling is a bit tricky. We resolve the graphs
+            # exclusively using self (NOT other) because if 'other' was a new
+            # task, it has been already moved to the new plan (and its relation
+            # graph resolution is using the new plan's new graphs already)
 
-	    partition_new_old_relations(:child_objects) do |trsc_objects, rel, new, del, existing|
-		for other in new
-		    real_object.add_child_object(other, rel, self[trsc_objects[other], rel])
-		end
-		for other in del
-		    real_object.remove_child_object(other, rel)
-		end
-                for other in existing
-                    real_object[other, rel] = self[trsc_objects[other], rel]
-                end
-	    end
 
             super
 
@@ -390,11 +373,6 @@ module Roby
                 __getobj__.fullfilled_model = @fullfilled_model.dup
             end
             __getobj__.do_not_reuse if !@reusable
-	end
-
-        # Perform the operations needed for the transaction to be discarded.
-	def discard_transaction
-	    clear_relations
 	end
 
         def initialize_replacement(task)

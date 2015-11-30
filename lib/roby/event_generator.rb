@@ -62,6 +62,15 @@ module Roby
 
 	attr_enumerable(:handler, :handlers) { Array.new }
 
+        def dup(plan: TemplatePlan.new)
+            copy = super()
+            if plan
+                copy.plan = plan
+                plan.register_event(copy)
+            end
+            copy
+        end
+
 	def initialize_copy(old) # :nodoc:
 	    super
 
@@ -87,6 +96,12 @@ module Roby
 	attr_reader :pending
 	# True if this event has been called but is not emitted yet
 	def pending?; pending || (engine && engine.has_propagation_for?(self)) end
+
+        def plan=(plan)
+            super
+            @relation_graphs = if plan then plan.event_relation_graphs
+                               end
+        end
 
 	# call-seq:
 	#   EventGenerator.new
@@ -121,6 +136,7 @@ module Roby
                 @command = nil
 	    end
 	    super() if defined? super
+            plan.register_event(self)
 	end
 
         # The default command of emitted the event
@@ -138,11 +154,9 @@ module Roby
 	# when it is not the case.
 	def check_call_validity
             if !plan
-		raise EventNotExecutable.new(self), "#emit called on #{self} which is in no plan"
-            elsif !engine
-		raise EventNotExecutable.new(self), "#emit called on #{self} which is has no associated execution engine"
-            elsif !engine.allow_propagation?
-                raise PhaseMismatch, "call to #emit is not allowed in this context"
+		raise EventNotExecutable.new(self), "#emit called on #{self} which has been removed from its plan"
+            elsif !plan.executable?
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is not in an executable plan"
 	    elsif !controlable?
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
             elsif unreachable?
@@ -151,6 +165,8 @@ module Roby
                 else
                     raise UnreachableEvent.new(self, unreachability_reason), "#call called on #{self} which has been made unreachable"
                 end
+            elsif !engine.allow_propagation?
+                raise PhaseMismatch, "call to #emit is not allowed in this context"
 	    elsif !engine.inside_control?
 		raise ThreadMismatch, "#call called while not in control thread"
 	    end
@@ -823,12 +839,6 @@ module Roby
 	    unreachable_handlers.delete_if { |cancel, _| cancel }
 
 	    history << event
-	    if EventGenerator.event_gathering.has_key?(event.generator)
-		for c in EventGenerator.event_gathering[event.generator]
-		    c << event
-		end
-	    end
-
 	    super if defined? super
 	end
 
@@ -915,41 +925,17 @@ module Roby
 
         def added_child_object(child, relations, info) # :nodoc:
             super if defined? super
-            if plan
-                plan.added_event_relation(self, child, relations)
-            end
+            plan.added_event_relation(self, child, relations)
         end
 
         def removed_child_object(child, relations) # :nodoc:
             super if defined? super
-            if plan
-                plan.removed_event_relation(self, child, relations)
-            end
+            plan.removed_event_relation(self, child, relations)
         end
-
-	@@event_gathering = Hash.new { |h, k| h[k] = Set.new }
-	# If a generator in +events+ fires, add the fired event in +collection+
-	def self.gather_events(collection, events)
-	    for ev in events
-		event_gathering[ev] << collection
-	    end
-	end
-	# Remove the notifications that have been registered for +collection+
-	def self.remove_event_gathering(collection)
-	    @@event_gathering.delete_if do |_, collections| 
-		collections.delete(collection)
-		collections.empty?
-	    end
-	end
-	# An array of [collection, events] elements, collection being the
-	# object in which we must add the fired events, and events the set of
-	# event generators +collection+ is listening for.
-	def self.event_gathering; @@event_gathering end
 
         # Called when the object has been removed from its plan
         def finalized!(timestamp = nil)
             super
-            EventGenerator.event_gathering.delete(self)
             unreachable_handlers.clear
         end
 
@@ -988,8 +974,7 @@ module Roby
 	    @unreachable = true
             @unreachability_reason = reason
 
-            EventGenerator.event_gathering.delete(self)
-            if plan && (engine = plan.engine)
+            if engine = plan.execution_engine
                 engine.unreachable_event(self)
             end
             call_unreachable_handlers(reason)
@@ -1019,10 +1004,6 @@ module Roby
 		pp.breakable
 		pp.text "owners: "
 		pp.seplist(owners) { |r| pp.text r.to_s }
-
-		pp.breakable
-		pp.text "relations: "
-		pp.seplist(relations) { |r| pp.text r.name }
 	    end
 	end
 

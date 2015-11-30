@@ -3,15 +3,6 @@ require './test/mockups/tasks'
 require 'utilrb/hash/slice'
 
 class TC_ExecutionEngine < Minitest::Test
-    def setup
-	super
-	Roby::Log.add_logger(@finalized_tasks_recorder = FinalizedTaskRecorder.new)
-    end
-    def teardown
-	Roby::Log.remove_logger @finalized_tasks_recorder
-	super
-    end
-
     def test_gather_propagation
 	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
 	plan.add [e1, e2, e3]
@@ -238,17 +229,17 @@ class TC_ExecutionEngine < Minitest::Test
 	task = Roby::Task.new
 	plan.add(task)
 	assert(engine.event_ordering.empty?)
-	assert(EventStructure::Precedence.linked?(task.event(:start), task.event(:updated_data)))
+        assert_child_of task.start_event, task.updated_data_event, EventStructure::Precedence
 
 	engine.event_ordering << :bla
 	e1.signals e2
-	assert(EventStructure::Precedence.linked?(e1, e2))
+        assert_child_of e1, e2, EventStructure::Precedence
 	assert(engine.event_ordering.empty?)
 
 	engine.event_ordering << :bla
 	e1.remove_signal e2
 	assert(engine.event_ordering.empty?)
-	assert(!EventStructure::Precedence.linked?(e1, e2))
+        refute_child_of e1, e2, EventStructure::Precedence
     end
 
     def test_next_step
@@ -333,11 +324,11 @@ class TC_ExecutionEngine < Minitest::Test
 	plan.add_mission(t = Tasks::Simple.new)
 	
 	FlexMock.use do |mock|
-	    t.on(:start)   { |event| t.emit(:success, *event.context) }
-	    t.on(:start)   { |event| t.emit(:success, *event.context) }
+	    t.start_event.on   { |event| t.emit(:success, *event.context) }
+	    t.start_event.on   { |event| t.emit(:success, *event.context) }
 
-	    t.on(:success) { |event| mock.success(event.context) }
-	    t.on(:stop)    { |event| mock.stop(event.context) }
+	    t.success_event.on { |event| mock.success(event.context) }
+	    t.stop_event.on    { |event| mock.stop(event.context) }
 	    mock.should_receive(:success).with([42, 42]).once.ordered
 	    mock.should_receive(:stop).with([42, 42]).once.ordered
 	    t.start!(42)
@@ -352,13 +343,13 @@ class TC_ExecutionEngine < Minitest::Test
 	plan.add_mission(a)
 	a.depends_on(b = Tasks::Simple.new(id: 'b'))
 
-	b.forward_to(:success, a, :intermediate)
-	b.forward_to(:success, a, :success)
+	b.success_event.forward_to a.intermediate_event
+	b.success_event.forward_to a.success_event
 
 	FlexMock.use do |mock|
-            b.on(:success) { |ev| mock.child_success }
-	    a.on(:intermediate) { |ev| mock.parent_intermediate }
-	    a.on(:success) { |ev| mock.parent_success }
+            b.success_event.on { |ev| mock.child_success }
+	    a.intermediate_event.on { |ev| mock.parent_intermediate }
+	    a.success_event.on { |ev| mock.parent_success }
 	    mock.should_receive(:child_success).once.ordered
 	    mock.should_receive(:parent_intermediate).once.ordered
 	    mock.should_receive(:parent_success).once.ordered
@@ -378,11 +369,11 @@ class TC_ExecutionEngine < Minitest::Test
 	plan.add_mission(a)
 	a.depends_on(b = Tasks::Simple.new(id: 'b'))
 
-	b.forward_to(:success, a, :child_success)
-	b.forward_to(:stop, a, :child_stop)
+	b.success_event.forward_to a.child_success_event
+	b.stop_event.forward_to a.child_stop_event
 
 	FlexMock.use do |mock|
-	    a.on(:child_stop) { |ev| mock.stopped }
+	    a.child_stop_event.on { |ev| mock.stopped }
 	    mock.should_receive(:stopped).once.ordered
 	    a.start!
 	    b.start!
@@ -478,8 +469,8 @@ class TC_ExecutionEngine < Minitest::Test
         plan.add_mission(start_node = EmptyTask.new)
         next_event = [ start_node, :start ]
         plan.add_mission(if_node    = ChoiceTask.new)
-        start_node.on(:stop) { |ev| next_event = [if_node, :start] }
-	if_node.on(:stop) { |ev| }
+        start_node.stop_event.on { |ev| next_event = [if_node, :start] }
+	if_node.stop_event.on { |ev| }
             
         engine.add_propagation_handler(type: :external_events) do |plan|
             next unless next_event
@@ -853,52 +844,29 @@ class TC_ExecutionEngine < Minitest::Test
 	Roby::Log.remove_logger capture if capture
     end
 
-    def clear_finalized
-        Roby::Log.flush
-        @finalized_tasks_recorder.clear
-    end
-    # Returns the RemoteID for tasks that have been finalized since the last
-    # call to #clear_finalized.
-    def finalized_tasks; @finalized_tasks_recorder.tasks end
-    # Returns the RemoteID for events that have been finalized since the last
-    # call to #clear_finalized.
-    def finalized_events; @finalized_tasks_recorder.events end
-    class FinalizedTaskRecorder
-	attribute(:tasks) { Array.new }
-	attribute(:events) { Array.new }
-        def logs_message?(m); m == :finalized_task || m == :finalized_event end
-	def finalized_task(time, plan, task)
-	    tasks << task
-	end
-	def finalized_event(time, plan, event)
-	    events << event unless event.respond_to?(:task)
-	end
-	def clear
-	    tasks.clear
-	    events.clear
-	end
-        def close; end
-	def splat?; true end
-    end
-
     def assert_finalizes(plan, finalized, unneeded = nil)
-	finalized = finalized.map { |obj| obj.remote_id }
-	clear_finalized
+        FlexMock.use(plan) do |mock|
+            if finalized.empty?
+                mock.should_receive(:finalized_task).never
+                mock.should_receive(:finalized_event).never
+            else
+                finalized.each do |obj|
+                    if obj.respond_to?(:to_task)
+                        mock.should_receive(:finalized_task).with(obj).once
+                    else
+                        mock.should_receive(:finalized_event).with(obj).once
+                    end
+                end
+            end
 
-	yield if block_given?
+            yield if block_given?
 
-	engine.garbage_collect
-	engine.garbage_collect
-        if unneeded
-            assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
+            engine.garbage_collect
+            engine.garbage_collect
+            if unneeded
+                assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
+            end
         end
-
-        # !!! We are actually relying on the logging queue for this to work.
-        # make sure it is empty before testing anything
-        Roby::Log.flush
-
-	assert_equal(finalized.to_set, (finalized_tasks.to_set | finalized_events.to_set) )
-	assert(! finalized.any? { |t| plan.include?(t) })
     end
 
     def test_garbage_collect_tasks
@@ -962,14 +930,14 @@ class TC_ExecutionEngine < Minitest::Test
 
 	assert_finalizes(plan, [t1, t2]) do
 	    # This stops the mission, which will be automatically discarded
-	    t1.event(:stop).emit(nil)
+            t1.stop_event.emit
 	end
     end
 
     def test_gc_ignores_incoming_events
 	Roby::Plan.logger.level = Logger::WARN
 	a, b = prepare_plan discover: 2, model: Tasks::Simple
-	a.signals(:stop, b, :start)
+        a.stop_event.signals b.stop_event
 	a.start!
 
 	process_events
@@ -1093,37 +1061,6 @@ class TC_ExecutionEngine < Minitest::Test
         Roby.format_exception error
     end
 
-    def test_check_relations_structure
-        r_t = TaskStructure.relation :TestRT
-        r_e = EventStructure.relation :TestRE
-
-        FlexMock.use do |mock|
-            r_t.singleton_class.class_eval do
-                define_method :check_structure do |plan|
-                    mock.checked_task_relation(plan)
-                    []
-                end
-            end
-            r_e.singleton_class.class_eval do
-                define_method :check_structure do |plan|
-                    mock.checked_event_relation(plan)
-                    []
-                end
-            end
-
-            plan = Plan.new
-            assert plan.relations.include?(r_t)
-            assert plan.relations.include?(r_e)
-
-            mock.should_receive(:checked_task_relation).with(plan).once
-            mock.should_receive(:checked_event_relation).with(plan).once
-            assert_equal(Hash.new, plan.check_structure)
-        end
-    ensure
-        TaskStructure.remove_relation r_t if r_t
-        EventStructure.remove_relation r_e if r_e
-    end
-
     def test_forward_signal_ordering
         100.times do
             stop_called = false
@@ -1139,8 +1076,8 @@ class TC_ExecutionEngine < Minitest::Test
             plan.add(source)
             plan.add(target)
 
-            source.signals :success, target, :start
-            source.on :stop do |ev|
+            source.success_event.signals target.start_event
+            source.stop_event.on do |ev|
                 stop_called = true
             end
             source.start!
@@ -1383,7 +1320,7 @@ class TC_ExecutionEngine < Minitest::Test
 		emit(:start)
 		raise RuntimeError, "failed"
             end
-	end.new
+	end.new(id: 'child')
 
 	FlexMock.use do |mock|
 	    parent = Tasks::Simple.new_submodel do
@@ -1391,7 +1328,7 @@ class TC_ExecutionEngine < Minitest::Test
 		    mock.exception
 		    task.pass_exception
 		end
-	    end.new
+	    end.new(id: 'parent')
 	    mock.should_receive(:exception).once
 
 	    parent.depends_on task
@@ -1404,10 +1341,8 @@ class TC_ExecutionEngine < Minitest::Test
 	    engine.once { mock.other_once_handler }
 	    engine.add_propagation_handler(type: :external_events) { |plan| mock.other_event_processing }
 
-	    begin
+            assert_raises(Roby::ChildFailedError) do
 		process_events
-		flunk("should have raised")
-	    rescue Roby::ChildFailedError
 	    end
 	end
 	assert(task.event(:start).happened?)
@@ -1510,14 +1445,6 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_fatal_exception_handling
-        Roby.logger.level = Logger::FATAL
-        def engine.fatal_exception(error, tasks)
-            super if defined? super
-            tasks.each { |t| @fatal << t }
-        end
-        def engine.fatal; @fatal ||= [] end
-        engine.fatal
-
         task_model = Tasks::Simple.new_submodel do
             event :intermediate do |context|
                 emit :intermediate
@@ -1534,21 +1461,13 @@ class TC_ExecutionEngine < Minitest::Test
         plan.add_permanent(t3)
         t3.start!
 
-        engine.run
-        messages = gather_log_messages :fatal_exception do
-            assert_event_emission(t3.intermediate_event) do
-                assert(engine.fatal.empty?)
-                t3.intermediate!
-            end
+        flexmock(engine).should_receive(:fatal_exception).
+            with(any, ->tasks{tasks.to_set == [t1, t2, t3].to_set}).
+            once
 
-            engine.execute do
-                assert_equal [t3, t2, t1], engine.fatal
-            end
+        assert_raises(ChildFailedError) do
+            t3.intermediate!
         end
-        assert_equal(1, messages.size)
-        name, time, (error, tasks) = *messages.first
-        assert_equal('fatal_exception', name)
-        assert_equal([t1.remote_id, t2.remote_id, t3.remote_id].to_set, tasks.to_set)
     end
 
     def test_permanent_task_errors_are_nonfatal
