@@ -1,6 +1,8 @@
 require 'roby/test/self'
 
-if ENV['TEST_ENABLE_COVERAGE'] == '1' || rand > 0.5
+if ENV['TEST_LOG_LEVEL']
+    Roby.logger.level = Logger.const_get(ENV['TEST_LOG_LEVEL'])
+elsif ENV['TEST_ENABLE_COVERAGE'] == '1' || rand > 0.5
     null_io = File.open('/dev/null', 'w')
     current_formatter = Roby.logger.formatter
     Roby.warn "running tests with logger in DEBUG mode"
