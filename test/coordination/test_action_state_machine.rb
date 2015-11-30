@@ -99,7 +99,7 @@ describe Roby::Coordination::ActionStateMachine do
             task = start_machine('test')
             monitor = plan.find_tasks.with_arguments(id: 'monitoring').first
             monitor.start!
-            monitor.emit :success
+            monitor.success_event.emit
             assert_equal Hash[id: :next], task.current_task_child.arguments
         end
 
@@ -115,7 +115,7 @@ describe Roby::Coordination::ActionStateMachine do
             task = start_machine('test')
             monitor = plan.find_tasks.with_arguments(id: 'monitoring').first
             monitor.start!
-            monitor.emit :success
+            monitor.success_event.emit
             assert_equal Hash[id: :next], task.current_task_child.arguments
         end
 
@@ -149,7 +149,7 @@ describe Roby::Coordination::ActionStateMachine do
             assert_equal Hash[id: :start], task.current_task_child.arguments
             task.monitor_child.start!
             assert_equal Hash[id: :start], task.current_task_child.arguments
-            task.monitor_child.emit :success
+            task.monitor_child.success_event.emit
             assert_equal Hash[id: :next], task.current_task_child.arguments
             task.monitor_child.start!
             assert_equal Hash[id: :start], task.current_task_child.arguments
@@ -169,9 +169,9 @@ describe Roby::Coordination::ActionStateMachine do
 
         task = start_machine('test')
         task.children.first.start!
-        task.children.first.emit :success
+        task.children.first.success_event.emit
         task.children.first.start!
-        task.children.first.emit :success
+        task.children.first.success_event.emit
         assert task.next_is_done_event.happened?
     end
 
@@ -183,7 +183,7 @@ describe Roby::Coordination::ActionStateMachine do
         task = start_machine('test')
         task.current_task_child.start!
         inhibit_fatal_messages do
-            assert_raises(Roby::ChildFailedError) { task.current_task_child.emit :success }
+            assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
         end
         plan.remove_object(task.children.first)
     end

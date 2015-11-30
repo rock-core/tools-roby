@@ -502,11 +502,11 @@ class TC_Event < Minitest::Test
         mock.should_receive(:unreachable_2).once.ordered
 
         plan.add(ev = EventGenerator.new)
-        ev.if_unreachable(false) { mock.unreachable_1 }
+        ev.if_unreachable(cancel_at_emission: false) { mock.unreachable_1 }
         plan.remove_object(ev)
 
         plan.add(ev = EventGenerator.new)
-        ev.if_unreachable(false) { mock.unreachable_2 }
+        ev.if_unreachable(cancel_at_emission: false) { mock.unreachable_2 }
         ev.emit
         plan.remove_object(ev)
     end
@@ -528,12 +528,12 @@ class TC_Event < Minitest::Test
         mock.should_receive(:unreachable_2).never.ordered
 
         plan.add(ev = EventGenerator.new)
-        ev.if_unreachable(true) { mock.unreachable_1 }
+        ev.if_unreachable(cancel_at_emission: true) { mock.unreachable_1 }
         plan.remove_object(ev)
 
         plan.add(ev = EventGenerator.new)
         mock = flexmock
-        ev.if_unreachable(true) { mock.unreachable_2 }
+        ev.if_unreachable(cancel_at_emission: true) { mock.unreachable_2 }
         ev.emit
         plan.remove_object(ev)
     end
@@ -547,7 +547,7 @@ class TC_Event < Minitest::Test
 	## must no be called
 	and_event = (a & b)
 	FlexMock.use do |mock|
-	    and_event.if_unreachable(true) do
+	    and_event.if_unreachable(cancel_at_emission: true) do
 		mock.unreachable
 	    end
 	    mock.should_receive(:unreachable).never
@@ -694,7 +694,7 @@ class TC_Event < Minitest::Test
 	## must be unreachable once emitted, but if_unreachable(true) blocks
 	## must not be called
 	FlexMock.use do |mock|
-	    or_event.if_unreachable(true) do
+	    or_event.if_unreachable(cancel_at_emission: true) do
 		mock.unreachable
 	    end
 	    mock.should_receive(:unreachable).never

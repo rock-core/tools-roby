@@ -400,6 +400,7 @@ module Roby
         #   the one on which the handler got installed
 	def if_unreachable(options = Hash.new, &block)
             if options == true || options == false
+                Roby.warn_deprecated "if_unreachable(cancel_at_emission) has been replaced by if_unreachable(cancel_at_emission: true or false, on_replace: :policy)"
                 options = Hash[cancel_at_emission: options]
             end
             options = Kernel.validate_options options,

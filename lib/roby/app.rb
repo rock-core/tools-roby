@@ -102,7 +102,7 @@ module Roby
         # The engine associated with {#plan}
         #
         # @return [ExecutionEngine,nil]
-        def engine; plan.engine if plan end
+        def execution_engine; plan.execution_engine if plan end
         
 	# A set of planners declared in this application
         # 

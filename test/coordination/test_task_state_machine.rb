@@ -140,7 +140,7 @@ class TC_TaskStateMachine < Minitest::Test
         task = prepare_plan add: 1, model: model
         task.start!
         assert_equal 'running', task.state_machine.status
-        task.emit :intermediate
+        task.intermediate_event.emit
         assert_equal 'one', task.state_machine.status
     end
 
@@ -157,7 +157,7 @@ class TC_TaskStateMachine < Minitest::Test
         task = prepare_plan add: 1, model: model
         task.start!
         assert_equal 'running', task.state_machine.status
-        task.emit :intermediate
+        task.intermediate_event.emit
         assert_equal 'one', task.state_machine.status
     end
 
@@ -232,22 +232,22 @@ class TC_TaskStateMachine < Minitest::Test
             refine_running_state do
                 poll_in_state :running do |task|
                     mock.running_poll
-                    task.emit :running_poll
+                    task.running_poll_event.emit
                 end
                 on(:intermediate) { transition running: :one }
                 poll_in_state :one do |task|
                     mock.one_poll
-                    task.emit :one_poll
+                    task.one_poll_event.emit
                 end
                 on(:one_poll) { transition one: :final }
             end
         end
 
         task = prepare_plan missions: 1, model: model
-        task.on(:running_poll) { |_| mock.running_poll_event }
+        task.running_poll_event.on { |_| mock.running_poll_event }
         task.start!
-        task.on(:one_poll) { |_| mock.one_poll_event }
-        task.emit :intermediate
+        task.one_poll_event.on { |_| mock.one_poll_event }
+        task.intermediate_event.emit
         process_events
     end
 
@@ -280,11 +280,11 @@ class TC_TaskStateMachine < Minitest::Test
 
         task = prepare_plan permanent: 1, model: model
         task.start!
-        task.on(:running_poll) { |_| mock.running_poll_event }
+        task.running_poll_event.on { |_| mock.running_poll_event }
         process_events
         assert task.running_poll?
-        task.emit :intermediate
-        task.on(:one_poll) { |_| mock.one_poll_event }
+        task.intermediate_event.emit
+        task.one_poll_event.on { |_| mock.one_poll_event }
         process_events
         assert task.one_poll?, task.history.map(&:symbol).map(&:to_s).join(", ")
 

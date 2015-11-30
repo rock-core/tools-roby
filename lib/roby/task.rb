@@ -802,6 +802,7 @@ module Roby
         #   propagated along with the event itself
         # @return self
         def emit(event_model, *context)
+            Roby.warn_deprecated "Roby::Task#emit(event_name) is deprecated, use EventGenerator#emit (e.g. task.start_event.emit or task.event(:start).emit)"
             event(event_model).emit(*context)
             self
         end
@@ -1173,10 +1174,10 @@ module Roby
                 end
             rescue LocalizedError => e
                 Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
-                emit :internal_error, e
+                internal_error_event.emit e
             rescue Exception => e
                 Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
-                emit :internal_error, CodeError.new(e, self)
+                internal_error_event.emit CodeError.new(e, self)
             end
         end
 
@@ -1207,7 +1208,7 @@ module Roby
             execute do |task|
                 table = task.plan.use_fault_response_table(table_model, arguments)
             end
-            on :stop do |event|
+            stop_event.on do |event|
                 plan.remove_fault_response_table(table)
             end
         end
@@ -1435,13 +1436,13 @@ module Roby
             if exception.originates_from?(self)
                 error = exception.exception
                 gen = exception.generator
-                if gen.symbol == :start && !start_event.happened?
+                if gen.symbol == :start && !gen.happened?
                     failed_to_start!(error)
                 elsif pending?
                     pass_exception
-                elsif !gen.terminal? && !event(:internal_error).happened?
-                    emit :internal_error, error
-                    if event(:stop).pending? || !event(:stop).controlable?
+                elsif !gen.terminal? && !internal_error_event.happened?
+                    internal_error_event.emit(error)
+                    if stop_event.pending? || !stop_event.controlable?
                         # In this case, we can't "just" stop the task. We have
                         # to inject +error+ in the exception handling and kill
                         # everything that depends on it.

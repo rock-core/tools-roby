@@ -125,12 +125,11 @@ class TC_TransactionsProxy < Minitest::Test
 	plan.add(task)
 	proxy = transaction[task]
 
-	task.event(:start).emit(nil)
+	task.start_event.emit(nil)
 	task.intermediate!(nil)
 	assert(!proxy.executable?)
 	assert(!proxy.event(:start).executable?)
-	assert_raises(TaskEventNotExecutable) { proxy.event(:start).emit(nil) }
-	assert_raises(TaskEventNotExecutable) { proxy.emit(:start) }
+        assert_raises(TaskEventNotExecutable) { proxy.start_event.emit }
 	assert_raises(TaskEventNotExecutable) { proxy.start!(nil) }
 
 	# Check that events that are only in the subclass of Task
@@ -204,13 +203,13 @@ class TC_TransactionsProxy < Minitest::Test
 
     def test_task_events
 	t1, t2 = prepare_plan add: 2
-	t1.signals(:success, t2, :start)
+        t1.success_event.signals t2.start_event
 
 	p1 = transaction[t1]
-	assert(p1.event(:success).leaf?(EventStructure::Signal))
+	assert(p1.success_event.leaf?(EventStructure::Signal))
 
 	p2 = transaction[t2]
-	assert_equal([p2.event(:start)], p1.event(:success).child_objects(EventStructure::Signal).to_a)
+	assert_equal([p2.start_event], p1.success_event.child_objects(EventStructure::Signal).to_a)
     end
 end
 

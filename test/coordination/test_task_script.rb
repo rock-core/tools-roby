@@ -53,7 +53,7 @@ class TC_Coordination_TaskScript < Minitest::Test
                     transition!
                 end
             end
-            emit :success
+            emit success_event
         end
         task.start!
 
@@ -94,10 +94,10 @@ class TC_Coordination_TaskScript < Minitest::Test
             poll do
                 recorder.called(self)
             end
-            emit :success
+            emit success_event
         end
         task.start!
-        task.emit :poll_transition
+        task.poll_transition_event.emit
     end
 
     def test_wait_for_event
@@ -114,7 +114,7 @@ class TC_Coordination_TaskScript < Minitest::Test
 
         3.times { process_events }
         assert_equal 0, counter
-        task.emit :intermediate
+        task.intermediate_event.emit
         3.times { process_events }
         assert_equal 1, counter
     end
@@ -148,10 +148,10 @@ class TC_Coordination_TaskScript < Minitest::Test
 
         3.times { process_events }
         assert_equal 0, counter
-        parent.emit :intermediate
+        parent.intermediate_event.emit
         3.times { process_events }
         assert_equal 1, counter
-        child.emit :intermediate
+        child.intermediate_event.emit
         3.times { process_events }
         assert_equal 2, counter
     end
@@ -179,9 +179,9 @@ class TC_Coordination_TaskScript < Minitest::Test
         end
         parent.start!
 
-        parent.emit :intermediate
+        parent.intermediate_event.emit
         process_events
-        child.subsubtask_child.emit :intermediate
+        child.subsubtask_child.intermediate_event.emit
     end
 
     def test_sleep
@@ -192,7 +192,7 @@ class TC_Coordination_TaskScript < Minitest::Test
             mock.should_receive(:now).and_return { time }
             task.script do
                 sleep 5
-                emit :success
+                emit success_event
             end
 
             task.start!
@@ -213,7 +213,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         task.start!
         task.script do
             wait start_event, after: time
-            emit :success
+            emit success_event
         end
         process_events
         assert task.success?
@@ -230,17 +230,17 @@ class TC_Coordination_TaskScript < Minitest::Test
 
         task.script do
             wait_any event1_event
-            emit :found_event1
+            emit found_event1_event
             wait event2_event
-            emit :found_event2
+            emit found_event2_event
             wait event3_event
-            emit :found_event3
+            emit found_event3_event
         end
 
         task.start!
-        task.emit :event1
-        task.emit :event2
-        task.emit :event3
+        task.event1_event.emit
+        task.event2_event.emit
+        task.event3_event.emit
         process_events
         assert task.found_event1?
         assert task.found_event2?
@@ -263,13 +263,13 @@ class TC_Coordination_TaskScript < Minitest::Test
                 timeout 5, emit: :timeout do
                     wait intermediate_event
                 end
-                emit :success
+                emit success_event
             end
             task.start!
 
             process_events
             assert task.running?
-            task.emit :intermediate
+            task.intermediate_event.emit
             process_events
             assert task.success?
         end
@@ -290,7 +290,7 @@ class TC_Coordination_TaskScript < Minitest::Test
             timeout 5, emit: :timeout do
                 wait intermediate_event
             end
-            emit :success
+            emit success_event
         end
         task.start!
         process_events
@@ -313,16 +313,16 @@ class TC_Coordination_TaskScript < Minitest::Test
 
         task.script do
             wait start_script1_event
-            emit :done_script1
+            emit done_script1_event
         end
         task.script do
             wait done_script2_event
-            emit :done_script2
+            emit done_script2_event
         end
 
         process_events
         process_events
-        task.emit :start_script1
+        task.start_script1_event.emit
         process_events
         assert task.done_script1?
         assert !task.done_script2?
@@ -360,7 +360,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         assert_kind_of(child_model, child)
         assert(!child.running?)
 
-        task.emit :start_child
+        task.start_child_event.emit
         process_events
         assert task.subtask_child.running?
     end
@@ -369,7 +369,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         task = prepare_plan permanent: 1, model: Tasks::Simple
         task.script do
             execute { true }
-            emit :success
+            emit success_event
         end
         task.start!
         assert task.success?
@@ -377,7 +377,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         task = prepare_plan permanent: 1, model: Tasks::Simple
         task.script do
             execute { false }
-            emit :success
+            emit success_event
         end
         task.start!
         assert task.success?
@@ -401,8 +401,8 @@ class TC_Coordination_TaskScript < Minitest::Test
             event :done
             script do
                 execute { mock.before_called(self) }
-                wait :do_it
-                emit :done
+                wait do_it_event
+                emit done_event
                 execute { mock.after_called(self) }
             end
         end
@@ -415,13 +415,13 @@ class TC_Coordination_TaskScript < Minitest::Test
         mock.should_receive(:after_called).with(task2).once.ordered
         mock.should_receive(:event_emitted).with(task2).once.ordered
 
-        task1.on(:done) { |ev| mock.event_emitted(ev.task) }
-        task2.on(:done) { |ev| mock.event_emitted(ev.task) }
+        task1.done_event.on { |ev| mock.event_emitted(ev.task) }
+        task2.done_event.on { |ev| mock.event_emitted(ev.task) }
 
         task1.start!
         task2.start!
-        task1.emit :do_it
-        task2.emit :do_it
+        task1.do_it_event.emit
+        task2.do_it_event.emit
     end
 
     def test_script_is_prepared_with_the_new_task_after_a_replacement

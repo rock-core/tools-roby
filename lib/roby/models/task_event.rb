@@ -19,16 +19,13 @@ module Roby
             # @return [Symbol] the event name
             attr_accessor :symbol
 
-            def setup_submodel(submodel, options = Hash.new, &block)
-                options = Kernel.validate_options options,
-                    :task_model, :symbol, :command, :terminal
-
+            def setup_submodel(submodel, task_model: nil, symbol: nil, command: false, terminal: false, **options, &block)
                 super(submodel, options, &block)
-                submodel.task_model = options[:task_model]
-                submodel.symbol     = options[:symbol]
-                submodel.terminal   = options[:terminal]
+                submodel.task_model = task_model
+                submodel.symbol     = symbol
+                submodel.terminal   = terminal
 
-                if command = options[:command]
+                if command
                     if command.respond_to?(:call)
                         # check that the supplied command handler can take two arguments
                         check_arity(command, 2)
@@ -38,7 +35,7 @@ module Roby
                     else
                         submodel.singleton_class.class_eval do
                             def call(task, context) # :nodoc:
-                                task.emit(symbol, *context)
+                                task.event(symbol).emit(*context)
                             end
                         end
                     end

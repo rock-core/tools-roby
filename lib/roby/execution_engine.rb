@@ -2201,7 +2201,7 @@ module Roby
                 mt.synchronize do
                     done = false
                     once do
-                        ev.if_unreachable(true) do |reason, event|
+                        ev.if_unreachable(cancel_at_emission: true) do |reason, event|
                             mt.synchronize do
                                 done = true
                                 caller_thread.raise UnreachableEvent.new(event, reason)

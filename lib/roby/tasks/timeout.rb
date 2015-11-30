@@ -8,8 +8,8 @@ module Roby
             forward timed_out: :stop
 
             event :start do |context|
-                forward_to :start, self, :timed_out, delay: delay
-                emit :start
+                start_event.forward_to timed_out_event, delay: delay
+                start_event.emit
             end
         end
     end

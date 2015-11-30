@@ -71,7 +71,7 @@ module Roby
 
             # Starts planning
             event :start do |context|
-                emit :start
+                start_event.emit
 
                 if owners.size != 1
                     @transaction = Distributed::Transaction.new(plan)
@@ -106,7 +106,7 @@ module Roby
                 transaction.propose
                 transaction.commit_transaction
                 @result = result_task
-                emit :success
+                success_event.emit
             end
 
             on :failed do |event|

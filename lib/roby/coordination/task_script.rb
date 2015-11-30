@@ -275,7 +275,7 @@ module Roby
         end
 
         def transition!
-            emit :poll_transition
+            poll_transition_event.emit
         end
     end
 end

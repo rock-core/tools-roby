@@ -49,7 +49,7 @@ module Roby
         end
 
         event :start do |context|
-            emit :start
+            start_event.emit
             @thread = ::Thread.new do
 		::Thread.current.priority = 0
                 instance_eval(&self.class.implementation_block)
@@ -69,10 +69,10 @@ module Roby
             @thread = nil
 
             if error
-                emit :failed, error
+                failed_event.emit error
             else
                 @result = result
-                emit :success
+                success_event.emit
             end
         end
 

@@ -59,13 +59,13 @@ module Roby
         # corresponding Process::Status object.
         def dead!(result)
             if !result
-                emit :failed
+                failed_event.emit
             elsif result.success?
-                emit :success
+                success_event.emit
             elsif result.signaled?
-                emit :signaled, result
+                signaled_event.emit(result)
             else
-                emit :failed, result
+                failed_event.emit(result)
             end
         end
 
@@ -217,7 +217,7 @@ module Roby
             else
                 start_process
             end
-            emit :start
+            start_event.emit
         end
 
         # Kills the child process

@@ -324,8 +324,8 @@ class TC_ExecutionEngine < Minitest::Test
 	plan.add_mission(t = Tasks::Simple.new)
 	
 	FlexMock.use do |mock|
-	    t.start_event.on   { |event| t.emit(:success, *event.context) }
-	    t.start_event.on   { |event| t.emit(:success, *event.context) }
+            t.start_event.on   { |event| t.success_event.emit(*event.context) }
+	    t.start_event.on   { |event| t.success_event.emit(*event.context) }
 
 	    t.success_event.on { |event| mock.success(event.context) }
 	    t.stop_event.on    { |event| mock.stop(event.context) }
@@ -1078,7 +1078,7 @@ class TC_ExecutionEngine < Minitest::Test
                 stop_called = true
             end
             source.start!
-            source.emit :success
+            source.success_event.emit
             assert(target.running?)
             target.stop!
         end

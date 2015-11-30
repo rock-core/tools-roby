@@ -20,7 +20,7 @@ module Roby::Tasks
 		    child.start!
 		end
 	    end
-	    emit :start
+            start_event.emit
 	end
 	terminates
     end

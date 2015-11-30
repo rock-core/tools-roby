@@ -18,8 +18,12 @@ module Roby
             end
 
             def app; Roby.app end
-            def plan; Roby.plan end
-            def engine; Roby.plan.engine end
+            def plan; app.plan end
+            def engine
+                Roby.warn_deprecated "#engine is deprecated, use #execution_engine instead"
+                execution_engine
+            end
+            def execution_engine; app.execution_engine end
 
             def self.test_methods
                 methods = super
@@ -54,11 +58,11 @@ module Roby
 
                 super
 
-                @watch_events_handler_id = engine.add_propagation_handler(type: :external_events) do |plan|
+                @watch_events_handler_id = execution_engine.add_propagation_handler(type: :external_events) do |plan|
                     Test.verify_watched_events
                 end
                 @received_exceptions = Array.new
-                @exception_handler = engine.on_exception do |kind, e|
+                @exception_handler = execution_engine.on_exception do |kind, e|
                     @received_exceptions << [kind, e]
 
                 end

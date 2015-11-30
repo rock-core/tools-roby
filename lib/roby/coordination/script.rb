@@ -137,7 +137,7 @@ module Roby
                 resolve_instructions
                 @current_instruction = nil
 
-                root_task.on :stop do |context|
+                root_task.stop_event.on do |context|
                     current_instruction.cancel if current_instruction
                     instructions.each do |ins|
                         ins.cancel

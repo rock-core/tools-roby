@@ -26,8 +26,8 @@ module Roby
             end
             on :start do |context|
                 actual_success_event.forward_to_once success_event
-                actual_success_event.if_unreachable(true) do
-                    emit :failed if executable?
+                actual_success_event.if_unreachable(cancel_at_emission: true) do
+                    failed_event.emit if executable?
                 end
             end
 

@@ -43,7 +43,15 @@ module Roby
         # Note that it is nil until the Roby application is configured
         #
         # @return [ExecutionEngine]
-        def engine; app.plan.engine end
+        def execution_engine
+            app.execution_engine
+        end
+
+        # @deprecated use {Roby.execution_engine} instead
+        def engine
+            Roby.warn_deprecated "Roby.engine is deprecated, use Roby.execution_engine instead"
+            app.execution_engine
+        end
     end
     
     # Defines a global exception handler on the main plan.

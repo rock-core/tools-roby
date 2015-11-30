@@ -217,7 +217,7 @@ class TC_Task < Minitest::Test
 	    model = Tasks::Simple.new_submodel do 
 		event :start do |context|
 		    mock.start(self, context)
-		    emit :start
+		    start_event.emit
 		end
 	    end
 	    plan.add_mission(task = model.new)
@@ -231,7 +231,7 @@ class TC_Task < Minitest::Test
             parent_m = Tasks::Simple.new_submodel do
                 event :start do |context|
                     mock.parent_started(self, context)
-                    emit :start
+                    start_event.emit
                 end
             end
 
@@ -325,7 +325,7 @@ class TC_Task < Minitest::Test
 	plan.add(task = Tasks::Simple.new)
 	FlexMock.use do |mock|
             task.start_event.on   { |event| mock.started(event.context) }
-            task.start_event.on   { |event| task.emit(:success, *event.context) }
+            task.start_event.on   { |event| task.success_event.emit(*event.context) }
             task.success_event.on { |event| mock.success(event.context) }
             task.stop_event.on    { |event| mock.stopped(event.context) }
 	    mock.should_receive(:started).once.with([42]).ordered
@@ -684,7 +684,7 @@ class TC_Task < Minitest::Test
 	assert(!task.finishing?)
 	assert(!task.finished?)
 
-	task.emit(:start)
+	task.start_event.emit
 	assert(!task.pending?)
 	assert(!task.starting?)
 	assert(task.running?)
@@ -702,7 +702,7 @@ class TC_Task < Minitest::Test
 	assert(task.finishing?)
 	assert(!task.finished?)
 
-	task.emit(:failed)
+	task.failed_event.emit
 	assert(!task.pending?)
 	assert(!task.starting?)
 	assert(!task.running?)
@@ -733,14 +733,14 @@ class TC_Task < Minitest::Test
 
 	    event :start do |context|
                 mock.cmd_start(complete_status)
-                emit :start
+                start_event.emit
 	    end
             on :start do |context|
                 mock.on_start(complete_status)
             end
 	    event :failed, terminal: true do |context|
                 mock.cmd_failed(complete_status)
-                emit :failed
+                failed_event.emit
 	    end
             on :failed do |ev|
                 mock.on_failed(complete_status)
@@ -800,7 +800,7 @@ class TC_Task < Minitest::Test
 	    mock.should_receive(:stopped).with([21]).once
 	    task.start!(42)
 	    task.pass_through!(10)
-	    task.emit(:stop, 21)
+            task.stop_event.emit(21)
 	    assert(task.finished?)
 	end
     end
@@ -889,19 +889,19 @@ class TC_Task < Minitest::Test
                 assert_raises(CommandFailed) { task.inter! }
             end
             it "raises if emitting an intermedikate event" do
-                assert_raises(TaskEventNotExecutable) { task.emit(:inter) }
+                assert_raises(TaskEventNotExecutable) { task.inter_event.emit }
             end
         end
 
         it "correctly handles unordered emissions during the propagation phase" do
             model = Tasks::Simple.new_submodel do
                 event :start do |context|
-                    emit :inter
-                    emit :start
+                    inter_event.emit
+                    start_event.emit
                 end
 
                 event :inter do |context|
-                    emit :inter
+                    inter_event.emit
                 end
             end
             plan.add(task = model.new)
@@ -920,7 +920,7 @@ class TC_Task < Minitest::Test
 
 	plan.add(task = model.new)
 	task.start!
-	task.emit(:stop)
+	task.stop_event.emit
 	assert(!task.success?)
 	assert(!task.failed?)
 	assert(task.finished?)
@@ -928,7 +928,7 @@ class TC_Task < Minitest::Test
 
 	plan.add(task = model.new)
 	task.start!
-	task.emit(:success)
+	task.success_event.emit
 	assert(task.success?)
 	assert(!task.failed?)
 	assert(task.finished?)
@@ -936,7 +936,7 @@ class TC_Task < Minitest::Test
 
 	plan.add(task = model.new)
 	task.start!
-	task.emit(:failed)
+	task.failed_event.emit
 	assert(!task.success?)
 	assert(task.failed?)
 	assert(task.finished?)
@@ -1297,13 +1297,13 @@ class TC_Task < Minitest::Test
 	FlexMock.use do |mock|
 	    plan.add(task = model.new)
 	    ev = task.success_event
-	    ev.if_unreachable(false) { mock.success_called }
-	    ev.if_unreachable(true)  { mock.success_cancel_called }
+	    ev.if_unreachable(cancel_at_emission: false) { mock.success_called }
+	    ev.if_unreachable(cancel_at_emission: true)  { mock.success_cancel_called }
 	    mock.should_receive(:success_called).once
 	    mock.should_receive(:success_cancel_called).never
 	    ev = task.ready_event
-	    ev.if_unreachable(false) { mock.ready_called }
-	    ev.if_unreachable(true)  { mock.ready_cancel_called }
+	    ev.if_unreachable(cancel_at_emission: false) { mock.ready_called }
+	    ev.if_unreachable(cancel_at_emission: true)  { mock.ready_cancel_called }
 	    mock.should_receive(:ready_called).once
 	    mock.should_receive(:ready_cancel_called).once
 
@@ -1316,14 +1316,14 @@ class TC_Task < Minitest::Test
 	FlexMock.use do |mock|
 	    plan.add(task = model.new)
 	    ev = task.success_event
-	    ev.if_unreachable(false) { mock.success_called }
-	    ev.if_unreachable(true)  { mock.success_cancel_called }
+	    ev.if_unreachable(cancel_at_emission: false) { mock.success_called }
+	    ev.if_unreachable(cancel_at_emission: true)  { mock.success_cancel_called }
 	    mock.should_receive(:success_called).once
 	    mock.should_receive(:success_cancel_called).once
 
 	    ev = task.ready_event
-	    ev.if_unreachable(false) { mock.ready_called }
-	    ev.if_unreachable(true)  { mock.ready_cancel_called }
+	    ev.if_unreachable(cancel_at_emission: false) { mock.ready_called }
+	    ev.if_unreachable(cancel_at_emission: true)  { mock.ready_cancel_called }
 	    mock.should_receive(:ready_called).once
 	    mock.should_receive(:ready_cancel_called).once
 
@@ -1336,8 +1336,8 @@ class TC_Task < Minitest::Test
 	FlexMock.use do |mock|
 	    plan.add(task = Roby::Tasks::Simple.new)
             ev = task.stop_event
-	    ev.if_unreachable(false) { mock.stop_called }
-	    ev.if_unreachable(true)  { mock.stop_cancel_called }
+	    ev.if_unreachable(cancel_at_emission: false) { mock.stop_called }
+	    ev.if_unreachable(cancel_at_emission: true)  { mock.stop_cancel_called }
 
             mock.should_receive(:stop_called).once
             mock.should_receive(:stop_cancel_called).never
@@ -1605,8 +1605,8 @@ class TC_Task < Minitest::Test
 	    klass = Tasks::Simple.new_submodel do
 		poll do
 		    mock.polled(self)
-                    emit :internal_error
-                    emit :internal_error
+                    internal_error_event.emit
+                    internal_error_event.emit
 		end
                 on :internal_error do |ev|
                     mock.emitted
@@ -1679,7 +1679,7 @@ class TC_Task < Minitest::Test
         end
 	plan.add(task = model.new)
 	task.start!
-        task.emit :intermediate
+        task.intermediate_event.emit
 
 	new = task.dup
 	refute_same(new.stop_event, task.stop_event)
@@ -2196,7 +2196,7 @@ class TC_Task < Minitest::Test
                 if context == [true]
                     raise ArgumentError
                 end
-                emit :start
+                start_event.emit
             end
         end
         plan.add(task = klass.new)
@@ -2212,7 +2212,7 @@ class TC_Task < Minitest::Test
     def test_start_command_raises_after_emission
         klass = Roby::Tasks::Simple.new_submodel do
             event :start do |context|
-                emit :start
+                start_event.emit
                 raise ArgumentError
             end
         end

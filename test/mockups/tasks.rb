@@ -4,18 +4,18 @@ require 'roby/task'
 if !defined?(ChoiceTask)
     class ChoiceTask < Roby::Task
         event :start do |context|
-            emit :start, context
+            start_event.emit context
             if rand > 0.5
-                emit :b
+                b_event.emit
             else
-                emit :a
+                a_event.emit
             end
         end
 
         event :a
-	forward a: :success
+	forward :a => :success
         event :b
-	forward b: :success
+	forward :b => :success
     end
 
     class MultiEventTask < Roby::Task

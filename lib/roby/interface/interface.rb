@@ -337,13 +337,13 @@ module Roby
                 end
 
                 if planner = task.planning_task
-                    planner.on :start do |ev|
+                    planner.start_event.on do |ev|
                         job_notify(JOB_PLANNING, job_id, job_name)
                     end
-                    planner.on :success do |ev|
+                    planner.success_event.on do |ev|
                         job_notify(JOB_READY, job_id, job_name)
                     end
-                    planner.on :stop do |ev|
+                    planner.stop_event.on do |ev|
                         if !ev.task.success?
                             job_notify(JOB_PLANNING_FAILED, job_id, job_name)
                         end
