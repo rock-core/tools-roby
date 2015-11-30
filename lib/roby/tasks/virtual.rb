@@ -40,10 +40,10 @@ module Roby
                 task.actual_success_event = success
 
                 if start.respond_to?(:task)
-                    task.realized_by start.task
+                    task.depends_on start.task
                 end
                 if success.respond_to?(:task)
-                    task.realized_by success.task
+                    task.depends_on success.task
                 end
 
                 task

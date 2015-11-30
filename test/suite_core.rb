@@ -39,6 +39,7 @@ require './test/test_plan_service'
 require './test/test_transactions'
 require './test/test_transactions_proxy'
 
+require './test/tasks/test_virtual'
 require './test/tasks/test_thread_task'
 require './test/tasks/test_external_process'
 
