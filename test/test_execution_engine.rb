@@ -2,6 +2,37 @@ require 'roby/test/self'
 require './test/mockups/tasks'
 require 'utilrb/hash/slice'
 
+module Roby
+    describe ExecutionEngine do
+        describe "event_ordering" do
+            it "is not cleared if events withou precedence relations are added to the plan" do
+                flexmock(execution_engine.event_ordering).should_receive(:clear).never
+                plan.add(EventGenerator.new)
+            end
+            it "is cleared if a new precedence relation is added between events in the plan" do
+                parent, child = EventGenerator.new, EventGenerator.new
+                plan.add [parent, child]
+                flexmock(execution_engine.event_ordering).should_receive(:clear).once
+                parent.add_precedence child
+            end
+            it "is cleared if events linked through the precedence relation are added to the plan" do
+                parent, child = EventGenerator.new, EventGenerator.new
+                parent.add_precedence child
+                flexmock(execution_engine.event_ordering).should_receive(:clear).once
+                plan.add parent
+            end
+            it "is not cleared when a precedence relation is removed" do
+                parent, child = EventGenerator.new, EventGenerator.new
+                plan.add [parent, child]
+                parent.add_precedence child
+                flexmock(execution_engine.event_ordering).should_receive(:clear).never
+                parent.remove_precedence child
+            end
+        end
+    end
+end
+
+
 class TC_ExecutionEngine < Minitest::Test
     def test_gather_propagation
 	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
@@ -216,30 +247,6 @@ class TC_ExecutionEngine < Minitest::Test
 	assert_equal([g2].to_set, source_generators)
 	assert_equal([ev].to_set, source_events)
 	assert_equal(nil, context)
-    end
-
-    def test_precedence_graph
-	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
-	execution_engine.event_ordering << :bla
-	plan.add e1
-	assert(execution_engine.event_ordering.empty?)
-	plan.add e2
-	
-	execution_engine.event_ordering << :bla
-	task = Roby::Task.new
-	plan.add(task)
-	assert(execution_engine.event_ordering.empty?)
-        assert_child_of task.start_event, task.updated_data_event, EventStructure::Precedence
-
-	execution_engine.event_ordering << :bla
-	e1.signals e2
-        assert_child_of e1, e2, EventStructure::Precedence
-	assert(execution_engine.event_ordering.empty?)
-
-	execution_engine.event_ordering << :bla
-	e1.remove_signal e2
-	assert(execution_engine.event_ordering.empty?)
-        refute_child_of e1, e2, EventStructure::Precedence
     end
 
     def test_next_step

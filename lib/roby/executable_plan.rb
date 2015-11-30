@@ -134,14 +134,7 @@ module Roby
             if relations.include?(Roby::EventStructure::Precedence)
                 execution_engine.event_ordering.clear
             end
-            super if defined? super
-        end
-
-        def removed_event_relation(parent, child, relations)
-            if relations.include?(Roby::EventStructure::Precedence)
-                execution_engine.event_ordering.clear
-            end
-            super if defined? super
+            super
         end
 
         def merged_plan(plan)
