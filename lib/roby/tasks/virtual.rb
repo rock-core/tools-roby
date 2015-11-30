@@ -9,24 +9,24 @@ module Roby
         # See VirtualTask.create
         class Virtual < Task
             # The start event
-            attr_reader :start_event
+            attr_reader :actual_start_event
             # The success event
-            attr_accessor :success_event
+            attr_accessor :actual_success_event
             # Set the start event
-            def start_event=(ev)
+            def actual_start_event=(ev)
                 if !ev.controlable?
                     raise ArgumentError, "the start event of a virtual task must be controlable"
                 end
-                @start_event = ev
+                @actual_start_event = ev
             end
 
             event :start do |context|
-                event(:start).achieve_with(start_event)
-                start_event.call
+                event(:start).achieve_with(actual_start_event)
+                actual_start_event.call
             end
             on :start do |context|
-                success_event.forward_to_once event(:success)
-                success_event.if_unreachable(true) do
+                actual_success_event.forward_to_once success_event
+                actual_success_event.if_unreachable(true) do
                     emit :failed if executable?
                 end
             end
@@ -36,8 +36,8 @@ module Roby
             # Creates a new VirtualTask with the given start and success events
             def self.create(start, success)
                 task = VirtualTask.new
-                task.start_event = start
-                task.success_event = success
+                task.actual_start_event = start
+                task.actual_success_event = success
 
                 if start.respond_to?(:task)
                     task.realized_by start.task
