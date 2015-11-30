@@ -25,13 +25,15 @@ module Roby
                 related_vertex?(object, relation_graphs[relation])
             end
 
-            def each_parent_object(graph)
+            def each_parent_object(graph = nil)
+                return enum_for(__method__, graph) if !block_given?
                 each_parent_vertex(relation_graphs[graph]) do |parent|
                     yield(parent)
                 end
             end
 
-            def each_child_object(graph)
+            def each_child_object(graph = nil)
+                return enum_for(__method__, graph) if !block_given?
                 each_child_vertex(relation_graphs[graph]) do |child|
                     yield(child)
                 end
@@ -234,6 +236,7 @@ module Roby
                 relations.each do |rel|
                     if name = rel.child_name
                         send("adding_#{rel.child_name}", child, info)
+                        child.send("adding_#{rel.child_name}_parent", self, info)
                     end
                 end
             end
@@ -252,6 +255,7 @@ module Roby
                 relations.each do |rel|
                     if name = rel.child_name
                         send("added_#{rel.child_name}", child, info)
+                        child.send("added_#{rel.child_name}_parent", self, info)
                     end
                 end
             end
@@ -270,6 +274,7 @@ module Roby
                 relations.each do |rel|
                     if name = rel.child_name
                         send("removing_#{rel.child_name}", child)
+                        child.send("removing_#{rel.child_name}_parent", self)
                     end
                 end
             end
@@ -286,6 +291,7 @@ module Roby
                 relations.each do |rel|
                     if name = rel.child_name
                         send("removed_#{rel.child_name}", child)
+                        child.send("removed_#{rel.child_name}_parent", self)
                     end
                 end
             end

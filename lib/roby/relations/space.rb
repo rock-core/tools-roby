@@ -317,6 +317,18 @@ module Roby
                     self
                 end
 
+                def adding_#{child_name}_parent(from, info)
+                    super if defined? super
+                end
+                def added_#{child_name}_parent(from, info)
+                    super if defined? super
+                end
+                def removing_#{child_name}_parent(to)
+                    super if defined? super
+                end
+                def removed_#{child_name}_parent(to)
+                    super if defined? super
+                end
                 def adding_#{child_name}(to, info)
                     super if defined? super
                 end

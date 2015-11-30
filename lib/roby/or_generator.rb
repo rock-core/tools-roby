@@ -62,12 +62,11 @@ module Roby
 	end
 
         # Tracks the event's parents in the signalling relation
-	def added_parent_object(parent, relations, info) # :nodoc:
+	def added_signal_parent(parent, info) # :nodoc:
 	    super if defined? super
-	    return unless relations.include?(EventStructure::Signal)
 
 	    parent.if_unreachable(cancel_at_emission: true) do |reason, event|
-		if !happened? && parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }
+		if !happened? && each_parent_object(EventStructure::Signal).all? { |ev| ev.unreachable? }
 		    unreachable!(reason || parent)
 		end
 	    end
