@@ -105,6 +105,13 @@ module Roby
             self
         end
 
+        # Tests whether a task is in the quarantine
+        #
+        # @see #quarantine
+        def quarantined_task?(task)
+            gc_quarantine.include?(task)
+        end
+
 	# The set of transactions which are built on top of this plan
 	attr_reader :transactions
 

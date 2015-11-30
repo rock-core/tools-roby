@@ -61,6 +61,11 @@ module Roby
                 io.to_io
             end
 
+            # Tests whether the interface has an action with that name
+            def has_action?(name)
+                !!find_action_by_name(name)
+            end
+
             # Find an action by its name
             #
             # This is a local operation using the information gathered at
@@ -286,7 +291,7 @@ module Roby
                 #
                 # @raise [NoSuchAction] if the action does not exist
                 def start_job(action_name, *args)
-                    if @context.find_action_by_name(action_name)
+                    if @context.has_action?(action_name)
                         __push([], :start_job, action_name, *args)
                     else raise NoSuchAction, "there is no action called #{action_name} on #{@context}"
                     end

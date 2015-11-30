@@ -1,6 +1,7 @@
 require 'roby/test/self'
 require 'roby/interface/async'
 require 'roby/interface/tcp'
+require_relative 'client_server_test_helpers'
 
 Concurrent.disable_at_exit_handlers!
 
@@ -8,60 +9,27 @@ module Roby
     module Interface
         module Async
             describe Interface do
-                attr_reader :recorder
-                before do
-                    @recorder = flexmock
-                    @interfaces = Array.new
-                    @interface_servers = Array.new
-                end
-                after do
-                    @interfaces.each(&:close)
-                    @interface_servers.each(&:close)
-                end
+                include ClientServerTestHelpers
 
-                def default_server_port
-                    Distributed::DEFAULT_DROBY_PORT + 1
-                end
-
-                def create_server
-                    server = Roby::Interface::TCPServer.new(Roby.app, default_server_port)
-                    @interface_servers << server
-                    server
-                end
-
-                def create_client(*args, port: default_server_port, **options, &block)
-                    interface = Interface.new(*args, port: default_server_port, **options, &block)
-                    @interfaces << interface
-                    interface
-                end
-
-                def connect(server = nil, **options, &block)
-                    server ||= create_server
-                    client = create_client('localhost', port: server.port, **options)
-                    yield(client) if block_given?
-                    client
-                ensure
-                    while !client.connection_future.complete?
-                        server.process_pending_requests
+                describe "connection handling" do
+                    it "#poll retries connecting if the connection method raised ConnectionError" do
+                        interface = Interface.new { raise ConnectionError }
+                        interface.connection_future.wait
+                        flexmock(interface, :strict).should_receive(:attempt_connection).once
+                        interface.poll
                     end
-                    client.poll
-                end
-
-                def process_call(&block)
-                    futures = [Concurrent::Future.new(&block),
-                               Concurrent::Future.new { @interfaces.each(&:poll) }]
-                    result = futures.map do |future|
-                        future.execute
-                        while !future.complete?
-                            @interface_servers.each do |s|
-                                s.process_pending_requests
-                                s.clients.each(&:poll)
-                            end
-                            Thread.pass
-                        end
-                        future.value
+                    it "#poll retries connecting if the connection method raised ComError" do
+                        interface = Interface.new { raise ComError }
+                        interface.connection_future.wait
+                        flexmock(interface, :strict).should_receive(:attempt_connection).once
+                        interface.poll
                     end
-                    result.first
+                    it "#poll forwards any exception that is not ComError or ConnectionError" do
+                        interface = Interface.new { raise ArgumentError }
+                        interface.connection_future.wait
+                        flexmock(interface, :strict).should_receive(:attempt_connection).never
+                        assert_raises(ArgumentError) { interface.poll }
+                    end
                 end
 
                 describe "reachability hooks" do
@@ -159,45 +127,105 @@ module Roby
                     end
 
                     describe "new jobs" do
-                        attr_reader :server, :client
+                        attr_reader :server, :client, :listener
+
+                        def interface
+                            server.interface
+                        end
 
                         before do
                             @server = create_server
                             @client = connect(server)
                             recorder.should_receive(:job).
+                                by_default.
                                 once.
                                 with(lambda { |job| 
                                        job.job_id == 1 &&
                                        job.state == 'a' &&
                                        job.task == 'c' })
-                            process_call do
+                            @listener = process_call do
                                 client.on_job { |j| recorder.job(j) }
                             end
                             flexmock(server.interface).should_receive(:find_job_info_by_id).
                                 with(1).
                                 and_return(['a', 'b', 'c'])
-                            server.interface.tracked_jobs << 1
+                            interface.tracked_jobs << 1
                         end
 
                         it "calls the hook on jobs created by a third party" do
-                            server.interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            server.interface.push_pending_job_notifications
+                            interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            interface.push_pending_job_notifications
+                            process_call { client.poll }
+                        end
+                        it "does not repeatedly call a listener that already ignored a job" do
+                            interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            interface.push_pending_job_notifications
+                            interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            interface.push_pending_job_notifications
+                            flexmock(listener).should_receive(:matches?).once.and_return(false)
+                            recorder.should_receive(:job).never
                             process_call { client.poll }
                         end
                         it "does not call the hook on jobs that have already been seen" do
-                            server.interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            server.interface.push_pending_job_notifications
-                            server.interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            server.interface.push_pending_job_notifications
+                            interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            interface.push_pending_job_notifications
+                            interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            interface.push_pending_job_notifications
                             process_call { client.poll }
                         end
                         it "calls the hook only once on jobs created by the interface" do
                             flexmock(client.client).should_receive(:find_action_by_name).once.and_return(true)
-                            flexmock(server.interface).should_receive(:start_job).once.and_return(1)
+                            flexmock(interface).should_receive(:start_job).once.and_return(1)
                             process_call { client.client.action! }
-                            server.interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            server.interface.push_pending_job_notifications
+                            interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
+                            interface.push_pending_job_notifications
                             process_call { client.poll }
+                        end
+                    end
+                end
+
+                describe "job progress" do
+                    attr_reader :client, :server
+                    before do
+                        @server = create_server
+                        @client = connect(server)
+                    end
+                    def interface; server.interface end
+
+                    it "updates the state of the monitored jobs" do
+                        monitor = flexmock(:on, JobMonitor, job_id: 42, finalized?: false)
+                        client.add_job_monitor(monitor)
+                        monitor.should_receive(:update_state).with(Roby::Interface::JOB_MONITORED).once.ordered
+                        monitor.should_receive(:update_state).with(Roby::Interface::JOB_READY).once.ordered
+                        interface.job_notify(Roby::Interface::JOB_MONITORED, 42, 'name')
+                        interface.job_notify(Roby::Interface::JOB_READY, 42, 'name')
+                        interface.push_pending_job_notifications
+                        process_call do
+                            client.poll
+                        end
+                    end
+
+                    it "calls #replaced on the job monitor for a REPLACED state change" do
+                        monitor = flexmock(:on, JobMonitor, job_id: 42, finalized?: false)
+                        client.add_job_monitor(monitor)
+                        monitor.should_receive(:update_state).with(Roby::Interface::JOB_MONITORED).once.ordered
+                        monitor.should_receive(:update_state).with(Roby::Interface::JOB_REPLACED).once.ordered
+                        monitor.should_receive(:replaced).with('new task').once.ordered
+                        interface.job_notify(Roby::Interface::JOB_MONITORED, 42, 'name')
+                        interface.job_notify(Roby::Interface::JOB_REPLACED, 42, 'name', 'new task')
+                        interface.push_pending_job_notifications
+                        process_call do
+                            client.poll
+                        end
+                    end
+
+                    it "calls notify_exception for the exceptions that involve the job" do
+                        monitor = flexmock(:on, JobMonitor, job_id: 42, finalized?: false)
+                        client.add_job_monitor(monitor)
+                        monitor.should_receive(:notify_exception).with(:fatal, 'exception_object')
+                        client.client.queue_exception(:fatal, 'exception_object', [], [42])
+                        process_call do
+                            client.poll
                         end
                     end
                 end

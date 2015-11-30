@@ -44,16 +44,56 @@ module Roby
                     async && async.job_id
                 end
 
-                # Start or restart a job based on this action
-                def restart
-                    # Note: we cannot use JobMonitor#restart as the arguments
-                    # might have changed in the meantime
-                    batch = interface.client.create_batch
-                    if async && !async.terminated?
-                        batch.kill_job(async.job_id)
+                # The set of arguments that should be passed to the action
+                #
+                # It is basically the merged {#static_arguments} and
+                # {#arguments}
+                def action_arguments
+                    static_arguments.merge(arguments)
+                end
+
+                # @api private
+                #
+                # Helper to handle the batch argument in e.g. {#kill} and
+                # {#restart}
+                def handle_batch_argument(batch)
+                    if batch
+                        yield(batch)
+                    else
+                        yield(batch = interface.create_batch)
+                        batch.__process
                     end
-                    batch.start_job(action_name, static_arguments.merge(arguments))
-                    batch.__process
+                end
+
+                # Kill this job
+                #
+                # @param [Client::BatchContext] batch if given, the restart
+                #   commands will be added to this batch. Otherwise, a new batch
+                #   is created and {Client::BatchContext#__process} is called.
+                def kill(batch: nil)
+                    if !running?
+                        raise InvalidState, "cannot kill a non-running action"
+                    end
+
+                    handle_batch_argument(batch) do |b|
+                        b.kill_job(async.job_id)
+                    end
+                end
+
+                # Start or restart a job based on this action
+                #
+                # @param [Hash] arguments the arguments that should be used
+                #   instead of {#action_arguments}
+                # @param [Client::BatchContext] batch if given, the restart
+                #   commands will be added to this batch. Otherwise, a new batch
+                #   is created and {Client::BatchContext#__process} is called.
+                def restart(arguments = self.action_arguments, batch: nil)
+                    handle_batch_argument(batch) do |b|
+                        if running?
+                            kill(batch: b)
+                        end
+                        b.start_job(action_name, arguments)
+                    end
                 end
 
                 def initialize(interface, action_name, static_arguments = Hash.new)
@@ -70,7 +110,7 @@ module Roby
                     interface.on_job(action_name: action_name) do |job|
                         if !self.async || self.job_id != job.job_id || terminated?
                             matching = static_arguments.all? do |arg_name, arg_val|
-                                job.task.action_arguments[arg_name,to_sym] == arg_val
+                                job.action_arguments[arg_name.to_sym] == arg_val
                             end
                             if matching
                                 self.async = job
@@ -109,10 +149,6 @@ module Roby
                         end
                     end
                     run_hook :on_progress
-                end
-
-                def kill
-                    async && async.kill
                 end
             end
         end
