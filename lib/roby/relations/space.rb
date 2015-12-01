@@ -37,6 +37,21 @@ module Roby
                 super
             end
 
+            def self.new_relation_graph_mapping
+                Hash.new do |h, k|
+                    if k
+                        if k.kind_of?(Class)
+                            known_relations = h.each_key.find_all { |rel| rel.kind_of?(Class) }
+                            raise ArgumentError, "#{k} is not a known relation (known relations are #{known_relations.map { |o| "#{o.name}" }.join(", ")})"
+                        elsif known_graph = h.fetch(k.class, nil)
+                            raise ArgumentError, "it seems that you're trying to use the relation API to access a graph that is not part of this object's current plan. Given graph was #{k.object_id}, and the current graph for #{k.class} is #{known_graph.object_id}"
+                        else
+                            raise ArgumentError, "graph object #{known_graph} is not a known relation graph"
+                        end
+                    end
+                end
+            end
+
             # Instanciate this space's relation graphs
             #
             # It instanciates a graph per relation defined on self, and sets
@@ -44,18 +59,7 @@ module Roby
             #
             # @return [Hash<Models<Graph>,Graph>]
             def instanciate
-                graphs = Hash.new do |h, k|
-                    if k
-                        if k.kind_of?(Class)
-                            known_relations = h.each_key.find_all { |rel| rel.kind_of?(Class) }
-                            raise ArgumentError, "#{k} is not a known relation (known relations are #{known_relations.map { |o| "#{o.name}" }.join(", ")})"
-                        elsif known_graph = h.fetch(k.class)
-                            raise ArgumentError, "it seems that you're trying to use the relation API to access a graph that is not part of this object's current plan. Given graph was #{k.object_id}, and the current graph for #{k.class} is #{known_graph.object_id}"
-                        else
-                            raise ArgumentError, "graph object #{known_graph} is not a known relation graph"
-                        end
-                    end
-                end
+                graphs = self.class.new_relation_graph_mapping
                 relations.each do |rel|
                     g = rel.new(rel.name || to_s)
                     graphs[g] = graphs[rel] = g
@@ -75,10 +79,19 @@ module Roby
             # as well.
             def apply_on(klass)
                 klass.include DirectedRelationSupport
+                klass.relation_spaces << self
                 each_relation do |graph|
                     klass.include graph::Extension
                 end
                 applied << klass
+
+                while klass
+                    if klass.respond_to?(:all_relation_spaces)
+                        klass.all_relation_spaces << self
+                    end
+                    klass = if klass.respond_to?(:supermodel) then klass.supermodel
+                            end
+                end
             end
 
             # Yields the relations that are defined on this space

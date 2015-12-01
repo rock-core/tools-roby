@@ -17,6 +17,13 @@ module Roby
     # * #forwarding
     #
     class EventGenerator < PlanObject
+        class << self
+            attr_reader :relation_spaces
+            attr_reader :all_relation_spaces
+        end
+        @relation_spaces = Array.new
+        @all_relation_spaces = Array.new
+
         # The event class that is used to represent this generator's emissions
         #
         # Defaults to Event

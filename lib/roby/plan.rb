@@ -95,8 +95,16 @@ module Roby
 
             @plan_services = Hash.new
 
-            @task_relation_graphs  = TaskStructure.instanciate
-            @event_relation_graphs = EventStructure.instanciate
+            @task_relation_graphs  = Relations::Space.new_relation_graph_mapping
+            Task.all_relation_spaces.each do |space|
+                task_relation_graphs.merge!(space.instanciate)
+            end
+
+            @event_relation_graphs = Relations::Space.new_relation_graph_mapping
+            EventGenerator.all_relation_spaces.each do |space|
+                event_relation_graphs.merge!(space.instanciate)
+            end
+
             @active_fault_response_tables = Array.new
 
             @structure_checks = Array.new

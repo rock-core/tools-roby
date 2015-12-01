@@ -50,19 +50,42 @@ module Roby
 
             describe "#apply_on" do
                 subject { Space.new }
+                let(:relation_class) do
+                    Class.new do
+                        class << self
+                            attr_reader :relation_spaces
+                        end
+                        @relation_spaces = Array.new
+                    end
+                end
                 it "includes DirectedRelationSupport on its argument" do
-                    subject.apply_on(klass = Class.new)
-                    assert(klass <= DirectedRelationSupport)
+                    subject.apply_on(relation_class)
+                    assert(relation_class <= DirectedRelationSupport)
                 end
                 it "registers the class so that new relations are applied on it" do
-                    subject.apply_on(klass = Class.new)
+                    subject.apply_on(relation_class)
                     r = subject.relation :R
-                    assert(klass <= r::Extension)
+                    assert(relation_class <= r::Extension)
                 end
                 it "applies existing relations on the new klass" do
                     r1 = subject.relation :R1
-                    subject.apply_on(klass = Class.new)
-                    assert(klass <= r1::Extension)
+                    subject.apply_on(relation_class)
+                    assert(relation_class <= r1::Extension)
+                end
+                it "registers itself on the target's #relation_spaces attribute" do
+                    mock = flexmock(relation_spaces: Array.new, all_relation_spaces: Array.new, include: nil)
+                    subject.apply_on(mock)
+                    assert_equal [subject], mock.relation_spaces
+                end
+
+                it "iterates over the target's supermodels and registers itself on their #all_relation_spaces attribute" do
+                    root     = flexmock(relation_spaces: Array.new, all_relation_spaces: Array.new, include: nil)
+                    submodel = flexmock(supermodel: root, relation_spaces: Array.new, all_relation_spaces: Array.new, include: nil)
+                    subject.apply_on(submodel)
+                    assert_equal [], root.relation_spaces
+                    assert_equal [subject], root.all_relation_spaces
+                    assert_equal [subject], submodel.relation_spaces
+                    assert_equal [subject], submodel.all_relation_spaces
                 end
             end
 

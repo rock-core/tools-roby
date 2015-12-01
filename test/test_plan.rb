@@ -498,6 +498,51 @@ end
 
 module Roby
     describe Plan do
+        describe "#initialize" do
+            it "instanciates graphs for all the relation graphs registered on Roby::Task" do
+                space = flexmock(instanciate: Hash[1 => 2])
+                flexmock(Roby::Task).should_receive(:all_relation_spaces).and_return([space])
+                plan = Roby::Plan.new
+                assert_equal Hash[1 => 2], plan.task_relation_graphs
+            end
+            it "instanciates graphs for all the relation graphs registered on Roby::Task's submodels" do
+                root_space = flexmock(instanciate: Hash[1 => 2])
+                submodel_space = flexmock(instanciate: Hash[41 => 42])
+                task_m = Roby::Task.new_submodel
+                flexmock(Roby::Task).should_receive(:all_relation_spaces).and_return([root_space, submodel_space])
+                plan = Roby::Plan.new
+                assert_equal Hash[1 => 2, 41 => 42], plan.task_relation_graphs
+            end
+            it "configures #task_relation_graphs to raise if an invalid graph is being resolved" do
+                space = flexmock
+                flexmock(Roby::Task).should_receive(:all_relation_spaces).and_return([space])
+                assert_raises(ArgumentError) do
+                    plan.task_relation_graphs[invalid = flexmock]
+                end
+            end
+            it "configures #task_relation_graphs to return nil if nil is being resolved" do
+                plan = Roby::Plan.new
+                assert_equal nil, plan.task_relation_graphs[nil]
+            end
+
+            it "instanciates graphs for all the relation graphs registered on Roby::EventGenerator" do
+                space = flexmock(instanciate: Hash[1 => 2])
+                flexmock(Roby::EventGenerator).should_receive(:all_relation_spaces).and_return([space])
+                plan = Roby::Plan.new
+                assert_equal Hash[1 => 2], plan.event_relation_graphs
+            end
+            it "configures #event_relation_graphs to raise if an invalid graph is being resolved" do
+                space = flexmock
+                flexmock(Roby::EventGenerator).should_receive(:all_relation_spaces).and_return([space])
+                assert_raises(ArgumentError) do
+                    plan.event_relation_graphs[invalid = flexmock]
+                end
+            end
+            it "configures #task_relation_graphs to return nil if nil is being resolved" do
+                plan = Roby::Plan.new
+                assert_equal nil, plan.event_relation_graphs[nil]
+            end
+        end
         describe "#locally_useful_tasks" do
             it 'computes the merge of all strong relation graphs from permanent tasks' do
                 parent, (child, planner, planner_child) = prepare_plan permanent: 1, add: 3, model: Roby::Tasks::Simple

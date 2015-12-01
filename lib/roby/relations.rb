@@ -1,3 +1,4 @@
+require "roby/relations/models/directed_relation_support"
 require "roby/relations/directed_relation_support"
 require "roby/relations/models/graph"
 require "roby/relations/graph"
@@ -42,6 +43,7 @@ module Roby
     # given, it is eval'd in the context of the new relation space instance
     def self.RelationSpace(klass)
         klass.include Relations::DirectedRelationSupport
+        klass.extend  Relations::Models::DirectedRelationSupport
         relation_space = Relations::Space.new
         relation_space.apply_on klass
         relation_space
