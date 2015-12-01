@@ -111,22 +111,26 @@ VALUE graph_each_vertex(VALUE self)
     return self;
 }
 
-/* @overload size
+/* @overload num_edges
  *
  * @return [Integer] the number of vertices in +graph+
  */
 static
-VALUE graph_size(VALUE self)
+VALUE graph_num_edges(VALUE self)
 {
     RubyGraph& graph = graph_wrapped(self);
+    return UINT2NUM(num_edges(graph));
+}
 
-    vertex_iterator begin, end;
-    tie(begin, end) = vertices(graph);
-
-    size_t count = 0;
-    for (vertex_iterator it = begin; it != end; ++it)
-	++count;
-    return UINT2NUM(count);
+/* @overload num_vertices
+ *
+ * @return [Integer] the number of vertices in +graph+
+ */
+static
+VALUE graph_num_vertices(VALUE self)
+{
+    RubyGraph& graph = graph_wrapped(self);
+    return UINT2NUM(num_vertices(graph));
 }
 
 
@@ -713,7 +717,8 @@ extern "C" void Init_roby_bgl()
     rb_define_alloc_func(bglGraph, graph_alloc);
 
     // Functions to manipulate BGL::Vertex objects in Graphs
-    rb_define_method(bglGraph, "size",    RUBY_METHOD_FUNC(graph_size), 0);
+    rb_define_method(bglGraph, "num_vertices",    RUBY_METHOD_FUNC(graph_num_vertices), 0);
+    rb_define_method(bglGraph, "num_edges",    RUBY_METHOD_FUNC(graph_num_edges), 0);
     rb_define_method(bglGraph, "insert",    RUBY_METHOD_FUNC(graph_insert), 1);
     rb_define_method(bglGraph, "remove",    RUBY_METHOD_FUNC(graph_remove), 1);
     rb_define_method(bglGraph, "include?",  RUBY_METHOD_FUNC(graph_include_p), 1);

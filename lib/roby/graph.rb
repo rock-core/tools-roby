@@ -232,6 +232,11 @@ module BGL
             merge(source)
 	end
 
+        def size
+            Roby.warn_deprecated "Graph#size is deprecated, use #num_vertices instead"
+            num_vertices
+        end
+
         def copy_to(target)
             target.merge(self)
         end
