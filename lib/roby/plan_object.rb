@@ -439,29 +439,8 @@ module Roby
         # Replaces +self+ by +object+ in all graphs +self+ is part of. Unlike
         # BGL::Vertex#replace_by, this calls the various add/remove hooks
         # defined in {Relations::DirectedRelationSupport}
-        def replace_by(object, exclude: Array.new)
-	    changes = []
-	    each_relation_sorted do |rel|
-                next if exclude.include?(rel)
-                next if rel.strong?
-
-		parents = []
-		each_parent_object(rel) do |parent|
-		    unless parent.root_object == root_object
-			parents << parent << parent[self, rel]
-		    end
-		end
-		children = []
-		each_child_object(rel) do |child|
-		    unless child.root_object == root_object
-			children << child << self[child, rel]
-		    end
-		end
-		changes << rel << parents << children
-	    end
-
-	    apply_relation_changes(object, changes)
-            initialize_replacement(object)
+        def replace_by(object)
+            raise NotImplementedError, "#{self.class} did not reimplement #replace_by"
 	end
 
         # Called by #replace_by and #replace_subplan_by to do object-specific

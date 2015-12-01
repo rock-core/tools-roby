@@ -1004,6 +1004,11 @@ module Roby
         def match
             Queries::TaskEventGeneratorMatcher.new(task, symbol)
         end
+
+        def replace_by(object)
+            plan.replace_subplan(Hash[object => object])
+            initialize_replacement(object)
+        end
     end
 
     unless defined? EventStructure

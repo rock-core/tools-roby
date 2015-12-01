@@ -1378,14 +1378,19 @@ module Roby
         # Replaces +self+ by +object+ in all relations +self+ is part of, and
         # do the same for the task's event generators.
 	def replace_by(object)
-	    each_event do |event|
-		event_name = event.symbol
-		if object.has_event?(event_name)
-		    event.replace_by object.event(event_name)
-		end
-	    end
-	    super
-	end
+            event_mapping = Hash.new
+            each_event do |event|
+                if object.has_event?(event.symbol)
+                    event_mapping[event] =
+                        object.event(event.symbol)
+                end
+            end
+            plan.replace_subplan(Hash[self => object], event_mapping)
+            initialize_replacement(object)
+            each_event do |event|
+                event_mapping[event].initialize_replacement(event)
+            end
+        end
 
         def initialize_replacement(task)
             super

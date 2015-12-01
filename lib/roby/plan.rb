@@ -613,6 +613,59 @@ module Roby
             end
         end
 
+        # Replace a subplan
+        def replace_subplan(task_mappings, event_mappings, task_children: true, event_children: true)
+            new_relations, removed_relations =
+                compute_subplan_replacement(task_mappings, each_task_relation_graph,
+                                            child_objects: task_children)
+            apply_replacement_operations(new_relations, removed_relations)
+
+            new_relations, removed_relations =
+                compute_subplan_replacement(event_mappings, each_event_relation_graph,
+                                            child_objects: event_children)
+            apply_replacement_operations(new_relations, removed_relations)
+        end
+
+        def compute_subplan_replacement(mappings, relation_graphs, child_objects: true)
+            new_relations, removed_relations = Array.new, Array.new
+            relation_graphs.each do |graph|
+                next if graph.strong?
+
+                mappings.each do |obj, mapped_obj|
+                    obj.each_parent_object(graph) do |parent|
+                        next if mappings.has_key?(parent)
+                        if !graph.copy_on_replace?
+                            removed_relations << [graph, parent, obj]
+                        end
+                        if mapped_obj
+                            new_relations << [graph, parent, mapped_obj, parent[obj, graph]]
+                        end
+                    end
+
+                    next if !child_objects
+                    obj.each_child_object(graph) do |child, info|
+                        next if mappings.has_key?(child)
+                        if !graph.copy_on_replace?
+                            removed_relations << [graph, obj, child]
+                        end
+                        if mapped_obj
+                            new_relations << [graph, mapped_obj, child, obj[child, graph]]
+                        end
+                    end
+                end
+            end
+            return new_relations, removed_relations
+        end
+
+        def apply_replacement_operations(new_relations, removed_relations)
+            removed_relations.each do |graph, parent, child|
+                graph.unlink(parent, child)
+            end
+            new_relations.each do |graph, parent, child, info|
+                graph.link(parent, child, info)
+            end
+        end
+
 	# Hook called when +replacing_task+ has replaced +replaced_task+ in this plan
 	def replaced(replaced_task, replacing_task)
             # Make the PlanService object follow the replacement
