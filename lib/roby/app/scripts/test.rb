@@ -39,6 +39,12 @@ parser = OptionParser.new do |opt|
     opt.on('--server PORT', Integer, 'the minitest server port') do |server_port|
         testrb_args << "--server" << server_port.to_s
     end
+    opt.on('--stackprof[=FILE]', String, 'run tests under stackprof (requires the minitest-stackprof gem)') do |path|
+        testrb_args << "--stackprof"
+        if path
+            testrb_args << path
+        end
+    end
     Roby::Application.common_optparse_setup(opt)
 end
 
