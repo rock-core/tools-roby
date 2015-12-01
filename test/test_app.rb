@@ -5,8 +5,8 @@ describe Roby::Application do
     attr_reader :app, :app_dir
     before do
         @app = Roby::Application.new
-        register_plan(@app.plan)
         app.base_setup
+        register_plan(@app.plan)
         @app_dir = "/test/roby_app"
     end
 

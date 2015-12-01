@@ -584,7 +584,6 @@ module Roby
             @search_path = nil
 	    @plugins = Array.new
             @plugins_enabled = true
-            @plan = ExecutablePlan.new
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
             @created_log_dirs = []
@@ -1302,6 +1301,21 @@ module Roby
             end
         end
 
+        def plan_setup
+            if !plan
+                @plan = ExecutablePlan.new
+            end
+            if !Roby.control
+                Roby.control = DecisionControl.new
+            end
+            if !plan.execution_engine || (plan.execution_engine.plan != plan)
+                plan.execution_engine = ExecutionEngine.new(plan, Roby.control)
+            end
+            if Roby.scheduler
+                plan.engine.scheduler = Roby.scheduler
+            end
+        end
+
         def base_setup
 	    STDOUT.sync = true
 
@@ -1313,15 +1327,7 @@ module Roby
 	    setup_loggers
             init_handlers.each(&:call)
 
-            if !Roby.control
-                Roby.control = DecisionControl.new
-            end
-            if !plan.execution_engine || (plan.execution_engine.plan != plan)
-                plan.execution_engine = ExecutionEngine.new(plan, Roby.control)
-            end
-            if Roby.scheduler
-                plan.engine.scheduler = Roby.scheduler
-            end
+            plan_setup
 
 	    # Set up the loaded plugins
 	    call_plugins(:base_setup, self)

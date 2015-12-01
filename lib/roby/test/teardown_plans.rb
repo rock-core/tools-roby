@@ -4,6 +4,9 @@ module Roby
             attr_reader :registered_plans
 
             def register_plan(plan)
+                if !plan
+                    raise "registering nil plan"
+                end
                 (@registered_plans ||= Array.new) << plan
             end
 
