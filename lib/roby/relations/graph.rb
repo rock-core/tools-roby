@@ -32,8 +32,6 @@ module Roby
             #
             # @see recursive_subsets
             attr_reader   :subsets
-            # The set of all graphs that are known to be subgraphs of self
-            attr_reader :recursive_subsets
 
             # Compute the set of all graphs that are subsets of this one in the
             # subset hierarchy
@@ -78,7 +76,6 @@ module Roby
                 @embeds_info = !noinfo
 
                 @subsets = Set.new
-                @recursive_subsets = Set.new
                 subsets.each { |g| superset_of(g) }
             end
 
@@ -275,22 +272,10 @@ module Roby
 
                 relation.parent = self
                 subsets << relation
-                recompute_recursive_subsets
 
                 # Copy the relations of the child into this graph
                 relation.each_edge do |source, target, info|
                     source.add_child_object(target, self, info)
-                end
-            end
-
-            # Recomputes the recursive_subsets attribute, and triggers the
-            # recomputation on its parents as well
-            def recompute_recursive_subsets
-                @recursive_subsets = subsets.inject(Set.new) do |set, child|
-                    set.merge(child.recursive_subsets)
-                end
-                if parent
-                    parent.recompute_recursive_subsets
                 end
             end
         end
