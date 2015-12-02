@@ -310,7 +310,7 @@ module Roby
             each_task_relation_graph do |graph|
                 target_graph = copy.task_relation_graph_for(graph.class)
                 graph.each_edge do |parent, child|
-                    target_graph.add_relation(
+                    target_graph.link(
                         mappings[parent], mappings[child], graph.edge_info(parent, child))
                 end
             end
@@ -318,7 +318,7 @@ module Roby
             each_event_relation_graph do |graph|
                 target_graph = copy.event_relation_graph_for(graph.class)
                 graph.each_edge do |parent, child|
-                    target_graph.add_relation(
+                    target_graph.link(
                         mappings[parent], mappings[child], graph.edge_info(parent, child))
                 end
             end
