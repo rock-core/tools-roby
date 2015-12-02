@@ -302,7 +302,11 @@ module Roby
             permanent_tasks.each { |t| copy.add_permanent(mappings[t]) }
             permanent_events.each { |e| copy.add_permanent(mappings[e]) }
 
-            # We now have to copy the relations
+            copy_relation_graphs_to(copy, mappings)
+            mappings
+        end
+
+        def copy_relation_graphs_to(copy, mappings)
             each_task_relation_graph do |graph|
                 target_graph = copy.task_relation_graph_for(graph.class)
                 graph.each_edge do |parent, child|
@@ -318,8 +322,6 @@ module Roby
                         mappings[parent], mappings[child], graph.edge_info(parent, child))
                 end
             end
-
-            mappings
         end
 
         # @api private

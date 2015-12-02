@@ -222,14 +222,24 @@ module Roby
             @poll_handlers = []
             @execute_handlers = []
 
-            @terminal_flag_invalid = true
-
             @bound_events = Hash.new
 
 	    super()
+
 	    initialize_events
             plan.register_task(self)
-            instantiate_model_event_relations
+            template = self.model.template
+
+            mappings = Hash.new
+            template.events_by_name.each do |name, template_event|
+                mappings[template_event] = bound_events[name]
+            end
+            template.copy_relation_graphs_to(plan, mappings)
+            apply_terminal_flags(
+                template.terminal_events.map(&mappings.method(:[])),
+                template.success_events.map(&mappings.method(:[])),
+                template.failure_events.map(&mappings.method(:[])))
+            @terminal_flag_invalid = false
 
             if self.model.state_machine
                 @state_machine = TaskStateMachine.new(self.model.state_machine)
@@ -279,8 +289,6 @@ module Roby
         # Helper methods which creates all the necessary TaskEventGenerator
         # objects and stores them in the #bound_events map
 	def initialize_events # :nodoc:
-	    @instantiated_model_events = false
-
 	    # Create all event generators
 	    bound_events = Hash.new
 	    model.each_event do |ev_symbol, ev_model|
@@ -360,71 +368,6 @@ module Roby
             @poll_handlers = old.poll_handlers.dup
             if m = old.instance_variable_get(:@fullfilled_model)
                 @fullfilled_model = m.dup
-            end
-	end
-
-	def instantiate_model_event_relations
-	    return if @instantiated_model_events
-	    # Add the model-level signals to this instance
-	    @instantiated_model_events = true
-	    
-	    model.all_signals.each do |generator, signalled_events|
-	        next if signalled_events.empty?
-	        generator = bound_events[generator]
-
-	        for signalled in signalled_events
-	            signalled = bound_events[signalled]
-	            generator.signals signalled
-	        end
-	    end
-
-	    model.all_forwardings.each do |generator, signalled_events|
-		next if signalled_events.empty?
-	        generator = bound_events[generator]
-
-	        for signalled in signalled_events
-	            signalled = bound_events[signalled]
-	            generator.forward_to signalled
-	        end
-	    end
-
-	    model.all_causal_links.each do |generator, signalled_events|
-	        next if signalled_events.empty?
-	        generator = bound_events[generator]
-
-	        for signalled in signalled_events
-	            signalled = bound_events[signalled]
-	            generator.add_causal_link signalled
-	        end
-	    end
-
-            # Add a link from internal_event to stop if stop is controllable
-            if event(:stop).controlable?
-                event(:internal_error).signals event(:stop)
-            end
-
-	    terminal_events, success_events, failure_events = update_terminal_flag
-
-	    # WARN: the start event CAN be terminal: it can be a signal from
-	    # :start to a terminal event
-	    #
-	    # Create the precedence relations between 'normal' events and the terminal events
-            root_terminal_events = terminal_events.find_all do |ev|
-                ev.symbol != :start && ev.root?(Roby::EventStructure::Precedence)
-            end
-
-            each_event do |ev|
-                next if ev.symbol == :start
-                if !ev.terminal?
-                    if ev.root?(Roby::EventStructure::Precedence)
-                        start_event.add_precedence(ev)
-                    end
-                    if ev.leaf?(Roby::EventStructure::Precedence)
-                        for terminal in root_terminal_events
-                            ev.add_precedence(terminal)
-                        end
-                    end
-                end
             end
 	end
 
@@ -622,58 +565,31 @@ module Roby
         def invalidated_terminal_flag?; !!@terminal_flag_invalid end
         def invalidate_terminal_flag; @terminal_flag_invalid = true end
 
-
-        def do_terminal_flag_update(terminal_set, set, root)
-            stack = [root]
-            while !stack.empty?
-                vertex = stack.shift
-                for relation in [EventStructure::Signal, EventStructure::Forwarding]
-                    for parent in vertex.parent_objects(relation)
-                        next if !parent.respond_to?(:task) || parent.task != self
-                        next if parent[vertex, relation]
-
-                        if !terminal_set.include?(parent)
-                            terminal_set  << parent
-                            set   << parent if set
-                            stack << parent
-                        end
-                    end
-                end
-            end
-        end
-
 	# Updates the terminal flag for all events in the task. An event is
 	# terminal if the +stop+ event of the task will be called because this
 	# event is.
 	def update_terminal_flag # :nodoc:
-            return if !@terminal_flag_invalid
-	    return unless @instantiated_model_events
+            return if !invalidated_terminal_flag?
+            terminal_events, success_events, failure_events =
+                self.model.compute_terminal_events(bound_events)
+            apply_terminal_flags(terminal_events, success_events, failure_events)
+            @terminal_flag_invalid = false
+            return terminal_events, success_events, failure_events
+        end
 
+        def apply_terminal_flags(terminal_events, success_events, failure_events)
 	    for _, ev in bound_events
 		ev.terminal_flag = nil
-	    end
-
-            success_events, failure_events, terminal_events =
-                [event(:success)].to_set, 
-                [event(:failed)].to_set,
-                [event(:stop), event(:success), event(:failed)].to_set
-
-            do_terminal_flag_update(terminal_events, success_events, event(:success))
-            do_terminal_flag_update(terminal_events, failure_events, event(:failed))
-            do_terminal_flag_update(terminal_events, nil, event(:stop))
-
-	    for ev in terminal_events
-                if success_events.include?(ev)
-                    ev.terminal_flag = :success
-                elsif failure_events.include?(ev)
-                    ev.terminal_flag = :failure
-                else
-                    ev.terminal_flag = true
+                if terminal_events.include?(ev)
+                    if success_events.include?(ev)
+                        ev.terminal_flag = :success
+                    elsif failure_events.include?(ev)
+                        ev.terminal_flag = :failure
+                    else
+                        ev.terminal_flag = true
+                    end
                 end
 	    end
-            @terminal_flag_invalid = false
-
-            return terminal_events, success_events, failure_events
 	end
 
         # Returns a list of Event objects, for all events that have been fired

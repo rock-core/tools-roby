@@ -15,6 +15,134 @@ module Roby
                 end
             end
 
+            class Template < TemplatePlan
+                attr_reader :events_by_name
+                attr_accessor :success_events
+                attr_accessor :failure_events
+                attr_accessor :terminal_events
+
+                def initialize
+                    super
+                    @events_by_name = Hash.new
+                end
+            end
+
+            # The plan that is used to instantiate this task model
+            def template
+                return @template if @template
+
+                template = Template.new
+                each_event do |event_name, event_model|
+                    template.add(event = EventGenerator.new(controlable: event_model.controlable?))
+                    template.events_by_name[event_name] = event
+                end
+
+                instantiate_event_relations(template)
+                @template = template
+            end
+
+            def instantiate_event_relations(template)
+                events = template.events_by_name
+
+                all_signals.each do |generator, signalled_events|
+                    next if signalled_events.empty?
+                    generator = events[generator]
+
+                    for signalled in signalled_events
+                        signalled = events[signalled]
+                        generator.signals signalled
+                    end
+                end
+
+                all_forwardings.each do |generator, signalled_events|
+                    next if signalled_events.empty?
+                    generator = events[generator]
+
+                    for signalled in signalled_events
+                        signalled = events[signalled]
+                        generator.forward_to signalled
+                    end
+                end
+
+                all_causal_links.each do |generator, signalled_events|
+                    next if signalled_events.empty?
+                    generator = events[generator]
+
+                    for signalled in signalled_events
+                        signalled = events[signalled]
+                        generator.add_causal_link signalled
+                    end
+                end
+
+                # Add a link from internal_event to stop if stop is controllable
+                if events[:stop].controlable?
+                    events[:internal_error].signals events[:stop]
+                end
+
+                terminal_events, success_events, failure_events =
+                    compute_terminal_events(events)
+
+                template.terminal_events = terminal_events
+                template.success_events   = success_events
+                template.failure_events  = failure_events
+                start_event = events[:start]
+
+                # WARN: the start event CAN be terminal: it can be a signal from
+                # :start to a terminal event
+                #
+                # Create the precedence relations between 'normal' events and the terminal events
+                root_terminal_events = terminal_events.find_all do |ev|
+                    (ev != start_event) && ev.root?(Roby::EventStructure::Precedence)
+                end
+
+                events.each_value do |ev|
+                    next if ev == start_event
+                    if !terminal_events.include?(ev)
+                        if ev.root?(Roby::EventStructure::Precedence)
+                            start_event.add_precedence(ev)
+                        end
+                        if ev.leaf?(Roby::EventStructure::Precedence)
+                            for terminal in root_terminal_events
+                                ev.add_precedence(terminal)
+                            end
+                        end
+                    end
+                end
+            end
+
+            def discover_terminal_events(events, terminal_set, set, root)
+                stack = [root]
+                while !stack.empty?
+                    vertex = stack.shift
+                    for relation in [EventStructure::Signal, EventStructure::Forwarding]
+                        for parent in vertex.parent_objects(relation)
+                            if !events.include?(parent)
+                                next
+                            elsif parent[vertex, relation]
+                                next
+                            elsif !terminal_set.include?(parent)
+                                terminal_set  << parent
+                                set   << parent if set
+                                stack << parent
+                            end
+                        end
+                    end
+                end
+            end
+
+            def compute_terminal_events(events)
+                success_events, failure_events, terminal_events =
+                    [events[:success]].to_set, 
+                    [events[:failed]].to_set,
+                    [events[:stop], events[:success], events[:failed]].to_set
+
+                event_set = events.values.to_set
+                discover_terminal_events(event_set, terminal_events, success_events, events[:success])
+                discover_terminal_events(event_set, terminal_events, failure_events, events[:failed])
+                discover_terminal_events(event_set, terminal_events, nil, events[:stop])
+                return terminal_events, success_events, failure_events
+            end
+
             # If this class model has an 'as_plan', this specifies what arguments
             # should be passed to as_plan
             def with_arguments(arguments = Hash.new)
@@ -75,7 +203,6 @@ module Roby
             # Clears all definitions saved in this model. This is to be used by the
             # reloading code
             def clear_model
-                super
                 class_eval do
                     # Remove event models
                     events.each_key do |ev_symbol|
@@ -87,6 +214,7 @@ module Roby
                         set.clear if set
                     end
                 end
+                super
             end
 
             # Declares an attribute set which follows the task models inheritance

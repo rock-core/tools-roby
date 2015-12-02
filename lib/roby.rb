@@ -66,6 +66,10 @@ end
 
 require 'roby/graph'
 require 'roby/relations'
+require 'roby/plan'
+require 'roby/executable_plan'
+require 'roby/template_plan'
+
 require 'roby/models/plan_object'
 require 'roby/plan_object'
 require 'roby/event_generator'
@@ -101,9 +105,6 @@ require 'roby/tasks/parallel'
 require 'roby/tasks/sequence'
 require 'roby/event_constraints'
 
-require 'roby/plan'
-require 'roby/executable_plan'
-require 'roby/template_plan'
 require 'roby/transactions/proxy'
 require 'roby/transactions'
 

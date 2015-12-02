@@ -138,17 +138,21 @@ module Roby
         # True if this event is either forwarded to or signals the task's :failed event
 	def failure?; terminal_flag == :failure end
 
+        # @api private
+        #
+        # Helper for the signal and forward relation hooks that invalidates the
+        # events terminal flags when the event structure is changed
+        def invalidate_task_terminal_flag_if_needed(child)
+            if child.respond_to?(:task) && child.task == task
+                task.invalidate_terminal_flag
+            end
+        end
+
         # Invalidates the task's terminal flag when the Forwarding and/or the
         # Signal relation gets modified.
 	def added_signal(child, info) # :nodoc:
 	    super
             invalidate_task_terminal_flag_if_needed(child)
-        end
-
-        def invalidate_task_terminal_flag_if_needed(child)
-            if child.respond_to?(:task) && child.task == task
-                task.invalidate_terminal_flag
-            end
         end
 
         # Invalidates the task's terminal flag when the Forwarding and/or the
