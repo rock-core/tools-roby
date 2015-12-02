@@ -17,6 +17,7 @@ VALUE bglGraph;
 VALUE bglReverseGraph;
 VALUE bglUndirectedGraph;
 VALUE bglVertex;
+VALUE bgl_eLinkExists;
 
 /**********************************************************************
  *  BGL::Graph
@@ -260,7 +261,7 @@ VALUE graph_link(VALUE self, VALUE source, VALUE target, VALUE info)
 
     bool inserted = add_edge(s, t, EdgeProperty(info), graph).second;
     if (! inserted)
-	rb_raise(rb_eArgError, "edge already exists");
+	rb_raise(bgl_eLinkExists, "edge already exists");
 
     return self;
 }
@@ -714,6 +715,7 @@ extern "C" void Init_roby_bgl()
 
     bglModule = rb_define_module("BGL");
     bglGraph  = rb_define_class_under(bglModule, "Graph", rb_cObject);
+    bgl_eLinkExists = rb_define_class_under(bglModule, "LinkExists", rb_eArgError);
     rb_define_alloc_func(bglGraph, graph_alloc);
 
     // Functions to manipulate BGL::Vertex objects in Graphs
