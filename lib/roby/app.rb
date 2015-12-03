@@ -489,6 +489,7 @@ module Roby
             end
             parser.on('-r NAME', '--robot=NAME[,TYPE]', String, 'the robot name and type') do |name|
                 robot_name, robot_type = name.split(',')
+                Roby.app.setup_robot_names_from_config_dir
                 Roby.app.robot(robot_name, robot_type)
             end
             parser.on('--debug', 'run in debug mode') do
