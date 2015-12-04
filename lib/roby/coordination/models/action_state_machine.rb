@@ -87,7 +87,11 @@ module Roby
             # Declares the starting state
             def start(state)
                 parse_task_names '_state'
-                @starting_state = validate_task(state)
+                state = validate_task(state)
+                if @starting_state && @starting_state != state
+                    raise ArgumentError, "Setting more than one start state is forbidden. Use #depends_on to run multiple tasks at the same time."
+                end
+                @starting_state = state
             end
 
             def state(object, task_model = Roby::Task)
