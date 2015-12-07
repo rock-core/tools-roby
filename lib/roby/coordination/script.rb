@@ -106,7 +106,7 @@ module Roby
                                 event.resolve.emit
                                 script.jump_to(timeout_stop)
                             else
-                                raise TimedOut.new(script.root_task, script.current_instruction), "#{script.current_instruction} timed out"
+                                raise TimedOut.new(script.root_task, script.current_instruction), "#{script.current_instruction} timed out and no custom event was set to be emitted."
                             end
                         end
                     end
