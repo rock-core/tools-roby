@@ -20,7 +20,19 @@ module Roby
                     # Called by the state machine implementation to create a Roby::Task
                     # instance that will perform the state's actions
                     def instanciate(plan, variables = Hash.new)
-                        plan.add(task = instanciation_object.as_plan)
+                        # replace Model::Variable with real values
+                        new_args= instanciation_object.arguments.select do |k,v|
+                            v.kind_of?(Variable) && variables.include?(k)
+                        end
+                        new_args = new_args.map_value do |k, v|
+                            variables[v.name]
+                        end
+                        task = if(new_args.empty?)
+                                   instanciation_object.as_plan
+                               else
+                                   instanciation_object.dup.with_arguments(new_args).as_plan
+                               end
+                        plan.add(task)
                         task
                     end
 
