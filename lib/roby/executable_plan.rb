@@ -256,6 +256,50 @@ module Roby
             end
         end
 
+        # @api private
+        #
+        # Calls the added_ and adding_ hooks for modifications originating from
+        # a transaction that involve tasks originally from the plan
+        def emit_transaction_modification_hooks(list, prefix: nil)
+            hooks = Hash.new
+            list.each do |graph, parent, child, *args|
+                if !hooks.has_key?(graph)
+                    rel = graph.class
+                    if rel.child_name
+                        parent_hook = "#{prefix}_#{rel.child_name}"
+                        child_hook  = "#{parent_hook}_parent"
+                        hooks[graph] = [parent_hook, child_hook]
+                    else
+                        hooks[graph] = nil
+                    end
+                end
+
+                parent_hook, child_hook = hooks[graph]
+                next if !child_hook
+
+                parent.send(parent_hook, child, *args)
+                child.send(child_hook, parent, *args)
+            end
+        end
+
+        def merge_transaction(transaction, merged_graphs, added, removed, updated)
+            emit_transaction_modification_hooks(added, prefix: 'adding')
+            emit_transaction_modification_hooks(removed, prefix: 'removing')
+
+            super
+
+            precedence_graph = event_relation_graph_for(EventStructure::Precedence)
+            precedence_edge_count = precedence_graph.num_edges
+            emit_transaction_modification_hooks(added, prefix: 'added')
+            if precedence_edge_count != precedence_graph.num_edges
+                execution_engine.event_ordering.clear
+            end
+            emit_transaction_modification_hooks(removed, prefix: 'removed')
+            if precedence_edge_count != precedence_graph.num_edges
+                execution_engine.event_ordering.clear
+            end
+        end
+
         def merging_plan(plan)
             plan.each_task_relation_graph do |graph|
                 emit_relation_graph_add_hooks(graph, prefix: 'adding')

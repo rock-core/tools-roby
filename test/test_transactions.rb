@@ -1152,6 +1152,19 @@ class TC_Transactions < Minitest::Test
 	assert(t3.running?)
     end
 
+    def test_commit_fails_if_it_creates_a_cycle_in_a_dag
+	t1, t2, t3 = prepare_plan add: 3
+        t1.depends_on t2
+        t2.depends_on t3
+        copy, mappings = plan.deep_copy
+        assert_raises(Relations::CycleFoundError) do
+            transaction_commit(plan, t1, t3) do |trsc, p1, p3|
+                p3.depends_on p1
+            end
+        end
+        assert plan.same_plan?(copy, mappings)
+    end
+
     def test_or_event_aggregator
 	t1, (t2, t3) = prepare_plan add: 1, tasks: 2, model: Tasks::Simple
 	transaction_commit(plan, t1) do |trsc, p1|
@@ -1271,6 +1284,84 @@ class TC_Transactions < Minitest::Test
             end
         end
         plan.remove_object(t1)
+    end
+
+    def test_it_emits_add_relation_hooks_for_tasks
+        plan.add(plan_parent = Roby::Task.new)
+        plan.add(plan_child = Roby::Task.new)
+        trsc_parent = Roby::Task.new
+        trsc_child  = Roby::Task.new
+        transaction_commit(plan, plan_parent, plan_child) do |trsc, p_plan_parent, p_plan_child|
+            flexmock(trsc).should_receive(:commit_transaction).once.ordered.pass_thru
+            flexmock(plan_parent) do |r|
+                r.should_receive(:adding_child).with(trsc_child, any).once.ordered(:adding)
+                r.should_receive(:added_child).with(trsc_child, any).once.ordered(:added)
+                r.should_receive(:adding_child).with(plan_child, any).once.ordered(:adding)
+                r.should_receive(:added_child).with(plan_child, any).once.ordered(:added)
+            end
+            flexmock(trsc_parent) do |r|
+                r.should_receive(:adding_child).with(trsc_child, any).once.ordered(:adding)
+                r.should_receive(:added_child).with(trsc_child, any).once.ordered(:added)
+                r.should_receive(:adding_child).with(plan_child, any).once.ordered(:adding)
+                r.should_receive(:added_child).with(plan_child, any).once.ordered(:added)
+            end
+            p_plan_parent.depends_on trsc_child
+            p_plan_parent.depends_on p_plan_child
+            trsc_parent.depends_on trsc_child
+            trsc_parent.depends_on p_plan_child
+        end
+    end
+
+    def test_it_emits_remove_relation_hooks_for_tasks
+        plan.add(plan_parent = Roby::Task.new)
+        plan_child = plan_parent.depends_on(Roby::Task.new)
+        transaction_commit(plan, plan_parent, plan_child) do |trsc, p_plan_parent, p_plan_child|
+            flexmock(trsc).should_receive(:commit_transaction).once.ordered.pass_thru
+            flexmock(plan_parent) do |r|
+                r.should_receive(:removing_child).with(plan_child, any).once.ordered(:adding)
+                r.should_receive(:removed_child).with(plan_child, any).once.ordered(:added)
+            end
+            p_plan_parent.remove_child p_plan_child
+        end
+    end
+
+    def test_it_emits_add_relation_hooks_for_events
+        plan.add(plan_parent = Roby::EventGenerator.new)
+        plan.add(plan_child = Roby::EventGenerator.new)
+        trsc_parent = Roby::EventGenerator.new
+        trsc_child  = Roby::EventGenerator.new
+        transaction_commit(plan, plan_parent, plan_child) do |trsc, p_plan_parent, p_plan_child|
+            flexmock(trsc).should_receive(:commit_transaction).once.ordered.pass_thru
+            flexmock(plan_parent) do |r|
+                r.should_receive(:adding_forwarding).with(trsc_child, any).once
+                r.should_receive(:added_forwarding).with(trsc_child, any).once
+                r.should_receive(:adding_forwarding).with(plan_child, any).once
+                r.should_receive(:added_forwarding).with(plan_child, any).once
+            end
+            flexmock(trsc_parent) do |r|
+                r.should_receive(:adding_forwarding).with(trsc_child, any).once
+                r.should_receive(:added_forwarding).with(trsc_child, any).once
+                r.should_receive(:adding_forwarding).with(plan_child, any).once
+                r.should_receive(:added_forwarding).with(plan_child, any).once
+            end
+            p_plan_parent.forward_to trsc_child
+            p_plan_parent.forward_to p_plan_child
+            trsc_parent.forward_to trsc_child
+            trsc_parent.forward_to p_plan_child
+        end
+    end
+
+    def test_it_emits_remove_relation_hooks_for_events
+        plan.add(plan_parent = Roby::EventGenerator.new)
+        plan_parent.forward_to(plan_child = Roby::EventGenerator.new)
+        transaction_commit(plan, plan_parent, plan_child) do |trsc, p_plan_parent, p_plan_child|
+            flexmock(trsc).should_receive(:commit_transaction).once.ordered.pass_thru
+            flexmock(plan_parent) do |r|
+                r.should_receive(:removing_forwarding).with(plan_child, any).once
+                r.should_receive(:removed_forwarding).with(plan_child, any).once
+            end
+            p_plan_parent.remove_forwarding p_plan_child
+        end
     end
 end
 

@@ -32,6 +32,16 @@ module Roby
                 end
             end
 
+            def merge(graph)
+                super
+                task_graph.merge(graph.task_graph)
+            end
+
+            def replace(graph)
+                super
+                task_graph.replace(graph.task_graph)
+            end
+
             def remove_vertex(event)
                 super
                 if event.respond_to?(:task)

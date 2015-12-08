@@ -442,15 +442,15 @@ module Roby
         #
         # Apply the graph modifications returned by
         # {#compute_graph_modifications_for}
-        def apply_graph_modifications(added, removed, updated)
+        def apply_graph_modifications(work_graphs, added, removed, updated)
             added.each do |graph, parent, child, info|
-                graph.add_relation(parent, child, info)
+                work_graphs[graph].add_edge(parent, child, info)
             end
             removed.each do |graph, parent, child|
-                graph.remove_relation(parent, child)
+                work_graphs[graph].remove_edge(parent, child)
             end
             updated.each do |graph, parent, child, info|
-                graph.set_edge_info(parent, child, info)
+                work_graphs[graph].set_edge_info(parent, child, info)
             end
         end
 
@@ -528,6 +528,29 @@ module Roby
             # have to store the object-to-proxy mapping
             real_objects  = Hash.new
 
+            # We make a copy of all relation graphs, and update them with the
+            # transaction data. The underlying plan graphs are not modified
+            #
+            # We do not #dup them because we don't want to dup the edge info.
+            # Instead, we instanciate anew and merge. The add_vertex calls are
+            # needed to make sure that the graph dups the in/out sets instead
+            # of just copying them
+            task_work_graphs, event_work_graphs =
+                plan.class.instanciate_relation_graphs
+            work_graphs, transaction_graphs = Hash.new, Hash.new
+            plan.each_task_relation_graph do |g|
+                work_g = work_graphs[g] = task_work_graphs[g.class]
+                g.each_vertex { |v| work_g.add_vertex(v) }
+                work_g.merge(g)
+                transaction_graphs[g] = task_relation_graph_for(g.class)
+            end
+            plan.each_event_relation_graph do |g|
+                work_g = work_graphs[g] = event_work_graphs[g.class]
+                g.each_vertex { |v| work_g.add_vertex(v) }
+                work_g.merge(g)
+                transaction_graphs[g] = event_relation_graph_for(g.class)
+            end
+
             # First apply all changes related to the proxies to the underlying
             # plan. This adds some new tasks to the plan graph, but does not add
             # them to the plan itself
@@ -538,7 +561,8 @@ module Roby
             # the graph unchanged
             proxy_objects.each do |object, proxy|
                 real_objects[proxy] = object
-                compute_graph_modifications_for(proxy, added_relations, removed_relations, updated_relations)
+                compute_graph_modifications_for(
+                    proxy, added_relations, removed_relations, updated_relations)
 
                 proxy.commit_transaction
                 if proxy.self_owned?
@@ -555,16 +579,28 @@ module Roby
                 end
             end
 
+            work_graphs.each do |plan_g, work_g|
+                work_g.merge(transaction_graphs[plan_g])
+            end
+            apply_graph_modifications(work_graphs, added_relations, removed_relations, updated_relations)
+
+            begin
+                validate_graphs(work_graphs.values)
+            rescue Exception => e
+                raise e, "cannot apply #{self}: #{e.message}", e.backtrace
+            end
+
+            #### UNTIL THIS POINT we have not modified the underlying plan AT ALL
+            # We DID update the transaction, though
+
             # Apply #commit_transaction on the remaining tasks
             known_tasks.each(&:commit_transaction)
             free_events.each(&:commit_transaction)
 
             # What is left in the transaction is the network of new tasks. Just
             # merge it
-            plan.merge!(self)
-
-            # Now that everything is in the main plan, apply the changes
-            apply_graph_modifications(added_relations, removed_relations, updated_relations)
+            plan.merge_transaction!(self, work_graphs,
+                                   added_relations, removed_relations, updated_relations)
 
             # Update the plan services on the underlying plan. The only
             # thing we need to take care of is replacements and new

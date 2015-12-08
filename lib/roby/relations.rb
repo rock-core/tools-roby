@@ -1,5 +1,6 @@
 require "roby/relations/bidirectional_directed_adjacency_graph"
 require 'rgl/traversal'
+require 'rgl/topsort'
 require "roby/relations/models/directed_relation_support"
 require "roby/relations/fork_merge_visitor"
 require "roby/relations/directed_relation_support"
@@ -20,6 +21,15 @@ module Roby
             attr_reader :all_relations
         end
         @all_relations = Array.new
+
+        def self.each_graph_topologically(graphs)
+            rel_to_graph = Hash[*graphs.flat_map { |g| [g.class, g] }]
+            all_relations.each do |rel|
+                if g = rel_to_graph[rel]
+                    yield(g)
+                end
+            end
+        end
 
         def self.add_relation(rel)
             sorted_relations = Array.new

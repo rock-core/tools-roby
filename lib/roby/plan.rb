@@ -95,17 +95,8 @@ module Roby
 
             @plan_services = Hash.new
 
-            @task_relation_graphs  = Relations::Space.new_relation_graph_mapping
-            Task.all_relation_spaces.each do |space|
-                task_relation_graphs.merge!(
-                    space.instanciate(observer: graph_observer))
-            end
-
-            @event_relation_graphs = Relations::Space.new_relation_graph_mapping
-            EventGenerator.all_relation_spaces.each do |space|
-                event_relation_graphs.merge!(
-                    space.instanciate(observer: graph_observer))
-            end
+            @task_relation_graphs, @event_relation_graphs =
+                self.class.instanciate_relation_graphs(graph_observer: graph_observer)
 
             @active_fault_response_tables = Array.new
 
@@ -120,6 +111,21 @@ module Roby
 
 	    super() if defined? super
 	end
+
+        def self.instanciate_relation_graphs(graph_observer: nil)
+            task_relation_graphs  = Relations::Space.new_relation_graph_mapping
+            Task.all_relation_spaces.each do |space|
+                task_relation_graphs.merge!(
+                    space.instanciate(observer: graph_observer))
+            end
+
+            event_relation_graphs = Relations::Space.new_relation_graph_mapping
+            EventGenerator.all_relation_spaces.each do |space|
+                event_relation_graphs.merge!(
+                    space.instanciate(observer: graph_observer))
+            end
+            return task_relation_graphs, event_relation_graphs
+        end
 
         # The graphs that make task relations, formatted as required by
         # {Relations::DirectedRelationSupport#relation_graphs}
@@ -141,6 +147,13 @@ module Roby
             return enum_for(__method__) if !block_given?
             each_event_relation_graph(&block)
             each_task_relation_graph(&block)
+        end
+
+        # Enumerate all graphs (event and tasks) that form this plan
+        def each_relation_graph
+            return enum_for(__method__) if !block_given?
+            each_task_relation_graph { |g| yield(g) }
+            each_event_relation_graph { |g| yield(g) }
         end
 
         # Enumerate the graph objects that contain this plan's event relation
@@ -198,19 +211,7 @@ module Roby
             copy.merge(self)
         end
 
-        # Merges the content of a plan into self
-        #
-        # It is assumed that self and plan do not intersect.
-        #
-        # Unlike {#merge!}, it does not update its argument, neither update the
-        # plan objects to point to self afterwards
-        #
-        # @param [Roby::Plan] plan the plan to merge into self
-        def merge(plan)
-            return if plan == self
-
-            merging_plan(plan)
-
+        def merge_base(plan)
             free_events.merge(plan.free_events)
             missions.merge(plan.missions)
             known_tasks.merge(plan.known_tasks)
@@ -218,7 +219,9 @@ module Roby
             permanent_events.merge(plan.permanent_events)
             task_index.merge(plan.task_index)
             task_events.merge(plan.task_events)
-
+        end
+        
+        def merge_relation_graphs(plan)
             # Now merge the relation graphs
             #
             # Since task_relation_graphs contains both Class<Graph>=>Graph and
@@ -235,7 +238,44 @@ module Roby
                 next if !(this_rel = event_relation_graphs.fetch(rel_id, nil))
                 this_rel.merge(rel)
             end
+        end
 
+        def replace_relation_graphs(merged_graphs)
+            merged_graphs.each do |self_g, new_g|
+                self_g.replace(new_g)
+            end
+        end
+
+        def merge_transaction(transaction, merged_graphs, added, removed, updated)
+            merging_plan(transaction)
+            merge_base(transaction)
+            replace_relation_graphs(merged_graphs)
+            merged_plan(transaction)
+        end
+
+        def merge_transaction!(transaction, merged_graphs, added, removed, updated)
+            merge_transaction(transaction, merged_graphs, added, removed, updated)
+
+            # Note: Task#plan= updates its bound events
+            tasks, events = transaction.known_tasks.dup, transaction.free_events.dup
+            transaction.clear!
+            tasks.each { |t| t.plan = self }
+            events.each { |e| e.plan = self }
+        end
+
+        # Merges the content of a plan into self
+        #
+        # It is assumed that self and plan do not intersect.
+        #
+        # Unlike {#merge!}, it does not update its argument, neither update the
+        # plan objects to point to self afterwards
+        #
+        # @param [Roby::Plan] plan the plan to merge into self
+        def merge(plan)
+            return if plan == self
+            merging_plan(plan)
+            merge_base(plan)
+            merge_relation_graphs(plan)
             merged_plan(plan)
         end
 
@@ -249,7 +289,6 @@ module Roby
         # @param [Roby::Plan] plan the plan to merge into self
         def merge!(plan)
             return if plan == self
-
             merge(plan)
 
             # Note: Task#plan= updates its bound events
@@ -329,6 +368,25 @@ module Roby
                     target_graph.add_edge(
                         mappings[parent], mappings[child], graph.edge_info(parent, child))
                 end
+            end
+        end
+
+        # Verifies that all graphs that should be acyclic are
+        def validate_graphs(graphs)
+            # Make a topological sort of the graphs
+            seen = Set.new
+            Relations.each_graph_topologically(graphs) do |g|
+                if seen.include?(g)
+                    next
+                elsif !g.dag?
+                    next
+                end
+
+                if !g.acyclic?
+                    raise Relations::CycleFoundError, "#{g.class} has cycles"
+                end
+                seen << g
+                seen.merge(g.recursive_subsets)
             end
         end
 

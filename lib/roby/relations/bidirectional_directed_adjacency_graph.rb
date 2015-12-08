@@ -149,6 +149,11 @@ module Roby
                 else 0
                 end
             end
+            
+            def replace(g)
+                @vertices_dict.replace(g.instance_variable_get(:@vertices_dict))
+                edge_info_map.replace(g.edge_info_map)
+            end
 
             def root?(v)
                 in_degree(v) == 0
