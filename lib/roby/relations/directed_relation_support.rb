@@ -240,11 +240,11 @@ module Roby
                 relation = relation_graphs[relation]
                 return if !relation.has_vertex?(self)
 
-                each_parent_object(relation) do |parent|
+                each_parent_object(relation).to_a.each do |parent|
                     relation.remove_relation(parent, self)
                 end
 
-                each_child_object(relation) do |child|
+                each_child_object(relation).to_a.each do |child|
                     relation.remove_relation(self, child)
                 end
             end
