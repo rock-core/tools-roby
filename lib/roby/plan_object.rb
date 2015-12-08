@@ -456,36 +456,6 @@ module Roby
 	    end
 	end
 
-        # Hook called when a new child is added to this object in the given
-        # relations and with the given information object.
-        def adding_child_object(child, relations, info)
-            super if defined? super
-
-            for trsc in plan.transactions
-                next unless trsc.proxying?
-                if (parent_proxy = trsc[self, false]) && (child_proxy = trsc[child, false])
-                    trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info) 
-                end
-            end
-        end
-
-        # Hook called when a child of this object is being removed from the
-        # given relations.
-        def removing_child_object(child, relations)
-	    unless read_write? || child.read_write?
-		raise OwnershipError, "cannot remove a relation between two objects we don't own"
-	    end
-
-            super if defined? super
-
-            for trsc in plan.transactions
-                next unless trsc.proxying?
-                if (parent_proxy = trsc[self, false]) && (child_proxy = trsc[child, false])
-                    trsc.removing_plan_relation(parent_proxy, child_proxy, relations) 
-                end
-            end
-        end
-
         # @return [Array<InstanceHandler>] set of finalization handlers defined
         #   on this task instance
         # @see when_finalized

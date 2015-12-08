@@ -208,6 +208,9 @@ module Roby
         # @param [Roby::Plan] plan the plan to merge into self
         def merge(plan)
             return if plan == self
+
+            merging_plan(plan)
+
             free_events.merge(plan.free_events)
             missions.merge(plan.missions)
             known_tasks.merge(plan.known_tasks)
@@ -225,12 +228,12 @@ module Roby
             plan.task_relation_graphs.each do |rel_id, rel|
                 next if rel_id == rel
                 next if !(this_rel = task_relation_graphs.fetch(rel_id, nil))
-                this_rel.merge!(rel)
+                this_rel.merge(rel)
             end
             plan.event_relation_graphs.each do |rel_id, rel|
                 next if rel_id == rel
                 next if !(this_rel = event_relation_graphs.fetch(rel_id, nil))
-                this_rel.merge!(rel)
+                this_rel.merge(rel)
             end
 
             merged_plan(plan)
@@ -254,6 +257,10 @@ module Roby
             plan.clear!
             tasks.each { |t| t.plan = self }
             events.each { |e| e.plan = self }
+        end
+
+        # Hook called just before performing a {#merge}
+        def merging_plan(plan)
         end
 
         # Hook called when a {#merge} has been performed
@@ -828,60 +835,6 @@ module Roby
 	def added_events(events)
             raise NotImplementedError, "the #added_events hook has been superseded by #merged_plan"
 	end
-
-        # Hook called when relations are created between tasks that are included
-        # in this plan 
-        #
-        # Note that it is NOT triggered for relations created because of
-        # {#merge} or {#merge!}. Hook into {#merged_plan} for these two.
-        #
-        # @param [Task] parent
-        # @param [Task] child
-        # @param [Array<Relations::Graph>] relations the relation graphs in which
-        #   the new relation has been created
-        # @return [void]
-        def added_task_relation(parent, child, relations)
-            super if defined? super
-        end
-
-        # Hook called when relations are removed between tasks that are included
-        # in this plan 
-        #
-        # Note that it is NOT triggered for relations created because of
-        # {#merge} or {#merge!}. Hook into {#merged_plan} for these two.
-        #
-        # @param [Task] parent
-        # @param [Task] child
-        # @param [Array<Relations::Graph>] relations the relation graphs in which
-        #   the relation has been removed
-        # @return [void]
-        def removed_task_relation(parent, child, relations)
-            super if defined? super
-        end
-
-        # Hook called when relations are created between events that are included
-        # in this plan 
-        #
-        # @param [Task] parent
-        # @param [Task] child
-        # @param [Array<Relations::Graph>] relations the relation graphs in which
-        #   the new relation has been created
-        # @return [void]
-        def added_event_relation(parent, child, relations)
-            super if defined? super
-        end
-
-        # Hook called when relations are removed between tasks that are included
-        # in this plan 
-        #
-        # @param [Task] parent
-        # @param [Task] child
-        # @param [Array<Relations::Graph>] relations the relation graphs in which
-        #   the relation has been removed
-        # @return [void]
-        def removed_event_relation(parent, child, relations)
-            super if defined? super
-        end
 
         # Creates a new transaction and yields it. Ensures that the transaction
         # is discarded if the block returns without having committed it.

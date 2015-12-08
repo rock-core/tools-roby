@@ -924,16 +924,6 @@ module Roby
 	    super if defined? super
         end
 
-        def added_child_object(child, relations, info) # :nodoc:
-            super if defined? super
-            plan.added_event_relation(self, child, relations)
-        end
-
-        def removed_child_object(child, relations) # :nodoc:
-            super if defined? super
-            plan.removed_event_relation(self, child, relations)
-        end
-
         # Called when the object has been removed from its plan
         def finalized!(timestamp = nil)
             super

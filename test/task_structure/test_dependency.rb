@@ -523,17 +523,6 @@ class TC_Dependency < Minitest::Test
         info[:roles] << 'child2'
         assert_equal info, parent[child, Dependency]
     end
-    def test_logging
-        messages = gather_log_messages('added_task_child', 'removed_task_child') do
-            parent, child = prepare_plan add: 2
-            parent.depends_on child, success: :success.not_followed_by(:failed), role: 'Task'
-            parent.remove_child child
-        end
-
-        assert_equal 2, messages.size
-        assert_equal 'added_task_child', messages[0].first
-        assert_equal 'removed_task_child', messages[1].first
-    end
 
     def test_depending_on_already_running_task
         Roby::ExecutionEngine.logger.level = Logger::FATAL
@@ -747,18 +736,6 @@ module Roby
 
                 it "raises ArgumentError if the child does not have the expected role" do
                     assert_raises(ArgumentError) { parent.remove_roles(child, 'foo') }
-                end
-
-                it "calls updated_edge_info on the receiver" do
-                    flexmock(parent).should_receive(:updated_edge_info).once.
-                        with(child, Dependency, ->(info) { info[:roles] == ['test2'].to_set })
-                    parent.remove_roles(child, 'test1')
-                end
-
-                it "calls updated_info on the relation" do
-                    flexmock(parent.relation_graph_for(Dependency)).should_receive(:updated_info).once.
-                        with(parent, child, ->(info) { info[:roles] == ['test2'].to_set })
-                    parent.remove_roles(child, 'test1')
                 end
 
                 it "removes the child if the role set becomes empty and remove_child_when_empty is set" do

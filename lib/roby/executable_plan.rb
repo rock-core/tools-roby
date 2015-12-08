@@ -140,10 +140,27 @@ module Roby
         # @param [Object] info the associated edge info that applies to
         #   relations.first
         def adding_edge(parent, child, relations, info)
+            unless parent.read_write? || child.child.read_write?
+		raise OwnershipError, "cannot remove a relation between two objects we don't own"
+	    end
+
+            if last_dag = relations.find_all(&:dag?).last
+                if child.relation_graph_for(last_dag).reachable?(child, parent)
+                    raise Relations::CycleFoundError, "adding an edge from #{parent} to #{child} would create a cycle in #{last_dag}"
+                end
+            end
+
             relations.each do |rel|
                 if name = rel.child_name
                     parent.send("adding_#{rel.child_name}", child, info)
                     child.send("adding_#{rel.child_name}_parent", parent, info)
+                end
+            end
+
+            for trsc in transactions
+                next unless trsc.proxying?
+                if (parent_proxy = trsc[parent, false]) && (child_proxy = trsc[child, false])
+                    trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info) 
                 end
             end
         end
@@ -188,10 +205,21 @@ module Roby
         # @param [Array<Class<Relations::Graph>>] relations the graphs in which an edge
         #   is being removed
         def removing_edge(parent, child, relations)
+            unless parent.read_write? || child.child.read_write?
+		raise OwnershipError, "cannot remove a relation between two objects we don't own"
+	    end
+
             relations.each do |rel|
                 if name = rel.child_name
                     parent.send("removing_#{rel.child_name}", child)
                     child.send("removing_#{rel.child_name}_parent", parent)
+                end
+            end
+
+            for trsc in transactions
+                next unless trsc.proxying?
+                if (parent_proxy = trsc[parent, false]) && (child_proxy = trsc[child, false])
+                    trsc.removing_plan_relation(parent_proxy, child_proxy, relations) 
                 end
             end
         end
@@ -211,16 +239,43 @@ module Roby
             end
         end
 
+        # @api private
+        #
+        # Calls the added_* hook methods for all edges in a relation graph
+        #
+        # It is a helper for {#merged_plan}
+        def emit_relation_graph_add_hooks(graph, prefix: nil)
+            rel = graph.class
+            if rel.child_name
+                added_child_hook  = "#{prefix}_#{rel.child_name}"
+                added_parent_hook = "#{added_child_hook}_parent"
+                graph.each_edge do |parent, child, info|
+                    parent.send(added_child_hook, child, info)
+                    child.send(added_parent_hook, parent, info)
+                end
+            end
+        end
+
+        def merging_plan(plan)
+            plan.each_task_relation_graph do |graph|
+                emit_relation_graph_add_hooks(graph, prefix: 'adding')
+            end
+            plan.each_event_relation_graph do |graph|
+                emit_relation_graph_add_hooks(graph, prefix: 'adding')
+            end
+            super
+        end
+
         def merged_plan(plan)
             if !plan.event_relation_graph_for(EventStructure::Precedence).empty?
                 execution_engine.event_ordering.clear
             end
-            plan.free_events.each do |ev|
-                if ev.kind_of?(OrGenerator) || ev.kind_of?(AndGenerator)
-                    ev.each_parent_object(EventStructure::Signal) do |parent|
-                        ev.added_signal_parent(parent, nil)
-                    end
-                end
+
+            plan.each_task_relation_graph do |graph|
+                emit_relation_graph_add_hooks(graph, prefix: 'added')
+            end
+            plan.each_event_relation_graph do |graph|
+                emit_relation_graph_add_hooks(graph, prefix: 'added')
             end
             super
         end

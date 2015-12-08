@@ -541,27 +541,6 @@ module Roby
             self
 	end
 
-        # Hook called when a new child is added to this task
-        def added_child_object(child, relations, info)
-            # We must call super first, as it calls
-            # PlanObject#added_child_object: this hook will make sure that self
-            # is added to child's plan if self is in no plan and child is.
-            super if defined? super
-
-            if plan
-                plan.added_task_relation(self, child, relations)
-            end
-        end
-
-        # Hook called when child is removed from this task
-        def removed_child_object(child, relations)
-            super if defined? super
-
-            if plan
-                plan.removed_task_relation(self, child, relations)
-            end
-        end
-
         def invalidated_terminal_flag?; !!@terminal_flag_invalid end
         def invalidate_terminal_flag; @terminal_flag_invalid = true end
 

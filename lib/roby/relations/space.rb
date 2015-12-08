@@ -360,35 +360,37 @@ module Roby
                 def removing_#{child_name}(to)
                     super if defined? super
                 end
+                def added_#{child_name}(to, info)
+                end
+                def removed_#{child_name}(to)
+                end
                 EOD
 
                 if single_child
-                    synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
-                    attr_reader :#{child_name}
-
-                    def added_#{child_name}(child, info)
-                        super if defined? super
-                        @#{child_name} = child
+                    synthetized_methods.class_eval do
+                        attr_reader child_name
                     end
+                    graph_class.class_eval do
+                        def add_edge(parent, child, info)
+                            super
 
-                    def removed_#{child_name}(child)
-                        super if defined? super
-                        if @#{child_name} == child
-                            @#{child_name} = nil
-                            each_child_object(__r_#{relation_name}__) do |child|
-                                @#{child_name} = child
-                                break
+                            parent.instance_variable_set "@#{self.class.child_name}", child
+                        end
+
+                        def remove_edge(parent, child)
+                            super
+
+                            single_child_accessor = "@#{self.class.child_name}"
+                            current_child = parent.instance_variable_get single_child_accessor
+                            if current_child == child
+                                each_out_neighbour(parent) do |child|
+                                    parent.instance_variable_set single_child_accessor, child
+                                    return
+                                end
+                                parent.instance_variable_set single_child_accessor, nil
                             end
                         end
                     end
-                    EOD
-                else
-                    synthetized_methods.class_eval <<-EOD, __FILE__, __LINE__ + 1
-                    def added_#{child_name}(to, info)
-                    end
-                    def removed_#{child_name}(to)
-                    end
-                    EOD
                 end
 
                 add_relation(graph_class)

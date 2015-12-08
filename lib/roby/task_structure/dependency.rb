@@ -611,9 +611,7 @@ module Roby
                 # Set up the event gathering needed by Dependency.check_structure
                 def added_child(child, info) # :nodoc:
                     super if defined? super
-                    if !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
-                        relation_graphs[Dependency].update_triggers_for(self, child, info)
-                    end
+                    relation_graphs[Dependency].update_triggers_for(self, child, info)
                 end
 
                 # Return the set of this task children for which the :start event has

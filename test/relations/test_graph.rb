@@ -3,33 +3,6 @@ require 'roby/test/self'
 module Roby
     module Relations
         describe Graph do
-            describe "DAG graph" do
-                let(:vertex_m) do
-                    Class.new do
-                        include DirectedRelationSupport
-                        attr_reader :relation_graphs
-                        def initialize(relation_graphs = Hash.new)
-                            @relation_graphs = relation_graphs
-                        end
-                    end
-                end
-
-                it "does not raise CycleFoundError if an edge creates a DAG if dag is false" do
-                    chain = (1..10).map { vertex_m.new }
-                    graph = Graph.new_submodel(dag: false).new
-                    chain.each_cons(2) { |a, b| graph.add_relation(a, b, nil) }
-                    graph.add_relation(chain[-1], chain[0])
-                end
-                it "raises CycleFoundError if an edge creates a DAG if dag is true" do
-                    chain = (1..10).map { vertex_m.new }
-                    graph = Graph.new_submodel(dag: true).new
-                    chain.each_cons(2) { |a, b| graph.add_relation(a, b, nil) }
-                    assert_raises(CycleFoundError) do
-                        graph.add_relation(chain[-1], chain[0])
-                    end
-                end
-            end
-
             describe "behaviour related to edge info" do
                 let(:graph_m) { Graph.new_submodel }
                 subject { graph_m.new }
@@ -89,11 +62,7 @@ module Roby
 
                     describe "creating edges in superset graphs" do
                         it "does not create edges in the subgraphs" do
-                            flexmock(parent).should_receive(:adding_child_object).
-                                with(child, [superset_graph_m], info = flexmock).once
-                            flexmock(parent).should_receive(:added_child_object).
-                                with(child, [superset_graph_m], info).once
-                            parent.add_child_object(child, superset_graph_m, info)
+                            parent.add_child_object(child, superset_graph_m, info = flexmock)
                             assert !graph.has_vertex?(parent)
                             assert !graph.has_vertex?(child)
                         end
@@ -102,20 +71,12 @@ module Roby
                     describe "creating edges in subset graphs" do
                         it "can be created even if the superset graph has an edge already" do
                             parent.add_child_object(child, superset_graph_m, superset_info = flexmock)
-                            flexmock(parent).should_receive(:adding_child_object).
-                                with(child, [graph_m], info = flexmock).once
-                            flexmock(parent).should_receive(:added_child_object).
-                                with(child, [graph_m], info).once
-                            parent.add_child_object(child, graph_m, info)
+                            parent.add_child_object(child, graph_m, info = flexmock)
                             assert_equal superset_info, parent[child, superset_graph_m]
                             assert_equal info, parent[child, graph_m]
                         end
                         it "sets the edge info only at the level it has been set" do
-                            flexmock(parent).should_receive(:adding_child_object).
-                                with(child, [graph_m, superset_graph_m], info = flexmock).once
-                            flexmock(parent).should_receive(:added_child_object).
-                                with(child, [graph_m, superset_graph_m], info).once
-                            parent.add_child_object(child, graph_m, info)
+                            parent.add_child_object(child, graph_m, info = flexmock)
                             assert_equal info, parent[child, graph_m]
                             assert_equal nil, parent[child, superset_graph_m]
                         end

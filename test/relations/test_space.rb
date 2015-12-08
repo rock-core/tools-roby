@@ -90,65 +90,6 @@ module Roby
             end
 
             describe "synthetized methods" do
-                describe "hooks" do
-                    attr_reader :relation
-                    before do
-                        @relation = space.relation :R, child_name: 'child'
-                    end
-                    let(:parent) { create_node("parent") }
-                    let(:child) { create_node("child") }
-
-                    it "calls added_CHILD_NAME and adding_CHILD_NAME on addition" do
-                        flexmock(parent).should_receive(:adding_child).
-                            with(child, info = flexmock).once.ordered
-                        flexmock(parent.relation_graphs[relation]).
-                            should_receive(:add_edge).with(parent, child, info).once.ordered
-                        flexmock(parent).should_receive(:added_child).
-                            with(child, info).once.ordered
-
-                        parent.add_child child, info
-                    end
-                    it "does not add the edge if adding_CHILD_NAME raises" do
-                        flexmock(parent).should_receive(:adding_child).
-                            with(child, info = flexmock).once.
-                            and_raise(ArgumentError)
-                        assert_raises(ArgumentError) { parent.add_child child, info }
-                        assert !parent.child_object?(child, relation)
-                    end
-                    it "adds the edge even if added_CHILD_NAME raises" do
-                        flexmock(parent).should_receive(:added_child).
-                            with(child, info = flexmock).once.
-                            and_raise(ArgumentError)
-                        assert_raises(ArgumentError) { parent.add_child child, info }
-                        assert parent.child_object?(child, relation)
-                    end
-                    it "calls removed_CHILD_NAME and removing_CHILD_NAME on removal" do
-                        parent.add_child child
-                        flexmock(parent).should_receive(:removing_child).
-                            with(child).once.ordered
-                        flexmock(parent.relation_graphs[relation]).
-                            should_receive(:remove_edge).with(parent, child).once.ordered
-                        flexmock(parent).should_receive(:removed_child).
-                            with(child).once.ordered
-                        parent.remove_child child
-                    end
-                    it "does not remove the edge if adding_CHILD_NAME raises" do
-                        parent.add_child child
-                        flexmock(parent).should_receive(:removing_child).
-                            with(child).once.
-                            and_raise(ArgumentError)
-                        assert_raises(ArgumentError) { parent.remove_child child }
-                        assert parent.child_object?(child, relation)
-                    end
-                    it "removes the edge even if added_CHILD_NAME raises" do
-                        parent.add_child child
-                        flexmock(parent).should_receive(:removed_child).
-                            with(child).once.
-                            and_raise(ArgumentError)
-                        assert_raises(ArgumentError) { parent.remove_child child }
-                        assert !parent.child_object?(child, relation)
-                    end
-                end
                 describe "single child relation" do
                     before do
                         space.relation :R, child_name: 'child', single_child: true

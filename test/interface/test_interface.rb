@@ -162,8 +162,6 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).with(Roby::Interface::JOB_MONITORED, 10, "the job", task, task.planning_task).once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_READY, 10, "the job").once.ordered
             recorder.should_receive(:called).with(Roby::Interface::JOB_REPLACED, 10, "the job", any).once.ordered
-            recorder.should_receive(:called).with(Roby::Interface::JOB_MONITORED, 10, "the job", any, any).once.ordered
-            recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING_READY, 10, "the job", any).once.ordered
 
             interface.monitor_job(task.planning_task, task)
             plan.in_transaction do |t|

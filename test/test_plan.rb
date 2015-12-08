@@ -134,19 +134,7 @@ module TC_PlanStatic
         c1.start_event.forward_to c1.stop_event
         c11.success_event.forward_to c1.success_event
 
-	# Replace c1 by c3 and check that the hooks are properly called
-	FlexMock.use do |mock|
-	    p.singleton_class.class_eval do
-		define_method('removed_child_object') do |child, relations|
-		    mock.removed_hook(self, child, relations)
-		end
-	    end
-
-	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Dependency]).once
-	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Dependency])
-	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Dependency])
-	    plan.replace_task(c1, c3)
-	end
+        plan.replace_task(c1, c3)
 
 	# Check that the external task and event structures have been
 	# transferred. 
@@ -190,18 +178,7 @@ module TC_PlanStatic
         c11.success_event.forward_to c1.success_event
 
 	# Replace c1 by c3 and check that the hooks are properly called
-	FlexMock.use do |mock|
-	    p.singleton_class.class_eval do
-		define_method('removed_child_object') do |child, relations|
-		    mock.removed_hook(self, child, relations)
-		end
-	    end
-
-	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Dependency]).once
-	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Dependency])
-	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Dependency])
-	    plan.replace(c1, c3)
-	end
+        plan.replace(c1, c3)
 
 	# Check that the external task and event structures have been
 	# transferred. 
@@ -302,24 +279,6 @@ module TC_PlanStatic
         t1.start_event.signals e
 	assert_equal(plan, e.plan)
 	assert(plan.free_events.include?(e))
-
-	# Now, make sure a PlanObject don't get included in the plan if add_child_object
-	# raises
-	adding_child_failure = Module.new do
-	    def adding_child_object(child, relation, info)
-		raise RuntimeError
-	    end
-	end
-	model = Task.new_submodel do
-	    include adding_child_failure
-	end
-	t1, t2 = model.new, model.new
-	plan.add_mission(t1)
-	assert_equal(plan, t1.plan)
-	assert_raises(RuntimeError) { t1.depends_on t2 }
-	assert_equal(plan, t1.plan)
-	assert_equal(plan, t2.plan)
-	assert(plan.include?(t2))
     end
 
     # Checks that a garbage collected object (event or task) cannot be added back into the plan

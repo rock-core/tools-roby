@@ -910,41 +910,6 @@ module TC_TransactionBehaviour
         end
     end
 
-    def test_plan_relation_update_invalidate
-	t1, t2 = prepare_plan add: 2
-
-	t1.depends_on t2
-	assert_raises(Roby::InvalidTransaction) do
-	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		assert(p1.child_object?(p2, Roby::TaskStructure::Dependency))
-		t1.remove_child t2
-		assert(trsc.invalid?)
-	    end
-	end
-
-	t1.depends_on t2
-        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-            p1.remove_child p2
-            t1.remove_child t2
-            assert(!trsc.invalid?)
-        end
-
-	t1.remove_child t2
-	assert_raises(Roby::InvalidTransaction) do
-	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		t1.depends_on(t2)
-		assert(trsc.invalid?)
-	    end
-	end
-
-	t1.remove_child t2
-        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-            p1.depends_on p2
-            t1.depends_on t2
-            assert(!trsc.invalid?)
-        end
-    end
-
     def test_proxy_clear_vertex_removes_all_relations_involving_the_task_when_committed
         parent, child = prepare_plan add: 2
         parent.depends_on child
@@ -1018,6 +983,41 @@ class TC_Transactions < Minitest::Test
     def test_real_plan
         transaction_commit(plan) do |trsc|
             assert_equal(plan, trsc.real_plan)
+        end
+    end
+
+    def test_plan_relation_update_invalidate
+	t1, t2 = prepare_plan add: 2
+
+	t1.depends_on t2
+	assert_raises(Roby::InvalidTransaction) do
+	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+		assert(p1.child_object?(p2, Roby::TaskStructure::Dependency))
+		t1.remove_child t2
+		assert(trsc.invalid?)
+	    end
+	end
+
+	t1.depends_on t2
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            p1.remove_child p2
+            t1.remove_child t2
+            assert(!trsc.invalid?)
+        end
+
+	t1.remove_child t2
+	assert_raises(Roby::InvalidTransaction) do
+	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+		t1.depends_on(t2)
+		assert(trsc.invalid?)
+	    end
+	end
+
+	t1.remove_child t2
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            p1.depends_on p2
+            t1.depends_on t2
+            assert(!trsc.invalid?)
         end
     end
 

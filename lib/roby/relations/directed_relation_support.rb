@@ -254,10 +254,7 @@ module Roby
             end
 
             def []=(object, relation, value)
-                graph = relation_graphs[relation]
-                graph.set_edge_info(self, object, value)
-                updated_edge_info(object, relation, value)
-                graph.updated_info(self, object, value)
+                relation_graphs[relation].set_edge_info(self, object, value)
             end
         end
     end
