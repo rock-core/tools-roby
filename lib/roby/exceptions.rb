@@ -208,7 +208,7 @@ module Roby
 			    return true
 			rescue Exception => e
 			    if !kind_of?(PlanObject)
-				engine.add_framework_error(e, 'global exception handling')
+				execution_engine.add_framework_error(e, 'global exception handling')
 			    else
 				add_error(FailedExceptionHandler.new(e, self, exception_object, handler))
 			    end

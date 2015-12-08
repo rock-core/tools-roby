@@ -18,36 +18,37 @@ module Roby
 
             def initialize(*args)
                 super
-                @task_graph = BGL::Graph.new
+                @task_graph = BidirectionalDirectedAdjacencyGraph.new
             end
 
-            def __bgl_link(from, to, info)
+            def add_edge(from, to, info)
                 super
 
                 if from.respond_to?(:task) && to.respond_to?(:task)
                     from_task, to_task = from.task, to.task
-                    if from_task != to_task && !task_graph.linked?(from_task, to_task)
-                        task_graph.link(from_task, to_task, nil)
+                    if from_task != to_task && !task_graph.has_edge?(from_task, to_task)
+                        task_graph.add_edge(from_task, to_task, nil)
                     end
                 end
             end
 
-            def remove(event)
+            def remove_vertex(event)
                 super
                 if event.respond_to?(:task)
-                    task_graph.remove(event.task)
+                    task_graph.remove_vertex(event.task)
                 end
             end
 
-            def unlink(from, to)
+            def remove_edge(from, to)
                 super
+
                 if from.respond_to?(:task) && to.respond_to?(:task)
-                    task_graph.unlink(from.task, to.task)
+                    task_graph.remove_edge(from.task, to.task)
                 end
             end
 
             def related_tasks?(ta, tb)
-                task_graph.linked?(ta, tb)
+                task_graph.has_edge?(ta, tb)
             end
 
             def clear

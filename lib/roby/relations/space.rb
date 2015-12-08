@@ -61,7 +61,7 @@ module Roby
             def instanciate
                 graphs = self.class.new_relation_graph_mapping
                 relations.each do |rel|
-                    g = rel.new(rel.name || to_s)
+                    g = rel.new
                     graphs[g] = graphs[rel] = g
                 end
                 relations.each do |rel|
@@ -396,13 +396,13 @@ module Roby
 
             def add_relation(rel)
                 relations << rel
-                Roby::Relations.add_relation(rel)
+                Relations.add_relation(rel)
             end
 
             # Remove +rel+ from the set of relations managed in this space
             def remove_relation(rel)
                 relations.delete(rel)
-                Roby::Relations.remove_relation(rel)
+                Relations.remove_relation(rel)
             end
         end
     end

@@ -129,6 +129,28 @@ module Roby
                     terminal
                 end
 
+                class ResponseLocationVisitor < RGL::DFSVisitor
+                    attr_reader :predicate, :selected
+
+                    def initialize(graph, predicate)
+                        super(graph)
+                        @predicate = predicate
+                        @selected = Set.new
+                    end
+
+                    def handle_examine_vertex(u)
+                        if predicate.call(u)
+                            selected << u
+                        end
+                    end
+
+                    def follow_edge?(u, v)
+                        if selected.include?(u)
+                            false
+                        else super
+                        end
+                    end
+                end
 
                 def find_response_locations(origin)
                     if response_location == :origin
@@ -142,16 +164,12 @@ module Roby
                             proc { |t| t.running? && t.planning_task && t.planning_task.kind_of?(Roby::Actions::Task) }
                         end
 
-                    result = Set.new
-                    
-                    dependency_graph = origin.plan.task_relation_graph_for(TaskStructure::Dependency)
-                    dependency_graph.reverse.each_dfs(origin, BGL::Graph::TREE) do |_, to, _|
-                        if predicate.call(to)
-                            result << to
-                            dependency_graph.prune
-                        end
-                    end
-                    result
+                    search_graph = origin.plan.
+                        task_relation_graph_for(TaskStructure::Dependency).
+                        reverse
+                    visitor = ResponseLocationVisitor.new(search_graph, predicate)
+                    search_graph.depth_first_visit(origin, visitor) {}
+                    visitor.selected
                 end
 
                 def activate(exception, arguments = Hash.new)

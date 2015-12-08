@@ -19,11 +19,124 @@ module Roby
         # the set of relations whose vertices are of the same kind (for instance
         # TaskStructure manages all relations whose vertices are Task instances).
         # In these cases, Relations::Space#relation allow to define new relations easily.
-        class Graph < BGL::Graph
+        class Graph < BidirectionalDirectedAdjacencyGraph
             extend Models::Graph
 
-            # The relation name
-            attr_reader   :name
+            def remove(vertex)
+                Roby.warn_deprecated "Graph#remove is deprecated, use #remove_vertex instead"
+                remove_vertex(vertex)
+            end
+
+            def link(a, b, info)
+                Roby.warn_deprecated "Graph#link is deprecated, use #add_edge instead"
+                add_edge(a, b, info)
+            end
+
+            def linked?(parent, child)
+                Roby.warn_deprecated "Graph#linked? is deprecated, use #add_edge instead"
+                has_edge?(parent, child)
+            end
+
+            def unlink(parent, child)
+                Roby.warn_deprecated "Graph#unlink is deprecated, use #remove_edge instead"
+                remove_edge(parent, child)
+            end
+
+            def reachable?(u, v)
+                depth_first_visit(u) { |o| return true if o == v }
+                false
+            end
+
+            def add_edge(a, b, info)
+                if has_edge?(a, b)
+                    old_info = edge_info(a, b)
+                    if info != old_info
+                        if info = merge_info(from, to, old_info, info)
+                            set_edge_info(a, b, info)
+                            updated_info(a, b, old_info, info)
+                            return
+                        else
+                            raise ArgumentError, "trying to change edge information"
+                        end
+                    end
+                    return
+                else
+                    super
+                end
+            end
+
+            def to_s
+                "#{self.class.name}:#{object_id.to_s(16)}"
+            end
+
+            def inspect; to_s end
+
+            def find_edge_difference(graph, mapping)
+                if graph.num_edges != num_edges
+                    return [:num_edges_differ]
+                end
+
+                each_edge do |parent, child|
+                    m_parent, m_child = mapping[parent], mapping[child]
+                    if !m_parent
+                        return [:missing_mapping, parent]
+                    elsif !m_child
+                        return [:missing_mapping, child]
+                    elsif !graph.has_vertex?(m_parent) || !graph.has_vertex?(m_child) || !graph.has_edge?(m_parent, m_child)
+                        return [:missing_edge, parent, child]
+                    elsif edge_info(parent, child) != graph.edge_info(m_parent, m_child)
+                        return [:differing_edge_info, parent, child]
+                    end
+                end
+                nil
+            end
+
+            # Replaces +from+ by +to+. This means +to+ takes the role of +from+ in
+            # all edges +from+ is involved in. +from+ is removed from the graph.
+            def replace_vertex(from, to)
+                from.each_parent_vertex(self) do |parent|
+                    if parent != to && !has_edge?(parent, to)
+                        add_edge(parent, to, parent[from, self])
+                    end
+                end
+                from.each_child_vertex(self) do |child|
+                    if to != child && !has_edge?(to, child)
+                        add_edge(to, child, from[child, self])
+                    end
+                end
+                remove(from)
+            end
+
+            def each_parent_vertex(object, &block)
+                Roby.warn_deprecated "#each_parent_vertex has been replaced by #each_in_neighbour"
+                rgl_graph.each_in_neighbour(object, &block)
+            end
+
+            def each_child_vertex(object, &block)
+                Roby.warn_deprecated "#each_child_vertex has been replaced by #each_out_neighbour"
+                rgl_graph.each_out_neighbour(object, &block)
+            end
+
+            def merge!(graph)
+                merge(graph)
+                graph.clear
+            end
+
+            def copy_to(target)
+                Roby.warn_deprecated "Graph#copy_to is deprecated, use #merge instead (WARN: a.copy_to(b) is b.merge(a) !"
+                target.merge(self)
+            end
+
+            def size
+                Roby.warn_deprecated "Graph#size is deprecated, use #num_vertices instead"
+                num_vertices
+            end
+
+            def include?(object)
+                Roby.warn_deprecated "Graph#include? is deprecated, use #has_vertex? instead"
+                has_vertex?(object)
+            end
+
             # The relation parent (if any). See #superset_of.
             attr_accessor :parent
             # The set of graphs that are directly children of self in the graph
@@ -57,7 +170,6 @@ module Roby
             # +distributed+:: 
             #   if this relation graph should be seen by remote hosts
             def initialize(
-                name,
                 distribute: self.class.distribute?,
                 dag: self.class.dag?,
                 weak: self.class.weak?,
@@ -66,8 +178,6 @@ module Roby
                 noinfo: !self.class.embeds_info?,
                 subsets: Set.new)
 
-                self.name = name
-                @name    = name
                 @distribute = distribute
                 @dag     = dag
                 @weak    = weak
@@ -77,6 +187,8 @@ module Roby
 
                 @subsets = Set.new
                 subsets.each { |g| superset_of(g) }
+
+                super()
             end
 
             # True if this relation graph is a DAG
@@ -99,18 +211,8 @@ module Roby
             # copied to A
             attr_predicate :copy_on_replace
 
-            def to_s; name end
-
             # True if this relation does not have a parent
             def root_relation?; !parent end
-
-            # Remove +vertex+ from this graph. It removes all relations that
-            # +vertex+ is part of, and calls the corresponding hooks
-            def remove(vertex)
-                return if !self.include?(vertex)
-                vertex.remove_relations(self)
-                super
-            end
 
             # Add an edge between +from+ and +to+. The relation is added on all
             # parent relation graphs as well. If #dag? is true on +self+ or on one
@@ -131,25 +233,18 @@ module Roby
             # <tt>parent.parent</tt>, ...] if the parent, grandparent, ... graphs
             # do not include the edge either.
             def add_relation(from, to, info = nil)
-                # Get the toplevel DAG in our relation hierarchy. We only test for the
-                # DAG property on this one, as it is the union of all its children
-                top_dag = nil
                 new_relations = []
                 rel     = self
                 while rel
-                    top_dag = rel if rel.dag?
-                    if !rel.linked?(from, to)
+                    if !rel.has_edge?(from, to)
                         new_relations << rel
                     end
                     rel = rel.parent
                 end
-                if top_dag && !top_dag.linked?(from, to) && top_dag.reachable?(to, from)
-                    raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
-                end
 
                 # Now check that we're not changing the edge info. This is ignored
                 # if +self+ has the noinfo flag set.
-                if linked?(from, to)
+                if has_edge?(from, to)
                     if !(old_info = edge_info(from, to)).nil?
                         if old_info != info && !(info = merge_info(from, to, old_info, info))
                             raise ArgumentError, "trying to change edge information in #{self} for #{from} => #{to}: old was #{old_info} and new is #{info}"
@@ -163,7 +258,7 @@ module Roby
                     new_relations_ids = new_relations.map(&:class)
                     from.adding_child_object(to, new_relations_ids, info)
                     for rel in new_relations
-                        rel.__bgl_link(from, to, (info if self == rel))
+                        rel.add_edge(from, to, (info if self == rel))
                     end
                     from.added_child_object(to, new_relations_ids, info)
                 end
@@ -175,31 +270,6 @@ module Roby
 
             def merge_info(from, to, old, new)
                 super if defined? super
-            end
-
-            alias :__bgl_link :link
-
-            # Unlike BGL::Graph#link, it is possible to "add" a link between two
-            # objects that are already linked. Two cases
-            #
-            # * the 'info' parameter is identical, in which case nothing is done
-            # * the 'info' parameter is different. #merge_info is called on the
-            #   relation object. If it returns a non-nil object, then it is used
-            #   as an updated info, otherwise, an error is generated.
-            def link(from, to, info)
-                if linked?(from, to)
-                    old_info = from[to, self]
-                    if info != old_info
-                        if info = merge_info(from, to, old_info, info)
-                            from[to, self] = info
-                            return
-                        else
-                            raise ArgumentError, "trying to change edge information"
-                        end
-                    end
-                    return
-                end
-                super(from, to, info)
             end
 
             # Remove the relation between +from+ and +to+, in this graph and in its
@@ -217,21 +287,21 @@ module Roby
             # <tt>[self, parent, parent.parent, ...]</tt> up to the root relation
             # which is a superset of +self+.
             def remove_relation(from, to)
-                if !linked?(from, to)
+                if !has_edge?(from, to)
                     return
                 end
 
                 rel = self
-                relations = []
+                relations, relations_ids = [], []
                 while rel
                     relations << rel
+                    relations_ids << rel.class
                     rel = rel.parent
                 end
 
-                relations_ids = relations.map(&:class)
                 from.removing_child_object(to, relations_ids)
                 for rel in relations
-                    rel.unlink(from, to)
+                    rel.remove_edge(from, to)
                 end
                 from.removed_child_object(to, relations_ids)
             end
@@ -244,12 +314,25 @@ module Roby
                 self.eql?(relation) || subsets.any? { |subrel| subrel.subset?(relation) }
             end
 
-            # Returns +true+ if there is an edge +source+ -> +target+ in this graph
-            # or in one of its parents
+            # The root in this graph's hierarchy
+            def root_graph
+                g = self
+                while g.parent
+                    g = g.parent
+                end
+                g
+            end
+
+            # @deprecated use {#has_edge_in_hierarchy?}
+            def linked_in_hierarchy?(source, target)
+                Roby.warn_deprecated "#linked_in_hierarchy? is deprecated, use #has_edge_in_hierarchy? instead"
+            end
+
+            # Tests the presence of an edge in this graph or in its supersets
             #
             # See #superset_of for a description of the parent mechanism
-            def linked_in_hierarchy?(source, target)
-                linked?(source, target) || (parent.linked?(source, target) if parent)
+            def has_edge_in_hierarchy?(source, target)
+                root_graph.has_edge?(source, target)
             end
 
             # Declare that +self+ is a superset of +relation+. Once this is done,
@@ -265,7 +348,7 @@ module Roby
             # parent (#parent).
             def superset_of(relation)
                 relation.each_edge do |source, target, info|
-                    if linked_in_hierarchy?(source, target)
+                    if has_edge_in_hierarchy?(source, target)
                         raise ArgumentError, "relation and self already share an edge"
                     end
                 end

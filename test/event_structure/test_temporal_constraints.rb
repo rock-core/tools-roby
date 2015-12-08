@@ -157,9 +157,9 @@ class TC_TemporalConstraints < Minitest::Test
 
         assert_raises(ArgumentError) { e1.add_temporal_constraint(e2, 5, 0) }
 
-        assert temporal_constraints_graph.linked?(e1, e2)
+        assert temporal_constraints_graph.has_edge?(e1, e2)
         assert_equal [[-5, 10]], e1[e2, TemporalConstraints].intervals
-        assert temporal_constraints_graph.linked?(e2, e1)
+        assert temporal_constraints_graph.has_edge?(e2, e1)
         assert_equal [[-10, 5]],  e2[e1, TemporalConstraints].intervals
 
         t1.start_event.add_temporal_constraint(t2.start_event, 12, 13)

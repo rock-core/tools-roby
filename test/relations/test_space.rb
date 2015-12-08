@@ -102,7 +102,7 @@ module Roby
                         flexmock(parent).should_receive(:adding_child).
                             with(child, info = flexmock).once.ordered
                         flexmock(parent.relation_graphs[relation]).
-                            should_receive(:__bgl_link).with(parent, child, info).once.ordered
+                            should_receive(:add_edge).with(parent, child, info).once.ordered
                         flexmock(parent).should_receive(:added_child).
                             with(child, info).once.ordered
 
@@ -127,7 +127,7 @@ module Roby
                         flexmock(parent).should_receive(:removing_child).
                             with(child).once.ordered
                         flexmock(parent.relation_graphs[relation]).
-                            should_receive(:unlink).with(parent, child).once.ordered
+                            should_receive(:remove_edge).with(parent, child).once.ordered
                         flexmock(parent).should_receive(:removed_child).
                             with(child).once.ordered
                         parent.remove_child child

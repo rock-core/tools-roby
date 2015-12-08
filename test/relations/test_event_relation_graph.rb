@@ -42,8 +42,8 @@ module Roby
             it "keeps the tasks in the task graph after the events have been unlinked" do
                 event_a.add_child event_b
                 event_a.remove_child event_b
-                assert relation.task_graph.include?(task_a)
-                assert relation.task_graph.include?(task_b)
+                assert relation.task_graph.has_vertex?(task_a)
+                assert relation.task_graph.has_vertex?(task_b)
             end
 
             it "removes the tasks from the task graph once the events have beeen cleared" do
@@ -51,8 +51,8 @@ module Roby
                 event_a.remove_child event_b
                 event_a.clear_vertex
                 event_b.clear_vertex
-                assert !relation.task_graph.include?(task_a)
-                assert !relation.task_graph.include?(task_b)
+                assert !relation.task_graph.has_vertex?(task_a)
+                assert !relation.task_graph.has_vertex?(task_b)
             end
         end
     end

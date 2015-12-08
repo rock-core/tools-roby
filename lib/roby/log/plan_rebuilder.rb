@@ -634,8 +634,8 @@ module Roby
                 info   = local_object(info)
 		rel    = rel.first if rel.kind_of?(Array)
 		rel    = local_object(rel)
-                if !rel.linked?(parent, child)
-                    rel.link(parent, child, info)
+                if !rel.has_edge?(parent, child)
+                    rel.add_edge(parent, child, info)
                 else
                     parent[child, rel] = info
                 end

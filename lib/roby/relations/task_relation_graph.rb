@@ -10,8 +10,8 @@ module Roby
             # available for scheduling. Otherwise, they won't get scheduled
             attr_predicate :scheduling?, true
 
-            def initialize(*args, scheduling: self.class.scheduling?, **options)
-                super(*args, **options)
+            def initialize(scheduling: self.class.scheduling?, **options)
+                super(**options)
                 @scheduling = scheduling
             end
         end

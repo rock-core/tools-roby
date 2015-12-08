@@ -52,19 +52,7 @@ require 'roby/exceptions'
 
 require 'roby/distributed/base'
 
-begin
-    require 'roby_bgl'
-rescue LoadError
-    STDERR.puts "Cannot require Roby's roby_bgl C extension"
-    STDERR.puts "If you are using Rock, it should have been built automatically."
-    STDERR.puts "Run"
-    STDERR.puts "  amake roby"
-    STDERR.puts "and try again"
-    exit 1
-end
 
-
-require 'roby/graph'
 require 'roby/relations'
 require 'roby/plan'
 require 'roby/executable_plan'

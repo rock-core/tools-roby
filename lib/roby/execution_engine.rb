@@ -1093,6 +1093,41 @@ module Roby
             current_step
         end
 
+        # @api private
+        #
+        # Graph visitor that propagates exceptions in the dependency graph
+        class ExceptionPropagationVisitor < Relations::ForkMergeVisitor
+            attr_reader :exception_handler
+            attr_reader :handled_exceptions
+            attr_reader :unhandled_exceptions
+
+            def initialize(graph, object, origin, origin_neighbours = graph.out_neighbours(origin), &exception_handler)
+                super(graph, object, origin, origin_neighbours)
+                @exception_handler = exception_handler
+                @handled_exceptions = Array.new
+                @unhandled_exceptions = Array.new
+            end
+
+            def handle_examine_vertex(u)
+                e = vertex_to_object[u]
+                return if e.handled?
+                if u != origin
+                    e.trace << u
+                end
+                if e.handled = exception_handler[e, u]
+                    handled_exceptions << e
+                elsif out_degree[u] == 0
+                    unhandled_exceptions << e
+                end
+            end
+
+            def follow_edge?(u, v)
+                if !vertex_to_object[u].handled?
+                    super
+                end
+            end
+        end
+
         # The core exception propagation algorithm
         #
         # @param [Array<(ExecutionException,Array<Task>)>] exceptions the set of
@@ -1120,27 +1155,28 @@ module Roby
                 end
             end
 
-            # Propagate the exceptions in the hierarchy
-            handled_exceptions = Hash.new
-            unhandled = Array.new
-            propagation = lambda do |from, to, e|
-                e.trace << to
-                e
-            end
-            visitor = lambda do |task, e|
-                e.handled = yield(e, task)
-                if e.handled?
-                    debug { "handled by #{task}" }
-                    handled_exception(e, task)
-                    handled_exceptions[e.exception] << e
-                    dependency_graph.prune
-                else
-                    debug { "not handled by #{task}" }
-                end
-            end
+            propagation_graph = dependency_graph.reverse
 
+            # Propagate the exceptions in the hierarchy
+
+            unhandled = Array.new
+            handled_exceptions = Hash.new
             exceptions.each do |exception, parents|
-                parents = [] if !parents
+                origin = exception.origin
+                if parents
+                    filtered_parents = parents.find_all { |t| t.depends_on?(origin) }
+                    if filtered_parents != parents
+                        warn "some parents specified for #{exception.exception}(#{exception.exception.class}) are actually not parents of #{origin}, they got filtered out"
+                        (parents - filtered_parents).each do |task|
+                            warn "  #{task}"
+                        end
+                    end
+                    parents = filtered_parents
+                end
+                if !parents || parents.empty?
+                    parents = propagation_graph.out_neighbours(origin)
+                end
+
                 debug do
                     debug "propagating exception "
                     log_pp :debug, exception
@@ -1155,41 +1191,21 @@ module Roby
                     break
                 end
 
-                origin = exception.origin
-                filtered_parents = parents.find_all { |t| t.depends_on?(origin) }
-                if filtered_parents != parents
-                    warn "some parents specified for #{exception.exception}(#{exception.exception.class}) are actually not parents of #{origin}, they got filtered out"
-                    (parents - filtered_parents).each do |task|
-                        warn "  #{task}"
-                    end
+                visitor = ExceptionPropagationVisitor.new(propagation_graph, exception, origin, parents) do |e, task|
+                    yield(e, task)
                 end
-                parents = filtered_parents
-                handled_exceptions[exception.exception] = Set.new
-                remaining = dependency_graph.reverse.
-                    fork_merge_propagation(origin, exception, vertex_visitor: visitor) do |from, to, e|
-                        if !parents.empty?
-                            if from == origin && !parents.include?(to)
-                                dependency_graph.prune
-                            end
-                        end
-                        e.trace << to
-                        e
-                    end
-
-                remaining.each_value do |unhandled_exception|
-                    unhandled << unhandled_exception
-                end
+                visitor.visit
+                unhandled.concat(visitor.unhandled_exceptions.to_a)
+                handled_exceptions[exception.exception] = visitor.handled_exceptions
             end
 
-            # Call global exception handlers for exceptions in +fatal+. Return the
-            # set of still unhandled exceptions
             unhandled = unhandled.find_all do |e|
-                e.handled = yield(e, plan)
-                if e.handled?
+                if e.handled = yield(e, plan)
                     handled_exceptions[e.exception] << e
-                    handled_exception(e, plan)
+                    false
+                else
+                    true
                 end
-                !e.handled?
             end
 
             # Finally, compute the set of tasks that are affected by the
@@ -1647,7 +1663,7 @@ module Roby
 
                     local_tasks.each do |t|
                         for rel in t.sorted_relations
-                            t.relation_graph_for(rel).remove(t) if rel.weak?
+                            t.relation_graph_for(rel).remove_vertex(t) if rel.weak?
                         end
                     end
                 end
@@ -1908,7 +1924,7 @@ module Roby
             plan.permanent_events.dup.each { |t| plan.unmark_permanent(t) }
             plan.force_gc.merge( plan.known_tasks )
 
-            quaranteened_subplan = plan.useful_task_component(nil, Set.new, plan.gc_quarantine.dup)
+            quaranteened_subplan = plan.compute_useful_tasks(plan.gc_quarantine)
             remaining = plan.known_tasks - quaranteened_subplan
 
             if remaining.empty?

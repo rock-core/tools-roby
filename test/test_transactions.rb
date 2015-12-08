@@ -193,7 +193,7 @@ module TC_TransactionBehaviour
 	end
 
     rescue
-	trsc.discard_transaction rescue nil
+	trsc.discard_transaction
 	raise
     end
 
@@ -949,15 +949,15 @@ module TC_TransactionBehaviour
         parent, child = prepare_plan add: 2
         parent.depends_on child
         transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
-            assert(p_parent.depends_on?(p_child, false))
+            assert(p_parent.depends_on?(p_child, recursive: false))
             p_parent.clear_vertex
-            assert(!p_parent.depends_on?(p_child, false))
-            assert(parent.depends_on?(child, false))
+            assert(!p_parent.depends_on?(p_child, recursive: false))
+            assert(parent.depends_on?(child, recursive: false))
         end
-        assert(!parent.depends_on?(child, false))
+        assert(!parent.depends_on?(child, recursive: false))
     end
 
-    def test_replace_with_parents_non_included_in_relation_does_not_touch_parents
+    def test_replace_with_parents_non_included_in_transaction_does_not_touch_parents
         root, t1 = prepare_plan add: 2
         root.depends_on t1
         t2 = Roby::Task.new
@@ -965,45 +965,50 @@ module TC_TransactionBehaviour
             trsc.add(t2)
             trsc.replace_task(p1, t2)
         end
-        assert !root.child_object?(t2)
-        assert root.child_object?(t1)
+        assert !root.child_object?(t2, Dependency)
+        assert root.child_object?(t1, Dependency)
     end
 
-    def test_merged_generated_subgraphs
-	(d1, d2, d3, d4, d5, d6), t1 = prepare_plan add: 6, tasks: 1
-
-        plan.in_transaction do |trsc|
-            d1.depends_on d2
-            d2.depends_on d3
-            d4.depends_on d5
-            d5.depends_on d6
-
-            # Add a new relation which connects two components. Beware that
-            # modifying trsc[d3] and trsc[d4] makes d2 and d5 proxies to be
-            # discovered
-            trsc[d3].depends_on t1
-            t1.depends_on trsc[d4]
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(Dependency, [d1], [])
-            assert_equal([trsc[d3], trsc[d4], t1].to_set, trsc_set)
-            assert_equal([d1, d2, d5, d6].to_set, plan_set)
-            
-            # Remove the relation and check the result
-            trsc[d3].remove_child t1
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(Dependency, [d1], [])
-            assert_equal([d1, d2].to_set, plan_set)
-            assert_equal([trsc[d3]].to_set, trsc_set)
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(Dependency, [], [t1])
-            assert_equal([d5, d6].to_set, plan_set)
-            assert_equal([t1, trsc[d4]].to_set, trsc_set)
-
-            # Remove a plan relation inside the transaction, and check it is taken into account
-            trsc[d2].remove_child trsc[d3]
-            plan_set, trsc_set = trsc.merged_generated_subgraphs(Dependency, [d1], [])
-            assert_equal([d1].to_set, plan_set)
-            assert_equal([trsc[d2]].to_set, trsc_set)
+    def test_query_roots_finds_a_path_in_plan
+        parent, child = prepare_plan add: 2
+        parent.depends_on child
+        transaction_commit(plan) do |trsc|
+            assert_equal [[parent].to_set, Set.new],
+                trsc.query_roots([[parent, child].to_set, Set.new], Dependency)
         end
     end
 
+    def test_query_roots_finds_a_path_in_transaction
+        transaction_commit(plan) do |trsc|
+            trsc.add(parent = Roby::Task.new)
+            parent.depends_on(child = Roby::Task.new)
+            assert_equal [[].to_set, [parent].to_set],
+                trsc.query_roots([[].to_set, [parent, child].to_set], Dependency)
+        end
+    end
+
+    def test_query_roots_finds_a_mixed_path_in_plan_and_transaction
+        root, parent, child, grand_child = prepare_plan add: 4
+        root.depends_on(parent)
+        child.depends_on grand_child
+        transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
+            p_parent.depends_on p_child
+            assert_equal [[root].to_set, [].to_set],
+                trsc.query_roots([[root, grand_child].to_set, [p_parent, p_child].to_set], Dependency)
+        end
+    end
+
+    def test_query_roots_does_ignore_relations_that_have_been_removed_in_transaction
+        root, parent, child, grand_child = prepare_plan add: 4
+        root.depends_on(parent)
+        parent.depends_on child
+        child.depends_on grand_child
+        transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
+            p_parent.remove_child p_child
+            assert_equal [[root].to_set, [p_child].to_set],
+                trsc.query_roots([[root, grand_child].to_set, [p_parent, p_child].to_set], Dependency)
+        end
+    end
 end
 
 class TC_Transactions < Minitest::Test

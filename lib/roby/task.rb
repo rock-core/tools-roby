@@ -1253,42 +1253,27 @@ module Roby
         # +object+. It calls the various add/remove hooks defined in
         # {DirectedRelationSupport}.
 	def replace_subplan_by(object)
-	    super
-
 	    # Compute the set of tasks that are in our subtree and not in
 	    # object's *after* the replacement
-	    tree = Set.new
-            each_root_relation_graph do |rel|
-		tree.merge generated_subgraph(rel)
-                tree.merge object.generated_subgraph(rel)
-	    end
-            tree << self << object
+            useful = plan.compute_useful_tasks([self, object])
 
-	    each_event do |event|
-		next unless object.has_event?(event.symbol)
+            task_mapping = Hash.new
+            useful.each { |task| task_mapping[task] = nil }
+            task_mapping[self] = object
 
-                changes = []
+            event_mapping = Hash.new
+            useful.each do |task|
+                task.each_event { |ev| event_mapping[ev] = nil }
+            end
+            each_event do |ev|
+                event_mapping[ev] = object.event(ev.symbol)
+            end
+            plan.replace_subplan(task_mapping, event_mapping)
 
-		event.each_relation do |rel|
-		    parents = []
-		    event.each_parent_object(rel) do |parent|
-			if !parent.respond_to?(:task) || !tree.include?(parent.task)
-			    parents << parent << parent[event, rel]
-			end
-		    end
-		    children = []
-		    event.each_child_object(rel) do |child|
-			if !child.respond_to?(:task) || !tree.include?(child.task)
-			    children << child << event[child, rel]
-			end
-		    end
-		    changes << rel << parents << children
-		end
-
-                target_event = object.event(event.symbol)
-                event.initialize_replacement(target_event)
-		event.apply_relation_changes(target_event, changes)
-	    end
+            initialize_replacement(object)
+            each_event do |event|
+                event.initialize_replacement(event_mapping[event])
+            end
 	end
 
         # Replaces +self+ by +object+ in all relations +self+ is part of, and
@@ -1302,9 +1287,10 @@ module Roby
                 end
             end
             plan.replace_subplan(Hash[self => object], event_mapping)
+
             initialize_replacement(object)
             each_event do |event|
-                event_mapping[event].initialize_replacement(event)
+                event.initialize_replacement(event_mapping[event])
             end
         end
 

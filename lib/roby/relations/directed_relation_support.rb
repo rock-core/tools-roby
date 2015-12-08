@@ -9,8 +9,6 @@ module Roby
         # get called when a new edge involving +self+ as a vertex gets added and
         # removed 
         module DirectedRelationSupport
-            include BGL::Vertex
-
             attr_reader :relation_graphs
 
             def relation_graph_for(rel)
@@ -36,7 +34,7 @@ module Roby
             def each_relation_graph
                 return enum_for(__method__) if !block_given?
                 relation_graphs.each do |k, g|
-                    yield(g) if g.include?(self) && (k == g)
+                    yield(g) if g.has_vertex?(self) && (k == g)
                 end
             end
 
@@ -51,13 +49,9 @@ module Roby
                 end
             end
 
-            def generated_subgraph(relation = nil)
-                super(relation_graphs[relation])
-            end
-
             def root?(relation = nil)
                 if relation
-                    super(relation_graphs[relation])
+                    relation_graphs[relation].root?(self)
                 else
                     each_relation_graph.all? { |g| g.root?(self) }
                 end
@@ -65,42 +59,44 @@ module Roby
 
             def leaf?(relation = nil)
                 if relation
-                    super(relation_graphs[relation])
+                    relation_graphs[relation].leaf?(self)
                 else
                     each_relation_graph.all? { |g| g.leaf?(self) }
                 end
             end
 
             def child_object?(object, relation = nil)
-                child_vertex?(object, relation_graphs[relation])
+                relation_graphs[relation].has_edge?(self, object)
             end
 
             def parent_object?(object, relation = nil)
-                parent_vertex?(object, relation_graphs[relation])
+                relation_graphs[relation].has_edge?(object, self)
             end
 
             def related_object?(object, relation = nil)
-                related_vertex?(object, relation_graphs[relation])
+                parent_object?(object, relation) || child_object?(object, relation)
             end
 
             def each_parent_object(graph = nil)
                 return enum_for(__method__, graph) if !block_given?
-                each_parent_vertex(relation_graphs[graph]) do |parent|
-                    yield(parent)
+                graph = relation_graphs[graph]
+                if graph.has_vertex?(self)
+                    relation_graphs[graph].each_in_neighbour(self) { |p| yield(p) }
                 end
             end
 
             def each_child_object(graph = nil)
                 return enum_for(__method__, graph) if !block_given?
-                each_child_vertex(relation_graphs[graph]) do |child|
-                    yield(child)
+                graph = relation_graphs[graph]
+                if graph.has_vertex?(self)
+                    relation_graphs[graph].each_out_neighbour(self) { |child| yield(child) }
                 end
             end
 
             def sorted_relations
                 Relations.all_relations.
                     find_all do |rel|
-                        (rel = relation_graphs.fetch(rel, nil)) && rel.include?(self)
+                        (rel = relation_graphs.fetch(rel, nil)) && rel.has_vertex?(self)
                     end
             end
 
@@ -116,7 +112,7 @@ module Roby
             # Removes +self+ from all the graphs it is included in.
             def clear_vertex
                 for rel in sorted_relations
-                    relation_graphs[rel].remove(self)
+                    relation_graphs[rel].remove_vertex(self)
                 end
             end
             alias :clear_relations :clear_vertex
@@ -242,7 +238,7 @@ module Roby
                     return
                 end
                 relation = relation_graphs[relation]
-                return if !relation.include?(self)
+                return if !relation.has_vertex?(self)
 
                 each_parent_object(relation) do |parent|
                     relation.remove_relation(parent, self)
@@ -254,18 +250,14 @@ module Roby
             end
 
             def [](object, graph)
-                super(object, relation_graphs[graph])
+                relation_graphs[graph].edge_info(self, object)
             end
 
             def []=(object, relation, value)
-                super(object, relation_graphs[relation], value)
-
-                if respond_to?(:updated_edge_info)
-                    updated_edge_info(object, relation, value)
-                end
-                if relation.respond_to?(:updated_info)
-                    relation.updated_info(self, object, value)
-                end
+                graph = relation_graphs[relation]
+                graph.set_edge_info(self, object, value)
+                updated_edge_info(object, relation, value)
+                graph.updated_info(self, object, value)
             end
 
             # Hook called before a new child is added to this object

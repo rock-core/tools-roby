@@ -1,4 +1,7 @@
+require "roby/relations/bidirectional_directed_adjacency_graph"
+require 'rgl/traversal'
 require "roby/relations/models/directed_relation_support"
+require "roby/relations/fork_merge_visitor"
 require "roby/relations/directed_relation_support"
 require "roby/relations/models/graph"
 require "roby/relations/graph"

@@ -74,38 +74,6 @@ module TC_PlanStatic
         assert_task_state(t, :removed)
     end
 
-    def test_removing_a_task_removes_it_from_the_task_structure
-        t1, t2 = prepare_plan add: 2
-        t1.depends_on t2
-	assert !t1.leaf?(TaskStructure::Dependency)
-        plan.remove_object(t2)
-	assert t1.leaf?(TaskStructure::Dependency)
-    end
-
-    def test_remove_task_removes_its_events_from_the_event_structure
-        t1, t2 = prepare_plan add: 2
-        t1.stop_event.signals t2.start_event
-        assert !t1.stop_event.leaf?(EventStructure::Signal)
-        plan.remove_object(t2)
-        assert t1.stop_event.leaf?(EventStructure::Signal)
-    end
-
-    def test_remove_task_removes_it_from_all_plan_graphs
-        t = Roby::Task.new
-        plan.add(t)
-        plan.remove_object(t)
-        assert_equal [], t.enum_for(:each_graph).to_a
-    end
-
-    def test_passing_a_task_from_plan_to_plan_does_not_leave_it_included_in_graphs
-        t1, t2 = prepare_plan add: 2
-        t1.depends_on t2
-        t1.stop_event.signals t2.start_event
-        plan.add(t1)
-        plan.remove_object(t1)
-        assert_equal [], t1.enum_for(:each_graph).to_a
-    end
-
     def test_add_mission
 	plan.add_mission(t = Task.new)
         assert_task_state(t, :mission)
@@ -155,36 +123,6 @@ module TC_PlanStatic
 	plan.unmark_permanent(ev)
         assert_planobject_state(ev, :normal)
     end
-
-    # TODO: test that #remove_object removes the object from its relations
-    # TODO: test that #add adds related objects
-
-    #def test_discover
-    #    t1, t2, t3, t4 = prepare_plan tasks: 4, model: Roby::Tasks::Simple
-    #    t1.depends_on t2
-    #    or_ev = OrGenerator.new
-    #    t2.event(:start).signals or_ev
-    #    or_ev.signals t3.event(:stop)
-    #    t2.planned_by t4
-
-    #    result = plan.discover(t1)
-    #    assert_equal(plan, result)
-    #    assert( plan.include?(t1) )
-    #    assert( plan.include?(t2) )
-    #    assert( plan.free_events.include?(or_ev))
-    #    assert( !plan.include?(t3) ) # t3 not related because of task structure
-    #    assert( plan.include?(t4) )
-
-    #    # Discover t3 to help plan cleanup
-    #    plan.discover(t3)
-
-    #    # Discover an AndGenerator and not its sources. The sources
-    #    # must be discovered automatically
-    #    a, b = (1..2).map { EventGenerator.new(true) }
-    #    and_event = a & b
-    #    plan.discover(and_event)
-    #    assert_equal(plan, a.plan)
-    #end
 
     def test_replace_task
 	(p, c1), (c11, c12, c2, c3) = prepare_plan missions: 2, tasks: 4, model: Roby::Tasks::Simple
@@ -544,7 +482,7 @@ module Roby
             end
         end
         describe "#locally_useful_tasks" do
-            it 'computes the merge of all strong relation graphs from permanent tasks' do
+            it "computes the merge of all strong relation graphs from permanent tasks" do
                 parent, (child, planner, planner_child) = prepare_plan permanent: 1, add: 3, model: Roby::Tasks::Simple
                 parent.depends_on child
                 child.planned_by planner
@@ -560,7 +498,17 @@ module Roby
                 assert_equal [parent, child, planner, planner_child].to_set, plan.locally_useful_tasks
             end
 
-            it 'computes the merge of all strong relation graphs from mission tasks' do
+            it "returns standalone mission tasks" do
+                parent = prepare_plan missions: 1, model: Roby::Tasks::Simple
+                assert_equal [parent].to_set, plan.locally_useful_tasks
+            end
+
+            it "returns standalone permanent tasks" do
+                parent = prepare_plan permanent: 1, model: Roby::Tasks::Simple
+                assert_equal [parent].to_set, plan.locally_useful_tasks
+            end
+
+            it "computes the merge of all strong relation graphs from mission tasks" do
                 parent, (child, planner, planner_child) = prepare_plan missions: 1, add: 3, model: Roby::Tasks::Simple
                 parent.depends_on child
                 child.planned_by planner
@@ -666,6 +614,51 @@ module Roby
                 copy, mappings = plan.deep_copy
                 assert_equal (plan.known_tasks | plan.free_events | plan.task_events), mappings.keys.to_set
                 assert plan.same_plan?(copy, mappings)
+            end
+        end
+
+        describe "#useful_events" do
+            it "considers standalone events as not useful" do
+                plan.add(parent = EventGenerator.new(true))
+                plan.add(child = EventGenerator.new(true))
+                parent.signals child
+                assert plan.useful_events.empty?
+            end
+            it "considers permanent events useful" do
+                plan.add_permanent(ev = EventGenerator.new(true))
+                assert_equal [ev], plan.useful_events.to_a
+            end
+            it "considers events parent of permanent events as useful" do
+                plan.add(parent = EventGenerator.new(true))
+                plan.add_permanent(child = EventGenerator.new(true))
+                parent.signals child
+                assert [parent, child].to_set, plan.useful_events.to_set
+            end
+            it "considers events parent of task events as useful" do
+                plan.add(parent = EventGenerator.new(true))
+                plan.add(task = Roby::Task.new)
+                parent.forward_to task.start_event
+                assert [parent].to_set, plan.useful_events.to_set
+            end
+            it "considers events children of permanent events as useful" do
+                plan.add_permanent(parent = EventGenerator.new(true))
+                plan.add(child = EventGenerator.new(true))
+                parent.signals child
+                assert [parent, child].to_set, plan.useful_events.to_set
+            end
+            it "considers events children of task events as useful" do
+                plan.add(child = EventGenerator.new(true))
+                plan.add(task = Roby::Task.new)
+                task.start_event.forward_to child
+                assert [child].to_set, plan.useful_events.to_set
+            end
+            it "considers any event linked to another useful event useful" do
+                plan.add_permanent(parent_1 = EventGenerator.new)
+                plan.add(parent_2 = EventGenerator.new)
+                plan.add(aggregator = EventGenerator.new)
+                parent_1.forward_to aggregator
+                parent_2.forward_to aggregator
+                assert [parent_1, parent_2, aggregator].to_set, plan.useful_events.to_set
             end
         end
 

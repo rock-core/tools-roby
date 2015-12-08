@@ -27,6 +27,7 @@ Roby.
   s.add_runtime_dependency "utilrb", ">= 3.0.0.a"
   s.add_runtime_dependency "state_machine", "= 1.0.3"
   s.add_runtime_dependency "metaruby", '>= 1.0.0.a'
+  s.add_runtime_dependency "rgl"
   s.add_runtime_dependency "websocket"
   s.add_runtime_dependency "binding_of_caller"
   s.add_runtime_dependency "rb-readline"

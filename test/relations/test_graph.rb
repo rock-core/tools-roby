@@ -16,13 +16,13 @@ module Roby
 
                 it "does not raise CycleFoundError if an edge creates a DAG if dag is false" do
                     chain = (1..10).map { vertex_m.new }
-                    graph = Graph.new_submodel(dag: false).new("test")
+                    graph = Graph.new_submodel(dag: false).new
                     chain.each_cons(2) { |a, b| graph.add_relation(a, b, nil) }
                     graph.add_relation(chain[-1], chain[0])
                 end
                 it "raises CycleFoundError if an edge creates a DAG if dag is true" do
                     chain = (1..10).map { vertex_m.new }
-                    graph = Graph.new_submodel(dag: true).new("test")
+                    graph = Graph.new_submodel(dag: true).new
                     chain.each_cons(2) { |a, b| graph.add_relation(a, b, nil) }
                     assert_raises(CycleFoundError) do
                         graph.add_relation(chain[-1], chain[0])
@@ -32,7 +32,7 @@ module Roby
 
             describe "behaviour related to edge info" do
                 let(:graph_m) { Graph.new_submodel }
-                subject { graph_m.new("test") }
+                subject { graph_m.new }
                 let(:vertex_m) do
                     Class.new do
                         include DirectedRelationSupport
@@ -75,8 +75,8 @@ module Roby
                     before do
                         @graph_m = Graph.new_submodel
                         @superset_graph_m = Graph.new_submodel
-                        @graph = graph_m.new("graph")
-                        @superset_graph = superset_graph_m.new("superset_graph")
+                        @graph = graph_m.new
+                        @superset_graph = superset_graph_m.new
                         superset_graph.superset_of(graph)
                     end
 
@@ -94,8 +94,8 @@ module Roby
                             flexmock(parent).should_receive(:added_child_object).
                                 with(child, [superset_graph_m], info).once
                             parent.add_child_object(child, superset_graph_m, info)
-                            assert !graph.include?(parent)
-                            assert !graph.include?(child)
+                            assert !graph.has_vertex?(parent)
+                            assert !graph.has_vertex?(child)
                         end
                     end
 

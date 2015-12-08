@@ -1172,7 +1172,7 @@ class TC_Task < Minitest::Test
         task_tuple(2) do |t1, t2| 
 	    s = t1 + t2
 	    aggregator_test( s.to_task, t1, t2 )
-	    assert(! t1.stop_event.related_object?(s.stop_event))
+	    assert(! t1.stop_event.related_object?(s.stop_event, EventStructure::Precedence))
 	end
 
 	task_tuple(3) do |t1, t2, t3|

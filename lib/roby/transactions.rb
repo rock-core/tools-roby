@@ -176,7 +176,7 @@ module Roby
             object.child_objects(relation).each do |object_child| 
                 next unless proxy_child = wrap(object_child, false)
                 if proxy_children.include?(proxy_child)
-                    relation.unlink(proxy, proxy_child)
+                    relation.remove_edge(proxy, proxy_child)
                 end
             end
 
@@ -184,7 +184,7 @@ module Roby
             object.parent_objects(relation).each do |object_parent| 
                 next unless proxy_parent = wrap(object_parent, false)
                 if proxy_parents.include?(proxy_parent)
-                    relation.unlink(parent, proxy_parent)
+                    relation.remove_edge(parent, proxy_parent)
                 end
             end
 
@@ -769,62 +769,6 @@ module Roby
 	    end
 	end
 
-	# Returns two sets of tasks, [plan, transaction]. The union of the two
-	# is the component that would be returned by
-	# +relation.generated_subgraphs(*seeds)+ if the transaction was
-	# committed
-        #
-        # This is an internal method used by queries
-	def merged_generated_subgraphs(relation, plan_seeds, transaction_seeds)
-	    plan_set        = Set.new
-	    transaction_set = Set.new
-	    plan_seeds	      = plan_seeds.to_set
-	    transaction_seeds = transaction_seeds.to_a
-
-            transaction_graph = task_relation_graph_for(relation)
-            plan_graph        = plan.task_relation_graph_for(relation)
-
-	    loop do
-		old_transaction_set = transaction_set.dup
-		transaction_set.merge(transaction_seeds)
-		for new_set in transaction_graph.generated_subgraphs(transaction_seeds, false)
-		    transaction_set.merge(new_set)
-		end
-
-		if old_transaction_set.size != transaction_set.size
-		    for o in (transaction_set - old_transaction_set)
-			if o.respond_to?(:__getobj__)
-			    o.__getobj__.each_child_object(plan_graph) do |child|
-				plan_seeds << child unless self[child, false]
-			    end
-			end
-		    end
-		end
-		transaction_seeds.clear
-
-		plan_set.merge(plan_seeds)
-		plan_seeds.each do |seed|
-		    plan_graph.each_dfs(seed, BGL::Graph::TREE) do |_, dest, _, kind|
-			next if plan_set.include?(dest)
-			if self[dest, false]
-			    proxy = wrap(dest, false)
-			    unless transaction_set.include?(proxy)
-				transaction_seeds << proxy
-			    end
-			    plan_graph.prune # transaction branches must be developed inside the transaction
-			else
-			    plan_set << dest
-			end
-		    end
-		end
-		break if transaction_seeds.empty?
-
-		plan_seeds.clear
-	    end
-
-	    [plan_set, transaction_set]
-	end
-	
 	# Returns [plan_set, transaction_set], where the first is the set of
 	# plan tasks matching +matcher+ and the second the set of transaction
 	# tasks matching it. The two sets are disjoint.
@@ -856,40 +800,130 @@ module Roby
 	    trsc_set.each { |task| yield(task) }
 	end
 
+        class ReachabilityVisitor < RGL::DFSVisitor
+            attr_reader :transaction
+            attr_reader :start_vertex
+
+            def initialize(graph, transaction)
+                super(graph)
+                @transaction = transaction
+            end
+
+            def handle_start_vertex(v)
+                @start_vertex = v
+            end
+        end
+
+        class ReachabilityPlanVisitor < ReachabilityVisitor
+            attr_reader :transaction_seeds
+            attr_reader :plan_set
+
+            def initialize(graph, transaction, transaction_seeds, plan_set)
+                super(graph, transaction)
+                @transaction_seeds = transaction_seeds
+                @plan_set = plan_set
+            end
+
+            def follow_edge?(u, v)
+                if transaction.wrap(u, false) && transaction.wrap(v, false)
+                    false
+                else true
+                end
+            end
+
+            def handle_examine_vertex(v)
+                if (start_vertex != v) && plan_set.include?(v)
+                    throw :reachable, true
+                elsif proxy = transaction.wrap(v, false)
+                    transaction_seeds << proxy
+                end
+            end
+        end
+
+        class ReachabilityTransactionVisitor < ReachabilityVisitor
+            attr_reader :transaction_set
+            attr_reader :plan_seeds
+
+            def initialize(graph, transaction, plan_seeds, transaction_set)
+                super(graph, transaction)
+                @plan_seeds = plan_seeds
+                @transaction_set = transaction_set
+            end
+
+            def handle_examine_vertex(v)
+                if (start_vertex != v) && transaction_set.include?(v)
+                    throw :reachable, true
+                elsif v.transaction_proxy?
+                    plan_seeds << v.__getobj__
+                end
+            end
+        end
+
+        # @api private
+        #
+        # Tests whether a task in plan_set or proxy_set would be reachable from
+        # 'task' if the transaction was applied
+        def reachable_on_applied_transaction?(transaction_seeds, transaction_set, transaction_graph,
+                                              plan_seeds, plan_set, plan_graph)
+            transaction_visitor = ReachabilityTransactionVisitor.new(
+                transaction_graph, self, plan_seeds, transaction_set)
+            if task = transaction_seeds.first
+                transaction_visitor.handle_start_vertex(task)
+            end
+            plan_visitor        = ReachabilityPlanVisitor.new(
+                plan_graph, self, transaction_seeds, plan_set)
+            if task = plan_seeds.first
+                plan_visitor.handle_start_vertex(task)
+            end
+
+            catch(:reachable) do
+                while !transaction_seeds.empty? || !plan_seeds.empty?
+                    transaction_seeds.each do |seed|
+                        seed = transaction_seeds.shift
+                        if !transaction_visitor.finished_vertex?(seed)
+                            transaction_graph.depth_first_visit(seed, transaction_visitor) {}
+                        end
+                    end
+                    transaction_seeds.clear
+
+                    plan_seeds.each do |seed|
+                        seed = plan_seeds.shift
+                        if !plan_visitor.finished_vertex?(seed)
+                            plan_graph.depth_first_visit(seed, plan_visitor) {}
+                        end
+                    end
+                    plan_seeds.clear
+                end
+                false
+            end
+        end
+
+        # @api private
+        #
 	# Given the result set of +query+, returns the subset of tasks which
 	# have no parent in +query+
+        #
+        # This is never called directly, but is used by the Query API
 	def query_roots(result_set, relation) # :nodoc:
 	    plan_set      , trsc_set      = *result_set
-	    plan_result   , trsc_result   = Set.new     , Set.new
 	    plan_children , trsc_children = Set.new     , Set.new
 
-	    for task in plan_set
-		next if plan_children.include?(task)
-		task_plan_children, task_trsc_children = 
-		    merged_generated_subgraphs(relation, [task], [])
+            trsc_graph = task_relation_graph_for(relation).reverse
+            plan_graph = plan.task_relation_graph_for(relation).reverse
 
-		plan_result -= task_plan_children
-		trsc_result -= task_trsc_children
-		plan_children.merge(task_plan_children)
-		trsc_children.merge(task_trsc_children)
-
-		plan_result << task
+            plan_result = plan_set.find_all do |task|
+                !reachable_on_applied_transaction?(
+                    [], trsc_set, trsc_graph,
+                    [task], plan_set, plan_graph)
 	    end
 
-	    for task in trsc_set
-		next if trsc_children.include?(task)
-		task_plan_children, task_trsc_children = 
-		    merged_generated_subgraphs(relation, [], [task])
-
-		plan_result -= task_plan_children
-		trsc_result -= task_trsc_children
-		plan_children.merge(task_plan_children)
-		trsc_children.merge(task_trsc_children)
-
-		trsc_result << task
+            trsc_result = trsc_set.find_all do |task|
+                !reachable_on_applied_transaction?(
+                    [task], trsc_set, trsc_graph,
+                    [], plan_set, plan_graph)
 	    end
 
-	    [plan_result, trsc_result]
+            [plan_result.to_set, trsc_result.to_set]
 	end
     end
 end

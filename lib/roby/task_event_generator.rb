@@ -197,7 +197,7 @@ module Roby
 				      end
 
 	    if child_task
-		unless task.depends_on?(child_task, false)
+		unless task.depends_on?(child_task)
 		    task.depends_on child_task, 
 			success: [child_event.symbol],
 			remove_when_done: true

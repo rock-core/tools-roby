@@ -624,7 +624,7 @@ module Roby
                             next unless parent
                             all_parents[graph] << parent
 
-                            if graph.linked?(parent, object)
+                            if graph.has_edge?(parent, object)
                                 parent[object, graph] = info
                             else
                                 Distributed.update(parent.root_object) do
@@ -636,7 +636,7 @@ module Roby
                             next unless child
                             all_children[graph] << child
 
-                            if graph.linked?(object, child)
+                            if graph.has_edge?(object, child)
                                 object[child, graph] = info
                             else
                                 Distributed.update(child.root_object) do

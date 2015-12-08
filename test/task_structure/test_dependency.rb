@@ -756,7 +756,7 @@ module Roby
                 end
 
                 it "calls updated_info on the relation" do
-                    flexmock(Dependency).should_receive(:updated_info).once.
+                    flexmock(parent.relation_graph_for(Dependency)).should_receive(:updated_info).once.
                         with(parent, child, ->(info) { info[:roles] == ['test2'].to_set })
                     parent.remove_roles(child, 'test1')
                 end

@@ -421,24 +421,10 @@ module Roby
         # +object+. It calls the various add/remove hooks defined in
         # {Relations::DirectedRelationSupport}.
 	def replace_subplan_by(object)
-	    changes = []
-	    each_relation_sorted do |rel|
-		parents = []
-		each_parent_object(rel) do |parent|
-		    unless parent.root_object == root_object
-			parents << parent << parent[self, rel]
-		    end
-		end
-		changes << rel << parents << []
-	    end
-
-	    apply_relation_changes(object, changes)
-            initialize_replacement(object)
+            raise NotImplementedError, "#{self.class} did not reimplement #replace_subplan_by"
 	end
 
-        # Replaces +self+ by +object+ in all graphs +self+ is part of. Unlike
-        # BGL::Vertex#replace_by, this calls the various add/remove hooks
-        # defined in {Relations::DirectedRelationSupport}
+        # Replaces +self+ by +object+ in all graphs +self+ is part of.
         def replace_by(object)
             raise NotImplementedError, "#{self.class} did not reimplement #replace_by"
 	end

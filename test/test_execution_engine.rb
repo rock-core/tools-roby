@@ -284,20 +284,19 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_delay
-	FlexMock.use(Time) do |time_proxy|
-	    current_time = Time.now + 5
-	    time_proxy.should_receive(:now).and_return { current_time }
+        time_proxy = flexmock(Time)
+        current_time = Time.now + 5
+        time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.add_mission(t = Tasks::Simple.new)
-	    e = EventGenerator.new(true)
-	    t.event(:start).signals e, delay: 0.1
-	    execution_engine.once { t.start! }
-	    process_events
-	    assert(!e.happened?)
-	    current_time += 0.1
-	    process_events
-	    assert(e.happened?)
-	end
+        plan.add_mission(t = Tasks::Simple.new)
+        e = EventGenerator.new(true)
+        t.event(:start).signals e, delay: 0.1
+        execution_engine.once { t.start! }
+        process_events
+        assert(!e.happened?)
+        current_time += 0.2
+        process_events
+        assert(e.happened?)
     end
 
     def test_delay_with_unreachability

@@ -8,12 +8,6 @@ Rake::ExtensionTask.new 'roby_marshalling' do |ext|
     end
 end
 
-Rake::ExtensionTask.new 'roby_bgl' do |ext|
-    if ENV['BOOST_DIR']
-        ext.config_options << "--with-boost-dir=#{ENV['BOOST_DIR']}" 
-    end
-end
-
 task :default => :compile
 
 Rake::TestTask.new(:test) do |t|

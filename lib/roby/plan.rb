@@ -310,7 +310,7 @@ module Roby
             each_task_relation_graph do |graph|
                 target_graph = copy.task_relation_graph_for(graph.class)
                 graph.each_edge do |parent, child|
-                    target_graph.link(
+                    target_graph.add_edge(
                         mappings[parent], mappings[child], graph.edge_info(parent, child))
                 end
             end
@@ -318,7 +318,7 @@ module Roby
             each_event_relation_graph do |graph|
                 target_graph = copy.event_relation_graph_for(graph.class)
                 graph.each_edge do |parent, child|
-                    target_graph.link(
+                    target_graph.add_edge(
                         mappings[parent], mappings[child], graph.edge_info(parent, child))
                 end
             end
@@ -661,10 +661,10 @@ module Roby
 
         def apply_replacement_operations(new_relations, removed_relations)
             removed_relations.each do |graph, parent, child|
-                graph.unlink(parent, child)
+                graph.remove_relation(parent, child)
             end
             new_relations.each do |graph, parent, child, info|
-                graph.link(parent, child, info)
+                graph.add_relation(parent, child, info)
             end
         end
 
@@ -903,43 +903,73 @@ module Roby
 	# Hook called when a new transaction has been built on top of this plan
 	def removed_transaction(trsc); super if defined? super end
 
-	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
-	# Only the tasks that are in +complete_set+ are included.
-	def useful_task_component(complete_set, useful_set, seeds)
-            seeds = seeds.to_a
+        # @api private
+        #
+        # Compute the subplan that is useful for a given set of tasks
+        #
+        # @param [Set<Roby::Task>
+	def compute_useful_tasks(seeds)
+            seeds = seeds.to_set
+            graphs = each_task_relation_graph.
+                find_all { |g| g.root_relation? && !g.weak? }
 
-	    old_useful_set = useful_set.dup
-	    for rel in each_task_relation_graph
-                next if !rel.root_relation? || rel.weak?
-                for subgraph in rel.generated_subgraphs(seeds, false)
-		    useful_set.merge(subgraph)
-		end
-	    end
+            visitors = graphs.map do |g|
+                [g, RGL::DFSVisitor.new(g), seeds.dup]
+            end
 
-	    if complete_set
-		useful_set &= complete_set
-	    end
+            result = seeds.dup
 
-	    if useful_set.size == old_useful_set.size || (complete_set && useful_set.size == complete_set.size)
-		useful_set
-	    else
-		useful_task_component(complete_set, useful_set, (useful_set - old_useful_set))
-	    end
+            has_pending_seeds = true
+            while has_pending_seeds
+                has_pending_seeds = false
+                visitors.each do |graph, visitor, seeds|
+                    next if seeds.empty?
+
+                    new_seeds = Array.new
+                    seeds.each do |vertex|
+                        if !visitor.finished_vertex?(vertex) && graph.has_vertex?(vertex)
+                            graph.depth_first_visit(vertex, visitor) { |v| new_seeds << v }
+                        end
+                    end
+                    if !new_seeds.empty?
+                        has_pending_seeds = true
+                        result.merge(new_seeds)
+                        visitors.each { |g, _, s| s.merge(new_seeds) if g != graph }
+                    end
+                    seeds.clear
+                end
+            end
+
+            result
 	end
 
-	# Returns the set of useful tasks in this plan
-	def locally_useful_tasks
+        def locally_useful_roots
 	    # Create the set of tasks which must be kept as-is
 	    seeds = @missions | @permanent_tasks
 	    for trsc in transactions
 		seeds.merge trsc.proxy_objects.keys.to_set
 	    end
+            seeds
+        end
 
-	    return Set.new if seeds.empty?
+        def remotely_useful_roots
+            Distributed.remotely_useful_objects(remote_tasks, true, nil).to_set
+        end
 
-	    # Compute the set of LOCAL tasks which serve the seeds.  The set of
-	    # locally_useful_tasks is the union of the seeds and of this one 
-	    useful_task_component(local_tasks, seeds & local_tasks, seeds) | seeds
+	def locally_useful_tasks
+	    compute_useful_tasks(locally_useful_roots)
+	end
+
+        def remotely_useful_tasks
+	    compute_useful_tasks(remotely_useful_roots)
+        end
+
+        def useful_tasks
+            compute_useful_tasks(locally_useful_roots | remotely_useful_roots)
+        end
+
+	def unneeded_tasks
+	    known_tasks - useful_tasks
 	end
 
 	def local_tasks
@@ -954,30 +984,37 @@ module Roby
 	    end
 	end
 
-	# Returns the set of unused tasks
-	def unneeded_tasks
-	    # Get the set of local tasks that are serving one of our own missions or
-	    # permanent tasks
-	    useful = self.locally_useful_tasks
-
-	    # Append to that the set of tasks that are useful for our peers and
-	    # include the set of local tasks that are serving tasks in
-	    # +remotely_useful+
-	    remotely_useful = Distributed.remotely_useful_objects(remote_tasks, true, nil)
-	    serving_remote = useful_task_component(local_tasks, useful & local_tasks, remotely_useful)
-
-	    useful.merge remotely_useful
-	    useful.merge serving_remote
-
-	    (known_tasks - useful)
-	end
-
 	# Computes the set of useful tasks and checks that +task+ is in it.
 	# This is quite slow. It is here for debugging purposes. Do not use it
 	# in production code
 	def useful_task?(task)
 	    known_tasks.include?(task) && !unneeded_tasks.include?(task)
 	end
+
+        class UsefulFreeEventVisitor < RGL::DFSVisitor
+            attr_reader :useful_free_events, :task_events, :stack
+            def initialize(graph, task_events, permanent_events)
+                super(graph)
+                @task_events = task_events
+                @useful_free_events = permanent_events.dup
+                @useful = false
+            end
+
+            def useful?
+                @useful
+            end
+
+            def handle_examine_edge(u, v)
+                if task_events.include?(v) || useful_free_events.include?(v)
+                    color_map[v] = :BLACK
+                    @useful = true
+                end
+            end
+
+            def follow_edge?(u, v)
+                !task_events.include?(v)
+            end
+        end
 
         # @api private
         #
@@ -990,40 +1027,62 @@ module Roby
         # @param [Set<EventGenerator>] useless_events the remainder of {#free_events} that
         #   is not included in useful_events yet
         # @return [Set<EventGenerator>]
-        def compute_useful_free_events(useful_events, useless_events)
-	    current_size = useful_events.size
+        def compute_useful_free_events
+            # Quick path for a very common case
+            return Set.new if free_events.empty?
 
-	    for rel in each_event_relation_graph
-		next unless rel.root_relation?
+            graphs = each_event_relation_graph.
+                find_all { |g| g.root_relation? && !g.weak? }
 
-                for subgraph in rel.components(useless_events.to_a, true)
-		    subgraph = subgraph.to_set
-		    if subgraph.intersect?(useful_events)
-                        useful_events.merge(subgraph)
-                        useless_events.subtract(subgraph)
-                        return self.free_events if useless_events.empty?
-		    end
-		end
-                return self.free_events if useless_events.empty?
-	    end
+            seen = Set.new
+            result = permanent_events.dup
+            pending_events = free_events.to_a
+            while !pending_events.empty?
+                # This basically computes the subplan that contains "seed" and
+                # determines if it is useful or not
+                seed = pending_events.shift
+                next if seen.include?(seed)
 
-	    if current_size != useful_events.size
-		compute_useful_free_events(useful_events, useless_events)
-	    else
-                self.free_events - useless_events
-	    end
+                visitors = Array.new
+                graphs.each do |g|
+                    visitors << [g, UsefulFreeEventVisitor.new(g, task_events, permanent_events), [seed].to_set]
+                    visitors << [g.reverse, UsefulFreeEventVisitor.new(g.reverse, task_events, permanent_events), [seed].to_set]
+                end
+
+                component = [seed].to_set
+                has_pending_seeds = true
+                while has_pending_seeds
+                    has_pending_seeds = false
+                    visitors.each do |graph, visitor, seeds|
+                        next if seeds.empty?
+
+                        new_seeds = Array.new
+                        seeds.each do |vertex|
+                            if !visitor.finished_vertex?(vertex) && graph.has_vertex?(vertex)
+                                graph.depth_first_visit(vertex, visitor) { |v| new_seeds << v }
+                            end
+                        end
+                        if !new_seeds.empty?
+                            has_pending_seeds = true
+                            component.merge(new_seeds)
+                            visitors.each { |g, _, s| s.merge(new_seeds) if g != graph }
+                        end
+                        seeds.clear
+                    end
+                end
+                seen.merge(component)
+                if visitors.any? { |_, v, _| v.useful? }
+                    result.merge(component)
+                end
+            end
+
+            result
 	end
 
 	# Computes the set of events that are useful in the plan Events are
 	# 'useful' when they are chained to a task.
 	def useful_events
-            if free_events.empty?
-                Set.new
-            else
-                useful_events = permanent_events | task_events
-                useless_events = self.free_events - useful_events
-                compute_useful_free_events(useful_events, useless_events)
-            end
+            compute_useful_free_events
 	end
 
 	# The set of events that can be removed from the plan
@@ -1468,19 +1527,20 @@ module Roby
 	    end
 	end
 
+        def root_in_query?(result_set, task, graph)
+            graph.depth_first_visit(task) do |v|
+                return false if v != task && result_set.include?(v)
+            end
+            true
+        end
+
 	# Given the result set of +query+, returns the subset of tasks which
 	# have no parent in +query+
 	def query_roots(result_set, relation) # :nodoc:
-	    children = Set.new
-	    found    = Set.new
-	    for task in result_set
-		next if children.include?(task)
-		task_children = task.generated_subgraph(relation)
-		found -= task_children
-		children.merge(task_children)
-		found << task
+            graph = task_relation_graph_for(relation).reverse
+            result_set.find_all do |task|
+                root_in_query?(result_set, task, graph)
 	    end
-	    found
 	end
 
         # The list of fault response tables that are currently globally active

@@ -66,7 +66,8 @@ module Roby
                 if match_not_generalized(object)
                     true
                 elsif generalized?
-                    object.relation_graph_for(EventStructure::Forwarding).each_dfs(object, BGL::Graph::TREE) do |_, generator, _, _|
+                    forwarding_graph = object.relation_graph_for(EventStructure::Forwarding)
+                    forwarding_graph.depth_first_visit(object) do |generator|
                         return true if match_not_generalized(generator)
                     end
                     false
