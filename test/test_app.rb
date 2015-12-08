@@ -68,11 +68,12 @@ describe Roby::Application do
 
             it "registers the created paths for later cleanup" do
                 FileUtils.mkdir_p '/path'
+                existing_dirs = app.created_log_dirs.to_set
                 app.find_and_create_log_dir('tag')
                 assert_equal ['/path/to', '/path/to/logs'].to_set,
                     app.created_log_base_dirs.to_set
-                assert_equal ['/path/to/logs/tag'],
-                    app.created_log_dirs
+                assert_equal existing_dirs | Set['/path/to/logs/tag'],
+                    app.created_log_dirs.to_set
             end
             it "handles concurrent path creation properly" do
                 FileUtils.mkdir_p '/path/to'
@@ -80,10 +81,11 @@ describe Roby::Application do
                 flexmock(FileUtils).should_receive(:mkdir).with('/path/to/logs/tag').
                     pass_thru { raise Errno::EEXIST }
                 flexmock(FileUtils).should_receive(:mkdir).with('/path/to/logs/tag.1').pass_thru
+                existing_dirs = app.created_log_dirs.to_set
                 created = app.find_and_create_log_dir('tag')
                 assert_equal '/path/to/logs/tag.1', created
                 assert_equal [].to_set, app.created_log_base_dirs.to_set
-                assert_equal ['/path/to/logs/tag.1'], app.created_log_dirs
+                assert_equal existing_dirs | Set['/path/to/logs/tag.1'], app.created_log_dirs.to_set
             end
             it "sets app#time_tag to the provided time tag" do
                 app.find_and_create_log_dir('tag')
