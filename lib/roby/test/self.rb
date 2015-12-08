@@ -6,10 +6,10 @@ if ENV['TEST_ENABLE_COVERAGE'] == '1'
     begin
         require 'simplecov'
         require 'coveralls'
-        SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter[
+        SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new(
             SimpleCov::Formatter::HTMLFormatter,
             Coveralls::SimpleCov::Formatter
-        ]
+        )
         SimpleCov.start do
             add_filter "/test/"
         end
