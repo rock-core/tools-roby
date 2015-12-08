@@ -5,9 +5,14 @@ describe Roby::Application do
     attr_reader :app, :app_dir
     before do
         @app = Roby::Application.new
+        app.public_logs = false
         app.base_setup
         register_plan(@app.plan)
         @app_dir = "/test/roby_app"
+    end
+
+    after do
+        app.cleanup
     end
 
     describe "filesystem access and resolution" do
