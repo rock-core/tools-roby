@@ -86,7 +86,7 @@ module Roby
 	end
 
         # True if the generator has no sources
-	def empty?; events.empty? end
+        def empty?; relation_graph_for(EventStructure::Signal).root?(self) end
 	
 	# Adds a new source to +events+ when a source event is added
 	def added_signal_parent(parent, info) # :nodoc:
@@ -106,6 +106,7 @@ module Roby
 	def removed_signal_parent(parent) # :nodoc:
 	    super if defined? super
 	    @events.delete(parent)
+            emit_if_achieved(nil)
 	end
 
 	# The set of source events

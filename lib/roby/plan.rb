@@ -82,7 +82,7 @@ module Roby
 	# plain Plan objects and false for transcations
 	def executable?; false end
 
-	def initialize
+	def initialize(graph_observer: nil)
 	    @missions	 = Set.new
 	    @permanent_tasks  = Set.new
 	    @permanent_events = Set.new
@@ -97,12 +97,14 @@ module Roby
 
             @task_relation_graphs  = Relations::Space.new_relation_graph_mapping
             Task.all_relation_spaces.each do |space|
-                task_relation_graphs.merge!(space.instanciate)
+                task_relation_graphs.merge!(
+                    space.instanciate(observer: graph_observer))
             end
 
             @event_relation_graphs = Relations::Space.new_relation_graph_mapping
             EventGenerator.all_relation_spaces.each do |space|
-                event_relation_graphs.merge!(space.instanciate)
+                event_relation_graphs.merge!(
+                    space.instanciate(observer: graph_observer))
             end
 
             @active_fault_response_tables = Array.new
@@ -256,7 +258,6 @@ module Roby
 
         # Hook called when a {#merge} has been performed
         def merged_plan(plan)
-            super if defined? super
         end
 
         def deep_copy

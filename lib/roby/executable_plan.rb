@@ -67,7 +67,7 @@ module Roby
 	def executable?; true end
 
         def initialize
-            super
+            super(graph_observer: self)
 
             @execution_engine = nil
 
@@ -77,7 +77,6 @@ module Roby
             on_exception LocalizedError do |plan, error|
                 plan.default_localized_error_handling(error)
             end
-
         end
 
         def default_localized_error_handling(error)
@@ -130,16 +129,98 @@ module Roby
             super
         end
 
-        def added_event_relation(parent, child, relations)
-            if relations.include?(Roby::EventStructure::Precedence)
-                execution_engine.event_ordering.clear
+        # Hook called before an edge gets added to this plan
+        #
+        # If an exception is raised, the edge will not be added
+        #
+        # @param [Object] parent the child object
+        # @param [Object] child the child object
+        # @param [Array<Class<Relations::Graph>>] relations the graphs in which an edge
+        #   has been added
+        # @param [Object] info the associated edge info that applies to
+        #   relations.first
+        def adding_edge(parent, child, relations, info)
+            relations.each do |rel|
+                if name = rel.child_name
+                    parent.send("adding_#{rel.child_name}", child, info)
+                    child.send("adding_#{rel.child_name}_parent", parent, info)
+                end
             end
-            super
+        end
+
+        # Hook called after a new edge has been added in this plan
+        #
+        # @param [Object] parent the child object
+        # @param [Object] child the child object
+        # @param [Array<Class<Relations::Graph>>] relations the graphs in which an edge
+        #   has been added
+        # @param [Object] info the associated edge info that applies to
+        #   relations.first
+        def added_edge(parent, child, relations, info)
+            relations.each do |rel|
+                if rel == Roby::EventStructure::Precedence
+                    execution_engine.event_ordering.clear
+                end
+
+                if name = rel.child_name
+                    parent.send("added_#{rel.child_name}", child, info)
+                    child.send("added_#{rel.child_name}_parent", parent, info)
+                end
+            end
+        end
+
+        # Hook called when the edge information of an existing edge has been
+        # updated
+        #
+        # @param parent the edge parent object
+        # @param child the edge child object
+        # @param [Class<Relations::Graph>] relation the relation graph ID
+        # @param [Object] info the new edge info
+        def updated_edge_info(parent, child, relation, info)
+        end
+
+        # Hook called before an edge gets removed from this plan
+        #
+        # If an exception is raised, the edge will not be removed
+        #
+        # @param [Object] parent the parent object
+        # @param [Object] child the child object
+        # @param [Array<Class<Relations::Graph>>] relations the graphs in which an edge
+        #   is being removed
+        def removing_edge(parent, child, relations)
+            relations.each do |rel|
+                if name = rel.child_name
+                    parent.send("removing_#{rel.child_name}", child)
+                    child.send("removing_#{rel.child_name}_parent", parent)
+                end
+            end
+        end
+
+        # Hook called after an edge has been removed from this plan
+        #
+        # @param [Object] parent the child object
+        # @param [Object] child the child object
+        # @param [Array<Class<Relations::Graph>>] relations the graphs in which an edge
+        #   has been removed
+        def removed_edge(parent, child, relations)
+            relations.each do |rel|
+                if name = rel.child_name
+                    parent.send("removed_#{rel.child_name}", child)
+                    child.send("removed_#{rel.child_name}_parent", parent)
+                end
+            end
         end
 
         def merged_plan(plan)
             if !plan.event_relation_graph_for(EventStructure::Precedence).empty?
                 execution_engine.event_ordering.clear
+            end
+            plan.free_events.each do |ev|
+                if ev.kind_of?(OrGenerator) || ev.kind_of?(AndGenerator)
+                    ev.each_parent_object(EventStructure::Signal) do |parent|
+                        ev.added_signal_parent(parent, nil)
+                    end
+                end
             end
             super
         end
@@ -158,8 +239,6 @@ module Roby
 		    end
 		end
 	    end
-
-	    super if defined? super
 
             remove_object(task_or_event)
 	end

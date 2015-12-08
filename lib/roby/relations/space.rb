@@ -57,11 +57,12 @@ module Roby
             # It instanciates a graph per relation defined on self, and sets
             # their subset/superset relationships accordingly
             #
+            # @param observer a graph observer object
             # @return [Hash<Models<Graph>,Graph>]
-            def instanciate
+            def instanciate(observer: nil)
                 graphs = self.class.new_relation_graph_mapping
                 relations.each do |rel|
-                    g = rel.new
+                    g = rel.new(observer: observer)
                     graphs[g] = graphs[rel] = g
                 end
                 relations.each do |rel|

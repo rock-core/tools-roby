@@ -22,6 +22,9 @@ module Roby
         class Graph < BidirectionalDirectedAdjacencyGraph
             extend Models::Graph
 
+            # An object that is called for relation modifications
+            attr_reader :observer
+
             def remove(vertex)
                 Roby.warn_deprecated "Graph#remove is deprecated, use #remove_vertex instead"
                 remove_vertex(vertex)
@@ -48,19 +51,7 @@ module Roby
             end
 
             def add_edge(a, b, info)
-                if has_edge?(a, b)
-                    old_info = edge_info(a, b)
-                    if info != old_info
-                        if info = merge_info(from, to, old_info, info)
-                            set_edge_info(a, b, info)
-                            updated_info(a, b, old_info, info)
-                            return
-                        else
-                            raise ArgumentError, "trying to change edge information"
-                        end
-                    end
-                    return
-                else
+                if !try_updating_existing_edge_info(a, b, info)
                     super
                 end
             end
@@ -170,6 +161,7 @@ module Roby
             # +distributed+:: 
             #   if this relation graph should be seen by remote hosts
             def initialize(
+                observer: nil,
                 distribute: self.class.distribute?,
                 dag: self.class.dag?,
                 weak: self.class.weak?,
@@ -178,6 +170,7 @@ module Roby
                 noinfo: !self.class.embeds_info?,
                 subsets: Set.new)
 
+                @observer = observer
                 @distribute = distribute
                 @dag     = dag
                 @weak    = weak
@@ -214,6 +207,31 @@ module Roby
             # True if this relation does not have a parent
             def root_relation?; !parent end
 
+            # @api private
+            #
+            # Updates the edge information of an existing info, or does nothing
+            # if the edge does not exist
+            #
+            # If the edge has a non-nil info already, the graph's #merge_info is
+            # called to merge the existing and new information. If #merge_info
+            # returns nil, the update is aborted
+            #
+            # @param from the edge parent object
+            # @param to the edge child object
+            # @param info the new edge info
+            # @return [Boolean] true if the edge existed and false otherwise
+            def try_updating_existing_edge_info(from, to, info)
+                return false if !has_edge?(from, to)
+
+                if !(old_info = edge_info(from, to)).nil?
+                    if old_info != info && !(info = merge_info(from, to, old_info, info))
+                        raise ArgumentError, "trying to change edge information in #{self} for #{from} => #{to}: old was #{old_info} and new is #{info}"
+                    end
+                end
+                set_edge_info(from, to, info)
+                true
+            end
+
             # Add an edge between +from+ and +to+. The relation is added on all
             # parent relation graphs as well. If #dag? is true on +self+ or on one
             # of its parents, the method will raise {CycleFoundError} in case the new
@@ -233,52 +251,60 @@ module Roby
             # <tt>parent.parent</tt>, ...] if the parent, grandparent, ... graphs
             # do not include the edge either.
             def add_relation(from, to, info = nil)
+                # First check if we're trying to change the edge information
+                # rather than creating a new edge
+                if try_updating_existing_edge_info(from, to, info)
+                    return
+                end
+
                 new_relations = []
+                new_relations_ids = []
                 rel     = self
                 while rel
                     if !rel.has_edge?(from, to)
                         new_relations << rel
+                        new_relations_ids << rel.class
                     end
                     rel = rel.parent
                 end
 
-                # Now check that we're not changing the edge info. This is ignored
-                # if +self+ has the noinfo flag set.
-                if has_edge?(from, to)
-                    if !(old_info = edge_info(from, to)).nil?
-                        if old_info != info && !(info = merge_info(from, to, old_info, info))
-                            raise ArgumentError, "trying to change edge information in #{self} for #{from} => #{to}: old was #{old_info} and new is #{info}"
-                        end
-                    end
-                    set_edge_info(from, to, info)
-                    return
-                end
-
                 if !new_relations.empty?
-                    new_relations_ids = new_relations.map(&:class)
-                    from.adding_child_object(to, new_relations_ids, info)
+                    if observer
+                        observer.adding_edge(from, to, new_relations_ids, info)
+                    end
                     for rel in new_relations
                         rel.add_edge(from, to, (info if self == rel))
                     end
-                    from.added_child_object(to, new_relations_ids, info)
+                    if observer
+                        observer.added_edge(from, to, new_relations_ids, info)
+                    end
                 end
             end
 
-            def updated_info(from, to, info)
-                super if defined? super
+            # Set the information of an object relation
+            def set_edge_info(from, to, info)
+                super
+                if observer
+                    observer.updated_edge_info(from, to, self.class, info)
+                end
             end
 
+            # Method used in {#add_relation} and {#add_edge} to merge existing
+            # information with new information
+            #
+            # It is safe to raise from within this method
+            #
+            # @return [nil,Object] if nil, the update is aborted. If non-nil,
+            #   it is the new information
             def merge_info(from, to, old, new)
-                super if defined? super
+                raise ArgumentError, "cannot update edge information in #{self}: #merge_info is not implemented"
             end
 
             # Remove the relation between +from+ and +to+, in this graph and in its
             # parent graphs as well.
             #
             # If +from+ or +to+ define the following hooks:
-            #   removing_parent_object(parent, relations)
             #   removing_child_object(child, relations)
-            #   removed_parent_object(parent, relations)
             #   removed_child_object(child, relations)
             #
             # then these hooks get respectively called once before and once after
@@ -299,11 +325,15 @@ module Roby
                     rel = rel.parent
                 end
 
-                from.removing_child_object(to, relations_ids)
+                if observer
+                    observer.removing_edge(from, to, relations_ids)
+                end
                 for rel in relations
                     rel.remove_edge(from, to)
                 end
-                from.removed_child_object(to, relations_ids)
+                if observer
+                    observer.removed_edge(from, to, relations_ids)
+                end
             end
 
             # Returns true if +relation+ is included in this relation (i.e. it is

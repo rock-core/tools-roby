@@ -14,7 +14,9 @@ else
     Roby.logger.level = Logger::FATAL + 1
 end
 
-require './test/test_event'
+require './test/test_event_generator'
+require './test/test_or_generator'
+require './test/test_and_generator'
 require './test/test_exceptions'
 require './test/test_plan_object'
 require './test/test_task'

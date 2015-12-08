@@ -63,14 +63,20 @@ module Roby
 
         # Tracks the event's parents in the signalling relation
 	def added_signal_parent(parent, info) # :nodoc:
-	    super if defined? super
-
+	    super
 	    parent.if_unreachable(cancel_at_emission: true) do |reason, event|
 		if !emitted? && each_parent_object(EventStructure::Signal).all? { |ev| ev.unreachable? }
 		    unreachable!(reason || parent)
 		end
 	    end
 	end
+
+        def removed_signal_parent(parent)
+	    super
+            if !emitted? && each_parent_object(EventStructure::Signal).all? { |ev| ev.unreachable? }
+                unreachable!
+            end
+        end
 
 	# Adds +generator+ to the sources of this event
 	def << (generator)

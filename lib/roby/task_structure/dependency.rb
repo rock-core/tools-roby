@@ -9,8 +9,8 @@ module Roby
             attr_reader :interesting_events
             attr_reader :failing_tasks
 
-            def initialize
-                super
+            def initialize(observer: nil)
+                super(observer: observer)
                 @interesting_events = Array.new
                 @failing_tasks = Set.new
             end
