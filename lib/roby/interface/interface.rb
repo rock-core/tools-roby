@@ -376,11 +376,11 @@ module Roby
                     return JOB_FINALIZED
                 elsif !plan.mission?(task)
                     return JOB_DROPPED
-                elsif task.success_event.happened?
+                elsif task.success_event.emitted?
                     return JOB_SUCCESS
-                elsif task.failed_event.happened?
+                elsif task.failed_event.emitted?
                     return JOB_FAILED
-                elsif task.stop_event.happened?
+                elsif task.stop_event.emitted?
                     return JOB_FINISHED
                 elsif task.running?
                     return JOB_STARTED

@@ -133,13 +133,13 @@ class TC_ExecutionEngine < Minitest::Test
 
             id = execution_engine.add_propagation_handler(type: :propagation) do |plan|
                 mock.handler_called(index += 1)
-                if !event.happened?
+                if !event.emitted?
                     event.emit
                 end
             end
             late_id = execution_engine.add_propagation_handler(type: :propagation, late: true) do |plan|
                 mock.late_handler_called(index += 1)
-                if !late_event.happened?
+                if !late_event.emitted?
                     late_event.emit
                 end
             end
@@ -293,10 +293,10 @@ class TC_ExecutionEngine < Minitest::Test
         t.event(:start).signals e, delay: 0.1
         execution_engine.once { t.start! }
         process_events
-        assert(!e.happened?)
+        assert(!e.emitted?)
         current_time += 0.2
         process_events
-        assert(e.happened?)
+        assert(e.emitted?)
     end
 
     def test_delay_with_unreachability
@@ -308,8 +308,8 @@ class TC_ExecutionEngine < Minitest::Test
         source.start_event.signals sink0.start_event, delay: 0.1
         source.start_event.signals sink1.start_event, delay: 0.1
         source.start!
-        assert(!sink0.start_event.happened?)
-        assert(!sink1.start_event.happened?)
+        assert(!sink0.start_event.emitted?)
+        assert(!sink1.start_event.emitted?)
 
         plan.remove_object(sink0)
         inhibit_fatal_messages { sink1.failed_to_start!("test") }
@@ -947,7 +947,7 @@ class TC_ExecutionEngine < Minitest::Test
 	process_events
 	assert(!a.plan)
 	assert(!b.plan)
-	assert(!b.event(:start).happened?)
+	assert(!b.event(:start).emitted?)
     end
 
     # Test a setup where there is both pending tasks and running tasks. This
@@ -1278,7 +1278,7 @@ class TC_ExecutionEngine < Minitest::Test
 	end
 	plan.add(ev)
 	assert_original_error(RuntimeError, CommandFailed) { ev.call(nil) }
-	assert(!ev.happened?)
+	assert(!ev.emitted?)
 
 	# Check that the event is emitted anyway
 	ev = EventGenerator.new do |context|
@@ -1287,7 +1287,7 @@ class TC_ExecutionEngine < Minitest::Test
 	end
 	plan.add(ev)
 	assert_original_error(RuntimeError, CommandFailed) { ev.call(nil) }
-	assert(ev.happened?)
+	assert(ev.emitted?)
 
 	# Check signalling
 	ev = EventGenerator.new do |context|
@@ -1299,8 +1299,8 @@ class TC_ExecutionEngine < Minitest::Test
 	ev.signals ev2
 
 	assert_original_error(RuntimeError, CommandFailed) { ev.call(nil) }
-	assert(ev.happened?)
-	assert(ev2.happened?)
+	assert(ev.emitted?)
+	assert(ev2.emitted?)
 
 	# Check event handlers
 	FlexMock.use do |mock|
@@ -1348,7 +1348,7 @@ class TC_ExecutionEngine < Minitest::Test
 		process_events
 	    end
 	end
-	assert(task.event(:start).happened?)
+	assert(task.event(:start).emitted?)
     end
 
     def test_exception_argument_count_validation

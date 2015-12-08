@@ -353,7 +353,7 @@ class TC_Task < Minitest::Test
 	e = EventGenerator.new(true)
         t.start_event.signals e
 	t.start!
-	assert(e.happened?)
+	assert(e.emitted?)
     end
 
     def test_model_forwardings
@@ -905,7 +905,7 @@ class TC_Task < Minitest::Test
             end
             plan.add(task = model.new)
             task.start!
-            assert task.inter_event.happened?
+            assert task.inter_event.emitted?
         end
     end
 

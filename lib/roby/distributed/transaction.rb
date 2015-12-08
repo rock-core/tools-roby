@@ -430,7 +430,7 @@ module Roby
             # Create an intermediate object which represent this task event
             # generator in our communication with +dest+
 	    def droby_dump(dest)
-		Roby::TaskEventGenerator::DRoby.new(controlable?, happened?, Distributed.format(task, dest), symbol)
+		Roby::TaskEventGenerator::DRoby.new(controlable?, emitted?, Distributed.format(task, dest), symbol)
 	    end
 	end
     end

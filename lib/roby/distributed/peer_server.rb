@@ -166,7 +166,7 @@ module Roby
             event = event_for(from_generator, event_id, time, context)
 
             event.send(:propagation_id=, from_generator.plan.engine.propagation_id)
-            from_generator.instance_variable_set("@happened", true)
+            from_generator.instance_variable_set("@emitted", true)
             from_generator.fired(event)
             from_generator.call_handlers(event)
 

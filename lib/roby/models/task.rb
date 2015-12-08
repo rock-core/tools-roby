@@ -567,7 +567,7 @@ module Roby
                 end
                 if !method_defined?("#{event_name}?")
                     define_method("#{event_name}?") do
-                        event(event_name).happened?
+                        event(event_name).emitted?
                     end
                 end
                 if !method_defined?("#{event_name}!")

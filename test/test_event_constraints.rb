@@ -63,7 +63,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
     end
 
     def test_single
-        pred = :start.happened?
+        pred = :start.emitted?
 
         plan.add(task = TaskModel.new)
         assert(!pred.evaluate(task))
@@ -75,7 +75,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
     end
 
     def test_single_static_if_emitted
-        pred = :start.happened?
+        pred = :start.emitted?
 
         plan.add(task = TaskModel.new)
         assert(!pred.static?(task))
@@ -86,7 +86,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
     end
 
     def test_single_static_if_unreachable
-        pred = :first.happened?
+        pred = :first.emitted?
 
         plan.add(task = TaskModel.new)
         task.start!
@@ -99,7 +99,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
     end
 
     def test_negate
-        root_pred = :start.happened?
+        root_pred = :start.emitted?
         pred = root_pred.negate
 
         plan.add(task = TaskModel.new)
@@ -112,7 +112,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
     end
 
     def test_negate_static
-        root_pred = :start.happened?
+        root_pred = :start.emitted?
         pred = root_pred.negate
 
         plan.add(task = TaskModel.new)

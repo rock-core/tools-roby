@@ -172,7 +172,7 @@ describe Roby::Coordination::ActionStateMachine do
         task.children.first.success_event.emit
         task.children.first.start!
         task.children.first.success_event.emit
-        assert task.next_is_done_event.happened?
+        assert task.next_is_done_event.emitted?
     end
 
     it "sets known transitions and only them as 'success' in the dependency" do

@@ -1070,7 +1070,7 @@ module Roby
             # Don't call if we are terminating
             return if finished?
             # Don't call if we already had an error in the poll block
-            return if event(:internal_error).happened?
+            return if event(:internal_error).emitted?
 
             begin
                 while execute_block = @execute_handlers.pop
@@ -1343,11 +1343,11 @@ module Roby
             if exception.originates_from?(self)
                 error = exception.exception
                 gen = exception.generator
-                if gen.symbol == :start && !gen.happened?
+                if gen.symbol == :start && !gen.emitted?
                     failed_to_start!(error)
                 elsif pending?
                     pass_exception
-                elsif !gen.terminal? && !internal_error_event.happened?
+                elsif !gen.terminal? && !internal_error_event.emitted?
                     internal_error_event.emit(error)
                     if stop_event.pending? || !stop_event.controlable?
                         # In this case, we can't "just" stop the task. We have

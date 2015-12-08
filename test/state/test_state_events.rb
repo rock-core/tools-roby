@@ -23,11 +23,11 @@ class TC_StateEvents < Minitest::Test
 	assert_kind_of(PosDeltaEvent, d)
 	d.poll
 	assert_equal(State.pos, d.last_value)
-	assert(!d.happened?)
+	assert(!d.emitted?)
 
 	State.pos.x = 5
 	d.poll
-	assert(!d.happened?)
+	assert(!d.emitted?)
 
 	State.pos.x = 10
 	d.poll
@@ -49,10 +49,10 @@ class TC_StateEvents < Minitest::Test
 	y.poll
 	assert_equal(0, y.last_value)
 
-	assert(!y.happened?)
+	assert(!y.emitted?)
 	State.pos.yaw = 20
 	y.poll
-	assert(y.happened?)
+	assert(y.emitted?)
 
 	y.poll
 	assert_equal(1, y.history.size)
@@ -71,10 +71,10 @@ class TC_StateEvents < Minitest::Test
 	    assert_kind_of(TimeDeltaEvent, t)
 
 	    t.poll
-	    assert(!t.happened?)
+	    assert(!t.emitted?)
 	    current_time += 0.5
 	    t.poll
-	    assert(!t.happened?)
+	    assert(!t.emitted?)
 
 	    current_time += 0.5
 	    t.poll
@@ -97,10 +97,10 @@ class TC_StateEvents < Minitest::Test
 
 	    plan.add(ev = State.at(t: current_time + 1))
 	    ev.poll
-	    assert(!ev.happened?)
+	    assert(!ev.emitted?)
 	    current_time += 1
 	    ev.poll
-	    assert(ev.happened?)
+	    assert(ev.emitted?)
 	    current_time += 1
 	    ev.poll
 	    assert_equal(1, ev.history.size)
@@ -177,16 +177,16 @@ class TC_StateEvents < Minitest::Test
             mock.should_receive(:condition).once.with(30)
 
             process_events
-            assert(!event.happened?)
+            assert(!event.emitted?)
 
             State.x = 2
             process_events
-            assert(!event.happened?)
+            assert(!event.emitted?)
 
             State.x = 20
             assert(event.armed?)
             process_events
-            assert(event.happened?)
+            assert(event.emitted?)
 
             event.reset
 

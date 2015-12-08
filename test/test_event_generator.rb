@@ -53,7 +53,7 @@ class TC_Event < Minitest::Test
         with_log_level(Roby, Logger::FATAL) do
             assert_raises(Roby::CommandFailed) { ev.call }
         end
-        assert(!ev.happened?)
+        assert(!ev.emitted?)
     end
 
     def test_error_in_command_after_emission_does_not_causes_an_emission_failure
@@ -76,7 +76,7 @@ class TC_Event < Minitest::Test
         with_log_level(Roby, Logger::FATAL) do
             assert_raises(Roby::CommandFailed) { ev.call }
         end
-        assert(ev.happened?)
+        assert(ev.emitted?)
     end
 
     def test_controlable_events
@@ -190,10 +190,10 @@ class TC_Event < Minitest::Test
         execution_engine.process_events_synchronous do
             e.emit
             assert e.pending?
-            assert !e.happened?
+            assert !e.emitted?
         end
         assert !e.pending?
-        assert e.happened?
+        assert e.emitted?
     end
 
     def test_command_failure_does_not_remove_pending
@@ -246,7 +246,7 @@ class TC_Event < Minitest::Test
         assert( e2.parent_object?( e1, EventStructure::Signal ))
 
         e1.call(nil)
-        assert(e2.happened?)
+        assert(e2.emitted?)
     end
 
     def test_forward_to_without_delay
@@ -259,7 +259,7 @@ class TC_Event < Minitest::Test
         assert( e2.parent_object?( e1, EventStructure::Forwarding ))
 
         e1.emit(nil)
-        assert(e2.happened?)
+        assert(e2.emitted?)
     end
 
     # forward has been renamed into #forward_to
@@ -275,7 +275,7 @@ class TC_Event < Minitest::Test
         assert( e2.parent_object?( e1, EventStructure::Forwarding ))
 
         e1.emit(nil)
-        assert(e2.happened?)
+        assert(e2.emitted?)
     end
 
     def test_handlers
@@ -286,8 +286,8 @@ class TC_Event < Minitest::Test
 	FlexMock.use do |mock|
 	    e1.on { |ev| mock.e1 }
 	    e2.on { |ev| mock.e2 }
-	    e1.on { |ev| mock.happened?(e1.happened?) }
-	    mock.should_receive(:happened?).once.with(true)
+	    e1.on { |ev| mock.emitted?(e1.emitted?) }
+	    mock.should_receive(:emitted?).once.with(true)
 	    mock.should_receive(:e1).once.ordered
 	    mock.should_receive(:e2).once.ordered
 	    e1.call(nil)
@@ -335,8 +335,8 @@ class TC_Event < Minitest::Test
 	e2.signals(e3)
 
 	e1.call(nil)
-	assert( e2.happened? )
-	assert( !e3.happened? )
+	assert( e2.emitted? )
+	assert( !e3.emitted? )
     end
 
     def test_event_hooks
@@ -369,18 +369,18 @@ class TC_Event < Minitest::Test
 	event.singleton_class.class_eval do
 	    define_method(:calling) do |context|
 		super(context) if defined? super
-		unless wait_for.happened?
+		unless wait_for.emitted?
 		    postpone(wait_for, "bla") {}
 		end
 	    end
 	end
 
 	event.call(nil)
-	assert(! event.happened?)
+	assert(! event.emitted?)
 	assert(! event.pending?)
 	assert(wait_for.child_object?(event, EventStructure::Signal))
 	wait_for.call(nil)
-	assert(event.happened?)
+	assert(event.emitted?)
 
 	# Test propagation when the block given to postpone signals the event
 	# we are waiting for
@@ -391,7 +391,7 @@ class TC_Event < Minitest::Test
 	    event.singleton_class.class_eval do
 		define_method(:calling) do |context|
 		    super(context) if defined? super
-		    if !wait_for.happened?
+		    if !wait_for.emitted?
 			postpone(wait_for, "bla") do
 			    wait_for.call(nil)
 			end
@@ -575,9 +575,9 @@ class TC_Event < Minitest::Test
 
 	and_event.reset
 	b.emit(nil)
-	assert(!and_event.happened?)
+	assert(!and_event.emitted?)
 	a.emit(nil)
-	assert(and_event.happened?)
+	assert(and_event.emitted?)
 
 	and_event.reset
 	a.emit(nil)
@@ -860,7 +860,7 @@ class TC_Event < Minitest::Test
 	    mock.should_receive(:called).with(42).once
 	    ev.call(42)
 
-	    assert(ev.happened?)
+	    assert(ev.emitted?)
 	    assert_equal(1, ev.history.size, ev.history)
 	    assert(!ev.pending?)
 	end
@@ -958,9 +958,9 @@ class TC_Event < Minitest::Test
 	plan.add([master, slave])
 
 	master.call
-	assert(!master.happened?)
+	assert(!master.emitted?)
 	slave.emit
-	assert(master.happened?)
+	assert(master.emitted?)
 
 	# Test what happens if the slave fails
 	slave  = EventGenerator.new
@@ -970,7 +970,7 @@ class TC_Event < Minitest::Test
 	plan.add([master, slave])
 
 	master.call
-	assert(!master.happened?)
+	assert(!master.emitted?)
         assert_event_fails(master, EmissionFailed) do
             plan.remove_object(slave)
         end
@@ -984,7 +984,7 @@ class TC_Event < Minitest::Test
 
 	master.call
 	slave.emit
-	assert(master.happened?)
+	assert(master.emitted?)
 	assert_equal(nil,  slave.history[0].context)
 	assert_equal([[21, 42]], master.history[0].context)
     end
@@ -1067,21 +1067,21 @@ class TC_Event < Minitest::Test
 
 	e.call
 	assert_equal(1, e.history.size)
-        assert(e.happened?)
+        assert(e.emitted?)
 	assert_equal(0, new.history.size)
-	assert(!new.happened?)
+	assert(!new.emitted?)
 
         plan.add(new = e.dup)
 	assert_equal(1, e.history.size)
-        assert(e.happened?)
+        assert(e.emitted?)
 	assert_equal(1, new.history.size)
-	assert(new.happened?)
+	assert(new.emitted?)
 
         new.call
 	assert_equal(1, e.history.size)
-        assert(e.happened?)
+        assert(e.emitted?)
 	assert_equal(2, new.history.size)
-	assert(new.happened?)
+	assert(new.emitted?)
     end
 
     def test_event_after
@@ -1094,10 +1094,10 @@ class TC_Event < Minitest::Test
 	    current_time += 0.5
 	    plan.add(delayed = e.last.after(1))
 	    delayed.poll
-	    assert(!delayed.happened?)
+	    assert(!delayed.emitted?)
 	    current_time += 0.5
 	    delayed.poll
-	    assert(delayed.happened?)
+	    assert(delayed.emitted?)
 	end
     end
 

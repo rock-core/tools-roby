@@ -454,7 +454,7 @@ module Roby
 	def droby_dump(dest)
 	    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
 		      Distributed.format(model, dest),  Distributed.format(plan, dest), 
-		      controlable?, happened?)
+		      controlable?, emitted?)
 	end
 
         # An intermediate representation of EventGenerator objects suitable to
@@ -464,13 +464,13 @@ module Roby
 	    attr_reader :controlable
             # True if the generator has already been emitted once at the time
             # EventGenerator#droby_dump has been called.
-            attr_reader :happened
+            attr_reader :emitted
 
             # Create a DRoby object with the given information.  See also
             # PlanObject::DRoby
-	    def initialize(remote_siblings, owners, model, plan, controlable, happened)
+	    def initialize(remote_siblings, owners, model, plan, controlable, emitted)
 		super(remote_siblings, owners, model, plan)
-		@controlable, @happened = controlable, happened
+		@controlable, @emitted = controlable, emitted
 	    end
 
             # Common code used for both EventGenerator::DRoby and
@@ -494,8 +494,8 @@ module Roby
             # in this object.
 	    def update(peer, proxy)
 		super
-		if happened && !proxy.happened?
-		    proxy.instance_eval { @happened = true }
+		if emitted && !proxy.emitted?
+		    proxy.instance_eval { @emitted = true }
 		end
 	    end
 	end
@@ -537,7 +537,7 @@ module Roby
         # Returns an intermediate representation of +self+ suitable to be sent
         # to the +dest+ peer.
 	def droby_dump(dest)
-	    DRoby.new(controlable?, happened?, Distributed.format(task, dest), symbol)
+	    DRoby.new(controlable?, emitted?, Distributed.format(task, dest), symbol)
 	end
 
         # An intermediate representation of TaskEventGenerator objects suitable
@@ -547,7 +547,7 @@ module Roby
             attr_reader :controlable
             # True if the generator has already emitted once at the time
             # TaskEventGenerator#droby_dump has been called.
-            attr_reader :happened
+            attr_reader :emitted
             # An object representing the task of this generator on our remote
             # peer.
             attr_reader :task
@@ -555,9 +555,9 @@ module Roby
             attr_reader :symbol
 
             # Create a new DRoby object with the given information
-	    def initialize(controlable, happened, task, symbol)
+	    def initialize(controlable, emitted, task, symbol)
 		@controlable = controlable
-		@happened = happened
+		@emitted = emitted
 		@task   = task
 		@symbol = symbol
 	    end
@@ -596,8 +596,8 @@ module Roby
                     end
                 end
 		
-		if happened && !event.happened?
-		    event.instance_eval { @happened = true }
+		if emitted && !event.emitted?
+		    event.instance_eval { @emitted = true }
 		end
 		event
 	    end

@@ -50,8 +50,8 @@ class TC_DistributedExecution < Minitest::Test
 	    remote_peer.synchro_point
 	end
 
-	assert(controlable.happened?)
-	assert(contingent.happened?)
+	assert(controlable.emitted?)
+	assert(contingent.emitted?)
     end
 
     def test_signal_establishment
@@ -131,7 +131,7 @@ class TC_DistributedExecution < Minitest::Test
 	    remote_peer.synchro_point
 	end
 
-	assert(event.happened?)
+	assert(event.emitted?)
     end
 
     def test_task_status
@@ -158,7 +158,7 @@ class TC_DistributedExecution < Minitest::Test
 
 	remote.create_task
 	p_task = remote_task(id: 1)
-	assert(!p_task.event(:start).happened?)
+	assert(!p_task.event(:start).emitted?)
 	process_events
 	assert(!p_task.plan)
 
@@ -168,14 +168,14 @@ class TC_DistributedExecution < Minitest::Test
 	process_events
 	p_task = subscribe_task(id: 1)
 	assert(p_task.running?)
-	assert(p_task.event(:start).happened?)
+	assert(p_task.event(:start).emitted?)
 
 	# Stop the task to see if the fired event is propagated
 	remote.stop_task
 	process_events
 	assert(p_task.finished?)
 	assert(p_task.failed?)
-	assert(p_task.event(:stop).happened?)
+	assert(p_task.event(:stop).emitted?)
 	assert(p_task.finished?)
     end
 
@@ -220,8 +220,8 @@ class TC_DistributedExecution < Minitest::Test
 
 	    remote.start_task
 	    process_events
-	    assert(signalled_ev.happened?)
-	    assert(forwarded_ev.happened?)
+	    assert(signalled_ev.emitted?)
+	    assert(forwarded_ev.emitted?)
 	end
     end
 
@@ -300,8 +300,8 @@ class TC_DistributedExecution < Minitest::Test
 	end
 	assert(!task.subscribed?)
 	assert(remote_peer.task.finished?)
-	assert(remote_peer.task.event(:aborted).happened?)
-	assert(remote_peer.task.event(:stop).happened?)
+	assert(remote_peer.task.event(:aborted).emitted?)
+	assert(remote_peer.task.event(:stop).emitted?)
 	assert(task.finished?)
     end
 

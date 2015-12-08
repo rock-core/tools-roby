@@ -84,7 +84,7 @@ module Roby
             @event_model = old.event_model
             @preconditions = old.instance_variable_get(:@preconditions).dup
             @handlers = old.handlers.dup
-            @happened = old.happened?
+            @emitted = old.emitted?
 	    @history  = old.history.dup
             @pending  = false
             if old.command.kind_of?(Method)
@@ -565,7 +565,7 @@ module Roby
 	# This method is always called in a propagation context
 	def fire(event)
 	    execution_engine.propagation_context([event]) do |result|
-		@happened = true
+		@emitted = true
                 @pending = false
 		fired(event)
 
@@ -768,7 +768,12 @@ module Roby
 	# A [time, event] array of past event emitted by this object
 	attr_reader :history
 	# True if this event has been emitted once.
-	attr_predicate :happened
+	attr_predicate :emitted?
+	# True if this event has been emitted once.
+        def happened?
+            Roby.warn_deprecated "#happened? is deprecated, use #emitted? instead"
+            emitted?
+        end
 	# Last event to have been emitted by this generator
 	def last; history.last end
 

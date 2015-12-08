@@ -586,10 +586,10 @@ module Roby
                 return true, "timed out waiting for #{positive.map(&:to_s).join(", ")} to happen"
             end
 
-            if positive_ev = positive.find { |ev| ev.happened? }
+            if positive_ev = positive.find { |ev| ev.emitted? }
                 return false, "#{positive_ev} happened"
             end
-            failure = negative.find_all { |ev| ev.happened? }
+            failure = negative.find_all { |ev| ev.emitted? }
             unless failure.empty?
                 return true, "#{failure} happened"
             end

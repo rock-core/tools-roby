@@ -47,12 +47,18 @@ module Roby
             #
             # In its simplest form,
             #
-            #   :blocked.happened?
+            #   :blocked.emitted?
             #
             # will be true when evaluated on a task whose +blocked+ event has
             # emitted at least once
-            def happened?
+            def emitted?
                 to_unbound_task_predicate
+            end
+
+            # @deprecated use {#emitted?} instead
+            def happened?
+                Roby.warn_deprecated "#happened? is deprecated, use #emitted? instead"
+                emitted?
             end
 
             # Protocol method. The unbound task predicate call always calls
@@ -782,7 +788,7 @@ end
             end
             def explain_false(task)
                 generator = task.event(event_name)
-                if !generator.happened?
+                if !generator.emitted?
                     Explanation.new(false, self, [generator])
                 end
             end
@@ -796,7 +802,7 @@ end
             end
             def static?(task)
                 event = task.event(event_name)
-                event.happened? || event.unreachable?
+                event.emitted? || event.unreachable?
             end
 
             def never
