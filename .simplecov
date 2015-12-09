@@ -1,4 +1,4 @@
-SimpleCov.command_name 'syskit'
+SimpleCov.command_name 'roby'
 SimpleCov.start do
     add_filter "/test/"
     add_filter "/gui/"

@@ -12,7 +12,6 @@
 
   <depend package="utilrb" />
   <depend package="facets" />
-  <depend package="boost" />
   <depend package="state_machine" />
   <depend package="tools/metaruby" />
   <depend package="websocket-gem" />
@@ -20,7 +19,7 @@
   <depend package="rb-readline" />
   <depend package="concurrent-ruby" />
   <depend package="pastel" />
-  <depend package="hooks" optional='1' />
+  <depend package="hooks" />
   <depend package="rake-compiler" />
   <depend package="rgl" />
 
