@@ -144,6 +144,9 @@ module Roby
                 def to_coordination_task(task_model = Roby::Task)
                     self
                 end
+
+                def setup_instanciated_task(coordination_context, task, arguments = Hash.new)
+                end
             end
         end
     end

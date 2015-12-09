@@ -77,6 +77,8 @@ module Roby
             on_exception LocalizedError do |plan, error|
                 plan.default_localized_error_handling(error)
             end
+
+            Log.log(:register_executable_plan) { [self] }
         end
 
         def default_localized_error_handling(error)
@@ -184,6 +186,8 @@ module Roby
                     child.send("added_#{rel.child_name}_parent", parent, info)
                 end
             end
+
+            Log.log(:added_edge) { [parent, child, relations, info] }
         end
 
         # Hook called when the edge information of an existing edge has been
@@ -194,6 +198,7 @@ module Roby
         # @param [Class<Relations::Graph>] relation the relation graph ID
         # @param [Object] info the new edge info
         def updated_edge_info(parent, child, relation, info)
+            Log.log(:updated_edge_info) { [parent, child, relation, info] }
         end
 
         # Hook called before an edge gets removed from this plan
@@ -237,6 +242,8 @@ module Roby
                     child.send("removed_#{rel.child_name}_parent", parent)
                 end
             end
+
+            Log.log(:removed_edge) { [parent, child, relations] }
         end
 
         # @api private
@@ -298,6 +305,16 @@ module Roby
             if precedence_edge_count != precedence_graph.num_edges
                 execution_engine.event_ordering.clear
             end
+
+            added.each do |graph, parent, child|
+                Log.log(:added_edge) { [self, parent, child, [graph.class]] }
+            end
+            removed.each do |graph, parent, child|
+                Log.log(:removed_edge) { [self, parent, child, [graph.class]] }
+            end
+            updated.each do |graph, parent, child, info|
+                Log.log(:updated_edge_info) { [self, parent, child, graph.class, info] }
+            end
         end
 
         def merging_plan(plan)
@@ -321,7 +338,10 @@ module Roby
             plan.each_event_relation_graph do |graph|
                 emit_relation_graph_add_hooks(graph, prefix: 'added')
             end
+
             super
+
+            Log.log(:merged_plan) { [self, plan] }
         end
 
 	# Hook called when +task+ is marked as garbage. It will be garbage
@@ -340,6 +360,8 @@ module Roby
 	    end
 
             remove_object(task_or_event)
+
+            Log.log(:garbage) { [self, task_or_event] }
 	end
 
         include Roby::ExceptionHandlingObject

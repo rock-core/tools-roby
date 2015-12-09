@@ -109,7 +109,7 @@ module Roby
 
 	    @task_index  = Roby::Queries::Index.new
 
-	    super() if defined? super
+	    super()
 	end
 
         def self.instanciate_relation_graphs(graph_observer: nil)
@@ -454,10 +454,6 @@ module Roby
             add_mission_task(task)
 	    self
 	end
-	# Hook called when +tasks+ have been inserted in this plan
-	def added_mission(tasks)
-            super if defined? super 
-        end
 	# Checks if +task+ is a mission of this plan
 	def mission?(task); @missions.include?(task.to_task) end
 
@@ -468,15 +464,9 @@ module Roby
 	    @missions.delete(task)
 	    task.mission = false if task.self_owned?
 
-	    unmarked_mission(task)
             notify_plan_status_change(task, :normal)
 	    self
 	end
-
-	# Hook called when +tasks+ have been discarded from this plan
-	def unmarked_mission(task)
-            super if defined? super
-        end
 
 	# Adds +object+ in the list of permanent tasks. Permanent tasks are
         # tasks that are not to be subject to the plan's garbage collection
@@ -540,10 +530,11 @@ module Roby
         end
 
         # Perform notifications related to the status change of a task
-        def notify_plan_status_change(task, status)
-            if services = plan_services[task]
+        def notify_plan_status_change(object, status)
+            if services = plan_services[object]
                 services.each { |s| s.notify_plan_status_change(status) }
             end
+            Log.log(:notify_plan_status_change) { [self, object, status] }
         end
 
 	def edit
@@ -743,7 +734,6 @@ module Roby
                     (plan_services[replacing_task] ||= Set.new) << srv
                 end
             end
-            super if defined? super
         end
 
         def add_mission_task(task)
@@ -752,7 +742,6 @@ module Roby
 
 	    missions << task
 	    task.mission = true if task.self_owned?
-	    added_mission(task)
             notify_plan_status_change(task, :mission)
 	    true
         end
@@ -770,6 +759,7 @@ module Roby
             return if permanent_events.include?(event)
             add([event])
             permanent_events << event
+            notify_plan_status_change(event, :permanent)
             true
         end
 
@@ -808,9 +798,7 @@ module Roby
         # Adds the subplan of the given tasks and events into the plan.
         #
         # That means that it adds the listed tasks/events and the task/events
-        # that are reachable through any relations). The #added_events and
-        # #added_tasks hooks are called for the objects that were not in
-        # the plan.
+        # that are reachable through any relations).
 	def add(objects)
 	    objects = normalize_add_arguments(objects)
 
@@ -884,16 +872,6 @@ module Roby
             nil
         end
 
-	# Hook called when new tasks have been discovered in this plan
-        def added_tasks(tasks)
-            raise NotImplementedError, "the #added_tasks hook has been superseded by #merged_plan"
-        end
-
-	# Hook called when new events have been discovered in this plan
-	def added_events(events)
-            raise NotImplementedError, "the #added_events hook has been superseded by #merged_plan"
-	end
-
         # Creates a new transaction and yields it. Ensures that the transaction
         # is discarded if the block returns without having committed it.
         def in_transaction
@@ -904,16 +882,18 @@ module Roby
                 trsc.discard_transaction
             end
         end
+
 	# Hook called when a new transaction has been built on top of this plan
-	def added_transaction(trsc); super if defined? super end
+	def added_transaction(trsc)
+            Log.log(:added_transaction) { [self, trsc] }
+        end
+
 	# Removes the transaction +trsc+ from the list of known transactions
 	# built on this plan
 	def remove_transaction(trsc)
 	    transactions.delete(trsc)
-	    removed_transaction(trsc)
+            Roby::Log.log(:removed_transaction) { [self, trsc] }
 	end
-	# Hook called when a new transaction has been built on top of this plan
-	def removed_transaction(trsc); super if defined? super end
 
         # @api private
         #
@@ -1271,22 +1251,16 @@ module Roby
             self
 	end
 
-	# backward compatibility
-	def finalized(task) # :nodoc:
-	    super if defined? super
-	end
-
 	# Hook called when +task+ has been removed from this plan
 	def finalized_task(task)
             finalized_transaction_object(task) { |trsc, proxy| trsc.finalized_plan_task(proxy) }
-	    super if defined? super
-	    finalized(task)
+            Log.log(:finalized_task) { [task] }
 	end
 
 	# Hook called when +event+ has been removed from this plan
 	def finalized_event(event)
             finalized_transaction_object(event) { |trsc, proxy| trsc.finalized_plan_event(proxy) }
-            super if defined? super 
+            Log.log(:finalized_event) { [event] }
         end
 
         # Generic filter which checks if +object+ is included in one of the

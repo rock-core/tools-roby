@@ -282,7 +282,6 @@ module Roby
                 start_event.schedule_as(task.start_event)
             end
         end
-        Roby::Task.include TaskSchedulingConstraints
 
         # This relation maintains a network of temporal constraints between
         # events.
@@ -298,6 +297,43 @@ module Roby
             dag: false
 
         class TemporalConstraints
+            module EventFiredHook
+                # Overloaded to register deadlines that this event's emissions
+                # define
+                def fired(event)
+                    super
+
+                    # Verify that the event matches any running constraint
+                    parent, intervals = find_failed_temporal_constraint(event.time)
+                    if parent
+                        plan.engine.add_error TemporalConstraintViolation.new(event, parent, intervals.intervals)
+                    end
+                    parent, count, allowed_interval, since = find_failed_occurence_constraint(false)
+                    if parent
+                        plan.engine.add_error OccurenceConstraintViolation.new(event, parent, count, allowed_interval, since)
+                    end
+
+                    deadlines = plan.emission_deadlines
+                    # Remove the deadline that this emission fullfills (if any)
+                    deadlines.remove_deadline_for(self, event.time)
+                    # Add new deadlines
+                    each_forward_temporal_constraint do |target, disjoint_set|
+                        next if disjoint_set.intervals.empty?
+
+                        max_diff = disjoint_set.boundaries[1]
+                        is_fullfilled = target.history.any? do |target_event|
+                            diff = event.time - target_event.time
+                            break if diff > max_diff
+                            disjoint_set.include?(diff)
+                        end
+
+                        if !is_fullfilled
+                            deadlines.add(event.time + disjoint_set.boundaries[1], event, target)
+                        end
+                    end
+                end
+            end
+
             module Extension
                 # Shortcut to specify that +self+ should be emitted after
                 # +other_event+
@@ -432,40 +468,6 @@ module Roby
                     nil
                 end
 
-                # Overloaded to register deadlines that this event's emissions
-                # define
-                def fired(event)
-                    super if defined? super
-
-                    # Verify that the event matches any running constraint
-                    parent, intervals = find_failed_temporal_constraint(event.time)
-                    if parent
-                        plan.engine.add_error TemporalConstraintViolation.new(event, parent, intervals.intervals)
-                    end
-                    parent, count, allowed_interval, since = find_failed_occurence_constraint(false)
-                    if parent
-                        plan.engine.add_error OccurenceConstraintViolation.new(event, parent, count, allowed_interval, since)
-                    end
-
-                    deadlines = plan.emission_deadlines
-                    # Remove the deadline that this emission fullfills (if any)
-                    deadlines.remove_deadline_for(self, event.time)
-                    # Add new deadlines
-                    each_forward_temporal_constraint do |target, disjoint_set|
-                        next if disjoint_set.intervals.empty?
-
-                        max_diff = disjoint_set.boundaries[1]
-                        is_fullfilled = target.history.any? do |target_event|
-                            diff = event.time - target_event.time
-                            break if diff > max_diff
-                            disjoint_set.include?(diff)
-                        end
-
-                        if !is_fullfilled
-                            deadlines.add(event.time + disjoint_set.boundaries[1], event, target)
-                        end
-                    end
-                end
             end
 
             # Returns the DisjointIntervalSet that represent the merge of the
@@ -530,7 +532,13 @@ module Roby
                 end
             end
         end
-        Roby::Task.include TaskTemporalConstraints
+        Roby::EventGenerator.class_eval do
+            prepend TemporalConstraints::EventFiredHook
+        end
+        Roby::Task.class_eval do
+            prepend TaskSchedulingConstraints
+            prepend TaskTemporalConstraints
+        end
     end
 end
 

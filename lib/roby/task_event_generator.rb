@@ -56,19 +56,19 @@ module Roby
         #
         # This forwards the call to Task#emitting_event
         def emitting(context) # :nodoc:
+            super
             task.emitting_event(self, context)
-            super if defined? super
         end
 
         def calling(context)
-            super if defined? super
+            super
             if symbol == :start
                 task.freeze_delayed_arguments
             end
         end
 
         def called(context)
-            super if defined? super
+            super
             if terminal? && pending?
                 task.finishing = true
             end
@@ -89,7 +89,7 @@ module Roby
         #
         # It forwards the call to Task#fire
         def fired(event) # :nodoc:
-            super if defined? super
+            super
             task.fired_event(event)
         end
 
@@ -165,12 +165,12 @@ module Roby
         # Invalidates the task's terminal flag when the Forwarding and/or the
         # Signal relation gets modified.
 	def removed_signal(child)
-	    super if defined? super
+	    super
             invalidate_task_terminal_flag_if_needed(child)
 	end
 
 	def removed_forwarding(child)
-	    super if defined? super
+	    super
             invalidate_task_terminal_flag_if_needed(child)
 	end
 

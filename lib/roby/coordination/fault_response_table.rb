@@ -59,17 +59,13 @@ module Roby
             # Hook called when this table is attached to a given plan
             #
             # This is a hook, so one can inject code here by defining a
-            # attach_to method on a module and including this module on the
-            # FaultResponseTable class. Do not forget to add
-            #
-            #   super if defined? super
-            #
+            # attach_to method on a module and prepending the module on the
+            # FaultResponseTable class. Do not forget to call super
             # in the hook method.
             #
             # @param [Plan] plan
             # @return [void]
             def attach_to(plan)
-                super if defined? super
             end
 
             # Returns the handlers that are defined for a particular exception
@@ -87,12 +83,12 @@ module Roby
             # It cannot be reused afterwards
             #
             # It calls super if it is defined, so it is possible to use it as a
-            # hook by defining a module that defines removed! and include it in
-            # the FaultResponseTable class.
+            # hook by defining a module that defines removed! and prepend it in
+            # the FaultResponseTable class. Don't forget to call super in the
+            # hook
             #.
             # @return [void]
             def removed!
-                super if defined? super
             end
         end
     end

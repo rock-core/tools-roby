@@ -360,6 +360,10 @@ module Roby
 	    @remote_siblings, @owners = remote_siblings, owners
 	end
 
+        def remote_id
+            remote_siblings[owners.first]
+        end
+
 	def remote_siblings_to_s # :nodoc:
 	    "{ " << remote_siblings.map { |peer, id| id.to_s(peer) }.join(", ") << " }"
 	end
@@ -453,7 +457,7 @@ module Roby
         # to the +dest+ peer.
 	def droby_dump(dest)
 	    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
-		      Distributed.format(model, dest),  Distributed.format(plan, dest), 
+                      Distributed.format(model, dest),  plan.remote_id, 
 		      controlable?, emitted?)
 	end
 
@@ -616,7 +620,7 @@ module Roby
         # to the +dest+ peer.
 	def droby_dump(dest)
 	    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
-		      Distributed.format(model, dest), Distributed.format(plan, dest), 
+                      Distributed.format(model, dest), plan.remote_id, 
 		      Distributed.format(meaningful_arguments, dest), Distributed.format(data, dest),
 		      mission: mission?, started: started?,
 		      finished: finished?, success: success?)
@@ -684,46 +688,94 @@ module Roby
     end
 
     class Plan
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer.
-	def droby_dump(dest)
-	    @__droby_marshalled__ ||= DRoby.new(Roby::Distributed.droby_dump(dest), remote_id)
-	end
+        extend Distributed::DRobyConstant::Dump
 
-        # An intermediate representation of Plan objects suitable to be sent to
-        # our peers.
-        #
-        # FIXME: It assumes that the only Plan object sent to the peers is
-        # actually the main plan of the plan manager. We must fix that.
-	class DRoby
-            # The peer which manages this plan
-	    attr_accessor :peer
-            # The plan remote_id
-            attr_accessor :id
-            # Create a DRoby representation of a plan object with the given
-            # parameters
-	    def initialize(peer, id); @peer, @id = peer, id end
-            # Create a new proxy which maps the object of +peer+ represented by
-            # this communication intermediate.
-	    def proxy(object_manager); object_manager.plan end
-	    def to_s # :nodoc:
-                "#<dRoby:Plan #{id.to_s(peer)}>" 
+        def droby_dump_relations(dest, object_mapping, relation_graphs)
+            relation_graphs.
+                find_all { |rel, g| rel != g }.
+                map do |rel, g|
+                    edges = g.each_edge.flat_map do |u, v, i|
+                        [object_mapping[u], object_mapping[v], Distributed.format(i, dest)]
+                    end
+                    [rel, edges]
+                end
+        end
+
+        def droby_dump(dest)
+            known_tasks = Hash.new
+            self.known_tasks.each_with_index do |t, i|
+                known_tasks[t] = i
             end
-            # The set of remote siblings for that object. This is used to avoid
-            # creating proxies when not needed. See
-            # PlanObject::DRoby#remote_siblings.
-	    def remote_siblings; @remote_siblings ||= Hash[peer, id] end
-            # If +peer+ is the plan's owner, returns #id. Otherwise, raises
-            # RemotePeerMismatch. This is used to avoid creating proxies when not
-            # needed
-            #
-            # @see DistributedObject::DRoby#sibling_on.
-	    def sibling_on(peer)
-		if peer.remote_id == self.peer.peer_id then id
-		else raise RemotePeerMismatch, "no known sibling for #{self} on #{peer}"
-		end
-	    end
-	end
+            free_events = Hash.new
+            self.free_events.each_with_index do |e, i|
+                free_events[e] = i
+            end
+            missions = self.missions.map { |t| known_tasks[t] }
+            permanent_tasks = self.permanent_tasks.map   { |t| known_tasks[t] }
+            permanent_events = self.permanent_events.map { |t| known_tasks[t] }
+
+            task_relation_graphs  = droby_dump_relations(dest, known_tasks, self.task_relation_graphs)
+            event_relation_graphs = droby_dump_relations(dest, free_events, self.event_relation_graphs)
+
+            DRoby.new(
+                Distributed.format(self.class, dest),
+                Distributed.format(known_tasks, dest),
+                Distributed.format(free_events, dest),
+                missions, permanent_tasks, permanent_events,
+                task_relation_graphs, event_relation_graphs)
+        end
+
+        class DRoby
+            attr_reader :plan_class
+            attr_reader :known_tasks
+            attr_reader :free_events
+            attr_reader :missions
+            attr_reader :permanent_tasks
+            attr_reader :permanent_events
+            attr_reader :task_relation_graphs
+            attr_reader :event_relation_graphs
+
+            def initialize(plan_class, known_tasks, free_events, missions, permanent_tasks, permanent_events, task_relation_graphs, event_relation_graphs)
+                @plan_class            = plan_class
+                @known_tasks           = known_tasks
+                @free_events           = free_events
+                @missions              = missions
+                @permanent_tasks       = permanent_tasks
+                @permanent_events      = permanent_events
+                @task_relation_graphs  = task_relation_graphs
+                @event_relation_graphs = event_relation_graphs
+            end
+
+            def proxy(object_manager)
+                plan_class.new
+            end
+
+            def unmarshal_relation_graph(rel, edges, target_graph)
+                graph = rel.new
+                edges.each do |u, v, i|
+                    graph.add_edge(known_tasks[u], known_tasks[v], object_manager.local_object(i))
+                end
+                target_graph.replace(graph)
+            end
+
+            def update(object_manager, proxy)
+                known_tasks = object_manager.local_object(self.known_tasks).reverse
+                free_events = object_manager.local_object(self.free_events).reverse
+
+                proxy.known_tasks.replace(known_tasks.values.to_set)
+                proxy.free_events.replace(free_events.values.to_set)
+                proxy.missions.replace(missions.map { |i| known_tasks[i] }.to_set)
+                proxy.permanent_tasks.replace(permanent_tasks.map { |i| known_tasks[i] }.to_set)
+                proxy.permanent_events.replace(permanent_events.map { |i| free_events[i] }.to_set)
+
+                object_manager.local_object(self.task_relation_graphs).each do |rel, edges|
+                    unmarshal_relation_graph(rel, edges, proxy.task_relation_graph_for(rel))
+                end
+                object_manager.local_object(self.event_relation_graphs).each do |rel, edges|
+                    unmarshal_relation_graph(rel, edges, proxy.event_relation_graph_for(rel))
+                end
+            end
+        end
     end
 
     module Distributed

@@ -610,7 +610,7 @@ module Roby
 
                 # Set up the event gathering needed by Dependency.check_structure
                 def added_child(child, info) # :nodoc:
-                    super if defined? super
+                    super
                     relation_graphs[Dependency].update_triggers_for(self, child, info)
                 end
 

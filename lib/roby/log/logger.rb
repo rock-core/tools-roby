@@ -77,9 +77,12 @@ module Roby::Log
 	attr_reader :logged_events
 	attr_reader :flushed_logger_mutex
 	attr_reader :flushed_logger
+        attr_reader :executable_plan
 	attr_reader :known_objects
 
-	def incremental_dump?(object); known_objects.include?(object) end
+	def incremental_dump?(object)
+            known_objects.include?(object) || executable_plan == object
+        end
 
 	# call-seq:
 	#   Log.log(message) { args }
@@ -87,16 +90,23 @@ module Roby::Log
 	# Logs +message+ with argument +args+. The block is called only once if
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
-	    if m == :added_tasks || m == :added_events
+            if (m == :register_executable_plan) && has_logger?(m)
                 args ||= yield
-                objects = args[1]
+                @executable_plan = args[0]
+                args = Distributed.format(args)
+            elsif (m == :merged_plan) && has_logger?(m)
+                args ||= yield
+                plan = args[1]
                 # Do not give a 'peer' argument at Distributed.format, to
                 # make sure we do a full dump
-                args = Roby::Distributed.format(args) if has_logger?(m)
-                known_objects.merge(objects)
+                #
+                # Moreover, do it mandatorily, or we end up with known_objects
+                # containing objects that have never been dumped
+                args = Roby::Distributed.format(args)
+                known_objects.merge(plan.known_tasks).merge(plan.free_events)
 	    elsif m == :finalized_task || m == :finalized_event
                 args ||= yield
-                object = args[1]
+                object = args[0]
                 args = Roby::Distributed.format(args, self) if has_logger?(m)
                 known_objects.delete(object)
 	    end

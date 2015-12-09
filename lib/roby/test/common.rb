@@ -140,7 +140,7 @@ module Roby
             end
             register_plan(@plan)
 
-            super if defined? super
+            super
 
 	    @console_logger ||= false
             @event_logger   ||= false
@@ -273,7 +273,7 @@ module Roby
 		Roby.warn "#{count} -> #{remains} (#{count - remains})"
 	    end
 
-            super if defined? super
+            super
 
 	ensure
             reset_log_levels

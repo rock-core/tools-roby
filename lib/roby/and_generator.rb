@@ -90,7 +90,7 @@ module Roby
 	
 	# Adds a new source to +events+ when a source event is added
 	def added_signal_parent(parent, info) # :nodoc:
-	    super if defined? super
+	    super
 	    @events[parent] = parent.last
 
 	    # If the parent is unreachable, check that it has neither been
@@ -104,7 +104,7 @@ module Roby
 
 	# Removes a source from +events+ when the source is removed
 	def removed_signal_parent(parent) # :nodoc:
-	    super if defined? super
+	    super
 	    @events.delete(parent)
             emit_if_achieved(nil)
 	end

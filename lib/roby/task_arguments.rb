@@ -2,9 +2,6 @@ module Roby
     # Class that handles task arguments. They are handled specially as the
     # arguments cannot be overwritten and can not be changed by a task that is
     # not owned.
-    #
-    # Moreover, two hooks #updating and #updated allow to hook into the argument
-    # update system.
     class TaskArguments
 	attr_reader :task
         attr_reader :values
@@ -155,9 +152,8 @@ module Roby
                     update_static = true
                 end
 
-		updating
 		values[key] = value
-		updated(key, value)
+                Roby::Log.log(:task_arguments_updated) { [task, key, value] }
 
                 if update_static
                     @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
@@ -167,8 +163,6 @@ module Roby
 		raise ArgumentError, "cannot override task argument #{key} as it is already set to #{values[key]}"
 	    end
 	end
-	def updating; super if defined? super end
-	def updated(key, value); super if defined? super end
 
         def [](key)
             key = key.to_sym if key.respond_to?(:to_str)

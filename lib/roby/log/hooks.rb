@@ -5,203 +5,96 @@ module Roby::Log
 	HOOKS = %w{added_owner removed_owner}
 
 	def added_owner(peer)
-	    super if defined? super
+            super
 	    Roby::Log.log(:added_owner) { [self, peer] }
 	end
 
 	def removed_owner(peer)
-	    super if defined? super
+            super
 	    Roby::Log.log(:removed_owner) { [self, peer] }
 	end
     end
-    Roby::DistributedObject.include DistributedObjectHooks
+    Roby::DistributedObject.class_eval do
+        prepend DistributedObjectHooks
+    end
 
     module TaskHooks
-	HOOKS = %w{added_task_child removed_task_child task_failed_to_start updated_task_relation}
-
-	def updated_edge_info(child, relation, info)
-	    super if defined? super
-	    Roby::Log.log(:updated_task_relation) { [self, relation, child, info] }
-	end
-
-	def added_child_object(child, relations, info)
-	    super if defined? super
-	    Roby::Log.log(:added_task_child) { [self, relations, child, info] }
-	end
-
-	def removed_child_object(child, relations)
-	    super if defined? super
-	    Roby::Log.log(:removed_task_child) { [self, relations, child] }
-	end
-
-        def failed_to_start(reason)
-            super if defined? super
-	    Roby::Log.log(:task_failed_to_start) { [self, reason] }
-        end
+	HOOKS = %w{task_failed_to_start}
+        # task_failed_to_start(self, reason)
     end
-    Roby::Task.include TaskHooks
 
-    module PlanHooks
+    module ExecutablePlanHooks
 	HOOKS = %w{
-            added_mission unmarked_mission
-            added_permanent unmarked_permanent
-            added_tasks added_events finalized_task finalized_event
-            replaced_tasks garbage added_transaction removed_transaction}
+            added_edge removed_edge updated_edge_info merged_plan
+            added_transaction removed_transaction
+            notify_plan_status_change
+        }
+        # added_edge(self, parent, child, relations, info)
+        # removed_edge(self, parent, child, relations)
+        # updated_edge_info(self, parent, child, relation, info)
+        # merged_plan(self, plan)
 
-	def added_mission(tasks)
-	    super if defined? super
-	    Roby::Log.log(:added_mission) { [self, tasks] }
-	end
-	def unmarked_mission(tasks)
-	    super if defined? super
-	    Roby::Log.log(:unmarked_mission) { [self, tasks] }
-	end
-	def replaced(from, to)
-	    super if defined? super
-	    Roby::Log.log(:replaced_tasks) { [self, from, to] }
-	end
-	def added_events(tasks)
-	    super if defined? super
-	    Roby::Log.log(:added_events) { [self, tasks] }
-	end
-	def added_tasks(tasks)
-	    super if defined? super
-	    Roby::Log.log(:added_tasks) { [self, tasks] }
-	end
-	def garbage(object)
-	    super if defined? super
-	    Roby::Log.log(:garbage) { [self, object] }
-	end
-	def finalized_event(event)
-	    super if defined? super
-	    Roby::Log.log(:finalized_event) { [self, event] }
-	end
-	def finalized_task(task)
-	    super if defined? super
-	    Roby::Log.log(:finalized_task) { [self, task] }
-	end
+        # finalized_task(self, task)
+        # finalized_event(self, event)
 
-	def added_transaction(trsc)
-	    super if defined? super
-	    Roby::Log.log(:added_transaction) { [self, trsc] }
-	end
-	def removed_transaction(trsc)
-	    super if defined? super
-	    Roby::Log.log(:removed_transaction) { [self, trsc] }
-	end
+        # notify_plan_status_change(self, task, status)
+        # garbage(self, object)
+
+        # added_transaction(self, transaction)
+        # removed_transaction(self, transaction)
     end
-    Roby::Plan.include PlanHooks
 
     module TransactionHooks
 	HOOKS = %w{committed_transaction discarded_transaction}
 
 	def committed_transaction
-	    super if defined? super
+	    super
 	    Roby::Log.log(:committed_transaction) { [self] }
 	end
 	def discarded_transaction
-	    super if defined? super
+	    super
 	    Roby::Log.log(:discarded_transaction) { [self] }
 	end
     end
-    Roby::Transaction.include TransactionHooks
+    Roby::Transaction.class_eval do
+        prepend TransactionHooks
+    end
 
     module EventGeneratorHooks
-	HOOKS = %w{added_event_child removed_event_child 
-		   generator_calling generator_called generator_fired
-		   generator_signalling generator_forwarding generator_emitting
-		   generator_postponed generator_emit_failed}
+	HOOKS = %w{generator_calling generator_called
+                   generator_emitting generator_fired
+		   generator_propagate_event
+                   generator_unreachable
+		   generator_emit_failed}
 
-	def added_child_object(to, relations, info)
-	    super if defined? super
-	    Roby::Log.log(:added_event_child) { [self, relations, to, info] }
-	end
-
-	def removed_child_object(to, relations)
-	    super if defined? super
-	    Roby::Log.log(:removed_event_child) { [self, relations, to] }
-	end
-
-	def updated_edge_info(child, relation, info)
-	    super if defined? super
-	    Roby::Log.log(:updated_event_relation) { [self, relation, child, info] }
-	end
-
-	def calling(context)
-	    super if defined? super
-	    Roby::Log.log(:generator_calling) { [self, plan.engine.propagation_source_generators, context.to_s] }
-	end
-
-	def called(context)
-	    super if defined? super
-	    Roby::Log.log(:generator_called) { [self, context.to_s] }
-	end
-
-	def fired(event)
-	    super if defined? super
-	    Roby::Log.log(:generator_fired) { [self, event.object_id, event.time, event.context.to_s] }
-	end
-
-        def failed_to_emit(error)
-	    super if defined? super
-	    Roby::Log.log(:generator_emit_failed) { [self, error] }
-	end
-
-	def signalling(event, to)
-	    super if defined? super
-	    Roby::Log.log(:generator_signalling) { [false, self, to, event.object_id, event.time, event.context.to_s] }
-	end
-
-	def emitting(context)
-	    super if defined? super
-	    Roby::Log.log(:generator_emitting) { [self, plan.engine.propagation_source_generators, context.to_s] }
-	end
-
-	def forwarding(event, to)
-	    super if defined? super
-	    Roby::Log.log(:generator_forwarding) { [true, self, to, event.object_id, event.time, event.context.to_s] }
-	end
-
+        # generator_calling(generator_id, source_generators, context_as_string)
+        # generator_called(generator_id, context_as_string)
+        # generator_emitting(generator_id, source_generators, context_as_string)
+        # generator_fired(generator_id, event_id, event_time, context_as_string)
+        # generator_emit_failed(generator_id, error)
+        # generator_propagate_event(is_forwarding, source_generator_id,
+        #   target_generator_id, event_id, event_time, event_context_as_string)
+        # generator_unreachable(generator_id, reason)
     end
-    Roby::EventGenerator.include EventGeneratorHooks
 
     module ExecutionHooks
-	HOOKS = %w{cycle_end fatal_exception handled_exception nonfatal_exception report_scheduler_state}
+	HOOKS = %w{cycle_end exception_notification report_scheduler_state}
 
-	def cycle_end(timings)
-	    super if defined? super
-	    Roby::Log.log(:cycle_end) { [timings] }
-	end
+        # cycle_end(timings)
 
-        def nonfatal_exception(error, tasks)
-            super if defined? super
-	    Roby::Log.log(:nonfatal_exception) { [error.exception, tasks] }
-        end
+        # exception_notification(mode, error, involved_objects)
+        #   mode == EXCEPTION_FATAL -> involved_objects Roby::Task
+        #   mode == EXCEPTION_NONFATAL -> involved_objects Roby::Task
+        #   mode == EXCEPTION_HANDLED -> involved_objects Roby::Task or Roby::Plan
 
-        def fatal_exception(error, tasks)
-            super if defined? super
-            Roby::Log.log(:fatal_exception) { [error.exception, tasks] }
-        end
-        def handled_exception(error, task)
-            super if defined? super
-            Roby::Log.log(:handled_exception) { [error.exception, task] }
-        end
-        def report_scheduler_state(state)
-            super if defined? super
-            Roby::Log.log(:report_scheduler_state) { [plan, state.pending_non_executable_tasks, state.called_generators, state.non_scheduled_tasks] }
-        end
+        # report_scheduler_state(plan, pending_non_executable_tasks, called_generators, non_scheduled_tasks)
     end
-    Roby::ExecutionEngine.include ExecutionHooks
 
     module TaskArgumentsHooks
         HOOKS=%w{task_arguments_updated}
 
-        def updated(key, value)
-            super if defined? super
-            Roby::Log.log(:task_arguments_updated) { [task, key, value] }
-        end
+        # task_arguments_updated(task, key, value)
     end
-    Roby::TaskArguments.include TaskArgumentsHooks
 
     class << self
         # Hooks that need to be registered for the benefit of generic loggers
@@ -237,7 +130,7 @@ module Roby::Log
         #      ...
         #   end
 	[TransactionHooks, DistributedObjectHooks, TaskHooks,
-	    PlanHooks, EventGeneratorHooks, ExecutionHooks, TaskArgumentsHooks].each do |klass|
+	    ExecutablePlanHooks, EventGeneratorHooks, ExecutionHooks, TaskArgumentsHooks].each do |klass|
 		klass::HOOKS.each do |m|
 		    yield(m.to_sym)
 		end

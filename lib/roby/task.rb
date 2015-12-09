@@ -297,8 +297,6 @@ module Roby
 		bound_events[ev_symbol.to_sym] = ev
 	    end
 	    @bound_events = bound_events
-
-            super if defined? super
         end
 
 	# Returns for how many seconds this task is running.  Returns nil if
@@ -524,12 +522,8 @@ module Roby
                 ev.unreachable!(reason)
             end
 
-            failed_to_start(reason)
+            Log.log(:task_failed_to_start) { [self, reason] }
         end
-
-        # Hook called in failed_to_start! to announce that this task failed to
-        # start
-        def failed_to_start(reason); super if defined? super end
 
         # True if the +failed+ event of this task has been fired
 	def failed?; failed_to_start? || (@success == false) end
@@ -621,15 +615,12 @@ module Roby
                 raise EmissionFailed.new(nil, event),
                     "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task is already running. Task has been started by #{start_event.last.sources}."
             end
-
-	    super if defined? super
         end
 
         # Hook called by TaskEventGenerator#fired when one of this task's events
         # has been fired.
         def fired_event(event)
 	    update_task_status(event)
-	    super if defined? super
         end
     
         # The most specialized event that caused this task to end
@@ -984,7 +975,6 @@ module Roby
         # This hook is called whenever the internal data of this task is
         # updated.  See #data, #data= and the +updated_data+ event
 	def updated_data
-	    super if defined? super
 	end
 	event :updated_data, command: false
 
@@ -1208,7 +1198,7 @@ module Roby
 
         # This method is called during the commit process to 
 	def commit_transaction
-	    super if defined? super
+	    super
 
 	    arguments.dup.each do |key, value|
                 if value.respond_to?(:transaction_proxy?) && value.transaction_proxy?

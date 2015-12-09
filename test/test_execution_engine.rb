@@ -412,51 +412,6 @@ class TC_ExecutionEngine < Minitest::Test
 	end
     end
 
-    module LogEventGathering
-	class << self
-	    attr_accessor :mockup
-	    def handle(name, obj)
-		mockup.send(name, obj, obj.execution_engine.propagation_sources) if mockup
-	    end
-	end
-
-	def signalling(event, to)
-	    super if defined? super
-	    LogEventGathering.handle(:signalling, self)
-	end
-	def forwarding(event, to)
-	    super if defined? super
-	    LogEventGathering.handle(:forwarding, self)
-	end
-	def emitting(context)
-	    super if defined? super
-	    LogEventGathering.handle(:emitting, self)
-	end
-	def calling(context)
-	    super if defined? super
-	    LogEventGathering.handle(:calling, self)
-	end
-    end
-    EventGenerator.include LogEventGathering
-
-    def test_log_events
-	FlexMock.use do |mock|
-	    LogEventGathering.mockup = mock
-	    dst = EventGenerator.new { }
-	    src = EventGenerator.new { dst.call }
-	    plan.add [src, dst]
-
-	    mock.should_receive(:signalling).never
-	    mock.should_receive(:forwarding).never
-	    mock.should_receive(:calling).with(src, [].to_set).once
-	    mock.should_receive(:calling).with(dst, [src].to_set).once
-	    src.call
-	end
-
-    ensure 
-	LogEventGathering.mockup = nil
-    end
-
     def test_add_framework_errors
 	# Shut up the logger in this test
 	Roby.logger.level = Logger::FATAL
@@ -1202,6 +1157,39 @@ class TC_ExecutionEngine < Minitest::Test
         assert_equal([], execution_engine.propagate_exceptions([error]))
     end
 
+    def test_it_notifies_about_exceptions_handled_by_a_task
+        mock = flexmock
+        task_model = Roby::Task.new_submodel do
+            on_exception(SpecializedError) { |e| }
+        end
+        plan.add(t0 = task_model.new)
+        plan.add(t1 = Tasks::Simple.new)
+        t0.depends_on(t1)
+
+        error = ExecutionException.new(SpecializedError.new(t1))
+        execution_engine.on_exception do |kind, error, involved_objects|
+            mock.notified(kind, error.exception, involved_objects.to_set)
+        end
+        mock.should_receive(:notified).once.
+            with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error.exception, Set[t0])
+        assert_equal([], execution_engine.propagate_exceptions([error]))
+    end
+
+    def test_it_notifies_about_exceptions_handled_by_the_plan
+        mock = flexmock
+        t0, t1 = prepare_plan add: 3
+        t0.depends_on(t1)
+
+        error = ExecutionException.new(SpecializedError.new(t1))
+        plan.on_exception(SpecializedError) {}
+        execution_engine.on_exception do |kind, error, involved_objects|
+            mock.notified(kind, error.exception, involved_objects.to_set)
+        end
+        mock.should_receive(:notified).once.
+            with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error.exception, Set[plan])
+        assert_equal([], execution_engine.propagate_exceptions([error]))
+    end
+
     def test_it_uses_global_handlers_to_filter_exceptions_that_have_not_been_handled_by_a_task
         mock = flexmock
 
@@ -1447,6 +1435,21 @@ class TC_ExecutionEngine < Minitest::Test
         Roby.format_exception(EventHandlerError.new(RuntimeError.new("message"), task.start_event))
     end
 
+    def test_nonfatal_exception_handling
+        task_model = Tasks::Simple.new_submodel
+        plan.add_permanent(t = task_model.new)
+        t.start!
+
+        mock = flexmock
+        execution_engine.on_exception do |kind, error, involved_objects|
+            mock.notified(kind, error.exception, involved_objects.to_set)
+        end
+        mock.should_receive(:notified).once.
+            with(ExecutionEngine::EXCEPTION_NONFATAL, PermanentTaskError, [t].to_set)
+
+        t.failed_event.emit
+    end
+
     def test_fatal_exception_handling
         task_model = Tasks::Simple.new_submodel do
             event :intermediate do |context|
@@ -1458,15 +1461,16 @@ class TC_ExecutionEngine < Minitest::Test
         t1.depends_on t2
         t2.depends_on t3, failure: [:intermediate]
 
-        plan.add_permanent(t1)
         t1.start!
         t2.start!
-        plan.add_permanent(t3)
         t3.start!
 
-        flexmock(execution_engine).should_receive(:fatal_exception).
-            with(any, ->tasks{tasks.to_set == [t1, t2, t3].to_set}).
-            once
+        mock = flexmock
+        execution_engine.on_exception do |kind, error, involved_objects|
+            mock.notified(kind, error.exception, involved_objects.to_set)
+        end
+        mock.should_receive(:notified).once.
+            with(ExecutionEngine::EXCEPTION_FATAL, ChildFailedError, [t1, t2, t3].to_set)
 
         assert_raises(ChildFailedError) do
             t3.intermediate!

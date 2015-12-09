@@ -114,12 +114,17 @@ module Roby::TaskStructure
             end
         end
 
-        module Extension
+        module ExecutionAgentStartInstaller
             def initialize_events
-                super if defined? super
+                super
                 start_event.extend ExecutionAgentStart
             end
+        end
+        Roby::Task.class_eval do
+            prepend ExecutionAgentStartInstaller
+        end
 
+        module Extension
             # In order to handle faults, it is needed that some event handlers are
             # defined on the task that has an execution agent
             #
@@ -158,7 +163,7 @@ module Roby::TaskStructure
             end
 
             def adding_execution_agent(child, info)
-                super if defined? super
+                super
 
                 if model_agent = model.execution_agent
                     if !child.fullfills?(*model_agent)
@@ -171,7 +176,7 @@ module Roby::TaskStructure
             #
             # See the documentation of #used_with_an_execution_agent?
             def added_execution_agent(child, info)
-                super if defined? super
+                super
 
                 if !used_with_an_execution_agent?
                     if running?
@@ -199,14 +204,12 @@ module Roby::TaskStructure
         end
     end
 
-    Roby::Task.extend ExecutionAgent::ModelExtension
-    
     # This module is hooked in Roby::TaskEventGenerator to check that a task
     # which is being started has a suitable execution agent, and to start it if
     # it's not the case
     module ExecutionAgentStart
 	def calling(context)
-	    super if defined? super
+	    super
 
             agent = task.execution_agent
             if !agent

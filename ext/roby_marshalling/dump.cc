@@ -34,6 +34,11 @@ static VALUE droby_format(int argc, VALUE* argv, VALUE self)
     VALUE object, destination;
     rb_scan_args(argc, argv, "11", &object, &destination);
 
+    if (object == Qnil)
+        return Qnil;
+    else if (object == Qfalse)
+        return Qfalse;
+
     if (RTEST(rb_obj_is_kind_of(object, cDRbObject)))
 	return object;
 

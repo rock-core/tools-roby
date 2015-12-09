@@ -435,8 +435,6 @@ module Roby
         #
         # The default implementation does nothing
         def initialize_replacement(object)
-            super if defined? super
-
             finalization_handlers.each do |handler|
                 if handler.copy_on_replace?
                     object.when_finalized(handler.as_options, &handler.block)

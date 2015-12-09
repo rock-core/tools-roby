@@ -27,10 +27,6 @@ module Roby
                 end
                 dependencies << [action, options[:role]]
             end
-
-            def setup_instanciated_task(coordination_context, task, arguments = Hash.new)
-                super if defined? super
-            end
         end
         end
     end

@@ -564,17 +564,15 @@ module Roby
             end
         end
 
-        # Called by #plan when an event became unreachable
+        # Called by EventGenerator when an event became unreachable
         def unreachable_event(event)
             delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
-            super if defined? super
         end
 
         # Called by #plan when an event has been finalized
         def finalized_event(event)
             event.unreachable!(nil, plan)
             # since the event is already finalized, 
-            super if defined? super
         end
 
         # Returns true if some events are queued
@@ -783,7 +781,11 @@ module Roby
         def call_propagation_handlers
             if scheduler.enabled?
                 gather_framework_errors('scheduler') do
-                    report_scheduler_state(scheduler.state)
+                    Roby::Log.log(:report_scheduler_state) do
+                        [plan, state.pending_non_executable_tasks,
+                               state.called_generators,
+                               state.non_scheduled_tasks]
+                    end
                     scheduler.clear_reports
                     scheduler.initial_events
                 end
@@ -795,11 +797,6 @@ module Roby
                 call_poll_blocks(self.class.propagation_handlers, true)
                 call_poll_blocks(self.propagation_handlers, true)
             end
-        end
-
-        # Called whenever the scheduler did something, to report about its state
-        def report_scheduler_state(state)
-            super if defined? super
         end
 
         # Executes the given block while gathering errors, and returns the
@@ -857,8 +854,8 @@ module Roby
                 !t.plan
             end
 
-            fatal_errors.each do |e, tasks|
-                fatal_exception(e, tasks)
+            fatal_errors.each do |exception, tasks|
+                notify_exception(EXCEPTION_FATAL, exception, tasks)
             end
 
             if !kill_tasks.empty?
@@ -1024,7 +1021,11 @@ module Roby
                 source_events, source_generators, context = prepare_propagation(signalled, false, call_info)
                 if source_events
                     for source_ev in source_events
-                        source_ev.generator.signalling(source_ev, signalled)
+                        source_g = source_ev.generator
+                        Roby::Log.log(:generator_propagate_event) do
+                            [false, source_g.remote_id, signalled.remote_id,
+                                    source_ev.object_id, source_ev.time, context.to_s]
+                        end
                     end
 
                     if signalled.self_owned?
@@ -1063,7 +1064,11 @@ module Roby
                 source_events, source_generators, context = prepare_propagation(signalled, true, forward_info)
                 if source_events
                     for source_ev in source_events
-                        source_ev.generator.forwarding(source_ev, signalled)
+                        source_g = source_ev.generator
+                        Roby::Log.log(:generator_propagate_event) do
+                            [true, source_g.remote_id, signalled.remote_id,
+                                    source_ev.object_id, source_ev.time, context.to_s]
+                        end
                     end
 
                     # If the destination event is not owned, but if the peer is not
@@ -1160,7 +1165,7 @@ module Roby
             # Propagate the exceptions in the hierarchy
 
             unhandled = Array.new
-            handled_exceptions = Hash.new
+            exceptions_handled_by_tasks = Hash.new
             exceptions.each do |exception, parents|
                 origin = exception.origin
                 if parents
@@ -1196,12 +1201,13 @@ module Roby
                 end
                 visitor.visit
                 unhandled.concat(visitor.unhandled_exceptions.to_a)
-                handled_exceptions[exception.exception] = visitor.handled_exceptions
+                exceptions_handled_by_tasks[exception.exception] = visitor.handled_exceptions
             end
 
+            exceptions_handled_by_plan = Hash.new
             unhandled = unhandled.find_all do |e|
                 if e.handled = yield(e, plan)
-                    handled_exceptions[e.exception] << e
+                    exceptions_handled_by_plan[e.exception] = e
                     false
                 else
                     true
@@ -1212,10 +1218,24 @@ module Roby
             # unhandled exceptions
             unhandled = unhandled.map do |e|
                 affected_tasks = e.trace.dup
-                handled_exceptions[e.exception].each do |handled_e|
+                exceptions_handled_by_tasks[e.exception].each do |handled_e|
                     affected_tasks -= handled_e.trace
                 end
                 [e, affected_tasks]
+            end
+
+            exceptions_handled_by = Array.new
+            exceptions_handled_by_tasks.each do |actual_exception, exceptions|
+                handled_by = exceptions.map(&:task)
+                if plan_handled_e = exceptions_handled_by_plan[actual_exception]
+                    handled_by << plan
+                    e = exceptions.inject(plan_handled_e) { |a, b| a.merge(b) }
+                elsif exceptions.empty?
+                    next
+                else
+                    e = exceptions.inject { |a, b| a.merge(b) }
+                end
+                exceptions_handled_by << [e, handled_by]
             end
 
             debug do
@@ -1233,7 +1253,7 @@ module Roby
                 end
                 break
             end
-            unhandled
+            return unhandled, exceptions_handled_by
         end
 
         # Propagation exception phase, checking if tasks and/or the main plan
@@ -1255,9 +1275,13 @@ module Roby
 
             debug "Propagating #{exceptions.size} non-inhibited exceptions"
             log_nest(2) do
-                propagate_exception_in_plan(exceptions) do |e, object|
+                unhandled, handled = propagate_exception_in_plan(exceptions) do |e, object|
                     object.handle_exception(e)
                 end
+                handled.each do |exception, handlers|
+                    notify_exception(EXCEPTION_HANDLED, exception, handlers)
+                end
+                unhandled
             end
         end
 
@@ -1273,13 +1297,14 @@ module Roby
         #   origin.task towards which they should be propagated
         # @return [Array<ExecutionException>] the unhandled exceptions
         def remove_inhibited_exceptions(exceptions)
-            propagate_exception_in_plan(exceptions) do |e, object|
+            unhandled, _ = propagate_exception_in_plan(exceptions) do |e, object|
                 if plan.force_gc.include?(object)
                     true
                 elsif object.respond_to?(:handles_error?)
                     object.handles_error?(e)
                 end
             end
+            unhandled
         end
 
         # Schedules +block+ to be called at the beginning of the next execution
@@ -1374,8 +1399,8 @@ module Roby
             end
             if !nonfatal.empty?
                 warn "unhandled #{nonfatal.size} non-fatal exceptions"
-                nonfatal.each do |e, tasks|
-                    nonfatal_exception(e, tasks)
+                nonfatal.each do |exception, tasks|
+                    notify_exception(EXCEPTION_NONFATAL, exception.exception, tasks)
                 end
             end
 
@@ -1525,45 +1550,6 @@ module Roby
         ensure
             @application_exceptions = nil
         end
-
-        # Hook called when an unhandled nonfatal exception has been processed
-        #
-        # The exception is passed to {#on_exception} handlers with the
-        # EXCEPTION_NONFATAL type.
-        #
-        # @param [ExecutionException] error the exception object
-        # @param [Array<Roby::Task>] tasks the involved tasks
-        # @see on_exception
-        def nonfatal_exception(error, tasks)
-            super if defined? super
-	    notify_exception(EXCEPTION_NONFATAL, error, tasks)
-        end
-
-        # Hook called when a set of tasks is being killed because of an exception
-        #
-        # The exception is passed to {#on_exception} handlers with the
-        # EXCEPTION_FATAL type.
-        #
-        # @param [ExecutionException] error the exception object
-        # @param [Array<Roby::Task>] tasks the involved tasks
-        # @see on_exception
-        def fatal_exception(error, tasks)
-            super if defined? super
-	    notify_exception(EXCEPTION_FATAL, error, tasks)
-        end
-
-        # Hook called when an exception +e+ has been handled by +task+
-        #
-        # The exception is passed to {#on_exception} handlers with the
-        # EXCEPTION_HANDLED type.
-        #
-        # @param [ExecutionException] error the exception object
-        # @param [Roby::Task] task the task that handled the exception
-        # @see on_exception
-        def handled_exception(error, task)
-	    super if defined? super
-	    notify_exception(EXCEPTION_HANDLED, error, [task])
-	end
 
         def unmark_finished_missions_and_permanent_tasks
             to_unmark = plan.task_index.by_predicate[:finished?] | plan.task_index.by_predicate[:failed?]
@@ -2124,7 +2110,7 @@ module Roby
 
 	# Called at each cycle end
 	def cycle_end(stats)
-	    super if defined? super 
+	    Roby::Log.log(:cycle_end) { [stats] }
 
 	    at_cycle_end_handlers.each do |handler|
 		begin
@@ -2339,9 +2325,10 @@ module Roby
 
 	# Call to notify the listeners registered with {#on_exception} of the
 	# occurence of an exception
-	def notify_exception(kind, error, tasks)
+	def notify_exception(kind, error, involved_objects)
+            Log.log(:exception_notification) { [kind, error, involved_objects] }
 	    exception_listeners.each do |listener|
-		listener.call(self, kind, error, tasks)
+		listener.call(self, kind, error, involved_objects)
 	    end
 	end
     end

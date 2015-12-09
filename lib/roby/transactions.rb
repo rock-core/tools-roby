@@ -499,13 +499,6 @@ module Roby
         end
 
         # Apply the modifications represented by self to the underlying plan
-        #
-        # It can be used as a hook, by defining a module that defines
-        # apply_modifications_to_plan and including it in the Transaction class.
-        # Don't forget to add the 
-        #
-        #   super if defined? super
-        #
         # snippet in your redefinition if you do so.
         def apply_modifications_to_plan
             new_missions    = Set.new
@@ -644,8 +637,6 @@ module Roby
                 proxy.__getobj__ = object
                 proxy.__freeze__
             end
-
-            super if defined? super
         end
 
 	# Commit all modifications that have been registered
@@ -666,7 +657,7 @@ module Roby
         # Hook called just after this transaction has been committed
         #
         # @return [void]
-	def committed_transaction; super if defined? super end
+	def committed_transaction; end
 
 	def enable_proxying; @disable_proxying = false end
 	def disable_proxying
@@ -711,7 +702,7 @@ module Roby
         # Hook called just after this transaction has been discarded
         #
         # @return [void]
-	def discarded_transaction; super if defined? super end
+	def discarded_transaction; end
 
 	def frozen!
 	    @frozen = true

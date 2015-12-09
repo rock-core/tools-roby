@@ -117,10 +117,6 @@ module Roby
             end
 	end
 
-        def commit_transaction
-            super if defined? super
-        end
-
 	def proxying?; plan && plan.proxying? end
 
         # True if +peer+ has a representation of this object
