@@ -159,6 +159,37 @@ module Roby
                         [10, 5, 35]]
                 assert_equal expected_edges, dg.each_edge.to_set
             end
+
+            def test_difference
+                v_a = (1..3).map { Object.new }
+                v_b = (1..3).map { Object.new }
+                mapping = Hash.new
+                v_a.each_with_index do |v, i|
+                    mapping[v] = v_b[i]
+                end
+                a = BidirectionalDirectedAdjacencyGraph.new
+                b = BidirectionalDirectedAdjacencyGraph.new
+
+                assert_equal([Set.new, Set.new, Set.new],
+                             a.difference(b, v_a, &mapping.method(:[])))
+
+                a.add_edge(v_a[0], v_a[1], nil)
+                assert_equal([[[v_a[0], v_a[1]]].to_set, Set.new, Set.new],
+                             a.difference(b, v_a, &mapping.method(:[])))
+
+                b.add_edge(v_b[0], v_b[1], nil)
+                assert_equal([Set.new, Set.new, Set.new],
+                             a.difference(b, v_a, &mapping.method(:[])))
+
+                b.add_edge(v_b[0], v_b[2], nil)
+                b.add_edge(v_b[2], v_b[1], nil)
+                assert_equal([Set.new, [[v_b[0], v_b[2]], [v_b[2], v_b[1]]].to_set, Set.new],
+                             a.difference(b, v_a, &mapping.method(:[])))
+
+                a.add_edge(v_a[2], v_a[1], [])
+                assert_equal([Set.new, [[v_b[0], v_b[2]]].to_set, [[v_a[2], v_a[1]]].to_set],
+                             a.difference(b, v_a, &mapping.method(:[])))
+            end
         end
     end
 end
