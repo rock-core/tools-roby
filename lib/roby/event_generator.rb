@@ -9,7 +9,6 @@ module Roby
     #
     # === Hooks
     # The following hooks are defined:
-    # * #postponed
     # * #calling
     # * #called
     # * #fired
@@ -197,11 +196,7 @@ module Roby
 	    end
 	end
 
-	# Returns true if the command has been called and false otherwise
-	# The command won't be called if #postpone() is called within the
-	# #calling hook, in which case the method returns false.
-	#
-	# This is used by propagation code, and should never be called directly
+	# Calls the command from within the event propagation code
 	def call_without_propagation(context)
             check_call_validity
             
@@ -209,35 +204,25 @@ module Roby
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
 	    end
 
-	    postponed = catch :postponed do 
-		calling(context)
-                if !executable?
-                    raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+            calling(context)
+            if !executable?
+                raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+            end
+
+            @pending = true
+            @pending_sources = execution_engine.propagation_source_events
+            execution_engine.propagation_context([self]) do
+                begin
+                    @calling_command = true
+                    @command_emitted = false
+                    command[context]
+                ensure
+                    @calling_command = false
                 end
+            end
 
-		@pending = true
-                @pending_sources = execution_engine.propagation_source_events
-		execution_engine.propagation_context([self]) do
-                    begin
-                        @calling_command = true
-                        @command_emitted = false
-                        command[context]
-                    ensure
-                        @calling_command = false
-                    end
-		end
-
-		false
-	    end
-
-	    if postponed
-		@pending = false
-		postponed(context, *postponed)
-		false
-	    else
-		called(context)
-		true
-	    end
+            Roby::Log.log(:generator_called) { [self, context.to_s] }
+            called(context)
 	end
 
         # Right after a call to #call_without_propagation, tells the caller
@@ -629,14 +614,11 @@ module Roby
                 error = EmissionFailed.new(error, self)
             end
 
-            failed_to_emit(error)
+            Roby::Log.log(:generator_emit_failed) { [remote_id, error] }
             plan.execution_engine.add_error(error)
 	ensure
 	    @pending = false
 	end
-
-        # Hook called in emit_failed to announce that the event failed to emit
-        def failed_to_emit(error); super if defined? super end
 
 	# Emits the event regardless of wether we are in a propagation context
 	# or not. Returns true to match the behavior of #call_without_propagation
@@ -789,19 +771,6 @@ module Roby
 	def each_precondition # :yield:reason, block
 	    @preconditions.each { |o| yield(o) } 
 	end
-
-	# Call #postpone in #calling to announce that the event should not be
-	# called now, but should be called back when +generator+ is emitted
-	#
-	# A reason string can be provided for debugging purposes
-	def postpone(generator, reason = nil)
-	    generator.signals self
-	    yield if block_given?
-	    throw :postponed, [generator, reason]
-	end
-
-	# Hook called when the event has been postponed. See #postpone
-	def postponed(context, generator, reason); super if defined? super end	
 
 	# Call this method in the #calling hook to cancel calling the event
 	# command. This raises an EventCanceled exception with +reason+ for

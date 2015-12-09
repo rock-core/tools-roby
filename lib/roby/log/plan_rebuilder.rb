@@ -20,9 +20,6 @@ module Roby
             # The set of event propagations that have been recorded since the
             # last call to # #clear_integrated
             attribute(:propagated_events) { Array.new }
-            # The set of events that have been postponed since the last call to
-            # #clear_integrated
-            attribute(:postponed_events) { Array.new }
             # The set of events that have failed to emit since the last call to
             # #clear_integrated
             attribute(:failed_emissions) { Array.new }
@@ -44,7 +41,7 @@ module Roby
                 super
                 [:finalized_events, :finalized_tasks,
                     :emitted_events,
-                    :propagated_events, :postponed_events,
+                    :propagated_events,
                     :failed_emissions, :failed_to_start, :scheduler_states].each do |m|
                     copy.send("#{m}=", send(m).dup)
                 end
@@ -93,7 +90,6 @@ module Roby
                 finalized_tasks.clear
                 finalized_events.clear
                 propagated_events.clear
-                postponed_events.clear
                 failed_emissions.clear
                 failed_to_start.clear
                 scheduler_states.clear
@@ -826,11 +822,6 @@ module Roby
                     generator.task.update_task_status(event)
                 end
 		generator.plan.emitted_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]
-                announce_event_propagation_update(generator.plan)
-	    end
-	    def generator_postponed(time, generator, context, until_generator, reason)
-                generator = local_object(generator)
-		generator.plan.postponed_events << [generator, local_object(until_generator)]
                 announce_event_propagation_update(generator.plan)
 	    end
 

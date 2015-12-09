@@ -2,13 +2,9 @@ module Roby
     class DecisionControl
         # Called when there is a conflict between a set of running tasks and a
         # task that should have been started. The default operation is to
-        # postpone starting the task until all the conflicting tasks are
-        # finished
+        # add an error about it
 	def conflict(starting_task, running_tasks)
-	    for t in running_tasks
-		starting_task.event(:start).postpone t.event(:stop)
-		return
-	    end
+            starting_task.failed_to_start! TaskStructure::ConflictError.new(starting_task, running_tasks)
 	end
 
         # Called when a transaction/execution conflict occured, where a task

@@ -362,51 +362,6 @@ class TC_Event < Minitest::Test
         end
     end
 
-    def test_postpone
-	wait_for = EventGenerator.new(true)
-	event = EventGenerator.new(true)
-	plan.add([wait_for, event])
-	event.singleton_class.class_eval do
-	    define_method(:calling) do |context|
-		super(context) if defined? super
-		unless wait_for.emitted?
-		    postpone(wait_for, "bla") {}
-		end
-	    end
-	end
-
-	event.call(nil)
-	assert(! event.emitted?)
-	assert(! event.pending?)
-	assert(wait_for.child_object?(event, EventStructure::Signal))
-	wait_for.call(nil)
-	assert(event.emitted?)
-
-	# Test propagation when the block given to postpone signals the event
-	# we are waiting for
-        FlexMock.use do |mock|
-	    wait_for = EventGenerator.new(true)
-	    event = EventGenerator.new(true)
-	    plan.add([wait_for, event])
-	    event.singleton_class.class_eval do
-		define_method(:calling) do |context|
-		    super(context) if defined? super
-		    if !wait_for.emitted?
-			postpone(wait_for, "bla") do
-			    wait_for.call(nil)
-			end
-		    end
-		end
-	    end
-
-	    wait_for.on { |ev| mock.wait_for }
-	    event.on { |ev| mock.event }
-	    
-	    mock.should_receive(:wait_for).once.ordered
-	    mock.should_receive(:event).once.ordered
-	    event.call(nil)
-        end
-    end
 
     def test_can_signal
 	a, b = EventGenerator.new(true), EventGenerator.new

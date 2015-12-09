@@ -29,7 +29,7 @@ module Roby
 
             module EventGeneratorExtension
                 def calling(context)
-                    super if defined? super
+                    super
                     return unless symbol == :start
 
                     # Check for conflicting tasks
@@ -61,7 +61,7 @@ module Roby
                 end
 
                 def fired(event)
-                    super if defined? super
+                    super
 
                     if symbol == :stop
                         task.relation_graph_for(Conflicts).remove_vertex(task)
@@ -69,8 +69,35 @@ module Roby
                 end
             end
         end
+
+        # Class holding conflict error information
+        #
+        # Note that it is not an exception as a failed conflict is usually
+        # handled by calling #failed_to_start! on the newly started task
+        class ConflictError
+            attr_reader :starting_task
+            attr_reader :running_tasks
+
+            def initialize(starting_task, running_tasks)
+                @starting_task, @running_tasks = starting_task, running_tasks
+            end
+
+            def pretty_print(pp)
+                pp.text "failed to start "
+                starting_task.pretty_print(pp)
+                pp.text "because it conflicts with #{running_tasks.size} running tasks"
+                pp.nest(2) do
+                    runnning_tasks.each do |t|
+                        pp.breakable
+                        t.pretty_print(pp)
+                    end
+                end
+            end
+        end
     end
 
-    Roby::TaskEventGenerator.include TaskStructure::Conflicts::EventGeneratorExtension
+    Roby::TaskEventGenerator.class_eval do
+        prepend TaskStructure::Conflicts::EventGeneratorExtension
+    end
 end
 

@@ -162,10 +162,6 @@ module Roby::Log
 	    Roby::Log.log(:generator_forwarding) { [true, self, to, event.object_id, event.time, event.context.to_s] }
 	end
 
-	def postponed(context, generator, reason)
-	    super if defined? super 
-	    Roby::Log.log(:generator_postponed) { [self, context.to_s, generator, reason.to_s] }
-	end	
     end
     Roby::EventGenerator.include EventGeneratorHooks
 

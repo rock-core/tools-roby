@@ -24,13 +24,11 @@ class TC_Conflicts < Minitest::Test
 	assert t2.child_object?(t1, Roby::TaskStructure::Conflicts)
 
 	# And now, start the conflicting task. The default decision control
-	# should postpone start until t1 is stopped
-	t2.start!
-	assert(!t2.running?)
-	assert t1.event(:stop).child_object?(t2.event(:start), Roby::EventStructure::Signal)
-	t1.stop!
-	assert(!t1.running?)
-	assert(t2.running?)
+	# calls failed_to_start
+        assert_raises(UnreachableEvent) do
+            t2.start!
+        end
+        assert t2.failed_to_start?
     end
 end
 
