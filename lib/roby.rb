@@ -110,7 +110,6 @@ require 'roby/distributed/call_spec'
 require 'roby/distributed/remote_id'
 require 'roby/distributed/dumb_manager'
 require 'roby/distributed/remote_object_manager'
-require 'roby/distributed/peer'
 require 'roby/distributed/protocol'
 
 require 'roby/decision_control'

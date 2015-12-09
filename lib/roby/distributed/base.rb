@@ -73,6 +73,25 @@ module Roby
 	extend Logger::Hierarchy
 	extend Logger::Forward
 
+        # An intermediate representation of Peer objects suitable to be
+        # sent to our peers.
+        class DRobyPeer # :nodoc:
+            attr_reader :name, :peer_id
+            def initialize(name, peer_id); @name, @peer_id = name, peer_id end
+            def hash; peer_id.hash end
+            def eql?(obj); obj.respond_to?(:peer_id) && peer_id == obj.peer_id end
+            alias :== :eql?
+
+            def to_s; "#<dRoby:Peer #{name} #{peer_id}>" end 
+            def proxy(peer)
+                if peer = Distributed.peer(peer_id)
+                    peer
+                else
+                    raise "unknown peer ID #{peer_id}, known peers are #{Distributed.peers}"
+                end
+            end
+        end
+
 	@updated_objects = Set.new
 	@keep = RefCounting.new
 	@removed_objects = Set.new
@@ -256,7 +275,7 @@ module Roby
         # different from a normal Roby process
         def self.setup_log_replay(object_manager)
             @__single_remote_id__ = RemoteID.new('log_replay', 1)
-            @__single_marshalled_peer__ = Peer::DRoby.new('single', remote_id)
+            @__single_marshalled_peer__ = DRobyPeer.new('single', remote_id)
             peers[RemoteID.new('local', 0)] = object_manager
         end
 
@@ -270,13 +289,13 @@ module Roby
 	    end
 	end
 
-        # Returns a Peer::DRoby object which can be used in the dRoby
+        # Returns a DRobyPeer object which can be used in the dRoby
         # connection to represent this plan manager.
         #
         # This makes Roby::Distributed behave like a Peer object
 	def self.droby_dump(dest = nil)
 	    if state then state.droby_dump(dest)
-	    else @__single_marshalled_peer__ ||= Peer::DRoby.new('single', remote_id)
+	    else @__single_marshalled_peer__ ||= DRobyPeer.new('single', remote_id)
 	    end
 	end
     end

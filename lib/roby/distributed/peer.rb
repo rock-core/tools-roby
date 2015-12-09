@@ -829,25 +829,6 @@ module Roby
         end
 
         def synchro_point; call(:synchro_point) end
-
-        # An intermediate representation of Peer objects suitable to be
-        # sent to our peers.
-        class DRoby # :nodoc:
-            attr_reader :name, :peer_id
-            def initialize(name, peer_id); @name, @peer_id = name, peer_id end
-            def hash; peer_id.hash end
-            def eql?(obj); obj.respond_to?(:peer_id) && peer_id == obj.peer_id end
-            alias :== :eql?
-
-            def to_s; "#<dRoby:Peer #{name} #{peer_id}>" end 
-            def proxy(peer)
-                if peer = Distributed.peer(peer_id)
-                    peer
-                else
-                    raise "unknown peer ID #{peer_id}, known peers are #{Distributed.peers}"
-                end
-            end
-        end
     
         # Returns an intermediate representation of +self+ suitable to be sent
         # to the +dest+ peer.
@@ -972,6 +953,8 @@ module Roby
         def once(&block)
             execution_engine.once(&block)
         end
+
+        Peer = DRobyPeer
     end
 
     end
