@@ -154,6 +154,64 @@ module Roby
                 end
             end
         end
+
+        describe "#execute" do
+            let(:recorder) { flexmock }
+
+            it "delays the block execution until the task starts" do
+                plan.add(task = Roby::Tasks::Simple.new)
+                task.execute do |t|
+                    recorder.execute_called(t)
+                end
+                recorder.should_receive(:execute_called).with(task).once
+                task.start!
+            end
+
+            it "yields in the next cycle on running tasks" do
+                plan.add(task = Roby::Tasks::Simple.new)
+                task.start!
+                task.execute do |t|
+                    recorder.execute_called(t)
+                end
+                recorder.should_receive(:execute_called).with(task).once
+                process_events
+            end
+
+            describe "on_replace: :copy" do
+                attr_reader :task, :replacement
+                before do
+                    plan.add(@task = Roby::Tasks::Simple.new(id: 1))
+                    @replacement = Roby::Tasks::Simple.new(id: 1)
+                    task.execute(on_replace: :copy) { |c| recorder.called(c) }
+                    recorder.should_receive(:called).with(task).once
+                    recorder.should_receive(:called).with(replacement).once
+                end
+                it "copies the handler on a replacement done in the plan" do
+                    plan.add(replacement)
+                    plan.replace_task(task, replacement)
+                    replacement.start!
+                    task.start!
+                end
+                it "copies the handlers on a replacement added and done in a transaction" do
+                    plan.in_transaction do |trsc|
+                        trsc.add(replacement)
+                        trsc.replace_task(trsc[task], replacement)
+                        trsc.commit_transaction
+                    end
+                    replacement.start!
+                    task.start!
+                end
+                it "copies the handlers on a replacement added in the plan and done in a transaction" do
+                    plan.add(replacement)
+                    plan.in_transaction do |trsc|
+                        trsc.replace_task(trsc[task], trsc[replacement])
+                        trsc.commit_transaction
+                    end
+                    replacement.start!
+                    task.start!
+                end
+            end
+        end
     end
 end
 
@@ -1392,45 +1450,6 @@ class TC_Task < Minitest::Test
 	assert(g.running?)
 	t2.success!
 	assert(g.success?)
-    end
-
-    def test_execute_on_pending_tasks
-        model = Roby::Task.new_submodel do
-            terminates
-        end
-
-        mock = flexmock
-
-        task = prepare_plan permanent: 1, model: model
-        task.execute do |t|
-            mock.execute_called(t)
-        end
-        mock.should_receive(:execute_called).with(task).once
-
-        task.start!
-        process_events
-        process_events
-    end
-
-    def test_execute_on_running_tasks
-        model = Roby::Task.new_submodel do
-            terminates
-        end
-
-        mock = flexmock
-
-        task = prepare_plan permanent: 1, model: model
-        mock.should_receive(:execute_called).with(task).once
-        task.start!
-
-        process_events
-
-        task.execute do |t|
-            mock.execute_called(t)
-        end
-
-        process_events
-        process_events
     end
 
     def test_poll_is_called_in_the_same_cycle_as_the_start_event
