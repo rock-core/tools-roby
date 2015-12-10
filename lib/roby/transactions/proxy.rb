@@ -109,9 +109,11 @@ module Roby
 
 	def pretty_print(pp)
             if plan
-                plan.disable_proxying { super }
-            else
-                super
+                plan.disable_proxying do
+                    pp.text "TProxy:"
+                    __getobj__.pretty_print(pp)
+                end
+            else super
             end
 	end
 
