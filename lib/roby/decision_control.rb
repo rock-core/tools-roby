@@ -78,12 +78,9 @@ module Roby
         # Called when an execution agent fails to start.
         #
         # The default policy is to mark all executed tasks as failed to start
-        def execution_agent_failed_to_start(agent, tasks)
+        def execution_agent_failed_to_start(agent, tasks, reason = nil)
             tasks.each do |t|
-                info = t[agent, Roby::TaskStructure::ExecutionAgent]
-                if !info[:respawn]
-                    t.failed_to_start!(agent.failure_reason || agent.terminal_event)
-                end
+                t.failed_to_start!(reason || agent.failure_reason || agent.terminal_event)
             end
         end
     end

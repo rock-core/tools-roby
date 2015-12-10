@@ -2142,6 +2142,28 @@ class TC_Task < Minitest::Test
         assert_same task, as_plan
     end
 
+    def test_emit_failed_on_start_event_causes_the_task_to_be_marked_as_failed_to_start
+        plan.add(task = Roby::Tasks::Simple.new)
+        task.start_event.emit_failed
+        assert task.failed_to_start?
+    end
+
+    def test_raising_an_EmissionFailed_error_in_calling_causes_the_task_to_be_marked_as_failed_to_start
+        plan.add(task = Tasks::Simple.new)
+        e = EmissionFailed.new(nil, task.start_event)
+        flexmock(task.start_event).should_receive(:calling).and_raise(e)
+        assert_raises(EmissionFailed) { task.start! }
+        assert task.failed_to_start?
+    end
+
+    def test_raising_a_CommandFailed_error_in_calling_causes_the_task_to_be_marked_as_failed_to_start
+        plan.add(task = Tasks::Simple.new)
+        e = CommandFailed.new(nil, task.start_event)
+        flexmock(task.start_event).should_receive(:calling).and_raise(e)
+        assert_raises(CommandFailed) { task.start! }
+        assert task.failed_to_start?
+    end
+
     def test_start_command_raises_before_emission
         klass = Roby::Tasks::Simple.new_submodel do
             event :start do |context|

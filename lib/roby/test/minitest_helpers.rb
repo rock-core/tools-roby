@@ -38,8 +38,10 @@ module Roby
                 begin
                     yield
                 rescue *([Roby::UserExceptionWrapper] + exp) => e
+                    assert_exception_can_be_pretty_printed(e)
                     return e
                 rescue Exception => e
+                    assert_exception_can_be_pretty_printed(e)
                     actually_caught = roby_exception_to_string(e)
                     flunk("#{exp.map(&:to_s).join(", ")} exceptions expected, not #{e.class} #{actually_caught}")
                 end
