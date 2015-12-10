@@ -247,6 +247,9 @@ VALUE graph_link(VALUE self, VALUE source, VALUE target, VALUE info)
 {
     RubyGraph& graph = graph_wrapped(self);
 
+    if (source == target)
+        rb_raise(rb_eArgError, "cannot add self-edges");
+    
     vertex_descriptor 
 	s = graph_ensure_inserted_vertex(self, source),
 	t = graph_ensure_inserted_vertex(self, target);
