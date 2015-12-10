@@ -523,7 +523,7 @@ module Roby
 
             if from.respond_to?(:task) && to.respond_to?(:task)
                 from_task, to_task = from.task, to.task
-                if !task_graph.linked?(from_task, to_task)
+                if from_task != to_task && !task_graph.linked?(from_task, to_task)
                     task_graph.link(from_task, to_task, nil)
                 end
             end
