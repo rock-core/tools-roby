@@ -974,6 +974,41 @@ module TC_TransactionBehaviour
                 trsc.query_roots([[root, grand_child].to_set, [p_parent, p_child].to_set], Dependency)
         end
     end
+
+    def test_single_child_accessors_automatically_proxy_the_related_task
+        plan.add(root = Roby::Task.new)
+        root.executed_by(agent = Roby::Task.new_submodel { event :ready }.new)
+        plan.in_transaction do |trsc|
+            trsc_agent = trsc[root].execution_agent
+            assert_equal trsc, trsc_agent.plan
+            assert_same trsc[agent], trsc_agent
+        end
+    end
+
+    def test_single_child_relations_are_updated_on_commit
+        plan.add(root = Roby::Task.new)
+        plan.add(agent = Roby::Task.new_submodel { event :ready }.new)
+        plan.in_transaction do |trsc|
+            trsc[root].executed_by trsc[agent]
+            assert !root.execution_agent
+            trsc.commit_transaction
+        end
+        assert_equal agent, root.execution_agent
+        plan.in_transaction do |trsc|
+            assert_equal trsc[agent], trsc[root].execution_agent
+            trsc[root].remove_execution_agent trsc[agent]
+            assert !trsc[root].execution_agent
+            assert_equal agent, root.execution_agent
+            trsc.commit_transaction
+        end
+        assert !root.execution_agent
+
+        plan.in_transaction do |trsc|
+            trsc[root].executed_by trsc[agent = Roby::Task.new_submodel { event :ready }.new]
+            trsc.commit_transaction
+        end
+        assert_equal agent, root.execution_agent
+    end
 end
 
 class TC_Transactions < Minitest::Test

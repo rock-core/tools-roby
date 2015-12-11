@@ -362,26 +362,38 @@ module Roby
 
                 if single_child
                     synthetized_methods.class_eval do
-                        attr_reader child_name
+                        define_method child_name do
+                            if task = instance_variable_get("@#{child_name}")
+                                plan[task]
+                            end
+                        end
                     end
                     graph_class.class_eval do
+                        attr_reader :single_child_accessor
+
                         def add_edge(parent, child, info)
                             super
+                            parent.instance_variable_set single_child_accessor, child
+                        end
 
-                            parent.instance_variable_set "@#{self.class.child_name}", child
+                        def update_single_child_accessor(object, expected_object)
+                            current_object = object.instance_variable_get single_child_accessor
+                            if current_object == expected_object
+                                object.instance_variable_set single_child_accessor,
+                                    each_out_neighbour(object).first
+                            end
                         end
 
                         def remove_edge(parent, child)
                             super
+                            update_single_child_accessor(parent, child)
+                        end
 
-                            single_child_accessor = "@#{self.class.child_name}"
-                            current_child = parent.instance_variable_get single_child_accessor
-                            if current_child == child
-                                each_out_neighbour(parent) do |child|
-                                    parent.instance_variable_set single_child_accessor, child
-                                    return
-                                end
-                                parent.instance_variable_set single_child_accessor, nil
+                        def remove_vertex(object)
+                            parents = each_in_neighbour(object).to_a
+                            super
+                            parents.each do |parent|
+                                update_single_child_accessor(parent, object)
                             end
                         end
                     end

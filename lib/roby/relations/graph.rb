@@ -178,6 +178,12 @@ module Roby
                 @copy_on_replace = copy_on_replace
                 @embeds_info = !noinfo
 
+                # If the relation is a single-child relation, it expects to have
+                # this ivar set
+                if respond_to?(:single_child_accessor)
+                    @single_child_accessor = "@#{self.class.child_name}"
+                end
+
                 @subsets = Set.new
                 subsets.each { |g| superset_of(g) }
 

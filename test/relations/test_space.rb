@@ -9,6 +9,7 @@ module Roby
                     def initialize(graphs = Hash.new)
                         @relation_graphs = graphs
                     end
+                    def plan; Hash.new { |h, k| k } end
                 end
             end
             let(:space) { Roby.RelationSpace(klass) }
@@ -114,11 +115,26 @@ module Roby
                         assert_equal nil, parent.child
                     end
 
-                    it "resets the accessor to other children if there are some" do
+                    it "resets the accessor to other children if there are some when the child is removed" do
                         parent, child, other_child = create_node, create_node, create_node
                         parent.add_child child
                         parent.add_child other_child
                         parent.remove_child other_child
+                        assert_equal child, parent.child
+                    end
+
+                    it "resets its parents accessors to nil when it is removed from the graph" do
+                        parent, child = create_node, create_node
+                        parent.add_child child
+                        parent.relation_graphs[space::R].remove_vertex(child)
+                        assert !parent.child
+                    end
+
+                    it "resets its parents accessors to another child when it is removed from the graph" do
+                        parent, child, other_child = create_node, create_node, create_node
+                        parent.add_child child
+                        parent.add_child other_child
+                        parent.relation_graph_for(space::R).remove_vertex(other_child)
                         assert_equal child, parent.child
                     end
                 end
