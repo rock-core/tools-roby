@@ -84,7 +84,7 @@ class TC_Log < Minitest::Test
 
     def test_logging_of_event_propagation_if_source_command_calls_target_command
         target = EventGenerator.new(true)
-        source = EventGenerator.new { target.call("context") }
+        source = EventGenerator.new { target.call(42) }
 
         logger_mock = flexmock do |r|
             r.should_receive(:logs_message?).and_return(true)
@@ -95,13 +95,13 @@ class TC_Log < Minitest::Test
             r.should_receive(:generator_called).once.
                 with(any, source.remote_id, "")
             r.should_receive(:generator_calling).once.
-                with(any, target.remote_id, Set[source.remote_id], "[context]")
+                with(any, target.remote_id, Set[source.remote_id], "[42]")
             r.should_receive(:generator_called).once.
-                with(any, target.remote_id, "[context]")
+                with(any, target.remote_id, "[42]")
             r.should_receive(:generator_emitting).once.
-                with(any, target.remote_id, [target.remote_id], "[context]")
+                with(any, target.remote_id, [target.remote_id], "[42]")
             r.should_receive(:generator_fired).once.
-                with(any, target.remote_id, Numeric, Time, "[context]")
+                with(any, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:close)
         end
 
@@ -114,7 +114,7 @@ class TC_Log < Minitest::Test
     def test_logging_of_event_signalling_by_event_handlers
         target = EventGenerator.new(true)
         source = EventGenerator.new
-        source.on { target.call("context") }
+        source.on { target.call(42) }
 
         logger_mock = flexmock do |r|
             r.should_receive(:logs_message?).and_return(true)
@@ -125,15 +125,15 @@ class TC_Log < Minitest::Test
             r.should_receive(:generator_fired).once.
                 with(any, source.remote_id, Numeric, Time, "")
             r.should_receive(:generator_propagate_event).once.
-                with(any, false, source.remote_id, target.remote_id, Numeric, Time, "[context]")
+                with(any, false, source.remote_id, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:generator_calling).once.
-                with(any, target.remote_id, Set[source.remote_id], "[context]")
+                with(any, target.remote_id, Set[source.remote_id], "[42]")
             r.should_receive(:generator_called).once.
-                with(any, target.remote_id, "[context]")
+                with(any, target.remote_id, "[42]")
             r.should_receive(:generator_emitting).once.
-                with(any, target.remote_id, [target.remote_id], "[context]")
+                with(any, target.remote_id, [target.remote_id], "[42]")
             r.should_receive(:generator_fired).once.
-                with(any, target.remote_id, Numeric, Time, "[context]")
+                with(any, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:close)
         end
 
@@ -145,7 +145,7 @@ class TC_Log < Minitest::Test
 
     def test_logging_of_event_propagation_if_source_command_emits_target_event
         target = EventGenerator.new
-        source = EventGenerator.new { target.emit("context") }
+        source = EventGenerator.new { target.emit(42) }
 
         logger_mock = flexmock do |r|
             r.should_receive(:logs_message?).and_return(true)
@@ -156,9 +156,9 @@ class TC_Log < Minitest::Test
             r.should_receive(:generator_called).once.
                 with(any, source.remote_id, "")
             r.should_receive(:generator_emitting).once.
-                with(any, target.remote_id, [source.remote_id], "[context]")
+                with(any, target.remote_id, [source.remote_id], "[42]")
             r.should_receive(:generator_fired).once.
-                with(any, target.remote_id, Numeric, Time, "[context]")
+                with(any, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:close)
         end
 
@@ -171,7 +171,7 @@ class TC_Log < Minitest::Test
     def test_logging_of_event_forwarding_by_event_handlers
         target = EventGenerator.new
         source = EventGenerator.new
-        source.on { target.emit("context") }
+        source.on { target.emit(42) }
 
         logger_mock = flexmock do |r|
             r.should_receive(:logs_message?).and_return(true)
@@ -182,11 +182,11 @@ class TC_Log < Minitest::Test
             r.should_receive(:generator_fired).once.
                 with(any, source.remote_id, Numeric, Time, "")
             r.should_receive(:generator_propagate_event).once.
-                with(any, true, source.remote_id, target.remote_id, Numeric, Time, "[context]")
+                with(any, true, source.remote_id, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:generator_emitting).once.
-                with(any, target.remote_id, [source.remote_id], "[context]")
+                with(any, target.remote_id, [source.remote_id], "[42]")
             r.should_receive(:generator_fired).once.
-                with(any, target.remote_id, Numeric, Time, "[context]")
+                with(any, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:close)
         end
 
@@ -206,25 +206,25 @@ class TC_Log < Minitest::Test
 	    r.should_receive(:splat?).and_return(true)
 	    r.should_receive(:merged_plan)
             r.should_receive(:generator_emitting).once.
-                with(any, source.remote_id, [], "[context]")
+                with(any, source.remote_id, [], "[42]")
             r.should_receive(:generator_fired).once.
-                with(any, source.remote_id, Numeric, Time, "[context]")
+                with(any, source.remote_id, Numeric, Time, "[42]")
             r.should_receive(:generator_propagate_event).once.
-                with(any, false, source.remote_id, target.remote_id, Numeric, Time, "[context]")
+                with(any, false, source.remote_id, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:generator_calling).once.
-                with(any, target.remote_id, Set[source.remote_id], "[context]")
+                with(any, target.remote_id, Set[source.remote_id], "[42]")
             r.should_receive(:generator_called).once.
-                with(any, target.remote_id, "[context]")
+                with(any, target.remote_id, "[42]")
             r.should_receive(:generator_emitting).once.
-                with(any, target.remote_id, [target.remote_id], "[context]")
+                with(any, target.remote_id, [target.remote_id], "[42]")
             r.should_receive(:generator_fired).once.
-                with(any, target.remote_id, Numeric, Time, "[context]")
+                with(any, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:close)
         end
 
         exercise_logger(logger_mock) do
             plan.add([source, target])
-            source.emit("context")
+            source.emit(42)
         end
     end
 
@@ -238,21 +238,21 @@ class TC_Log < Minitest::Test
 	    r.should_receive(:splat?).and_return(true)
 	    r.should_receive(:merged_plan)
             r.should_receive(:generator_emitting).once.
-                with(any, source.remote_id, [], "[context]")
+                with(any, source.remote_id, [], "[42]")
             r.should_receive(:generator_fired).once.
-                with(any, source.remote_id, Numeric, Time, "[context]")
+                with(any, source.remote_id, Numeric, Time, "[42]")
             r.should_receive(:generator_propagate_event).once.
-                with(any, true, source.remote_id, target.remote_id, Numeric, Time, "[context]")
+                with(any, true, source.remote_id, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:generator_emitting).once.
-                with(any, target.remote_id, [source.remote_id], "[context]")
+                with(any, target.remote_id, [source.remote_id], "[42]")
             r.should_receive(:generator_fired).once.
-                with(any, target.remote_id, Numeric, Time, "[context]")
+                with(any, target.remote_id, Numeric, Time, "[42]")
             r.should_receive(:close)
         end
 
         exercise_logger(logger_mock) do
             plan.add([source, target])
-            source.emit("context")
+            source.emit(42)
         end
     end
 
