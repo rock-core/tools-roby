@@ -202,6 +202,16 @@ module TC_PlanStatic
 	assert( plan.include?(c1) )
     end
 
+    def test_replace_keeps_relations_between_the_mapped_objects
+        plan.add(task0 = Roby::Task.new)
+        plan.add(task1 = Roby::Task.new)
+        task0.start_event.forward_to task1.start_event
+        task1.stop_event.forward_to task0.stop_event
+        plan.replace(task0, task1)
+        assert task0.start_event.child_object?(task1.start_event, EventStructure::Forwarding)
+        assert task1.stop_event.child_object?(task0.stop_event, EventStructure::Forwarding)
+    end
+
     def test_replace_task_and_strong_relations
         t0, t1, t2, t3 = prepare_plan add: 4, model: Roby::Tasks::Simple
 
