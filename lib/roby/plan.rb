@@ -688,14 +688,13 @@ module Roby
                 next if graph.strong?
 
                 mappings.each do |obj, mapped_obj|
+                    next if !mapped_obj
                     obj.each_parent_object(graph) do |parent|
                         next if mappings.has_key?(parent)
                         if !graph.copy_on_replace?
                             removed_relations << [graph, parent, obj]
                         end
-                        if mapped_obj
-                            new_relations << [graph, parent, mapped_obj, parent[obj, graph]]
-                        end
+                        new_relations << [graph, parent, mapped_obj, parent[obj, graph]]
                     end
 
                     next if !child_objects
@@ -704,9 +703,7 @@ module Roby
                         if !graph.copy_on_replace?
                             removed_relations << [graph, obj, child]
                         end
-                        if mapped_obj
-                            new_relations << [graph, mapped_obj, child, obj[child, graph]]
-                        end
+                        new_relations << [graph, mapped_obj, child, obj[child, graph]]
                     end
                 end
             end
