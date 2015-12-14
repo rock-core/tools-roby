@@ -254,13 +254,12 @@ module Roby
         end
 
         def merge_transaction!(transaction, merged_graphs, added, removed, updated)
-            merge_transaction(transaction, merged_graphs, added, removed, updated)
-
             # Note: Task#plan= updates its bound events
             tasks, events = transaction.known_tasks.dup, transaction.free_events.dup
-            transaction.clear!
             tasks.each { |t| t.plan = self }
             events.each { |e| e.plan = self }
+
+            merge_transaction(transaction, merged_graphs, added, removed, updated)
         end
 
         # Merges the content of a plan into self
@@ -289,13 +288,11 @@ module Roby
         # @param [Roby::Plan] plan the plan to merge into self
         def merge!(plan)
             return if plan == self
-            merge(plan)
 
-            # Note: Task#plan= updates its bound events
             tasks, events = plan.known_tasks.dup, plan.free_events.dup
-            plan.clear!
             tasks.each { |t| t.plan = self }
             events.each { |e| e.plan = self }
+            merge(plan)
         end
 
         # Hook called just before performing a {#merge}

@@ -370,22 +370,6 @@ module Roby
 	end
 
 	def plan=(new_plan) # :nodoc:
-            if (plan != new_plan) && plan && !plan.template?
-                # Event though I don't like it, there is a special case here.
-                #
-                # Namely, if plan is nil and we are running, it most likely
-                # means that we have been dup'ed. As it is a legal use, we have
-                # to admit it.
-                #
-                # Note that PlanObject#plan= will catch the case of a removed
-                # object that is being re-added in a plan.
-                if plan.include?(self)
-                    raise ModelViolation.new, "#{self} still included in #{plan}, cannot change the plan to #{new_plan}"
-                elsif !kind_of?(Proxying) && self_owned? && running?
-                    raise ModelViolation.new, "cannot change the plan of #{self} from #{plan} to #{new_plan} as the task is running"
-                end
-	    end
-
 	    super
 
             @relation_graphs =

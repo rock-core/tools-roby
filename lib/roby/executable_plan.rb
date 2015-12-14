@@ -190,6 +190,10 @@ module Roby
             Log.log(:added_edge) { [parent, child, relations, info] }
         end
 
+        def updating_edge_info(parent, child, relation, info)
+            emit_relation_change_hook(parent, child, relation, info, prefix: 'updating')
+        end
+
         # Hook called when the edge information of an existing edge has been
         # updated
         #
@@ -198,6 +202,7 @@ module Roby
         # @param [Class<Relations::Graph>] relation the relation graph ID
         # @param [Object] info the new edge info
         def updated_edge_info(parent, child, relation, info)
+            emit_relation_change_hook(parent, child, relation, info, prefix: 'updated')
             Log.log(:updated_edge_info) { [parent, child, relation, info] }
         end
 
@@ -247,11 +252,19 @@ module Roby
         end
 
         # @api private
+        def emit_relation_change_hook(parent, child, rel, *args, prefix: nil)
+            if name = rel.child_name
+                parent.send("#{prefix}_#{rel.child_name}", child, *args)
+                child.send("#{prefix}_#{rel.child_name}_parent", parent, *args)
+            end
+        end
+
+        # @api private
         #
         # Calls the added_* hook methods for all edges in a relation graph
         #
         # It is a helper for {#merged_plan}
-        def emit_relation_graph_add_hooks(graph, prefix: nil)
+        def emit_relation_graph_merge_hooks(graph, prefix: nil)
             rel = graph.class
             if rel.child_name
                 added_child_hook  = "#{prefix}_#{rel.child_name}"
@@ -267,7 +280,7 @@ module Roby
         #
         # Calls the added_ and adding_ hooks for modifications originating from
         # a transaction that involve tasks originally from the plan
-        def emit_transaction_modification_hooks(list, prefix: nil)
+        def emit_relation_graph_transaction_application_hooks(list, prefix: nil)
             hooks = Hash.new
             list.each do |graph, parent, child, *args|
                 if !hooks.has_key?(graph)
@@ -289,22 +302,28 @@ module Roby
             end
         end
 
+        # @api private
+        #
+        # Applies modification information extracted from a transaction. This is
+        # used by {Transaction#commit_transaction}
         def merge_transaction(transaction, merged_graphs, added, removed, updated)
-            emit_transaction_modification_hooks(added, prefix: 'adding')
-            emit_transaction_modification_hooks(removed, prefix: 'removing')
+            emit_relation_graph_transaction_application_hooks(added, prefix: 'adding')
+            emit_relation_graph_transaction_application_hooks(removed, prefix: 'removing')
+            emit_relation_graph_transaction_application_hooks(updated, prefix: 'updating')
 
             super
 
             precedence_graph = event_relation_graph_for(EventStructure::Precedence)
             precedence_edge_count = precedence_graph.num_edges
-            emit_transaction_modification_hooks(added, prefix: 'added')
+            emit_relation_graph_transaction_application_hooks(added, prefix: 'added')
             if precedence_edge_count != precedence_graph.num_edges
                 execution_engine.event_ordering.clear
             end
-            emit_transaction_modification_hooks(removed, prefix: 'removed')
+            emit_relation_graph_transaction_application_hooks(removed, prefix: 'removed')
             if precedence_edge_count != precedence_graph.num_edges
                 execution_engine.event_ordering.clear
             end
+            emit_relation_graph_transaction_application_hooks(updated, prefix: 'updated')
 
             added.each do |graph, parent, child|
                 Log.log(:added_edge) { [self, parent, child, [graph.class]] }
@@ -319,10 +338,10 @@ module Roby
 
         def merging_plan(plan)
             plan.each_task_relation_graph do |graph|
-                emit_relation_graph_add_hooks(graph, prefix: 'adding')
+                emit_relation_graph_merge_hooks(graph, prefix: 'adding')
             end
             plan.each_event_relation_graph do |graph|
-                emit_relation_graph_add_hooks(graph, prefix: 'adding')
+                emit_relation_graph_merge_hooks(graph, prefix: 'adding')
             end
             super
         end
@@ -333,10 +352,10 @@ module Roby
             end
 
             plan.each_task_relation_graph do |graph|
-                emit_relation_graph_add_hooks(graph, prefix: 'added')
+                emit_relation_graph_merge_hooks(graph, prefix: 'added')
             end
             plan.each_event_relation_graph do |graph|
-                emit_relation_graph_add_hooks(graph, prefix: 'added')
+                emit_relation_graph_merge_hooks(graph, prefix: 'added')
             end
 
             super

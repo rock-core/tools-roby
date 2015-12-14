@@ -99,85 +99,122 @@ module Roby
             end
 
             describe "generic hook dispatching" do
-                let(:klass) do
-                    Class.new do
-                        attr_reader :relation_graphs
-                        def initialize(graphs = Hash.new)
-                            @relation_graphs = graphs
-                        end
-                        def read_write?; true end
+                def expect_hooks_called(ing_hook, ed_hook, parent, child, *args)
+                    on_child  = on { |t| t == child && t.plan == plan }
+                    on_parent = on { |t| t == parent && t.plan == plan }
+
+                    flexmock(parent).should_receive(ing_hook).
+                        with(on_child, *args).once.ordered
+                    flexmock(child).should_receive("#{ing_hook}_parent").
+                        with(on_parent, *args).once.ordered
+                    yield if block_given?
+                    flexmock(parent).should_receive(ed_hook).
+                        with(on_child, *args).once.ordered
+                    flexmock(child).should_receive("#{ed_hook}_parent").
+                        with(on_parent, *args).once.ordered
+                end
+
+                it "calls added_CHILD_NAME and adding_CHILD_NAME and the corresponding parent hooks on addition" do
+                    parent, child = prepare_plan add: 2
+                    expect_hooks_called("adding_child", "added_child", parent, child, Hash) do
+                        flexmock(parent.relation_graph_for(Roby::TaskStructure::Dependency)).
+                            should_receive(:add_edge).with(parent, child, Hash).once.ordered
+                    end
+                    parent.depends_on child
+                end
+
+                it "calls added_, adding_ and corresponding parent hooks on plan merge" do
+                    parent, child = prepare_plan tasks: 2
+                    parent.depends_on child
+                    expect_hooks_called("adding_child", "added_child", parent, child, Hash)
+                    plan.add(parent)
+                end
+
+                it "calls added_, adding_ and corresponding parent hooks when everything is added from a transaction" do
+                    parent, child = prepare_plan tasks: 2
+                    plan.in_transaction do |trsc|
+                        parent.depends_on child
+                        trsc.add(parent)
+                        expect_hooks_called("adding_child", "added_child", parent, child, Hash)
+                        trsc.commit_transaction
                     end
                 end
-                let(:space) { Roby.RelationSpace(klass) }
-                let(:graphs) { space.instanciate }
-                def create_node(name = nil)
-                    obj = klass.new(graphs)
-                    if name
-                        obj.singleton_class.class_eval do
-                            define_method(:inspect) { name }
-                        end
+
+                it "calls added_, adding_ and corresponding parent hooks when a relation is created within a transaction" do
+                    parent, child = prepare_plan add: 2
+                    plan.in_transaction do |trsc|
+                        trsc[parent].depends_on trsc[child]
+                        expect_hooks_called("adding_child", "added_child", parent, child, Hash)
+                        trsc.commit_transaction
                     end
-                    obj
                 end
-                attr_reader :relation
-                before do
-                    @relation = space.relation :R, child_name: 'child'
-                    @plan = ExecutablePlan.new
-                    ExecutionEngine.new(@plan)
-                end
-                let(:graphs) { space.instanciate(observer: plan) }
-                let(:parent) { create_node("parent") }
-                let(:child)  { create_node("child") }
 
-                it "calls added_CHILD_NAME and adding_CHILD_NAME on addition" do
-                    flexmock(parent).should_receive(:adding_child).
-                        with(child, info = flexmock).once.ordered
-                    flexmock(parent.relation_graphs[relation]).
-                        should_receive(:add_edge).with(parent, child, info).once.ordered
-                    flexmock(parent).should_receive(:added_child).
-                        with(child, info).once.ordered
-
-                    parent.add_child child, info
-                end
                 it "does not add the edge if adding_CHILD_NAME raises" do
+                    parent, child = prepare_plan add: 2
                     flexmock(parent).should_receive(:adding_child).
-                        with(child, info = flexmock).once.
+                        with(child, Hash).once.
                         and_raise(ArgumentError)
-                    assert_raises(ArgumentError) { parent.add_child child, info }
-                    assert !parent.child_object?(child, relation)
+                    assert_raises(ArgumentError) { parent.depends_on child }
+                    assert !parent.depends_on?(child)
                 end
                 it "adds the edge even if added_CHILD_NAME raises" do
+                    parent, child = prepare_plan add: 2
                     flexmock(parent).should_receive(:added_child).
-                        with(child, info = flexmock).once.
+                        with(child, Hash).once.
                         and_raise(ArgumentError)
-                    assert_raises(ArgumentError) { parent.add_child child, info }
-                    assert parent.child_object?(child, relation)
+                    assert_raises(ArgumentError) { parent.depends_on child }
+                    assert parent.depends_on?(child)
+                end
+                it "calls the updating_ and updated_ hooks on update" do
+                    parent, child = prepare_plan add: 2
+                    parent.depends_on child
+                    expect_hooks_called("updating_child", "updated_child", parent, child, Hash)
+                    parent.depends_on child, role: 'test'
+                end
+                it "calls the updating_ and updated_ hooks on update within a transaction" do
+                    parent, child = prepare_plan add: 2
+                    parent.depends_on child
+                    expect_hooks_called("updating_child", "updated_child", parent, child, Hash)
+                    plan.in_transaction do |trsc|
+                        trsc[parent].depends_on trsc[child], role: 'test'
+                        trsc.commit_transaction
+                    end
                 end
                 it "calls removed_CHILD_NAME and removing_CHILD_NAME on removal" do
-                    parent.add_child child
-                    flexmock(parent).should_receive(:removing_child).
-                        with(child).once.ordered
-                    flexmock(parent.relation_graphs[relation]).
-                        should_receive(:remove_edge).with(parent, child).once.ordered
-                    flexmock(parent).should_receive(:removed_child).
-                        with(child).once.ordered
+                    parent, child = prepare_plan add: 2
+                    parent.depends_on child
+                    expect_hooks_called("removing_child", "removed_child", parent, child) do
+                        flexmock(parent.relation_graph_for(TaskStructure::Dependency)).
+                            should_receive(:remove_edge).with(parent, child).once.ordered
+                    end
                     parent.remove_child child
                 end
+                it "calls removed_CHILD_NAME and removing_CHILD_NAME on removal from a transaction" do
+                    parent, child = prepare_plan add: 2
+                    parent.depends_on child
+                    plan.in_transaction do |trsc|
+                        trsc[parent].remove_child trsc[child]
+                        expect_hooks_called("removing_child", "removed_child", parent, child)
+                        trsc.commit_transaction
+                    end
+                end
                 it "does not remove the edge if adding_CHILD_NAME raises" do
-                    parent.add_child child
+                    parent, child = prepare_plan add: 2
+                    parent.depends_on child
                     flexmock(parent).should_receive(:removing_child).
                         with(child).once.
                         and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.remove_child child }
-                    assert parent.child_object?(child, relation)
+                    assert parent.depends_on?(child)
                 end
                 it "removes the edge even if added_CHILD_NAME raises" do
-                    parent.add_child child
+                    parent, child = prepare_plan add: 2
+                    parent.depends_on child
                     flexmock(parent).should_receive(:removed_child).
                         with(child).once.
                         and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.remove_child child }
-                    assert !parent.child_object?(child, relation)
+                    assert !parent.depends_on?(child)
                 end
             end
         end

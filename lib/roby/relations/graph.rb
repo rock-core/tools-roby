@@ -289,6 +289,9 @@ module Roby
 
             # Set the information of an object relation
             def set_edge_info(from, to, info)
+                if observer
+                    observer.updating_edge_info(from, to, self.class, info)
+                end
                 super
                 if observer
                     observer.updated_edge_info(from, to, self.class, info)

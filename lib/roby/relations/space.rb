@@ -342,21 +342,30 @@ module Roby
                     self
                 end
 
-                def adding_#{child_name}_parent(from, info)
+                def adding_#{child_name}_parent(parent, info)
                 end
-                def added_#{child_name}_parent(from, info)
+                def added_#{child_name}_parent(parent, info)
                 end
-                def removing_#{child_name}_parent(to)
+                def removing_#{child_name}_parent(parent)
                 end
-                def removed_#{child_name}_parent(to)
+                def removed_#{child_name}_parent(parent)
                 end
-                def adding_#{child_name}(to, info)
+                def updating_#{child_name}_parent(parent, info)
                 end
-                def removing_#{child_name}(to)
+                def updated_#{child_name}_parent(parent, info)
                 end
-                def added_#{child_name}(to, info)
+
+                def adding_#{child_name}(child, info)
                 end
-                def removed_#{child_name}(to)
+                def added_#{child_name}(child, info)
+                end
+                def removing_#{child_name}(child)
+                end
+                def removed_#{child_name}(child)
+                end
+                def updating_#{child_name}(child, info)
+                end
+                def updated_#{child_name}(child, info)
                 end
                 EOD
 
