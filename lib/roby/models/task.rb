@@ -33,7 +33,7 @@ module Roby
 
                 template = Template.new
                 each_event do |event_name, event_model|
-                    template.add(event = EventGenerator.new(controlable: event_model.controlable?))
+                    template.add(event = EventGenerator.new(event_model.controlable?, plan: template))
                     template.events_by_name[event_name] = event
                 end
 

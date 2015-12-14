@@ -120,7 +120,7 @@ module Roby
 	# given, the event is controlable and is 'pass-through': it is emitted
 	# as soon as its command is called. If no argument is given (or a
 	# +false+ argument), then it is not controlable
-	def initialize(command_object = nil, &command_block)
+        def initialize(command_object = nil, plan: TemplatePlan.new, &command_block)
 	    @preconditions = []
 	    @handlers      = []
 	    @pending       = false
@@ -141,7 +141,7 @@ module Roby
             else
                 @command = nil
 	    end
-	    super() if defined? super
+	    super(plan: plan)
             plan.register_event(self)
 	end
 

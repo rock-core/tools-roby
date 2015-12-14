@@ -14,8 +14,7 @@ module Roby
         end
 
         def initialize(task, model)
-            self.plan = task.plan
-	    super(model.respond_to?(:call))
+            super(model.respond_to?(:call), plan: task.plan)
             @task, @event_model = task, model
 	    @symbol = model.symbol
         end

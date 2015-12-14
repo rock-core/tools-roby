@@ -98,14 +98,10 @@ module Roby
             end
         end
 
-        def initialize
-            super
+        def initialize(plan: TemplatePlan.new)
+            super()
 
-            # NOTE: it's the subclasses job to register the object in the plan ...
-            #
-            # Subclasses can set @plan explicitely, in which case we don't
-            # bother creating a new one
-            @plan ||= TemplatePlan.new
+            @plan = plan
             self.plan = @plan
 
             @removed_at = nil
