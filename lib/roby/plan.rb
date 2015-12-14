@@ -1082,10 +1082,28 @@ module Roby
 	    result
 	end
 
+        # The number of tasks
+        def num_tasks
+            known_tasks.size
+        end
+
+        # The number of events that are not task events
+        def num_free_events
+            free_events.size
+        end
+
+        # The number of events, both free and task events
+        def num_events
+            task_events.size + free_events.size
+        end
+
 	# Checks if +task+ is included in this plan
 	def include?(object); @known_tasks.include?(object) || @free_events.include?(object) end
 	# Count of tasks in this plan
-	def size; @known_tasks.size end
+	def size
+            Roby.warn_deprecated "Plan#size is deprecated, use #num_tasks instead"
+            @known_tasks.size
+        end
 	# Returns true if there is no task in this plan
         def empty?; @known_tasks.empty? && @free_events.empty? end
 	# Iterates on all tasks
