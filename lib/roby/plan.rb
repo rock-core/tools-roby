@@ -689,21 +689,21 @@ module Roby
 
                 mappings.each do |obj, mapped_obj|
                     next if !mapped_obj
-                    obj.each_parent_object(graph) do |parent|
+                    graph.each_in_neighbour(obj) do |parent|
                         next if mappings.has_key?(parent)
                         if !graph.copy_on_replace?
                             removed_relations << [graph, parent, obj]
                         end
-                        new_relations << [graph, parent, mapped_obj, parent[obj, graph]]
+                        new_relations << [graph, parent, mapped_obj, graph.edge_info(parent, obj)]
                     end
 
                     next if !child_objects
-                    obj.each_child_object(graph) do |child, info|
+                    graph.each_out_neighbour(obj) do |child|
                         next if mappings.has_key?(child)
                         if !graph.copy_on_replace?
                             removed_relations << [graph, obj, child]
                         end
-                        new_relations << [graph, mapped_obj, child, obj[child, graph]]
+                        new_relations << [graph, mapped_obj, child, graph.edge_info(obj, child)]
                     end
                 end
             end
