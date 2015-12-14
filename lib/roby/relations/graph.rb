@@ -230,7 +230,9 @@ module Roby
                 return false if !has_edge?(from, to)
 
                 if !(old_info = edge_info(from, to)).nil?
-                    if old_info != info && !(info = merge_info(from, to, old_info, info))
+                    if old_info == info
+                        return true
+                    elsif !(info = merge_info(from, to, old_info, info))
                         raise ArgumentError, "trying to change edge information in #{self} for #{from} => #{to}: old was #{old_info} and new is #{info}"
                     end
                 end

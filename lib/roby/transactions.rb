@@ -476,7 +476,9 @@ module Roby
                 end
                 existing.each do |task|
                     edge_info = trsc_graph.edge_info(trsc_objects[task], proxy)
-                    updated_relations << [plan_graph, task, real_object, edge_info]
+                    if plan_graph.edge_info(task, real_object) != edge_info
+                        updated_relations << [plan_graph, task, real_object, edge_info]
+                    end
                 end
 	    end
 
@@ -493,7 +495,9 @@ module Roby
                 end
                 existing.each do |task|
                     edge_info = trsc_graph.edge_info(proxy, trsc_objects[task])
-                    updated_relations << [plan_graph, real_object, task, edge_info]
+                    if plan_graph.edge_info(real_object, task) != edge_info
+                        updated_relations << [plan_graph, real_object, task, edge_info]
+                    end
                 end
 	    end
         end
