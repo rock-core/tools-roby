@@ -77,7 +77,7 @@ module Roby
 
                 teardown_registered_plans
                 if @watch_events_handler_id
-                    engine.remove_propagation_handler(@watch_events_handler_id)
+                    execution_engine.remove_propagation_handler(@watch_events_handler_id)
                 end
 
                 Roby.app.root_models.each do |root_model|
