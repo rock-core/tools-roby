@@ -45,6 +45,32 @@ module Roby
                 remove_edge(parent, child)
             end
 
+            def each_parent_vertex(object, &block)
+                Roby.warn_deprecated "#each_parent_vertex has been replaced by #each_in_neighbour"
+                each_in_neighbour(object, &block)
+            end
+
+            def each_child_vertex(object, &block)
+                Roby.warn_deprecated "#each_child_vertex has been replaced by #each_out_neighbour"
+                each_out_neighbour(object, &block)
+            end
+
+            def copy_to(target)
+                Roby.warn_deprecated "Graph#copy_to is deprecated, use #merge instead (WARN: a.copy_to(b) is b.merge(a) !"
+                target.merge(self)
+            end
+
+            def size
+                Roby.warn_deprecated "Graph#size is deprecated, use #num_vertices instead"
+                num_vertices
+            end
+
+            def include?(object)
+                Roby.warn_deprecated "Graph#include? is deprecated, use #has_vertex? instead"
+                has_vertex?(object)
+            end
+
+
             def reachable?(u, v)
                 depth_first_visit(u) { |o| return true if o == v }
                 false
@@ -84,48 +110,33 @@ module Roby
 
             # Replaces +from+ by +to+. This means +to+ takes the role of +from+ in
             # all edges +from+ is involved in. +from+ is removed from the graph.
-            def replace_vertex(from, to)
-                from.each_parent_vertex(self) do |parent|
-                    if parent != to && !has_edge?(parent, to)
-                        add_edge(parent, to, parent[from, self])
+            def replace_vertex(from, to, remove: true)
+                edges = Array.new
+                each_in_neighbour(from) do |parent|
+                    if parent != to
+                        add_edge(parent, to, edge_info(parent, from))
+                        edges << [parent, to]
                     end
                 end
-                from.each_child_vertex(self) do |child|
-                    if to != child && !has_edge?(to, child)
-                        add_edge(to, child, from[child, self])
+                each_out_neighbour(from) do |child|
+                    if to != child
+                        add_edge(to, child, edge_info(from, child))
+                        edges << [to, child]
                     end
                 end
-                remove(from)
-            end
 
-            def each_parent_vertex(object, &block)
-                Roby.warn_deprecated "#each_parent_vertex has been replaced by #each_in_neighbour"
-                rgl_graph.each_in_neighbour(object, &block)
-            end
+                edges.each do |parent, child|
+                    remove_relation(parent, child)
+                end
 
-            def each_child_vertex(object, &block)
-                Roby.warn_deprecated "#each_child_vertex has been replaced by #each_out_neighbour"
-                rgl_graph.each_out_neighbour(object, &block)
+                if remove
+                    remove_vertex(from)
+                end
             end
 
             def merge!(graph)
                 merge(graph)
                 graph.clear
-            end
-
-            def copy_to(target)
-                Roby.warn_deprecated "Graph#copy_to is deprecated, use #merge instead (WARN: a.copy_to(b) is b.merge(a) !"
-                target.merge(self)
-            end
-
-            def size
-                Roby.warn_deprecated "Graph#size is deprecated, use #num_vertices instead"
-                num_vertices
-            end
-
-            def include?(object)
-                Roby.warn_deprecated "Graph#include? is deprecated, use #has_vertex? instead"
-                has_vertex?(object)
             end
 
             # The relation parent (if any). See #superset_of.
