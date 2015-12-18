@@ -1,85 +1,151 @@
 module Roby
     module Relations
-        # This class manages the graph defined by an object relation in Roby.
-        # 
-        # Relation graphs are managed in hierarchies (for instance, in
-        # EventStructure, Precedence is a superset of CausalLink, and CausalLink a
-        # superset of both Forwarding and Signal). In this hierarchy, at each
-        # level, an edge cannot be present in more than one graph. Nonetheless, it
-        # is possible for a parent relation to have an edge which is present in
-        # none of its children.
+        # A relation graph
         #
-        # Each relation define two things:
-        # * a graph, which is represented by the Relations::Graph instance itself
-        # * support methods that are defined on the vertices of the relation. They 
-        #   allow to manage the vertex in its relations easily. Those methods are
-        #   defined in a separate module (see {#support})
+        # Relation graphs extend the base graph class
+        # {BidirectionalDirectedAdjacencyGraph} by adding the ability to
+        # arrange the graphs in a hierarchy (where a 'child' is a subgraph of a
+        # 'parent'), and the modification methods {#add_relation} and
+        # {#remove_relation} that maintain consistency in the hierarchy.
+        # Moreover, it allows to set an {#observer} object that listens to graph
+        # modifications (Roby uses it to emit relation hooks on plan objects
+        # when included in a {ExecutablePlan}).
         #
-        # In general, relations are part of a Relations::Space instance, which manages
-        # the set of relations whose vertices are of the same kind (for instance
-        # TaskStructure manages all relations whose vertices are Task instances).
-        # In these cases, Relations::Space#relation allow to define new relations easily.
+        # Note that the underlying methods {#add_edge} and {#remove_edge}
+        # are still available in cases where the hooks should not be called
+        # *and* hierarchy consistency is maintained by other means (e.g. when
+        # copying a plan).
+        #
+        # Finally, it is possible for {#add_edge} to update an existing edge
+        # info. For this purpose, a subclass has to implement the {#merge_info}
+        # method which is called with the old and new info and should return the
+        # merged object. The default implementation raises ArgumentError
         class Graph < BidirectionalDirectedAdjacencyGraph
             extend Models::Graph
 
+            # True if this relation graph is a DAG
+            #
+            # This property is not enforced by the Graph class itself as in a
+            # lot of cases it would be too expensive. When used in Roby, it is
+            # either enforced by {ExecutablePlan} or when committing a
+            # transaction
+            attr_predicate :dag
+            # True if this relation should be seen by remote peers
+            attr_predicate :distribute
+            # If this relation is weak
+            #
+            # Weak relations are not considered during garbage collection
+            attr_predicate :weak
+            # If this relation is strong
+            #
+            # Strong relations mark parts of the plan that can't be exchanged
+            # bit-by-bit. I.e. {Plan#replace_task} will ignore those relations.
+            attr_predicate :strong
+
+            # If this relation embeds some additional information
+            attr_predicate :embeds_info?
+
+            # Whether edges in this relation should be copied on replacement or
+            # moved. The default is to move.
+            attr_predicate :copy_on_replace
+
+            # The relation parent (if any)
+            #
+            # @see superset_of recursive_subsets
+            attr_accessor :parent
+
+            # The set of graphs that are directly children of self in the graph
+            # hierarchy. They are subgraphs of self, but not all the existing
+            # subgraphs of self
+            #
+            # @see superset_of recursive_subsets
+            attr_reader   :subsets
+
             # An object that is called for relation modifications
+            #
+            # The relation will call the following hooks.
+            #
+            # Addition/removal hooks are called once per modification in the
+            # relation hierarchy. They get a 'relations' array which is the list
+            # of relation IDs (i.e. graph classes, e.g.
+            # {TaskStructure::Dependency}) which are concerned with the
+            # modification. This array is sorted from the downmost in the
+            # relation hierarchy (i.e. the most specialized) up to the upmost
+            # (the biggest superset).
+            #
+            #    adding_edge(from, to, relations, info)
+            #    added_edge(from, to, relations, info)
+            #
+            # Before and after a new edge is added between two vertices in the
+            # graph. 'info' is the edge info that is set for the edge in the
+            # first element of 'relations' (the other relations get nil)
+            #
+            #    updating_edge(from, to, relation, info)
+            #    updated_edge(from, to, relation, info)
+            #
+            # Before and after the edge info is set on a given edge. 'relation'
+            # is a single relation ID.
+            #
+            #    removing_edge(from, to, relations)
+            #    removed_edge(from, to, relations)
+            #
+            # Before and after an edge has been removed.
             attr_reader :observer
 
-            def remove(vertex)
-                Roby.warn_deprecated "Graph#remove is deprecated, use #remove_vertex instead"
-                remove_vertex(vertex)
+            # Creates a relation graph with the given name and options. The
+            # following options are recognized:
+            # +dag+:: 
+            #   if the graph is a DAG. If true, add_relation will check that
+            #   no cycle is created
+            # +subsets+:: 
+            #   a set of Relations::Graph objects that are children of this one.
+            #   See #superset_of.
+            # +distributed+:: 
+            #   if this relation graph should be seen by remote hosts
+            def initialize(
+                observer: nil,
+                distribute: self.class.distribute?,
+                dag: self.class.dag?,
+                weak: self.class.weak?,
+                strong: self.class.strong?,
+                copy_on_replace: self.class.copy_on_replace?,
+                noinfo: !self.class.embeds_info?,
+                subsets: Set.new)
+
+                @observer = observer
+                @distribute = distribute
+                @dag     = dag
+                @weak    = weak
+                @strong  = strong
+                @copy_on_replace = copy_on_replace
+                @embeds_info = !noinfo
+
+                # If the relation is a single-child relation, it expects to have
+                # this ivar set
+                if respond_to?(:single_child_accessor)
+                    @single_child_accessor = "@#{self.class.child_name}"
+                end
+
+                @subsets = Set.new
+                subsets.each { |g| superset_of(g) }
+
+                super()
             end
 
-            def link(a, b, info)
-                Roby.warn_deprecated "Graph#link is deprecated, use #add_edge instead"
-                add_edge(a, b, info)
-            end
-
-            def linked?(parent, child)
-                Roby.warn_deprecated "Graph#linked? is deprecated, use #add_edge instead"
-                has_edge?(parent, child)
-            end
-
-            def unlink(parent, child)
-                Roby.warn_deprecated "Graph#unlink is deprecated, use #remove_edge instead"
-                remove_edge(parent, child)
-            end
-
-            def each_parent_vertex(object, &block)
-                Roby.warn_deprecated "#each_parent_vertex has been replaced by #each_in_neighbour"
-                each_in_neighbour(object, &block)
-            end
-
-            def each_child_vertex(object, &block)
-                Roby.warn_deprecated "#each_child_vertex has been replaced by #each_out_neighbour"
-                each_out_neighbour(object, &block)
-            end
-
-            def copy_to(target)
-                Roby.warn_deprecated "Graph#copy_to is deprecated, use #merge instead (WARN: a.copy_to(b) is b.merge(a) !"
-                target.merge(self)
-            end
-
-            def size
-                Roby.warn_deprecated "Graph#size is deprecated, use #num_vertices instead"
-                num_vertices
-            end
-
-            def include?(object)
-                Roby.warn_deprecated "Graph#include? is deprecated, use #has_vertex? instead"
-                has_vertex?(object)
-            end
-
-
+            # Tests whether a vertex is reachable from this one
+            #
+            # This is at worst O(E), i.e. the number of vertices that are
+            # reachable from the source vertex.
+            #
+            # If you want to do a lot of these queries, or if you want to check
+            # for acyclicity, RGL offers better alternatives.
+            #
+            # @param [Object] u the origin vertex
+            # @param [Object] v the vertex whose reachability we want to test
+            #   from 'u'
             def reachable?(u, v)
                 depth_first_visit(u) { |o| return true if o == v }
                 false
-            end
-
-            def add_edge(a, b, info)
-                if !try_updating_existing_edge_info(a, b, info)
-                    super
-                end
             end
 
             def to_s
@@ -129,8 +195,14 @@ module Roby
                 nil
             end
 
-            # Replaces +from+ by +to+. This means +to+ takes the role of +from+ in
-            # all edges +from+ is involved in. +from+ is removed from the graph.
+            # Moves a vertex relations onto another
+            #
+            # @param [Object] from the vertex whose relations are going to be
+            #   moved
+            # @param [Object] to the vertex on which the relations will be
+            #   added
+            # @param [Boolean] remove whether 'from' should be removed from the
+            #   graph after replacement
             def replace_vertex(from, to, remove: true)
                 edges = Array.new
                 each_in_neighbour(from) do |parent|
@@ -155,95 +227,14 @@ module Roby
                 end
             end
 
+            # Add the vertices and edges of a graph in self
+            #
+            # @param [Graph] graph the graph whose relations should be added to
+            #   self
             def merge!(graph)
                 merge(graph)
                 graph.clear
             end
-
-            # The relation parent (if any). See #superset_of.
-            attr_accessor :parent
-            # The set of graphs that are directly children of self in the graph
-            # hierarchy. They are subgraphs of self, but not all the existing
-            # subgraphs of self
-            #
-            # @see recursive_subsets
-            attr_reader   :subsets
-
-            # Compute the set of all graphs that are subsets of this one in the
-            # subset hierarchy
-            def recursive_subsets
-                result = Set.new
-                queue = subsets.to_a.dup
-                while !queue.empty?
-                    g = queue.shift
-                    result << g
-                    queue.concat(g.subsets.to_a)
-                end
-                result
-            end
-
-            # Creates a relation graph with the given name and options. The
-            # following options are recognized:
-            # +dag+:: 
-            #   if the graph is a DAG. If true, add_relation will check that
-            #   no cycle is created
-            # +subsets+:: 
-            #   a set of Relations::Graph objects that are children of this one.
-            #   See #superset_of.
-            # +distributed+:: 
-            #   if this relation graph should be seen by remote hosts
-            def initialize(
-                observer: nil,
-                distribute: self.class.distribute?,
-                dag: self.class.dag?,
-                weak: self.class.weak?,
-                strong: self.class.strong?,
-                copy_on_replace: self.class.copy_on_replace?,
-                noinfo: !self.class.embeds_info?,
-                subsets: Set.new)
-
-                @observer = observer
-                @distribute = distribute
-                @dag     = dag
-                @weak    = weak
-                @strong  = strong
-                @copy_on_replace = copy_on_replace
-                @embeds_info = !noinfo
-
-                # If the relation is a single-child relation, it expects to have
-                # this ivar set
-                if respond_to?(:single_child_accessor)
-                    @single_child_accessor = "@#{self.class.child_name}"
-                end
-
-                @subsets = Set.new
-                subsets.each { |g| superset_of(g) }
-
-                super()
-            end
-
-            # True if this relation graph is a DAG
-            attr_predicate :dag
-            # True if this relation should be seen by remote peers
-            attr_predicate :distribute
-            # If this relation is weak. Weak relations can be removed without major
-            # consequences. This is mainly used during plan garbage collection to
-            # break cross-relations cycles (cycles which exist in the graph union
-            # of all the relation graphs).
-            attr_predicate :weak
-            # If this relation is strong. Strong relations mark parts of the plan
-            # that can't be exchanged bit-by-bit. I.e. plan.replace_task will ignore
-            # those relations.
-            attr_predicate :strong
-            # If this relation embeds some additional information
-            attr_predicate :embeds_info?
-            # If true, a task A that is being replaced by a task B will *not* have
-            # the links in this relation graph removed. Instead, they simply get
-            # copied to A
-            attr_predicate :copy_on_replace
-
-            # True if this relation does not have a parent
-            def root_relation?; !parent end
 
             # @api private
             #
@@ -270,6 +261,17 @@ module Roby
                 end
                 set_edge_info(from, to, info)
                 true
+            end
+
+            # Add an edge between two objects
+            #
+            # Unlike {BidirectionalDirectedAdjacencyGraph#add_edge}, it will
+            # update the edge info (using {#merge_info}) if the edge already
+            # exists.
+            def add_edge(a, b, info)
+                if !try_updating_existing_edge_info(a, b, info)
+                    super
+                end
             end
 
             # Add an edge between +from+ and +to+. The relation is added on all
@@ -379,6 +381,22 @@ module Roby
                 end
             end
 
+            # Compute the set of all graphs that are subsets of this one in the
+            # subset hierarchy
+            def recursive_subsets
+                result = Set.new
+                queue = subsets.to_a.dup
+                while !queue.empty?
+                    g = queue.shift
+                    result << g
+                    queue.concat(g.subsets.to_a)
+                end
+                result
+            end
+
+            # True if this relation does not have a parent
+            def root_relation?; !parent end
+
             # Returns true if +relation+ is included in this relation (i.e. it is
             # either the same relation or one of its children)
             #
@@ -396,11 +414,6 @@ module Roby
                 g
             end
 
-            # @deprecated use {#has_edge_in_hierarchy?}
-            def linked_in_hierarchy?(source, target)
-                Roby.warn_deprecated "#linked_in_hierarchy? is deprecated, use #has_edge_in_hierarchy? instead"
-            end
-
             # Tests the presence of an edge in this graph or in its supersets
             #
             # See #superset_of for a description of the parent mechanism
@@ -410,15 +423,12 @@ module Roby
 
             # Declare that +self+ is a superset of +relation+. Once this is done,
             # the system manages two constraints:
-            # * all new relations added in +relation+ are also added in +self+
-            # * it is not allowed for an edge to exist in two different subsets of
-            #   +self+
-            # * of course, if +self+ is a DAG, then in effect +relation+ is constrained
-            #   to be one as well.
+            # * new relations added with {#add_relation} are also added in self
+            # * a relation can only exist in one subset of self
             #
             # One single graph can be the superset of multiple subgraphs (these are
-            # stored in the #subsets attribute), but one graph can have only one
-            # parent (#parent).
+            # stored in the {#subsets} attribute), but one graph can have only one
+            # parent {#parent}.
             def superset_of(relation)
                 relation.each_edge do |source, target, info|
                     if has_edge_in_hierarchy?(source, target)
@@ -433,6 +443,57 @@ module Roby
                 relation.each_edge do |source, target, info|
                     source.add_child_object(target, self, info)
                 end
+            end
+
+            def remove(vertex)
+                Roby.warn_deprecated "Graph#remove is deprecated, use #remove_vertex instead"
+                remove_vertex(vertex)
+            end
+
+            def link(a, b, info)
+                Roby.warn_deprecated "Graph#link is deprecated, use #add_edge instead"
+                add_edge(a, b, info)
+            end
+
+            def linked?(parent, child)
+                Roby.warn_deprecated "Graph#linked? is deprecated, use #add_edge instead"
+                has_edge?(parent, child)
+            end
+
+            def unlink(parent, child)
+                Roby.warn_deprecated "Graph#unlink is deprecated, use #remove_edge instead"
+                remove_edge(parent, child)
+            end
+
+            def each_parent_vertex(object, &block)
+                Roby.warn_deprecated "#each_parent_vertex has been replaced by #each_in_neighbour"
+                each_in_neighbour(object, &block)
+            end
+
+            def each_child_vertex(object, &block)
+                Roby.warn_deprecated "#each_child_vertex has been replaced by #each_out_neighbour"
+                each_out_neighbour(object, &block)
+            end
+
+            def copy_to(target)
+                Roby.warn_deprecated "Graph#copy_to is deprecated, use #merge instead (WARN: a.copy_to(b) is b.merge(a) !"
+                target.merge(self)
+            end
+
+            def size
+                Roby.warn_deprecated "Graph#size is deprecated, use #num_vertices instead"
+                num_vertices
+            end
+
+            def include?(object)
+                Roby.warn_deprecated "Graph#include? is deprecated, use #has_vertex? instead"
+                has_vertex?(object)
+            end
+
+            # @deprecated use {#has_edge_in_hierarchy?}
+            def linked_in_hierarchy?(source, target)
+                Roby.warn_deprecated "#linked_in_hierarchy? is deprecated, use #has_edge_in_hierarchy? instead"
+                has_edge_in_hierarchy?(source, target)
             end
         end
     end
