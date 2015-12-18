@@ -18,14 +18,14 @@ module Roby
 
                 it "allows for the same argument to be set twice to the same value" do
                     task = task_m.new
-                    task.__assign_arguments__(low_level_arg: 10, high_level_arg: 10)
+                    task.assign_arguments(low_level_arg: 10, high_level_arg: 10)
                     assert_equal 10, task.low_level_arg
                     assert_equal 10, task.high_level_arg
                 end
                 it "raises if the same argument is set twice to different values" do
                     task = task_m.new
                     assert_raises(ArgumentError) do
-                        task.__assign_arguments__(low_level_arg: 20, high_level_arg: 10)
+                        task.assign_arguments(low_level_arg: 20, high_level_arg: 10)
                     end
                 end
                 it "properly overrides a delayed argument" do
@@ -35,7 +35,7 @@ module Roby
                     delayed_arg = flexmock
                     delayed_arg.should_receive(:evaluate_delayed_argument).with(task_m).and_return(10)
                     task = task_m.new(high_level_arg: delayed_arg)
-                    task.__assign_arguments__(high_level_arg: 10, low_level_arg: 10)
+                    task.assign_arguments(high_level_arg: 10, low_level_arg: 10)
                     assert_equal 10, task.high_level_arg
                     assert_equal 10, task.low_level_arg
                 end
@@ -53,7 +53,7 @@ module Roby
                     delayed_arg.should_receive(:evaluate_delayed_argument).with(task_m).and_return(10)
 
                     plan.add(task = task_m.new(high_level_arg: delayed_arg))
-                    flexmock(task).should_receive(:__assign_arguments__).
+                    flexmock(task).should_receive(:assign_arguments).
                         once.with(high_level_arg: 10)
                     task.freeze_delayed_arguments
                 end
