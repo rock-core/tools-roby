@@ -77,20 +77,12 @@ module Roby
                 parent_object?(object, relation) || child_object?(object, relation)
             end
 
-            def each_parent_object(graph = nil)
-                return enum_for(__method__, graph) if !block_given?
-                graph = relation_graphs[graph]
-                if graph.has_vertex?(self)
-                    relation_graphs[graph].each_in_neighbour(self) { |p| yield(p) }
-                end
+            def each_parent_object(graph, &block)
+                relation_graphs[graph].each_in_neighbour(self, &block)
             end
 
-            def each_child_object(graph = nil)
-                return enum_for(__method__, graph) if !block_given?
-                graph = relation_graphs[graph]
-                if graph.has_vertex?(self)
-                    relation_graphs[graph].each_out_neighbour(self) { |child| yield(child) }
-                end
+            def each_child_object(graph, &block)
+                relation_graphs[graph].each_out_neighbour(self, &block)
             end
 
             def sorted_relations
@@ -102,11 +94,8 @@ module Roby
 
             # Yields each relation this vertex is part of, starting with the most
             # specialized relations
-            def each_relation_sorted
-                # Remove from the set of relations the ones that are not leafs
-                for rel in sorted_relations
-                    yield(rel)
-                end
+            def each_relation_sorted(&block)
+                sorted_relations.each(&block)
             end
 
             # Removes +self+ from all the graphs it is included in.
