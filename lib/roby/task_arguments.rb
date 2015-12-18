@@ -117,10 +117,8 @@ module Roby
 	    end
 	end
 
-        def each
-            values.each do |key, value|
-                yield(key, value)
-            end
+        def each(&block)
+            values.each(&block)
         end
 
         # Updates the given argument, regardless of whether it is allowed or not

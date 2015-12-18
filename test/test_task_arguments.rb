@@ -74,6 +74,73 @@ describe Roby::TaskArguments do
             args.merge!(key: flexmock(evaluate_delayed_argument: 10))
             assert !args.static?
         end
+        it "does not raise if the hash updates a non-writable value with the same value" do
+            args = task_m.new(arg: 20).arguments
+            args.merge!(arg: 20)
+            assert_equal 20, args[:arg]
+        end
+        it "does not raise if the hash updates a writable value" do
+            args = task_m.new(arg: flexmock(evaluate_delayed_argument: 10)).arguments
+            args.merge!(arg: 20)
+            assert_equal 20, args[:arg]
+        end
+        it "raises if an updated value is not writable" do
+            args = task_m.new(arg: 20).arguments
+            assert_raises(ArgumentError) do
+                args.merge!(arg: flexmock(evaluate_delayed_argument: 10))
+            end
+        end
+    end
+
+    describe "#force_merge!" do
+        let(:task) do
+            task_m.new arg:  10
+        end
+
+        it "forcefully sets the arguments to the values in the hash" do
+            task.arguments.force_merge!(arg: 20)
+            assert_equal 20, task.arg
+        end
+        it "updates the static flag" do
+            task.arguments.force_merge!(arg: flexmock(evaluate_delayed_argument: 10))
+            assert !task.arguments.static?
+        end
+    end
+
+    describe "#evaluate_delayed_arguments" do
+        it "returns a hash of the arguments value" do
+            task = task_m.new arg:  10
+            assert_equal Hash[arg: 10], task.arguments.evaluate_delayed_arguments
+        end
+        it "does not set the delayed arguments that have no value" do
+            delayed_arg = flexmock do |r|
+                r.should_receive(:evaluate_delayed_argument).and_throw(:no_value)
+            end
+            task = task_m.new arg: delayed_arg
+            assert_equal Hash[], task.arguments.evaluate_delayed_arguments
+        end
+        it "sets evaluated delayed arguments" do
+            delayed_arg = flexmock do |r|
+                r.should_receive(:evaluate_delayed_argument).and_return(20)
+            end
+            task = task_m.new arg: delayed_arg
+            assert_equal Hash[arg: 20], task.arguments.evaluate_delayed_arguments
+        end
+    end
+
+    describe "#each" do
+        it "enumerates all arguments including the delayed ones" do
+            delayed_arg = flexmock(evaluate_delayed_argument: 20)
+            args = task_m.new(arg: 10, key: delayed_arg).arguments
+            assert_equal [[:arg, 10], [:key, delayed_arg]], args.each.to_a
+        end
+    end
+
+    describe "#each_assigned_argument" do
+        it "enumerates all arguments except the delayed ones" do
+            args = task_m.new(arg: 10, key: flexmock(evaluate_delayed_argument: 20)).arguments
+            assert_equal [[:arg, 10]], args.each_assigned_argument.to_a
+        end
     end
 end
 
