@@ -340,9 +340,17 @@ module Roby
 		end
 	    end
 
-            each_event do |ev|
-                transaction.setup_and_register_proxy(ev, object.event(ev.symbol))
+            events = Hash.new
+            each_event do |trsc_ev|
+                plan_ev = object.event(trsc_ev.symbol)
+                transaction.setup_and_register_proxy(trsc_ev, plan_ev)
+                events[plan_ev] = trsc_ev
             end
+
+            graphs = transaction.each_event_relation_graph.map do |trsc_g|
+                [transaction.plan.event_relation_graph_for(trsc_g.class), trsc_g]
+            end
+            transaction.import_subplan_relations(graphs, events)
 	end
 
         # Perform the operations needed for the commit to be successful.  In

@@ -45,7 +45,6 @@ module Roby
 
             proxy = setup_proxy(proxy, object)
             proxy_objects[object] = proxy
-	    copy_object_relations(object, proxy)
 
             if services = plan.plan_services[object]
                 services.each do |original_srv|
@@ -70,6 +69,8 @@ module Roby
         def create_and_register_proxy(object)
             proxy = object.dup(plan: self)
             setup_and_register_proxy(proxy, object)
+	    copy_object_relations(object, proxy)
+            proxy
         end
 
 	def do_wrap(object) # :nodoc:
@@ -92,6 +93,45 @@ module Roby
 	def edit
 	    yield if block_given?
 	end
+
+        # @api private
+        #
+        # Copies relations when importing a new subplan from the main plan
+        #
+        # @param [Hash<Relations::Graph,Relations::Graph>] relation graph
+        #   mapping from the plan graphs to the transaction graphs
+        # @param [Hash<PlanObject,PlanObject>] mappings
+        #   mapping from the plan objects to the transaction objects
+        def import_subplan_relations(graphs, mappings)
+            graphs.each do |plan_g, self_g|
+                plan_g.copy_subgraph_to(self_g, mappings)
+                mappings.each do |plan_v, self_v|
+                    # The method assumes that the plan objects are new. We are
+                    # therefore done if there is the same number of relations in
+                    # both plan and transactions
+                    #
+                    # It is NOT true in the general case as one can add extra
+                    # relations in the transaction
+                    if plan_g.in_degree(plan_v) != self_g.in_degree(self_v)
+                        plan_g.each_in_neighbour(plan_v) do |plan_parent|
+                            next if mappings.has_key?(plan_parent)
+                            if self_parent = proxy_objects[plan_parent]
+                                self_g.add_edge(self_parent, self_v, plan_g.edge_info(plan_parent, plan_v))
+                            end
+                        end
+                    end
+
+                    if plan_g.out_degree(plan_v) != self_g.out_degree(self_v)
+                        plan_g.each_out_neighbour(plan_v) do |plan_child|
+                            next if mappings.has_key?(plan_child)
+                            if self_child = proxy_objects[plan_child]
+                                self_g.add_edge(self_v, self_child, plan_g.edge_info(plan_v, plan_child))
+                            end
+                        end
+                    end
+                end
+            end
+        end
 
 	# This method copies on +proxy+ all relations of +object+ for which
 	# both ends of the relation are already in the transaction.

@@ -88,6 +88,27 @@ module Roby
 
             def inspect; to_s end
 
+            # Copy a subgraph of self into another graph
+            #
+            # This method allows to define a mapping of vertices from self
+            # (source set) into vertices of another graph (target set), and
+            # copies the edges that exist between the vertices of the source set
+            # to edges between the corresponding vertices of target set
+            #
+            # @param [Graph] graph the target graph
+            # @param [Hash<Object,Object>] a mapping from the subgraph vertices
+            #   in self to the corresponding vertices in the target graph
+            def copy_subgraph_to(graph, mappings)
+                mappings.each do |v, mapped_v|
+                    each_out_neighbour(v) do |child|
+                        if mapped_child = mappings[child]
+                            graph.add_edge(mapped_v, mapped_child,
+                                           edge_info(v, child))
+                        end
+                    end
+                end
+            end
+
             def find_edge_difference(graph, mapping)
                 if graph.num_edges != num_edges
                     return [:num_edges_differ]

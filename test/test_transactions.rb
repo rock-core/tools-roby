@@ -76,6 +76,31 @@ module TC_TransactionBehaviour
         assert_same old_start, t1.start_event
     end
 
+    def test_wrapping_a_task_copies_its_event_relations
+        plan.add(t = Roby::Task.new)
+        assert_child_of t.start_event, t.updated_data_event, Roby::EventStructure::Precedence
+        transaction_commit(plan) do |trsc|
+            proxy = trsc[t]
+            assert_child_of proxy.start_event, proxy.updated_data_event, Roby::EventStructure::Precedence
+        end
+    end
+
+    def test_wrapping_a_task_copies_relations_between_its_events_and_the_tasks_outside
+        plan.add(parent = Roby::Task.new)
+        plan.add(task = Roby::Task.new)
+        plan.add(child  = Roby::Task.new)
+        parent.start_event.signals task.start_event
+        task.start_event.signals child.start_event
+
+        transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
+            # NOTE: it is important that we wrap the task here AFTER the two
+            # other as we are testing the relation copy, which is directional
+            p_task = trsc[task]
+            assert_child_of p_parent.start_event, p_task.start_event, Roby::EventStructure::Signal
+            assert_child_of p_task.start_event, p_child.start_event, Roby::EventStructure::Signal
+        end
+    end
+
     def test_may_unwrap
         plan.add(t = Tasks::Simple.new)
         transaction_commit(plan, t) do |trsc, p|
@@ -710,6 +735,7 @@ module TC_TransactionBehaviour
         plan.add(root)
 
 	transaction_commit(plan, root, task, child) do |trsc, p_root, p_task, p_child|
+            assert_child_of p_task.stop_event, p_root.stop_event, Signal
 	    trsc.replace(p_task, replacement)
 	end
         assert_child_of root, replacement, Dependency
