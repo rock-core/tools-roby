@@ -736,7 +736,6 @@ module Roby
 	    end
 
 	    frozen!
-	    clear
 
 	    discarded_transaction
             plan.remove_transaction(self)
