@@ -34,7 +34,7 @@ module Roby::TaskStructure
 
     module ErrorHandling::Extension
         def repaired_tasks
-	    enum_parent_objects(ErrorHandling).to_a
+	    each_parent_object(ErrorHandling).to_a
         end
 
 	def failed_task
@@ -111,7 +111,7 @@ module Roby::TaskStructure
 
         # Test if this task has an active repair tasks associated
         def being_repaired?
-            enum_child_objects(ErrorHandling).any? { |t| t.running? }
+            each_child_object(ErrorHandling).any? { |t| t.running? }
         end
     end
 

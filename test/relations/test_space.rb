@@ -162,10 +162,6 @@ module Roby
                     subject { create_node }
 
                     describe "#find_CHILD" do
-                        it "returns nil if there are no children" do
-                            assert_equal nil, subject.find_child
-                        end
-
                         it "is passed the child only" do
                             subject.add_child(child = create_node)
                             recorder.should_receive(:called).with([child]).once

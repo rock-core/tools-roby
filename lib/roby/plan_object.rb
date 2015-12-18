@@ -227,7 +227,7 @@ module Roby
         # Will yield the same set of tasks, but included in +self.plan+.
         def merged_relations(enumerator, intrusive, *args, &block)
             if !block_given?
-                return enum_for(:merged_relations, enumerator, intrusive, *args)
+                return enum_for(__method__, enumerator, intrusive, *args)
             end
 
             plan_chain = self.transaction_stack

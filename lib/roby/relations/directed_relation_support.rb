@@ -106,24 +106,13 @@ module Roby
             end
             alias :clear_relations :clear_vertex
 
-            ##
-            # :method: enum_relations => enumerator
-            # Returns an Enumerator object for the set of relations this object is
-            # included in. The same enumerator instance is always returned.
-            cached_enum("relation", "relations", false)
-            ##
-            # :method: enum_parent_objects(relation) => enumerator
-            # Returns an Enumerator object for the set of parents this object has
-            # in +relation+. The same enumerator instance is always returned.
-            cached_enum("parent_object", "parent_objects", true)
-            ##
-            # :method: enum_child_objects(relation) => enumerator
-            # Returns an Enumerator object for the set of children this object has
-            # in +relation+. The same enumerator instance is always returned.
-            cached_enum("child_object", "child_objects", true)
+            def enum_relations
+                Roby.warn_deprecated "DirectedRelationSupport#enum_relations is deprecated, use #each_relation instead"
+                each_relation
+            end
 
             # The array of relations this object is part of
-            def relations; enum_relations.to_a end
+            def relations; each_relation.to_a end
 
             # Computes and returns the set of objects related with this one (parent
             # or child). If +relation+ is given, enumerate only for this relation,
@@ -140,10 +129,23 @@ module Roby
                 result
             end
 
-            # Set of all parent objects in +relation+
-            alias :parent_objects :enum_parent_objects
-            # Set of all child object in +relation+
-            alias :child_objects :enum_child_objects
+            def enum_parent_objects(relation)
+                Roby.warn_deprecated "#enum_parent_objects is deprecated, use #parent_objects or #each_parent_object instead"
+                parent_objects(relation)
+            end
+
+            def parent_objects(relation)
+                relation_graphs[relation].in_neighbours(self)
+            end
+
+            def enum_child_objects(relation)
+                Roby.warn_deprecated "#enum_child_objects is deprecated, use #parent_objects or #each_parent_object instead"
+                child_objects(relation)
+            end
+
+            def child_objects(relation)
+                relation_graphs[relation].out_neighbours(self)
+            end
 
             # Add a new child object in the +relation+ relation. This calls
             # * #adding_child_object on +self+ and #adding_parent_object on +child+

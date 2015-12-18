@@ -10,7 +10,7 @@ module Roby
             # It is O(N). You should prefer use Query which uses the plan's task
             # indexes, thus leading to O(1) in simple cases.
             def each(plan)
-                return enum_for(:each, plan) if !block_given?
+                return enum_for(__method__, plan) if !block_given?
                 plan.each_task do |t|
                     yield(t) if self === t
                 end

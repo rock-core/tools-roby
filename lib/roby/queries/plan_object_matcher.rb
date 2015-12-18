@@ -211,7 +211,7 @@ module Roby
 
             for parent_spec in @parents
                 result = handle_parent_child_match(object, parent_spec) do |relation, m, relation_options|
-                    object.enum_parent_objects(relation).
+                    object.each_parent_object(relation).
                         any? { |parent| m === parent && (!relation_options || relation_options === parent[object, relation]) }
                 end
                 return false if !result
@@ -219,7 +219,7 @@ module Roby
 
             for child_spec in @children
                 result = handle_parent_child_match(object, child_spec) do |relation, m, relation_options|
-                    object.enum_child_objects(relation).
+                    object.each_child_object(relation).
                         any? { |child| m === child && (!relation_options || relation_options === object[child, relation]) }
                 end
                 return false if !result

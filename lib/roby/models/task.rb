@@ -447,7 +447,7 @@ module Roby
             # ({#signal}) or forwards ({#forward}) lead to the
             # emission of {#stop_event}
             def update_terminal_flag # :nodoc:
-                events = enum_events.map { |name, _| name }
+                events = each_event.map { |name, _| name }
                 terminal_events = [:stop]
                 events.delete(:stop)
 
@@ -621,12 +621,13 @@ module Roby
             inherited_attribute(:event, :events, map: true) { Hash.new }
 
             def enum_events # :nodoc
-                @__enum_events__ ||= enum_for(:each_event)
+                Roby.warn_deprecated "#enum_events is deprecated, use #each_event without a block instead"
+                each_event
             end
 
             # Get the list of terminal events for this task model
             def terminal_events
-                enum_events.find_all { |_, e| e.terminal? }.
+                each_event.find_all { |_, e| e.terminal? }.
                     map { |_, e| e }
             end
 
@@ -649,7 +650,7 @@ module Roby
                 if model_def.respond_to?(:to_sym)
                     ev_model = find_event_model(model_def.to_sym)
                     unless ev_model
-                        all_events = enum_events.map { |name, _| name }
+                        all_events = each_event.map { |name, _| name }
                         raise ArgumentError, "#{model_def} is not an event of #{name}: #{all_events}" unless ev_model
                     end
                 elsif model_def.respond_to?(:has_ancestor?) && model_def.has_ancestor?(Roby::TaskEvent)

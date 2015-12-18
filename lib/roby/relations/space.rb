@@ -274,10 +274,7 @@ module Roby
                 if parent_name
                     synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
                     def each_#{parent_name}(&iterator)
-                        if !block_given?
-                            return enum_parent_objects(__r_#{relation_name}__)
-                        end
-
+                        return enum_for(__method__) if !iterator
                         self.each_parent_object(__r_#{relation_name}__, &iterator)
                     end
                     EOD
@@ -285,36 +282,28 @@ module Roby
 
                 if noinfo
                     synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
-                    def each_#{child_name}
-                        if !block_given?
-                            return enum_child_objects(__r_#{relation_name}__)
-                        end
-
-                        each_child_object(__r_#{relation_name}__) { |child| yield(child) }
+                    def each_#{child_name}(&iterator)
+                        return enum_for(__method__) if !iterator
+                        each_child_object(__r_#{relation_name}__, &iterator)
                     end
-                    def find_#{child_name}
-                        each_child_object(__r_#{relation_name}__) do |child|
-                            return child if yield(child)
-                        end
-                        nil
+                    def find_#{child_name}(&block)
+                        each_child_object(__r_#{relation_name}__).find(&block)
                     end
                     EOD
                 else
                     synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
-                    cached_enum("#{child_name}", "#{child_name}", true)
+                    def enum_#{child_name}
+                        Roby.warn_deprecated "enum_#{child_name} is deprecated, use each_#{child_name} instead"
+                        each_#{child_name}
+                    end
                     def each_#{child_name}(with_info = true)
-                        if !block_given?
-                            return enum_#{child_name}(with_info)
-                        end
-
+                        return enum_for(__method__, with_info) if !block_given?
                         if with_info
                             each_child_object(__r_#{relation_name}__) do |child|
                                 yield(child, self[child, __r_#{relation_name}__])
                             end
                         else
-                            each_child_object(__r_#{relation_name}__) do |child|
-                                yield(child)
-                            end
+                            each_child_object(__r_#{relation_name}__, &proc)
                         end
                     end
                     def find_#{child_name}(with_info = true)
@@ -323,9 +312,7 @@ module Roby
                                 return child if yield(child, self[child, __r_#{relation_name}__])
                             end
                         else
-                            each_child_object(__r_#{relation_name}__) do |child|
-                                return child if yield(child)
-                            end
+                            each_child_object(__r_#{relation_name}__).find(&proc)
                         end
                         nil
                     end
@@ -399,7 +386,7 @@ module Roby
                         end
 
                         def remove_vertex(object)
-                            parents = each_in_neighbour(object).to_a
+                            parents = in_neighbours(object)
                             super
                             parents.each do |parent|
                                 update_single_child_accessor(parent, object)
