@@ -138,15 +138,17 @@ module Roby
 	def copy_object_relations(object, proxy)
             # Create edges between the neighbours that are really in the transaction
             object.each_relation do |rel|
-                object.each_parent_object(rel) do |parent|
-                    if parent_proxy = self[parent, false]
-                        parent_proxy.add_child_object(proxy, rel, parent[object, rel])
+                plan_graph = object.relation_graph_for(rel)
+                trsc_graph = proxy.relation_graph_for(rel)
+
+                plan_graph.each_in_neighbour(object) do |parent|
+                    if parent_proxy = proxy_objects[parent]
+                        trsc_graph.add_edge(parent_proxy, proxy, plan_graph.edge_info(parent, object))
                     end
                 end
-
-                object.each_child_object(rel) do |child|
-                    if child_proxy = self[child, false]
-                        proxy.add_child_object(child_proxy, rel, object[child, rel])
+                plan_graph.each_out_neighbour(object) do |child|
+                    if child_proxy = proxy_objects[child]
+                        trsc_graph.add_edge(proxy, child_proxy, plan_graph.edge_info(object, child))
                     end
                 end
             end
