@@ -190,6 +190,22 @@ describe Roby::DelayedArgumentFromObject do
             end
         end
     end
+
+    describe "#force_merge!" do
+        let(:task) do
+            task_m = Roby::Task.new_submodel { argument :arg }
+            task_m.new arg:  10
+        end
+
+        it "forcefully sets the arguments to the values in the hash" do
+            task.arguments.force_merge!(arg: 20)
+            assert_equal 20, task.arg
+        end
+        it "updates the static flag" do
+            task.arguments.force_merge!(arg: flexmock(evaluate_delayed_argument: 10))
+            assert !task.arguments.static?
+        end
+    end
 end
 
 describe Roby::DelayedArgumentFromState do

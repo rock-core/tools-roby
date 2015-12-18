@@ -189,6 +189,7 @@ module Roby
 
         def force_merge!(hash)
             values.merge!(hash)
+            @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
         end
 
 	def merge!(hash)
