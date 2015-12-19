@@ -1,62 +1,120 @@
-TOP_SRC_DIR = File.expand_path( File.join(File.dirname(__FILE__), '..') )
-$LOAD_PATH.unshift TOP_SRC_DIR
-$LOAD_PATH.unshift File.join(TOP_SRC_DIR, 'test')
-
 require 'roby'
-require 'roby/transactions'
-require 'utilrb/objectstats'
+require 'benchmark'
 
-include Roby
+def random_plan(plan, num_tasks, num_task_relations, num_event_relations)
+    num_tasks = num_tasks / 10 * 10
+    num_tasks.times do
+        plan.add(Roby::Task.new)
+    end
 
-TASK_COUNT = 10
-RELATION_COUNT = 10
-def display_object_count
-    count = ObjectStats.count_by_class.
-	find_all { |k, o| k.name =~ /Roby/ }.
-	sort_by { |k, o| k.name }.
-	map { |k, o| "#{k} #{o}" }
+    tasks = plan.known_tasks.to_a
+    num_task_relations.times do
+        from_group, to_group = 0, 0
+        while from_group == to_group
+            from_group = rand(tasks.size / 10)
+            to_group   = rand(tasks.size / 10)
+        end
+        if from_group > to_group
+            from_group, to_group = to_group, from_group
+        end
+        from_i = from_group * 10 + rand(10)
+        to_i   = to_group * 10 + rand(10)
 
-    puts "  #{count.join("\n  ")}"
-end
+        from = tasks[from_i]
+        to   = tasks[to_i]
 
+        from.depends_on to
+    end
 
+    events = plan.free_events.to_a + plan.task_events.to_a
+    created_edges = 0
+    while created_edges < num_event_relations
+        from_group, to_group = 0, 0
+        while from_group == to_group
+            from_group = rand(events.size / 10)
+            to_group   = rand(events.size / 10)
+        end
+        if from_group > to_group
+            from_group, to_group = to_group, from_group
+        end
+        from_i = from_group * 10 + rand(10)
+        to_i   = to_group * 10 + rand(10)
 
-def build_and_commit
-    plan = Plan.new
-
-    BenchmarkAllocation.bmbm(7) do |x|
-	trsc = Transaction.new(plan)
-	plan_tasks, trsc_tasks = nil
-	x.report("alloc") do
-	    trsc_tasks = (1..TASK_COUNT).map { trsc.discover(t = Task.new); t } 
-	    plan_tasks = (1..TASK_COUNT).map { plan.discover(t = Task.new); trsc[t] }
-	end
-
-	# Add random relations
-	arrays = [plan_tasks, trsc_tasks]
-	relation_count = [0, 0]
-
-	from_origin, to_origin = (1..2).map { rand(2) }
-	x.report("relations") do
-	    RELATION_COUNT.times do
-		from = arrays[from_origin][rand(TASK_COUNT)]
-		to   = arrays[to_origin][rand(TASK_COUNT)]
-		relation_count[from_origin] += 1
-		relation_count[to_origin] += 1
-		begin
-		    from.realized_by to
-		rescue CycleFoundError
-		end
-	    end
-	end
-
-	x.report("commit") do
-	    trsc.commit_transaction
-	end
-	x.report("clear") do
-	    plan.clear
-	end
+        from = events[from_i]
+        to   = events[to_i]
+        if from.task != to.task
+            begin
+                from.forward_to to
+                created_edges += 1
+            rescue Roby::CycleFoundError
+            end
+        end
     end
 end
-build_and_commit
+
+COUNT = 1000
+Benchmark.bm(70) do |x|
+    plan = Roby::Plan.new
+    (1..10).map do
+        plan.add(Roby::Task.new)
+    end
+    tasks = plan.known_tasks.to_a
+    plan.add(task = Roby::Task.new)
+
+    x.report("creating #{COUNT} transactions") do
+        COUNT.times do
+            trsc = Roby::Transaction.new(plan)
+            trsc.discard_transaction
+        end
+    end
+    x.report("import non-connected task from plan (#{COUNT} times)") do
+        COUNT.times do
+            trsc = Roby::Transaction.new(plan)
+            trsc[task]
+            trsc.discard_transaction
+        end
+    end
+
+    tasks[0].depends_on task
+    task.depends_on tasks[1]
+    task.start_event.forward_to tasks[2].stop_event
+    tasks[3].stop_event.signals task.start_event
+
+    x.report("import one connected task from plan (#{COUNT} times)") do
+        COUNT.times do
+            trsc = Roby::Transaction.new(plan)
+            trsc[task]
+            trsc.discard_transaction
+        end
+    end
+    plan.clear
+
+    plan = Roby::Plan.new
+    Roby::ExecutionEngine.new(plan)
+    random_plan(plan, 100, 120, 2000)
+
+    x.report("import random plan iteratively (10 times and 100 tasks/plan)") do
+        10.times do
+            trsc = Roby::Transaction.new(plan)
+            plan.known_tasks.each do |t|
+                trsc[t]
+            end
+            trsc.discard_transaction
+        end
+    end
+    plan.clear
+
+    plan = Roby::Plan.new
+    Roby::ExecutionEngine.new(plan)
+    random_plan(plan, 100, 120, 2000)
+
+    x.report("import random plan using find_tasks (10 times and 100 tasks/plan)") do
+        10.times do
+            trsc = Roby::Transaction.new(plan)
+            trsc.find_tasks.to_a
+            trsc.discard_transaction
+        end
+    end
+    plan.clear
+end
 
