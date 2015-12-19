@@ -1,0 +1,5 @@
+#! /usr/bin/env ruby
+require_relative 'relations/graph'
+require_relative 'plan_basic_operations'
+require_relative 'transactions'
+require_relative 'synthetic_plan_modifications_with_transactions'
