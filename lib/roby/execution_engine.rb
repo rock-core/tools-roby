@@ -1633,10 +1633,10 @@ module Roby
                 roots = nil
                 2.times do |i|
                     roots = local_tasks.dup
-                    for rel in TaskStructure.relations
-                        next if !rel.root_relation?
+                    plan.each_task_relation_graph do |g|
+                        next if !g.root_relation?
                         roots.delete_if do |t|
-                            t.enum_parent_objects(rel).any? { |p| !p.finished? }
+                            g.each_in_neighbour(t).any? { |p| !p.finished? }
                         end
                         break if roots.empty?
                     end
@@ -1647,9 +1647,11 @@ module Roby
                     # weak relations within elements of local_tasks
                     debug "cycle found, removing weak relations"
 
-                    local_tasks.each do |t|
-                        for rel in t.sorted_relations
-                            t.relation_graph_for(rel).remove_vertex(t) if rel.weak?
+                    plan.each_task_relation_graph do |g|
+                        if g.weak?
+                            local_tasks.each do |t|
+                                g.remove_vertex(t)
+                            end
                         end
                     end
                 end
