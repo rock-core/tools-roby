@@ -311,23 +311,12 @@ module Roby
         # * if set to :drop, the handler is not passed on
         # * if set to :forward, the handler is added to the replacing task
         #
-	def on(options = Hash.new, &handler)
-	    if !options.kind_of?(Hash)
-                Roby.error_deprecated "EventGenerator#on only accepts event handlers now. Use #signals to establish signalling"
-            elsif !handler
-                raise ArgumentError, "no block given"
-	    end
-
-            options = Kernel.validate_options options, on_replace: :drop, once: false
-            if ![:drop, :copy].include?(options[:on_replace])
-                raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
+	def on(on_replace: :drop, once: false, &handler)
+            if ![:drop, :copy].include?(on_replace)
+                raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{on_replace}"
             end
-
-	    if handler
-		check_arity(handler, 1)
-		self.handlers << EventHandler.new(handler, options[:on_replace] == :copy, options[:once])
-	    end
-
+            check_arity(handler, 1)
+            self.handlers << EventHandler.new(handler, on_replace == :copy, once)
 	    self
 	end
 
@@ -507,7 +496,7 @@ module Roby
 	def to_event; self end
 
 	# Returns the set of events directly related to this one
-	def related_events(result = nil); related_objects(nil, result) end
+        def related_events(result = Set.new); related_objects(nil, result) end
         # Returns the set of tasks that are directly linked to this events.
         #
         # I.e. it returns the tasks that have events which are directly related

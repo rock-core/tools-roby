@@ -289,13 +289,14 @@ module Roby
 	    end
 	end
 
-        def on(options = Hash.new, &block)
-            default_on_replace =
-                if task.abstract? then :copy
-                else :drop
-                end
-            on_replace, options = Kernel.filter_options options, on_replace: default_on_replace
-            super(on_replace.merge(options), &block)
+        def default_on_replace
+            if task.abstract? then :copy
+            else :drop
+            end
+        end
+
+        def on(on_replace: default_on_replace, once: false, &block)
+            super(on_replace: on_replace, once: once, &block)
         end
     end
 end

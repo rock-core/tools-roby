@@ -118,13 +118,15 @@ module Roby
             # or child). If +relation+ is given, enumerate only for this relation,
             # otherwise enumerate for all relations.  If +result+ is given, it is a
             # Set in which the related objects are added
-            def related_objects(relation = nil, result = nil)
-                result ||= Set.new
+            def related_objects(relation = nil, result = Set.new)
                 if relation
                     result.merge(parent_objects(relation))
                     result.merge(child_objects(relation))
                 else
-                    each_relation { |rel| related_objects(rel, result) }
+                    each_root_relation_graph do |g|
+                        result.merge(g.in_neighbours(self))
+                        result.merge(g.out_neighbours(self))
+                    end
                 end
                 result
             end

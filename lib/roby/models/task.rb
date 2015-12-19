@@ -572,8 +572,7 @@ module Roby
                 end
                 if !method_defined?("#{event_name}!")
                     define_method("#{event_name}!") do |*context| 
-                        generator = event(event_name)
-                        generator.call(*context) 
+                        event(event_name).call(*context)
                     end
                 end
                 if !respond_to?("#{event_name}_event")

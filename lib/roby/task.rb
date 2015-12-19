@@ -298,11 +298,13 @@ module Roby
 
 	# Returns for how many seconds this task is running.  Returns nil if
 	# the task is not running.
-	def lifetime
-	    if running?
-		Time.now - start_time
-	    end
-	end
+        def lifetime
+            if running?
+                Time.now - start_time
+            elsif finished?
+                end_time - start_time
+            end
+        end
 
         # Returns when this task has been started
         def start_time
@@ -560,7 +562,7 @@ module Roby
         # Returns the set of tasks directly related to this task, either because
         # of task relations or because of task events that are related to other
         # task events
-	def related_tasks(result = nil)
+        def related_tasks(result = Set.new)
 	    result = related_objects(nil, result)
 	    each_event do |ev|
 		ev.related_tasks(result)
@@ -570,9 +572,9 @@ module Roby
 	end
         
         # Returns the set of events directly related to this task
-	def related_events(result = nil)
+        def related_events(result = Set.new)
 	    each_event do |ev|
-		result = ev.related_events(result)
+		ev.related_events(result)
 	    end
 
 	    result.reject { |ev| ev.respond_to?(:task) && ev.task == self }.
