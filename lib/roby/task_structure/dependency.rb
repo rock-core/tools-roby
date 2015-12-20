@@ -34,7 +34,7 @@ module Roby
                 end
 
                 if !events.empty?
-                    parent.start_event.on do |ev|
+                    parent.start_event.on(on_replace: :drop) do |ev|
                         ev.plan.task_relation_graph_for(self.class).interesting_events << ev.generator
                     end
                     events.each do |e|
@@ -43,7 +43,7 @@ module Roby
                             # ... re-resolve
                             ev.plan.task_relation_graph_for(self.class).interesting_events << ev
                         end
-                        e.on do |ev|
+                        e.on(on_replace: :drop) do |ev|
                             ev.plan.task_relation_graph_for(self.class).interesting_events << ev.generator
                         end
                     end
