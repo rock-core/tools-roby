@@ -81,7 +81,15 @@ module Roby
                 relation_graphs[graph].each_in_neighbour(self, &block)
             end
 
+            def each_in_neighbour(graph, &block)
+                relation_graphs[graph].each_in_neighbour(self, &block)
+            end
+
             def each_child_object(graph, &block)
+                relation_graphs[graph].each_out_neighbour(self, &block)
+            end
+
+            def each_out_neighbour(graph, &block)
                 relation_graphs[graph].each_out_neighbour(self, &block)
             end
 

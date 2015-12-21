@@ -871,7 +871,7 @@ class TC_Event < Minitest::Test
 
     def test_dup
 	plan.add(e = EventGenerator.new(true))
-	plan.add(new = e.dup)
+	plan.register_event(new = e.dup)
 
 	e.call
 	assert_equal(1, e.history.size)
@@ -879,7 +879,7 @@ class TC_Event < Minitest::Test
 	assert_equal(0, new.history.size)
 	assert(!new.emitted?)
 
-        plan.add(new = e.dup)
+        plan.register_event(new = e.dup)
 	assert_equal(1, e.history.size)
         assert(e.emitted?)
 	assert_equal(1, new.history.size)

@@ -185,6 +185,24 @@ module Roby
             result
         end
 
+        def each_in_neighbour_merged(relation, intrusive: nil, &block)
+            if intrusive.nil?
+                raise ArgumentError, "you must give a true or false to the intrusive flag"
+            end
+            merged_relations(
+                proc { |o, &b| o.each_in_neighbour(relation, &b) },
+                intrusive, &block)
+        end
+
+        def each_out_neighbour_merged(relation, intrusive: nil, &block)
+            if intrusive.nil?
+                raise ArgumentError, "you must give a true or false to the intrusive flag"
+            end
+            merged_relations(
+                proc { |o, &b| o.each_out_neighbour(relation, &b) },
+                intrusive, &block)
+        end
+
         # call-seq:
         #   merged_relation(enumeration_method, false[, arg1, arg2]) do |self_t, related_t|
         #   end
@@ -213,25 +231,24 @@ module Roby
         #
         # For instance,
         #
-        #   merged_relations(:each_child_object, false) do |parent, child|
+        #   merged_relations(:each_child, false) do |parent, child|
         #      ...
         #   end
         #
         # yields the children of +self+ according to the modifications that the
         # transactions apply, but may do so in the transaction's parent plans.
         #
-        #   merged_relations(:each_child_object, true) do |child|
+        #   merged_relations(:each_child, true) do |child|
         #      ...
         #   end
         #
         # Will yield the same set of tasks, but included in +self.plan+.
-        def merged_relations(enumerator, intrusive, *args, &block)
-            if !block_given?
-                return enum_for(__method__, enumerator, intrusive, *args)
-            end
+        def merged_relations(enumerator, intrusive)
+            return enum_for(__method__, enumerator, intrusive) if !block_given?
 
             plan_chain = self.transaction_stack
             object     = self.real_object
+            enumerator = enumerator.to_proc
 
             pending = Array.new
             while plan_chain.size > 1
@@ -243,7 +260,7 @@ module Roby
                 # them. Those that are included in +next_plan+ are handled
                 # later.
                 new_objects = Array.new
-                object.send(enumerator, *args) do |related_object|
+                enumerator.call(object) do |related_object|
                     next if next_plan[related_object, false]
 
                     if !intrusive
@@ -269,12 +286,12 @@ module Roby
             end
 
             if intrusive
-                send(enumerator, *args, &block)
+                enumerator.call(self, &proc)
                 for related_object in pending
                     yield(self.plan[related_object])
                 end
             else
-                send(enumerator, *args) do |related_object|
+                enumerator.call(self) do |related_object|
                     yield(self, related_object)
                 end
             end
@@ -433,6 +450,7 @@ module Roby
         def initialize_replacement(object)
             finalization_handlers.each do |handler|
                 if handler.copy_on_replace?
+                    object ||= yield
                     object.when_finalized(handler.as_options, &handler.block)
                 end
             end

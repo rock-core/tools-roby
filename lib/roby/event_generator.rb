@@ -68,15 +68,6 @@ module Roby
 
 	attr_enumerable(:handler, :handlers) { Array.new }
 
-        def dup(plan: TemplatePlan.new)
-            copy = super()
-            if plan
-                copy.plan = plan
-                plan.register_event(copy)
-            end
-            copy
-        end
-
 	def initialize_copy(old) # :nodoc:
 	    super
 
@@ -321,10 +312,9 @@ module Roby
 	end
 
         def initialize_replacement(event)
-            super
-
             for h in handlers
                 if h.copy_on_replace?
+                    event ||= yield
                     event.on(h.as_options, &h.block)
                 end
             end
@@ -332,8 +322,14 @@ module Roby
             for h in unreachable_handlers
                 cancel, h = h
                 if h.copy_on_replace?
+                    event ||= yield
                     event.if_unreachable(cancel_at_emission: cancel, on_replace: :copy, &h.block)
                 end
+            end
+
+            if event
+                super(event)
+            else super(nil, &proc)
             end
         end
 

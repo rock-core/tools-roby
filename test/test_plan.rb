@@ -202,15 +202,6 @@ module TC_PlanStatic
 	assert( plan.include?(c1) )
     end
 
-    def test_replace_does_not_touch_the_target_relations
-        plan.add(task0 = Roby::Task.new)
-        plan.add(task1 = Roby::Task.new)
-        plan.add(root = Roby::Task.new)
-        root.depends_on task1
-        plan.replace(task0, task1)
-        assert root.depends_on?(task1)
-    end
-
     def test_replace_task_and_strong_relations
         t0, t1, t2, t3 = prepare_plan add: 4, model: Roby::Tasks::Simple
 

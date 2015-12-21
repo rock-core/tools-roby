@@ -364,7 +364,7 @@ module Roby
                 # @return [nil,Task] the task if a dependency with the given role is
                 #   found, and nil otherwise
                 def find_child_from_role(role_name)
-                    merged_relations(:each_child_object, false, Dependency) do |myself, child|
+                    each_out_neighbour_merged(Dependency, intrusive: false) do |myself, child|
                         roles = myself[child, Dependency][:roles]
                         if roles.include?(role_name)
                             if plan
@@ -391,7 +391,7 @@ module Roby
                     child = find_child_from_role(role_name)
                     if !child && validate
                         known_children = Hash.new
-                        merged_relations(:each_child_object, false, Dependency) do |myself, child|
+                        each_out_neighbour_merged(Dependency, intrusive: false) do |myself, child|
                             myself[child, Dependency][:roles].each do |role|
                                 known_children[role] = child
                             end
@@ -681,7 +681,7 @@ module Roby
                     else current_model = [Roby::Task, [], {}]
                     end
 
-                    merged_relations(:each_parent_task, false) do |myself, parent|
+                    each_in_neighbour_merged(Dependency, intrusive: false) do |myself, parent|
                         has_value = true
 
                         required_models, required_arguments = parent[myself, Dependency][:model]

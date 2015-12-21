@@ -331,15 +331,6 @@ module Roby
 	    model.new(arguments.dup)
         end
 
-        def dup(plan: TemplatePlan.new)
-            copy = super()
-            if plan
-                copy.plan = plan
-                plan.register_task(copy)
-            end
-            copy
-        end
-
 	def initialize_copy(old) # :nodoc:
 	    super
 
@@ -352,15 +343,7 @@ module Roby
 	    @instantiated_model_events = false
 
 	    # Create all event generators
-	    bound_events = Hash.new
-	    model.each_event do |ev_symbol, ev_model|
-                if old.has_event?(ev_symbol)
-                    ev = old.event(ev_symbol).dup(plan: nil)
-                    ev.instance_variable_set(:@task, self)
-                    bound_events[ev_symbol.to_sym] = ev
-                end
-	    end
-	    @bound_events = bound_events
+            @bound_events = Hash.new
             @execute_handlers = old.execute_handlers.dup
             @poll_handlers = old.poll_handlers.dup
             if m = old.instance_variable_get(:@fullfilled_model)
@@ -676,21 +659,19 @@ module Roby
             self
         end
 
-        def find_event(symbol)
-            event(symbol)
-        rescue ArgumentError
+        def find_event(name)
+            bound_events[name] ||
+                bound_events[event_model(name).symbol]
         end
 
         # Returns the TaskEventGenerator which describes the required event
         # model. +event_model+ can either be an event name or an Event class.
         def event(event_model)
-	    unless event = bound_events[event_model]
-		event_model = self.event_model(event_model)
-		unless event = bound_events[event_model.symbol]
-		    raise ArgumentError, "cannot find #{event_model.symbol.inspect} in the set of bound events in #{self}. Known events are #{bound_events}."
-		end
-	    end
-	    event
+            if event = find_event(event_model)
+                event
+            else
+                raise ArgumentError, "cannot find #{event_model} in the set of bound events in #{self}. Known events are #{bound_events}."
+            end
         end
 
         # Registers an event handler for the given event.
@@ -1199,50 +1180,165 @@ module Roby
 	    plan.respawn(self)
 	end
 
+        def compute_subplan_replacement_operation(object)
+            edges, edges_candidates = [], []
+            subplan_tasks = Set[self, object]
+            parent_tasks  = Set.new
+            plan.each_task_relation_graph do |g|
+                next if g.strong?
+                rel = g.class
+
+                each_in_neighbour_merged(rel, intrusive: true) do |parent|
+                    parent_tasks << parent
+                    edges << [g, parent, self, parent, object]
+                end
+                object.each_in_neighbour_merged(rel, intrusive: true) do |parent|
+                    parent_tasks << parent
+                end
+
+                if g.weak?
+                    each_out_neighbour_merged(rel, intrusive: true) do |child|
+                        edges_candidates << [child, [g, self, child, object, child]]
+                    end
+                else
+                    object.each_out_neighbour_merged(rel, intrusive: true) do |child|
+                        subplan_tasks << child
+                    end
+                    each_out_neighbour_merged(rel, intrusive: true) do |child|
+                        subplan_tasks << child
+                    end
+                end
+            end
+
+            plan.each_event_relation_graph do |g|
+                next if g.strong?
+                rel = g.class
+
+                model.each_event do |_, event|
+                    event = plan.each_object_in_transaction_stack(self).
+                        find { |_, o| o.find_event(event.symbol) }.
+                        last.event(event.symbol)
+                    object_event = plan.each_object_in_transaction_stack(object).
+                        find { |_, o| o.find_event(event.symbol) }.
+                        last.event(event.symbol)
+
+                    event.each_in_neighbour_merged(rel, intrusive: false) do |_, parent|
+                        if parent.respond_to?(:task)
+                            edges_candidates <<
+                                [plan[parent.task], [g, parent, event, parent, object_event]]
+                        end
+                    end
+                    event.each_out_neighbour_merged(rel, intrusive: false) do |_, child|
+                        if child.respond_to?(:task)
+                            edges_candidates <<
+                                [plan[child.task], [g, event, child, object_event, child]]
+                        end
+                    end
+                end
+            end
+
+            edges_candidates.each do |reference_task, op|
+                if subplan_tasks.include?(reference_task)
+                    next
+                elsif parent_tasks.include?(reference_task)
+                    edges << op
+                elsif plan.in_useful_subplan?(self, reference_task) || plan.in_useful_subplan?(object, reference_task)
+                    subplan_tasks << reference_task
+                else
+                    edges << op
+                end
+            end
+
+            edges = edges.map do |g, removed_parent, removed_child, added_parent, added_child|
+                [g, plan[removed_parent], plan[removed_child], plan[added_parent], plan[added_child]]
+            end
+            edges
+        end
+
+        def apply_replacement_operations(edges)
+            edges.each do |g, removed_parent, removed_child, added_parent, added_child|
+                info = g.edge_info(removed_parent, removed_child)
+                g.add_relation(plan[added_parent], plan[added_child], info)
+            end
+            edges.each do |g, removed_parent, removed_child, added_parent, added_child|
+                if !g.copy_on_replace?
+                    g.remove_relation(plan[removed_parent], plan[removed_child])
+                end
+            end
+        end
+
         # Replaces, in the plan, the subplan generated by this plan object by
         # the one generated by +object+. In practice, it means that we transfer
         # all parent edges whose target is +self+ from the receiver to
         # +object+. It calls the various add/remove hooks defined in
         # {DirectedRelationSupport}.
+        #
+        # Relations to free events are not copied during replacement
 	def replace_subplan_by(object)
-	    # Compute the set of tasks that are in our subtree and not in
-	    # object's *after* the replacement
-            useful = plan.compute_useful_tasks([self, object])
-
-            task_mapping = Hash.new
-            useful.each { |task| task_mapping[task] = nil }
-            task_mapping[self] = object
-
-            event_mapping = Hash.new
-            useful.each do |task|
-                task.each_event { |ev| event_mapping[ev] = nil }
-            end
-            each_event do |ev|
-                event_mapping[ev] = object.event(ev.symbol)
-            end
-            plan.replace_subplan(task_mapping, event_mapping)
+            edges = compute_subplan_replacement_operation(object)
+            apply_replacement_operations(edges)
 
             initialize_replacement(object)
             each_event do |event|
-                event.initialize_replacement(event_mapping[event])
+                event.initialize_replacement(object.event(event.symbol))
             end
 	end
+
+        def compute_object_replacement_operation(object)
+            edges = []
+            plan.each_task_relation_graph do |g|
+                next if g.strong?
+
+                g.each_in_neighbour(self) do |parent|
+                    if parent != object
+                        edges << [g, parent, self, parent, object]
+                    end
+                end
+                g.each_out_neighbour(self) do |child|
+                    if object != child
+                        edges << [g, self, child, object, child]
+                    end
+                end
+            end
+
+            plan.each_event_relation_graph do |g|
+                next if g.strong?
+
+                each_event do |event|
+                    object_event = nil
+                    g.each_in_neighbour(event) do |parent|
+                        if !parent.respond_to?(:task) || (parent.task != self && parent.task != object)
+                            object_event ||= object.event(event.symbol)
+                            edges << [g, parent, event, parent, object_event]
+                        end
+                    end
+                    g.each_out_neighbour(event) do |child|
+                        if !child.respond_to?(:task) || (child.task != self && child.task != object)
+                            object_event ||= object.event(event.symbol)
+                            edges << [g, event, child, object_event, child]
+                        end
+                    end
+                end
+            end
+            edges
+        end
 
         # Replaces +self+ by +object+ in all relations +self+ is part of, and
         # do the same for the task's event generators.
 	def replace_by(object)
-            event_mapping = Hash.new
-            each_event do |event|
-                if object.has_event?(event.symbol)
-                    event_mapping[event] =
-                        object.event(event.symbol)
-                end
+            event_mappings = Hash.new
+            event_resolver = ->(e) { object.event(e.symbol) }
+            each_event do |ev|
+                event_mappings[ev] = [nil, event_resolver]
             end
-            plan.replace_subplan(Hash[self => object], event_mapping)
+            object.each_event do |ev|
+                event_mappings[ev] = nil
+            end
+            plan.replace_subplan(Hash[self => object, object => nil], event_mappings)
 
             initialize_replacement(object)
             each_event do |event|
-                event.initialize_replacement(event_mapping[event])
+                event.initialize_replacement(nil) { object.event(event.symbol) }
             end
         end
 

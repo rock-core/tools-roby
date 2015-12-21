@@ -76,7 +76,7 @@ module TC_TransactionBehaviour
         assert_same old_start, t1.start_event
     end
 
-    def test_wrapping_a_task_copies_its_event_relations
+    def test_wrapping_task_events_copies_their_relations
         plan.add(t = Roby::Task.new)
         assert_child_of t.start_event, t.updated_data_event, Roby::EventStructure::Precedence
         transaction_commit(plan) do |trsc|
@@ -832,7 +832,7 @@ module TC_TransactionBehaviour
             trsc.replace(p, new_task)
         end
 
-        assert_equal expected.reverse, new_task.start_event.handlers
+        assert_equal expected, new_task.start_event.handlers
     end
 
     def test_commit_replace_copies_event_handlers_to_proxy
@@ -854,7 +854,7 @@ module TC_TransactionBehaviour
             trsc.replace(p, new_p)
         end
 
-        assert_equal expected.reverse, new_task.start_event.handlers
+        assert_equal expected, new_task.start_event.handlers
     end
 
     def test_commit_replace_copies_event_handlers_from_abstract
@@ -874,7 +874,7 @@ module TC_TransactionBehaviour
             trsc.replace(p, new_p)
         end
 
-        assert_equal expected.reverse, new_task.start_event.handlers
+        assert_equal expected, new_task.start_event.handlers
     end
 
     def test_relation_validation

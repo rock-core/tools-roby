@@ -238,8 +238,6 @@ module Roby
         end
 
         def initialize_replacement(object)
-            super
-
             # Apply recursively all finalization handlers of this (proxied)
             # object to the object event
             #
@@ -250,9 +248,15 @@ module Roby
                 real_object = real_object.__getobj__
                 real_object.finalization_handlers.each do |h|
                     if h.copy_on_replace?
+                        object ||= yield
                         object.when_finalized(h.as_options, &h.block)
                     end
                 end
+            end
+
+            if object
+                super(object)
+            else super(nil, &proc)
             end
         end
     end
@@ -270,8 +274,6 @@ module Roby
 	end
 
         def initialize_replacement(event)
-            super
-
             # Apply recursively all event handlers of this (proxied) event to
             # the new event
             #
@@ -280,16 +282,24 @@ module Roby
             real_object = self
             while real_object.transaction_proxy?
                 real_object = real_object.__getobj__
+
                 real_object.handlers.each do |h|
                     if h.copy_on_replace?
+                        event ||= yield
                         event.on(h.as_options, &h.block)
                     end
                 end
                 real_object.unreachable_handlers.each do |cancel, h|
                     if h.copy_on_replace?
+                        event ||= yield
                         event.if_unreachable(cancel_at_emission: cancel, on_replace: :copy, &h.block)
                     end
                 end
+            end
+
+            if event
+                super(event)
+            else super(nil, &proc)
             end
         end
 
@@ -313,6 +323,12 @@ module Roby
     module TaskEventGenerator::Proxying
 	proxy_for TaskEventGenerator
 
+        def setup_proxy(object, transaction)
+            super
+            @task = transaction[task]
+            task.bound_events[symbol] = self
+        end
+
         # Task event generators do not have siblings on remote plan managers.
         # They are always referenced by their name and task.
 	def has_sibling?(peer); false end
@@ -324,6 +340,12 @@ module Roby
 
 	def to_s; "tProxy(#{__getobj__.name})#{arguments}" end
 
+        STATE_PREDICATES = [:pending?, :running?, :finished?, :success?, :failed?]
+
+        STATE_PREDICATES.each do |predicate_name|
+            attr_predicate predicate_name
+        end
+
         # Create a new proxy representing +object+ in +transaction+
 	def setup_proxy(object, transaction)
 	    super(object, transaction)
@@ -332,6 +354,14 @@ module Roby
             @execute_handlers.clear
 
 	    @arguments = Roby::TaskArguments.new(self)
+            if !bound_events.empty?
+                raise ArgumentError, "expected bound_events to be empty when setting the proxy up"
+            end
+
+            STATE_PREDICATES.each do |predicate_name|
+                instance_variable_set "@#{predicate_name[0..-2]}", object.send(predicate_name)
+            end
+
 	    object.arguments.each do |key, value|
 		if value.kind_of?(Roby::PlanObject)
 		    arguments.update!(key, transaction[value])
@@ -340,18 +370,36 @@ module Roby
 		end
 	    end
 
-            events = Hash.new
-            each_event do |trsc_ev|
-                plan_ev = object.event(trsc_ev.symbol)
-                transaction.setup_and_register_proxy(trsc_ev, plan_ev)
-                events[plan_ev] = trsc_ev
+            proxied_events = Array.new
+            events = object.each_event.to_a
+            transaction.plan.each_event_relation_graph do |g|
+                next if !g.root_relation?
+                events.delete_if do |event|
+                    should_proxy =
+                        g.each_in_neighbour(event).any? { |e| !e.respond_to?(:task) || e.task != object } ||
+                        g.each_out_neighbour(event).any? { |e| !e.respond_to?(:task) || e.task != object }
+                    if should_proxy
+                        proxied_events << event
+                    end
+                end
+                break if events.empty?
             end
-
-            graphs = transaction.each_event_relation_graph.map do |trsc_g|
-                [transaction.plan.event_relation_graph_for(trsc_g.class), trsc_g]
+            proxied_events.each do |ev|
+                transaction.wrap(ev)
             end
-            transaction.import_subplan_relations(graphs, events)
 	end
+
+        def has_event?(name)
+            super || __getobj__.has_event?(name)
+        end
+
+        def event(name)
+            if ev = find_event(name)
+                ev
+            else
+                plan[__getobj__.event(name)]
+            end
+        end
 
         # Perform the operations needed for the commit to be successful.  In
         # practice, it updates the task arguments as needed.
@@ -382,8 +430,10 @@ module Roby
         def initialize_replacement(task)
             super
 
-            # Apply recursively all event handlers of this (proxied) event to
-            # the new event
+            seen_events = bound_events.keys.to_set
+
+            # Apply recursively all event handlers of this (proxied) task to
+            # the new task
             #
             # We have to look at all levels as, in transactions, the "handlers"
             # set only contains new event handlers
@@ -398,6 +448,15 @@ module Roby
                 real_object.poll_handlers.each do |h|
                     if h.copy_on_replace?
                         task.poll(h.as_options, &h.block)
+                    end
+                end
+
+                # Do the same for all events that are not present at this level
+                # of the transaction
+                real_object.each_event do |event|
+                    if !seen_events.include?(event.symbol)
+                        event.initialize_replacement(nil) { task.event(event.symbol) }
+                        seen_events << event.symbol
                     end
                 end
             end

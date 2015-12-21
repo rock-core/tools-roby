@@ -332,14 +332,21 @@ module Roby
                 mappings[t] = new_t
 
                 t.each_event do |ev|
-                    mappings[ev] = new_t.event(ev.symbol)
+                    new_ev = ev.dup
+                    new_ev.instance_variable_set :@task, new_t
+                    new_t.bound_events[ev.symbol] = new_ev
+                    mappings[ev] = new_ev
                 end
-                copy.add(new_t)
+
+                copy.register_task(new_t)
+                new_t.each_event do |ev|
+                    copy.register_event(ev)
+                end
             end
             free_events.each do |e|
                 new_e = e.dup
                 mappings[e] = new_e
-                copy.add(new_e)
+                copy.register_event(new_e)
             end
 
             missions.each { |t| copy.add_mission(mappings[t]) }
@@ -687,12 +694,18 @@ module Roby
             relation_graphs.each do |graph|
                 next if graph.strong?
 
-                mappings.each do |obj, mapped_obj|
-                    next if !mapped_obj
+                resolved_mappings = Hash.new
+                mappings.each do |obj, (mapped_obj, mapped_obj_resolver)|
+                    next if !mapped_obj && !mapped_obj_resolver
+
                     graph.each_in_neighbour(obj) do |parent|
                         next if mappings.has_key?(parent)
                         if !graph.copy_on_replace?
                             removed_relations << [graph, parent, obj]
+                        end
+                        if !mapped_obj
+                            mapped_obj = mapped_obj_resolver.call(obj)
+                            resolved_mappings[obj] = mapped_obj
                         end
                         new_relations << [graph, parent, mapped_obj, graph.edge_info(parent, obj)]
                     end
@@ -703,9 +716,14 @@ module Roby
                         if !graph.copy_on_replace?
                             removed_relations << [graph, obj, child]
                         end
+                        if !mapped_obj
+                            mapped_obj = mapped_obj_resolver.call(obj)
+                            resolved_mappings[obj] = mapped_obj
+                        end
                         new_relations << [graph, mapped_obj, child, graph.edge_info(obj, child)]
                     end
                 end
+                mappings.merge!(resolved_mappings)
             end
             return new_relations, removed_relations
         end
@@ -764,6 +782,7 @@ module Roby
         # It is for Roby internal usage only, for the creation of template
         # plans. Use {#add}.
         def register_task(task)
+            task.plan = self
             known_tasks << task
             task_index.add(task)
             task_events.merge(task.each_event)
@@ -776,6 +795,7 @@ module Roby
         # It is for Roby internal usage only, for the creation of template
         # plans. Use {#add}.
         def register_event(event)
+            event.plan = self
             if event.root_object?
                 free_events << event
             else
@@ -914,7 +934,10 @@ module Roby
                     new_seeds = Array.new
                     seeds.each do |vertex|
                         if !visitor.finished_vertex?(vertex) && graph.has_vertex?(vertex)
-                            graph.depth_first_visit(vertex, visitor) { |v| new_seeds << v }
+                            graph.depth_first_visit(vertex, visitor) do |v|
+                                yield(v) if block_given?
+                                new_seeds << v
+                            end
                         end
                     end
                     if !new_seeds.empty?
@@ -1585,6 +1608,46 @@ module Roby
                     true
                 end
             end
+        end
+
+        # Tests whether a task is useful for another one task
+        #
+        # It is O(N) where N is the number of edges in the combined task
+        # relation graphs. If you have to do a lot of tests with the same task,
+        # compute the set of useful tasks with {Plan#compute_useful_tasks}
+        #
+        # @param reference_task the reference task
+        # @param task the task whose usefulness is being tested
+        # @return [Boolean]
+        def in_useful_subplan?(reference_task, task)
+            compute_useful_tasks([task]) do |useful_t|
+                if useful_t == self
+                    return true
+                end
+            end
+            return false
+        end
+
+        # Enumerate object identities along the transaction stack
+        #
+        # The enumeration starts with the deepest transaction and stops at the
+        # topmost plan where the object is not a transaction proxy.
+        #
+        # @param [PlanObject] object
+        # @yieldparam [PlanObject] object the object's identity at the
+        #   given level of the stack. Note that the last element is guaranteed
+        #   to not be a transaction proxy.
+        def each_object_in_transaction_stack(object)
+            return enum_for(__method__, object) if !block_given?
+            current_plan = self
+            while true
+                yield(current_plan, object)
+
+                return if !object.transaction_proxy?
+                current_plan = current_plan.plan
+                object = object.__getobj__
+            end
+            nil
         end
     end
 end

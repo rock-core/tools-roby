@@ -100,6 +100,61 @@ module Roby
                 assert !task.executable?
             end
         end
+
+        describe "transaction proxies" do
+            subject { plan.add(t = Roby::Task.new); t }
+
+            it "does not wrap any events on a standalone task" do
+                plan.in_transaction do |trsc|
+                    trsc[subject].each_event.empty?
+                end
+            end
+
+            it "wraps events that have relations outside the task itself" do
+                root, task = prepare_plan add: 2
+                root.start_event.signals task.start_event
+                plan.in_transaction do |trsc|
+                    assert_equal [:start], trsc[task].each_event.map(&:symbol)
+                end
+            end
+
+            it "wraps events on demand" do
+                plan.in_transaction do |trsc|
+                    p = trsc[subject]
+                    assert trsc.task_events.empty?
+                    start = p.start_event
+                    refute_same subject.start_event, start
+                    assert_equal [start], p.each_event.to_a
+                    assert_same start, p.start_event
+                    assert trsc.task_events.include?(p.start_event)
+                end
+            end
+
+            it "copies copy_on_replace handlers from the plan even if the source generator is not wrapped" do
+                source, target = prepare_plan add: 2
+                source.start_event.on(on_replace: :copy) { }
+                plan.in_transaction do |trsc|
+                    p_source, p_target = trsc[source], trsc[target]
+                    trsc.replace_task(p_source, p_target)
+                    assert_equal [:start], p_target.each_event.map(&:symbol)
+                    trsc.commit_transaction
+                end
+                assert_equal source.start_event.handlers, target.start_event.handlers
+            end
+
+            it "copies copy_on_replace handlers from the plan if the source generator is wrapped" do
+                source, target = prepare_plan add: 2
+                source.start_event.on(on_replace: :copy) { }
+                plan.in_transaction do |trsc|
+                    p_source, p_target = trsc[source], trsc[target]
+                    p_source.start_event
+                    trsc.replace_task(p_source, p_target)
+                    assert_equal [:start], p_target.each_event.map(&:symbol)
+                    trsc.commit_transaction
+                end
+                assert_equal source.start_event.handlers, target.start_event.handlers
+            end
+        end
         
         describe "#instanciate_model_event_relations" do
             def self.common_instanciate_model_event_relations_behaviour
@@ -210,6 +265,424 @@ module Roby
                     replacement.start!
                     task.start!
                 end
+            end
+        end
+
+        def self.it_matches_common_replace_behaviour
+            it "does not touch the target relations" do
+                root, task0, task1 = prepare_plan add: 3
+                root.depends_on task1
+                replace(task0, task1)
+                assert root.depends_on?(task1)
+            end
+
+            it "moves parent task relations" do
+                root, task0, task1 = prepare_plan add: 3
+                root.depends_on task0
+                replace(task0, task1)
+                assert !root.depends_on?(task0)
+                assert root.depends_on?(task1)
+            end
+
+            it "only copies relations that have a copy_on_write flag set" do
+                flexmock(Roby::TaskStructure::Dependency).should_receive(:copy_on_replace?).and_return(true)
+                flexmock(plan.task_relation_graph_for(Roby::TaskStructure::Dependency)).
+                    should_receive(:copy_on_replace?).and_return(true)
+                root, task0, task1 = prepare_plan add: 3
+                root.depends_on task0
+                replace(task0, task1)
+                assert root.depends_on?(task0)
+                assert root.depends_on?(task1)
+            end
+
+            it "ignores strong relations" do
+                flexmock(Roby::TaskStructure::Dependency).should_receive(:strong?).and_return(true)
+                flexmock(plan.task_relation_graph_for(Roby::TaskStructure::Dependency)).
+                    should_receive(:strong?).and_return(true)
+                root, task0, task1 = prepare_plan add: 3
+                root.depends_on task0
+                replace(task0, task1)
+                assert root.depends_on?(task0)
+                refute root.depends_on?(task1)
+            end
+        end
+
+        def self.it_matches_common_replace_transaction_behaviour_for_handler(handler_type, &create_handler)
+            it "does not wrap the target event if the source event does not have a copy_on_replace #{handler_type}" do
+                task0, task1 = prepare_plan add: 2
+                create_handler.call(task0.start_event, on_replace: :drop) { }
+                plan.in_transaction do |trsc|
+                    p_task0, p_task1 = trsc[task0], trsc[task1]
+                    replace_op(p_task0, p_task1)
+                    assert_equal [], p_task0.each_event.map(&:symbol)
+                    assert_equal [], p_task1.each_event.map(&:symbol)
+                    trsc.commit_transaction
+                end
+                assert_equal [], task1.start_event.send(handler_type).to_a
+            end
+
+            it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the plan level" do
+                task0, task1 = prepare_plan add: 2
+                create_handler.call(task0.start_event, on_replace: :copy) { }
+                plan.in_transaction do |trsc|
+                    p_task0, p_task1 = trsc[task0], trsc[task1]
+                    replace_op(p_task0, p_task1)
+                    assert_equal [], p_task0.each_event.map(&:symbol)
+                    assert_equal [:start], p_task1.each_event.map(&:symbol)
+                    trsc.commit_transaction
+                end
+                assert_equal 1, task0.start_event.send(handler_type).size
+                assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
+            end
+
+            it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the transaction level" do
+                task0, task1 = prepare_plan add: 2
+                
+                plan.in_transaction do |trsc|
+                    p_task0, p_task1 = trsc[task0], trsc[task1]
+                    create_handler.call(p_task0.start_event, on_replace: :copy) { }
+                    replace_op(p_task0, p_task1)
+                    assert_equal [:start], p_task0.each_event.map(&:symbol)
+                    assert_equal [:start], p_task1.each_event.map(&:symbol)
+                    trsc.commit_transaction
+                end
+                assert_equal 1, task0.start_event.send(handler_type).size
+                assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
+            end
+        end
+
+        def self.it_matches_common_replace_transaction_behaviour
+            it_matches_common_replace_transaction_behaviour_for_handler(:finalization_handlers) do |event, args|
+                event.when_finalized(args) {}
+            end
+            it_matches_common_replace_transaction_behaviour_for_handler(:handlers) do |event, args|
+                event.on(args) {}
+            end
+            it_matches_common_replace_transaction_behaviour_for_handler(:unreachable_handlers) do |event, args|
+                event.if_unreachable(args) {}
+            end
+            it "ignores task relations that are not part of the transaction" do
+                root, task0, task1 = prepare_plan add: 3
+                root.depends_on task0
+                plan.in_transaction do |trsc|
+                    trsc[task0].replace_by trsc[task1]
+                    trsc.commit_transaction
+                end
+                assert root.depends_on?(task0)
+                assert !root.depends_on?(task1)
+            end
+        end
+
+        describe "#replace_subplan_by" do
+            it_matches_common_replace_behaviour
+
+            def replace(task0, task1)
+                task0.replace_subplan_by(task1)
+            end
+
+            it "does not move relations between events in the task and its direct children" do
+                task0, child, task1 = prepare_plan add: 3
+                task0.depends_on child
+                task0.start_event.signals child.start_event
+                child.stop_event.forward_to task0.stop_event
+
+                replace(task0, task1)
+                assert_child_of task0.start_event, child.start_event, Roby::EventStructure::Signal
+                assert_child_of child.stop_event, task0.stop_event, Roby::EventStructure::Forwarding
+                refute_child_of task1.start_event, child.start_event, Roby::EventStructure::Signal
+                refute_child_of child.stop_event, task1.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            it "does not move relations between events in the task and the target's own events" do
+                task0, task1 = prepare_plan add: 3
+                task0.start_event.signals task1.start_event
+                task1.stop_event.forward_to task0.stop_event
+
+                replace(task0, task1)
+                assert_child_of task0.start_event, task1.start_event, Roby::EventStructure::Signal
+                assert_child_of task1.stop_event, task0.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            it "does not move relations between events in the task and events in the target's direct children" do
+                task0, child, task1 = prepare_plan add: 3
+                task1.depends_on child
+                task0.start_event.signals child.start_event
+                child.stop_event.forward_to task0.stop_event
+
+                replace(task0, task1)
+                assert_child_of task0.start_event, child.start_event, Roby::EventStructure::Signal
+                assert_child_of child.stop_event, task0.stop_event, Roby::EventStructure::Forwarding
+                refute_child_of task1.start_event, child.start_event, Roby::EventStructure::Signal
+                refute_child_of child.stop_event, task1.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            it "moves relations between events in the task and events in its parents" do
+                root, task0, task1 = prepare_plan add: 3
+                root.depends_on task0
+                root.start_event.signals task0.start_event
+                task0.stop_event.forward_to root.stop_event
+
+                replace(task0, task1)
+                assert_child_of root.start_event, task1.start_event, Roby::EventStructure::Signal
+                assert_child_of task1.stop_event, root.stop_event, Roby::EventStructure::Forwarding
+                refute_child_of root.start_event, task0.start_event, Roby::EventStructure::Signal
+                refute_child_of task0.stop_event, root.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            it "moves relations between events in the task and events in its targets parents" do
+                root, task0, task1 = prepare_plan add: 3
+                root.depends_on task1
+                root.start_event.signals task0.start_event
+                task0.stop_event.forward_to root.stop_event
+
+                replace(task0, task1)
+                assert_child_of root.start_event, task1.start_event, Roby::EventStructure::Signal
+                assert_child_of task1.stop_event, root.stop_event, Roby::EventStructure::Forwarding
+                refute_child_of root.start_event, task0.start_event, Roby::EventStructure::Signal
+                refute_child_of task0.stop_event, root.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            describe "in a transaction" do
+                def replace_op(task0, task1)
+                    task0.replace_subplan_by(task1)
+                end
+
+                def replace(task0, task1)
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        p_task0.replace_subplan_by p_task1
+                        trsc.commit_transaction
+                    end
+                end
+
+                it_matches_common_replace_transaction_behaviour
+
+                it "does not wrap events that are not needed" do
+                    task0, child, task1 = prepare_plan add: 3
+                    task0.depends_on child
+                    task0.start_event.signals child.start_event
+                    child.stop_event.forward_to task0.stop_event
+                    plan.in_transaction do |trsc|
+                        trsc[child]
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        p_task0.replace_subplan_by(p_task1)
+                        assert_equal [:start, :stop], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start, :stop], p_task1.each_event.map(&:symbol)
+                    end
+                end
+
+                it "does not wrap events that are not needed" do
+                    task0, task1 = prepare_plan add: 3
+                    task0.start_event.signals task1.start_event
+                    task1.stop_event.forward_to task0.stop_event
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        p_task0.replace_subplan_by(p_task1)
+                        assert_equal [:start, :stop], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start, :stop], p_task1.each_event.map(&:symbol)
+                    end
+                end
+
+                it "does not wrap events that are not needed" do
+                    task0, child, task1 = prepare_plan add: 3
+                    task1.depends_on child
+                    task0.start_event.signals child.start_event
+                    child.stop_event.forward_to task0.stop_event
+                    plan.in_transaction do |trsc|
+                        trsc[child]
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        p_task0.replace_subplan_by(p_task1)
+                        assert_equal [:start, :stop], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start, :stop], p_task1.each_event.map(&:symbol)
+                    end
+                end
+
+                it "does not wrap events that are not needed" do
+                    root, task0, task1 = prepare_plan add: 3
+                    root.depends_on task0
+                    root.start_event.signals task0.start_event
+                    task0.stop_event.forward_to root.stop_event
+                    plan.in_transaction do |trsc|
+                        trsc[root]
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        p_task0.replace_subplan_by(p_task1)
+                        assert_equal [:start, :stop], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start, :stop], p_task1.each_event.map(&:symbol)
+                    end
+                end
+
+                it "does not wrap events that are not needed" do
+                    root, task0, task1 = prepare_plan add: 3
+                    root.depends_on task1
+                    root.start_event.signals task0.start_event
+                    task0.stop_event.forward_to root.stop_event
+                    plan.in_transaction do |trsc|
+                        trsc[root]
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        p_task0.replace_subplan_by(p_task1)
+                        assert_equal [:start, :stop], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start, :stop], p_task1.each_event.map(&:symbol)
+                    end
+                end
+            end
+        end
+
+        describe "#replace_by" do
+            def replace(task0, task1)
+                task0.replace_subplan_by(task1)
+            end
+
+            it "moves relations between events in the task and its direct children" do
+                task0, child, task1 = prepare_plan add: 3
+                task0.depends_on child
+                task0.start_event.signals child.start_event
+                child.stop_event.forward_to task0.stop_event
+
+                task0.replace_by(task1)
+                refute_child_of task0.start_event, child.start_event, Roby::EventStructure::Signal
+                refute_child_of child.stop_event, task0.stop_event, Roby::EventStructure::Forwarding
+                assert_child_of task1.start_event, child.start_event, Roby::EventStructure::Signal
+                assert_child_of child.stop_event, task1.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            it "does not move relations between events in the task and the target's own events" do
+                task0, task1 = prepare_plan add: 3
+                task0.start_event.signals task1.start_event
+                task1.stop_event.forward_to task0.stop_event
+
+                task0.replace_by(task1)
+                assert_child_of task0.start_event, task1.start_event, Roby::EventStructure::Signal
+                assert_child_of task1.stop_event, task0.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            it "moves relations between events in the task and events in the target's direct children" do
+                task0, child, task1 = prepare_plan add: 3
+                task1.depends_on child
+                task0.start_event.signals child.start_event
+                child.stop_event.forward_to task0.stop_event
+
+                task0.replace_by(task1)
+                refute_child_of task0.start_event, child.start_event, Roby::EventStructure::Signal
+                refute_child_of child.stop_event, task0.stop_event, Roby::EventStructure::Forwarding
+                assert_child_of task1.start_event, child.start_event, Roby::EventStructure::Signal
+                assert_child_of child.stop_event, task1.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            it "moves relations between events in the task and events in its parents" do
+                root, task0, task1 = prepare_plan add: 3
+                root.depends_on task0
+                root.start_event.signals task0.start_event
+                task0.stop_event.forward_to root.stop_event
+
+                task0.replace_by(task1)
+                assert_child_of root.start_event, task1.start_event, Roby::EventStructure::Signal
+                assert_child_of task1.stop_event, root.stop_event, Roby::EventStructure::Forwarding
+                refute_child_of root.start_event, task0.start_event, Roby::EventStructure::Signal
+                refute_child_of task0.stop_event, root.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            it "moves relations between events in the task and events in its targets parents" do
+                root, task0, task1 = prepare_plan add: 3
+                root.depends_on task1
+                root.start_event.signals task0.start_event
+                task0.stop_event.forward_to root.stop_event
+
+                task0.replace_by(task1)
+                assert_child_of root.start_event, task1.start_event, Roby::EventStructure::Signal
+                assert_child_of task1.stop_event, root.stop_event, Roby::EventStructure::Forwarding
+                refute_child_of root.start_event, task0.start_event, Roby::EventStructure::Signal
+                refute_child_of task0.stop_event, root.stop_event, Roby::EventStructure::Forwarding
+            end
+
+            describe "in a transaction" do
+                def replace_op(task0, task1)
+                    task0.replace_by(task1)
+                end
+
+                def replace(task0, task1)
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        p_task0.replace_by p_task1
+                        trsc.commit_transaction
+                    end
+                end
+
+                it_matches_common_replace_transaction_behaviour
+
+                it "imports events that have relations related to the replace" do
+                    root, task0, task1 = prepare_plan add: 3
+                    root.start_event.signals task0.start_event
+                    plan.in_transaction do |trsc|
+                        p_root, p_task0, p_task1 = trsc[root], trsc[task0], trsc[task1]
+                        assert p_root.find_event(:start)
+                        assert p_task0.find_event(:start)
+                        assert_child_of p_root.start_event, p_task0.start_event, EventStructure::Signal
+                        p_task0.replace_by p_task1
+                        assert p_task1.find_event(:start)
+                        refute_child_of p_root.start_event, p_task0.start_event, EventStructure::Signal
+                        assert_child_of p_root.start_event, p_task1.start_event, EventStructure::Signal
+                        trsc.commit_transaction
+                    end
+                    refute_child_of root.start_event, task0.start_event, EventStructure::Signal
+                    assert_child_of root.start_event, task1.start_event, EventStructure::Signal
+                end
+
+                it "does not wrap events that are not needed" do
+                    task0, child, task1 = prepare_plan add: 3
+                    task0.depends_on child
+                    task0.start_event.signals task1.start_event
+                    task1.stop_event.forward_to task0.stop_event
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        p_task0.replace_by(p_task1)
+                        assert_equal [:start, :stop], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start, :stop], p_task1.each_event.map(&:symbol)
+                    end
+                end
+            end
+        end
+
+        describe "#start_time" do
+            subject { plan.add(t = Roby::Tasks::Simple.new); t }
+            it "is nil on a pending task" do
+                assert_equal nil, subject.start_time
+            end
+            it "is the time of the start event" do
+                subject.start!
+                assert_equal subject.start_event.last.time, subject.start_time
+            end
+        end
+
+        describe "#end_time" do
+            subject { plan.add(t = Roby::Tasks::Simple.new); t }
+            it "is nil on a unfinished task" do
+                subject.start!
+                assert_equal nil, subject.end_time
+            end
+            it "is the time of the stop event" do
+                subject.start!
+                subject.stop!
+                assert_equal subject.stop_event.last.time, subject.end_time
+            end
+        end
+
+        describe "#lifetime" do
+            subject { plan.add(t = Roby::Tasks::Simple.new); t }
+            it "is nil on a pending task" do
+                assert_equal nil, subject.lifetime
+            end
+
+            it "is the time between the start event and now on a running task" do
+                subject.start!
+                t = Time.now
+                flexmock(Time).should_receive(:now).and_return(t)
+                assert_equal t - subject.start_event.last.time, subject.lifetime
+            end
+
+            it "is the time between the stop and start events on a finished task" do
+                subject.start!
+                subject.stop!
+                assert_equal subject.end_time - subject.start_time, subject.lifetime
             end
         end
     end
@@ -377,8 +850,6 @@ class TC_Task < Minitest::Test
     # Test the behaviour of Task#on, and event propagation inside a task
     def test_instance_event_handlers
 	plan.add(t1 = Tasks::Simple.new)
-        assert_raises(ArgumentError) { t1.start_event.on }
-	
 	plan.add(task = Tasks::Simple.new)
 	FlexMock.use do |mock|
             task.start_event.on   { |event| mock.started(event.context) }
@@ -1653,8 +2124,7 @@ class TC_Task < Minitest::Test
         task.intermediate_event.emit
 
 	new = task.dup
-	refute_same(new.stop_event, task.stop_event)
-	assert_same(new, new.stop_event.task)
+        assert !new.find_event(:stop)
 
 	assert(!plan.include?(new))
 
@@ -1663,8 +2133,6 @@ class TC_Task < Minitest::Test
 
         assert(task.running?)
         assert(new.running?)
-        assert(task.intermediate?)
-        assert(new.intermediate?)
     end
 
     def test_failed_to_start

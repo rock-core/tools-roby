@@ -37,14 +37,17 @@ module Roby
         def setup_and_register_proxy(proxy, object)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
 
-            if proxy.root_object?
-                if proxy.class == Roby::PlanService
-                else add(proxy)
-                end
-            end
-
-            proxy = setup_proxy(proxy, object)
             proxy_objects[object] = proxy
+            proxy = setup_proxy(proxy, object)
+            proxy.plan = self
+
+            case proxy
+            when Roby::PlanService
+            when Roby::Task
+                register_task(proxy)
+            else
+                register_event(proxy)
+            end
 
             if services = plan.plan_services[object]
                 services.each do |original_srv|
@@ -67,7 +70,7 @@ module Roby
         end
 
         def create_and_register_proxy(object)
-            proxy = object.dup(plan: self)
+            proxy = object.dup
             setup_and_register_proxy(proxy, object)
 	    copy_object_relations(object, proxy)
             proxy
@@ -78,13 +81,10 @@ module Roby
 
 	    if proxy = proxy_objects[object]
                 return proxy
-            elsif !object.root_object?
-                do_wrap(object.root_object)
-                if !(proxy = proxy_objects[object])
-                    raise InternalError, "#{object} should have been wrapped but is not"
-                end
-                return proxy
             else
+                if !object.root_object?
+                    do_wrap(object.root_object)
+                end
                 create_and_register_proxy(object)
             end
 	end
@@ -341,34 +341,6 @@ module Roby
         def execute(&block)
             plan.execute(&block)
         end
-
-	def discover_neighborhood(object)
-            stack  = object.transaction_stack
-            object = object.real_object
-            while stack.size > 1
-                plan = stack.pop
-                next_plan = stack.last
-
-                next_plan[object]
-                object.each_relation do |rel|
-                    object.each_parent_object(rel) { |obj| next_plan[obj] }
-                    object.each_child_object(rel)  { |obj| next_plan[obj] }
-                end
-                object = next_plan[object]
-            end
-            nil
-	end
-
-	def replace(from, to)
-	    # Make sure +from+, its events and all the related tasks and events
-	    # are in the transaction
-	    discover_neighborhood(from)
-	    from.each_event do |ev|
-		discover_neighborhood(ev)
-	    end
-
-	    super(from, to)
-	end
 
 	def add_mission_task(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
@@ -966,8 +938,9 @@ module Roby
                     end
                     plan_seeds.clear
                 end
-                false
+                return false
             end
+            true
         end
 
         # @api private
