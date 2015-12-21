@@ -53,10 +53,6 @@ module Roby
 	REMOTE_SERVER  = "druby://localhost:#{BASE_PORT + 3}"
 	LOCAL_SERVER   = "druby://localhost:#{BASE_PORT + 4}"
 
-	class << self
-	    attr_accessor :check_allocation_count
-	end
-
 	# The plan used by the tests
         attr_reader :plan
         # The decision control component used by the tests
@@ -154,11 +150,6 @@ module Roby
 
             Roby.app.log_setup 'robot', 'DEBUG:robot.txt'
             Roby.app.log_server = false
-
-	    if Test.check_allocation_count
-		GC.start
-		GC.disable
-	    end
 
 	    unless DRb.primary_server
                 @started_drb = true
@@ -262,18 +253,6 @@ module Roby
 		Roby.app.abort_on_application_exception = false
 	    end
 
-	    if defined? Roby::Log
-		Roby::Log.known_objects.clear
-	    end
-
-	    if Test.check_allocation_count
-		require 'utilrb/objectstats'
-		count = ObjectStats.count
-		GC.start
-		remains = ObjectStats.count
-		Roby.warn "#{count} -> #{remains} (#{count - remains})"
-	    end
-
             super
 
 	ensure
@@ -326,42 +305,6 @@ module Roby
 
 	# The list of children started using #remote_process
 	attr_reader :remote_processes
-
-        def gather_log_messages(*message_names)
-            message_names = message_names.map(&:to_s)
-            logger_class = Class.new do
-                attr_reader :messages
-                def initialize
-                    @messages = Array.new
-                end
-
-                message_names.each do |name|
-                    define_method(name) do |time, args|
-                        messages << [name, time, args]
-                    end
-                end
-
-                def splat?; false end
-                define_method(:logs_message?) do |m|
-                    message_names.include?(m.to_s)
-                end
-                def close; end
-            end
-
-            logger = logger_class.new
-            Log.add_logger(logger)
-
-            yield
-
-            Log.flush
-            Log.remove_logger(logger)
-
-            # Data formatted for logging should be directly marshallable. Verify
-            # that.
-            Marshal.dump(logger.messages)
-
-            logger.messages
-        end
 
 	# Creates a set of tasks and returns them. Each task is given an unique
 	# 'id' which allows to recognize it in a failed assertion.
@@ -466,40 +409,6 @@ module Roby
 	    end
 	    remote_processes.clear
 	end
-
-
-
-	# The console logger object. See #console_logger=
-	attr_reader :console_logger
-
-	attr_predicate :debug_gc?, true
-
-	# Enable display of all plan events on the console
-	def console_logger=(value)
-	    if value && !@console_logger
-		require 'roby/log/console'
-		@console_logger = Roby::Log::ConsoleLogger.new(STDERR)
-		Roby::Log.add_logger console_logger
-	    elsif @console_logger
-		Roby::Log.remove_logger console_logger
-		@console_logger = nil
-	    end
-	end
-
-        attr_reader :event_logger
-        def event_logger=(value)
-            if value && !@event_logger
-		require 'roby/log/file'
-		logfile = @method_name + ".log"
-		logger  = Roby::Log::FileLogger.new(logfile)
-		logger.stats_mode = false
-		Roby::Log.add_logger logger
-                @event_logger = logger
-            elsif !value && @event_logger
-                Roby::Log.remove_logger @event_logger
-                @event_logger = nil
-            end
-        end
 
 	def wait_thread_stopped(thread)
 	    while !thread.stop?
