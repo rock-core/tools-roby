@@ -37,6 +37,10 @@ class IO
 end
 
 class Set
+    def inspect
+        to_s
+    end
+
     if !method_defined?(:intersect?)
         def intersect?(set)
             set.is_a?(Set) or raise ArgumentError, "value must be a set"
