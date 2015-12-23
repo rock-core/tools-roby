@@ -20,7 +20,7 @@ module Roby::Log
 
         def self.write_prologue(io)
             io.write(MAGIC_CODE)
-            io.write([FORMAT_VERSION].pack("I"))
+            io.write([FORMAT_VERSION].pack("L<"))
         end
 
 	def self.write_header(io, options = Hash.new)
@@ -52,7 +52,7 @@ module Roby::Log
             begin
                 magic = input.read(Logfile::MAGIC_CODE.size)
                 if magic == Logfile::MAGIC_CODE
-                    format = input.read(4).unpack("I").first
+                    format = input.read(4).unpack("L<").first
                 else
                     input.rewind
                     header = Marshal.load(input)
@@ -101,11 +101,11 @@ module Roby::Log
 		buffer_io.truncate(0)
 		buffer_io.seek(0)
                 Marshal.dump(object, buffer_io)
-                io.write([buffer_io.size].pack("I"))
+                io.write([buffer_io.size].pack("L<"))
                 io.write(buffer_io.string)
             else
                 buffer = Marshal.dump(object)
-                io.write([buffer.size].pack("I"))
+                io.write([buffer.size].pack("L<"))
                 io.write(buffer)
             end
         end
@@ -123,7 +123,7 @@ module Roby::Log
                 raise TruncatedFileError
             end
 
-            data_size = data_size.unpack("I").first
+            data_size = data_size.unpack("L<").first
             buffer = io.read(data_size)
             if !buffer || buffer.size < data_size
                 raise TruncatedFileError
@@ -521,7 +521,7 @@ module Roby::Log
 
                 # Don't take risks by re-dumping the object. Simply copy the raw
                 # data with added size in front
-                size = [length].pack("I")
+                size = [length].pack("L<")
                 output.write(size)
                 input.seek(start_pos)
                 output.write(input.read(length))
