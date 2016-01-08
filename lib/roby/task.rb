@@ -193,6 +193,10 @@ module Roby
         # The task is initially added to a {TemplatePlan} object in which all of
         # the model's event relations are already instantiated.
         def initialize(arguments = Hash.new)
+            plan = arguments.delete(:plan) || TemplatePlan.new
+            @bound_events = Hash.new
+            super(plan: plan)
+
 	    @model   = self.class
             @abstract = @model.abstract?
             
@@ -218,10 +222,6 @@ module Roby
 
             @poll_handlers = []
             @execute_handlers = []
-
-            @bound_events = Hash.new
-
-	    super()
 
 	    initialize_events
             plan.register_task(self)
@@ -825,7 +825,7 @@ module Roby
         def to_s # :nodoc:
 	    s = "#{name}(#{arguments})"
 	    id = owners.map do |owner|
-		next if owner == Roby::Distributed
+                next if plan && (owner == plan.local_owner)
 		sibling = remote_siblings[owner]
 		"#{sibling ? Object.address_from_id(sibling.ref).to_s(16) : 'nil'}@#{owner.remote_name}"
 	    end

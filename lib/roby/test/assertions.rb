@@ -64,18 +64,6 @@ module Roby
                 end
             end
 
-            def assert_droby_marshallable(object)
-                droby = object.droby_dump(nil)
-                marshalled = Marshal.dump(droby)
-                droby = Marshal.load(marshalled)
-                droby.proxy(Roby::Distributed::DumbManager)
-            end
-
-            def verify_is_droby_marshallable_object(object)
-                Roby.warn_deprecated "#verify_is_droby_marshallable_object has been renamed into #assert_droby_marshallable"
-                assert_droby_marshallable(object)
-            end
-
 	    # Wait for events to be emitted, or for some events to not be
             # emitted
             #

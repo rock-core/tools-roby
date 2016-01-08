@@ -29,6 +29,10 @@ module Roby
     class Plan < DistributedObject
 	extend Logger::Hierarchy
 	extend Logger::Forward
+        
+        # The Peer ID of the local owner (i.e. of the local process / execution
+        # engine)
+        attr_accessor :local_owner
 
 	# The task index for this plan. This is a {Queries::Index} object which allows
         # efficient resolving of queries.
@@ -83,6 +87,8 @@ module Roby
 	def executable?; false end
 
 	def initialize(graph_observer: nil)
+            @local_owner = DRoby::PeerID.new('local')
+
 	    @missions	 = Set.new
 	    @permanent_tasks  = Set.new
 	    @permanent_events = Set.new
@@ -899,14 +905,12 @@ module Roby
 
 	# Hook called when a new transaction has been built on top of this plan
 	def added_transaction(trsc)
-            Log.log(:added_transaction) { [self, trsc] }
         end
 
 	# Removes the transaction +trsc+ from the list of known transactions
 	# built on this plan
 	def remove_transaction(trsc)
 	    transactions.delete(trsc)
-            Roby::Log.log(:removed_transaction) { [self, trsc] }
 	end
 
         # @api private
@@ -961,20 +965,12 @@ module Roby
             seeds
         end
 
-        def remotely_useful_roots
-            Distributed.remotely_useful_objects(remote_tasks, true, nil).to_set
-        end
-
 	def locally_useful_tasks
 	    compute_useful_tasks(locally_useful_roots)
 	end
 
-        def remotely_useful_tasks
-	    compute_useful_tasks(remotely_useful_roots)
-        end
-
         def useful_tasks
-            compute_useful_tasks(locally_useful_roots | remotely_useful_roots)
+            compute_useful_tasks(locally_useful_roots)
         end
 
 	def unneeded_tasks
@@ -982,11 +978,11 @@ module Roby
 	end
 
 	def local_tasks
-	    task_index.by_owner[Roby::Distributed] || Set.new
+	    task_index.self_owned
 	end
 
 	def remote_tasks
-	    if local_tasks = task_index.by_owner[Roby::Distributed]
+	    if local_tasks = task_index.self_owned
 		known_tasks - local_tasks
 	    else
 		known_tasks
@@ -1289,13 +1285,13 @@ module Roby
 	# Hook called when +task+ has been removed from this plan
 	def finalized_task(task)
             finalized_transaction_object(task) { |trsc, proxy| trsc.finalized_plan_task(proxy) }
-            Log.log(:finalized_task) { [task] }
+            Log.log(:finalized_task) { [self, task] }
 	end
 
 	# Hook called when +event+ has been removed from this plan
 	def finalized_event(event)
             finalized_transaction_object(event) { |trsc, proxy| trsc.finalized_plan_event(proxy) }
-            Log.log(:finalized_event) { [event] }
+            Log.log(:finalized_event) { [self, event] }
         end
 
         # Generic filter which checks if +object+ is included in one of the

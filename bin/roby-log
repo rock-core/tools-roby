@@ -1,5 +1,5 @@
 #! /usr/bin/env ruby
-require 'roby/standalone'
+require 'roby'
 require 'optparse'
 
 def usage
@@ -55,8 +55,8 @@ when "list-servers"
     exit(0)
 
 when "upgrade-format"
-    require 'roby/log/file'
-    Roby::Log::FileLogger.to_new_format(ARGV[0])
+    require 'roby/log/upgrade'
+    Roby::Log::Upgrade.to_new_format(ARGV[0])
     exit(0)
 
 when "rebuild-index"

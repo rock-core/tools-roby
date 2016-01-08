@@ -14,7 +14,7 @@ module Roby
             attr_reader :server
             attr_reader :manager
 
-            def initialize(pid, slave_name, server_pid, manager: Distributed::DumbManager)
+            def initialize(pid, slave_name, server_pid, manager: DRoby::Marshal.new)
                 @pid = pid
                 @slave_name = slave_name
                 uri = TestServer.path(server_pid)
@@ -24,7 +24,7 @@ module Roby
             end
 
             def exception(e)
-                server.exception(pid, Distributed.format(e, manager))
+                server.exception(pid, manager.dump(e))
             end
 
             def discovery_start
@@ -44,7 +44,7 @@ module Roby
                 r = result
                 c = r.class
                 file, = c.instance_method(r.name).source_location
-                failures = Distributed.format(r.failures, manager)
+                failures = manager.dump(r.failures)
                 server.test_result(pid, file, c.name, r.name, failures, r.assertions, r.time)
             end
 

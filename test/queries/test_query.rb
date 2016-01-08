@@ -281,10 +281,6 @@ class TC_Queries_Query < Minitest::Test
         query.neg_plan_predicates << :mypred
         assert !(query === Tasks::Simple.new)
     end
-
-    def test_it_can_be_droby_dumped_and_loaded
-        verify_is_droby_marshallable_object(plan.find_tasks.mission.which_fullfills(Roby::Task))
-    end
 end
 
 

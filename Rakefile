@@ -1,15 +1,7 @@
 require "bundler/gem_tasks"
 require "rake/testtask"
 
-require 'rake/extensiontask'
-Rake::ExtensionTask.new 'roby_marshalling' do |ext|
-    if ENV['BOOST_DIR']
-        ext.config_options << "--with-boost-dir=#{ENV['BOOST_DIR']}" 
-    end
-end
-
-task :default => :compile
-
+task :default
 Rake::TestTask.new(:test) do |t|
     t.libs << "."
     t.libs << "lib"

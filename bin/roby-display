@@ -4,6 +4,7 @@ begin
 require 'roby'
 require 'roby/log'
 require 'roby/log/server'
+require 'optparse'
 Roby.app.guess_app_dir
 
 data_source_mode = :file

@@ -42,7 +42,7 @@ module Roby
                         if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
                             remote_url << $1
                         else
-                            remote_url << ":#{Roby::Distributed::DEFAULT_DROBY_PORT}"
+                            remote_url << ":#{Roby::Interface::DEFAULT_PORT}"
                         end
                     end
 

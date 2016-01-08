@@ -58,10 +58,5 @@ describe Roby::ExecutionException do
             assert [task, t1, t2], e.trace
         end
     end
-
-    it "should be droby-marshallable" do
-        task = prepare_plan add: 1
-        verify_is_droby_marshallable_object(create_exception_from(task))
-    end
 end
 

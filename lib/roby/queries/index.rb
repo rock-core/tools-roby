@@ -12,6 +12,8 @@ module Roby
 	attr_reader :by_predicate
 	# A peer => Set map of tasks given their owner.
 	attr_reader :by_owner
+        # Tasks that are locally owned
+        attr_reader :self_owned
 
 	STATE_PREDICATES = [:pending?, :running?, :finished?, :success?, :failed?].to_set
         PREDICATES = STATE_PREDICATES.dup
@@ -22,6 +24,7 @@ module Roby
 	    STATE_PREDICATES.each do |state_name|
 		by_predicate[state_name] = Set.new
 	    end
+            @self_owned = Set.new
 	    @by_owner = Hash.new
 	end
 
@@ -32,6 +35,7 @@ module Roby
             source.by_predicate.each do |state, set|
                 by_predicate[state].merge(set)
             end
+            self_owned.merge(source.self_owned)
             source.by_owner.each do |owner, set|
                 (by_owner[owner] ||= Set.new).merge(set)
             end
@@ -50,6 +54,8 @@ module Roby
                 by_predicate[state] = set.dup
             end
 
+            @self_owned = source.self_owned.dup
+
             @by_owner = Hash.new
             source.by_owner.each do |owner, set|
                 by_owner[owner] = set.dup
@@ -60,6 +66,7 @@ module Roby
             @by_model.clear
             @by_predicate.each_value(&:clear)
             @by_owner.clear
+            @self_owned.clear
         end
 
         # Add a new task to this index
@@ -72,6 +79,9 @@ module Roby
                     by_predicate[pred] << task
                 end
             end
+            if task.self_owned?
+                self_owned << task
+            end
 	    for owner in task.owners
 		add_owner(task, owner)
 	    end
@@ -79,6 +89,9 @@ module Roby
 
         # Updates the index to reflect that +new_owner+ now owns +task+
 	def add_owner(task, new_owner)
+            if task.self_owned?
+                self_owned << task
+            end
 	    (by_owner[new_owner] ||= Set.new) << task
 	end
 
@@ -90,6 +103,9 @@ module Roby
 		    by_owner.delete(peer)
 		end
 	    end
+            if !task.self_owned?
+                self_owned.delete(task)
+            end
 	end
 
         # Updates the index to reflect a change of state for +task+
@@ -125,6 +141,7 @@ module Roby
 	    for state_set in by_predicate
 		state_set.last.delete(task)
 	    end
+            self_owned.delete(task)
 	    for owner in task.owners
 		remove_owner(task, owner)
 	    end

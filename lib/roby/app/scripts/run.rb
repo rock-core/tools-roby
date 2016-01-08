@@ -1,4 +1,5 @@
 require 'roby'
+require 'optparse'
 
 app = Roby.app
 app.require_app_dir

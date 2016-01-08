@@ -20,26 +20,6 @@ module Roby
                 def required?
                     !!required
                 end
-
-                def droby_dump(peer)
-                    result = self.dup
-                    result.droby_dump!(peer)
-                    result
-                end
-
-                def droby_dump!(peer)
-                    self.default = Distributed.format(default, peer)
-                end
-
-                def proxy(peer)
-                    result = dup
-                    result.proxy!(peer)
-                    result
-                end
-
-                def proxy!(peer)
-                    self.default = peer.local_object(default)
-                end
             end
 
             # The action interface on which this action is defined
@@ -254,20 +234,6 @@ module Roby
 
             def as_plan(arguments = Hash.new)
                 plan_pattern(arguments)
-            end
-
-            def droby_dump(dest)
-                dump = self.dup
-                dump.droby_dump!(dest)
-                dump
-            end
-
-            def droby_dump!(dest)
-                @action_interface_model = action_interface_model.droby_dump(dest)
-                @returned_type = returned_type.droby_dump(dest)
-                @arguments = arguments.droby_dump(dest)
-                @coordination_model = nil
-                @returned_task_type = nil
             end
 
             def proxy(peer)

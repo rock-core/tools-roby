@@ -52,12 +52,8 @@ module Roby
                 # execution agent has been removed. Check that there is
                 # actually an execution agent 
                 if execution_agent
-                    # Relations related to execution agents are not distributed.
-                    # Make Roby::Distributed ignore the following changes
-                    Roby::Distributed.update(self) do
-                        execution_agent.stop_event.remove_forwarding executed_task.aborted_event
-                        executed_task.remove_execution_agent execution_agent
-                    end
+                    execution_agent.stop_event.remove_forwarding executed_task.aborted_event
+                    executed_task.remove_execution_agent execution_agent
                 end
             end
 
@@ -69,12 +65,7 @@ module Roby
                 # execution agent has been removed. Check that there is
                 # actually an execution agent 
                 if execution_agent
-                    # Relations related to execution agents are not
-                    # distributed.  Make Roby::Distributed ignore the
-                    # following changes
-                    Roby::Distributed.update(self) do
-                        execution_agent.stop_event.forward_to executed_task.aborted_event
-                    end
+                    execution_agent.stop_event.forward_to executed_task.aborted_event
                 end
             end
 

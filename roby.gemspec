@@ -19,7 +19,6 @@ Roby.
   s.licenses = ["BSD"]
 
   s.require_paths = ["lib"]
-  s.extensions = ['ext/roby_bgl/extconf.rb', 'ext/roby_marshalling/extconf.rb', 'ext/value_set/extconf.rb']
   s.extra_rdoc_files = ["README.md"]
   s.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }
 
@@ -35,7 +34,6 @@ Roby.
   s.add_runtime_dependency "pastel", '~> 0.5.2', '>= 0.5.2'
   s.add_runtime_dependency "hooks", '~> 0.4.0', '>= 0.4.1'
   s.add_runtime_dependency "rubigen"
-  s.add_runtime_dependency "rake-compiler", '~> 0.9.5'
   s.add_development_dependency "webgen", "< 1.0"
   s.add_development_dependency "minitest", ">= 5.0", "~> 5.0"
   s.add_development_dependency "flexmock", "~> 2.0", ">= 2.0.3"

@@ -25,23 +25,6 @@ module Roby
 	def ===(task)
 	    !(@op === task)
 	end
-
-        # An intermediate representation of NegateTaskMatcher objects suitable to
-        # be sent to our peers.
-	class DRoby
-            def initialize(op)
-                @op = op
-            end
-            def proxy(peer)
-                NotMatcher.new(@op.proxy(peer))
-            end
-	end
-	
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer.
-	def droby_dump(dest)
-            DRoby.new(@op.droby_dump(dest))
-	end
     end
     end
 end

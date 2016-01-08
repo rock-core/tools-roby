@@ -14,7 +14,6 @@ require 'utilrb/array/to_s'
 require 'utilrb/hash/to_s'
 require 'utilrb/set/to_s'
 require 'utilrb/marshal/load_with_missing_constants'
-require 'drb'
 
 class IO
     def ask(question, default, output_io = STDOUT)
@@ -78,16 +77,6 @@ class Thread
             object.send(name, *args, &block)
         end
     rescue ThreadError
-    end
-end
-
-if DRb.respond_to?(:uri)
-    # Workaround issue on new DRb versions. The problem was that some objects
-    # were not properly recognized as being local
-    module DRb
-        def self.here?(uri)
-            (DRb.uri rescue nil) == uri
-        end
     end
 end
 

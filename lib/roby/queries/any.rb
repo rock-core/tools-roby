@@ -12,6 +12,7 @@ module Roby
                     Queries.any
                 end
             end
+
             def self.droby_dump(peer)
                 DRoby.new
             end

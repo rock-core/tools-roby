@@ -58,6 +58,7 @@ require './test/suite_relations'
 require './test/suite_queries'
 require './test/suite_state'
 require './test/suite_coordination'
+require './test/suite_droby'
 
 require './test/suite_interface'
 require './test/test_log'

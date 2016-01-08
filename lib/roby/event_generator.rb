@@ -111,7 +111,7 @@ module Roby
 	# given, the event is controlable and is 'pass-through': it is emitted
 	# as soon as its command is called. If no argument is given (or a
 	# +false+ argument), then it is not controlable
-        def initialize(command_object = nil, plan: TemplatePlan.new, &command_block)
+        def initialize(command_object = nil, controlable: false, plan: TemplatePlan.new, &command_block)
 	    @preconditions = []
 	    @handlers      = []
 	    @pending       = false
@@ -120,6 +120,8 @@ module Roby
 	    @unreachable_handlers = []
 	    @history       = Array.new
             @event_model = Event
+
+            command_object ||= controlable
 
 	    if command_object || command_block
 		@command = if command_object.respond_to?(:call)
@@ -599,7 +601,7 @@ module Roby
                 error = EmissionFailed.new(error, self)
             end
 
-            Roby::Log.log(:generator_emit_failed) { [remote_id, error] }
+            Roby::Log.log(:generator_emit_failed) { [self, error] }
             plan.execution_engine.add_error(error)
 	ensure
 	    @pending = false
@@ -617,7 +619,7 @@ module Roby
 	    end
 
             Roby::Log.log(:generator_emitting) do
-                [remote_id, plan.execution_engine.propagation_source_generators.map(&:remote_id), context.to_s]
+                [self, plan.execution_engine.propagation_source_generators, context.to_s]
             end
 	    emitting(context)
 	    # Create the event object
@@ -783,7 +785,7 @@ module Roby
 		end
 	    end
 
-	    Roby::Log.log(:generator_calling) { [remote_id, plan.execution_engine.propagation_source_generators, context.to_s] }
+	    Roby::Log.log(:generator_calling) { [self, plan.execution_engine.propagation_source_generators, context.to_s] }
 	end
 
 	# Hook called just after the event command has been called
@@ -799,7 +801,7 @@ module Roby
 	def fired(event)
 	    unreachable_handlers.delete_if { |cancel, _| cancel }
 	    history << event
-            Roby::Log.log(:generator_fired) { [remote_id, event.object_id, event.time, event.context.to_s] }
+            Roby::Log.log(:generator_fired) { [self, event.object_id, event.time, event.context.to_s] }
 	end
 
 	# call-seq:
@@ -900,7 +902,7 @@ module Roby
 	    @unreachable = true
             @unreachability_reason = reason
 
-            Log.log(:generator_unreachable) { [remote_id, reason] }
+            Log.log(:generator_unreachable) { [self, reason] }
             execution_engine.unreachable_event(self)
             call_unreachable_handlers(reason)
         end

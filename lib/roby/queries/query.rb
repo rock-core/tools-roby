@@ -15,8 +15,8 @@ module Roby
             @scope = :global
 	    @plan = plan
 	    super()
-	    @plan_predicates = Array.new
-	    @neg_plan_predicates = Array.new
+	    @plan_predicates = Set.new
+	    @neg_plan_predicates = Set.new
 	end
 
         # Search scope for queries on transactions. If equal to :local, the
@@ -30,9 +30,15 @@ module Roby
         attr_reader :scope
 
         # Changes the scope of this query. See #scope.
-        def local_scope; @scope = :local end
+        def local_scope
+            @scope = :local
+            self
+        end
         # Changes the scope of this query. See #scope.
-        def global_scope; @scope = :global end
+        def global_scope
+            @scope = :global
+            self
+        end
 
         # Changes the plan this query works on. This calls #reset (obviously)
         def plan=(new_plan)
@@ -176,34 +182,6 @@ module Roby
 	    self
 	end
 	include Enumerable
-
-        # An intermediate representation of Query objects suitable to be sent
-        # to our peers.
-	class DRoby < TaskMatcher::DRoby
-	    attr_reader :plan_predicates, :neg_plan_predicates
-	    def initialize(*args)
-                super
-		@plan_predicates, @neg_plan_predicates = Array.new, Array.new
-	    end
-
-	    def proxy(peer)
-		plan = peer.connection_space.plan
-		query = plan.find_tasks
-                super(peer, query)
-		query.plan_predicates.concat(plan_predicates)
-		query.neg_plan_predicates.concat(neg_plan_predicates)
-		query
-	    end
-	end
-	
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer.
-	def droby_dump(dest)
-	    droby = super
-            droby.plan_predicates.concat(plan_predicates)
-            droby.neg_plan_predicates.concat(neg_plan_predicates)
-            droby
-	end
     end
     end
 end

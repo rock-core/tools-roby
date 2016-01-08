@@ -17,48 +17,6 @@ class Exception
     end
 
     def user_error?; false end
-
-    class DRoby < Exception
-        attr_reader :exception_class
-        attr_reader :formatted_message
-
-        def initialize(exception_class, formatted_message, message = nil)
-            @exception_class, @formatted_message =
-                exception_class, formatted_message
-            super(message)
-        end
-
-        def pretty_print(pp)
-            pp.seplist(formatted_message) do |line|
-                pp.text line
-            end
-        end
-
-        def proxy(peer)
-            exception = self.class.new(peer.local_object(exception_class), formatted_message, message)
-            exception.set_backtrace backtrace
-            exception
-        end
-
-        def kind_of?(obj)
-            if exception_class.kind_of?(Class)
-                exception_class <= obj
-            else
-                super
-            end
-        end
-    end
-
-
-    def droby_dump(peer)
-        formatted = Roby.format_exception(self)
-        droby = DRoby.new(
-            Roby::Distributed.format(self.class, peer),
-            formatted,
-            message)
-        droby.set_backtrace backtrace
-        droby
-    end
 end
 
 module Roby
@@ -118,7 +76,6 @@ module Roby
         def initialize(failure_point)
             super()
 	    @failure_point = failure_point
-            @original_exceptions ||= Array.new
 
             @failed_task, @failed_event, @failed_generator = nil
 	    if failure_point.kind_of?(Event)
@@ -163,42 +120,6 @@ module Roby
                  obj == failed_task)
         end
 
-        # Intermediate representation used to marshal/unmarshal a LocalizedError
-        class DRoby
-            attr_reader :model, :failure_point, :message, :backtrace,
-                :original_exceptions, :formatted_message
-            def initialize(model, failure_point, message, backtrace,
-                           original_exceptions, formatted_message = [])
-                @model, @failure_point, @message, @backtrace,
-                    @original_exceptions, @formatted_message =
-                    model, failure_point, message, backtrace,
-                    original_exceptions, formatted_message
-            end
-
-            def proxy(peer)
-                failure_point = peer.local_object(self.failure_point)
-                error = UntypedLocalizedError.new(failure_point)
-                error = error.exception(message)
-                error.original_exceptions.concat(peer.local_object(original_exceptions))
-                error.set_backtrace(backtrace)
-                error.exception_class = peer.local_object(model)
-                error.formatted_message = formatted_message
-                error
-            end
-        end
-
-        # Returns an intermediate representation of +self+ suitable to be sent to
-        # the +dest+ peer.
-        def droby_dump(dest)
-            formatted = Roby.format_exception(self)
-            DRoby.new(Distributed.format(self.class, dest),
-                      Distributed.format(failure_point, dest),
-                      message,
-                      backtrace,
-                      Distributed.format(original_exceptions, dest),
-                      formatted)
-        end
-
         # @return [Queries::ExecutionExceptionMatcher]
         def self.to_execution_exception_matcher
             Roby::Queries::ExecutionExceptionMatcher.new.with_model(self)
@@ -206,23 +127,6 @@ module Roby
         # @return [Queries::LocalizedErrorMatcher]
         def self.match
             Roby::Queries::LocalizedErrorMatcher.new.with_model(self)
-        end
-    end
-
-    # Exception class used on the unmarshalling of LocalizedError for exception
-    # classes that do not have their own marshalling
-    class UntypedLocalizedError < LocalizedError
-        attr_accessor :formatted_message
-        attr_accessor :exception_class
-
-        def pretty_print(pp)
-            pp.seplist(formatted_message) do |line|
-                pp.text line
-            end
-        end
-
-        def kind_of?(obj)
-            exception_class <= obj
         end
     end
 

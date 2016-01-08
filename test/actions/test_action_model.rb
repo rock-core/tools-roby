@@ -1,37 +1,6 @@
 require 'roby/test/self'
 
 describe Roby::Actions::Models::Action do
-    it "can be dumped and then reloaded" do
-        task_m = Roby::Task.new_submodel
-        interface_m = Roby::Actions::Interface.new_submodel do
-            describe('action').
-                returns(task_m)
-            def an_action; end
-        end
-
-        action_m = interface_m.find_action_by_name('an_action')
-        dump = action_m.droby_dump(nil)
-        Marshal.dump(dump)
-        loaded = dump.proxy(nil)
-        assert_same action_m, loaded
-    end
-
-    it "can marshal actions with non trivial default arguments" do
-        task_m = Roby::Task.new_submodel
-        interface_m = Roby::Actions::Interface.new_submodel do
-            describe('action').
-                optional_arg('test', '', task_m).
-                returns(task_m)
-            def an_action(arguments = Hash.new); end
-        end
-
-        action_m = interface_m.find_action_by_name('an_action')
-        dump = action_m.droby_dump(nil)
-        dump = Marshal.load(Marshal.dump(dump))
-        loaded = dump.proxy(nil)
-        assert_same action_m, loaded
-    end
-
     describe "#plan_pattern" do
         attr_reader :action_m
         before do

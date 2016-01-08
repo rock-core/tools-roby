@@ -2,29 +2,49 @@ module Roby
     module Queries
     # Predicate that matches characteristics on a plan object
     class PlanObjectMatcher < MatcherBase
+        # @api private
+        #
         # A set of models that should be provided by the object
         #
         # @return [Array<Class>]
 	attr_reader :model
         
+        # @api private
+        #
         # Set of owners that the object should have
         #
-        # The predicates are predicate method names (e.g. 'executable' for #executable?)
-        #
-        # @return [Array<Peer>]
+        # @return [Array<DRobyID>]
         attr_reader :owners
 
+        # @api private
+        #
         # Set of predicates that should be true on the object, and for which
         # the index maintains a set of objects for which it is true
         #
         # @return [Array<Symbol>]
         attr_reader :indexed_predicates
        
+        # @api private
+        #
         # Set of predicates that should be false on the object, and for which
         # the index maintains a set of objects for which it is true
         #
         # @return [Array<Symbol>]
         attr_reader :indexed_neg_predicates
+
+        # @api private
+        #
+        # Per-relation list of in-edges that the matched object is expected to have
+        #
+        # @return [Hash]
+        attr_reader :parents
+
+        # @api private
+        #
+        # Per relation list of out-edges that the matched object is expected to have
+        #
+        # @return [Hash]
+        attr_reader :children
 
         # Initializes an empty TaskMatcher object
 	def initialize
@@ -52,9 +72,17 @@ module Roby
         #
         # Matches if the object is owned by the local plan manager.
 	def self_owned
-	    owned_by(Roby::Distributed)
+            predicates << :self_owned?
 	    self
 	end
+
+        # Filters out locally-owned tasks
+        #
+        # Matches if the object is owned by the local plan manager.
+        def not_self_owned
+            neg_predicates << :self_owned?
+	    self
+        end
 
 	# Filters on the task model
         #
@@ -66,6 +94,7 @@ module Roby
 	end
 
 	class << self
+            # @api private
             def match_predicate(name, positive_index = nil, negative_index = nil)
                 method_name = name.to_s.gsub(/\?$/, '')
                 if Index::PREDICATES.include?(name)
@@ -118,7 +147,7 @@ module Roby
 
         # Helper method for #with_child and #with_parent
         def handle_parent_child_arguments(other_query, relation, relation_options) # :nodoc:
-            return relation, [other_query, relation_options]
+            return relation, [other_query.match, relation_options]
         end
 
         # Filters based on the object's children
@@ -266,44 +295,6 @@ module Roby
 	    end
 
 	    initial_set
-	end
-
-        # An intermediate representation of TaskMatcher objects suitable to be
-        # sent to our peers.
-	class DRoby
-            # The exact match class that has been marshalled using this object
-	    attr_reader :model
-	    attr_reader :predicates
-	    attr_reader :neg_predicates
-	    attr_reader :owners
-
-	    def initialize(model, predicates, neg_predicates, owners)
-                @model, @predicates, @neg_predicates, @owners =
-                    model, predicates, neg_predicates, owners
-            end
-
-            # Common initialization of a TaskMatcher object from the given
-            # argument set. This is to be used by DRoby-dumped versions of
-            # subclasses of TaskMatcher.
-	    def proxy(peer, matcher = PlanObjectMatcher.new)
-		model  = self.model.proxy(peer)
-		owners = self.owners.proxy(peer)
-
-		matcher.with_model(model)
-		matcher.predicates.merge(predicates)
-		matcher.owners.concat(owners)
-		matcher
-	    end
-	end
-
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer. +klass+ is the actual class of the intermediate
-        # representation. It is used for code reuse by subclasses of
-        # TaskMatcher.
-	def droby_dump(dest)
-            self.class::DRoby.new(model.droby_dump(dest),
-                      predicates, neg_predicates,
-                      owners.droby_dump(dest))
 	end
     end
     end

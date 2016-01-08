@@ -12,7 +12,6 @@ app.single = true
 app.simulation = true
 app.testing = true
 app.auto_load_models = false
-app.manage_drb = false
 
 modes = []
 robots = []

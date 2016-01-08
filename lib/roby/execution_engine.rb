@@ -157,9 +157,6 @@ module Roby
     #   #garbage_collect, so that they get killed and removed from the plan.
     #
     class ExecutionEngine
-        # Required by Roby::Distributed
-        include DRbUndumped
-
         extend Logger::Hierarchy
         include Logger::Hierarchy
 
@@ -1023,8 +1020,7 @@ module Roby
                     for source_ev in source_events
                         source_g = source_ev.generator
                         Roby::Log.log(:generator_propagate_event) do
-                            [false, source_g.remote_id, signalled.remote_id,
-                                    source_ev.object_id, source_ev.time, context.to_s]
+                            [false, source_g, signalled, source_ev]
                         end
                     end
 
@@ -1066,14 +1062,13 @@ module Roby
                     for source_ev in source_events
                         source_g = source_ev.generator
                         Roby::Log.log(:generator_propagate_event) do
-                            [true, source_g.remote_id, signalled.remote_id,
-                                    source_ev.object_id, source_ev.time, context.to_s]
+                            [true, source_g, signalled, source_ev]
                         end
                     end
 
                     # If the destination event is not owned, but if the peer is not
                     # connected, the event is our responsibility now.
-                    if signalled.self_owned? || !signalled.owners.any? { |peer| peer != Roby::Distributed && peer.connected? }
+                    if signalled.self_owned? || !signalled.owners.any? { |peer| peer != plan.local_owner && peer.connected? }
                         next_step = gather_propagation(current_step) do
                             propagation_context(source_events | source_generators) do |result|
                                 begin

@@ -143,32 +143,6 @@ module Roby
                 end
             end
         end
-
-        class DRoby
-            attr_reader :trace
-            attr_reader :exception
-            attr_reader :handled
-
-            def initialize(trace, exception, handled)
-                @trace, @exception, @handled = trace, exception, handled
-            end
-
-            def proxy(peer)
-                trace     = peer.local_object(self.trace)
-                exception = peer.local_object(self.exception)
-                result = ExecutionException.new(exception)
-                result.trace.clear
-                result.trace.concat(trace)
-                result.handled = self.handled
-                result
-            end
-        end
-
-        def droby_dump(peer = nil)
-            DRoby.new(trace.droby_dump(peer),
-                      exception.droby_dump(peer),
-                      handled)
-        end
     end
 
     # This module is to be included in all objects that are

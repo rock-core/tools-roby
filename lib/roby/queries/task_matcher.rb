@@ -298,33 +298,6 @@ module Roby
 	# Define singleton classes. For instance, calling TaskMatcher.which_fullfills is equivalent
 	# to TaskMatcher.new.which_fullfills
 	declare_class_methods :which_fullfills, :with_arguments
-
-        # An intermediate representation of TaskMatcher objects suitable to be
-        # sent to our peers.
-	class DRoby < PlanObjectMatcher::DRoby
-            attr_reader :arguments
-
-            def initialize(model, predicates, neg_predicates, owners)
-                @arguments = Hash.new
-                super(model, predicates, neg_predicates, owners)
-            end
-
-            def proxy(peer, matcher = TaskMatcher.new)
-                super(peer, matcher)
-                matcher.arguments.merge!(arguments.proxy(peer))
-                matcher
-            end
-	end
-
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer. +klass+ is the actual class of the intermediate
-        # representation. It is used for code reuse by subclasses of
-        # TaskMatcher.
-	def droby_dump(dest)
-            droby = super
-            droby.arguments.merge!(arguments.droby_dump(dest))
-            droby
-	end
     end
     end
 end

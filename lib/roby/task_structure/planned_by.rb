@@ -83,29 +83,6 @@ module Roby
             pp.text " failed with "
             failure_reason.pretty_print(pp)
         end
-
-        class DRoby
-            attr_reader :planned_task
-            attr_reader :planning_task
-            attr_reader :failure_reason
-            def initialize(planned_task, planning_task, failure_reason)
-                @planned_task  = planned_task
-                @planning_task = planning_task
-                @failure_reason = failure_reason
-            end
-            def proxy(peer)
-                planned_task  = peer.local_object(self.planned_task)
-                planning_task = peer.local_object(self.planning_task)
-                failure_reason = peer.local_object(self.failure_reason)
-                PlanningFailedError.new(planned_task, planning_task, failure_reason: failure_reason)
-            end
-        end
-
-        def droby_dump(peer)
-            DRoby.new(Distributed.format(planned_task, peer),
-                      Distributed.format(planning_task, peer),
-                      Distributed.format(failure_reason, peer))
-        end
     end
 end
 

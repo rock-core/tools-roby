@@ -113,6 +113,8 @@ module Roby
     #
 
     module Interface
+        DEFAULT_PORT = 42424
+
         extend Logger::Hierarchy
 
         module Async

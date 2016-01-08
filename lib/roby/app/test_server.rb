@@ -111,7 +111,7 @@ module Roby
                 DRb.stop_service
             end
 
-            def initialize(server_id, manager = Distributed::DumbManager)
+            def initialize(server_id, manager = DRoby::Marshal.new(auto_create_plans: true))
                 @server_id = server_id
                 @manager = manager
             end

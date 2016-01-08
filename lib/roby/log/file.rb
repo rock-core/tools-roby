@@ -4,7 +4,7 @@ require 'fileutils'
 module Roby::Log
     class Logfile < DelegateClass(File)
 	# The current log format version
-	FORMAT_VERSION = 4
+	FORMAT_VERSION = 5
 
 	attr_reader :event_io
 	attr_reader :index_io
@@ -39,47 +39,17 @@ module Roby::Log
 
         rescue Exception => e
             io.rewind
-            if format = guess_log_format(io)
+            require 'roby/log/upgrade/guess'
+            if format = Upgrade.guess(io)
                 validate_format(format)
             else
                 raise
             end
         end
 
-	def self.guess_log_format(input)
-	    input.rewind
-
-            begin
-                magic = input.read(Logfile::MAGIC_CODE.size)
-                if magic == Logfile::MAGIC_CODE
-                    format = input.read(4).unpack("L<").first
-                else
-                    input.rewind
-                    header = Marshal.load(input)
-                    case header
-                    when Hash then format = header[:log_format]
-                    when Symbol
-                        if Marshal.load(input).kind_of?(Array)
-                            format = 0
-                        end
-                    when Array
-                        if header[-2] == :cycle_end
-                            format = 1 
-                        end
-                    end
-                end
-            rescue
-            end
-
-	    format
-
-	ensure
-	    input.rewind
-	end
-
 	def self.validate_format(format)
 	    if format < FORMAT_VERSION
-		raise "this is an outdated format. Please run roby-log upgrade-format"
+		raise "this is an outdated format (#{format}, current is #{FORMAT_VERSION}). Please run roby-log upgrade-format"
 	    elsif format > FORMAT_VERSION
 		raise "this is an unknown format version #{format}: expected #{FORMAT_VERSION}. This file can be read only by newest version of Roby"
 	    end
@@ -354,7 +324,7 @@ module Roby::Log
         end
 
         def close
-            dump_method(:cycle_end, Time.now, [])
+            dump_method(:cycle_end, Time.now, [Hash.new])
             @event_log.close
             @index_log.close
         end
@@ -441,129 +411,6 @@ module Roby::Log
             Logfile.dump(object, event_io)
         end
 
-	def self.from_format_0(input, output)
-	    current_cycle = []
-	    while !input.eof?
-		m    = Marshal.load(input)
-		args = Marshal.load(input)
-
-		current_cycle << m << args
-		if m == :cycle_end
-		    dump(current_cycle, output)
-		    current_cycle.clear
-		end
-	    end
-
-	    unless current_cycle.empty?
-		dump(current_cycle, output)
-	    end
-	end
-
-	def self.from_format_1(input, output)
-	    # The only difference between v1 and v2 is the header. Just copy
-	    # data from input to output
-	    output.write(input.read)
-	end
-
-	def self.from_format_2(input, output)
-	    # In format 3, we did two things:
-	    #   * changed the way exceptions were dumped: instead of relying on
-	    #     DRbRemoteError, we are now using DRobyModel
-	    #   * stopped dumping Time objects and instead marshalled tv_sec
-	    #     and tv_usec directly
-	    Exception::DRoby.class_eval do
-		def self._load(str)
-		    Marshal.load(str)
-		end
-	    end
-
-	    new_cycle = []
-	    input_stream = EventStream.new("input", FileLogger.new(input, true))
-	    while !input.eof?
-		new_cycle.clear
-		begin
-		    m_data = input_stream.read
-		    cycle_data = Marshal.load(m_data)
-		    cycle_data.each_slice(2) do |m, args|
-			time = args.shift
-			new_cycle << m << time.tv_sec << time.tv_usec << args
-		    end
-
-		    stats   = new_cycle.last.first
-		    reftime = stats[:start]
-		    stats[:start] = [reftime.tv_sec, reftime.tv_usec]
-		    new_cycle.last[0] = stats.inject(Hash.new) do |new_stats, (name, value)|
-			new_stats[name] = if value.kind_of?(Time) then value - reftime
-					  else value
-					  end
-			new_stats
-		    end
-
-		    dump(new_cycle, output)
-		rescue Exception => e
-		    STDERR.puts "dropped cycle because of the following error:"
-		    STDERR.puts "  #{e.full_message}"
-		end
-	    end
-	end
-
-        def self.from_format_3(input, output)
-            # Header format changed. Read the old one and add the new one
-            header = Marshal.load(input)
-            Logfile.dump(header, output)
-
-            # In format 4, every marshal'ed structure is prefixed with the size
-            # of the block
-            while !input.eof?
-                start_pos = input.tell
-                Marshal.load_with_missing_constants(input)
-                length = input.tell - start_pos
-
-                # Don't take risks by re-dumping the object. Simply copy the raw
-                # data with added size in front
-                size = [length].pack("L<")
-                output.write(size)
-                input.seek(start_pos)
-                output.write(input.read(length))
-            end
-        end
-
-	def self.to_new_format(file, into = file)
-	    input = File.open(file)
-	    log_format = Logfile.guess_log_format(input)
-            if !log_format
-                raise InvalidFileError, "#{file} does not seem to be a Roby log file"
-            end
-
-	    if log_format == Logfile::FORMAT_VERSION
-		STDERR.puts "#{file} is already at format #{log_format}"
-	    else
-		if into =~ /-events\.log$/
-		    into = $`
-		end
-		STDERR.puts "upgrading #{file} from format #{log_format} into #{into}"
-
-		input.rewind
-		Tempfile.open('roby_to_new_format') do |output|
-		    Logfile.write_prologue(output)
-		    send("from_format_#{log_format}", input, output)
-		    output.flush
-
-		    input.close
-		    FileUtils.cp output.path, "#{into}-events.log"
-		end
-
-		File.open("#{into}-events.log") do |event_log|
-		    File.open("#{into}-index.log", 'w') do |index_log|
-			puts "rebuilding index file for #{into}"
-			Logfile.rebuild_index(event_log, index_log)
-		    end
-		end
-	    end
-
-	ensure
-	    input.close if input && !input.closed?
-	end
     end
 
     self.register_generic_logger(FileLogger)

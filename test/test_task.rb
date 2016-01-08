@@ -2357,18 +2357,6 @@ class TC_Task < Minitest::Test
         assert_equal 20, task.arg
     end
 
-    def test_delayed_argument_marshalling
-        klass = Roby::Task.new_submodel do
-            terminates
-            argument :arg, default: Object.new
-        end
-        task = klass.new
-        plan.add(task)
-
-        # Should not raise
-        Marshal.dump(Distributed.format(task))
-    end
-
     def test_as_plan
         plan.add(task = Tasks::Simple.new)
         model = Tasks::Simple.new_submodel

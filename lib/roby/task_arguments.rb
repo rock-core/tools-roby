@@ -166,7 +166,9 @@ module Roby
                 end
 
 		values[key] = value
-                Roby::Log.log(:task_arguments_updated) { [task, key, value] }
+                if task.plan.executable?
+                    Roby::Log.log(:task_arguments_updated) { [task, key, value] }
+                end
 
                 if update_static
                     @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
@@ -203,14 +205,24 @@ module Roby
         end
 
         def force_merge!(hash)
-            values.merge!(hash)
+            if task.plan && task.plan.executable?
+                values.merge!(hash) do |k, _, v|
+                    Roby::Log.log(:task_arguments_updated) { [task, k, v] }
+                end
+            else
+                values.merge!(hash)
+            end
             @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
         end
 
 	def merge!(hash)
 	    values.merge!(hash) do |key, old, new|
 		if old == new then old
-		elsif writable?(key, new) then new
+		elsif writable?(key, new)
+                    if task.plan.executable?
+                        Roby::Log.log(:task_arguments_updated) { [task, key, new] }
+                    end
+                    new
 		else
 		    raise ArgumentError, "cannot override task argument #{key}: trying to replace #{old} by #{new}"
 		end
@@ -220,17 +232,6 @@ module Roby
 	end
 
         include Enumerable
-
-        DRoby = Struct.new :values do
-            def proxy(peer)
-                obj = TaskArguments.new(nil)
-                obj.values.merge!(peer.local_object(values))
-                obj
-            end
-        end
-        def droby_dump(peer)
-            DRoby.new(values.droby_dump(peer))
-        end
     end
 
     # Placeholder that can be used as an argument, to delay the assignation
@@ -285,25 +286,6 @@ module Roby
             @methods = []
             @expected_class = Object
             @weak = weak
-        end
-
-        class DRoby
-            def initialize(klass, object, methods, weak)
-                @klass, @object, @methods, @weak = klass, object, methods, weak
-            end
-            def proxy(peer)
-                base = @klass.new(peer.local_object(@object), @weak)
-                @methods.inject(base) do |delayed_arg, m|
-                    delayed_arg.send(m)
-                end
-            end
-        end      
-
-        def droby_dump(peer)
-            DRoby.new(self.class,
-                Distributed.format(@object, peer),
-                @methods,
-                @weak)
         end
 
         def of_type(expected_class)

@@ -38,8 +38,6 @@ module Roby
     # listed in NOT_OVERRIDABLE
     #
     class OpenStruct
-	include DRbUndumped
-
         attr_reader :model
 
 	# +attach_to+ and +attach_name+
@@ -119,7 +117,7 @@ module Roby
                         result.__set(name, value)
                     end
                 rescue Exception
-                    Roby::Distributed.warn "cannot load #{name} #{marshalled_field}: #{$!.message}"
+                    Roby::DRoby.warn "cannot load #{name} #{marshalled_field}: #{$!.message}"
                 end
             end
 
@@ -127,7 +125,7 @@ module Roby
             result
 
         rescue Exception
-            Roby::Distributed.warn "cannot load #{marshalled_members} #{io}: #{$!.message}"
+            Roby::DRoby.warn "cannot load #{marshalled_members} #{io}: #{$!.message}"
             raise
         end
 

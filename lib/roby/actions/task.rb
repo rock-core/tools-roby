@@ -73,7 +73,7 @@ module Roby
             event :start do |context|
                 start_event.emit
 
-                if owners.size != 1
+                if owners.size > 1
                     @transaction = Distributed::Transaction.new(plan)
                     owners.each do |peer|
                         transaction.add_owner peer

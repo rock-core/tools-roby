@@ -59,8 +59,6 @@ module Roby
         attr_reader :control
         def execution_engine; plan.execution_engine if plan && plan.executable? end
 
-        attr_reader :connection_spaces
-
         def execute(&block)
             execution_engine.execute(&block)
         end
@@ -82,22 +80,6 @@ module Roby
             yield
         ensure
             Roby.enable_deprecation_warnings = true
-        end
-
-        def create_connection_space(port, plan: nil)
-            if !plan
-                register_plan(plan = Plan.new)
-            end
-            if !plan.execution_engine
-                ExecutionEngine.new(plan)
-            end
-            space = Distributed::ConnectionSpace.new(plan: plan, listen_at: port)
-            register_connection_space(space)
-            space
-        end
-
-        def register_connection_space(space)
-            @connection_spaces << space
         end
 
 	# a [collection, collection_backup] array of the collections saved
@@ -129,7 +111,6 @@ module Roby
 	def setup
             Roby.app.reload_config
             @log_levels = Hash.new
-            @connection_spaces = Array.new
             @transactions = Array.new
 
             if !@plan
@@ -150,11 +131,6 @@ module Roby
 
             Roby.app.log_setup 'robot', 'DEBUG:robot.txt'
             Roby.app.log_server = false
-
-	    unless DRb.primary_server
-                @started_drb = true
-		DRb.start_service 'druby://localhost:0'
-	    end
 
             plan.execution_engine.gc_warning = false
 
@@ -238,13 +214,7 @@ module Roby
             Test.verify_watched_events
 
             # Plan teardown would have disconnected the peers already
-            connection_spaces.each do |space|
-                space.close
-            end
 	    stop_remote_processes
-            if DRb.thread && @started_drb
-                DRb.stop_service
-            end
 
 	    restore_collections
 
@@ -262,8 +232,6 @@ module Roby
             if @original_roby_logger_level
                 Roby.logger.level = @original_roby_logger_level
             end
-            self.console_logger = false
-            self.event_logger   = false
 	end
         
 	# Process pending events

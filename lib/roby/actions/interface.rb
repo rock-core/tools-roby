@@ -1,4 +1,3 @@
-require 'roby/distributed/protocol'
 module Roby
     module Actions
         # Functionality to gather information about the actions available on a

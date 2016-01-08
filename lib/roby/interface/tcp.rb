@@ -12,7 +12,7 @@ module Roby
             # Creates a new interface server on the given port
             #
             # @param [Integer] port
-            def initialize(app, port = Roby::Distributed::DEFAULT_DROBY_PORT)
+            def initialize(app, port = Interface::DEFAULT_PORT)
                 @interface = Interface.new(app)
                 @server =
                     begin ::TCPServer.new(port)
@@ -82,10 +82,10 @@ module Roby
         # Connect to a Roby controller interface at this host and port
         #
         # @return [Client] the client object that gives access
-        def self.connect_with_tcp_to(host, port, remote_object_manager: Distributed::DumbManager)
+        def self.connect_with_tcp_to(host, port, marshaller: DRoby::Marshal.new(auto_create_plans: true))
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
-            Client.new(DRobyChannel.new(socket, true, remote_object_manager: remote_object_manager),
+            Client.new(DRobyChannel.new(socket, true, marshaller: DRoby::Marshal.new(auto_create_plans: true)),
                        "#{addr[2]}:#{addr[1]}")
 
         rescue Errno::ECONNREFUSED

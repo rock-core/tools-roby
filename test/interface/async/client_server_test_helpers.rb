@@ -18,7 +18,7 @@ module Roby
                 end
 
                 def default_server_port
-                    Distributed::DEFAULT_DROBY_PORT + 1
+                    Roby::Interface::DEFAULT_PORT + 1
                 end
 
                 def create_server

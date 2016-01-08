@@ -26,24 +26,6 @@ module Roby
 	def ===(task)
 	    @ops.all? { |op| op === task }
 	end
-
-        # An intermediate representation of OrMatcher objects suitable to
-        # be sent to our peers.
-	class DRoby
-            attr_reader :ops
-            def initialize(ops)
-                @ops = ops
-            end
-            def proxy(peer)
-                AndMatcher.new(*ops.proxy(peer))
-            end
-	end
-	
-        # Returns an intermediate representation of +self+ suitable to be sent
-        # to the +dest+ peer.
-	def droby_dump(dest)
-            DRoby.new(@ops.droby_dump(dest))
-	end
     end
 
     end

@@ -5,7 +5,6 @@ module Roby
             # IMPORTANT: ModelAsClass / ModelAsModule must NOT be included here.
             # This interface model is used by both Interface (which is a
             # ModelAsClass) and Library (which is a ModelAsModule)
-	    include Distributed::DRobyModel::Dump
             extend MetaRuby::Attributes
 
             def promote_registered_action(name, action)

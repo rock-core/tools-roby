@@ -78,7 +78,7 @@ module Roby
                 plan.default_localized_error_handling(error)
             end
 
-            Log.log(:register_executable_plan) { [self] }
+            Log.log(:register_executable_plan) { [droby_id] }
         end
 
         def default_localized_error_handling(error)
@@ -393,6 +393,10 @@ module Roby
         end
 
         def remove_object(object, timestamp = nil)
+            if object.respond_to?(:running?) && object.running? && object.self_owned?
+                raise ArgumentError, "attempting to remove a running task from an executable plan"
+            end
+
             super
 	    @force_gc.delete(object)
             @gc_quarantine.delete(object)

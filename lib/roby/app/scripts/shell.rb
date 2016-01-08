@@ -1,5 +1,4 @@
 require 'roby'
-require 'roby/distributed'
 require 'optparse'
 require 'rb-readline'
 
@@ -28,11 +27,9 @@ error = Roby.display_exception do
         if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
             remote_url << $1
         else
-            remote_url << ":#{Roby::Distributed::DEFAULT_DROBY_PORT}"
+            remote_url << ":#{Roby::Interface::DEFAULT_PORT}"
         end
     end
-
-    DRb.start_service
 end
 if error
     exit(1)
@@ -58,7 +55,6 @@ IRB.conf[:PROMPT][:ROBY] = {
     :RETURN => "=> %s\n"
 }
 
-Roby::Distributed::DRobyModel.add_anonmodel_to_names = false
 __main_remote_interface__ = 
     begin
         remote_url =~ /^(.*):(\d+)$/

@@ -2,7 +2,7 @@ module Roby
     module Interface
         # An interface client using TCP that provides reconnection capabilities
         # as well as proper formatting of the information
-        class ShellClient < BasicObject
+        class ShellClient
             # @return [String] a string that describes the remote host
             attr_reader :remote_name
             # @return [#call] an object that can create a Client instance

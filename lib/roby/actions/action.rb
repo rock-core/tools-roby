@@ -65,28 +65,6 @@ module Roby
                 model.to_coordination_model
             end
 
-            def droby_dump(peer)
-                result = dup
-                result.droby_dump!(peer)
-                result
-            end
-
-            def droby_dump!(peer)
-                @model = model.droby_dump(peer)
-                @arguments = arguments.droby_dump(peer)
-            end
-
-            def proxy(peer)
-                result = dup
-                result.proxy!(peer)
-                result
-            end
-
-            def proxy!(peer)
-                @model = peer.local_object(model)
-                @arguments = peer.local_object(arguments)
-            end
-
             def to_action
                 self
             end

@@ -3,7 +3,6 @@ require 'utilrb/logger'
 # The main namespace for the Roby library. The namespace is divided as follows:
 #
 # [Roby] core namespace for the Roby kernel
-# [Roby::Distributed] parts that are very specific to distributed plan management
 # [Roby::Actions] basic tools for plan generation
 # [Roby::Transactions] implementation of transactions. Transactions represent a
 # change in the main plan, and can be distributed among different plan managers.
@@ -22,8 +21,8 @@ module Roby
     extend Logger::Root('Roby', Logger::WARN)
 end
 
-require 'drb'
-require 'utilrb/weakref'
+require 'concurrent'
+
 require 'pp'
 require 'thread'
 require 'set'
@@ -46,12 +45,9 @@ require 'metaruby'
 require 'roby/version'
 require 'roby/support'
 require 'roby/hooks'
-require 'roby/basic_object'
+require 'roby/distributed_object'
 require 'roby/standard_errors'
 require 'roby/exceptions'
-
-require 'roby/distributed/base'
-
 
 require 'roby/relations'
 require 'roby/plan'
@@ -96,22 +92,6 @@ require 'roby/event_constraints'
 require 'roby/transactions/proxy'
 require 'roby/transactions'
 
-begin
-    require 'roby_marshalling'
-rescue LoadError
-    STDERR.puts "Cannot require Roby's roby_marshalling C extension"
-    STDERR.puts "If you are using Rock, it should have been built automatically."
-    STDERR.puts "Run"
-    STDERR.puts "  amake roby"
-    STDERR.puts "and try again"
-    exit 1
-end
-require 'roby/distributed/call_spec'
-require 'roby/distributed/remote_id'
-require 'roby/distributed/dumb_manager'
-require 'roby/distributed/remote_object_manager'
-require 'roby/distributed/protocol'
-
 require 'roby/decision_control'
 require 'roby/schedulers/null'
 require 'roby/execution_engine'
@@ -124,4 +104,6 @@ require 'roby/interface/job'
 require 'roby/robot'
 require 'roby/actions'
 require 'roby/coordination'
+
+require 'roby/droby/enable'
 

@@ -458,13 +458,10 @@ module Roby
 
         # True if this object can be modified by the local plan manager
 	def read_write?
-	    if (owners.include?(Distributed) || Distributed.updating?(root_object) || !plan)
+	    if self_owned?
 		true
-	    elsif plan.owners.include?(Distributed)
-		for peer in owners
-		    return false unless plan.owners.include?(peer)
-		end
-		true
+	    elsif plan.self_owned?
+                owners.all? { |p| plan.owned_by?(p) }
 	    end
 	end
 

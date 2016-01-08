@@ -364,7 +364,7 @@ module Roby
 	# levels:: a component => level hash of the minimum level of the messages that 
 	#	   should be displayed on the console. The levels are DEBUG, INFO, WARN and FATAL.
 	#	     Roby: FATAL
-	#	     Roby::Distributed: INFO
+	#	     Roby::Interface: INFO
 	# dir:: the log directory. Uses $app_dir/log if not set
         # results:: the 
 	# filter_backtraces:: true if the framework code should be removed from the error backtraces
@@ -578,7 +578,6 @@ module Roby
             @auto_load_all = false
             @auto_load_models = true
             @app_dir = nil
-            @manage_drb = true
             @backward_compatible_naming = true
             @development_mode = true
             @search_path = nil
@@ -1419,9 +1418,6 @@ module Roby
             if public_shell_interface?
                 setup_shell_interface
             end
-            if manage_drb?
-                setup_drb_service
-            end
 
         rescue Exception
             begin cleanup
@@ -1432,9 +1428,9 @@ module Roby
 
         # Publishes a shell interface
         #
-        # This method publishes a Roby::Interface object as the front object of
-        # the local DRb server. The port on which this object is published can
-        # be configured through the droby/host configuration variable, i.e.:
+        # This method publishes a Roby::Interface object. The port on which this
+        # object is published can be configured through the droby/host
+        # configuration variable, i.e.:
         #
         #   droby:
         #       host: ":7873"
@@ -1445,14 +1441,14 @@ module Roby
         #
         # The shell interface is started in #setup and teared down in #cleanup
         #
-        # The default port is defined in Roby::Distributed::DEFAULT_DROBY_PORT
+        # The default port is defined in Roby::Interface::DEFAULT_PORT
         def setup_shell_interface
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
             if host =~ /:(\d+)$/
                 port = Integer($1)
             else
-		port = Distributed::DEFAULT_DROBY_PORT
+		port = Interface::DEFAULT_PORT
 	    end
 
             @shell_server = Interface::TCPServer.new(self, port)
@@ -1464,54 +1460,12 @@ module Roby
             end
         end
 
-        def setup_drb_service
-	    host = droby['host'] || ""
-            if host !~ /:\d+$/
-                host = host + ":0"
-            end
-	    if single? || !robot_name
-		host =~ /:(\d+)$/
-		DRb.start_service "druby://:#{$1 || '0'}"
-	    else
-		DRb.start_service "druby://#{host}"
-            end
-        end
-
-        def stop_drb_service
-            begin
-                DRb.current_server
-                DRb.stop_service
-            rescue DRb::DRbServerNotFound
-            end
-        end
-
         # Prepares the environment to actually run
         def prepare
             if public_logs?
                 FileUtils.rm_f File.join(log_base_dir, "current")
                 FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
             end
-
-            if !single? && discovery.empty?
-                Application.info "dRoby disabled as no discovery configuration has been provided"
-	    elsif !single? && robot_name
-		droby_config = { ring_discovery: !!discovery['ring'],
-		    name: robot_name, 
-		    plan: plan, 
-		    period: discovery['period'] || 0.5 }
-
-		if discovery['tuplespace']
-		    droby_config[:discovery_tuplespace] = DRbObject.new_with_uri("druby://#{discovery['tuplespace']}")
-		end
-		Roby::Distributed.state = Roby::Distributed::ConnectionSpace.new(droby_config)
-
-		if discovery['ring']
-		    Roby::Distributed.publish discovery['ring']
-		end
-		Roby.every(discovery['period'] || 0.5) do
-		    Roby::Distributed.state.start_neighbour_discovery
-		end
-	    end
 
 	    if log['events'] && public_logs?
 		require 'roby/log/file'
@@ -1638,56 +1592,9 @@ module Roby
 
             stop_log_server
             stop_shell_interface
-            if manage_drb?
-                stop_drb_service
-            end
         end
 
 	def stop; call_plugins(:stop, self) end
-
-	DISCOVERY_TEMPLATE = [:droby, nil, nil]
-
-	# Starts services needed for distributed operations. These services are
-	# supposed to be started only once for a whole system
-	#
-	# If you have external servers to start for every robot, plug it into
-	# #start_server
-	def start_distributed
-	    Thread.abort_on_exception = true
-
-	    if !File.exists?(log_dir)
-		FileUtils.mkdir_p(log_dir)
-	    end
-
-	    unless single? || !discovery['tuplespace']
-		ts = Rinda::TupleSpace.new
-
-
-		discovery['tuplespace'] =~ /(:\d+)$/
-		DRb.start_service "druby://#{$1}", ts
-
-		new_db  = ts.notify('write', DISCOVERY_TEMPLATE)
-		take_db = ts.notify('take', DISCOVERY_TEMPLATE)
-
-		Thread.start do
-		    new_db.each { |_, t| STDERR.puts "new host #{t[1]}" }
-		end
-		Thread.start do
-		    take_db.each { |_, t| STDERR.puts "host #{t[1]} has disconnected" }
-		end
-		Roby.warn "Started service discovery on #{discovery['tuplespace']}"
-	    end
-
-	    call_plugins(:start_distributed, self)
-	end
-
-	# Stop services needed for distributed operations. See #start_distributed
-	def stop_distributed
-	    DRb.stop_service
-
-	    call_plugins(:stop_distributed, self)
-	rescue Interrupt
-	end
 
 	attr_reader :log_server
 	attr_reader :log_sources
@@ -2015,12 +1922,6 @@ module Roby
             setup
         end
 
-        # If set to true, this object will start and stop a main DRb service for
-        # its own operations, otherwise it will assume there is one already
-        #
-        # This is used in {#setup} and {#cleanup}
-        attr_predicate :manage_drb?, true
-
         # @!method public_shell_interface?
         # @!method public_shell_interface=(flag)
         #
@@ -2225,8 +2126,7 @@ module Roby
                     end
                 end
             end
-            Distributed::DRobyConstant.clear_cache
-            Distributed::DRobyModel.clear_cache
+            DRoby::V5::DRobyConstant.clear_cache
             clear_models_handlers.each { |b| b.call }
             call_plugins(:clear_models, self)
         end
