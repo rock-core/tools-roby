@@ -98,7 +98,6 @@ require 'roby/execution_engine'
 require 'roby/app'
 require 'roby/state'
 require 'roby/singletons'
-require 'roby/log'
 
 require 'roby/interface/job'
 require 'roby/robot'

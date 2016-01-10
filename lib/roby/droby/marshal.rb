@@ -87,6 +87,10 @@ module Roby
                     collection.each_slice(2).map do |obj_id, marshalled_obj|
                         proxy = marshalled_obj.proxy(self)
                         context_objects[obj_id] = proxy
+
+                        if marshalled_obj.respond_to?(:remote_siblings)
+                            object_manager.register_object(proxy, marshalled_obj.remote_siblings)
+                        end
                         if marshalled_obj.respond_to?(:update)
                             updates << [marshalled_obj, proxy]
                         end

@@ -66,6 +66,12 @@ module Roby
                         assert_same loaded, demarshaller.local_object(marshalled)
                     end
 
+                    it "replicates the model's arguments" do
+                        task_m = Roby::Task.new_submodel(name: 'Test') { argument :test }
+                        loaded = transfer(task_m)
+                        assert loaded.has_argument?(:test)
+                    end
+
                     it "replicates the model's events" do
                         task_m = Roby::Task.new_submodel(name: 'Test')
                         task_m.event :controlable, controlable: true
@@ -137,6 +143,16 @@ module Roby
                             local_plan.add(task = task_m.new(test: flexmock(droby_dump: 10)))
                             task = transfer(task)
                             assert_equal 10, task.arguments[:test]
+                        end
+
+                        it "replicates delayed arguments" do
+                            task_m.argument :test
+                            local_plan.add(task = task_m.new(test: DefaultArgument.new(10)))
+                            task = transfer(task)
+
+                            test_arg = task.arguments.raw_get(:test)
+                            assert_kind_of DefaultArgument, test_arg
+                            assert_equal 10, test_arg.value
                         end
 
                         it "replicates the cached started status" do

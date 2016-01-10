@@ -66,8 +66,8 @@ module Roby
 	# plain Plan objects and false for transcations
 	def executable?; true end
 
-        def initialize
-            super(graph_observer: self)
+        def initialize(event_logger: nil)
+            super(graph_observer: self, event_logger: event_logger)
 
             @execution_engine = nil
 
@@ -77,8 +77,11 @@ module Roby
             on_exception LocalizedError do |plan, error|
                 plan.default_localized_error_handling(error)
             end
+        end
 
-            Log.log(:register_executable_plan) { [droby_id] }
+        def event_logger=(logger)
+            super
+            log :register_executable_plan, droby_id
         end
 
         def default_localized_error_handling(error)
@@ -187,7 +190,7 @@ module Roby
                 end
             end
 
-            Log.log(:added_edge) { [parent, child, relations, info] }
+            log(:added_edge, parent, child, relations, info)
         end
 
         def updating_edge_info(parent, child, relation, info)
@@ -203,7 +206,7 @@ module Roby
         # @param [Object] info the new edge info
         def updated_edge_info(parent, child, relation, info)
             emit_relation_change_hook(parent, child, relation, info, prefix: 'updated')
-            Log.log(:updated_edge_info) { [parent, child, relation, info] }
+            log(:updated_edge_info, parent, child, relation, info)
         end
 
         # Hook called before an edge gets removed from this plan
@@ -248,7 +251,7 @@ module Roby
                 end
             end
 
-            Log.log(:removed_edge) { [parent, child, relations] }
+            log(:removed_edge, parent, child, relations)
         end
 
         # @api private
@@ -325,14 +328,14 @@ module Roby
             end
             emit_relation_graph_transaction_application_hooks(updated, prefix: 'updated')
 
-            added.each do |graph, parent, child|
-                Log.log(:added_edge) { [self, parent, child, [graph.class]] }
+            added.each do |graph, parent, child, info|
+                log(:added_edge, parent, child, [graph.class], info)
             end
             removed.each do |graph, parent, child|
-                Log.log(:removed_edge) { [self, parent, child, [graph.class]] }
+                log(:removed_edge, parent, child, [graph.class])
             end
             updated.each do |graph, parent, child, info|
-                Log.log(:updated_edge_info) { [self, parent, child, graph.class, info] }
+                log(:updated_edge_info, parent, child, graph.class, info)
             end
         end
 
@@ -360,7 +363,7 @@ module Roby
 
             super
 
-            Log.log(:merged_plan) { [self, plan] }
+            log(:merged_plan, droby_id, plan)
         end
 
 	# Hook called when +task+ is marked as garbage. It will be garbage
@@ -378,9 +381,8 @@ module Roby
 		end
 	    end
 
+            log(:garbage, droby_id, task_or_event)
             remove_object(task_or_event)
-
-            Log.log(:garbage) { [self, task_or_event] }
 	end
 
         include Roby::ExceptionHandlingObject

@@ -488,7 +488,7 @@ module Roby
                 ev.unreachable!(reason)
             end
 
-            Log.log(:task_failed_to_start) { [self, reason] }
+            plan.log(:task_failed_to_start, self, reason)
         end
 
         # True if the +failed+ event of this task has been fired

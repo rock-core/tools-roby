@@ -22,38 +22,6 @@ STDOUT.sync = true
 SERVER_LIST_TIMEOUT = 5
 SERVER_LIST_POLL = 0.1
 case mode = ARGV.shift
-when "list-servers"
-    DRb.start_service "druby://:0"
-
-    require 'roby/log/server'
-    puts "Finding available servers ... (#{SERVER_LIST_TIMEOUT} seconds)"
-
-    broadcast = if ARGV.empty? then ['localhost']
-		else ARGV
-		end
-
-    Roby::Log::Server.enable_discovery broadcast
-
-    begin
-	end_time = Time.now + SERVER_LIST_TIMEOUT
-	known_servers = []
-	while end_time > Time.now
-	    sleep(SERVER_LIST_POLL)
-	    Roby::Log::Server.available_servers.each do |server|
-		next if known_servers.include?(server)
-		known_servers << server
-
-		remote = Roby::Log::Client.new(server)
-		puts "#{server.__drburi}:"
-		remote.streams.each do |s|
-		    puts "  #{s.name} [#{s.type}]"
-		end
-	    end
-	end
-    rescue Interrupt
-    end
-    exit(0)
-
 when "upgrade-format"
     require 'roby/log/upgrade'
     Roby::Log::Upgrade.to_new_format(ARGV[0])
@@ -68,8 +36,8 @@ when "rebuild-index"
     exit(0)
 
 when "stats"
-    require 'roby/log/file'
-    require 'roby/log/timings'
+    require 'roby/droby/logfile/reader'
+    require 'roby/droby/logfile/timings'
 
     filename = if ARGV[0] == "--csv"
 		   do_csv = true
@@ -83,19 +51,26 @@ when "stats"
                else
 		   ARGV[0]
 	       end
-    io = Roby::Log.open(filename)
+    io = Roby::DRoby::Logfile::Reader.open(filename)
+    index = io.index
 
-    cycle_count = io.index_data.size
-    timespan    = io.range
+    cycle_count = index.size
+
+    if cycle_count == 0
+        puts "empty log file"
+        exit 0
+    end
+
+    timespan    = index.range
     puts "#{cycle_count} cycles between #{timespan.first.to_hms} and #{timespan.last.to_hms}"
-    cpu_time = io.index_data.inject(0) { |old, info| old + info[:cpu_time] } / 1000
+    cpu_time = index.inject(0) { |old, info| old + info[:cpu_time] } / 1000
     real_time = timespan.last - timespan.first
     ratio = cpu_time / real_time
     puts "Time: %.2fs CPU / %.2fs real (%i%% CPU use)" % [cpu_time, real_time, ratio * 100]
 
-    if io.index_data.first.has_key?(:event_count)
+    if index.first.has_key?(:event_count)
 	min, max = nil
-	event_count = io.index_data.inject(0) do |total, cycle_info|
+	event_count = index.inject(0) do |total, cycle_info|
 	    count = cycle_info[:event_count]
 	    min = count if !min || min > count
 	    max = count if !max || max < count
@@ -106,7 +81,7 @@ when "stats"
 	puts "event count unavailable, please rebuild the index"
     end
 
-    timings = Roby::Log::Timings.new(io)
+    timings = Roby::DRoby::Logfile::Timings.new(index)
     if do_csv
 	timings.display(false)
     else
@@ -162,6 +137,25 @@ when "decode"
         raise
     end
     exit(0)
+
+when 'repair'
+    require 'roby/droby/logfile/reader'
+    opts = OptionParser.new
+    filename, _ = opts.parse(ARGV)
+    event_io = File.open(filename)
+    logfile = Roby::DRoby::Logfile::Reader.new(event_io)
+    while !logfile.eof?
+        current_pos = logfile.tell
+        puts current_pos
+        begin logfile.load_one_cycle
+        rescue Roby::DRoby::Logfile::TruncatedFileError
+            puts "last chunk(s) in the file seem to have only been partially written, truncating at #{current_pos}"
+            FileUtils.cp filename.first, "#{filename}.broken"
+            event_io.truncate(current_pos)
+            break
+        end
+    end
+    exit 0
     
 when "help"
     usage

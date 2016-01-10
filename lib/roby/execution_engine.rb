@@ -198,7 +198,7 @@ module Roby
 	    @thread      = nil
 	    @cycle_index = 0
 	    @cycle_start = Time.now
-	    @cycle_length = 0
+            @cycle_length = 0.1
 	    @last_stop_count = 0
             @finalizers = []
             @gc_warning = true
@@ -778,11 +778,12 @@ module Roby
         def call_propagation_handlers
             if scheduler.enabled?
                 gather_framework_errors('scheduler') do
-                    Roby::Log.log(:report_scheduler_state) do
-                        [plan, state.pending_non_executable_tasks,
-                               state.called_generators,
-                               state.non_scheduled_tasks]
-                    end
+                    state = scheduler.state
+                    plan.log(:report_scheduler_state, plan,
+                             state.pending_non_executable_tasks,
+                             state.called_generators,
+                             state.non_scheduled_tasks)
+
                     scheduler.clear_reports
                     scheduler.initial_events
                 end
@@ -1017,12 +1018,7 @@ module Roby
             if call_info
                 source_events, source_generators, context = prepare_propagation(signalled, false, call_info)
                 if source_events
-                    for source_ev in source_events
-                        source_g = source_ev.generator
-                        Roby::Log.log(:generator_propagate_event) do
-                            [false, source_g, signalled, source_ev]
-                        end
-                    end
+                    plan.log(:generator_propagate_events, false, source_events, signalled)
 
                     if signalled.self_owned?
                         next_step = gather_propagation(current_step) do
@@ -1059,12 +1055,7 @@ module Roby
             elsif forward_info
                 source_events, source_generators, context = prepare_propagation(signalled, true, forward_info)
                 if source_events
-                    for source_ev in source_events
-                        source_g = source_ev.generator
-                        Roby::Log.log(:generator_propagate_event) do
-                            [true, source_g, signalled, source_ev]
-                        end
-                    end
+                    plan.log(:generator_propagate_events, true, source_events, signalled)
 
                     # If the destination event is not owned, but if the peer is not
                     # connected, the event is our responsibility now.
@@ -1925,12 +1916,12 @@ module Roby
 
             if last_stop_count != remaining.size
                 if last_stop_count == 0
-                    ExecutionEngine.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
+                    ExecutionEngine.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.num_tasks} tasks still in plan)"
                     remaining.each do |task|
                         ExecutionEngine.info "  #{task}"
                     end
                 else
-                    ExecutionEngine.info "waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
+                    ExecutionEngine.info "waiting for #{remaining.size} tasks to finish (#{plan.num_tasks} tasks still in plan)"
                     remaining.each do |task|
                         ExecutionEngine.info "  #{task}"
                     end
@@ -1979,9 +1970,6 @@ module Roby
                                          false
 				     end
 	    stats = Hash.new
-	    if ObjectSpace.respond_to?(:live_objects)
-		last_allocated_objects = ObjectSpace.allocated_objects
-	    end
             last_cpu_time = Process.times
             last_cpu_time = (last_cpu_time.utime + last_cpu_time.stime) * 1000
 
@@ -1992,7 +1980,9 @@ module Roby
 	    loop do
 		begin
 		    if quitting?
-			thread.priority = 0
+                        if thread
+                            thread.priority = 0
+                        end
 			begin
 			    return if forced_exit? || !clear
 			rescue Exception => e
@@ -2032,23 +2022,16 @@ module Roby
 		    add_timepoint(stats, :sleep)
 
 		    # Add some statistics and call cycle_end
-		    if defined? Roby::Log
-			stats[:log_queue_size] = Roby::Log.logged_events.size
-		    end
-		    stats[:plan_task_count]  = plan.known_tasks.size
-		    stats[:plan_event_count] = plan.free_events.size
+                    stats[:log_queue_size]   = plan.log_queue_size
+		    stats[:plan_task_count]  = plan.num_tasks
+		    stats[:plan_event_count] = plan.num_free_events
 		    cpu_time = Process.times
-                    cpu_time = (cpu_time.utime + cpu_time.stime) * 1000
+                    cpu_time = (cpu_time.utime + cpu_time.stime)
 		    stats[:cpu_time] = cpu_time - last_cpu_time
                     last_cpu_time = cpu_time
 
-		    if ObjectSpace.respond_to?(:live_objects)
-			stats[:object_allocation] = ObjectSpace.allocated_objects - last_allocated_objects
-                        stats[:live_objects] = ObjectSpace.live_objects
-                        last_allocated_objects = ObjectSpace.allocated_objects
-		    end
-                    if ObjectSpace.respond_to?(:heap_slots)
-                        stats[:heap_slots] = ObjectSpace.heap_slots
+                    if GC.respond_to?(:stat)
+                        stats[:gc] = GC.stat
                     end
 
 		    stats[:start] = [cycle_start.tv_sec, cycle_start.tv_usec]
@@ -2107,7 +2090,7 @@ module Roby
 
 	# Called at each cycle end
 	def cycle_end(stats)
-	    Roby::Log.log(:cycle_end) { [stats] }
+	    plan.log(:cycle_end, stats)
 
 	    at_cycle_end_handlers.each do |handler|
 		begin
@@ -2323,7 +2306,7 @@ module Roby
 	# Call to notify the listeners registered with {#on_exception} of the
 	# occurence of an exception
 	def notify_exception(kind, error, involved_objects)
-            Log.log(:exception_notification) { [kind, error, involved_objects] }
+            plan.log(:exception_notification, plan.droby_id, kind, error, involved_objects)
 	    exception_listeners.each do |listener|
 		listener.call(self, kind, error, involved_objects)
 	    end

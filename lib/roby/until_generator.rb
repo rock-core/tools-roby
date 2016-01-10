@@ -14,7 +14,10 @@ module Roby
         # generators
 	def initialize(source = nil, limit = nil)
 	    super() do |context|
-		plan.remove_object(self)
+                forwarded_generators = each_parent_object(EventStructure::Forwarding).to_a
+                forwarded_generators.each do |g|
+                    g.remove_forwarding self
+                end
 	    end
 
 	    if source && limit

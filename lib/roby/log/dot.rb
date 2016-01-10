@@ -49,14 +49,14 @@ module Roby
                 objects.each do |from|
                     next unless display.displayed?(from)
                     unless display[from]
-                        Roby::Log.warn "no display item for #{from} in #each_displayed_relation"
+                        DRoby::Logfile.warn "no display item for #{from} in #each_displayed_relation"
                         next
                     end
 
                     from.each_child_object(rel) do |to|
                         next unless display.displayed?(to)
                         unless display[to]
-                            Roby::Log.warn "no display item for child in #{from} <#{rel}> #{to} in #each_displayed_relation"
+                            DRoby::Logfile.warn "no display item for child in #{from} <#{rel}> #{to} in #each_displayed_relation"
                             next
                         end
 
@@ -119,7 +119,7 @@ module Roby
                     item.z_value = PLAN_LAYER + depth - max_depth
                     item.rect = rect
                 else
-                    Roby::Log.warn "no bounding rectangle for #{self} (#{dot_id})"
+                    DRoby::Logfile.warn "no bounding rectangle for #{self} (#{dot_id})"
                 end
 
 

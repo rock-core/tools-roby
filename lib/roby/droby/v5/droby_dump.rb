@@ -139,6 +139,7 @@ module Roby
                         DRoby.new(
                             name,
                             peer.known_siblings_for(self),
+                            argument_set,
                             DRobyModel.dump_supermodel(peer, self),
                             DRobyModel.dump_provided_models_of(peer, self),
                             each_event.map { |_, ev| [ev.symbol, ev.controlable?, ev.terminal?] })
@@ -146,13 +147,20 @@ module Roby
 
                     class DRoby < DRobyModel
                         attr_reader :events
+                        attr_reader :argument_set
 
-                        def initialize(name, remote_siblings, supermodel, provided_models, events)
+                        def initialize(name, remote_siblings, argument_set, supermodel, provided_models, events)
                             super(name, remote_siblings, supermodel, provided_models)
+                            @argument_set = argument_set
                             @events = events
                         end
 
                         def update(peer, local_object, fresh_proxy: false)
+                            argument_set.each do |arg_name|
+                                if !local_object.has_argument?(arg_name)
+                                    local_object.argument arg_name
+                                end
+                            end
                             events.each do |name, controlable, terminal|
                                 if !local_object.has_event?(name)
                                     local_object.event name, controlable: controlable, terminal: terminal
@@ -308,12 +316,14 @@ module Roby
                 # Returns an intermediate representation of +self+ suitable to be sent
                 # to the +dest+ peer.
                 def droby_dump(peer)
-                    DRoby.new(emitted?, peer.dump(task), symbol)
+                    DRoby.new(peer.known_siblings_for(self), emitted?, peer.dump(task), symbol)
                 end
 
                 # An intermediate representation of TaskEventGenerator objects suitable
                 # to be sent to our peers.
                 class DRoby
+                    # This event's siblings
+                    attr_reader :remote_siblings
                     # True if the generator has already emitted once at the time
                     # TaskEventGenerator#droby_dump has been called.
                     attr_reader :emitted
@@ -324,7 +334,8 @@ module Roby
                     attr_reader :symbol
 
                     # Create a new DRoby object with the given information
-                    def initialize(emitted, task, symbol)
+                    def initialize(remote_siblings, emitted, task, symbol)
+                        @remote_siblings = remote_siblings
                         @emitted = emitted
                         @task   = task
                         @symbol = symbol
@@ -392,11 +403,18 @@ module Roby
                 # Returns an intermediate representation of +self+ suitable to be sent
                 # to the +dest+ peer.
                 def droby_dump(peer)
+                    arguments = Hash.new
+                    model.arguments.each do |arg_name|
+                        if self.arguments.assigned?(arg_name)
+                            arguments[arg_name] = self.arguments.raw_get(arg_name)
+                        end
+                    end
+
                     DRoby.new(peer.known_siblings_for(self),
                               peer.dump(owners),
                               peer.dump(model),
                               plan.droby_id, 
-                              peer.dump(meaningful_arguments),
+                              peer.dump(arguments),
                               peer.dump(data),
                               mission: mission?, started: started?,
                               finished: finished?, success: success?)
@@ -475,7 +493,7 @@ module Roby
                         end
 
                         DRoby.new(
-                            DRobyConstant.new(self.class), droby_id, peer.known_siblings_for(self),
+                            DRobyConstant.new(self.class), droby_id,
                             known_tasks, task_events, free_events,
                             missions, permanent_tasks, permanent_events,
                             task_relation_graphs, event_relation_graphs)
@@ -485,7 +503,6 @@ module Roby
                 class DRoby
                     attr_reader :plan_class
                     attr_reader :droby_id
-                    attr_reader :remote_siblings
                     attr_reader :groups
                     attr_reader :known_tasks
                     attr_reader :task_events
@@ -496,13 +513,12 @@ module Roby
                     attr_reader :task_relation_graphs
                     attr_reader :event_relation_graphs
 
-                    def initialize(plan_class, droby_id, remote_siblings,
+                    def initialize(plan_class, droby_id,
                                    known_tasks, task_events, free_events,
                                    missions, permanent_tasks, permanent_events,
                                    task_relation_graphs, event_relation_graphs)
                         @plan_class            = plan_class
                         @droby_id              = droby_id
-                        @remote_siblings       = remote_siblings
                         @known_tasks           = known_tasks
                         @task_events           = task_events
                         @free_events           = free_events
@@ -514,7 +530,7 @@ module Roby
                     end
 
                     def proxy(peer)
-                        plan = peer.local_object(plan_class).new
+                        plan = Plan.new
                         peer.with_object(droby_id => plan) do
                             peer.load_groups(known_tasks, task_events, free_events) do |known_tasks, task_events, free_events|
                                 plan.known_tasks.merge(known_tasks)

@@ -169,7 +169,7 @@ module Roby
 
             # Displays the data incoming from +client+
             #
-            # +client+ is assumed to be a Roby::Log::Client instance
+            # +client+ is assumed to be a {DRoby::Logfile::Client} instance
             #
             # +update_period+ is, in seconds, the period at which the
             # display will check whether there is new data on the port.

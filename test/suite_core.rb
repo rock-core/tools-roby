@@ -61,5 +61,4 @@ require './test/suite_coordination'
 require './test/suite_droby'
 
 require './test/suite_interface'
-require './test/test_log'
 

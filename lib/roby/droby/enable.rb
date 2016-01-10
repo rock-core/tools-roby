@@ -8,7 +8,11 @@ class Object
 
     # The DRobyID for this object
     def droby_id
-        @__droby_remote_id__ ||= Roby::DRoby::V5::DRobyID.allocate
+        if @__droby_remote_id__
+            @__droby_remote_id__
+        elsif !frozen?
+            @__droby_remote_id__ = Roby::DRoby::V5::DRobyID.allocate
+        end
     end
 end
 

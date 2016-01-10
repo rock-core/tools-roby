@@ -1468,14 +1468,16 @@ module Roby
             end
 
 	    if log['events'] && public_logs?
-		require 'roby/log/file'
-		logfile = File.join(log_dir, robot_name)
-		logger  = Roby::Log::FileLogger.new(logfile, plugins: plugins.map { |n, _| n })
-		logger.stats_mode = (log['events'] == 'stats')
-		Roby::Log.add_logger logger
+                require 'roby/droby/event_logger'
+                require 'roby/droby/logfile/writer'
+
+                logfile_path = File.join(log_dir, "#{robot_name}-events.log")
+                event_io = File.open(logfile_path, 'w')
+                logfile = DRoby::Logfile::Writer.new(event_io, plugins: plugins.map { |n, _| n })
+                plan.event_logger = DRoby::EventLogger.new(logfile)
 
                 Robot.info "logs are in #{log_dir}"
-                if start_log_server(logfile)
+                if start_log_server(logfile_path)
                     Robot.info "log server running on port #{log_server_port}"
                 else
                     Robot.info "log server disabled"
@@ -1638,18 +1640,23 @@ module Roby
 	    # Start a log server if needed, and poll the log directory for new
 	    # data sources
 	    if log_server = (log.has_key?('server') ? log['server'] : true)
-		require 'roby/log/server'
+		require 'roby/droby/logfile/server'
 
-                port = Log::Server::DEFAULT_PORT
-                sampling_period = Log::Server::DEFAULT_SAMPLING_PERIOD
+                port = DRoby::Logfile::Server::DEFAULT_PORT
+                sampling_period = DRoby::Logfile::Server::DEFAULT_SAMPLING_PERIOD
                 if log_server.kind_of?(Hash)
                     port = Integer(log_server['port'] || port)
                     sampling_period = Float(log_server['sampling_period'] || sampling_period)
                     debug = log_server['debug']
                 end
 
+                server_flags = ["--server=#{port}", "--sampling=#{sampling_period}", logfile]
+                if debug
+                    server_flags << "--debug"
+                end
+
                 @log_server = fork do
-                    exec("roby-display#{" --debug" if debug} --server=#{port} --sampling=#{sampling_period} #{logfile}-events.log")
+                    exec("roby-display", *server_flags)
                 end
                 @log_server_port = port
 	    end

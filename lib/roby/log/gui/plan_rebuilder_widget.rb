@@ -261,13 +261,13 @@ module Roby
 
             # Displays the data incoming from +client+
             #
-            # +client+ is assumed to be a Roby::Log::Client instance
+            # +client+ is assumed to be a {DRoby::Logfile::Client} instance
             #
             # +update_period+ is, in seconds, the period at which the
             # display will check whether there is new data on the port.
             def connect(client, options = Hash.new)
                 options = Kernel.validate_options options,
-                    port: Roby::Log::Server::DEFAULT_PORT,
+                    port: DRoby::Logfile::Server::DEFAULT_PORT,
                     update_period: DEFAULT_REMOTE_POLL_PERIOD
 
                 if client.respond_to?(:to_str)
@@ -276,7 +276,7 @@ module Roby
 
                     begin
                         hostname = client
-                        client = Roby::Log::Client.new(client, options[:port])
+                        client = DRoby::Logfile::Client.new(client, options[:port])
                     rescue Exception => e
                         connection_failed(e, client, options)
                         return false

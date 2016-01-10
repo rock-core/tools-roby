@@ -214,7 +214,6 @@ module Roby
                 end
             end
 
-            Roby::Log.log(:generator_called) { [self, context.to_s] }
             called(context)
 	end
 
@@ -601,7 +600,7 @@ module Roby
                 error = EmissionFailed.new(error, self)
             end
 
-            Roby::Log.log(:generator_emit_failed) { [self, error] }
+            plan.log(:generator_emit_failed, self, error)
             plan.execution_engine.add_error(error)
 	ensure
 	    @pending = false
@@ -618,9 +617,6 @@ module Roby
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end
 
-            Roby::Log.log(:generator_emitting) do
-                [self, plan.execution_engine.propagation_source_generators, context.to_s]
-            end
 	    emitting(context)
 	    # Create the event object
 	    event = new(context)
@@ -784,8 +780,6 @@ module Roby
 		    raise EventPreconditionFailed.new(self), "precondition #{reason} failed"
 		end
 	    end
-
-	    Roby::Log.log(:generator_calling) { [self, plan.execution_engine.propagation_source_generators, context.to_s] }
 	end
 
 	# Hook called just after the event command has been called
@@ -801,7 +795,7 @@ module Roby
 	def fired(event)
 	    unreachable_handlers.delete_if { |cancel, _| cancel }
 	    history << event
-            Roby::Log.log(:generator_fired) { [self, event.object_id, event.time, event.context.to_s] }
+            plan.log(:generator_fired, event)
 	end
 
 	# call-seq:
@@ -902,14 +896,16 @@ module Roby
 	    @unreachable = true
             @unreachability_reason = reason
 
-            Log.log(:generator_unreachable) { [self, reason] }
-            execution_engine.unreachable_event(self)
+            plan.log(:generator_unreachable, self, reason)
+            if execution_engine
+                execution_engine.unreachable_event(self)
+            end
             call_unreachable_handlers(reason)
         end
 
 	# Called internally when the event becomes unreachable
 	def unreachable!(reason = nil, plan = self.plan)
-            if !plan
+            if !plan.executable?
                 unreachable_without_propagation(reason)
             elsif execution_engine.gathering?
                 unreachable_without_propagation(reason, plan)

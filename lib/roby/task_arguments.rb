@@ -22,6 +22,11 @@ module Roby
             @static
         end
 
+        # Return the value stored for the given key as-is
+        def raw_get(key)
+            values[key]
+        end
+
         # True if an argument with that name is assigned, be it a proper value
         # or a delayed value object
         def has_key?(key)
@@ -166,9 +171,7 @@ module Roby
                 end
 
 		values[key] = value
-                if task.plan.executable?
-                    Roby::Log.log(:task_arguments_updated) { [task, key, value] }
-                end
+                task.plan.log(:task_arguments_updated, task, key, value)
 
                 if update_static
                     @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
@@ -207,7 +210,8 @@ module Roby
         def force_merge!(hash)
             if task.plan && task.plan.executable?
                 values.merge!(hash) do |k, _, v|
-                    Roby::Log.log(:task_arguments_updated) { [task, k, v] }
+                    task.plan.log(:task_arguments_updated, task, k, v)
+                    v
                 end
             else
                 values.merge!(hash)
@@ -219,9 +223,7 @@ module Roby
 	    values.merge!(hash) do |key, old, new|
 		if old == new then old
 		elsif writable?(key, new)
-                    if task.plan.executable?
-                        Roby::Log.log(:task_arguments_updated) { [task, key, new] }
-                    end
+                    task.plan.log(:task_arguments_updated, task, key, new)
                     new
 		else
 		    raise ArgumentError, "cannot override task argument #{key}: trying to replace #{old} by #{new}"

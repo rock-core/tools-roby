@@ -85,9 +85,9 @@ if data_source_mode == :server
     begin
         server.exec
     rescue Interrupt
-        Roby::Log::Server.info "log server interrupted"
+        Roby::DRoby::Logfile::Server.info "log server interrupted"
     rescue Exception => e
-        Roby.log_exception(e, Roby::Log::Server, :fatal)
+        Roby.log_exception(e, Roby::DRoby::Logfile::Server, :fatal)
     end
     exit(0)
 end

@@ -86,7 +86,10 @@ module Roby
 	# plain Plan objects and false for transcations
 	def executable?; false end
 
-	def initialize(graph_observer: nil)
+        # The event logger
+        attr_reader :event_logger
+
+	def initialize(graph_observer: nil, event_logger: nil)
             @local_owner = DRoby::PeerID.new('local')
 
 	    @missions	 = Set.new
@@ -103,6 +106,7 @@ module Roby
 
             @task_relation_graphs, @event_relation_graphs =
                 self.class.instanciate_relation_graphs(graph_observer: graph_observer)
+            self.event_logger = event_logger
 
             @active_fault_response_tables = Array.new
 
@@ -117,6 +121,25 @@ module Roby
 
 	    super()
 	end
+
+        def event_logger=(event_logger)
+            @event_logger = event_logger
+        end
+
+        # Forward one event to {#event_logger}
+        def log(m, *args)
+            if event_logger
+                event_logger.dump(m, Time.now, args)
+            end
+        end
+
+        # The amount of cycles pending in the {#event_logger}'s dump queue
+        def log_queue_size
+            if event_logger
+                event_logger.log_queue_size
+            else 0
+            end
+        end
 
         def self.instanciate_relation_graphs(graph_observer: nil)
             task_relation_graphs  = Relations::Space.new_relation_graph_mapping
@@ -521,6 +544,7 @@ module Roby
                 end
             elsif object.respond_to?(:to_event)
                 @permanent_events.delete(object.to_event)
+                notify_plan_status_change(object, :normal)
             else
                 raise ArgumentError, "expected a task or event and got #{object}"
             end
@@ -544,7 +568,7 @@ module Roby
             if services = plan_services[object]
                 services.each { |s| s.notify_plan_status_change(status) }
             end
-            Log.log(:notify_plan_status_change) { [self, object, status] }
+            log(:plan_status_change, object, status)
         end
 
 	def edit
@@ -1285,13 +1309,13 @@ module Roby
 	# Hook called when +task+ has been removed from this plan
 	def finalized_task(task)
             finalized_transaction_object(task) { |trsc, proxy| trsc.finalized_plan_task(proxy) }
-            Log.log(:finalized_task) { [self, task] }
+            log(:finalized_task, droby_id, task)
 	end
 
 	# Hook called when +event+ has been removed from this plan
 	def finalized_event(event)
             finalized_transaction_object(event) { |trsc, proxy| trsc.finalized_plan_event(proxy) }
-            Log.log(:finalized_event) { [self, event] }
+            log(:finalized_event, droby_id, event)
         end
 
         # Generic filter which checks if +object+ is included in one of the

@@ -766,40 +766,24 @@ class TC_ExecutionEngine < Minitest::Test
     ensure
 	execution_engine.thread = nil
     end
-
-    class CaptureLastStats
-	attr_reader :last_stats
-	def splat?; true end
-        def logs_message?(m); m == :cycle_end end
-        def close; end
-	def cycle_end(time, stats)
-	    @last_stats = stats
-	end
-    end
     
     def test_stats
-        require 'roby/log'
-
-	capture = CaptureLastStats.new
-	Roby::Log.add_logger capture
-
 	time_events = [:real_start, :events, :structure_check, :exception_propagation, :exception_fatal, :garbage_collect, :application_errors, :ruby_gc, :sleep, :end]
 	10.times do
-	    execution_engine.process_events
-	    next unless capture.last_stats
+            FlexMock.use(execution_engine) do |mock|
+                mock.should_receive(:cycle_end).and_return do |stats|
+                    timepoints = stats.slice(*time_events)
+                    assert(timepoints.all? { |name, d| d > 0 })
 
-            timepoints = capture.last_stats.slice(*time_events)
-            assert(timepoints.all? { |name, d| d > 0 })
-
-            sorted_by_time = timepoints.sort_by { |name, d| d }
-            sorted_by_name = timepoints.sort_by { |name, d| time_events.index(name) }
-            sorted_by_time.each_with_index do |(name, d), i|
-                assert(sorted_by_name[i][1] == d)
+                    sorted_by_time = timepoints.sort_by { |name, d| d }
+                    sorted_by_name = timepoints.sort_by { |name, d| time_events.index(name) }
+                    sorted_by_time.each_with_index do |(name, d), i|
+                        assert(sorted_by_name[i][1] == d)
+                    end
+                end
+                execution_engine.process_events
             end
 	end
-
-    ensure
-	Roby::Log.remove_logger capture if capture
     end
 
     def assert_finalizes(plan, finalized, unneeded = nil)

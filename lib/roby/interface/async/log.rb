@@ -1,5 +1,6 @@
-require 'roby/log/plan_rebuilder'
-require 'roby/log/server'
+require 'roby/droby/plan_rebuilder'
+require 'roby/droby/logfile/server'
+require 'roby/droby/logfile/client'
 
 module Roby
     module Interface
@@ -81,8 +82,7 @@ module Roby
                 #
                 # Create a plan rebuilder for use in the async object
                 def default_plan_rebuilder
-                    plan = Roby::Plan.new
-                    Roby::LogReplay::PlanRebuilder.new(plan: plan)
+                    DRoby::PlanRebuilder.new
                 end
 
                 def initialize(host = DEFAULT_REMOTE_NAME, port: DEFAULT_PORT, connect: true,
@@ -216,7 +216,7 @@ module Roby
                                 run_hook :on_init_done
                             end
                             client.on_data do |data|
-                                plan_rebuilder.process(data)
+                                plan_rebuilder.process_one_cycle(data)
                                 cycle = plan_rebuilder.cycle_index
                                 time  = plan_rebuilder.cycle_start_time
                                 Roby::Log.debug "Async update(#{cycle}, #{time})"
