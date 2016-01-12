@@ -154,6 +154,13 @@ module Roby
                 end
                 assert_equal source.start_event.handlers, target.start_event.handlers
             end
+
+            it "propagates the argument's static flag from plan to transaction" do
+                plan.add(task = Tasks::Simple.new(id: DefaultArgument.new(10)))
+                plan.in_transaction do |t|
+                    assert !t[task].arguments.static?
+                end
+            end
         end
         
         describe "#instanciate_model_event_relations" do

@@ -128,7 +128,22 @@ module Roby
         # @param [Object] value the new argument value
         # @return [Object]
 	def update!(key, value)
+            if values.has_key?(key)
+                current_value = values[key]
+                is_updated    = (current_value != value)
+                update_static = TaskArguments.delayed_argument?(current_value)
+            else is_updated = true
+            end
+
             values[key] = value
+            if is_updated
+                task.plan.log(:task_arguments_updated, task, key, value)
+            end
+            if TaskArguments.delayed_argument?(value)
+                @static = false
+            elsif update_static
+                @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
+            end
         end
 
         # Assigns a value to a given argument name

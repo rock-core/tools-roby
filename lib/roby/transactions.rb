@@ -28,18 +28,17 @@ module Roby
         # @see #committed?
 	def finalized?; !plan end
 
-        def setup_proxy(proxy, object, klass = object.class)
+        def extend_proxy_object(proxy, object, klass = object.class)
             proxy.extend Roby::Transaction::Proxying.proxying_module_for(klass)
-            proxy.setup_proxy(object, self)
-            proxy
         end
 
         def setup_and_register_proxy(proxy, object)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
 
             proxy_objects[object] = proxy
-            proxy = setup_proxy(proxy, object)
+            extend_proxy_object(proxy, object)
             proxy.plan = self
+            proxy.setup_proxy(object, self)
 
             case proxy
             when Roby::PlanService
@@ -60,7 +59,8 @@ module Roby
 
         def create_and_register_plan_service_proxy(object)
             proxy = object.dup
-            setup_proxy(proxy, object)
+            extend_proxy_object(proxy, object)
+            proxy.setup_proxy(object, self)
 
             if !underlying_proxy = proxy_objects[object.to_task]
                 raise InternalError, "no proxy for #{object.to_task}, there should be one at this point"
