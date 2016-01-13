@@ -303,7 +303,7 @@ module Roby
                                 yield(child, self[child, __r_#{relation_name}__])
                             end
                         else
-                            each_child_object(__r_#{relation_name}__, &proc)
+                            each_child_object(__r_#{relation_name}__, &Proc.new)
                         end
                     end
                     def find_#{child_name}(with_info = true)
@@ -312,7 +312,7 @@ module Roby
                                 return child if yield(child, self[child, __r_#{relation_name}__])
                             end
                         else
-                            each_child_object(__r_#{relation_name}__).find(&proc)
+                            each_child_object(__r_#{relation_name}__).find(&Proc.new)
                         end
                         nil
                     end

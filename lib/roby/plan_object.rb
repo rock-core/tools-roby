@@ -286,7 +286,7 @@ module Roby
             end
 
             if intrusive
-                enumerator.call(self, &proc)
+                enumerator.call(self, &Proc.new)
                 for related_object in pending
                     yield(self.plan[related_object])
                 end

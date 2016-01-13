@@ -1433,7 +1433,7 @@ module Roby
 
                     next_steps = gather_propagation do
                         new_errors = gather_errors do
-                            proc.call
+                            yield
                         end
                         errors.concat(new_errors)
                     end

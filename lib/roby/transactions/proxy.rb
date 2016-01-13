@@ -256,7 +256,7 @@ module Roby
 
             if object
                 super(object)
-            else super(nil, &proc)
+            else super(nil, &Proc.new)
             end
         end
     end
@@ -299,7 +299,7 @@ module Roby
 
             if event
                 super(event)
-            else super(nil, &proc)
+            else super(nil, &Proc.new)
             end
         end
 

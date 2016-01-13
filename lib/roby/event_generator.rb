@@ -329,7 +329,7 @@ module Roby
 
             if event
                 super(event)
-            else super(nil, &proc)
+            else super(nil, &Proc.new)
             end
         end
 

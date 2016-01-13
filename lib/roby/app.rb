@@ -2192,7 +2192,7 @@ module Roby
             return enum_for(__method__, root_model) if !block_given?
 
             if !root_model
-                self.root_models.each { |m| each_model(m, &proc) }
+                self.root_models.each { |m| each_model(m, &Proc.new) }
                 return
             end
 

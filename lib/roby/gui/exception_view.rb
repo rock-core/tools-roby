@@ -17,7 +17,7 @@ module Roby
                     yield e
                     if e.respond_to?(:original_exceptions)
                         e.original_exceptions.each do |original_e|
-                            each_exception_from(original_e, &proc)
+                            each_exception_from(original_e, &Proc.new)
                         end
                     end
                 end
