@@ -27,7 +27,7 @@ task :uic do
     end
 
     UIFILES.each do |file|
-        file = 'lib/roby/log/' + file
+        file = 'lib/roby/' + file
         if !system(rbuic, '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
             STDERR.puts "Failed to generate #{file}"
         end

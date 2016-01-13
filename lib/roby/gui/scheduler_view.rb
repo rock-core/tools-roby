@@ -1,6 +1,7 @@
+require 'erb'
 require 'qtwebkit'
 module Roby
-    module LogReplay
+    module GUI
         class SchedulerView < Qt::WebView
             def ressources_dir
                 File.expand_path(File.dirname(__FILE__))

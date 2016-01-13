@@ -29,6 +29,11 @@ module Roby
             # filters applied on the event stream
             attr_reader :event_filters
 
+            # The time of the first processed cycle
+            attr_reader :start_time
+            # The time of the last processed log item
+            attr_reader :current_time
+
             def initialize(plan: RebuiltPlan.new)
                 @plan = plan
                 @object_manager = ObjectManager.new(droby_id)
@@ -61,11 +66,6 @@ module Roby
                 end
             end
 
-            # The time of the first processed cycle
-            def start_time
-                @start_time
-            end
-
             # The starting time of the last processed cycle
             #
             # @return [Time]
@@ -74,9 +74,6 @@ module Roby
                     Time.at(*stats[:start]) + stats[:real_start]
                 end
             end
-
-            # The time of the last processed log item
-            attr_reader :current_time
 
             # The starting time of the last processed cycle
             def cycle_end_time
@@ -178,8 +175,15 @@ module Roby
             end
 
             def merged_plan(time, plan_id, merged_plan)
-                local_object(plan).merge!(
-                    local_object(merged_plan))
+                merged_plan = local_object(merged_plan)
+                tasks_and_events = merged_plan.known_tasks.to_a +
+                    merged_plan.free_events.to_a +
+                    merged_plan.task_events.to_a
+
+                local_object(plan).merge(merged_plan)
+                tasks_and_events.each do |obj|
+                    obj.addition_time = time
+                end
             end
 
             def added_edge(time, parent, child, relations, info)

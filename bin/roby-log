@@ -90,9 +90,9 @@ when "stats"
     exit(0)
 
 when "decode"
-    require 'roby/log/event_stream'
-    require 'roby/log/plan_rebuilder'
-    DRb.start_service
+    require 'roby/droby/logfile/reader'
+    require 'roby/droby/plan_rebuilder'
+
     raw, decoded = false, false
     opts = OptionParser.new do |opt|
         opt.on("--raw") { raw = true }
@@ -108,12 +108,12 @@ when "decode"
         decoded = true
     end
 
-    stream = Roby::LogReplay::EventFileStream.open(filename.first)
+    stream = Roby::DRoby::Logfile::Reader.open(filename.first)
     if decoded
-        rebuilder = Roby::LogReplay::PlanRebuilder.new
+        rebuilder = Roby::DRoby::PlanRebuilder.new
     end
     begin
-    while data = stream.read
+    while data = stream.load_one_cycle
         data.each_slice(4) do |m, sec, usec, args|
             header = "#{Time.at(sec, usec)} #{m} "
             if raw
@@ -122,11 +122,8 @@ when "decode"
             end
             if decoded
                 decoded_args = args.map do |obj|
-                    result = catch(:ignored) do
-                        rebuilder.local_object(obj)
-                    end
                     rebuilder.process_one_event(m, sec, usec, args)
-                    result || obj
+                    rebuilder.local_object(obj)
                 end
                 puts "#{header} #{decoded_args.map(&:to_s).join("  ")}"
             end

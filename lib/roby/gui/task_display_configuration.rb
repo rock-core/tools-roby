@@ -1,5 +1,5 @@
 module Roby
-    module LogReplay
+    module GUI
 	module TaskDisplayConfiguration
             # A set of prefixes that should be removed from the task names
 	    attribute(:removed_prefixes) { Set.new }

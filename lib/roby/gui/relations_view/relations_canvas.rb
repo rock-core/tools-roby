@@ -1,28 +1,13 @@
-require 'roby/log/gui/qt4_toMSecsSinceEpoch'
-require 'roby/log/gui/task_display_configuration'
-
+require 'roby/gui/qt4_toMSecsSinceEpoch'
 require 'utilrb/module/attr_predicate'
-require 'roby/distributed/protocol'
-
-require 'roby/log/dot'
-require 'roby/log/gui/styles'
+require 'roby/gui/task_display_configuration'
+require 'roby/gui/plan_dot_layout'
+require 'roby/gui/styles'
+require 'roby/gui/task_state_at'
 
 module Roby
-    module LogReplay
-    module RelationsDisplay
-        def self.all_task_relations
-            if @all_task_relations
-                @all_task_relations
-            else
-                result = []
-                ObjectSpace.each_object(Roby::Relations::Space) do |space|
-                    result.concat(space.relations) if space.applied.find { |t| t <= Roby::Task }
-                end
-                @all_task_relations = result
-            end
-        end
-
-        module DisplayPlanObject
+    module GUI
+        module RelationsCanvasPlanObject
             def display_parent; end
             def display_create(display); end
             def display_events; Set.new end
@@ -31,11 +16,10 @@ module Roby
             end
         end
 
-        module DisplayEventGenerator
-            include DisplayPlanObject
+        module RelationsCanvasEventGenerator
+            include RelationsCanvasPlanObject
+
             def self.style(object, flags)
-                # This is for backward compatibility only. All events are now marshalled
-                # with their controllability.
                 flags |= (object.controlable? ? EVENT_CONTROLABLE : EVENT_CONTINGENT)
 
                 if (flags & EVENT_CALLED) == EVENT_CALLED
@@ -99,18 +83,18 @@ module Roby
             end
         end
 
-        module DisplayTaskEventGenerator
-            include DisplayEventGenerator
+        module RelationsCanvasTaskEventGenerator
+            include RelationsCanvasEventGenerator
             def display_parent; task end
             def display_name(display); symbol.to_s end
             def display(display, graphics_item)
             end
         end
 
-        module DisplayTask
+        module RelationsCanvasTask
             # NOTE: we must NOT include ReplayTask here, as ReplayTask overloads
             # some methods from Task and it would break this overloading
-            include DisplayPlanObject
+            include RelationsCanvasPlanObject
             def layout_events(display)
                 graphics_item = display[self]
 
@@ -122,7 +106,7 @@ module Roby
                     [e, circle, br]
                 end
                 events.compact!
-                events = events.sort_by { |ev, _| DisplayEventGenerator.priorities[ev] }
+                events = events.sort_by { |ev, _| RelationsCanvasEventGenerator.priorities[ev] }
 
                 events.each do |_, circle, br|
                     w, h = br.width, br.height
@@ -189,7 +173,7 @@ module Roby
 
             attr_reader :displayed_state
             def update_graphics(display, graphics_item)
-                new_state = current_display_state(display.current_time)
+                new_state = GUI.task_state_at(self, display.current_time)
                 finalized = (finalization_time && finalization_time <= display.current_time)
                 if displayed_state != [new_state, finalized]
                     if finalized
@@ -217,24 +201,24 @@ module Roby
             # @param [Roby::Task] task the Roby task
             # @option options [String] :path a file path to which the SVG should
             #   be saved
-            # @option options [Float] :scale_x (Layout::DOT_TO_QT_SCALE_FACTOR_X)
-            # @option options [Float] :scale_y (Layout::DOT_TO_QT_SCALE_FACTOR_Y)
+            # @option options [Float] :scale_x (PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_X)
+            # @option options [Float] :scale_y (PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_Y)
             #
             # @return [String,nil] if the file path is not set, the SVG content.
             #   Otherwise, nil.
             def self.to_svg(task, options = Hash.new)
                 options = Kernel.validate_options options,
                     path: nil,
-                    scale_x: Layout::DOT_TO_QT_SCALE_FACTOR_X,
-                    scale_y: Layout::DOT_TO_QT_SCALE_FACTOR_Y
+                    scale_x: PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_X,
+                    scale_y: PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_Y
 
                 if !task.plan
                     plan = Roby::Plan.new
-                    plan.extend DisplayPlan
+                    plan.extend RelationsCanvasPlan
                     plan.extend ReplayPlan
                     plan.add(task)
                 end
-                task.extend DisplayTask
+                task.extend RelationsCanvasTask
                 task.extend ReplayTask
                 plan = task.plan
 
@@ -280,8 +264,8 @@ module Roby
             end
         end
 
-        module DisplayTaskProxy
-            include DisplayTask
+        module RelationsCanvasTaskProxy
+            include RelationsCanvasTask
 
             attr_writer :real_object
             def flags; real_object.flags end
@@ -303,7 +287,7 @@ module Roby
             end
         end
 
-        module DisplayPlan
+        module RelationsCanvasPlan
             # NOTE: we must NOT include ReplayPlan here, as ReplayTask overloads
             # some methods from Task and it would break this overloading
 
@@ -333,12 +317,12 @@ module Roby
             end
         end
 
-        Roby::PlanObject.include DisplayPlanObject
-        Roby::EventGenerator.include DisplayEventGenerator
-        Roby::TaskEventGenerator.include DisplayTaskEventGenerator
-        Roby::Task.include DisplayTask
-        Roby::Task::Proxying.include DisplayTaskProxy
-        Roby::Plan.include DisplayPlan
+        Roby::PlanObject.include RelationsCanvasPlanObject
+        Roby::EventGenerator.include RelationsCanvasEventGenerator
+        Roby::TaskEventGenerator.include RelationsCanvasTaskEventGenerator
+        Roby::Task.include RelationsCanvasTask
+        Roby::Task::Proxying.include RelationsCanvasTaskProxy
+        Roby::Plan.include RelationsCanvasPlan
 
 	class Qt::GraphicsScene
 	    attr_reader :default_arrow_pen
@@ -436,7 +420,7 @@ module Roby
 
 	class RelationsCanvas < Qt::Object
             # Common configuration options for displays that represent tasks
-	    include LogReplay::TaskDisplayConfiguration
+	    include TaskDisplayConfiguration
 
             # The Qt::GraphicsScene we are manipulating
             attr_reader :scene
@@ -605,7 +589,7 @@ module Roby
                     end
                 end
 
-		RelationsDisplay.arrow_set item, self[from], self[to]
+		GUI.arrow_set item, self[from], self[to]
 	    end
 
 	    # Centers the view on the set of object found which matches
@@ -833,16 +817,11 @@ module Roby
 	    def propagation_style(arrow, flag)
 		unless defined? @@propagation_styles
 		    @@propagation_styles = Hash.new
-		    @@propagation_styles[PROPAG_FORWARD] = 
+		    @@propagation_styles[true] = 
 			[Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, (forward_pen = Qt::Pen.new)]
 		    forward_pen.style = Qt::DotLine
-		    @@propagation_styles[PROPAG_SIGNAL] = 
+		    @@propagation_styles[false] = 
 			[Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, Qt::Pen.new]
-		    @@propagation_styles[PROPAG_EMITTING] = 
-			[Qt::Brush.new(Qt::Color.new('blue')), Qt::Pen.new(Qt::Color.new('blue')), (emitting_pen = Qt::Pen.new(Qt::Color.new('blue')))]
-		    emitting_pen.style = Qt::DotLine
-		    @@propagation_styles[PROPAG_CALLING] = 
-			[Qt::Brush.new(Qt::Color.new('blue')), Qt::Pen.new(Qt::Color.new('blue')), Qt::Pen.new(Qt::Color.new('blue'))]
 		end
 		arrow.brush, arrow.pen, arrow.line.pen = @@propagation_styles[flag]
 	    end
@@ -856,12 +835,12 @@ module Roby
                     if display_plan_bounding_boxes?
                         visible_objects << p
                     end
-                    p.emitted_events.each do |flags, object|
-                        visible_objects << object
+                    p.emitted_events.each do |event|
+                        visible_objects << event.generator
                     end
                     p.propagated_events.each do |_, sources, to, _|
                         sources.each do |src|
-                            visible_objects << src
+                            visible_objects << src.generator
                         end
                         visible_objects << to
                     end
@@ -982,20 +961,31 @@ module Roby
                     item.visible = displayed?(object)
                 end
 
-		DisplayEventGenerator.priorities.clear
+		RelationsCanvasEventGenerator.priorities.clear
 		event_priority = 0
                 plans.each do |p|
-                    p.emitted_events.each_with_index do |(flags, object), event_priority|
-                        DisplayEventGenerator.priorities[object] = event_priority
-                        if displayed?(object)
-                            item = graphics[object]
-                            item.brush, item.pen = DisplayEventGenerator.style(object, flags)
-                        end
+                    flags = Hash.new(0)
+
+                    p.called_generators.each_with_index do |generator, priority|
+                        flags[generator] |= EVENT_CALLED
                     end
-                    p.failed_emissions.each do |generator, object|
+                    base_priority = p.called_generators.size
+
+                    p.emitted_events.each_with_index do |event, priority|
+                        generator = event.generator
+                        flags[generator] |= EVENT_EMITTED
+                    end
+
+                    p.failed_emissions.each do |generator, reason|
+                        flags[generator] = FAILED_EMISSION
+                    end
+
+                    flags.each_with_index do |(generator, generator_flags), priority|
+                        RelationsCanvasEventGenerator.priorities[generator] = priority
                         if displayed?(generator)
                             item = graphics[generator]
-                            item.brush, item.pen = DisplayEventGenerator.style(generator, FAILED_EMISSION)
+                            item.brush, item.pen = RelationsCanvasEventGenerator.style(
+                                generator, generator_flags)
                         end
                     end
                 end
@@ -1003,12 +993,8 @@ module Roby
                 plans.each do |p|
                     p.propagated_events.each do |_, sources, to, _|
                         sources.each do |from|
-                            if !DisplayEventGenerator.priorities.has_key?(from)
-                                DisplayEventGenerator.priorities[from] = (event_priority += 1)
-                            end
-                            if !DisplayEventGenerator.priorities.has_key?(to)
-                                DisplayEventGenerator.priorities[to] = (event_priority += 1)
-                            end
+                            RelationsCanvasEventGenerator.priorities[from] ||= (event_priority += 1)
+                            RelationsCanvasEventGenerator.priorities[to] ||= (event_priority += 1)
                         end
                     end
                 end
@@ -1031,7 +1017,7 @@ module Roby
 		# Layout the graph
 		layouts = plans.find_all { |p| p.root_plan? }.
 		    map do |p| 
-			dot = Layout.new
+			dot = PlanDotLayout.new
 			dot.layout(self, p, layout_options)
 			dot
 		    end
@@ -1041,15 +1027,15 @@ module Roby
 		signal_arrow_idx = -1
                 plans.each do |p|
                     p.propagated_events.each_with_index do |(flag, sources, to), signal_arrow_idx|
-                        sources.each do |from|
-                            relation =
-                                if (flag & PROPAG_FORWARD) || (flag & PROPAG_EMITTING)
-                                    Roby::EventStructure::Forwarding
-                                else
-                                    Roby::EventStructure::Signal
-                                end
+                        relation =
+                            if flag
+                                Roby::EventStructure::Forwarding
+                            else
+                                Roby::EventStructure::Signal
+                            end
 
-                            arrow = arrow(from, to, relation, nil, EVENT_PROPAGATION_LAYER)
+                        sources.each do |source_event|
+                            arrow = arrow(source_event.generator, to, relation, nil, EVENT_PROPAGATION_LAYER)
                             propagation_style(arrow, flag)
                         end
                     end
@@ -1102,7 +1088,6 @@ module Roby
 		scene.update(scene.scene_rect)
 	    end
 	end
-    end
     end
 end
 

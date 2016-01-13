@@ -15,8 +15,15 @@ module Roby
             # For display purposes, they only get removed from the plan at the
             # next cycle.
             attr_reader :garbaged_objects
+            # The set of generators that have been called since the last call to
+            # #clear_integrated
+            #
+            # @return [Array<EventGenerator>]
+            attr_reader :called_generators
             # The set of events emitted since the last call to
             # #clear_integrated
+            #
+            # @return [Array<Event>]
             attr_reader :emitted_events
             # The set of event propagations that have been recorded since the
             # last call to # #clear_integrated
@@ -41,6 +48,7 @@ module Roby
                 @finalized_tasks = Set.new
                 @finalized_events = Set.new
                 @garbaged_objects = Set.new
+                @called_generators = Array.new
                 @emitted_events = Array.new
                 @propagated_events = Array.new
                 @failed_emissions = Array.new
@@ -56,6 +64,7 @@ module Roby
                     finalized_tasks.merge(plan.finalized_tasks)
                     finalized_events.merge(plan.finalized_events)
                     garbaged_objects.merge(plan.garbaged_objects)
+                    called_generators.concat(plan.called_generators)
                     emitted_events.concat(plan.emitted_events)
                     propagated_events.concat(plan.propagated_events)
                     failed_emissions.concat(plan.failed_emissions)
@@ -104,6 +113,7 @@ module Roby
             end
 
             def clear_integrated
+                called_generators.clear
                 emitted_events.clear
                 finalized_tasks.clear
                 finalized_events.clear

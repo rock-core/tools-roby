@@ -1,12 +1,15 @@
 require 'Qt4'
-require 'roby/log/gui/qt4_toMSecsSinceEpoch'
+require 'roby/gui/qt4_toMSecsSinceEpoch'
 require 'utilrb/module/attr_predicate'
-require 'roby/log/gui/styles'
-require 'roby/log/gui/object_info_view'
+require 'roby/gui/styles'
+require 'roby/gui/object_info_view'
+require 'roby/gui/task_state_at'
 
 module Roby
-    module LogReplay
-        # A plan display that puts events and tasks on a timeline
+    module GUI
+        # Widget to display tasks on a chronicle (i.e. timelines)
+        #
+        # Use {ChronicleView} when using a {PlanRebuilderWidget}
         #
         # The following interactions are available:
         #
@@ -16,7 +19,14 @@ module Roby
         #   * double-click: task info view
         #
         class ChronicleWidget < Qt::AbstractScrollArea
-            attr_predicate :live?, true
+            # Whether the widget gets live data in real time
+            attr_predicate :live?
+            def live=(flag)
+                @live = flag
+                self.track_current_time = live? && (value == horizontal_scroll_bar.maximum)
+            end
+            # Whether the widget is currently tracking {#current_time}
+            attr_predicate :track_current_time?, true
             # True if the time scroll bar is currently pressed
             attr_predicate :horizontal_scroll_bar_down?, true
             # Internal representation of the desired time scale. Don't use it
@@ -26,7 +36,8 @@ module Roby
             def time_scale=(new_value)
                 @time_scale = new_value
                 update_scroll_ranges
-                viewport.update
+                invalidate_current_tasks
+                update
             end
             # How many pixels should there be between the 'now' line and the
             # right side, in pixels
@@ -178,6 +189,7 @@ module Roby
                 @show_mode = :all
                 @show_future_events = true
                 @live = true
+                @track_current_time = true
                 @horizontal_scroll_bar_down = false
                 @display_point = viewport.size.width - live_update_margin
 
@@ -190,7 +202,7 @@ module Roby
 
                 horizontal_scroll_bar.connect(SIGNAL('sliderMoved(int)')) do
                     value = horizontal_scroll_bar.value
-                    self.live = (value == horizontal_scroll_bar.maximum)
+                    self.track_current_time = live? && (value == horizontal_scroll_bar.maximum)
                     time = base_time + Float(value) * pixel_to_time
                     update_display_time(time)
                     emit timeChanged(time - base_time)
@@ -199,13 +211,14 @@ module Roby
                     self.horizontal_scroll_bar_down = true
                 end
                 horizontal_scroll_bar.connect(SIGNAL('sliderReleased()')) do
-                    self.live = (horizontal_scroll_bar.value == horizontal_scroll_bar.maximum)
+                    self.track_current_time = live? && (horizontal_scroll_bar.value == horizontal_scroll_bar.maximum)
                     self.horizontal_scroll_bar_down = false
                     update_scroll_ranges
                 end
                 vertical_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
                     value = vertical_scroll_bar.value
                     self.start_line = value
+                    invalidate_task_layout
                     update
                 end
             end
@@ -287,6 +300,7 @@ module Roby
 
                 all_tasks.merge(tasks)
                 all_job_info.merge!(job_info)
+                invalidate_task_layout
             end
 
             def contents_height
@@ -306,15 +320,19 @@ module Roby
                 end
             end
 
+            # @api private
+            # Update the time at the start of the chronicle
             def update_base_time(time)
                 @base_time = time
                 invalidate_current_tasks
             end
 
+            # @api private
+            # Update the time at the end of the chronicle
             def update_current_time(time)
                 @current_time = time
                 @base_time ||= time
-                if !display_time || live?
+                if !display_time || track_current_time?
                     update_display_time(time)
                 else
                     update_scroll_ranges
@@ -322,11 +340,12 @@ module Roby
                 end
             end
 
+            # @api private
+            # Update the currently displayed time
             def update_display_time(time)
                 @display_time = time
                 @base_time ||= time
                 _, end_time = displayed_time_range
-                limit_end_time = current_time + live_update_margin * pixel_to_time
                 update_display_point
 
                 if !horizontal_scroll_bar_down?
@@ -349,7 +368,7 @@ module Roby
             end
 
             def resizeEvent(event)
-                if live?
+                if track_current_time?
                     @display_point = event.size.width - live_update_margin
                 elsif display_time && current_time
                     update_display_point
@@ -590,7 +609,7 @@ module Roby
                         state = :pending
                         end_time = task.finalization_time
                     else
-                        state = task.current_display_state(last_event.time)
+                        state = GUI.task_state_at(task, last_event.time)
                         if state != :running
                             end_time = last_event.time
                         end
@@ -701,6 +720,7 @@ module Roby
                 fm = Qt::FontMetrics.new(font)
                 if current_tasks_dirty?
                     update_current_tasks
+                    vertical_scroll_bar.setRange(0, current_tasks.size)
                 end
                 if task_layout_dirty?
                     update_task_layout(metrics: fm)
@@ -760,6 +780,7 @@ module Roby
             signals 'selectedTime(QDateTime)'
 
             def update_scroll_ranges
+                vertical_scroll_bar.setRange(0, current_tasks.size)
                 return if horizontal_scroll_bar_down?
 
                 if base_time && current_time && display_time
@@ -767,211 +788,8 @@ module Roby
                     horizontal_scroll_bar.setRange(0, time_to_pixel * (current_time - base_time))
                     horizontal_scroll_bar.setPageStep(size.width / 4)
                 end
-                vertical_scroll_bar.setRange(0, current_tasks.size)
-            end
-        end
-
-        # The chronicle plan view, including the menu bar and status display
-        class ChronicleView < Qt::Widget
-            # The underlying ChronicleWidget instance
-            attr_reader :chronicle
-            # The historyw widget instance
-            attr_reader :history_widget
-
-            def initialize(history_widget, parent = nil)
-                super(parent)
-
-                @layout = Qt::VBoxLayout.new(self)
-                @menu_layout = Qt::HBoxLayout.new
-                @layout.add_layout(@menu_layout)
-                @history_widget = history_widget
-                @chronicle = ChronicleWidget.new(self)
-                Qt::Object.connect(@chronicle, SIGNAL('selectedTime(QDateTime)'),
-                        history_widget, SLOT('seek(QDateTime)'))
-                chronicle.add_tasks_info(*history_widget.tasks_info)
-                Qt::Object.connect(history_widget, SIGNAL('addedSnapshot(int)'),
-                                  self, SLOT('addedSnapshot(int)'))
-                @layout.add_widget(@chronicle)
-
-                # Now setup the menu bar
-                @btn_play = Qt::PushButton.new("Play", self)
-                @menu_layout.add_widget(@btn_play)
-                @btn_play.connect(SIGNAL('clicked()')) do
-                    if @play_timer
-                        stop
-                        @btn_play.text = "Play"
-                    else
-                        play
-                        @btn_play.text = "Stop"
-                    end
-                end
-
-                @btn_sort = Qt::PushButton.new("Sort", self)
-                @menu_layout.add_widget(@btn_sort)
-                @btn_sort.menu = sort_options
-                @btn_show = Qt::PushButton.new("Show", self)
-                @menu_layout.add_widget(@btn_show)
-                @btn_show.menu = show_options
-                @menu_layout.add_stretch(1)
-                @restrict_to_jobs_btn = Qt::CheckBox.new("Restrict to jobs", self)
-                @restrict_to_jobs_btn.checkable = true
-                @restrict_to_jobs_btn.connect(SIGNAL('toggled(bool)')) do |set|
-                    chronicle.restrict_to_jobs = set
-                end
-                @menu_layout.add_widget(@restrict_to_jobs_btn)
-
-                @filter_lbl = Qt::Label.new("Filter", self)
-                @filter_box = Qt::LineEdit.new(self)
-                @filter_box.connect(SIGNAL('textChanged(QString const&)')) do |text|
-                    if text.empty?
-                        chronicle.filter = nil
-                    else
-                        chronicle.filter = Regexp.new(text.split(' ').join("|"))
-                    end
-                end
-                @menu_layout.add_widget(@filter_lbl)
-                @menu_layout.add_widget(@filter_box)
-                @filter_out_lbl = Qt::Label.new("Filter out", self)
-                @filter_out_box = Qt::LineEdit.new(self)
-                @filter_out_box.connect(SIGNAL('textChanged(QString const&)')) do |text|
-                    if text.empty?
-                        chronicle.filter_out = nil
-                    else
-                        chronicle.filter_out = Regexp.new(text.split(' ').join("|"))
-                    end
-                end
-                @menu_layout.add_widget(@filter_out_lbl)
-                @menu_layout.add_widget(@filter_out_box)
-                @menu_layout.add_stretch(1)
-
-                resize(500, 300)
-            end
-
-            def addedSnapshot(cycle)
-                chronicle.add_tasks_info(*history_widget.tasks_info_of_snapshot(cycle))
-            end
-            slots 'addedSnapshot(int)'
-
-            def sort_options
-                @mnu_sort = Qt::Menu.new(self)
-                @actgrp_sort = Qt::ActionGroup.new(@mnu_sort)
-
-                @act_sort = Hash.new
-                { "Start time" => :start_time, "Last event" => :last_event }.
-                    each do |text, value|
-                        act = Qt::Action.new(text, self)
-                        act.checkable = true
-                        act.connect(SIGNAL('toggled(bool)')) do |onoff|
-                            if onoff
-                                @chronicle.sort_mode = value
-                                @chronicle.update
-                            end
-                        end
-                        @actgrp_sort.add_action(act)
-                        @mnu_sort.add_action(act)
-                        @act_sort[value] = act
-                    end
-
-                @act_sort[:start_time].checked = true
-                @mnu_sort
-            end
-
-            def show_options
-                @mnu_show = Qt::Menu.new(self)
-                @actgrp_show = Qt::ActionGroup.new(@mnu_show)
-
-                @act_show = Hash.new
-                { "All" => :all, "Running" => :running, "Current" => :current }.
-                    each do |text, value|
-                        act = Qt::Action.new(text, self)
-                        act.checkable = true
-                        act.connect(SIGNAL('toggled(bool)')) do |onoff|
-                            if onoff
-                                @chronicle.show_mode = value
-                                @chronicle.setDisplayTime
-                            end
-                        end
-                        @actgrp_show.add_action(act)
-                        @mnu_show.add_action(act)
-                        @act_show[value] = act
-                    end
-
-                @act_show[:all].checked = true
-                @mnu_show
-            end
-
-            PLAY_STEP = 0.1
-
-            def play
-                @play_timer = Qt::Timer.new(self)
-                Qt::Object.connect(@play_timer, SIGNAL('timeout()'), self, SLOT('step()'))
-                @play_timer.start(Integer(1000 * PLAY_STEP))
-            end
-            slots 'play()'
-
-            def step
-                if chronicle.display_time == chronicle.current_time
-                    return
-                end
-
-                new_time = chronicle.display_time + PLAY_STEP
-                if new_time >= chronicle.current_time
-                    new_time = chronicle.current_time
-                end
-                chronicle.setDisplayTime(new_time)
-            end
-            slots 'step()'
-
-            def stop
-                @play_timer.stop
-                @play_timer = nil
-            end
-            slots 'stop()'
-
-            def updateWindowTitle
-                if parent_title = history_widget.window_title
-                    self.window_title = parent_title + ": Chronicle"
-                else
-                    self.window_title = "roby-display: Chronicle"
-                end
-            end
-            slots 'updateWindowTitle()'
-
-            def setDisplayTime(time)
-                @chronicle.setDisplayTime(time)
-            end
-            slots 'setDisplayTime(QDateTime)'
-
-            def setCurrentTime(time)
-                @chronicle.setCurrentTime(time)
-            end
-            slots 'setCurrentTime(QDateTime)'
-
-            # Save view configuration
-            def save_options
-                result = Hash.new
-                result['show_mode'] = chronicle.show_mode
-                result['sort_mode'] = chronicle.sort_mode
-                result['time_scale'] = chronicle.time_scale
-                result['restrict_to_jobs'] = chronicle.restrict_to_jobs?
-                result
-            end
-
-            # Apply saved configuration
-            def apply_options(options)
-                if scale = options['time_scale']
-                    chronicle.time_scale = scale
-                end
-                if mode = options['show_mode']
-                    @act_show[mode].checked = true
-                end
-                if mode = options['sort_mode']
-                    @act_sort[mode].checked = true
-                end
-                if mode = options['restrict_to_jobs']
-                    @restrict_to_jobs_btn.checked = true
-                end
             end
         end
     end
 end
+

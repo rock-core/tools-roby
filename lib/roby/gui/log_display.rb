@@ -1,8 +1,10 @@
-require 'roby/log/gui/relations_view/relations_view'
-require 'roby/log/gui/chronicle'
+require 'Qt4'
+require 'roby/gui/plan_rebuilder_widget'
+require 'roby/gui/relations_view'
+require 'roby/gui/chronicle_view'
 
 module Roby
-    module LogReplay
+    module GUI
         # Main UI for log display
         #
         # It includes
@@ -34,13 +36,13 @@ module Roby
                 attr_reader :available_displays
             end
             @available_displays =
-                { 'Relations' => 'Roby::LogReplay::RelationsView',
-                  'Chronicle' => 'Roby::LogReplay::ChronicleView' }
+                { 'Relations' => 'Roby::GUI::RelationsView',
+                  'Chronicle' => 'Roby::GUI::ChronicleView' }
 
             def initialize(parent = nil, plan_rebuilder = nil)
                 super
 
-                plan_rebuilder ||= Roby::LogReplay::PlanRebuilder.new
+                plan_rebuilder ||= DRoby::PlanRebuilder.new
                 @plan_rebuilder = plan_rebuilder
 
                 @displays = Hash.new { |h, k| h[k] = Array.new }
@@ -121,6 +123,9 @@ module Roby
                         event.accept
                     end
                 end
+                if view.respond_to?(:live=)
+                    view.live = false
+                end
                 connect_display(history_widget, view)
                 view.setAttribute(Qt::WA_QuitOnClose, false)
 
@@ -196,7 +201,6 @@ module Roby
 
             def save_options
                 options = Hash.new
-                options['plan_rebuilder'] = plan_rebuilder.save_options
                 options['main'] = Hash.new
                 options['plugins'] = Roby.app.plugins.map(&:first)
                 save_widget_state(options['main'], self)
@@ -240,7 +244,6 @@ module Roby
                 end
 
                 filters = options['plan_rebuilder'] || Hash.new
-                plan_rebuilder.apply_options(filters)
                 apply_widget_state(options['main'] || Hash.new, self)
                 (options['views'] || Array.new).each do |view_options|
                     id = view_options['id']

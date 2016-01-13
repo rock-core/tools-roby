@@ -1,13 +1,13 @@
-require 'roby/log/gui/relations_view/relations_config'
-require 'roby/log/gui/relations_view/relations_view_ui'
-require 'roby/log/gui/relations_view/relations_canvas'
+require 'roby/gui/relations_view/relations_config'
+require 'roby/gui/relations_view/relations_view_ui'
+require 'roby/gui/relations_view/relations_canvas'
 
-require 'roby/log/gui/plan_rebuilder_widget'
-require 'roby/log/gui/object_info_view'
-require 'roby/log/gui/scheduler_view'
+require 'roby/gui/plan_rebuilder_widget'
+require 'roby/gui/object_info_view'
+require 'roby/gui/scheduler_view'
 
 module Roby
-    module LogReplay
+    module GUI
         # Plan display that shows a snapshot of the event/task structure, as
         # well as the events emitted within the last cycle
         class RelationsView < Qt::Widget
@@ -30,7 +30,7 @@ module Roby
                 scheduler_view.show
 
                 @history_widget = history_widget
-                @view = RelationsDisplay::RelationsCanvas.new([history_widget.current_plan])
+                @view = RelationsCanvas.new([history_widget.current_plan])
                 ui.setupActions(self)
                 ui.graphics.scene = view.scene
 
@@ -69,7 +69,7 @@ end
 class Ui::RelationsView
     def scene; graphics.scene end
 
-    # The underlying Roby::LogReplay::RelationsDisplay::RelationsCanvas object
+    # The underlying RelationsCanvas object
     attr_reader :display
     attr_reader :prefixActions
     attr_reader :verticalLayout
@@ -91,7 +91,7 @@ class Ui::RelationsView
                 end
             end
 
-            @object_info ||= Roby::LogReplay::ObjectInfoView.new
+            @object_info ||= ObjectInfoView.new
             if @object_info.display(obj)
                 @object_info.activate
             end
@@ -105,7 +105,7 @@ class Ui::RelationsView
                 end
             end
 
-            return unless obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
+            return unless obj.kind_of?(RelationsCanvasTask)
 
             menu = Qt::Menu.new
             hide_this     = menu.add_action("Hide")

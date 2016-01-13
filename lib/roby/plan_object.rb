@@ -148,9 +148,7 @@ module Roby
                     raise ArgumentError, "#{self} has been removed from plan, cannot add it back. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
                 end
 	    end
-            if !@addition_time
-                @addition_time = Time.now
-            end
+            @addition_time = Time.now
 	    @plan = new_plan
             @execution_engine =
                 if new_plan && new_plan.executable?

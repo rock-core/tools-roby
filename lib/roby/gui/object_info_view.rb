@@ -1,5 +1,5 @@
 module Roby
-    module LogReplay
+    module GUI
         # Widget that can be used to display the information about a plan object
         # (either relation or task)
         #
@@ -33,8 +33,8 @@ module Roby
                     ]
                     sections << section
 
-                elsif obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
-                    sections << ["Model", [obj.class.name]]
+                elsif obj.kind_of?(Task)
+                    sections << ["Model", [obj.model.name]]
                     # Add general task information (owner, arguments, ...)
                     text = obj.arguments.map do |key, value|
                         "#{key}: #{value}"
@@ -53,7 +53,7 @@ module Roby
                         end
                     end
                     sections << ["History", text]
-                    sections << ["Model Ancestry", obj.class.ancestors.map(&:name)]
+                    sections << ["Model Ancestry", obj.model.ancestors.map(&:name)]
                 else return false
                 end
 

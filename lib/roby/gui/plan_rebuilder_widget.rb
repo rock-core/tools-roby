@@ -1,8 +1,9 @@
-require 'roby/log/gui/qt4_toMSecsSinceEpoch'
-require 'roby/log/plan_rebuilder'
+require 'roby/gui/qt4_toMSecsSinceEpoch'
+require 'roby/droby/plan_rebuilder'
+require 'roby/gui/stepping'
 
 module Roby
-    module LogReplay
+    module GUI
         # This widget displays information about the event history in a list,
         # allowing to switch between the "important events" in this history
         class PlanRebuilderWidget < Qt::Widget
@@ -15,6 +16,12 @@ module Roby
             attr_reader :plan_rebuilder
             # The current plan managed by the widget
             attr_reader :current_plan
+            # The underlying log file
+            # @return [DRoby::Logfile::Reader]
+            attr_reader :logfile
+            # The last processed cycle
+            # @return [Integer]
+            attr_reader :last_cycle
 
             # Signal emitted when an informational message is meant to be
             # displayed
@@ -25,7 +32,7 @@ module Roby
             # when displays are supposed to be updated
             signals 'appliedSnapshot(QDateTime)'
 
-            def initialize(parent, plan_rebuilder = nil)
+            def initialize(parent, plan_rebuilder)
                 super(parent)
                 @list    = Qt::ListWidget.new(self)
                 @layout  = Qt::VBoxLayout.new(self)
@@ -40,7 +47,11 @@ module Roby
                             cycle_index = currentItem.data(Qt::UserRole).toInt
 
                             rebuilder_widget = self.parentWidget
-                            stepping = Stepping.new(rebuilder_widget, rebuilder_widget.current_plan, rebuilder_widget.stream, cycle_index)
+                            stepping = Stepping.new(
+                                rebuilder_widget,
+                                rebuilder_widget.current_plan,
+                                rebuilder_widget.logfile.dup,
+                                cycle_index)
                             stepping.exec
                         end
                     end
@@ -48,9 +59,9 @@ module Roby
 
                 @layout.add_widget(@btn_create_display)
                 @history = Hash.new
+                @logfile = nil # set by #open
                 @plan_rebuilder = plan_rebuilder
-                @current_plan = Roby::Plan.new
-                @current_plan.extend ReplayPlan
+                @current_plan = DRoby::RebuiltPlan.new
                 @layout.add_widget(list)
 
                 Qt::Object.connect(list, SIGNAL('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'),
@@ -111,7 +122,13 @@ module Roby
                 item.text = "[#{count} cycles missing]"
             end
 
-            def append_to_history(snapshot)
+            Snapshot = Struct.new :stats, :plan
+
+            def append_to_history
+                snapshot = Snapshot.new plan_rebuilder.stats.dup,
+                    DRoby::RebuiltPlan.new
+                snapshot.plan.merge(plan_rebuilder.plan)
+
                 cycle = snapshot.stats[:cycle_index]
                 time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:real_start]
 
@@ -131,12 +148,9 @@ module Roby
             end
 
             def apply(snapshot)
-                @current_plan.owners.clear
-                Distributed.disable_ownership do
-                    @current_plan.clear
-                    @current_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
-                    snapshot.apply(@current_plan)
-                end
+                @current_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
+                @current_plan = DRoby::RebuiltPlan.new
+                @current_plan.merge(snapshot.plan)
                 emit appliedSnapshot(Qt::DateTime.new(@current_time))
             end
 
@@ -160,17 +174,16 @@ module Roby
             end
             slots 'seek(QDateTime)'
 
-            attr_reader :stream
-            attr_reader :last_cycle
-            attr_reader :last_cycle_snapshotted
-
-            def push_data(needs_snapshot, data, do_snapshot = true)
+            def push_cycle(snapshot: true)
                 cycle = plan_rebuilder.stats[:cycle_index]
                 if last_cycle && (cycle != last_cycle + 1)
                     add_missing_cycles(cycle - last_cycle - 1)
                 end
-                if needs_snapshot && do_snapshot
-                    append_to_history(plan_rebuilder.history.last)
+                needs_snapshot =
+                    (plan_rebuilder.has_structure_updates? ||
+                     plan_rebuilder.has_event_propagation_updates?)
+                if snapshot && needs_snapshot
+                    append_to_history
                 end
                 @last_cycle = cycle
                 Time.at(*plan_rebuilder.stats[:start]) + plan_rebuilder.stats[:real_start]
@@ -183,7 +196,7 @@ module Roby
 
             # Opens +filename+ and reads the data from there
             def open(filename)
-                @stream = Roby::LogReplay::EventFileStream.open(filename)
+                @logfile = DRoby::Logfile::Reader.open(filename)
                 self.window_title = "roby-display: #{filename}"
                 emit sourceChanged
                 analyze
@@ -194,25 +207,24 @@ module Roby
 
             signals 'sourceChanged()'
 
-            def rewind
-                stream.rewind
-            end
-
-            def self.analyze(plan_rebuilder, stream, until_cycle = nil)
-                stream.rewind
-
-                start_time, end_time = stream.range
+            def self.analyze(plan_rebuilder, logfile, until_cycle: nil)
+                start_time, end_time = logfile.index.range
 
                 start = Time.now
                 dialog = Qt::ProgressDialog.new("Analyzing log file", "Quit", 0, (end_time - start_time))
                 dialog.setWindowModality(Qt::WindowModal)
                 dialog.show
 
-                while !stream.eof? && (!until_cycle || !plan_rebuilder.cycle_index || plan_rebuilder.cycle_index < until_cycle)
-                    data = stream.read
-                    needs_snapshot = plan_rebuilder.push_data(data)
+                while !logfile.eof? && (!until_cycle || !plan_rebuilder.cycle_index || plan_rebuilder.cycle_index < until_cycle)
+                    data = logfile.load_one_cycle
+                    plan_rebuilder.process_one_cycle(data)
+                    if block_given?
+                        needs_snapshot =
+                            (plan_rebuilder.has_structure_updates? ||
+                             plan_rebuilder.has_event_propagation_updates?)
+                        yield(needs_snapshot, data) 
+                    end
                     plan_rebuilder.clear_integrated
-                    yield(needs_snapshot, data) if block_given?
                     dialog.setValue(plan_rebuilder.cycle_start_time - start_time)
                     if dialog.wasCanceled
                         Kernel.raise Interrupt
@@ -222,13 +234,9 @@ module Roby
                 puts "analyzed log file in %.2fs" % [Time.now - start]
             end
 
-            def analyze(options = Hash.new)
-                options = Kernel.validate_options options,
-                    until: nil
-
-                @last_cycle = nil
-                PlanRebuilderWidget.analyze(plan_rebuilder, stream, options[:until]) do |needs_snapshot, data|
-                    push_data(needs_snapshot, data)
+            def analyze(until_cycle: nil)
+                PlanRebuilderWidget.analyze(plan_rebuilder, logfile, until_cycle: until_cycle) do
+                    push_cycle
                 end
             end
 
@@ -286,9 +294,9 @@ module Roby
 
                 @client = client
                 client.add_listener do |data|
-                    needs_snapshot = plan_rebuilder.push_data(data)
                     plan_rebuilder.clear_integrated
-                    time = push_data(needs_snapshot, data)
+                    plan_rebuilder.process_one_cycle(data)
+                    time = push_cycle
                     emit liveUpdate(Qt::DateTime.new(time))
 
                     cycle = plan_rebuilder.cycle_index

@@ -1,18 +1,5 @@
-require 'roby/log/plan_rebuilder'
 module Roby
-    module LogReplay
-        EVENT_CONTINGENT  = PlanRebuilder::EVENT_CONTINGENT
-        EVENT_CONTROLABLE = PlanRebuilder::EVENT_CONTROLABLE
-        EVENT_CALLED      = PlanRebuilder::EVENT_CALLED
-        EVENT_EMITTED     = PlanRebuilder::EVENT_EMITTED
-        EVENT_CALLED_AND_EMITTED = EVENT_CALLED | EVENT_EMITTED
-        FAILED_EMISSION   = PlanRebuilder::FAILED_EMISSION
-
-        PROPAG_SIGNAL   = PlanRebuilder::PROPAG_SIGNAL
-        PROPAG_FORWARD  = PlanRebuilder::PROPAG_FORWARD
-        PROPAG_CALLING  = PlanRebuilder::PROPAG_CALLING
-        PROPAG_EMITTING = PlanRebuilder::PROPAG_EMITTING
-
+    module GUI
 	EVENT_CIRCLE_RADIUS = 3
 	TASK_EVENT_SPACING  = 5
 	DEFAULT_TASK_WIDTH = 20
@@ -51,6 +38,14 @@ module Roby
 	EVENT_PROPAGATION_LAYER = PLAN_LAYER + 40
 
 	FIND_MARGIN = 10
+
+        EVENT_CALLED  = 1
+        EVENT_EMITTED = 2
+        EVENT_CALLED_AND_EMITTED = EVENT_CALLED | EVENT_EMITTED
+
+        EVENT_CONTROLABLE = 4
+        EVENT_CONTINGENT  = 8
+        FAILED_EMISSION   = 16
 
         EVENT_STYLES = Hash.new
         EVENT_STYLES[EVENT_CONTROLABLE | EVENT_CALLED] =

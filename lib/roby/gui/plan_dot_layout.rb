@@ -14,8 +14,7 @@ class Object
 end
 
 module Roby
-    module LogReplay
-    module RelationsDisplay
+    module GUI
         module GraphvizPlan
             attr_accessor :layout_level
             def all_events(display)
@@ -42,10 +41,10 @@ module Roby
                     trsc.to_dot(display, io, level + 1)
                 end
 
-                relations_to_dot(display, io, LogReplay::RelationsDisplay.all_task_relations, known_tasks)
+                relations_to_dot(display, io, each_task_relation_graph, known_tasks)
             end
 
-            def each_edge(rel, display, relations, objects)
+            def each_edge(graph, display, objects)
                 objects.each do |from|
                     next unless display.displayed?(from)
                     unless display[from]
@@ -53,46 +52,46 @@ module Roby
                         next
                     end
 
-                    from.each_child_object(rel) do |to|
+                    graph.each_out_neighbour(from) do |to|
                         next unless display.displayed?(to)
                         unless display[to]
                             DRoby::Logfile.warn "no display item for child in #{from} <#{rel}> #{to} in #each_displayed_relation"
                             next
                         end
 
-                        yield(rel, from, to)
+                        yield(graph, from, to)
                     end
                 end
             end
 
-            def each_layout_relation(display, relations, object, &block)
-                relations.each do |rel|
-                    next unless display.layout_relation?(rel)
-                    each_edge(rel, display, relations, object, &block)
+            def each_layout_relation(display, graphs, objects, &block)
+                graphs.each do |g|
+                    next unless display.layout_relation?(g.class)
+                    each_edge(g, display, objects, &block)
                 end
             end
 
-            def each_displayed_relation(display, relations, object, &block)
-                relations.each do |rel|
-                    next unless display.relation_enabled?(rel)
-                    each_edge(rel, display, relations, object, &block)
+            def each_displayed_relation(display, graphs, objects, &block)
+                graphs.each do |g|
+                    next unless display.relation_enabled?(g.class)
+                    each_edge(g, display, objects, &block)
                 end
             end
 
-            def relations_to_dot(display, io, all_relations, objects)
-                each_layout_relation(display, all_relations, objects) do |rel, from, to|
+            def relations_to_dot(display, io, graphs, objects)
+                each_layout_relation(display, graphs, objects) do |graph, from, to|
                     from_id, to_id = from.dot_id, to.dot_id
                     if from_id && to_id
                         io << "  #{from_id} -> #{to_id}\n"
                     else
-                        Roby::Log.warn "ignoring #{from}(#{from.object_id} #{from_id}) -> #{to}(#{to.object_id} #{to_id}) in #{rel} in #{caller(1).join("\n  ")}"
+                        DRoby::Logfile.warn "ignoring #{from}(#{from.object_id} #{from_id}) -> #{to}(#{to.object_id} #{to_id}) in #{graph.class} in #{caller(1).join("\n  ")}"
                     end
                 end
             end
 
-            def layout_relations(positions, display, all_relations, objects)
-                each_displayed_relation(display, all_relations, objects) do |rel, from, to|
-                    display.task_relation(from, to, rel, from[to, rel])
+            def layout_relations(positions, display, graphs, objects)
+                each_displayed_relation(display, graphs, objects) do |graph, from, to|
+                    display.task_relation(from, to, graph.class, graph.edge_info(from, to))
                 end
             end
 
@@ -132,7 +131,7 @@ module Roby
                 transactions.each do |trsc|
                     trsc.apply_layout(bounding_rects, positions, display, max_depth)
                 end
-                layout_relations(positions, display, LogReplay::RelationsDisplay.all_task_relations, known_tasks)
+                layout_relations(positions, display, each_task_relation_graph.to_a, known_tasks)
             end
         end
 
@@ -252,14 +251,14 @@ module Roby
 
         # This class uses Graphviz (i.e. the "dot" tool) to compute a layout for
         # a given plan
-	class Layout
+        class PlanDotLayout
             # The set of IDs for the objects in the plan
-	    attribute(:object_ids) { Hash.new }
+            attribute(:object_ids) { Hash.new }
 
-	    attr_reader :dot_input
+            attr_reader :dot_input
 
             # Add a string to the resulting Dot input file
-	    def <<(string); dot_input << string end
+            def <<(string); dot_input << string end
 
             FLOAT_VALUE = "\\d+(?:\\.\\d+)?(?:e[+-]\\d+)?"
             DOT_TO_QT_SCALE_FACTOR_X = 1.0 / 55
@@ -272,46 +271,46 @@ module Roby
                 scale_x = options[:scale_x]
                 scale_y = options[:scale_y]
 
-		current_graph_id = nil
-		bounding_rects = Hash.new
-		object_pos     = Hash.new
-		full_line = ""
-		dot_layout.each do |line|
-		    line.chomp!
-		    full_line << line.strip
-		    if line[-1] == ?\\ or line[-1] == ?,
-			full_line.chomp!
-			next
-		    end
+                current_graph_id = nil
+                bounding_rects = Hash.new
+                object_pos     = Hash.new
+                full_line = ""
+                dot_layout.each do |line|
+                    line.chomp!
+                    full_line << line.strip
+                    if line[-1] == ?\\ or line[-1] == ?,
+                        full_line.chomp!
+                        next
+                    end
 
                     case full_line
-		    when /(\w+).*\[.*pos="(#{FLOAT_VALUE}),(#{FLOAT_VALUE})"/
-			object_pos[$1] = Qt::PointF.new(Float($2) * scale_x, Float($3) * scale_y)
+                    when /(\w+).*\[.*pos="(#{FLOAT_VALUE}),(#{FLOAT_VALUE})"/
+                        object_pos[$1] = Qt::PointF.new(Float($2) * scale_x, Float($3) * scale_y)
                     when /subgraph cluster_(\w+)/
-			current_graph_id = $1
-		    when /bb="(#{FLOAT_VALUE}),(#{FLOAT_VALUE}),(#{FLOAT_VALUE}),(#{FLOAT_VALUE})"/
-			bb = [$1, $2, $3, $4].map { |c| Float(c) }
+                        current_graph_id = $1
+                    when /bb="(#{FLOAT_VALUE}),(#{FLOAT_VALUE}),(#{FLOAT_VALUE}),(#{FLOAT_VALUE})"/
+                        bb = [$1, $2, $3, $4].map { |c| Float(c) }
                         bb[0] *= scale_x
                         bb[2] *= scale_x
                         bb[1] *= scale_x
                         bb[3] *= scale_x
-			bounding_rects[current_graph_id] = Qt::RectF.new(bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1])
-		    end
-		    full_line = ""
-		end
+                        bounding_rects[current_graph_id] = Qt::RectF.new(bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1])
+                    end
+                    full_line = ""
+                end
 
-		graph_bb = bounding_rects.delete(nil)
+                graph_bb = bounding_rects.delete(nil)
                 if !graph_bb
                     raise "Graphviz failed to generate a layout for this plan"
                 end
-		bounding_rects.each_value do |bb|
+                bounding_rects.each_value do |bb|
                     bb.x -= graph_bb.x
                     bb.y  = graph_bb.y - bb.y - bb.height
-		end
-		object_pos.each do |id, pos|
-		    pos.x -= graph_bb.x
-		    pos.y = graph_bb.y - pos.y
-		end
+                end
+                object_pos.each do |id, pos|
+                    pos.x -= graph_bb.x
+                    pos.y = graph_bb.y - pos.y
+                end
 
                 return bounding_rects, object_pos
             end
@@ -320,34 +319,34 @@ module Roby
                 options, parsing_options = Kernel.filter_options options,
                     graph_type: 'digraph', layout_method: display.layout_method
 
-		@@index ||= 0
-		@@index += 1
+                @@index ||= 0
+                @@index += 1
 
-		# Dot input file
-		@dot_input  = Tempfile.new("roby_dot")
-		# Dot output file
-		dot_output = Tempfile.new("roby_layout")
+                # Dot input file
+                @dot_input  = Tempfile.new("roby_dot")
+                # Dot output file
+                dot_output = Tempfile.new("roby_layout")
 
                 dot_input << "#{options[:graph_type]} relations {\n"
                 yield(dot_input)
                 dot_input << "}\n"
 
-		dot_input.flush
+                dot_input.flush
 
-		# Make sure the GUI keeps being updated while dot is processing
-		FileUtils.cp dot_input.path, "/tmp/dot-input-#{@@index}.dot"
-		system("#{options[:layout_method]} #{dot_input.path} > #{dot_output.path}")
-		FileUtils.cp dot_output.path, "/tmp/dot-output-#{@@index}.dot"
+                # Make sure the GUI keeps being updated while dot is processing
+                FileUtils.cp dot_input.path, "/tmp/dot-input-#{@@index}.dot"
+                system("#{options[:layout_method]} #{dot_input.path} > #{dot_output.path}")
+                FileUtils.cp dot_output.path, "/tmp/dot-output-#{@@index}.dot"
 
-		# Load only task bounding boxes from dot, update arrows later
-		lines = File.open(dot_output.path) { |io| io.readlines  }
-                Layout.parse_dot_layout(lines, parsing_options)
+                # Load only task bounding boxes from dot, update arrows later
+                lines = File.open(dot_output.path) { |io| io.readlines  }
+                PlanDotLayout.parse_dot_layout(lines, parsing_options)
             end
 
             # Generates a layout internal for each task, allowing to place the
             # events according to the propagations
             def layout(display, plan, options = Hash.new)
-		@display         = display
+                @display         = display
                 options = Kernel.validate_options options,
                     scale_x: DOT_TO_QT_SCALE_FACTOR_X, scale_y: DOT_TO_QT_SCALE_FACTOR_Y
 
@@ -427,14 +426,13 @@ module Roby
                 end
                 object_pos.merge!(event_positions)
 
-		@plan            = plan
+                @plan            = plan
             end
 
-	    attr_reader :bounding_rects, :object_pos, :display, :plan
-	    def apply
-		plan.apply_layout(bounding_rects, object_pos, display)
-	    end
-	end
-    end
+            attr_reader :bounding_rects, :object_pos, :display, :plan
+            def apply
+                plan.apply_layout(bounding_rects, object_pos, display)
+            end
+        end
     end
 end

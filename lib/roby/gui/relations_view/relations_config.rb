@@ -1,4 +1,4 @@
-require 'roby/log/gui/relations_view/relations_ui'
+require 'roby/gui/relations_view/relations_ui'
 
 module Ui
     # Manage relations using a two-level tree structure. The relation
@@ -26,7 +26,7 @@ module Ui
 	    @display   = display
 	    @relations = []
 
-	    relations[TASK_ROOT_INDEX]  = Roby::LogReplay::RelationsDisplay.all_task_relations
+            relations[TASK_ROOT_INDEX]  = Roby::TaskStructure.relations.to_a
 
             RelationConfigModel.detect_qtruby_behaviour(createIndex(0, 0, 0))
 	end

@@ -24,6 +24,10 @@ module Roby
                         Logfile.read_one_chunk(event_io))
                 end
 
+                def dup
+                    Reader.new(event_io.dup)
+                end
+
                 def tell
                     event_io.tell
                 end

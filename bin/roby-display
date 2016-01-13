@@ -1,16 +1,15 @@
 #! /usr/bin/env ruby
 
-begin
 require 'roby'
-require 'roby/log'
-require 'roby/log/server'
 require 'optparse'
+require 'roby/droby/logfile/server'
+require 'roby/droby/logfile/client'
 Roby.app.guess_app_dir
 
 data_source_mode = :file
 host = 'localhost'
-port = Roby::Log::Server::DEFAULT_PORT
-sampling_period = Roby::Log::Server::DEFAULT_SAMPLING_PERIOD
+port = Roby::DRoby::Logfile::Server::DEFAULT_PORT
+sampling_period = Roby::DRoby::Logfile::Server::DEFAULT_SAMPLING_PERIOD
 config = 'roby-display.yml'
 
 # Look for a default config file in the Roby app structure
@@ -29,16 +28,16 @@ def parse_remote_host(host_spec)
     if host.empty?
         host = 'localhost'
     end
-    port = Integer(port || Roby::Log::Server::DEFAULT_PORT)
+    port = Integer(port || DRoby::Logfile::Server::DEFAULT_PORT)
     return host, port
 end
 
 options = OptionParser.new do |opt|
-    opt.on('--client[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host_spec|
+    opt.on('--client[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::DRoby::Logfile::Server::DEFAULT_PORT} is used") do |host_spec|
         data_source_mode = :client
         host, port = parse_remote_host(host_spec)
     end
-    opt.on('--host[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host_spec|
+    opt.on('--host[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::DRoby::Logfile::Server::DEFAULT_PORT} is used") do |host_spec|
         data_source_mode = :client
         host, port = parse_remote_host(host_spec)
     end
@@ -47,16 +46,16 @@ options = OptionParser.new do |opt|
         require 'roby/app/vagrant'
         host = Roby::App::Vagrant.resolve_ip(name)
     end
-    opt.on('--server[=PORT]', Integer, "starts in server mode. If the port number is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |server_port|
+    opt.on('--server[=PORT]', Integer, "starts in server mode. If the port number is omitted, the default of #{Roby::DRoby::Logfile::Server::DEFAULT_PORT} is used") do |server_port|
         data_source_mode = :server
-        port = Integer(server_port || Roby::Log::Server::DEFAULT_PORT)
+        port = Integer(server_port || Roby::DRoby::Logfile::Server::DEFAULT_PORT)
     end
-    opt.on('--sampling=PERIOD', Float, "in server mode, specifies the sampling period in seconds (defaults to #{Roby::Log::Server::DEFAULT_SAMPLING_PERIOD / 2})") do |period|
+    opt.on('--sampling=PERIOD', Float, "in server mode, specifies the sampling period in seconds (defaults to #{Roby::DRoby::Logfile::Server::DEFAULT_SAMPLING_PERIOD / 2})") do |period|
         sampling_period = period
     end
     opt.on('--debug', 'turn on debugging messages') do
-        Roby::Log::Server.logger.level = Logger::DEBUG
-        Roby::Log.logger.level = Logger::DEBUG
+        Roby::DRoby::Logfile::Server.logger.level = Logger::DEBUG
+        Roby::DRoby::Logfile.logger.level = Logger::DEBUG
     end
     opt.on('--config=FILE', 'in display modes (client and file), path to the configuration file. Defaults to roby-display.yml') do |config_file|
         config = File.expand_path(config_file)
@@ -81,7 +80,7 @@ elsif data_source_mode == :file && !filename
 end
 
 if data_source_mode == :server
-    server = Roby::Log::Server.new(filename, sampling_period, port)
+    server = Roby::DRoby::Logfile::Server.new(filename, sampling_period, port)
     begin
         server.exec
     rescue Interrupt
@@ -93,15 +92,13 @@ if data_source_mode == :server
 end
 
 require 'Qt'
-require 'roby/log/event_stream'
-require 'roby/log/plan_rebuilder'
-require 'roby/log/gui/log_display'
-
-DRb.start_service "druby://localhost:0"
+require 'roby/droby/logfile/reader'
+require 'roby/droby/plan_rebuilder'
+require 'roby/gui/log_display'
 
 app = Qt::Application.new(ARGV)
 
-display = Roby::LogReplay::LogDisplay.new
+display = Roby::GUI::LogDisplay.new
 if display_mode == 'all'
     display.create_all_displays
 elsif display_mode
@@ -115,7 +112,7 @@ end
 if data_source_mode == :file
     display.open(filename)
 elsif data_source_mode == :client
-    display.connect(host, :port => port)
+    display.connect(host, port: port)
 end
 display.show
 
@@ -125,8 +122,4 @@ FileUtils.mkdir_p(File.dirname(config))
 File.open(config, 'w') do |io|
     YAML.dump(display.save_options, io)
 end
-rescue Interrupt
-    if defined? Roby::Log::Server
-        Roby::Log::Server.info "log server interrupted"
-    end
-end
+

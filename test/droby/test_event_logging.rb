@@ -62,6 +62,26 @@ module Roby
                     assert_child_of parent.start_event, child.start_event, EventStructure::Signal
                 end
 
+                it "sets the addition_time to the initial logged time" do
+                    task  = Tasks::Simple.new
+                    event = EventGenerator.new
+
+                    base_time = Time.now
+                    addition_time = Time.at(base_time.tv_sec, base_time.tv_usec)
+                    flexmock(Time).should_receive(:now).and_return { base_time }
+                    local_plan.add(task)
+                    local_plan.add(event)
+
+                    base_time += 5
+                    process_logged_events
+
+                    task  = rebuilt_plan.known_tasks.first
+                    event = rebuilt_plan.free_events.first
+                    assert_equal addition_time, task.addition_time
+                    assert_equal addition_time, task.start_event.addition_time
+                    assert_equal addition_time, event.addition_time
+                end
+
                 it "propagates new relations" do
                     parent, child = Tasks::Simple.new(id: 'parent'), Tasks::Simple.new(id: 'child')
                     local_plan.add(parent)
