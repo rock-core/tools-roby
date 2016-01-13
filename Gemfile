@@ -2,8 +2,10 @@ source 'https://rubygems.org'
 
 gem 'rubigen', github: 'doudou/rubigen'
 
-group 'gui' do
-    gem 'qtbindings'
+platform :mri do
+    group 'gui' do
+        gem 'qtbindings'
+    end
 end
 gem 'coveralls'
 
