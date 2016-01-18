@@ -191,7 +191,7 @@ module Roby
             # emit an event (and quit the block)
             #
             # @param [Hash] options
-            # @option options [Event] :event (nil) if set, the given event will
+            # @option options [Event] :emit (nil) if set, the given event will
             #   be emitted when the timeout is reached. Otherwise, a
             #   Script::TimedOut exception is generated with the script's
             #   supporting task as origin
