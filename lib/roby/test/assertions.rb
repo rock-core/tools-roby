@@ -287,8 +287,14 @@ module Roby
 		assert_relative_error(expected.pitch, found.pitch, dt, msg)
 		assert_relative_error(expected.roll, found.roll, dt, msg)
 	    end
+
+            def assert_droby_compatible(object, local_marshaller: DRoby::Marshal.new, remote_marshaller: DRoby::Marshal.new)
+                droby = local_marshaller.dump(object)
+                dumped = Marshal.dump(droby)
+                loaded = Marshal.load(dumped)
+                remote_marshaller.local_object(loaded)
+            end
         end
     end
 end
-
 
