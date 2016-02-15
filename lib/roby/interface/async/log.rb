@@ -24,7 +24,7 @@ module Roby
                 # The plan rebuilder object, which processes the log stream to
                 # rebuild {#plan}
                 #
-                # @return [Roby::LogReplay::PlanRebuilder]
+                # @return [Roby::DRoby::PlanRebuilder]
                 attr_reader :plan_rebuilder
 
                 # The plan self is working on
@@ -51,10 +51,10 @@ module Roby
                 #   @return [void]
                 define_hooks :on_unreachable
                 # @!method on_init_progress
-                #   (see Roby::Log::Client#on_init_progress)
+                #   (see Roby::DRoby::Logfile::Client#on_init_progress)
                 define_hooks :on_init_progress
                 # @!method on_init_done
-                #   (see Roby::Log::Client#on_init_done)
+                #   (see Roby::DRoby::Logfile::Client#on_init_done)
                 define_hooks :on_init_done
                 # @!method on_update
                 #   Hooks called when the plan rebuilder processed an update
@@ -68,7 +68,7 @@ module Roby
 
                 attr_reader :host
                 attr_reader :port
-                # @return [Roby::Log::Client,nil] the object used to communicate
+                # @return [Roby::DRoby::Logfile::Client,nil] the object used to communicate
                 #   to the server, or nil if we have not managed to connect yet
                 attr_reader :client
                 # The future used to connect to the remote process without blocking
@@ -76,7 +76,7 @@ module Roby
                 attr_reader :connection_future
 
                 DEFAULT_HOST = "localhost"
-                DEFAULT_PORT = Roby::Log::Server::DEFAULT_PORT
+                DEFAULT_PORT = Roby::DRoby::Logfile::Server::DEFAULT_PORT
 
                 # @api private
                 #
@@ -104,7 +104,7 @@ module Roby
                 # Start a connection attempt
                 def attempt_connection
                     @connection_future = Concurrent::Future.new do
-                        Roby::Log::Client.new(host, port)
+                        Roby::DRoby::Logfile::Client.new(host, port)
                     end
                     connection_future.execute
                 end
@@ -219,7 +219,7 @@ module Roby
                                 plan_rebuilder.process_one_cycle(data)
                                 cycle = plan_rebuilder.cycle_index
                                 time  = plan_rebuilder.cycle_start_time
-                                Roby::Log.debug "Async update(#{cycle}, #{time})"
+                                Interface.debug "Async update(#{cycle}, #{time})"
                                 run_hook :on_update, cycle, time
                             end
                         else

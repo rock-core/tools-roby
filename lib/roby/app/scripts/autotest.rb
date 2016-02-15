@@ -2,6 +2,7 @@ require 'autorespawn'
 require 'roby'
 require 'roby/test/spec'
 require 'optparse'
+require 'drb'
 
 Robot.logger.level = Logger::WARN
 

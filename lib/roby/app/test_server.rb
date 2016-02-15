@@ -2,8 +2,7 @@ require 'minitest'
 require "drb"
 require "tmpdir"
 require 'roby/hooks'
-require 'roby/distributed/base'
-require 'roby/distributed/protocol'
+require 'roby/droby'
 
 module Roby
     module App
