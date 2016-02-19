@@ -1599,41 +1599,6 @@ module Roby
 	def stop; call_plugins(:stop, self) end
 
 	attr_reader :log_server
-	attr_reader :log_sources
-
-	# Start services that should exist for every robot in the system. Services that
-	# are needed only once for all robots should be started in #start_distributed
-	def start_server
-	    Thread.abort_on_exception = true
-
-	    # Start a log server if needed, and poll the log directory for new
-	    # data sources
-	    if log_server = (log.has_key?('server') ? log['server'] : true)
-		require 'roby/log/server'
-		port = if log_server.kind_of?(Hash) && log_server['port']
-			   Integer(log_server['port'])
-		       end
-
-		@log_server  = Log::Server.new(port ||= Log::Server::RING_PORT)
-		Roby::Log::Server.info "log server published on port #{port}"
-	    end
-
-	    call_plugins(:start_server, self)
-	end
-
-	# Stop server. See #start_server
-	def stop_server
-	    if @log_server
-		@log_streams_poll.raise Interrupt, "quitting"
-		@log_streams_poll.join
-
-		@log_server.quit
-		@log_streams.clear
-	    end
-
-	    call_plugins(:stop_server, self)
-	end
-
         attr_reader :log_server_port
 
         def start_log_server(logfile)
