@@ -31,10 +31,14 @@ module Roby
                 describe Builtins::ClassDumper do
                     attr_reader :local_base_class, :remote_base_class, :parent, :child
                     before do
-                        @local_base_class = Class.new
+                        @local_base_class = Class.new do
+                            extend Identifiable
+                        end
                         def local_base_class.name; 'Base' end
-                        @remote_base_class = Class.new { def name; 'Base' end }
-                        def remote_base_class.name; 'Base' end
+                        @remote_base_class = Class.new do
+                            def self.name; 'Base' end
+                            extend Identifiable
+                        end
                         marshaller_object_manager.register_model(
                             local_base_class,
                             remote_id => remote_base_class.droby_id)

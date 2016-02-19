@@ -36,7 +36,7 @@ module Roby
 
             def initialize(plan: RebuiltPlan.new)
                 @plan = plan
-                @object_manager = ObjectManager.new(droby_id)
+                @object_manager = ObjectManager.new(DRobyID.allocate)
                 @marshal = Marshal.new(object_manager, nil)
 
                 clear_changes

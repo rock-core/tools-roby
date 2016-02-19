@@ -47,7 +47,7 @@ module Roby
             end
 
             def known_siblings_for(object)
-                if siblings = siblings_by_local_object_id.fetch(object.droby_id, nil)
+                if object.respond_to?(:droby_id) && (siblings = siblings_by_local_object_id.fetch(object.droby_id, nil))
                     siblings
                 else Hash.new
                 end

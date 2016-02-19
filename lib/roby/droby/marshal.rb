@@ -171,7 +171,9 @@ module Roby
                     end
 
                     local_object = marshalled.proxy(self)
-                    object_manager.register_object(local_object, marshalled.remote_siblings)
+                    if local_object.respond_to?(:droby_id)
+                        object_manager.register_object(local_object, marshalled.remote_siblings)
+                    end
                     if marshalled.respond_to?(:update)
                         marshalled.update(self, local_object, fresh_proxy: true)
                     end

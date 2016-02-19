@@ -1,3 +1,4 @@
+require 'roby/droby/identifiable'
 require 'roby/droby/v5'
 require 'roby/droby/droby_id'
 require 'roby/droby/peer_id'

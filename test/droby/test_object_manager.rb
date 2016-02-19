@@ -68,7 +68,7 @@ module Roby
                 end
 
                 it "deregisters models from the name-to-model mapping" do
-                    subject.register_model(m = flexmock(name: 'Test'))
+                    subject.register_model(m = flexmock(name: 'Test', droby_id: Object.new))
                     subject.deregister_object(m)
                     assert !subject.find_model_by_name('Test')
                 end
@@ -133,7 +133,7 @@ module Roby
 
             describe "#find_model_by_name" do
                 it "resolves by name a model already registered by #register_model" do
-                    model = flexmock(name: 'Test')
+                    model = flexmock(name: 'Test', droby_id: Object.new)
                     subject.register_model(model)
                     assert_equal model, subject.find_model_by_name('Test')
                 end

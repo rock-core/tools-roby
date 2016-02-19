@@ -61,19 +61,22 @@ module Roby
                 end
 
                 describe "#update" do
+                    attr_reader :provided_m, :local, :droby_model
+                    before do
+                        @provided_m = Module.new { extend Identifiable }
+                        @droby_model = DRobyModel.new('', Hash.new, Class.new, [marshalled_m = flexmock])
+                        marshalled_m.should_receive(:proxy).and_return(provided_m)
+                        @local = Class.new { extend Identifiable }
+                    end
+
                     it "applies the unmarshalled provided models" do
-                        droby_model = DRobyModel.new('', Hash.new, Class.new, [marshalled_m = flexmock])
-                        marshalled_m.should_receive(:proxy).and_return(m = Module.new)
-                        local = Class.new
-                        flexmock(local).should_receive(:provides).with(m).once
+                        flexmock(local).should_receive(:provides).with(provided_m).once
                         droby_model.update(demarshaller, local)
                     end
 
                     it "does not apply the models already provided by the local object" do
-                        droby_model = DRobyModel.new('', Hash.new, Class.new, [marshalled_m = flexmock])
-                        marshalled_m.should_receive(:proxy).and_return(m = Module.new)
-                        local = Class.new { include m }
-                        flexmock(local).should_receive(:provides).with(m).never
+                        local.include provided_m
+                        flexmock(local).should_receive(:provides).never
                         droby_model.update(demarshaller, local)
                     end
                 end

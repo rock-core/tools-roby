@@ -5,6 +5,10 @@ module Roby
         class ModelTestResolutionByName
         end
 
+        class IdentifiableObject
+            include Identifiable
+        end
+
         describe Marshal do
             let(:local_id) { Object.new }
             let(:remote_id) { Object.new }
@@ -14,7 +18,7 @@ module Roby
 
             describe "#dump" do
                 it "returns the ID of the remote sibling if one is known" do
-                    obj = flexmock(droby_dump: 10)
+                    obj = flexmock(droby_dump: 10, droby_id: Object.new)
                     object_manager.register_object(obj, remote_id => remote_object_id)
                     assert_equal RemoteDRobyID.new(remote_id, remote_object_id),
                         subject.dump(obj)
@@ -62,7 +66,7 @@ module Roby
                 it "attempts to resolve distributed objects through their siblings" do
                     marshalled = flexmock(remote_siblings: Hash[remote_id => remote_object_id])
                     flexmock(object_manager).should_receive(:find_by_id).
-                        with(remote_id, remote_object_id).once.and_return(obj = flexmock)
+                        with(remote_id, remote_object_id).once.and_return(obj = flexmock(droby_id: Object.new))
                     assert_equal [true, obj], subject.find_local_object(marshalled)
                 end
 
@@ -83,7 +87,7 @@ module Roby
                 it "calls #update on the objects resolved by remote_siblings" do
                     marshalled = flexmock(remote_siblings: Hash[remote_id => remote_object_id])
                     flexmock(object_manager, :strict).should_receive(:find_by_id).
-                        with(remote_id, remote_object_id).and_return(obj = flexmock)
+                        with(remote_id, remote_object_id).and_return(obj = flexmock(droby_id: Object.new))
                     flexmock(marshalled).should_receive(:update).with(subject, obj).once
                     assert_equal [true, obj], subject.find_local_object(marshalled)
                 end
@@ -101,7 +105,7 @@ module Roby
                 end
 
                 describe "the handling of unknown distributed objects" do
-                    let(:local_object) { flexmock }
+                    let(:local_object) { flexmock(droby_id: Object.new) }
                     before do
                         flexmock(subject).should_receive(:find_local_object).
                             and_return([false, nil])
@@ -162,7 +166,7 @@ module Roby
                 it "resolves the model by name if resolution by ID fails" do
                     flexmock(subject).should_receive(:find_local_object).with(marshalled).
                         and_return([false, nil])
-                    model = flexmock(name: 'Test')
+                    model = flexmock(name: 'Test', droby_id: Object.new)
                     subject.object_manager.register_model(model)
                     marshalled.should_receive(name: 'Test')
                     assert_equal model, subject.find_local_model(marshalled)
@@ -185,7 +189,7 @@ module Roby
 
             describe "#dump_groups" do
                 it "use IDs to dump the group objects within the group's #droby_dump calls" do
-                    obj0, obj1 = Object.new, Object.new
+                    obj0, obj1 = IdentifiableObject.new, IdentifiableObject.new
                     flexmock(obj0).should_receive(:droby_dump).
                         and_return { subject.dump(obj1) }
                     flexmock(obj1).should_receive(:droby_dump).
@@ -197,7 +201,7 @@ module Roby
                 end
 
                 it "passes the mapped objects to a block if one is given" do
-                    obj0, obj1 = Object.new, Object.new
+                    obj0, obj1 = IdentifiableObject.new, IdentifiableObject.new
                     flexmock(obj0, droby_dump: 24)
                     flexmock(obj1, droby_dump: 42)
                     subject.dump_groups([obj0], [obj1]) do |m_obj0, m_obj1|
@@ -207,7 +211,7 @@ module Roby
                 end
 
                 it "use IDs to dump the objects from within the block" do
-                    obj0, obj1 = Object.new, Object.new
+                    obj0, obj1 = IdentifiableObject.new, IdentifiableObject.new
                     flexmock(obj0, droby_dump: 24)
                     flexmock(obj1, droby_dump: 42)
 
@@ -218,7 +222,7 @@ module Roby
                 end
 
                 it "returns the block's return value" do
-                    obj0, obj1 = Object.new, Object.new
+                    obj0, obj1 = IdentifiableObject.new, IdentifiableObject.new
                     flexmock(obj0, droby_dump: 24)
                     flexmock(obj1, droby_dump: 42)
 
@@ -229,7 +233,7 @@ module Roby
                 end
 
                 it "does not use IDs to dump the objects when it returned" do
-                    obj0, obj1 = Object.new, Object.new
+                    obj0, obj1 = IdentifiableObject.new, IdentifiableObject.new
                     flexmock(obj0, droby_dump: 24)
                     flexmock(obj1, droby_dump: 42)
                     subject.dump_groups([obj0], [obj1]) do

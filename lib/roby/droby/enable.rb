@@ -1,26 +1,12 @@
 require 'roby/droby'
 
-class Object
-    def initialize_copy(old) # :nodoc:
-	super
-	@__droby_remote_id__ = nil
-    end
-
-    # The DRobyID for this object
-    def droby_id
-        if @__droby_remote_id__
-            @__droby_remote_id__
-        elsif !frozen?
-            @__droby_remote_id__ = Roby::DRoby::V5::DRobyID.allocate
-        end
-    end
-end
-
 Exception.extend  Roby::DRoby::V5::Builtins::ClassDumper
+Exception.extend  Roby::DRoby::Identifiable
 Exception.include Roby::DRoby::V5::Builtins::ExceptionDumper
 Array.include     Roby::DRoby::V5::Builtins::ArrayDumper
 Hash.include      Roby::DRoby::V5::Builtins::HashDumper
 Set.include       Roby::DRoby::V5::Builtins::SetDumper
+
 class Module
     def droby_dump(dest)
         raise "can't dump modules (#{self})"
@@ -29,6 +15,11 @@ end
 class Class
     def droby_dump(dest)
         raise "can't dump class #{self}"
+    end
+end
+
+class NilClass
+    def droby_id
     end
 end
 
@@ -44,18 +35,26 @@ module Roby
     end
     module Relations
         class Graph
+            extend DRoby::Identifiable
             extend DRoby::V5::DRobyConstant::Dump
         end
     end
     module Models
         class TaskServiceModel
+            include DRoby::Identifiable
             include DRoby::V5::Models::TaskServiceModelDumper
         end
     end
     class Event
         include DRoby::V5::EventDumper
     end
+
+    class PlanObject
+        include DRoby::Identifiable
+    end
+
     class EventGenerator
+        extend DRoby::Identifiable
         extend DRoby::V5::DRobyConstant::Dump
         include DRoby::V5::EventGeneratorDumper
     end
@@ -65,6 +64,7 @@ module Roby
     end
 
     class Task
+        extend DRoby::Identifiable
         extend DRoby::V5::Models::TaskDumper
         include DRoby::V5::TaskDumper
     end
@@ -76,6 +76,7 @@ module Roby
         include DRoby::V5::DelayedArgumentFromObjectDumper
     end
     class Plan
+        include DRoby::Identifiable
         include DRoby::V5::PlanDumper
     end
 
@@ -84,6 +85,7 @@ module Roby
             include DRoby::V5::Actions::ActionDumper
         end
         class Interface
+            extend DRoby::Identifiable
             extend DRoby::V5::ModelDumper
         end
         module Models
