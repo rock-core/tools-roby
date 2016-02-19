@@ -69,8 +69,7 @@ module Roby
         def initialize(event_logger: nil)
             super(graph_observer: self, event_logger: event_logger)
 
-            @execution_engine = nil
-
+            @execution_engine = ExecutionEngine.new(self)
 	    @force_gc    = Set.new
 	    @gc_quarantine = Set.new
             @exception_handlers = Array.new

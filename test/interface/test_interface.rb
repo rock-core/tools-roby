@@ -10,8 +10,6 @@ describe Roby::Interface::Interface do
 
     before do
         @app = Roby::Application.new
-        app.plan_setup
-        Roby::ExecutionEngine.new(app.plan)
         @plan = app.plan
         register_plan(plan)
         @interface = Roby::Interface::Interface.new(app)

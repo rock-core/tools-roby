@@ -96,7 +96,7 @@ module Roby
 
         # The main plan on which this application acts
         #
-        # @return [Plan]
+        # @return [ExecutablePlan]
         attr_reader :plan
 
         # The engine associated with {#plan}
@@ -575,6 +575,8 @@ module Roby
         }
 
 	def initialize
+            @plan = ExecutablePlan.new
+
             @auto_load_all = false
             @auto_load_models = true
             @app_dir = nil
@@ -821,6 +823,11 @@ module Roby
             if mod.respond_to?(:load) && options
                 mod.load(self, options)
             end
+
+            # Refresh the relation sets in #plan to include relations
+            # possibly added by the plugin
+            plan.refresh_relations
+
             mod
         end
 
@@ -1300,21 +1307,6 @@ module Roby
             end
         end
 
-        def plan_setup
-            if !plan
-                @plan = ExecutablePlan.new
-            end
-            if !Roby.control
-                Roby.control = DecisionControl.new
-            end
-            if !plan.execution_engine || (plan.execution_engine.plan != plan)
-                plan.execution_engine = ExecutionEngine.new(plan, Roby.control)
-            end
-            if Roby.scheduler
-                plan.execution_engine.scheduler = Roby.scheduler
-            end
-        end
-
         def base_setup
 	    STDOUT.sync = true
 
@@ -1325,8 +1317,6 @@ module Roby
             find_and_create_log_dir
 	    setup_loggers
             init_handlers.each(&:call)
-
-            plan_setup
 
 	    # Set up the loaded plugins
 	    call_plugins(:base_setup, self)

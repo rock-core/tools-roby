@@ -166,7 +166,6 @@ module Roby
         # See Roby::Plan and Roby::DecisionControl
         def initialize(plan, control = Roby::DecisionControl.new)
             @plan = plan
-            plan.execution_engine = self
             @control = control
             @scheduler = Schedulers::Null.new
 

@@ -89,6 +89,9 @@ module Roby
         # The event logger
         attr_reader :event_logger
 
+        # The observer object that reacts to relation changes
+        attr_reader :graph_observer
+
 	def initialize(graph_observer: nil, event_logger: nil)
             @local_owner = DRoby::PeerID.new('local')
 
@@ -104,11 +107,19 @@ module Roby
 
             @plan_services = Hash.new
 
+            self.event_logger = event_logger
+            @active_fault_response_tables = Array.new
+	    @task_index  = Roby::Queries::Index.new
+
+            @graph_observer = graph_observer
+            refresh_relations
+
+	    super()
+	end
+
+        def refresh_relations
             @task_relation_graphs, @event_relation_graphs =
                 self.class.instanciate_relation_graphs(graph_observer: graph_observer)
-            self.event_logger = event_logger
-
-            @active_fault_response_tables = Array.new
 
             @structure_checks = Array.new
             each_relation_graph do |graph|
@@ -116,11 +127,7 @@ module Roby
                     structure_checks << graph.method(:check_structure)
                 end
             end
-
-	    @task_index  = Roby::Queries::Index.new
-
-	    super()
-	end
+        end
 
         def event_logger=(event_logger)
             @event_logger = event_logger

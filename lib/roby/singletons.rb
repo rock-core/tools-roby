@@ -1,33 +1,18 @@
 module Roby
-    @app = Application.new
     @state = Roby::StateSpace.new
     @conf = Roby::ConfModel.new
 
     class << self
         # The one and only Application object
-        attr_reader :app
+        def app
+            @app ||= Application.new
+        end
 
         # The one and only StateSpace object
         attr_reader :state
 
         # The one and only ConfModel object
         attr_reader :conf
-
-        # The scheduler object to be used during execution. See
-        # ExecutionEngine#scheduler.
-        #
-        # This is only used during the configuration of the application, and
-        # not afterwards. It is also possible to set per-engine through
-        # ExecutionEngine#scheduler=
-        attr_accessor :scheduler
-
-        # The decision control object to be used during execution. See
-        # ExecutionEngine#control.
-        #
-        # This is only used during the configuration of the application, and
-        # not afterwards. It is also possible to set per-engine through
-        # ExecutionEngine#control=
-        attr_accessor :control
 
         # The main plan
         #
@@ -38,13 +23,45 @@ module Roby
 
         # The main execution engine
         #
-        # It is always the same as Roby.plan.engine
+        # It is always the same as Roby.plan.execution_engine
         #
         # Note that it is nil until the Roby application is configured
         #
         # @return [ExecutionEngine]
         def execution_engine
             app.execution_engine
+        end
+
+        # The main scheduler
+        #
+        # It is always the same as Roby.plan.execution_engine.scheduler
+        def scheduler
+            app.plan.execution_engine.scheduler
+        end
+
+        # Sets the main scheduler
+        #
+        # It is always the same as Roby.plan.execution_engine.scheduler
+        def scheduler=(scheduler)
+            app.plan.execution_engine.scheduler = scheduler
+        end
+
+        # The control / policy object
+        #
+        # This is the object that defines the core execution policies (e.g. what
+        # to do if the dependency of a non-running task stops). See
+        # {DecisionControl}
+        def control
+            app.plan.execution_engine.control
+        end
+
+        # Sets the control / policy object
+        #
+        # This is the object that defines the core execution policies (e.g. what
+        # to do if the dependency of a non-running task stops). See
+        # {DecisionControl}
+        def control(object)
+            app.plan.execution_engine.control = object
         end
 
         # @deprecated use {Roby.execution_engine} instead
