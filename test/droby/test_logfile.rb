@@ -18,9 +18,7 @@ module Roby
                 w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'))
                 w.close
                 r = Logfile::Reader.open(File.join(tmpdir, 'test-events.log'))
-                assert_raises(EOFError) do
-                    r.load_one_cycle
-                end
+                assert !r.load_one_cycle
             end
 
             it "loads the plugins registered in the log file" do
@@ -29,9 +27,7 @@ module Roby
 
                 flexmock(Roby.app).should_receive(:using).with('test').once
                 r = Logfile::Reader.open(File.join(tmpdir, 'test-events.log'))
-                assert_raises(EOFError) do
-                    r.load_one_cycle
-                end
+                assert !r.load_one_cycle
             end
 
             it "dumps and loads one cycle" do

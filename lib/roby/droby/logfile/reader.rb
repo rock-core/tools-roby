@@ -20,8 +20,11 @@ module Roby
 
                 def read_header
                     Logfile.read_prologue(event_io)
-                    ::Marshal.load(
-                        Logfile.read_one_chunk(event_io))
+                    if chunk = Logfile.read_one_chunk(event_io)
+                        ::Marshal.load(chunk)
+                    else
+                        raise InvalidFileError, "expected the prologue to be followed by one chunk, but got nothing"
+                    end
                 end
 
                 def dup
@@ -49,8 +52,9 @@ module Roby
                 end
 
                 def load_one_cycle
-                    ::Marshal.load_with_missing_constants(
-                        Logfile.read_one_chunk(event_io))
+                    if chunk = Logfile.read_one_chunk(event_io)
+                        ::Marshal.load_with_missing_constants(chunk)
+                    end
                 rescue Exception => e
                     raise e, "#{e.message}, running roby-log repair might repair the file", e.backtrace
                 end

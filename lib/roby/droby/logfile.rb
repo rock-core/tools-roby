@@ -125,13 +125,13 @@ module Roby
             # process
             def self.read_one_chunk(io)
                 data_size = io.read(4)
-                if !data_size
-                    raise EOFError, "expected a chunk at position #{io.tell}, but got EOF"
-                end
+                return if !data_size
 
                 data_size = data_size.unpack("L<").first
                 buffer = io.read(data_size)
-                if !buffer || buffer.size < data_size
+                if !buffer
+                    return
+                elsif buffer.size < data_size
                     raise TruncatedFileError, "expected a chunk of size #{data_size} at #{io.tell}, but got only #{buffer ? buffer.size : '0'} bytes"
                 end
 
