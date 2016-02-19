@@ -2317,42 +2317,42 @@ module Roby
     # wait for its completion like Roby.execute does
     #
     # See ExecutionEngine#once
-    def self.once; engine.once { yield } end
+    def self.once; execution_engine.once { yield } end
 
     # Make the main engine call +block+ during each propagation step.
     # See ExecutionEngine#each_cycle
-    def self.each_cycle(&block); engine.each_cycle(&block) end
+    def self.each_cycle(&block); execution_engine.each_cycle(&block) end
 
     # Install a periodic handler on the main engine
-    def self.every(duration, options = Hash.new, &block); engine.every(duration, options, &block) end
+    def self.every(duration, options = Hash.new, &block); execution_engine.every(duration, options, &block) end
 
     # True if the current thread is the execution thread of the main engine
     #
     # See ExecutionEngine#inside_control?
-    def self.inside_control?; engine.inside_control? end
+    def self.inside_control?; execution_engine.inside_control? end
 
     # True if the current thread is not the execution thread of the main engine
     #
     # See ExecutionEngine#outside_control?
-    def self.outside_control?; engine.outside_control? end
+    def self.outside_control?; execution_engine.outside_control? end
 
     # Execute the given block during the event propagation step of the main
     # engine. See ExecutionEngine#execute
     def self.execute
-        engine.execute do
+        execution_engine.execute do
             yield
         end
     end
 
     # Blocks until the main engine has executed at least one cycle.
     # See ExecutionEngine#wait_one_cycle
-    def self.wait_one_cycle; engine.wait_one_cycle end
+    def self.wait_one_cycle; execution_engine.wait_one_cycle end
 
     # Stops the current thread until the given even is emitted. If the event
     # becomes unreachable, an UnreachableEvent exception is raised.
     #
     # See ExecutionEngine#wait_until
-    def self.wait_until(ev, &block); engine.wait_until(ev, &block) end
+    def self.wait_until(ev, &block); execution_engine.wait_until(ev, &block) end
 end
 
 

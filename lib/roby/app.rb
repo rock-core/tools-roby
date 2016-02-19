@@ -1311,7 +1311,7 @@ module Roby
                 plan.execution_engine = ExecutionEngine.new(plan, Roby.control)
             end
             if Roby.scheduler
-                plan.engine.scheduler = Roby.scheduler
+                plan.execution_engine.scheduler = Roby.scheduler
             end
         end
 
@@ -1491,7 +1491,7 @@ module Roby
             prepare
 
 	    engine_config = self.engine
-	    engine = self.plan.engine
+	    engine = self.plan.execution_engine
 	    options = { cycle: engine_config['cycle'] || 0.1 }
 	    
 	    engine.run options
@@ -1542,7 +1542,7 @@ module Roby
         # Note that the cleanup we talk about here is related to running.
         # Cleanup required after #setup must be done in #cleanup
 	def run_plugins(mods, &block)
-            engine = plan.engine
+            engine = plan.execution_engine
 	    if mods.empty?
 		yield if block_given?
 

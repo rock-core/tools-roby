@@ -30,7 +30,7 @@ Roby.app.additional_model_files.concat(direct_files)
 
 Roby.display_exception do
     app.setup
-    Roby.engine.once do
+    Roby.plan.execution_engine.once do
         Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
 
         # Start the requested actions
