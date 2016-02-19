@@ -31,6 +31,17 @@ module Roby
             # full set of plan events
             attr_predicate :stats_mode, true
 
+            # @!method sync?
+            # @!method sync=(flag)
+            #
+            # Controls whether log data should be flushed on disk after each
+            # cycle. It is set by default. Disable for improved performance
+            # if the data will not be displayed live
+            #
+            # {Roby::Application} disables it by default if the log server is
+            # disabled
+            attr_predicate :sync?, true
+
             # @param [#dump] marshal the object that transforms the arguments
             #   into droby-compatible objects
             # @param [Integer] queue_size if non-zero, the access to I/O will
@@ -43,6 +54,7 @@ module Roby
                 @object_manager = ObjectManager.new(nil)
                 @marshal = Marshal.new(object_manager, nil)
                 @current_cycle = Array.new
+                @sync = true
                 if queue_size > 0
                     @dump_queue  = SizedQueue.new(queue_size)
                     @dump_thread = Thread.new(&method(:dump_loop))
@@ -125,6 +137,9 @@ module Roby
                         @current_cycle = Array.new
                     else
                         logfile.dump(current_cycle)
+                        if sync?
+                            logfile.flush
+                        end
                         current_cycle.clear
                     end
                 end
@@ -134,6 +149,9 @@ module Roby
             def dump_loop
                 while cycle = @dump_queue.pop
                     logfile.dump(cycle)
+                    if sync?
+                        logfile.flush
+                    end
                 end
             end
         end

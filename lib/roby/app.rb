@@ -568,7 +568,7 @@ module Roby
         overridable_configuration 'log', 'server', predicate: true, attr_name: 'log_server'
 
         DEFAULT_OPTIONS = {
-	    'log' => Hash['events' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
+	    'log' => Hash['events' => true, 'server' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
 	    'discovery' => Hash.new,
 	    'droby' => Hash['period' => 0.5, 'max_errors' => 1],
             'engine' => Hash.new
@@ -1467,9 +1467,16 @@ module Roby
                 plan.event_logger = DRoby::EventLogger.new(logfile)
 
                 Robot.info "logs are in #{log_dir}"
-                if start_log_server(logfile_path)
+
+                # Start a log server if needed, and poll the log directory for new
+                # data sources
+                if log_server = (log.has_key?('server') ? log['server'] : true)
+                    plan.event_logger.sync = true
+
+                    start_log_server(logfile_path)
                     Robot.info "log server running on port #{log_server_port}"
                 else
+                    plan.event_logger.sync = false
                     Robot.info "log server disabled"
                 end
 	    end
@@ -1592,29 +1599,25 @@ module Roby
         attr_reader :log_server_port
 
         def start_log_server(logfile)
-	    # Start a log server if needed, and poll the log directory for new
-	    # data sources
-	    if log_server = (log.has_key?('server') ? log['server'] : true)
-		require 'roby/droby/logfile/server'
+            require 'roby/droby/logfile/server'
 
-                port = DRoby::Logfile::Server::DEFAULT_PORT
-                sampling_period = DRoby::Logfile::Server::DEFAULT_SAMPLING_PERIOD
-                if log_server.kind_of?(Hash)
-                    port = Integer(log_server['port'] || port)
-                    sampling_period = Float(log_server['sampling_period'] || sampling_period)
-                    debug = log_server['debug']
-                end
+            port = DRoby::Logfile::Server::DEFAULT_PORT
+            sampling_period = DRoby::Logfile::Server::DEFAULT_SAMPLING_PERIOD
+            if log_server.kind_of?(Hash)
+                port = Integer(log_server['port'] || port)
+                sampling_period = Float(log_server['sampling_period'] || sampling_period)
+                debug = log_server['debug']
+            end
 
-                server_flags = ["--server=#{port}", "--sampling=#{sampling_period}", logfile]
-                if debug
-                    server_flags << "--debug"
-                end
+            server_flags = ["--server=#{port}", "--sampling=#{sampling_period}", logfile]
+            if debug
+                server_flags << "--debug"
+            end
 
-                @log_server = fork do
-                    exec("roby-display", *server_flags)
-                end
-                @log_server_port = port
-	    end
+            @log_server = fork do
+                exec("roby-display", *server_flags)
+            end
+            @log_server_port = port
         end
 
         def stop_log_server
