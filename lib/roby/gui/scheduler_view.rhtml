@@ -23,6 +23,20 @@
     </section>
 
     <section>
+        <title><%= state.actions.size %> actions have been performed</title>
+        <actions>
+            <% state.actions.each do |task, description| %>
+                <title><%= task %></title>
+                <descriptions>
+                    <% description.each do |msg, args| %>
+                        <item><%= format_msg_string(msg, task, *args) %></item>
+                    <% end %>
+                </descriptions>
+            <% end %>
+        </actions>
+    </section>
+
+    <section>
         <title><%= state.non_scheduled_tasks.size %> tasks have been considered for scheduling, but did not get scheduled</title>
         <non_scheduled_tasks>
             <% state.non_scheduled_tasks.each do |task, reasons| %>
@@ -34,6 +48,6 @@
                 </reasons>
             <% end %>
         </non_scheduled_tasks>
-    </div>
+    </section>
 </body>
 </html>

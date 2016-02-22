@@ -78,6 +78,7 @@ Scheduler state:
     scheduler_report_pending_non_executable_task(msg, task, *args)
     scheduler_report_trigger(generator)
     scheduler_report_holdoff(msg, task, *args)
+    scheduler_report_action(msg, task, *args)
 
 Cycle information. This message always ends one cycle of data, e.g. each entry
 in a log file will end with this message

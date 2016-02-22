@@ -108,6 +108,13 @@ module Roby
                             end
                         end
                     end
+                    s.actions.each do |task, reports|
+                        reports.each do |report|
+                            if !state.actions[task].include?(report)
+                                state.actions[task] << report
+                            end
+                        end
+                    end
                 end
                 state
             end

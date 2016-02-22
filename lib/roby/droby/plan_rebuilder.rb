@@ -323,6 +323,10 @@ module Roby
                 scheduler_state.report_holdoff(msg, local_object(task), *local_object(args))
             end
 
+            def scheduler_report_action(time, msg, task, *args)
+                scheduler_state.report_action(msg, local_object(task), *local_object(args))
+            end
+
             def cycle_end(time, timings)
                 plan.scheduler_states << scheduler_state
                 @scheduler_state = Schedulers::State.new

@@ -633,6 +633,10 @@ module Roby
                     holdoffs.each do |msg, *args|
                         messages << Schedulers::State.format_message_into_string(msg, *args)
                     end
+                    actions = scheduler_state.actions.fetch(task, Set.new)
+                    actions.each do |msg, *args|
+                        messages << Schedulers::State.format_message_into_string(msg, *args)
+                    end
                     messages_height = text_height * messages.size
 
                     bottom_y = top_y + events_height + messages_height

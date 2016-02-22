@@ -20,6 +20,11 @@ module Roby
                 Roby::Schedulers.debug { State.format_message_into_string(msg, task, *args) }
                 plan.log(:scheduler_report_holdoff, msg, task, *args)
             end
+
+            def report_action(msg, task, *args)
+                Roby::Schedulers.debug { State.format_message_into_string(msg, task, *args) }
+                plan.log(:scheduler_report_action, msg, task, *args)
+            end
         end
     end
 end

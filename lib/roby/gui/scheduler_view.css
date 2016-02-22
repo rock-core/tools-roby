@@ -9,7 +9,10 @@ section title {
 section non_scheduled_tasks title {
     display: block;
 }
-called_generators, non_scheduled_tasks, reasons {
+section actions title {
+    display: block;
+}
+called_generators, non_scheduled_tasks, reasons, actions, descriptions {
     display: block;
     left-border: solid;
     margin-left: .5em;
