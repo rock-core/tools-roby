@@ -37,9 +37,17 @@ module Roby
                 # process it
                 begin
                     yield
-                rescue *([Roby::UserExceptionWrapper] + exp) => e
+                rescue *exp => e
                     assert_exception_can_be_pretty_printed(e)
                     return e
+                rescue Roby::UserExceptionWrapper => wrapper_e
+                    assert_exception_can_be_pretty_printed(wrapper_e)
+                    all = Roby.flatten_exception(wrapper_e)
+                    if actual_e = all.find { |e| exp.any? { |expected_e| e.kind_of?(expected_e) } }
+                        return actual_e
+                    end
+                    actually_caught = roby_exception_to_string(*all)
+                    flunk("#{exp.map(&:to_s).join(", ")} exceptions expected, not #{wrapper_e.class} #{actually_caught}")
                 rescue Exception => e
                     assert_exception_can_be_pretty_printed(e)
                     actually_caught = roby_exception_to_string(e)
