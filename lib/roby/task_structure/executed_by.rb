@@ -174,7 +174,7 @@ module Roby
 
         class MissingRequiredExecutionAgent < Roby::CommandFailed
             def initialize(task)
-                super(nil, task)
+                super(nil, task.start_event)
             end
             def pretty_print(pp)
                 pp.text "attempted to start a task that is expecting an execution agent but has none"
@@ -186,7 +186,7 @@ module Roby
         class ExecutionAgentNotReady < Roby::CommandFailed
             attr_reader :execution_agent
             def initialize(task)
-                super(nil, task)
+                super(nil, task.start_event)
                 @execution_agent = task.execution_agent
             end
             def pretty_print(pp)
@@ -219,10 +219,10 @@ module Roby
                 agent = task.execution_agent
                 if !agent
                     if task.model.execution_agent
-                        raise MissingRequiredExecutionAgent.new(task.start_event), "the model of #{task} requires an execution agent, but the task has none"
+                        raise MissingRequiredExecutionAgent.new(task), "the model of #{task} requires an execution agent, but the task has none"
                     end
                 elsif !agent.ready?
-                    raise ExecutionAgentNotReady.new(task.start_event), "cannot start #{task}, its agent is not ready"
+                    raise ExecutionAgentNotReady.new(task), "cannot start #{task}, its agent is not ready"
                 end
             end
         end
