@@ -80,7 +80,7 @@ module Roby
 
         # True if this exception originates from the given task or generator
         def originates_from?(object)
-            generator == object || (generator.respond_to?(:task) && generator.task == object)
+            generator == object || task == object
         end
 
 	# Creates a new execution exception object with the specified source
