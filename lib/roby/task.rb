@@ -1388,10 +1388,9 @@ module Roby
         end
 
         def command_or_handler_error(exception)
-            if exception.originates_from?(self)
+            if exception.originates_from?(self) && (gen = exception.generator)
                 error = exception.exception
-                gen = exception.generator
-                if gen.symbol == :start && !gen.emitted?
+                if (gen == start_event) && !gen.emitted?
                     failed_to_start!(error)
                 elsif pending?
                     pass_exception
