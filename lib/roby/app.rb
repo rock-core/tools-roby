@@ -1079,6 +1079,7 @@ module Roby
 
                 io = if file
                          path = File.expand_path(file, log_dir)
+                         Robot.info "redirected logger for #{mod} to #{path} (level #{level})"
                          log_files[path] ||= File.open(path, 'w')
                      else 
                          STDOUT
