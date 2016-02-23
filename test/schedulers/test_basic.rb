@@ -83,6 +83,21 @@ class TC_Schedulers_Basic < Minitest::Test
         assert !t2.running?
         assert t3.running?
     end
+
+    def test_executed_by
+        @scheduler = Roby::Schedulers::Basic.new(true, plan)
+        exec_m = Roby::Tasks::Simple.new_submodel
+        exec_m.event :ready
+        plan.add(t = Tasks::Simple.new)
+        t.executed_by(exec_t = exec_m.new)
+
+        scheduler_initial_events
+        assert exec_t.running?
+        assert !t.running?
+        exec_t.ready_event.emit
+        scheduler_initial_events
+        assert t.running?
+    end
 end
 
 

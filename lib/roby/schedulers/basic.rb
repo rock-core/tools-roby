@@ -73,6 +73,11 @@ module Roby
                     return false
                 end
 
+                if (agent = task.execution_agent) && !agent.ready_event.emitted?
+                    report_holdoff "task's execution agent %2 is not ready", task, agent
+                    return false
+                end
+
                 if !start_event.root?(EventStructure::CausalLink)
                     report_holdoff "start event not root in the causal link relation", task
                     return false
