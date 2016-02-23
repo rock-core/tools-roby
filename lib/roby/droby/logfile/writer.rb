@@ -53,7 +53,7 @@ module Roby
                         begin
                             ::Marshal.dump(args)
                         rescue Exception => e
-                            Roby::DRoby::Logfile.fatal "failed to dump cycle info: #{e}"
+                            Roby::DRoby::Logfile.fatal "failed to dump message #{m}: #{e}"
                             args.each do |obj|
                                 begin
                                     ::Marshal.dump(obj)
