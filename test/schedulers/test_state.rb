@@ -6,10 +6,10 @@ module Roby
             describe "#pretty_print" do
                 it "formats the State object in an easier-to-read format" do
                     pp = PP.new(s = StringIO.new)
-                    reporter = Reporting.new
-                    reporter.report_pending_non_executable_task("NonExecutableMessageFormatted %1", "TASK")
-                    reporter.report_holdoff("NonScheduledMessage %1", "TASK")
-                    reporter.state.pretty_print(pp)
+                    state = State.new
+                    state.report_pending_non_executable_task("NonExecutableMessageFormatted %1", "TASK")
+                    state.report_holdoff("NonScheduledMessage %1", "TASK")
+                    state.pretty_print(pp)
                     assert_equal <<-EXPECTED, "#{s.string}\n"
 Pending non-executable tasks
   NonExecutableMessageFormatted TASK

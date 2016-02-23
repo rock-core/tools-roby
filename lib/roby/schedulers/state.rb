@@ -26,6 +26,18 @@ module Roby
                 @non_scheduled_tasks = Hash.new { |h, k| h[k] = Set.new }
             end
 
+            def report_pending_non_executable_task(msg, task, *args)
+                pending_non_executable_tasks << [msg, task, *args]
+            end
+
+            def report_trigger(generator)
+                called_generators << generator
+            end
+
+            def report_holdoff(msg, task, *args)
+                non_scheduled_tasks[task] << [msg, *args]
+            end
+
             # Add information contained in 'state' to this object
             def merge!(state)
                 pending_non_executable_tasks.merge(state.pending_non_executable_tasks)

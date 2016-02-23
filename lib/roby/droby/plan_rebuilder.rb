@@ -15,6 +15,9 @@ module Roby
             # The Plan object into which we rebuild information
             attr_reader :plan
 
+            # The scheduler state for the current cycle
+            attr_reader :scheduler_state
+
             # A hash representing the statistics for this execution cycle
             attr_reader :stats
             # A representation of the state for this execution cycle
@@ -39,6 +42,7 @@ module Roby
                 @object_manager = ObjectManager.new(DRobyID.allocate)
                 @marshal = Marshal.new(object_manager, nil)
 
+                @scheduler_state = Schedulers::State.new
                 clear_changes
                 @stats = Hash.new
             end
@@ -94,6 +98,7 @@ module Roby
             def clear
                 plan.clear
                 object_manager.clear
+                @scheduler_state = Schedulers::State.new
             end
 
             # Processes one cycle worth of data coming from an EventStream,
@@ -171,6 +176,7 @@ module Roby
             update_type :event_propagation
 
             def register_executable_plan(time, plan_id)
+                @plan = RebuiltPlan.new
                 object_manager.register_object(plan, nil => plan_id)
             end
 
@@ -305,17 +311,21 @@ module Roby
                 local_object(plan_id).propagated_exceptions << [mode, local_object(error), local_object(involved_objects)]
             end
 
-            def report_scheduler_state(time, plan, pending_non_executable_tasks, called_generators, non_scheduled_tasks)
-                plan = local_object(plan)
-                state = Schedulers::State.new
-                state.pending_non_executable_tasks = local_object(pending_non_executable_tasks)
-                state.called_generators = local_object(called_generators)
-                state.non_scheduled_tasks = local_object(non_scheduled_tasks)
+            def scheduler_report_pending_non_executable_task(time, msg, task, *args)
+                scheduler_state.report_pending_non_executable_task(msg, local_object(task), *local_object(args))
+            end
 
-                plan.scheduler_states << state
+            def scheduler_report_trigger(time, generator)
+                scheduler_state.report_trigger(local_object(generator))
+            end
+
+            def scheduler_report_holdoff(time, msg, task, *args)
+                scheduler_state.report_holdoff(msg, local_object(task), *local_object(args))
             end
 
             def cycle_end(time, timings)
+                plan.scheduler_states << scheduler_state
+                @scheduler_state = Schedulers::State.new
                 @state = timings.delete(:state)
                 @stats = timings
                 @start_time ||= self.cycle_start_time

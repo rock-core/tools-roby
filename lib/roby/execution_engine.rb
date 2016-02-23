@@ -777,13 +777,6 @@ module Roby
         def call_propagation_handlers
             if scheduler.enabled?
                 gather_framework_errors('scheduler') do
-                    state = scheduler.state
-                    plan.log(:report_scheduler_state, plan,
-                             state.pending_non_executable_tasks,
-                             state.called_generators,
-                             state.non_scheduled_tasks)
-
-                    scheduler.clear_reports
                     scheduler.initial_events
                 end
             end

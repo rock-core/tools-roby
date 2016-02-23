@@ -75,7 +75,9 @@ Event propagation hooks:
 
 Scheduler state:
 
-    report_scheduler_state(plan, pending_non_executable_tasks, called_generators, non_scheduled_tasks)
+    scheduler_report_pending_non_executable_task(msg, task, *args)
+    scheduler_report_trigger(generator)
+    scheduler_report_holdoff(msg, task, *args)
 
 Cycle information. This message always ends one cycle of data, e.g. each entry
 in a log file will end with this message
