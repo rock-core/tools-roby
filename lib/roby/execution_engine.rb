@@ -218,8 +218,16 @@ module Roby
             @precedence_graph = plan.event_relation_graph_for(EventStructure::Precedence)
 	end
 
+        # Cached graph object for {EventStructure::Precedence}
+        #
+        # This is here for performance reasons, to avoid resolving the same
+        # graph over and over
         attr_reader :precedence_graph
 
+        # Cached graph object for {TaskStructure::Dependency}
+        #
+        # This is here for performance reasons, to avoid resolving the same
+        # graph over and over
         attr_reader :dependency_graph
 
         # The Plan this engine is acting on
