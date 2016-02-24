@@ -335,6 +335,14 @@ module Roby
                 @start_time ||= self.cycle_start_time
                 announce_state_update
             end
+
+            def pretty_print(pp)
+                pp.text "Plan rebuilder state for #{plan}"
+                pp.nest(2) do
+                    pp.breakable
+                    object_manager.pretty_print(pp)
+                end
+            end
         end
     end
 end

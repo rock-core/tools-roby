@@ -127,6 +127,23 @@ module Roby
             def find_model_by_name(name)
                 models_by_name[name]
             end
+
+            def pretty_print(pp)
+                pp.text "Object manager with local ID=#{local_id}"
+                pp.nest(2) do
+                    pp.breakable
+                    pp.text "Registered objects"
+                    siblings_by_peer.each do |peer_id, siblings|
+                        siblings.each do |peer_object_id, object|
+                            pp.breakable
+                            pp.text "  #{peer_object_id}@#{peer_id} "
+                            pp.nest(4) do
+                                object.pretty_print(pp)
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
 end
