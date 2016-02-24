@@ -1466,6 +1466,7 @@ module Roby
                 event_io = File.open(logfile_path, 'w')
                 logfile = DRoby::Logfile::Writer.new(event_io, plugins: plugins.map { |n, _| n })
                 plan.event_logger = DRoby::EventLogger.new(logfile)
+                plan.execution_engine.event_logger = plan.event_logger
 
                 Robot.info "logs are in #{log_dir}"
 

@@ -478,17 +478,19 @@ module Roby
 
         def failed_to_start?; !!@failed_to_start end
 
-        def failed_to_start!(reason, time = Time.now)
+        def mark_failed_to_start(reason, time)
             @failed_to_start = true
             @failed_to_start_time = time
             @failure_reason = reason
             plan.task_index.set_state(self, :failed?)
+        end
 
+        def failed_to_start!(reason, time = Time.now)
+            mark_failed_to_start(reason, time)
             each_event do |ev|
                 ev.unreachable!(reason)
             end
-
-            plan.log(:task_failed_to_start, self, reason)
+            execution_engine.log(:task_failed_to_start, self, reason)
         end
 
         # True if the +failed+ event of this task has been fired

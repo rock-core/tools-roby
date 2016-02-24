@@ -29,6 +29,7 @@ module Roby
     class Plan < DistributedObject
 	extend Logger::Hierarchy
 	extend Logger::Forward
+        include DRoby::EventLogging
         
         # The Peer ID of the local owner (i.e. of the local process / execution
         # engine)
@@ -87,12 +88,12 @@ module Roby
 	def executable?; false end
 
         # The event logger
-        attr_reader :event_logger
+        attr_accessor :event_logger
 
         # The observer object that reacts to relation changes
         attr_reader :graph_observer
 
-	def initialize(graph_observer: nil, event_logger: nil)
+        def initialize(graph_observer: nil, event_logger: DRoby::NullEventLogger.new)
             @local_owner = DRoby::PeerID.new('local')
 
 	    @missions	 = Set.new
@@ -126,25 +127,6 @@ module Roby
                 if graph.respond_to?(:check_structure)
                     structure_checks << graph.method(:check_structure)
                 end
-            end
-        end
-
-        def event_logger=(event_logger)
-            @event_logger = event_logger
-        end
-
-        # Forward one event to {#event_logger}
-        def log(m, *args)
-            if event_logger
-                event_logger.dump(m, Time.now, args)
-            end
-        end
-
-        # The amount of cycles pending in the {#event_logger}'s dump queue
-        def log_queue_size
-            if event_logger
-                event_logger.log_queue_size
-            else 0
             end
         end
 

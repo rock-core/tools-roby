@@ -271,7 +271,7 @@ module Roby
                 task   = local_object(task)
                 reason = local_object(reason)
                 task.plan.failed_to_start << [task, reason]
-                task.failed_to_start!(reason, time)
+                task.mark_failed_to_start(reason, time)
                 announce_event_propagation_update
             end
 
@@ -304,7 +304,7 @@ module Roby
             end
 
             def generator_unreachable(time, generator, reason)
-                local_object(generator).unreachable!(local_object(reason))
+                local_object(generator).mark_unreachable!(local_object(reason))
             end
 
             def exception_notification(time, plan_id, mode, error, involved_objects)

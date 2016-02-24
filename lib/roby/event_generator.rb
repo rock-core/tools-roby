@@ -600,8 +600,8 @@ module Roby
                 error = EmissionFailed.new(error, self)
             end
 
-            plan.log(:generator_emit_failed, self, error)
-            plan.execution_engine.add_error(error)
+            execution_engine.log(:generator_emit_failed, self, error)
+            execution_engine.add_error(error)
 	ensure
 	    @pending = false
 	end
@@ -795,7 +795,7 @@ module Roby
 	def fired(event)
 	    unreachable_handlers.delete_if { |cancel, _| cancel }
 	    history << event
-            plan.log(:generator_fired, event)
+            execution_engine.log(:generator_fired, event)
 	end
 
 	# call-seq:
@@ -893,14 +893,18 @@ module Roby
 
         def unreachable_without_propagation(reason = nil, plan = self.plan)
 	    return if @unreachable
-	    @unreachable = true
-            @unreachability_reason = reason
+            mark_unreachable!(reason)
 
-            plan.log(:generator_unreachable, self, reason)
+            execution_engine.log(:generator_unreachable, self, reason)
             if execution_engine
                 execution_engine.unreachable_event(self)
             end
             call_unreachable_handlers(reason)
+        end
+
+        def mark_unreachable!(reason)
+            @unreachable = true
+            @unreachability_reason = reason
         end
 
 	# Called internally when the event becomes unreachable

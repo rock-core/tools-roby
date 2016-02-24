@@ -21,7 +21,6 @@ module Roby
                 @event_logger = EventLogger.new(logfile)
 
                 @local_plan = ExecutablePlan.new(event_logger: event_logger)
-                ExecutionEngine.new(local_plan)
                 @plan_rebuilder = PlanRebuilder.new
             end
 

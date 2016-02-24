@@ -457,7 +457,7 @@ class TC_ExecutionEngine < Minitest::Test
 	sleep(1)
 	execution_engine.remove_periodic_handler(id)
 	size = samples.size
-	assert(size > 2, "expected 2 samples, got #{samples.map { |t| t.to_hms }.join(", ")}")
+	assert(size > 2, "expected 2 samples, got #{samples.size}")
 
 	samples.each_cons(2) do |a, b|
 	    assert_in_delta(0.1, b - a, 0.001)

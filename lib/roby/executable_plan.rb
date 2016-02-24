@@ -66,7 +66,7 @@ module Roby
 	# plain Plan objects and false for transcations
 	def executable?; true end
 
-        def initialize(event_logger: nil)
+        def initialize(event_logger: DRoby::NullEventLogger.new)
             super(graph_observer: self, event_logger: event_logger)
 
             @execution_engine = ExecutionEngine.new(self)

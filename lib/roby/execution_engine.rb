@@ -159,13 +159,23 @@ module Roby
     class ExecutionEngine
         extend Logger::Hierarchy
         include Logger::Hierarchy
+        include DRoby::EventLogging
 
         # Create an execution engine acting on +plan+, using +control+ as the
         # decision control object
         #
-        # See Roby::Plan and Roby::DecisionControl
-        def initialize(plan, control = Roby::DecisionControl.new)
+        # @param [ExecutablePlan] plan the plan on which this engine acts
+        # @param [DecisionControl] control the policy object, i.e. the object
+        #   that embeds policies in cases where multiple reactions would be
+        #   possible
+        # @param [DRoby::EventLogger] event_logger the logger that should be
+        #   used to trace execution events. It is by default the same than the
+        #   {#plan}'s. Pass a {DRoby::NullEventLogger} instance to disable event
+        #   logging for this engine.
+        def initialize(plan, control: Roby::DecisionControl.new, event_logger: plan.event_logger)
             @plan = plan
+            @event_logger = event_logger
+
             @control = control
             @scheduler = Schedulers::Null.new
 
@@ -214,6 +224,12 @@ module Roby
 
         # The Plan this engine is acting on
         attr_accessor :plan
+        # The underlying {DRoby::EventLogger}
+        #
+        # It is usually the same than the {#plan}'s. Pass a
+        # {DRoby::NullEventLogger} at construction time to disable logging of
+        # execution events.
+        attr_accessor :event_logger
         # The DecisionControl object associated with this engine
         attr_accessor :control
         # A numeric ID giving the count of the current propagation cycle
@@ -1010,7 +1026,7 @@ module Roby
             if call_info
                 source_events, source_generators, context = prepare_propagation(signalled, false, call_info)
                 if source_events
-                    plan.log(:generator_propagate_events, false, source_events, signalled)
+                    log(:generator_propagate_events, false, source_events, signalled)
 
                     if signalled.self_owned?
                         next_step = gather_propagation(current_step) do
@@ -1047,7 +1063,7 @@ module Roby
             elsif forward_info
                 source_events, source_generators, context = prepare_propagation(signalled, true, forward_info)
                 if source_events
-                    plan.log(:generator_propagate_events, true, source_events, signalled)
+                    log(:generator_propagate_events, true, source_events, signalled)
 
                     # If the destination event is not owned, but if the peer is not
                     # connected, the event is our responsibility now.
@@ -2082,7 +2098,7 @@ module Roby
 
 	# Called at each cycle end
 	def cycle_end(stats)
-	    plan.log(:cycle_end, stats)
+	    log(:cycle_end, stats)
 
 	    at_cycle_end_handlers.each do |handler|
 		begin
@@ -2298,7 +2314,7 @@ module Roby
 	# Call to notify the listeners registered with {#on_exception} of the
 	# occurence of an exception
 	def notify_exception(kind, error, involved_objects)
-            plan.log(:exception_notification, plan.droby_id, kind, error, involved_objects)
+            log(:exception_notification, plan.droby_id, kind, error, involved_objects)
 	    exception_listeners.each do |listener|
 		listener.call(self, kind, error, involved_objects)
 	    end
