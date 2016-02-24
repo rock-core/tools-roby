@@ -794,6 +794,7 @@ module Roby
             if scheduler.enabled?
                 gather_framework_errors('scheduler') do
                     scheduler.initial_events
+                    log_timepoint 'scheduler'
                 end
             end
             call_poll_blocks(self.class.propagation_handlers, false)
@@ -848,9 +849,12 @@ module Roby
 	    end
         end
         
-        def error_handling_phase(stats, events_errors)
+        def error_handling_phase(events_errors)
             # Do the exception handling phase
-            fatal_errors = compute_fatal_errors(stats, events_errors)
+            fatal_errors =
+                log_timepoint_group 'compute_fatal_errors' do
+                    compute_fatal_errors(events_errors)
+                end
             return if fatal_errors.empty?
 
             kill_tasks = fatal_errors.inject(Set.new) do |tasks, (exception, affected_tasks)|
@@ -1347,10 +1351,10 @@ module Roby
         # called
         attr_reader :additional_errors
 
-        def compute_fatal_errors(stats, events_errors)
+        def compute_fatal_errors(events_errors)
             # Generate exceptions from task structure
             structure_errors = plan.check_structure
-            add_timepoint(stats, :structure_check)
+            log_timepoint 'structure_check'
 
             if @additional_errors
                 raise InternalError, "recursive call to #compute_fatal_errors"
@@ -1374,7 +1378,7 @@ module Roby
             end
             @additional_errors = nil
 
-            add_timepoint(stats, :exception_propagation)
+            log_timepoint 'exception_propagation'
 
             # Get the remaining problems in the plan structure, and act on it
             fatal_errors = remove_inhibited_exceptions(plan.check_structure)
@@ -1417,7 +1421,6 @@ module Roby
         def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new, enable_scheduler: false)
             scheduler_was_enabled, scheduler.enabled = scheduler.enabled?, enable_scheduler
             gather_framework_errors("process_events_simple") do
-                stats = Hash[start: Time.now]
                 next_steps = seeds.dup
                 errors = initial_errors.dup
                 if block_given?
@@ -1435,14 +1438,14 @@ module Roby
 
                 if next_steps.empty? && errors.empty?
                     next_steps = gather_propagation do
-                        error_handling_phase_synchronous(stats, errors)
+                        error_handling_phase_synchronous(errors)
                     end
                 end
 
                 while !next_steps.empty? || !errors.empty?
                     errors.concat(event_propagation_phase(next_steps))
                     next_steps = gather_propagation do
-                        error_handling_phase_synchronous(stats, errors)
+                        error_handling_phase_synchronous(errors)
                         errors.clear
                     end
                 end
@@ -1451,8 +1454,8 @@ module Roby
             scheduler.enabled = scheduler_was_enabled
         end
 
-        def error_handling_phase_synchronous(stats, errors)
-            kill_tasks, fatal_errors = error_handling_phase(stats, errors || [])
+        def error_handling_phase_synchronous(errors)
+            kill_tasks, fatal_errors = error_handling_phase(errors || [])
             if fatal_errors
                 garbage_collect(kill_tasks)
                 if fatal_errors.size == 1
@@ -1478,16 +1481,14 @@ module Roby
             end
         end
         
-        # Process the pending events. The time at each event loop step
-        # is saved into +stats+.
-        def process_events(stats = {start: Time.now})
+        # Process the pending events.
+        def process_events
             @emitted_events = Array.new
 
             if @application_exceptions
                 raise "recursive call to process_events"
             end
             @application_exceptions = []
-            add_timepoint(stats, :real_start)
 
             # Gather new events and propagate them
 	    events_errors = nil
@@ -1495,8 +1496,11 @@ module Roby
 	        events_errors = gather_errors do
                     if !quitting? || !garbage_collect([])
                         process_workers
+                        log_timepoint 'workers'
                         gather_external_events
+                        log_timepoint 'external_events'
                         call_propagation_handlers
+                        log_timepoint 'propagation_handlers'
                     end
 	        end
             end
@@ -1504,8 +1508,11 @@ module Roby
             all_fatal_errors = Array.new
             if next_steps.empty?
                 next_steps = gather_propagation do
-                    kill_tasks, fatal_errors = error_handling_phase(stats, events_errors)
-                    add_timepoint(stats, :exceptions_fatal)
+                    kill_tasks, fatal_errors =
+                        log_timepoint_group 'error_handling_phase' do
+                            error_handling_phase(events_errors)
+                        end
+
                     if fatal_errors
                         all_fatal_errors.concat(fatal_errors)
                     end
@@ -1513,17 +1520,21 @@ module Roby
                     events_errors = gather_errors do
                         garbage_collect(kill_tasks)
                     end
-                    add_timepoint(stats, :garbage_collect)
+                    log_timepoint 'garbage_collect'
                 end
             end
 
             while !next_steps.empty? || !events_errors.empty?
-                events_errors.concat(event_propagation_phase(next_steps))
-                add_timepoint(stats, :events)
+                log_timepoint_group 'event_propagation_phase' do
+                    events_errors.concat(event_propagation_phase(next_steps))
+                end
 
                 next_steps = gather_propagation do
-                    kill_tasks, fatal_errors = error_handling_phase(stats, events_errors)
-                    add_timepoint(stats, :exceptions_fatal)
+                    kill_tasks, fatal_errors =
+                        log_timepoint_group 'error_handling_phase' do
+                            error_handling_phase(events_errors)
+                        end
+
                     if fatal_errors
                         all_fatal_errors.concat(fatal_errors)
                     end
@@ -1531,7 +1542,7 @@ module Roby
                     events_errors = gather_errors do
                         garbage_collect(kill_tasks)
                     end
-                    add_timepoint(stats, :garbage_collect)
+                    log_timepoint 'garbage_collect'
                 end
             end
 
@@ -1942,23 +1953,6 @@ module Roby
             remaining
 	end
 
-        # How much time remains before the end of the cycle. Updated by
-        # #add_timepoint
-	attr_reader :remaining_cycle_time
-
-        # Adds to the stats the given duration as the expected duration of the
-        # +name+ step. The field in +stats+ is named "expected_<name>".
-	def add_expected_duration(stats, name, duration)
-	    stats[:"expected_#{name}"] = Time.now + duration - stats[:start]
-	end
-
-        # Adds in +stats+ the current time as a timepoint named +time+, and
-        # update #remaining_cycle_time
-        def add_timepoint(stats, name)
-            stats[:end] = stats[name] = Time.now - stats[:start]
-            @remaining_cycle_time = cycle_length - stats[:end]
-        end
-
         # If set to true, Roby will warn if the GC cannot be controlled by Roby
         attr_predicate :gc_warning?, true
 
@@ -1977,7 +1971,6 @@ module Roby
                                          Application.info "GC.enable does not accept an argument. GC will not be controlled by Roby"
                                          false
 				     end
-	    stats = Hash.new
             last_cpu_time = Process.times
             last_cpu_time = (last_cpu_time.utime + last_cpu_time.stime) * 1000
 
@@ -2006,12 +1999,15 @@ module Roby
 			@cycle_start += cycle_length
 			@cycle_index += 1
 		    end
-                    stats[:start] = cycle_start
+                    stats = Hash.new
+                    stats[:expected_cycle_start] = cycle_start
 		    stats[:cycle_index] = cycle_index
 
-                    process_events(stats) 
+                    log_timepoint_group 'process_events' do
+                        process_events
+                    end
 
-                    @remaining_cycle_time = cycle_length - stats[:end]
+                    remaining_cycle_time = cycle_length - (Time.now - stats[:expected_cycle_start])
 		    
 		    # If the ruby interpreter we run on offers a true/false argument to
 		    # GC.enable, we disabled the GC and just run GC.enable(true) to make
@@ -2020,14 +2016,13 @@ module Roby
 			GC.enable(true)
 			GC.disable
 		    end
-		    add_timepoint(stats, :ruby_gc)
+                    log_timepoint 'ruby_gc'
 
 		    # Sleep if there is enough time for it
 		    if remaining_cycle_time > SLEEP_MIN_TIME
-			add_expected_duration(stats, :sleep, remaining_cycle_time)
 			sleep(remaining_cycle_time) 
 		    end
-		    add_timepoint(stats, :sleep)
+                    log_timepoint 'sleep'
 
 		    # Add some statistics and call cycle_end
                     stats[:log_queue_size]   = plan.log_queue_size
@@ -2042,7 +2037,6 @@ module Roby
                         stats[:gc] = GC.stat
                     end
 
-		    stats[:start] = [cycle_start.tv_sec, cycle_start.tv_usec]
                     stats[:state] = Roby::State
                     cycle_end(stats)
                     stats = Hash.new

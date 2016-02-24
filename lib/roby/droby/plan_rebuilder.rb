@@ -336,6 +336,15 @@ module Roby
                 announce_state_update
             end
 
+            def timepoint_group_start(time, *name)
+            end
+
+            def timepoint_group_end(time, *name)
+            end
+
+            def timepoint(time, *name)
+            end
+
             def pretty_print(pp)
                 pp.text "Plan rebuilder state for #{plan}"
                 pp.nest(2) do

@@ -10,6 +10,35 @@ module Roby
                 event_logger.dump(m, Time.now, args)
             end
 
+            # Log a timepoint on the underlying logger
+            def log_timepoint(name)
+                event_logger.dump(:timepoint, Time.now, [name])
+            end
+
+            # Run a block within a timepoint group
+            def log_timepoint_group(name)
+                log_timepoint_group_start(name)
+                yield
+            ensure
+                log_timepoint_group_end(name)
+            end
+
+            # Log a timepoint on the underlying logger
+            #
+            # The logger will NOT do any validation of the group start/end
+            # pairing at logging time. This is done at replay time
+            def log_timepoint_group_start(name)
+                event_logger.dump(:timepoint_group_start, Time.now, [name])
+            end
+
+            # End a timepoint group
+            #
+            # The logger will NOT do any validation of the group start/end
+            # pairing at logging time. This is done at replay time
+            def log_timepoint_group_end(name)
+                event_logger.dump(:timepoint_group_end, Time.now, [name])
+            end
+
             # The amount of cycles pending in the {#event_logger}'s dump queue
             def log_queue_size
                 event_logger.log_queue_size

@@ -582,7 +582,7 @@ class TC_ExecutionEngine < Minitest::Test
         execution_engine.should_receive(:remove_inhibited_exceptions).with(errors).
             and_return([[LocalizedError.new(t0), [t2]]])
         assert_equal [[LocalizedError.new(t0), [t2]]],
-            execution_engine.compute_fatal_errors(Hash[start: Time.now], [])
+            execution_engine.compute_fatal_errors([])
     ensure
         Plan.structure_checks.delete(handler) if handler
     end
