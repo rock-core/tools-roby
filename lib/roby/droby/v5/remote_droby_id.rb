@@ -31,6 +31,10 @@ module Roby
                         obj.peer_id == peer_id && obj.droby_id == droby_id
                 end
                 def ==(obj); eql?(obj) end
+
+                def to_s
+                    "#<RemoteDRobyID #{peer_id}@#{droby_id}>"
+                end
             end
         end
     end

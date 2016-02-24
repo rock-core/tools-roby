@@ -188,23 +188,6 @@ module Roby
                         @remote_siblings, @owners = remote_siblings, owners
                     end
 
-                    def droby_id
-                        raise ArgumentError, "trying to get the remote ID of a DRoby object"
-                    end
-
-                    def remote_siblings_to_s # :nodoc:
-                        "{ " << remote_siblings.map { |peer, id| id.to_s(peer) }.join(", ") << " }"
-                    end
-                    def owners_to_s # :nodoc:
-                        DistributedObject::DRoby.owners_to_s(self)
-                    end
-                    def self.owners_to_s(object)
-                        "[ " << object.owners.map(&:name).join(", ") << " ]"
-                    end
-                    def to_s # :nodoc:
-                        "#<dRoby:DistributedObject#{remote_siblings_to_s} owners=#{owners_to_s}>" 
-                    end
-
                     # Update an existing proxy, using the information stored in this DRoby
                     # object.
                     def update(peer, proxy, fresh_proxy: false)
@@ -230,10 +213,6 @@ module Roby
                     def initialize(remote_siblings, owners, model, plan_id)
                         super(remote_siblings, owners)
                         @model, @plan_id = model, plan_id
-                    end
-
-                    def to_s # :nodoc:
-                        "#<dRoby:#{model}#{remote_siblings_to_s} plan=#{plan} owners=#{owners_to_s}>" 
                     end
                 end
             end
@@ -439,10 +418,6 @@ module Roby
                     def initialize(remote_siblings, owners, model, plan_id, arguments, data, **flags)
                         super(remote_siblings, owners, model, plan_id)
                         @arguments, @data, @flags = arguments, data, flags
-                    end
-
-                    def to_s # :nodoc:
-                        "#<dRoby:#{model}#{remote_siblings_to_s} plan=#{plan_id} owners=#{owners_to_s} arguments=#{arguments}>"
                     end
 
                     # Create a new proxy which maps the object of +peer+ represented by
