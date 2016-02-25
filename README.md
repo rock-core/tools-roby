@@ -1,2 +1,3 @@
-# singlesite-documentation-theme-jekyll
-a simpler version of the multisite documentation theme for jekyll
+## Jekyll Documentation theme
+
+This is the readme page of the Jekyll documentation theme.
