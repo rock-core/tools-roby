@@ -252,6 +252,8 @@ module Roby
         #   {#queue_worker_completion_block}
         attr_reader :worker_completion_blocks
 
+        # @api private
+        # 
         # Internal structure used to store a poll block definition provided to
         # #every or #add_propagation_handler
         class PollBlockDefinition
@@ -266,16 +268,13 @@ module Roby
 
             def id; handler.object_id end
 
-            def initialize(description, handler, options)
-                options = Kernel.validate_options options,
-                    on_error: :raise, late: false, once: false
-
-                if !PollBlockDefinition::ON_ERROR.include?(options[:on_error].to_sym)
-                    raise ArgumentError, "invalid value '#{options[:on_error]} for the :on_error option. Accepted values are #{ON_ERROR.map(&:to_s).join(", ")}"
+            def initialize(description, handler, on_error: :raise, late: false, once: false)
+                if !PollBlockDefinition::ON_ERROR.include?(on_error.to_sym)
+                    raise ArgumentError, "invalid value '#{on_error} for the :on_error option. Accepted values are #{ON_ERROR.map(&:to_s).join(", ")}"
                 end
 
                 @description, @handler, @on_error, @late, @once =
-                    description, handler, options[:on_error], options[:late], options[:once]
+                    description, handler, on_error, late, once
                 @disabled = false
             end
         
@@ -300,14 +299,18 @@ module Roby
                 end
             end
         end
-        
-        @propagation_handlers = []
-        @external_events_handlers = []
-        class << self
+
+        # Add/remove propagation handler methods that are shared between the
+        # instance and the class
+        module PropagationHandlerMethods
             # Code blocks that get called at the beginning of each cycle
+            #
+            # @return [Array<PollBlockDefinition>]
             attr_reader :external_events_handlers
             # Code blocks that get called during propagation to handle some
             # internal propagation mechanism
+            #
+            # @return [Array<PollBlockDefinition>]
             attr_reader :propagation_handlers
 
             # The propagation handlers are blocks that should be called at
@@ -316,13 +319,12 @@ module Roby
             # they would call or emit are injected in the propagation process
             # itself.
             #
-            # @option options [:external_events,:propagation] type defines when
-            #   this block should be called. If :external_events, it is called
-            #   only once at the beginning of each execution cycle. If
-            #   :propagation, it is called once at the beginning of each cycle,
-            #   as well as after each propagation step. The :late option also
-            #   gives some control over when the handler is called when in
-            #   propagation mode
+            # @param [:propagation,:external_events] type defines when this block should be called. If
+            #   :external_events, it is called only once at the beginning of each
+            #   execution cycle. If :propagation, it is called once at the
+            #   beginning of each cycle, as well as after each propagation step.
+            #   The :late option also gives some control over when the handler is
+            #   called when in propagation mode
             # @option options [Boolean] once (false) if true, this handler will
             #   be removed just after its first execution
             # @option options [Boolean] late (false) if true, the handler is
@@ -332,124 +334,65 @@ module Roby
             #   :raise, the error is registered as a framework error. If
             #   :ignore, it is completely ignored. If :disable, the handler
             #   will be disabled, i.e. not called anymore until #disabled?
-            #   is set to false.
             #
-            # @see ExecutionEngine.remove_propagation_handler
-            def add_propagation_handler(options = Hash.new, &block)
-                if options.respond_to?(:call) # for backward compatibility
-                    block, options = options, Hash.new
-                end
-
-                handler_options, poll_options = Kernel.filter_options options,
-                    type: :external_events
-
+            # @return [Object] an ID object that can be passed to
+            #   {#remove_propagation_handler}
+            def add_propagation_handler(type: :external_events, description: 'propagation handler', **poll_options, &block)
                 check_arity block, 1
-                new_handler = PollBlockDefinition.new("propagation handler #{block}", block, poll_options)
+                new_handler = PollBlockDefinition.new(description, block, **poll_options)
 
-                if handler_options[:type] == :propagation
+                if type == :propagation
                     propagation_handlers << new_handler
-                elsif handler_options[:type] == :external_events
+                elsif type == :external_events
                     if new_handler.late?
                         raise ArgumentError, "only :propagation handlers can be marked as 'late', the external event handlers cannot"
                     end
                     external_events_handlers << new_handler
                 else
-                    raise ArgumentError, "invalid value for the :type option. Expected :propagation or :external_events, got #{handler_options[:type]}"
+                    raise ArgumentError, "invalid value for the :type option. Expected :propagation or :external_events, got #{type}"
                 end
                 new_handler.id
             end
             
             # This method removes a propagation handler which has been added by
-            # ExecutionEngine.add_propagation_handler.  THe +id+ value is the
-            # value returned by ExecutionEngine.add_propagation_handler.
+            # {#add_propagation_handler}.
+            #
+            # @param [Object] id the block ID as returned by
+            #   {#add_propagation_handler}
             def remove_propagation_handler(id)
                 propagation_handlers.delete_if { |p| p.id == id }
                 external_events_handlers.delete_if { |p| p.id == id }
-                disabled_handlers.delete_if { |p| p.id == id }
                 nil
             end
-        end
 
-        # A set of block objects that are called repeatedly during the
-        # propagation phase, until no propagations are needed anymore
-        #
-        # These objects are called in propagation context, which means that the
-        # events they would call or emit are injected in the propagation process
-        # itself.
-        attr_reader :propagation_handlers
+            # Add a handler that is called at the beginning of the execution cycle
+            def at_cycle_begin(description: 'at_cycle_begin', **options, &block)
+                add_propagation_handler(description: description, type: :external_events, **options, &block)
+            end
 
-        # A set of block objects that are once at the beginning of each
-        # execution cycle.
-        #
-        # These objects are called in propagation context, which means that the
-        # events they would call or emit are injected in the propagation process
-        # itself.
-        attr_reader :external_events_handlers
-
-        # Add a handler that is called at the beginning of the execution cycle
-        #
-        # @see #add_propagation_handler
-        def at_cycle_begin(**options, &block)
-            add_propagation_handler(**options.merge(type: :external_events), &block)
+            # Execute the given block at the beginning of each cycle, in propagation
+            # context.
+            #
+            # @return [Object] an ID that can be used to remove the handler using
+            #   {#remove_propagation_handler}
+            def each_cycle(description: 'each_cycle', &block)
+                add_propagation_handler(description: description, &block)
+            end
         end
         
-        # The propagation handlers are blocks that should be called at
-        # various places during propagation for all plans. These objects
-        # are called in propagation context, which means that the events
-        # they would call or emit are injected in the propagation process
-        # itself.
+        @propagation_handlers = Array.new
+        @external_events_handlers = Array.new
+        extend PropagationHandlerMethods
+        include PropagationHandlerMethods
+
+        # Poll blocks that have been disabled because they raised an exception
         #
-        # @option options [:external_events,:propagation] type defines when
-        #   this block should be called. If :external_events, it is called
-        #   only once at the beginning of each execution cycle. If
-        #   :propagation, it is called once at the beginning of each cycle,
-        #   as well as after each propagation step. The :late option also
-        #   gives some control over when the handler is called when in
-        #   propagation mode
-        # @option options [Boolean] once (false) if true, this handler will
-        #   be removed just after its first execution
-        # @option options [Boolean] late (false) if true, the handler is
-        #   called only when there are no events to propagate anymore.
-        # @option options [:raise,:ignore,:disable] on_error (:raise)
-        #   controls what happens when the block raises an exception. If
-        #   :raise, the error is registered as a framework error. If
-        #   :ignore, it is completely ignored. If :disable, the handler
-        #   will be disabled, i.e. not called anymore until #disabled?
-        #   is set to false.
-        #
-        # @see ExecutionEngine#remove_propagation_handler
-        def add_propagation_handler(options = Hash.new, &block)
-            if options.respond_to?(:call) # for backward compatibility
-                block, options = options, Hash.new
-            end
+        # @return [Array<PollBlockDefinition>]
+        attr_reader :disabled_handlers
 
-            handler_options, poll_options = Kernel.filter_options options,
-                type: :external_events
-
-            check_arity block, 1
-            new_handler = PollBlockDefinition.new("propagation handler #{block}", block, poll_options)
-
-            if handler_options[:type] == :propagation
-                propagation_handlers << new_handler
-            elsif handler_options[:type] == :external_events
-                external_events_handlers << new_handler
-            else
-                raise ArgumentError, "invalid value for the :type option. Expected :propagation or :external_events, got #{handler_options[:type]}"
-            end
-            new_handler.id
-        end
-
-        # This method removes a propagation handler which has been added by
-        # #add_propagation_handler.  THe +id+ value is the value returned by
-        # #add_propagation_handler. In its first form, the argument is the proc
-        # object to be added. In the second form, the block is taken the
-        # handler. In both cases, the method returns a value which can be used
-        # to remove the propagation handler later.
-        #
-        # See also #add_propagation_handler
         def remove_propagation_handler(id)
-            propagation_handlers.delete_if { |p| p.id == id }
-            external_events_handlers.delete_if { |p| p.id == id }
+            disabled_handlers.delete_if { |p| p.id == id }
+            super
             nil
         end
 
@@ -486,22 +429,6 @@ module Roby
                 rescue Exception
                 end
             end
-        end
-
-        # call-seq:
-        #   engine.each_cycle { |plan| ... }
-        #
-        # Execute the given block at the beginning of each cycle, in propagation
-        # context.
-        #
-        # The returned value is an ID that can be used to remove the handler using
-        # #remove_propagation_handler
-        #
-        # System-wide handlers, which should be executed in all engines, can be
-        # defined with ExecutionEngine.add_propagation_handler and removed by
-        # ExecutionEngine.remove_propagation_handler
-        def each_cycle(&block)
-            add_propagation_handler(block)
         end
 
         # The scheduler is the object which handles non-generic parts of the
