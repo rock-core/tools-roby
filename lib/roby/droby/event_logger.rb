@@ -24,6 +24,9 @@ module Roby
             # @return [DRoby::Marshal]
             attr_reader :marshal
 
+            # The time spent logging so far
+            attr_reader :dump_time
+
             # @!method stats_mode?
             # @!method stats_mode=(flag)
             #
@@ -55,6 +58,7 @@ module Roby
                 @marshal = Marshal.new(object_manager, nil)
                 @current_cycle = Array.new
                 @sync = true
+                @dump_time = 0
                 if queue_size > 0
                     @dump_queue  = SizedQueue.new(queue_size)
                     @dump_thread = Thread.new(&method(:dump_loop))
@@ -96,6 +100,7 @@ module Roby
 
             # Dump one log message
             def dump(m, time, args)
+                start = Time.now
                 if stats_mode? && m == :cycle_end
                     current_cycle << m << time.tv_sec << time.tv_usec << args
                 else
@@ -143,6 +148,8 @@ module Roby
                         current_cycle.clear
                     end
                 end
+
+            ensure @dump_time += (Time.now - start)
             end
 
             # Main dump loop if the logger is threaded
