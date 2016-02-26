@@ -1901,20 +1901,10 @@ module Roby
 	    @cycle_start  = Time.now
 	    @cycle_index  = 0
 
-	    gc_enable_has_argument = begin
-					 GC.enable(true)
-					 true
-				     rescue
-                                         Application.info "GC.enable does not accept an argument. GC will not be controlled by Roby"
-                                         false
 				     end
             last_cpu_time = Process.times
             last_cpu_time = (last_cpu_time.utime + last_cpu_time.stime) * 1000
 
-	    GC.start
-	    if gc_enable_has_argument
-		already_disabled_gc = GC.disable
-	    end
 	    loop do
 		begin
 		    if quitting?
@@ -1946,15 +1936,6 @@ module Roby
 
                     remaining_cycle_time = cycle_length - (Time.now - stats[:expected_cycle_start])
 		    
-		    # If the ruby interpreter we run on offers a true/false argument to
-		    # GC.enable, we disabled the GC and just run GC.enable(true) to make
-		    # it run immediately if needed. Then, we re-disable it just after.
-		    if gc_enable_has_argument && remaining_cycle_time > SLEEP_MIN_TIME
-			GC.enable(true)
-			GC.disable
-		    end
-                    log_timepoint 'ruby_gc'
-
 		    # Sleep if there is enough time for it
 		    if remaining_cycle_time > SLEEP_MIN_TIME
 			sleep(remaining_cycle_time) 
@@ -1996,8 +1977,6 @@ module Roby
 	    end
 
 	ensure
-	    GC.enable if !already_disabled_gc
-
 	    if !plan.known_tasks.empty?
 		ExecutionEngine.warn "the following tasks are still present in the plan:"
 		plan.known_tasks.each do |t|
