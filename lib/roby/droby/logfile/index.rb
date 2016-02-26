@@ -13,6 +13,13 @@ module Roby
                         current_pos = event_log.tell
                         cycle = event_log.load_one_cycle
                         info  = cycle.last.last
+                        event_count = 0
+                        cycle.each_slice(4) do |m, *|
+                            if m.to_s !~ /^timepoint/
+                                event_count += 1
+                            end
+                        end
+                        info[:event_count] = event_count
                         info[:pos] = current_pos
 
                         if block_given?

@@ -1,3 +1,5 @@
+require 'json'
+
 module Roby
     module DRoby
         module Timepoints
@@ -28,6 +30,15 @@ module Roby
                     current_group.group_end(time)
                 end
 
+                def flamegraph
+                    raw = root.flamegraph
+                    folded = Hash.new(0)
+                    raw.each_slice(2) do |path, value|
+                        folded[path] += value
+                    end
+                    folded.to_a.sort
+                end
+
                 def format(indent: 0, base_time: root.start_time, absolute_times: true)
                     root.format(indent: indent, base_time: base_time, absolute_times: absolute_times).
                         join("\n")
@@ -45,6 +56,14 @@ module Roby
                     @name = name
                     @duration = duration
                     @group = group
+                end
+                
+                def path
+                    group.path + [name]
+                end
+
+                def flamegraph
+                    [path, duration]
                 end
 
                 def start_time; time end
@@ -108,6 +127,20 @@ module Roby
                     result << end_format   % [end_time - base_time, end_time - last_time, duration, "#{name}:end"]
                     result
                 end
+                
+                def path
+                    [name]
+                end
+
+                def flamegraph
+                    result = Array.new
+                    duration = timepoints.inject(0) do |d, tp|
+                        result.concat(tp.flamegraph)
+                        d + tp.duration
+                    end
+                    result << path << self.duration - duration
+                    result
+                end
             end
 
             class Root < Aggregate
@@ -139,6 +172,10 @@ module Roby
 
                     @current_time = time
                     @start_time = time
+                end
+
+                def path
+                    @path ||= (group.path + [name])
                 end
 
                 def end_time
