@@ -5,13 +5,11 @@ product: doc
 platform: all
 version: all
 output: web
-destination: ../doc_outputs/mydoc/designers
 topnav_title: Jekyll Documentation Theme
 homepage_title: Jekyll doc theme for designers
 site_title: Jekyll theme for designers
 project_folder: mydoc
 company_name: Your company
-footer_image_location: images/company_logo.png
 github_editme_path: tomjohnson1492/documentation-theme-jekyll/edit/reviews
 disqus_shortname: idrbwjekyll
 # variables
@@ -20,31 +18,10 @@ disqus_shortname: idrbwjekyll
 sidebar_tagline: Designers
 sidebar_version: Version 4.0
 theme_file: theme-blue.css
-pdf_file_name: mydoc_designers_pdf.pdf
 
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "http://documentation-theme-jekyll.com" # the base hostname & protocol for your site
 
-gems:
-  - algoliasearch-jekyll
-algolia:
-  application_id: 'HXUBJERYYB'
-  index_name:     'jekylldoctheme'
-  excluded_files:
-    - search.json
-  attributeForDistinct: 'hierarchy'
-  distinct: true
-  attributesToSnippet: ['text:20']
-  record_css_selector: 'p,ul'
-  settings:
-    attributesToIndex:
-      - title
-      - h1
-      - h2
-      - h3
-      - h4
-      - h5
-      - h6
-      - unordered(text)
-      - unordered(tags)
 
 port: 4009
 
@@ -60,18 +37,13 @@ feedback_email: tomjohnson1492@gmail.com
 
 # these settings should work, but they don't seem to apply the right highlighting
 
-#highlighter: rouge
-#markdown: kramdown
-#kramdown:
-#  input: GFM
-#  auto_ids: true
-#  hard_wrap: false
-#  syntax_highlighter: rouge
-
-highlighter: pygments
-markdown: redcarpet
-redcarpet:
-  extensions: ["no_intra_emphasis", "fenced_code_blocks", "tables", "with_toc_data"]
+highlighter: rouge
+markdown: kramdown
+kramdown:
+ input: GFM
+ auto_ids: true
+ hard_wrap: false
+ syntax_highlighter: rouge
 
 
 collections:

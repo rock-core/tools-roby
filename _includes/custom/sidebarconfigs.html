@@ -1,0 +1,12 @@
+{% if page.product == "product1" %}
+{% assign sidebar = site.data.sidebars.product1.entries %}
+
+{% elsif page.product == "product2" %}
+{% assign sidebar = site.data.sidebars.product2.entries %}
+
+{% elsif page.product == "product3" %}
+{% assign sidebar = site.data.sidebars.product3.entries %}
+
+{% else %}
+{% assign sidebar = site.data.sidebars.default.entries %}
+{% endif %}
