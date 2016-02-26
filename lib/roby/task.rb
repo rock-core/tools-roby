@@ -994,7 +994,7 @@ module Roby
 
         def ensure_poll_handler_called
             if !transaction_proxy? && running?
-                @poll_handler_id ||= execution_engine.add_propagation_handler(type: :external_events, &method(:do_poll))
+                @poll_handler_id ||= execution_engine.add_propagation_handler(description: "poll block for #{self}", type: :external_events, &method(:do_poll))
             end
         end
 
@@ -1040,7 +1040,7 @@ module Roby
             #  - additional instance poll_handler added by instance method poll
             #  - polling as defined in state of the state_machine, i.e. substates of running
             if respond_to?(:poll_handler) || !poll_handlers.empty? || state_machine
-                @poll_handler_id = engine.add_propagation_handler(type: :external_events, &method(:do_poll))
+                @poll_handler_id = engine.add_propagation_handler(description: "poll block of #{self}", type: :external_events, &method(:do_poll))
             end
         end
 

@@ -135,7 +135,7 @@ module Roby
             plan.execution_engine.gc_warning = false
 
             @handler_ids = Array.new
-            @handler_ids << execution_engine.add_propagation_handler(type: :external_events) do |plan|
+            @handler_ids << execution_engine.add_propagation_handler(description: 'Test.verify_watched_events', type: :external_events) do |plan|
                 Test.verify_watched_events
             end
 	end

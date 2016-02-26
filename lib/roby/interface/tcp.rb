@@ -20,7 +20,7 @@ module Roby
                         raise Errno::EADDRINUSE, "#{port} already in use"
                     end
                 @clients = Array.new
-                @propagation_handler_id = interface.execution_engine.add_propagation_handler(on_error: :ignore) do
+                @propagation_handler_id = interface.execution_engine.add_propagation_handler(description: 'TCPServer#process_pending_requests', on_error: :ignore) do
                     process_pending_requests
                 end
             end

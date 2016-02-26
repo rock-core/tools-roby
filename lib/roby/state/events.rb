@@ -104,7 +104,7 @@ module Roby
             end
         end
     end
-    Roby::ExecutionEngine.add_propagation_handler(type: :propagation, &Roby.method(:poll_state_events))
+    Roby::ExecutionEngine.add_propagation_handler(description: 'poll_state_events', type: :propagation, &Roby.method(:poll_state_events))
 
     # A state event is an event which emits when some parameters over the state
     # are reached. See DeltaEvent and TimePointEvent.

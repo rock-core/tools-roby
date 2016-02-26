@@ -772,8 +772,10 @@ module Roby
                     next
                 end
 
-                if !handler.call(self, plan)
-                    handler.disabled = true
+                log_timepoint_group handler.description do
+                    if !handler.call(self, plan)
+                        handler.disabled = true
+                    end
                 end
                 handler.once?
             end
@@ -786,7 +788,7 @@ module Roby
             completion_blocks = []
             while !worker_completion_blocks.empty?
                 block = worker_completion_blocks.pop
-                completion_blocks << PollBlockDefinition.new("worker completion handler #{block}", block, Hash.new)
+                completion_blocks << PollBlockDefinition.new("worker completion handler", block)
             end
             call_poll_blocks(completion_blocks)
         end
@@ -1317,14 +1319,14 @@ module Roby
         # cycle, in propagation context.
         #
         # @yieldparam [Plan] plan the plan on which this engine works
-        def once(options = Hash.new, &block)
-            add_propagation_handler(Hash[type: :external_events, once: true].merge(options), &block)
+        def once(description: 'once block', **options, &block)
+            add_propagation_handler(type: :external_events, once: true, description: description, **options, &block)
         end
 
         # Schedules +block+ to be called once after +delay+ seconds passed, in
         # the propagation context
-        def delayed(delay, options = Hash.new, &block)
-            handler = PollBlockDefinition.new("delayed block #{block}", block, Hash[once: true].merge(options))
+        def delayed(delay, description: 'delayed block', **options, &block)
+            handler = PollBlockDefinition.new(description, block, once: true, **options)
             once do
                 process_every << [handler, cycle_start, delay]
             end
@@ -1784,8 +1786,8 @@ module Roby
         #   it can be removed with {#remove_at_cycle_end}
         #
         # @yieldparam [Plan] plan the plan on which this engine runs
-        def at_cycle_end(&block)
-            handler = PollBlockDefinition.new("at_cycle_end #{block}", block, Hash.new)
+        def at_cycle_end(description: 'at_cycle_end', &block)
+            handler = PollBlockDefinition.new(description, block, Hash.new)
             at_cycle_end_handlers << handler
             handler.object_id
         end
@@ -1805,8 +1807,8 @@ module Roby
         #
         # The returned value is the periodic handler ID. It can be passed to
         # #remove_periodic_handler to undefine it.
-        def every(duration, options = Hash.new, &block)
-            handler = PollBlockDefinition.new("periodic handler #{block}", block, options)
+        def every(duration, description: 'periodic handler', **options, &block)
+            handler = PollBlockDefinition.new(description, block, **options)
 
             once do
                 if handler.call(self, plan)
@@ -2262,8 +2264,8 @@ module Roby
         # @yieldparam [Array<Roby::Task>] tasks the tasks that are involved in this exception
         #
         # @return [Object] an ID that can be used as argument to {#remove_exception_listener}
-	def on_exception(&block)
-            handler = PollBlockDefinition.new("exception listener #{block}", block, on_error: :disable)
+	def on_exception(description: 'exception listener', &block)
+            handler = PollBlockDefinition.new(description, block, on_error: :disable)
 	    exception_listeners << handler
 	    handler
 	end
