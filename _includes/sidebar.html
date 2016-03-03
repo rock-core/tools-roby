@@ -40,17 +40,18 @@
 
         <ul id="mysidebar" class="nav">
 
-            <span class="siteTagline">{{site.sidebar_tagline}}</span>
-            <span class="versionTagline">{{site.sidebar_version}}</span>
+  {% include custom/sidebarconfigs.html %}
 
-   
-{% include custom/sidebarconfigs.html %}
+            <span class="siteTagline">{{sidebar[0].product}}</span>
+            <span class="versionTagline">{{sidebar[0].version}}</span>
 
-            {% for entry in sidebar %}
-            {% for subcategory in entry.subcategories %}
+                {% for entry in sidebar %}
+                {% for subcategory in entry.subcategories %}
+                {% if subcategory.output contains "web" %}
             <li><a href="#">{{ subcategory.title }}</a>
                 <ul>
                     {% for item in subcategory.items %}
+                    {% if item.output contains "web" %}
                     {% if item.external_url %}
                     <li><a href="{{item.external_url}}" target="_blank">{{subcategory.title}}</a></li>
                     {% elsif page.url == item.url %}
@@ -60,9 +61,11 @@
                     {% endif %}
 
                     {% for thirdlevel in item.thirdlevel %}
+                    {% if thirdlevel.output contains "web" %}
                     <li class="thirdlevel"><a href="#">{{ thirdlevel.title }}</a>
                         <ul>
                             {% for deeplevel in thirdlevel.thirdlevelitems %}
+                            {% if deeplevel.output contains "web" %}
                             {% if deeplevel.external_url %}
                             <li><a href="{{deeplevel.external_url}}" target="_blank">{{deeplevel.title}}</a></li>
                             {% elsif page.url == deeplevel.url %}
@@ -71,15 +74,21 @@
                             <li><a href="{{deeplevel.url | prepend: site.baseurl}}">{{deeplevel.title}}</a></li>
                             {% endif %}
 
+                            {% endif %}
                             {% endfor %}
                         </ul>
                     </li>
+                    {% endif %}
                     {% endfor %}
 
+                    {% endif %}
                     {% endfor %}
                 </ul>
+                {% endif %}
                 {% endfor %}
                 {% endfor %}
+
+
 
 
                 <!-- if you aren't using the accordion, uncomment this block:

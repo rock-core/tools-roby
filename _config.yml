@@ -19,10 +19,6 @@ sidebar_tagline: Designers
 sidebar_version: Version 4.0
 theme_file: theme-blue.css
 
-baseurl: "" # the subpath of your site, e.g. /blog
-url: "http://documentation-theme-jekyll.com" # the base hostname & protocol for your site
-
-
 port: 4009
 
 exclude:
@@ -59,6 +55,7 @@ defaults:
       layout: "page"
       comments: true
       search: true
+      sidebar: home_sidebar
   -
     scope:
       path: ""
@@ -69,3 +66,19 @@ defaults:
       search: true
       tooltip: true
 
+  -
+    scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+      comments: true
+      search: true
+      sidebar: tags_sidebar
+
+permalink: /:year/:month/:day/:title/
+url: http://idratherbewriting.com
+baseurl: "/documentation-theme-jekyll"
+
+# the description is used in the feed.xml file
+description: "Intended as a documentation theme based on Jekyll for technical writers documenting software and other technical products, this theme has all the elements you would need to handle multiple products with both multi-level sidebar navigation, tags, and other documentation features."
