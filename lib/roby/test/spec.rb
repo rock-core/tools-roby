@@ -98,9 +98,9 @@ module Roby
 
             def process_events
                 @received_exceptions.clear
-                engine.join_all_worker_threads
-                engine.start_new_cycle
-                engine.process_events
+                execution_engine.join_all_worker_threads
+                execution_engine.start_new_cycle
+                execution_engine.process_events
                 @received_exceptions.each do |kind, e|
                     if kind == Roby::ExecutionEngine::EXCEPTION_FATAL
                         raise e
