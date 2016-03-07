@@ -777,30 +777,32 @@ module Roby
         end
 
         def add_mission_task(task)
+            task = normalize_add_arguments([task]).first
 	    return if missions.include?(task)
             add([task])
 
 	    missions << task
 	    task.mission = true if task.self_owned?
             notify_plan_status_change(task, :mission)
-	    true
+	    task
         end
 
         def add_permanent_task(task)
+            task = normalize_add_arguments([task]).first
             return if permanent_tasks.include?(task)
             add([task])
-
             permanent_tasks << task
             notify_plan_status_change(task, :permanent)
-            true
+            task
         end
 
         def add_permanent_event(event)
+            event = normalize_add_arguments([event]).first
             return if permanent_events.include?(event)
             add([event])
             permanent_events << event
             notify_plan_status_change(event, :permanent)
-            true
+            event
         end
 
         # @api private
@@ -842,6 +844,7 @@ module Roby
         # That means that it adds the listed tasks/events and the task/events
         # that are reachable through any relations).
 	def add(objects)
+            is_scalar = objects.respond_to?(:each)
 	    objects = normalize_add_arguments(objects)
 
             plans = Set.new
@@ -871,7 +874,10 @@ module Roby
                 end
             end
 
-	    self
+            if is_scalar
+                objects.first
+            else objects
+            end
 	end
 
         Trigger = Struct.new :query_object, :block do
