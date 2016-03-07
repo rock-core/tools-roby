@@ -6,6 +6,12 @@ module Roby
         class Null < Reporting
             attr_predicate :enabled?, true
 
+            attr_reader :plan
+
+            def initialize(plan)
+                @plan = plan
+            end
+
             def initial_events
                 []
             end

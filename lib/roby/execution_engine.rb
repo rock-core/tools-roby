@@ -177,7 +177,7 @@ module Roby
             @event_logger = event_logger
 
             @control = control
-            @scheduler = Schedulers::Null.new
+            @scheduler = Schedulers::Null.new(plan)
 
             @propagation = nil
             @propagation_id = 0
