@@ -468,16 +468,19 @@ module Roby
         #   of the mission, i.e. if there is a path in the relation graphs where
         #   the mission is the source and the task is the target.
         def add_mission(task)
-            if task.respond_to?(:as_plan)
-                task = task.as_plan
-            end
-	    return if @missions.include?(task)
-	    add(task)
+            Roby.warn_deprecated "#add_mission is deprecated, use #add_mission_task instead"
             add_mission_task(task)
-	    self
 	end
+
 	# Checks if +task+ is a mission of this plan
-	def mission?(task); @missions.include?(task.to_task) end
+	def mission?(task)
+            Roby.warn_deprecated "#mission? is deprecated, use #mission_task? instead"
+            mission_task?(task)
+        end
+
+        def mission_task?(task)
+            @missions.include?(task.to_task)
+        end
 
 	# Removes the task in +tasks+ from the list of missions
 	def unmark_mission(task)
@@ -504,19 +507,14 @@ module Roby
         #
         # See also #unmark_permanent and #permanent?
 	def add_permanent(object)
-            if object.respond_to?(:as_plan)
-                object = object.as_plan
-            end
-
+            Roby.warn_deprecated "#add_permanent is deprecated, use either #add_permanent_task or #add_permanent_event instead"
+            object = normalize_add_arguments([object]).first
             if object.respond_to?(:to_task)
-                task = object.to_task
-                add(task)
-                add_permanent_task(task)
+                add_permanent_task(object)
             else
                 add_permanent_event(object)
-                add(object)
             end
-            self
+            object
 	end
 
 	# Removes +object+ from the list of permanent objects. Permanent objects
@@ -543,6 +541,7 @@ module Roby
         #
         # See also #add_permanent and #unmark_permanent
 	def permanent?(object)
+            Roby.warn_deprecated "#permanent? is deprecated, use either #permanent_task? or #permanent_event?"
             if object.respond_to?(:to_task)
                 @permanent_tasks.include?(object.to_task) 
             elsif object.respond_to?(:to_event)
@@ -550,6 +549,16 @@ module Roby
             else
                 raise ArgumentError, "expected a task or event and got #{object}"
             end
+        end
+
+        # True if the given task is registered as a permanent task on self
+        def permanent_task?(task)
+            @permanent_tasks.include?(object) 
+        end
+
+        # True if the given task is registered as a permanent task on self
+        def permanent_event?(generator)
+            @permanent_events.include?(generator) 
         end
 
         # Perform notifications related to the status change of a task
