@@ -212,14 +212,7 @@ module Roby
                     scale_x: PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_X,
                     scale_y: PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_Y
 
-                if !task.plan
-                    plan = Roby::Plan.new
-                    plan.extend RelationsCanvasPlan
-                    plan.extend ReplayPlan
-                    plan.add(task)
-                end
                 task.extend RelationsCanvasTask
-                task.extend ReplayTask
                 plan = task.plan
 
                 display = RelationsCanvas.new([plan])
@@ -227,21 +220,20 @@ module Roby
                 display.layout_options.merge!(options.slice(:scale_x, :scale_y))
                 task.each_event do |ev|
                     if ev.controlable?
-                        plan.emitted_events << [EVENT_CALLED_AND_EMITTED, ev]
-                    else
-                        plan.emitted_events << [EVENT_EMITTED, ev]
+                        plan.called_generators << ev
                     end
+                    plan.emitted_events << ev.new([], 0)
                 end
                 task.model.all_forwardings.each do |source_name, targets|
                     source = task.event(source_name)
                     targets.each do |target_name|
-                        plan.propagated_events << [PROPAG_FORWARD, [source], task.event(target_name)]
+                        plan.propagated_events << [true, [source.new([], 0)], task.event(target_name)]
                     end
                 end
                 task.model.all_signals.each do |source_name, targets|
                     source = task.event(source_name)
                     targets.each do |target_name|
-                        plan.propagated_events << [PROPAG_SIGNAL, [source], task.event(target_name)]
+                        plan.propagated_events << [false, [source.new([], 0)], task.event(target_name)]
                     end
                 end
                 display.update
@@ -288,9 +280,6 @@ module Roby
         end
 
         module RelationsCanvasPlan
-            # NOTE: we must NOT include ReplayPlan here, as ReplayTask overloads
-            # some methods from Task and it would break this overloading
-
             PLAN_STROKE_WIDTH = 5
             # The plan depth, i.e. its distance from the root plan
             attr_reader :depth

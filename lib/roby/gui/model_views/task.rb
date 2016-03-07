@@ -24,7 +24,7 @@ module Roby
 
                 def render(task_model, options = Hash.new)
                     html = TEMPLATE.result(binding)
-                    svg  = RelationsCanvasTask.to_svg(task_model.new)
+                    svg  = RelationsCanvasTask.to_svg(task_model.new(plan: DRoby::RebuiltPlan.new))
 
                     options, push_options = Kernel.filter_options options,
                         external_objects: false, doc: true
