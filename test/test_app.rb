@@ -6,6 +6,7 @@ describe Roby::Application do
     before do
         @app = Roby::Application.new
         app.public_logs = false
+        app.plugins_enabled = false
         app.base_setup
         register_plan(@app.plan)
         @app_dir = "/test/roby_app"
