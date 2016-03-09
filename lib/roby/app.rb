@@ -1170,6 +1170,11 @@ module Roby
 	    call_plugins(:finalize_model_loading, self)
 	end
 
+        # Test if the given name is a valid robot name
+        def robot_name?(name)
+            !robots.strict? || robots.has_robot?(name)
+        end
+
         # Helper to the robot config files to load the root files in models/
         # (e.g. models/tasks.rb)
         def load_default_models
@@ -1247,7 +1252,9 @@ module Roby
                     find_files_in_dirs('models', 'planners', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/) +
                     find_files_in_dirs('planners', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/)
                 all_files.each do |p|
-                    require(p)
+                    if robot_name?(File.basename(p, '.rb'))
+                        require(p)
+                    end
                 end
             end
 
