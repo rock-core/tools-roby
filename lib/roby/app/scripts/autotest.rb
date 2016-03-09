@@ -69,7 +69,7 @@ require 'roby/app/test_reporter'
 reporter = Roby::App::TestReporter.new(Process.pid, manager.name, server_pid)
 
 Roby.display_exception do
-    Roby.app.base_setup
+    Roby.app.setup_robot_names_from_config_dir
     if all_robots
         robots = Roby.app.robots.names
     end
