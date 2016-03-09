@@ -21,7 +21,7 @@ describe Roby::Coordination::ActionStateMachine do
 
     def start_machine(action_name, *args)
         task = action_m.find_action_by_name(action_name).instanciate(plan, *args)
-        plan.add_permanent(task)
+        plan.add_permanent_task(task)
         task.start!
         task
     end
@@ -185,7 +185,7 @@ describe Roby::Coordination::ActionStateMachine do
         inhibit_fatal_messages do
             assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
         end
-        plan.remove_object(task.children.first)
+        plan.remove_task(task.children.first)
     end
 
     it "can be passed actual state models as arguments" do
@@ -268,7 +268,7 @@ describe Roby::Coordination::ActionStateMachine do
 
         task.start!
         flexmock(state_machine).should_receive(:instanciate_state).never
-        plan.add_permanent(task.current_task_child)
+        plan.add_permanent_task(task.current_task_child)
         task.current_task_child.start!
         task.stop!
         task.current_task_child.success_event.emit

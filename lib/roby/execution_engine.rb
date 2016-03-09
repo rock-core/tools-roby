@@ -1405,12 +1405,12 @@ module Roby
         end
 
         def garbage_collect_synchronous
-            known_tasks_size = nil
-            while plan.known_tasks.size != known_tasks_size
-                if !known_tasks_size
-                    known_tasks_size = true
+            tasks_size = nil
+            while plan.tasks.size != tasks_size
+                if !tasks_size
+                    tasks_size = true
                 else
-                    known_tasks_size = plan.known_tasks.size
+                    tasks_size = plan.tasks.size
                 end
                 process_events_synchronous do
                     garbage_collect([])
@@ -1496,17 +1496,17 @@ module Roby
         def unmark_finished_missions_and_permanent_tasks
             to_unmark = plan.task_index.by_predicate[:finished?] | plan.task_index.by_predicate[:failed?]
 
-            finished_missions = (plan.missions & to_unmark)
+            finished_missions = (plan.mission_tasks & to_unmark)
 	    # Remove all missions that are finished
 	    for finished_mission in finished_missions
                 if !finished_mission.being_repaired?
-                    plan.unmark_mission(finished_mission)
+                    plan.unmark_mission_task(finished_mission)
                 end
 	    end
             finished_permanent = (plan.permanent_tasks & to_unmark)
 	    for finished_permanent in (plan.permanent_tasks & to_unmark)
                 if !finished_permanent.being_repaired?
-                    plan.unmark_permanent(finished_permanent)
+                    plan.unmark_permanent_task(finished_permanent)
                 end
 	    end
         end
@@ -1550,7 +1550,7 @@ module Roby
                 # Remote tasks are simply removed, regardless of other concerns
                 for t in remote_tasks
                     ExecutionEngine.debug { "GC: removing the remote task #{t}" }
-                    plan.garbage(t)
+                    plan.garbage_task(t)
                 end
 
                 break if local_tasks.empty?
@@ -1558,7 +1558,7 @@ module Roby
                 debug do
                     debug "#{local_tasks.size} tasks are unneeded in this plan"
                     local_tasks.each do |t|
-                        debug "  #{t} mission=#{plan.mission?(t)} permanent=#{plan.permanent?(t)}"
+                        debug "  #{t} mission=#{plan.mission_task?(t)} permanent=#{plan.permanent?(t)}"
                     end
                     break
                 end
@@ -1566,7 +1566,7 @@ module Roby
                 if local_tasks.all? { |t| t.pending? || t.finished? }
                     local_tasks.each do |t|
                         debug { "GC: #{t} is not running, removed" }
-                        plan.garbage(t)
+                        plan.garbage_task(t)
                     end
                     break
                 end
@@ -1602,18 +1602,18 @@ module Roby
                     if local_task.pending?
                         info "GC: removing pending task #{local_task}"
 
-                        plan.garbage(local_task)
+                        plan.garbage_task(local_task)
                         did_something = true
                     elsif local_task.failed_to_start?
                         info "GC: removing task that failed to start #{local_task}"
-                        plan.garbage(local_task)
+                        plan.garbage_task(local_task)
                         did_something = true
                     elsif local_task.starting?
                         # wait for task to be started before killing it
                         debug { "GC: #{local_task} is starting" }
                     elsif local_task.finished?
                         debug { "GC: #{local_task} is not running, removed" }
-                        plan.garbage(local_task)
+                        plan.garbage_task(local_task)
                         did_something = true
                     elsif !local_task.finishing?
                         if local_task.event(:stop).controlable?
@@ -1649,7 +1649,7 @@ module Roby
             end
 
             plan.unneeded_events.each do |event|
-                plan.garbage(event)
+                plan.garbage_event(event)
             end
 
             !finishing.empty?
@@ -1849,13 +1849,13 @@ module Roby
         # otherwise. Note that quaranteened tasks are not counted as remaining,
         # as it is not possible for the execution engine to stop them.
 	def clear
-            plan.missions.dup.each { |t| plan.unmark_mission(t) }
-            plan.permanent_tasks.dup.each { |t| plan.unmark_permanent(t) }
-            plan.permanent_events.dup.each { |t| plan.unmark_permanent(t) }
-            plan.force_gc.merge( plan.known_tasks )
+            plan.mission_tasks.dup.each { |t| plan.unmark_mission_task(t) }
+            plan.permanent_tasks.dup.each { |t| plan.unmark_permanent_task(t) }
+            plan.permanent_events.dup.each { |t| plan.unmark_permanent_event(t) }
+            plan.force_gc.merge( plan.tasks )
 
             quaranteened_subplan = plan.compute_useful_tasks(plan.gc_quarantine)
-            remaining = plan.known_tasks - quaranteened_subplan
+            remaining = plan.tasks - quaranteened_subplan
 
             if remaining.empty?
                 # Have to call #garbage_collect one more to make
@@ -1985,9 +1985,9 @@ module Roby
 	    end
 
 	ensure
-	    if !plan.known_tasks.empty?
+	    if !plan.tasks.empty?
 		ExecutionEngine.warn "the following tasks are still present in the plan:"
-		plan.known_tasks.each do |t|
+		plan.tasks.each do |t|
 		    ExecutionEngine.warn "  #{t}"
 		end
 	    end
@@ -2135,7 +2135,7 @@ module Roby
 
             plan.permanent_tasks.clear
             plan.permanent_events.clear
-            plan.missions.clear
+            plan.mission_tasks.clear
             plan.transactions.each do |trsc|
                 trsc.discard_transaction!
             end

@@ -2219,7 +2219,7 @@ module Roby
             end
 
             if mission
-                plan.add_mission(task = m.plan_pattern(arguments))
+                plan.add_mission_task(task = m.plan_pattern(arguments))
             else
                 plan.add(task = m.plan_pattern(arguments))
             end

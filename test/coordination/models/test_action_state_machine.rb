@@ -21,7 +21,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
     def start_machine(action_name, *args)
         task = action_m.find_action_by_name(action_name).instanciate(plan, *args)
-        plan.add_permanent(task)
+        plan.add_permanent_task(task)
         task.start!
         task
     end

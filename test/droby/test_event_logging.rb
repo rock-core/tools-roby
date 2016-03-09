@@ -54,7 +54,7 @@ module Roby
 
                     process_logged_events
 
-                    assert_equal 2, rebuilt_plan.known_tasks.size
+                    assert_equal 2, rebuilt_plan.tasks.size
                     parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
                     child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
                     assert_child_of parent, child, TaskStructure::Dependency
@@ -74,7 +74,7 @@ module Roby
                     base_time += 5
                     process_logged_events
 
-                    task  = rebuilt_plan.known_tasks.first
+                    task  = rebuilt_plan.tasks.first
                     event = rebuilt_plan.free_events.first
                     assert_equal addition_time, task.addition_time
                     assert_equal addition_time, task.start_event.addition_time
@@ -91,7 +91,7 @@ module Roby
                     parent.start_event.signals child.start_event
                     process_logged_events
 
-                    assert_equal 2, rebuilt_plan.known_tasks.size
+                    assert_equal 2, rebuilt_plan.tasks.size
                     parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
                     child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
                     assert_child_of parent, child, TaskStructure::Dependency
@@ -127,65 +127,65 @@ module Roby
                 end
 
                 it "propagates the chain mission/permanent status of tasks" do
-                    local_plan.add_mission(task = Task.new)
+                    local_plan.add_mission_task(task = Task.new)
                     process_logged_events
                     r_task = rebuilt_plan.find_tasks.first
                     assert r_task
 
-                    assert rebuilt_plan.mission?(r_task)
-                    local_plan.unmark_mission task
+                    assert rebuilt_plan.mission_task?(r_task)
+                    local_plan.unmark_mission_task task
                     process_logged_events
-                    assert !rebuilt_plan.mission?(r_task)
-                    local_plan.add_permanent(task)
+                    assert !rebuilt_plan.mission_task?(r_task)
+                    local_plan.add_permanent_task(task)
                     process_logged_events
-                    assert rebuilt_plan.permanent?(r_task)
-                    local_plan.unmark_permanent(task)
+                    assert rebuilt_plan.permanent_task?(r_task)
+                    local_plan.unmark_permanent_task(task)
                     process_logged_events
-                    assert !rebuilt_plan.permanent?(r_task)
+                    assert !rebuilt_plan.permanent_task?(r_task)
                 end
 
                 it "propagates the chain permanent status of events" do
-                    local_plan.add_permanent(event = EventGenerator.new)
+                    local_plan.add_permanent_event(event = EventGenerator.new)
                     process_logged_events
                     r_event = rebuilt_plan.free_events.first
                     assert r_event
 
-                    local_plan.unmark_permanent(event)
+                    local_plan.unmark_permanent_event(event)
                     process_logged_events
-                    assert !rebuilt_plan.permanent?(r_event)
-                    local_plan.add_permanent(event)
+                    assert !rebuilt_plan.permanent_event?(r_event)
+                    local_plan.add_permanent_event(event)
                     process_logged_events
-                    assert rebuilt_plan.permanent?(r_event)
+                    assert rebuilt_plan.permanent_event?(r_event)
                 end
 
                 it "stores a garbaged task in the plan structure" do
                     local_plan.add(task = Task.new)
                     process_logged_events
-                    r_task = rebuilt_plan.known_tasks.first
+                    r_task = rebuilt_plan.tasks.first
                     local_plan.execution_engine.garbage_collect
                     process_logged_events
-                    assert rebuilt_plan.garbaged_objects.include?(r_task)
+                    assert rebuilt_plan.garbaged_tasks.include?(r_task)
                 end
 
                 it "remove a non-garbaged task immediately" do
                     local_plan.add(task = Task.new)
                     process_logged_events
-                    r_task = rebuilt_plan.known_tasks.first
-                    local_plan.remove_object(task)
+                    r_task = rebuilt_plan.tasks.first
+                    local_plan.remove_task(task)
                     process_logged_events
-                    assert !rebuilt_plan.include?(r_task)
+                    assert !rebuilt_plan.has_task?(r_task)
                 end
 
                 it "does not remove a garbaged task until #clear_integrated is called" do
                     local_plan.add(task = Task.new)
                     process_logged_events
-                    r_task = rebuilt_plan.known_tasks.first
+                    r_task = rebuilt_plan.tasks.first
                     local_plan.execution_engine.garbage_collect
                     process_logged_events
-                    assert rebuilt_plan.include?(r_task)
+                    assert rebuilt_plan.has_task?(r_task)
                     rebuilt_plan.clear_integrated
-                    assert !rebuilt_plan.include?(r_task)
-                    assert rebuilt_plan.garbaged_objects.empty?
+                    assert !rebuilt_plan.has_task?(r_task)
+                    assert rebuilt_plan.garbaged_tasks.empty?
                 end
 
                 it "stores a garbaged event in the plan structure" do
@@ -194,7 +194,7 @@ module Roby
                     r_event = rebuilt_plan.free_events.first
                     local_plan.execution_engine.garbage_collect
                     process_logged_events
-                    assert rebuilt_plan.garbaged_objects.include?(r_event)
+                    assert rebuilt_plan.garbaged_events.include?(r_event)
                 end
 
                 it "does not remove a garbaged event until #clear_integrated is called" do
@@ -203,19 +203,19 @@ module Roby
                     r_event = rebuilt_plan.free_events.first
                     local_plan.execution_engine.garbage_collect
                     process_logged_events
-                    assert rebuilt_plan.include?(r_event)
+                    assert rebuilt_plan.has_free_event?(r_event)
                     rebuilt_plan.clear_integrated
-                    assert !rebuilt_plan.include?(r_event)
-                    assert rebuilt_plan.garbaged_objects.empty?
+                    assert !rebuilt_plan.has_free_event?(r_event)
+                    assert rebuilt_plan.garbaged_events.empty?
                 end
 
                 it "remove a non-garbaged task immediately" do
                     local_plan.add(event = EventGenerator.new)
                     process_logged_events
                     r_event = rebuilt_plan.free_events.first
-                    local_plan.remove_object(event)
+                    local_plan.remove_free_event(event)
                     process_logged_events
-                    assert !rebuilt_plan.include?(r_event)
+                    assert !rebuilt_plan.has_free_event?(r_event)
                 end
 
                 it "propagates argument updates" do
@@ -251,7 +251,7 @@ module Roby
                     end
                     process_logged_events
 
-                    assert_equal 2, rebuilt_plan.known_tasks.size
+                    assert_equal 2, rebuilt_plan.tasks.size
                     parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
                     child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
                     assert_child_of parent, child, TaskStructure::Dependency
@@ -271,7 +271,7 @@ module Roby
                     end
                     process_logged_events
 
-                    assert_equal 2, rebuilt_plan.known_tasks.size
+                    assert_equal 2, rebuilt_plan.tasks.size
                     parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
                     child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
                     assert_child_of parent, child, TaskStructure::Dependency
@@ -313,53 +313,53 @@ module Roby
                 end
 
                 it "propagates the chain mission/permanent status of tasks" do
-                    local_plan.add_mission(task = Task.new)
+                    local_plan.add_mission_task(task = Task.new)
                     process_logged_events
                     r_task = rebuilt_plan.find_tasks.first
                     assert r_task
 
-                    assert rebuilt_plan.mission?(r_task)
+                    assert rebuilt_plan.mission_task?(r_task)
                     local_plan.in_transaction do |t|
-                        t.unmark_mission t[task]
+                        t.unmark_mission_task t[task]
                         t.commit_transaction
                     end
                     process_logged_events
-                    assert !rebuilt_plan.mission?(r_task)
+                    assert !rebuilt_plan.mission_task?(r_task)
 
                     local_plan.in_transaction do |t|
-                        t.add_permanent(t[task])
+                        t.add_permanent_task(t[task])
                         t.commit_transaction
                     end
                     process_logged_events
-                    assert rebuilt_plan.permanent?(r_task)
+                    assert rebuilt_plan.permanent_task?(r_task)
 
                     local_plan.in_transaction do |t|
-                        t.unmark_permanent(t[task])
+                        t.unmark_permanent_task(t[task])
                         t.commit_transaction
                     end
                     process_logged_events
-                    assert !rebuilt_plan.permanent?(r_task)
+                    assert !rebuilt_plan.permanent_task?(r_task)
                 end
 
                 it "propagates the chain permanent status of events" do
-                    local_plan.add_permanent(event = EventGenerator.new)
+                    local_plan.add_permanent_event(event = EventGenerator.new)
                     process_logged_events
                     r_event = rebuilt_plan.free_events.first
                     assert r_event
 
                     local_plan.in_transaction do |t|
-                        t.unmark_permanent(t[event])
+                        t.unmark_permanent_event(t[event])
                         t.commit_transaction
                     end
                     process_logged_events
-                    assert !rebuilt_plan.permanent?(r_event)
+                    assert !rebuilt_plan.permanent_event?(r_event)
 
                     local_plan.in_transaction do |t|
-                        t.add_permanent(t[event])
+                        t.add_permanent_event(t[event])
                         t.commit_transaction
                     end
                     process_logged_events
-                    assert rebuilt_plan.permanent?(r_event)
+                    assert rebuilt_plan.permanent_event?(r_event)
                 end
 
                 it "propagates argument updates" do
@@ -398,7 +398,7 @@ module Roby
                 it "propagates failed-to-start information" do
                     local_plan.add(task = Tasks::Simple.new)
                     process_logged_events
-                    r_task = rebuilt_plan.known_tasks.first
+                    r_task = rebuilt_plan.tasks.first
 
                     task.start_event.emit_failed(ArgumentError.new)
                     process_logged_events
@@ -506,7 +506,7 @@ module Roby
                 it "dumps tasks using their ID in the finalization message" do
                     local_plan.add(task = Task.new)
                     process_logged_events
-                    local_plan.remove_object(task)
+                    local_plan.remove_task(task)
                     cycle_info = flush_cycle_events
                     assert cycle_info.each_slice(4).find { |m, _, _, args| m == :finalized_task && args == [local_plan.droby_id, RemoteDRobyID.new(nil, task.droby_id)] }
                 end
@@ -514,7 +514,7 @@ module Roby
                 it "dumps task events using their ID in the finalization message" do
                     local_plan.add(task = Task.new)
                     process_logged_events
-                    local_plan.remove_object(task)
+                    local_plan.remove_task(task)
                     cycle_info = flush_cycle_events
                     assert cycle_info.each_slice(4).find { |m, _, _, args| m == :finalized_event && args == [local_plan.droby_id, RemoteDRobyID.new(nil, task.start_event.droby_id)] }
                 end
@@ -522,28 +522,28 @@ module Roby
                 it "dumps events using their ID in the finalization message" do
                     local_plan.add(event = EventGenerator.new)
                     process_logged_events
-                    local_plan.remove_object(event)
+                    local_plan.remove_free_event(event)
                     cycle_info = flush_cycle_events
                     assert cycle_info.each_slice(4).find { |m, _, _, args| m == :finalized_event && args == [local_plan.droby_id, RemoteDRobyID.new(nil, event.droby_id)] }
                 end
 
                 it "dumps tasks fully once the task has been finalized" do
                     local_plan.add(task = Task.new)
-                    local_plan.remove_object(task)
+                    local_plan.remove_task(task)
                     flexmock(task).should_receive(:droby_dump).once.and_return(m = flexmock)
                     assert_equal m, event_logger.marshal.dump(task)
                 end
 
                 it "dumps task events fully once they have been finalized" do
                     local_plan.add(task = Task.new)
-                    local_plan.remove_object(task)
+                    local_plan.remove_task(task)
                     flexmock(task.start_event).should_receive(:droby_dump).once.and_return(m = flexmock)
                     assert_equal m, event_logger.marshal.dump(task.start_event)
                 end
 
                 it "dumps free events fully once they have been finalized" do
                     local_plan.add(event = EventGenerator.new)
-                    local_plan.remove_object(event)
+                    local_plan.remove_free_event(event)
                     flexmock(event).should_receive(:droby_dump).once.and_return(m = flexmock)
                     assert_equal m, event_logger.marshal.dump(event)
                 end

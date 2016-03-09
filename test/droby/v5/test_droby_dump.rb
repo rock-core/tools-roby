@@ -103,7 +103,7 @@ module Roby
                             ev = EventGenerator.new(plan: local_plan)
                             ev = transfer(ev)
                             assert_equal remote_plan, ev.plan
-                            assert remote_plan.include?(ev)
+                            assert remote_plan.has_free_event?(ev)
                         end
 
                         it "replicates the controlable status" do
@@ -132,10 +132,10 @@ module Roby
                         end
 
                         it "adds the task on the remote plan" do
-                            ev = Task.new(plan: local_plan)
-                            ev = transfer(ev)
-                            assert_equal remote_plan, ev.plan
-                            assert remote_plan.include?(ev)
+                            task = Task.new(plan: local_plan)
+                            task = transfer(task)
+                            assert_equal remote_plan, task.plan
+                            assert remote_plan.has_task?(task)
                         end
 
                         it "replicates the arguments" do
@@ -182,38 +182,38 @@ module Roby
                             task_m = Roby::Task.new_submodel do
                                 event :additional, controlable: true
                             end
-                            local_plan.add_mission(task = task_m.new)
+                            local_plan.add_mission_task(task = task_m.new)
                             task = transfer(task)
                             assert task.mission?
-                            assert remote_plan.mission?(task)
+                            assert remote_plan.mission_task?(task)
                         end
 
                         it "updates the mission status on an already known sibling" do
                             task_m = Roby::Task.new_submodel do
                                 event :additional, controlable: true
                             end
-                            local_plan.add_mission(task = task_m.new)
+                            local_plan.add_mission_task(task = task_m.new)
                             remote_task = transfer(task)
 
-                            local_plan.unmark_mission(task)
+                            local_plan.unmark_mission_task(task)
                             remote_task = transfer(task)
                             assert !remote_task.mission?
-                            assert !remote_plan.mission?(remote_task)
+                            assert !remote_plan.mission_task?(remote_task)
 
-                            local_plan.add_mission(task)
+                            local_plan.add_mission_task(task)
                             remote_task = transfer(task)
                             assert remote_task.mission?
-                            assert remote_plan.mission?(remote_task)
+                            assert remote_plan.mission_task?(remote_task)
                         end
 
                         it "replicates the mission status" do
                             task_m = Roby::Task.new_submodel do
                                 event :additional, controlable: true
                             end
-                            local_plan.add_mission(task = task_m.new)
+                            local_plan.add_mission_task(task = task_m.new)
                             task = transfer(task)
                             assert task.mission?
-                            assert remote_plan.mission?(task)
+                            assert remote_plan.mission_task?(task)
                         end
 
                         it "replicates the task model" do
@@ -256,16 +256,16 @@ module Roby
                     it "transfers the tasks" do
                         plan.add(task0 = task_m.new(test: 20))
                         plan = transfer(self.plan)
-                        assert_equal 1, plan.known_tasks.size
-                        assert_equal Roby::Task, plan.known_tasks.first.class.superclass
-                        assert_equal 20, plan.known_tasks.first.arguments[:test]
+                        assert_equal 1, plan.tasks.size
+                        assert_equal Roby::Task, plan.tasks.first.class.superclass
+                        assert_equal 20, plan.tasks.first.arguments[:test]
                     end
 
                     it "handles tasks in arguments" do
                         plan.add(task0 = task_m.new)
                         plan.add(task1 = task_m.new(test: task0))
                         plan = transfer(self.plan)
-                        task0, task1 = plan.known_tasks.to_a
+                        task0, task1 = plan.tasks.to_a
                         assert_equal task0, task1.arguments[:test]
                     end
 
@@ -276,7 +276,7 @@ module Roby
                         task0.depends_on task1
 
                         plan = transfer(self.plan)
-                        r_task0, r_task1 = plan.known_tasks.to_a
+                        r_task0, r_task1 = plan.tasks.to_a
                         assert r_task0.depends_on?(r_task1)
 
                         info   = task0[task1, TaskStructure::Dependency]
@@ -292,7 +292,7 @@ module Roby
                         task.start_event.forward_to ev
 
                         plan = transfer(self.plan)
-                        r_task = plan.known_tasks.first
+                        r_task = plan.tasks.first
                         r_ev   = plan.free_events.first
                         assert_child_of r_task.start_event, r_ev, EventStructure::Forwarding
                     end

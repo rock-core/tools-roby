@@ -90,7 +90,7 @@ module Roby
             # @return [Set<Roby::Task>]
             def tasks_info_of_snapshot(cycle)
                 _, snapshot, * = history[cycle]
-                tasks = snapshot.plan.known_tasks.to_set
+                tasks = snapshot.plan.tasks.to_set
                 job_info = Hash.new
                 tasks.each do |t|
                     if t.kind_of?(Roby::Interface::Job)

@@ -298,5 +298,10 @@ module Roby
         def on(on_replace: default_on_replace, once: false, &block)
             super(on_replace: on_replace, once: once, &block)
         end
+
+        def create_transaction_proxy(transaction)
+            # Ensure that the task is proxied already
+            transaction.wrap_task(task).event(symbol)
+        end
     end
 end

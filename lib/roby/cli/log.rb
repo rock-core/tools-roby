@@ -123,7 +123,7 @@ module Roby
                                     if m == :merged_plan
                                         puts "Merged plan"
                                         plan = args[1]
-                                        puts "  #{plan.known_tasks.size} tasks: #{plan.known_tasks.map { |id, _| id.to_s }.join(", ")}"
+                                        puts "  #{plan.tasks.size} tasks: #{plan.tasks.map { |id, _| id.to_s }.join(", ")}"
                                         puts "  #{plan.task_events.size} task events: #{plan.task_events.map { |id, _| id.to_s }.join(", ")}"
                                         puts "  #{plan.free_events.size} events: #{plan.free_events.map { |id, _| id.to_s }.join(", ")}"
                                     end

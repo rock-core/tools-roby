@@ -23,13 +23,13 @@ class TC_Test_TestCase < Minitest::Test
 	Roby.logger.level = Logger::FATAL
         Robot.logger.level = Logger::FATAL
 	engine.run
-	plan.add_permanent(t = Tasks::Simple.new)
+	plan.add_permanent_task(t = Tasks::Simple.new)
 	assert_event_emission(t.event(:success)) do 
 	    t.start!
 	    t.success!
 	end
 
-	plan.add_permanent(t = Tasks::Simple.new)
+	plan.add_permanent_task(t = Tasks::Simple.new)
 	assert_raises(Assertion) do
 	    assert_event_emission(t.event(:success)) do
 		t.start!
@@ -39,7 +39,7 @@ class TC_Test_TestCase < Minitest::Test
 
 	## Same test, but check that the assertion succeeds since we *are*
 	## checking that +failed+ happens
-	plan.add_permanent(t = Tasks::Simple.new)
+	plan.add_permanent_task(t = Tasks::Simple.new)
         assert_event_emission(t.event(:failed)) do
             t.start!
             t.failed!

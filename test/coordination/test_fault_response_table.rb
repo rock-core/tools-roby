@@ -88,7 +88,7 @@ describe Roby::Coordination::FaultResponseTable do
             end
 
             plan.use_fault_response_table fault_table_m
-            plan.add_mission(parent = action_m.test.as_plan)
+            plan.add_mission_task(parent = action_m.test.as_plan)
             parent = parent.as_service
             parent.planning_task.start!
             parent.start!

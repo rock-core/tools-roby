@@ -126,7 +126,7 @@ module Roby
                     refute_same subject.start_event, start
                     assert_equal [start], p.each_event.to_a
                     assert_same start, p.start_event
-                    assert trsc.task_events.include?(p.start_event)
+                    assert trsc.has_task_event?(p.start_event)
                 end
             end
 
@@ -255,6 +255,7 @@ module Roby
                     task.start!
                 end
                 it "copies the handlers on a replacement added and done in a transaction" do
+                    PlanObject.debug_finalization_place = true
                     plan.in_transaction do |trsc|
                         trsc.add(replacement)
                         trsc.replace_task(trsc[task], replacement)
@@ -757,7 +758,7 @@ class TC_Task < Minitest::Test
 		    start_event.emit
 		end
 	    end
-	    plan.add_mission(task = model.new)
+	    plan.add_mission_task(task = model.new)
 	    mock.should_receive(:start).once.with(task, [42])
 	    task.start!(42)
 	end
@@ -779,7 +780,7 @@ class TC_Task < Minitest::Test
                 end
             end
 
-            plan.add_mission(task = child_m.new)
+            plan.add_mission_task(task = child_m.new)
             mock.should_receive(:parent_started).once.with(task, 21)
             mock.should_receive(:child_started).once.with(task, 42)
             task.start!(42)
@@ -1327,7 +1328,7 @@ class TC_Task < Minitest::Test
 
 		on(:stop)  { |event| mock.stopped(event.context) }
 	    end
-	    plan.add_mission(task = model.new)
+	    plan.add_mission_task(task = model.new)
 
 	    mock.should_receive(:starting).with([42]).once
 	    mock.should_receive(:started).with([42]).once
@@ -1664,7 +1665,7 @@ class TC_Task < Minitest::Test
 
     def test_task_success_failure
 	FlexMock.use do |mock|
-	    plan.add_mission(t = EmptyTask.new)
+	    plan.add_mission_task(t = EmptyTask.new)
 	    [:start, :success, :stop].each do |name|
                 t.event(name).on { |event| mock.send(name) }
 		mock.should_receive(name).once.ordered
@@ -1674,7 +1675,7 @@ class TC_Task < Minitest::Test
     end
 
     def aggregator_test(a, *tasks)
-	plan.add_mission(a)
+	plan.add_mission_task(a)
 	FlexMock.use do |mock|
 	    [:start, :success, :stop].each do |name|
                 a.event(name).on { |ev| mock.send(name) }
@@ -1734,7 +1735,7 @@ class TC_Task < Minitest::Test
 	task = seq.child_of(model)
         assert !seq.plan
 
-	plan.add_mission(task)
+	plan.add_mission_task(task)
 
 	task.start!
 	assert(t1.running?)
@@ -1910,7 +1911,7 @@ class TC_Task < Minitest::Test
 
 	master.start!
 	assert(master.starting?)
-	plan.remove_object(slave)
+	plan.remove_task(slave)
         assert master.failed?
         assert_kind_of EmissionFailed, master.failure_reason
         assert_kind_of UnreachableEvent, master.failure_reason.error
@@ -1979,7 +1980,7 @@ class TC_Task < Minitest::Test
 
         # Verify that the poll block gets deregistered when  the task is
         # finished
-        plan.unmark_permanent(t)
+        plan.unmark_permanent_task(t)
         t.stop!
         process_events
     end
@@ -2020,7 +2021,7 @@ class TC_Task < Minitest::Test
 
         # Verify that the poll block gets deregistered when  the task is
         # finished
-        plan.unmark_permanent(t)
+        plan.unmark_permanent_task(t)
         t.stop!
         process_events
     end
@@ -2037,7 +2038,7 @@ class TC_Task < Minitest::Test
 		end
 	    end
 
-            plan.add_permanent(t = klass.new)
+            plan.add_permanent_task(t = klass.new)
             assert_event_emission(t.internal_error_event) do
                 t.start!
             end
@@ -2060,7 +2061,7 @@ class TC_Task < Minitest::Test
                 end
 	    end
 
-            plan.add_permanent(t = klass.new)
+            plan.add_permanent_task(t = klass.new)
             assert_event_emission(t.internal_error_event) do
                 t.start!
             end
@@ -2098,7 +2099,7 @@ class TC_Task < Minitest::Test
                 end
 	    end
 
-            plan.add_permanent(t = klass.new)
+            plan.add_permanent_task(t = klass.new)
             assert_event_emission(t.stop_event) do
                 t.start!
             end
@@ -2133,7 +2134,7 @@ class TC_Task < Minitest::Test
 	new = task.dup
         assert !new.find_event(:stop)
 
-	assert(!plan.include?(new))
+	assert(!plan.has_task?(new))
 
 	assert_kind_of(Roby::TaskArguments, new.arguments)
 	assert_equal(task.arguments.to_hash, new.arguments.to_hash)
@@ -2242,7 +2243,7 @@ class TC_Task < Minitest::Test
     ensure
         if task
             task.forcefully_terminate
-            plan.remove_object(task)
+            plan.remove_task(task)
         end
     end
 
@@ -2506,8 +2507,8 @@ class TC_Task < Minitest::Test
                 [Roby::Task]
             end
         end
-        plan.add_permanent(old = abstract_model.new)
-        plan.add_permanent(new = Roby::Tasks::Simple.new)
+        plan.add_permanent_task(old = abstract_model.new)
+        plan.add_permanent_task(new = Roby::Tasks::Simple.new)
 
         FlexMock.use do |mock|
             mock.should_receive(:should_be_passed_on).with(new).twice
@@ -2532,8 +2533,8 @@ class TC_Task < Minitest::Test
                 [Roby::Task]
             end
         end
-        plan.add_mission(old = abstract_model.new)
-        plan.add_mission(new = Roby::Tasks::Simple.new)
+        plan.add_mission_task(old = abstract_model.new)
+        plan.add_mission_task(new = Roby::Tasks::Simple.new)
 
         FlexMock.use do |mock|
             old.start_event.on { |event| mock.should_be_passed_on(event.task) }
@@ -2567,8 +2568,8 @@ class TC_Task < Minitest::Test
             assert_equal(1, new.finalization_handlers.size)
             assert_equal(new.finalization_handlers[0].block, old.finalization_handlers[1].block)
 
-            plan.remove_object(old)
-            plan.remove_object(new)
+            plan.remove_task(old)
+            plan.remove_task(new)
         end
     end
 
@@ -2591,8 +2592,8 @@ class TC_Task < Minitest::Test
             assert_equal(1, new.finalization_handlers.size)
             assert_equal(new.finalization_handlers[0].block, old.finalization_handlers[1].block)
 
-            plan.remove_object(old)
-            plan.remove_object(new)
+            plan.remove_task(old)
+            plan.remove_task(new)
         end
     end
 

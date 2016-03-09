@@ -123,7 +123,7 @@ module Roby
 	end
 	
 	# This predicate is true if this task is a mission for its owners. If
-	# you want to know if it a mission for the local system, use Plan#mission?
+	# you want to know if it a mission for the local system, use Plan#mission_task?
 	attr_predicate :mission?, true
 
 	def inspect
@@ -1479,6 +1479,10 @@ module Roby
 
         def to_execution_exception
             ExecutionException.new(LocalizedError.new(self))
+        end
+
+        def create_transaction_proxy(transaction)
+            transaction.create_and_register_proxy_task(self)
         end
     end
 

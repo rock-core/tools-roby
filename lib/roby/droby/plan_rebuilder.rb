@@ -140,7 +140,7 @@ module Roby
 
             def clear_integrated
                 clear_changes
-                if !plan.garbaged_objects.empty?
+                if !plan.garbaged_tasks.empty? || !plan.garbaged_events.empty?
                     announce_structure_update
                     announce_state_update
                 end
@@ -182,7 +182,7 @@ module Roby
 
             def merged_plan(time, plan_id, merged_plan)
                 merged_plan = local_object(merged_plan)
-                tasks_and_events = merged_plan.known_tasks.to_a +
+                tasks_and_events = merged_plan.tasks.to_a +
                     merged_plan.free_events.to_a +
                     merged_plan.task_events.to_a
 
@@ -218,33 +218,46 @@ module Roby
                 g.remove_edge(parent, child)
             end
 
-            def plan_status_change(time, object, status)
-                object = local_object(object)
+            def task_status_change(time, task, status)
+                task = local_object(task)
                 if status == :normal
-                    if object.respond_to?(:to_task)
-                        plan.unmark_mission(object)
-                    end
-                    plan.unmark_permanent(object)
+                    plan.unmark_mission_task(task)
+                    plan.unmark_permanent_task(task)
                 elsif status == :permanent
-                    plan.add_permanent(object)
+                    plan.add_permanent_task(task)
                 elsif status == :mission
-                    plan.add_mission(object)
+                    plan.add_mission_task(task)
                 end
             end
 
-            def garbage(time, plan, object)
+            def event_status_change(time, event, status)
+                event = local_object(event)
+                if status == :normal
+                    plan.unmark_permanent_event(event)
+                elsif status == :permanent
+                    plan.add_permanent_event(event)
+                end
+            end
+
+            def garbage_task(time, plan, object)
                 plan = local_object(plan)
                 object = local_object(object)
-                plan.garbaged_objects << object
+                plan.garbaged_tasks << object
+            end
+
+            def garbage_event(time, plan, object)
+                plan = local_object(plan)
+                object = local_object(object)
+                plan.garbaged_events << object
             end
 
             def finalized_event(time, plan_id, event)
                 plan  = local_object(plan_id)
                 event = local_object(event)
                 event.finalization_time = time
-                if !plan.garbaged_objects.include?(event) && event.root_object?
+                if !plan.garbaged_events.include?(event) && event.root_object?
                     plan.finalized_events << event
-                    plan.remove_object(event)
+                    plan.remove_free_event(event)
                     announce_structure_update
                 end
                 object_manager.deregister_object(event)
@@ -253,9 +266,9 @@ module Roby
                 plan = local_object(plan_id)
                 task = local_object(task)
                 task.finalization_time = time
-                if !plan.garbaged_objects.include?(task)
+                if !plan.garbaged_tasks.include?(task)
                     plan.finalized_tasks << task
-                    plan.remove_object(task)
+                    plan.remove_task(task)
                     announce_structure_update
                 end
                 object_manager.deregister_object(task)

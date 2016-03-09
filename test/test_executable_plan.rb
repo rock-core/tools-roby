@@ -88,14 +88,14 @@ module Roby
                 t1, t2 = model.new, model.new
                 flexmock(t1).should_receive(:adding_child).and_raise(RuntimeError)
 
-                plan.add_mission(t1)
+                plan.add_mission_task(t1)
                 assert_equal(plan, t1.plan)
                 assert_raises(RuntimeError) do
                     t1.depends_on t2
                 end
                 assert_equal(plan, t1.plan)
                 assert_equal(plan, t2.plan)
-                assert(plan.include?(t2))
+                assert(plan.has_task?(t2))
             end
 
             describe "generic hook dispatching" do

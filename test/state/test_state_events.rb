@@ -109,7 +109,7 @@ class TC_StateEvents < Minitest::Test
 
     def test_and_state_events
 	State.pos = Pos::Euler3D.new
-	plan.add_permanent(ev = State.on_delta(yaw: 2, d: 10))
+	plan.add_permanent_event(ev = State.on_delta(yaw: 2, d: 10))
 	assert_kind_of(AndGenerator, ev)
 
 	process_events
@@ -136,7 +136,7 @@ class TC_StateEvents < Minitest::Test
 
     def test_or_state_events
 	State.pos = Pos::Euler3D.new
-	plan.add_permanent(y = State.on_delta(yaw: 2))
+	plan.add_permanent_event(y = State.on_delta(yaw: 2))
 
 	ev = y.or(d: 10)
 	process_events
@@ -171,7 +171,7 @@ class TC_StateEvents < Minitest::Test
                 mock.condition(x)
                 x > 10
             end
-            plan.add_permanent(event)
+            plan.add_permanent_event(event)
             mock.should_receive(:condition).once.with(2)
             mock.should_receive(:condition).once.with(20)
             mock.should_receive(:condition).once.with(30)
@@ -205,7 +205,7 @@ class TC_StateEvents < Minitest::Test
                 mock.reset_condition(x)
                 x < 5
             end
-            plan.add_permanent(event)
+            plan.add_permanent_event(event)
             mock.should_receive(:condition).at_least.once.with(2)
             mock.should_receive(:condition).once.with(20)
             mock.should_receive(:condition).once.with(30)

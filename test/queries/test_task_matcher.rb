@@ -31,9 +31,9 @@ class TC_Query < Minitest::Test
 	t1 = task_model.new(value: 1)
 	t2 = task_model.new(value: 2)
 
-	plan.add_mission(t0)
-	plan.add_mission(t1)
-	plan.add_mission(t2)
+	plan.add_mission_task(t0)
+	plan.add_mission_task(t1)
+	plan.add_mission_task(t2)
 
 	check_matches_fullfill(task_model, plan, t0, t1, t2)
     end
@@ -64,9 +64,9 @@ class TC_Query < Minitest::Test
 	t1 = task_model.new(value: 1)
 	t2 = task_model.new(value: 2)
 
-	plan.add_mission(t0)
-	plan.add_mission(t1)
-	plan.add_mission(t2)
+	plan.add_mission_task(t0)
+	plan.add_mission_task(t1)
+	plan.add_mission_task(t2)
 
         plan.in_transaction do |trsc|
             check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])
@@ -105,7 +105,7 @@ class TC_Query < Minitest::Test
 	assert_finds_tasks([t1, t2]) { TaskMatcher.not_failed }
 	assert_finds_tasks([t2]) { TaskMatcher.not_finished }
 
-	plan.remove_object(t1)
+	plan.remove_task(t1)
 
 	t1 = Tasks::Simple.new
 	plan.add(t1)

@@ -3,35 +3,45 @@ require 'roby/test/self'
 module TC_PlanStatic
     include Roby
     def assert_task_state(task, state)
-        assert_planobject_state(task, state)
         if state == :removed
-            assert(!plan.mission?(task), "task was meant to be removed, but Plan#mission? returns true")
+            assert(!plan.has_task?(task), "task was meant to be removed, but Plan#has_task? still returns true")
+            assert(!plan.permanent_task?(task), "task was meant to be removed, but Plan#permanent_task? still returns true")
+            assert(!plan.mission_task?(task), "task was meant to be removed, but Plan#mission_task? returns true")
             assert(!task.mission?, "task was meant to be removed, but Task#mission? returns true")
+            assert_equal(nil, task.plan, "task was meant to be removed, but PlanObject#plan returns a non-nil value")
         else
+            assert_equal(plan, task.plan, "task was meant to be included in a plan but PlanObject#plan returns nil")
+            assert(plan.has_task?(task), "task was meant to be included in a plan but Plan#has_task? returned false")
+            if state == :permanent
+                assert(plan.permanent_task?(task), "task was meant to be permanent but Plan#permanen_taskt? returned false")
+            else
+                assert(!plan.permanent_task?(task), "task was not meant to be permanent but Plan#permanen_taskt? returned true")
+            end
+
             if state == :mission
-                assert(plan.mission?(task), "task was meant to be a mission, but Plan#mission? returned false")
-                assert(task.mission?, "task was meant to be a mission, but Task#mission? returned false")
+                assert(plan.mission_task?(task), "task was meant to be a mission, but Plan#mission_task? returned false")
+                assert(task.mission?, "task was meant to be a mission, but Task#mission_task? returned false")
             elsif state == :permanent
-                assert(!plan.mission?(task), "task was meant to be permanent but Plan#mission? returned true")
+                assert(!plan.mission_task?(task), "task was meant to be permanent but Plan#mission_task? returned true")
                 assert(!task.mission?, "task was meant to be permanent but Task#mission? returned true")
             elsif state == :normal
-                assert(!plan.mission?(task), "task was meant to be permanent but Plan#mission? returned true")
+                assert(!plan.mission_task?(task), "task was meant to be permanent but Plan#mission_task? returned true")
                 assert(!task.mission?, "task was meant to be permanent but Task#mission? returned true")
             end
         end
     end
-    def assert_planobject_state(obj, state)
+    def assert_event_state(event, state)
         if state == :removed
-            assert(!plan.include?(obj), "object was meant to be removed, but Plan#include? still returns true")
-            assert(!plan.permanent?(obj), "object was meant to be removed, but Plan#permanent? still returns true")
-            assert_equal(nil, obj.plan, "object was meant to be removed, but PlanObject#plan returns a non-nil value")
+            assert(!plan.has_free_event?(event), "event was meant to be removed, but Plan#has_free_event? still returns true")
+            assert(!plan.permanent_event?(event), "event was meant to be removed, but Plan#permanent_event? still returns true")
+            assert_equal(nil, event.plan, "event was meant to be removed, but PlanObject#plan returns a non-nil value")
         else
-            assert_equal(plan, obj.plan, "object was meant to be included in a plan but PlanObject#plan returns nil")
-            assert(plan.include?(obj), "object was meant to be included in a plan but Plan#include? returned false")
+            assert_equal(plan, event.plan, "event was meant to be included in a plan but PlanObject#plan returns nil")
+            assert(plan.has_free_event?(event), "event was meant to be included in a plan but Plan#has_free_event? returned false")
             if state == :permanent
-                assert(plan.permanent?(obj), "object was meant to be permanent but Plan#permanent? returned false")
+                assert(plan.permanent_event?(event), "event was meant to be permanent but Plan#permanent_event? returned false")
             else
-                assert(!plan.permanent?(obj), "object was not meant to be permanent but Plan#permanent? returned true")
+                assert(!plan.permanent_event?(event), "event was not meant to be permanent but Plan#permanent_event? returned true")
             end
         end
     end
@@ -44,7 +54,7 @@ module TC_PlanStatic
 
         other_plan = Plan.new
         assert_raises(ModelViolation) { other_plan.add(t) }
-        assert !other_plan.include?(t)
+        assert !other_plan.has_task?(t)
         assert_same t.relation_graphs, plan.task_relation_graphs
     end
 
@@ -57,7 +67,7 @@ module TC_PlanStatic
         t3.stop_event.forward_to ev
         plan.add(t1)
 
-        assert_equal [t1, t2, t3].to_set, plan.known_tasks
+        assert_equal [t1, t2, t3].to_set, plan.tasks
         expected = [t1, t2, t3].flat_map { |t| t.each_event.to_a }.to_set
         assert_equal expected, plan.task_events
         assert_equal [ev].to_set, plan.free_events
@@ -70,58 +80,58 @@ module TC_PlanStatic
     def test_removing_a_task_deregisters_it_from_the_plan
         t = prepare_plan add: 1
         assert_task_state(t, :normal)
-        plan.remove_object(t)
+        plan.remove_task(t)
         assert_task_state(t, :removed)
     end
 
-    def test_add_mission
-	plan.add_mission(t = Task.new)
+    def test_add_mission_task
+	plan.add_mission_task(t = Task.new)
         assert_task_state(t, :mission)
     end
     
-    def test_unmark_mission
-	plan.add_mission(t = Task.new)
-	plan.unmark_mission(t)
+    def test_unmark_mission_task
+	plan.add_mission_task(t = Task.new)
+	plan.unmark_mission_task(t)
         assert_task_state(t, :normal)
     end
     def test_removed_mission
-	plan.add_mission(t = Task.new)
-	plan.remove_object(t)
+	plan.add_mission_task(t = Task.new)
+	plan.remove_task(t)
         assert_task_state(t, :removed)
     end
 
-    def test_add_permanent
-	plan.add_permanent(t = Task.new)
+    def test_add_permanent_task
+	plan.add_permanent_task(t = Task.new)
         assert_task_state(t, :permanent)
     end
-    def test_unmark_permanent
-	plan.add_permanent(t = Task.new)
-	plan.unmark_permanent(t)
+    def test_unmark_permanent_task
+	plan.add_permanent_task(t = Task.new)
+	plan.unmark_permanent_task(t)
         assert_task_state(t, :normal)
     end
-    def test_remove_permanent
-	plan.add_permanent(t = Task.new)
-	plan.remove_object(t)
+    def test_remove_permanent_task
+	plan.add_permanent_task(t = Task.new)
+	plan.remove_task(t)
         assert_task_state(t, :removed)
     end
 
     def test_add_event
 	plan.add(ev = EventGenerator.new)
-        assert_planobject_state(ev, :normal)
+        assert_event_state(ev, :normal)
     end
-    def test_remove_event
+    def test_remove_free_event
 	plan.add(ev = EventGenerator.new)
-	plan.remove_object(ev)
-        assert_planobject_state(ev, :removed)
+	plan.remove_free_event(ev)
+        assert_event_state(ev, :removed)
     end
     def test_add_permanent_event
-	plan.add_permanent(ev = EventGenerator.new)
-        assert_planobject_state(ev, :permanent)
+	plan.add_permanent_event(ev = EventGenerator.new)
+        assert_event_state(ev, :permanent)
     end
     def test_unmark_permanent_event
-	plan.add_permanent(ev = EventGenerator.new)
-	plan.unmark_permanent(ev)
-        assert_planobject_state(ev, :normal)
+	plan.add_permanent_event(ev = EventGenerator.new)
+	plan.unmark_permanent_event(ev)
+        assert_event_state(ev, :normal)
     end
 
     def test_replace_task
@@ -153,18 +163,18 @@ module TC_PlanStatic
 
 	# Check that +c1+ is no more marked as mission, and that c3 is marked. c1 should
 	# still be in the plan
-	assert(! plan.mission?(c1) )
-	assert( plan.mission?(c3) )
-	assert( plan.include?(c1) )
+	assert(! plan.mission_task?(c1) )
+	assert( plan.mission_task?(c3) )
+	assert( plan.has_task?(c1) )
 
 	# Check that #replace_task keeps the permanent flag too
 	(root, p), t = prepare_plan permanent: 2, tasks: 1, model: Roby::Tasks::Simple
         root.depends_on p, model: Roby::Tasks::Simple
 
-	plan.add_permanent(p)
+	plan.add_permanent_task(p)
 	plan.replace_task(p, t)
-	assert(!plan.permanent?(p))
-	assert(plan.permanent?(t))
+	assert(!plan.permanent_task?(p))
+	assert(plan.permanent_task?(t))
     end
 
     def test_replace
@@ -197,9 +207,9 @@ module TC_PlanStatic
 
 	# Check that +c1+ is no more marked as mission, and that c3 is marked. c1 should
 	# still be in the plan
-	assert(! plan.mission?(c1) )
-	assert( plan.mission?(c3) )
-	assert( plan.include?(c1) )
+	assert(! plan.mission_task?(c1) )
+	assert( plan.mission_task?(c3) )
+	assert( plan.has_task?(c1) )
     end
 
     def test_replace_task_and_strong_relations
@@ -249,36 +259,36 @@ module TC_PlanStatic
 
     def test_free_events
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
-	plan.add_mission(t1)
+	plan.add_mission_task(t1)
 	t1.depends_on t2
 	assert_equal(plan, t2.plan)
 	assert_equal(plan, t1.event(:start).plan)
 
 	or_generator  = (t1.event(:stop) | t2.event(:stop))
 	assert_equal(plan, or_generator.plan)
-	assert(plan.free_events.include?(or_generator))
+	assert(plan.has_free_event?(or_generator))
 	or_generator.signals t3.event(:start)
 	assert_equal(plan, t3.plan)
 
 	and_generator = (t1.event(:stop) & t2.event(:stop))
 	assert_equal(plan, and_generator.plan)
-	assert(plan.free_events.include?(and_generator))
+	assert(plan.has_free_event?(and_generator))
     end
 
     def test_plan_synchronization
 	t1, t2 = prepare_plan tasks: 2
 
-	plan.add_mission(t1)
+	plan.add_mission_task(t1)
 	assert_equal(plan, t1.plan)
 	t1.depends_on t2
 	assert_equal(plan, t1.plan)
 	assert_equal(plan, t2.plan)
-	assert(plan.include?(t2))
+	assert(plan.has_task?(t2))
 
 	e = EventGenerator.new(true)
         t1.start_event.signals e
 	assert_equal(plan, e.plan)
-	assert(plan.free_events.include?(e))
+	assert(plan.has_free_event?(e))
     end
 
     # Checks that a garbage collected object (event or task) cannot be added back into the plan
@@ -286,22 +296,22 @@ module TC_PlanStatic
 	t = Roby::Tasks::Simple.new
 	e = EventGenerator.new(true)
 	plan.real_plan.add [t, e]
-        plan.real_plan.remove_object(t)
-        plan.real_plan.remove_object(e)
+        plan.real_plan.remove_task(t)
+        plan.real_plan.remove_free_event(e)
 	assert_raises(ArgumentError) { plan.add(t) }
-        assert !plan.known_tasks.include?(t)
+        assert !plan.has_task?(t)
 	assert_raises(ArgumentError) { plan.add(e) }
-        assert !plan.known_tasks.include?(e)
+        assert !plan.has_free_event?(e)
     end
 
     def test_proxy_operator
         t = Roby::Tasks::Simple.new
-        assert_same t, plan[t, false]
+        assert_same t, plan[t, create: false]
 
-        assert plan.include?(t)
-        assert_same t, plan[t, true]
+        assert plan.has_task?(t)
+        assert_same t, plan[t, create: true]
 
-        plan.remove_object(t)
+        plan.remove_task(t)
         assert_raises(ArgumentError) { plan[t] }
     end
 
@@ -323,11 +333,11 @@ module TC_PlanStatic
     def test_task_events_are_added_and_removed
         plan.add(task = Roby::Tasks::Simple.new)
         task.each_event do |ev|
-            assert(plan.task_events.include?(ev))
+            assert(plan.has_task_event?(ev))
         end
-        plan.remove_object(task)
+        plan.remove_task(task)
         task.each_event do |ev|
-            assert(!plan.task_events.include?(ev))
+            assert(!plan.has_task_event?(ev))
         end
     end
 
@@ -335,7 +345,7 @@ module TC_PlanStatic
         plan.add(task = Roby::Tasks::Simple.new)
         plan.clear
         task.each_event do |ev|
-            assert(!plan.task_events.include?(ev))
+            assert(!plan.has_task_event?(ev))
         end
     end
 end
@@ -365,7 +375,7 @@ class TC_Plan < Minitest::Test
         assert(t2.leaf?)
         assert(t2.success_event.leaf?)
 
-        plan.remove_object(t2)
+        plan.remove_task(t2)
         assert(plan.gc_quarantine.empty?)
     end
     
@@ -375,7 +385,7 @@ class TC_Plan < Minitest::Test
         t2.depends_on t3
         t3.depends_on t4
 
-        plan.add_mission(t2)
+        plan.add_mission_task(t2)
         t1.start!
         t2.start!
         t3.start!
@@ -544,7 +554,7 @@ module Roby
                 assert_equal [ev].to_set, plan.unneeded_events.to_set
             end
             it "does not return free events that are reachable from a permanent event" do
-                plan.add_permanent(ev = Roby::EventGenerator.new)
+                plan.add_permanent_event(ev = Roby::EventGenerator.new)
                 assert plan.unneeded_events.empty?
             end
             it "does not return free events that are reachable from a task event" do
@@ -571,7 +581,7 @@ module Roby
                 child.planned_by planner
 
                 copy, mappings = plan.deep_copy
-                assert_equal (plan.known_tasks | plan.free_events | plan.task_events), mappings.keys.to_set
+                assert_equal (plan.tasks | plan.free_events | plan.task_events), mappings.keys.to_set
                 assert plan.same_plan?(copy, mappings)
             end
         end
@@ -584,12 +594,12 @@ module Roby
                 assert plan.useful_events.empty?
             end
             it "considers permanent events useful" do
-                plan.add_permanent(ev = EventGenerator.new(true))
+                plan.add_permanent_event(ev = EventGenerator.new(true))
                 assert_equal [ev], plan.useful_events.to_a
             end
             it "considers events parent of permanent events as useful" do
                 plan.add(parent = EventGenerator.new(true))
-                plan.add_permanent(child = EventGenerator.new(true))
+                plan.add_permanent_event(child = EventGenerator.new(true))
                 parent.signals child
                 assert [parent, child].to_set, plan.useful_events.to_set
             end
@@ -600,7 +610,7 @@ module Roby
                 assert [parent].to_set, plan.useful_events.to_set
             end
             it "considers events children of permanent events as useful" do
-                plan.add_permanent(parent = EventGenerator.new(true))
+                plan.add_permanent_event(parent = EventGenerator.new(true))
                 plan.add(child = EventGenerator.new(true))
                 parent.signals child
                 assert [parent, child].to_set, plan.useful_events.to_set
@@ -612,7 +622,7 @@ module Roby
                 assert [child].to_set, plan.useful_events.to_set
             end
             it "considers any event linked to another useful event useful" do
-                plan.add_permanent(parent_1 = EventGenerator.new)
+                plan.add_permanent_event(parent_1 = EventGenerator.new)
                 plan.add(parent_2 = EventGenerator.new)
                 plan.add(aggregator = EventGenerator.new)
                 parent_1.forward_to aggregator
@@ -682,21 +692,21 @@ module Roby
             end
 
             it "returns false if the plans mission sets differ" do
-                plan.add_mission(task = Task.new)
+                plan.add_mission_task(task = Task.new)
                 copy.add(task_copy = Task.new)
                 mappings = prepare_mappings(task => task_copy)
                 assert !plan.same_plan?(copy, mappings)
             end
 
             it "returns false if the plans permanent tasks differ" do
-                plan.add_permanent(task = Task.new)
+                plan.add_permanent_task(task = Task.new)
                 copy.add(task_copy = Task.new)
                 mappings = prepare_mappings(task => task_copy)
                 assert !plan.same_plan?(copy, mappings)
             end
 
             it "returns false if the plans permanent events differ" do
-                plan.add_permanent(event = EventGenerator.new)
+                plan.add_permanent_event(event = EventGenerator.new)
                 copy.add(event_copy = EventGenerator.new)
                 mappings = prepare_mappings(event => event_copy)
                 assert !plan.same_plan?(copy, mappings)

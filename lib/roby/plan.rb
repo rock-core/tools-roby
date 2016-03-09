@@ -1,31 +1,5 @@
 module Roby
     # A plan object manages a collection of tasks and events.
-    #
-    # == Adding and removing objects from plans
-    # The #add, #add_mission and #add_permanent calls allow to add objects in
-    # plans. The #remove_object removes the same objects from the plan. Note
-    # that you should never remove objects yourself: a GC mechanism will do
-    # that properly for you, taking into account the consequences of the object
-    # removal.
-    #
-    # To reduce the complexity of object management, a garbage collection
-    # mechanism is in place during the plan execution, stopping and removing
-    # tasks that are not useful anymore for the system's goals. This garbage
-    # collection mechanism runs at the end of the execution cycle. Once an
-    # object is not active (i.e. for a task, once it is stopped), the object is
-    # /finalized/ and either the #finalized_task or the #finalized_event hook is
-    # called.
-    #
-    # Two special kinds of objects exist in plans:
-    # * the +missions+ (#missions, #mission?, #add_mission and #unmark_mission) are the
-    #   final goals of the system.  A task is +useful+ if it helps into the
-    #   Realization of a mission (it is the child of a mission through one of the
-    #   task relations).
-    # * the +permanent+ objects (#add_permanent, #unmark_permanent, #permanent?, #permanent_tasks and
-    #   #permanent_events) are plan objects that are not affected by the plan's
-    #   garbage collection mechanism. As for missions, task that are useful to
-    #   permanent tasks are also 
-    #
     class Plan < DistributedObject
 	extend Logger::Hierarchy
 	extend Logger::Forward
@@ -40,12 +14,12 @@ module Roby
 	attr_reader :task_index
 
 	# The list of tasks that are included in this plan
-	attr_reader :known_tasks
-	# The set of events that are defined by #known_tasks
+	attr_reader :tasks
+	# The set of events that are defined by #tasks
 	attr_reader :task_events
         # The list of the robot's missions. Do not change that set directly, use
-        # #add_mission and #remove_mission instead.
-	attr_reader :missions
+        # #add_mission_task and #remove_mission instead.
+	attr_reader :mission_tasks
 	# The list of tasks that are kept outside GC. Do not change that set
         # directly, use #permanent and #auto instead.
 	attr_reader :permanent_tasks
@@ -96,10 +70,10 @@ module Roby
         def initialize(graph_observer: nil, event_logger: DRoby::NullEventLogger.new)
             @local_owner = DRoby::PeerID.new('local')
 
-	    @missions	 = Set.new
+	    @mission_tasks    = Set.new
 	    @permanent_tasks  = Set.new
 	    @permanent_events = Set.new
-	    @known_tasks = Set.new
+	    @tasks = Set.new
 	    @free_events = Set.new
 	    @task_events = Set.new
 	    @transactions = Set.new
@@ -213,7 +187,7 @@ module Roby
         end
 
 	def inspect # :nodoc:
-	    "#<#{to_s}: missions=#{missions.to_s} tasks=#{known_tasks.to_s} events=#{free_events.to_s} transactions=#{transactions.to_s}>"
+	    "#<#{to_s}: mission_tasks=#{mission_tasks.to_s} tasks=#{tasks.to_s} events=#{free_events.to_s} transactions=#{transactions.to_s}>"
 	end
 
         # Calls the given block in the execution thread of this plan's engine.
@@ -231,8 +205,8 @@ module Roby
 
         def merge_base(plan)
             free_events.merge(plan.free_events)
-            missions.merge(plan.missions)
-            known_tasks.merge(plan.known_tasks)
+            mission_tasks.merge(plan.mission_tasks)
+            tasks.merge(plan.tasks)
             permanent_tasks.merge(plan.permanent_tasks)
             permanent_events.merge(plan.permanent_events)
             task_index.merge(plan.task_index)
@@ -273,7 +247,7 @@ module Roby
 
         def merge_transaction!(transaction, merged_graphs, added, removed, updated)
             # Note: Task#plan= updates its bound events
-            tasks, events = transaction.known_tasks.dup, transaction.free_events.dup
+            tasks, events = transaction.tasks.dup, transaction.free_events.dup
             tasks.each { |t| t.plan = self }
             events.each { |e| e.plan = self }
 
@@ -307,7 +281,7 @@ module Roby
         def merge!(plan)
             return if plan == self
 
-            tasks, events = plan.known_tasks.dup, plan.free_events.dup
+            tasks, events = plan.tasks.dup, plan.free_events.dup
             tasks.each { |t| t.plan = self }
             events.each { |e| e.plan = self }
             merge(plan)
@@ -345,7 +319,7 @@ module Roby
             end
 
             # First create a copy of all the tasks
-            known_tasks.each do |t|
+            tasks.each do |t|
                 new_t = t.dup
                 mappings[t] = new_t
 
@@ -367,9 +341,9 @@ module Roby
                 copy.register_event(new_e)
             end
 
-            missions.each { |t| copy.add_mission(mappings[t]) }
-            permanent_tasks.each { |t| copy.add_permanent(mappings[t]) }
-            permanent_events.each { |e| copy.add_permanent(mappings[e]) }
+            mission_tasks.each { |t| copy.add_mission_task(mappings[t]) }
+            permanent_tasks.each { |t| copy.add_permanent_task(mappings[t]) }
+            permanent_events.each { |e| copy.add_permanent_event(mappings[e]) }
 
             copy_relation_graphs_to(copy, mappings)
             mappings
@@ -457,55 +431,76 @@ module Roby
             plan_chain
         end
 
-	# Inserts a new mission in the plan.
-        #
-        # In the plan manager, missions are the tasks which constitute the
-        # robot's goal. This is the base for two things:
-        # * if a mission fails, the MissionFailedError is raised
-        # * the mission and all the tasks and events which are useful for it,
-        #   are not removed automatically by the garbage collection mechanism.
-        #   A task or event is <b>useful</b> if it is part of the child subgraph
-        #   of the mission, i.e. if there is a path in the relation graphs where
-        #   the mission is the source and the task is the target.
+        # @deprecated use {#add_mission_task} instead
         def add_mission(task)
             Roby.warn_deprecated "#add_mission is deprecated, use #add_mission_task instead"
             add_mission_task(task)
 	end
 
-	# Checks if +task+ is a mission of this plan
+	# @deprecated use {#mission_task?} instead
 	def mission?(task)
             Roby.warn_deprecated "#mission? is deprecated, use #mission_task? instead"
             mission_task?(task)
         end
 
-        def mission_task?(task)
-            @missions.include?(task.to_task)
+        # @deprecated use {#unmark_mission_task} instead
+        def unmark_mission(task)
+            Roby.warn_deprecated "#unmark_mission is deprecated, use #unmark_mission_task instead"
+            unmark_mission_task(task)
         end
 
-	# Removes the task in +tasks+ from the list of missions
-	def unmark_mission(task)
-            task = task.to_task
-            return if !@missions.include?(task)
-	    @missions.delete(task)
-	    task.mission = false if task.self_owned?
+        # Tests whether a task is present in the plan
+        def has_task?(task)
+            tasks.include?(task)
+        end
 
-            notify_plan_status_change(task, :normal)
+        # Add a task to the plan's set of missions
+        #
+        # A mission represents the system's overall goal. As such a mission task
+        # and all its dependencies are protected against the garbage collection
+        # mechanisms, and the emission of a mission's failed event causes a
+        # MissionFailedError exception to be generated.
+        #
+        # Note that this method should be used to add the task to the plan and
+        # mark it as mission, and to mark an already added task as mission as
+        # well.
+        #
+        # @see mission_task? unmark_mission_task
+        def add_mission_task(task)
+            task = normalize_add_arguments([task]).first
+	    return if mission_tasks.include?(task)
+            add([task])
+	    mission_tasks << task
+	    task.mission = true if task.self_owned?
+            notify_task_status_change(task, :mission)
+	    task
+        end
+
+        # Checks if a task is part of the plan's missions
+        #
+        # @see add_mission_task unmark_mission_task
+        def mission_task?(task)
+            @mission_tasks.include?(task.to_task)
+        end
+
+	# Removes a task from the plan's missions
+        #
+        # It does not remove the task from the plan. In a plan that is being
+        # executed, it is done by garbage collection. In a static plan, it can
+        # either be done with {#static_garbage_collect} or directly by calling
+        # {#remove_task} or {#remove_free_event}
+        #
+        # @see add_mission_task mission_task?
+	def unmark_mission_task(task)
+            task = task.to_task
+            return if !@mission_tasks.include?(task)
+	    @mission_tasks.delete(task)
+	    task.mission = false if task.self_owned?
+            notify_task_status_change(task, :normal)
 	    self
 	end
 
-	# Adds +object+ in the list of permanent tasks. Permanent tasks are
-        # tasks that are not to be subject to the plan's garbage collection
-        # mechanism (i.e. they will not be removed even though they are not
-        # directly linked to a mission).
-        #
-        # #object is at the same time added in the plan, meaning that all the
-        # tasks and events related to it are added in the plan as well. See
-        # #add.
-        #
-        # Unlike missions, the failure of a permanent task does not constitute
-        # an error.
-        #
-        # See also #unmark_permanent and #permanent?
+        # @deprecated use {#add_permanent_task} or {#add_permanent_event} instead
 	def add_permanent(object)
             Roby.warn_deprecated "#add_permanent is deprecated, use either #add_permanent_task or #add_permanent_event instead"
             object = normalize_add_arguments([object]).first
@@ -517,56 +512,109 @@ module Roby
             object
 	end
 
-	# Removes +object+ from the list of permanent objects. Permanent objects
-        # are protected from the plan's garbage collection. This does not remove
-        # the task/event itself from the plan.
-        #
-        # See also #add_permanent and #permanent?
+        # @deprecated use {#unmark_permanent_task} or {#unmark_permanent_event} instead
 	def unmark_permanent(object)
+            Roby.warn_deprecated "#unmark_permanent is deprecated, use either #unmark_permanent_task or #unmark_permanent_event"
             if object.respond_to?(:to_task)
-                object = object.to_task
-                if @permanent_tasks.include?(object)
-                    @permanent_tasks.delete(object)
-                    notify_plan_status_change(object, :normal)
-                end
+                unmark_permanent_task(object)
             elsif object.respond_to?(:to_event)
-                @permanent_events.delete(object.to_event)
-                notify_plan_status_change(object, :normal)
+                unmark_permanent_event(object)
             else
                 raise ArgumentError, "expected a task or event and got #{object}"
             end
         end
 
-        # True if +obj+ is neither a permanent task nor a permanent object.
-        #
-        # See also #add_permanent and #unmark_permanent
+        # @deprecated use {#permanent_task?} or {#permanent_event?} instead
 	def permanent?(object)
             Roby.warn_deprecated "#permanent? is deprecated, use either #permanent_task? or #permanent_event?"
             if object.respond_to?(:to_task)
-                @permanent_tasks.include?(object.to_task) 
+                permanent_task?(object)
             elsif object.respond_to?(:to_event)
-                @permanent_events.include?(object.to_event)
+                permanent_event?(object)
             else
                 raise ArgumentError, "expected a task or event and got #{object}"
             end
+        end
+
+        # Mark a task as permanent, optionally adding to the plan
+        #
+        # Permanent tasks are protected against garbage collection. Like
+        # missions, failure of a permanent task will generate a plan exception
+        # {PermanentTaskError}. Unlike missions, this exception is non-fatal.
+        def add_permanent_task(task)
+            task = normalize_add_arguments([task]).first
+            return if permanent_tasks.include?(task)
+            add([task])
+            permanent_tasks << task
+            notify_task_status_change(task, :permanent)
+            task
         end
 
         # True if the given task is registered as a permanent task on self
         def permanent_task?(task)
-            @permanent_tasks.include?(object) 
+            @permanent_tasks.include?(task)
         end
 
-        # True if the given task is registered as a permanent task on self
+	# Removes a task from the set of permanent tasks
+        #
+        # This does not remove the event from the plan. In plans being executed,
+        # the removal will be done by garabage collection. In plans used as data
+        # structures, either use {#static_garbage_collect} or remove the event
+        # directly with {#remove_task} or {#remove_free_event}
+        #
+        # @see add_permanent_event permanent_event?
+	def unmark_permanent_task(task)
+            if @permanent_tasks.delete?(task.to_task)
+                notify_task_status_change(task, :normal)
+            end
+        end
+
+        # Mark an event as permanent, optionally adding to the plan
+        #
+        # Permanent events are protected against garbage collection
+        def add_permanent_event(event)
+            event = normalize_add_arguments([event]).first
+            return if permanent_events.include?(event)
+            add([event])
+            permanent_events << event
+            notify_event_status_change(event, :permanent)
+            event
+        end
+
+        # True if the given event is registered as a permanent event on self
         def permanent_event?(generator)
             @permanent_events.include?(generator) 
         end
 
-        # Perform notifications related to the status change of a task
-        def notify_plan_status_change(object, status)
-            if services = plan_services[object]
-                services.each { |s| s.notify_plan_status_change(status) }
+	# Removes a task from the set of permanent tasks
+        #
+        # This does not remove the event from the plan. In plans being executed,
+        # the removal will be done by garabage collection. In plans used as data
+        # structures, either use {#static_garbage_collect} or remove the event
+        # directly with {#remove_task} or {#remove_free_event}
+        #
+        # @see add_permanent_event permanent_event?
+	def unmark_permanent_event(event)
+            if @permanent_events.delete?(event.to_event)
+                notify_event_status_change(event, :normal)
             end
-            log(:plan_status_change, object, status)
+        end
+
+        # @api private
+        #
+        # Perform notifications related to the status change of a task
+        def notify_task_status_change(task, status)
+            if services = plan_services[task]
+                services.each { |s| s.notify_task_status_change(status) }
+            end
+            log(:task_status_change, task, status)
+        end
+
+        # @api private
+        #
+        # Perform notifications related to the status change of an event
+        def notify_event_status_change(event, status)
+            log(:event_status_change, event, status)
         end
 
 	def edit
@@ -607,14 +655,14 @@ module Roby
 	    # Swap the subplans of +from+ and +to+
 	    yield(from, to)
 
-	    if mission?(from)
-		add_mission(to)
+	    if mission_task?(from)
+		add_mission_task(to)
                 replaced(from, to)
-		unmark_mission(from)
-	    elsif permanent?(from)
-		add_permanent(to)
+		unmark_mission_task(from)
+	    elsif permanent_task?(from)
+		add_permanent_task(to)
                 replaced(from, to)
-		unmark_permanent(from)
+		unmark_permanent_task(from)
 	    else
 		add(to)
                 replaced(from, to)
@@ -694,6 +742,11 @@ module Roby
             remove_plan_service(service)
             service.task = new_task
             add_plan_service(service)
+        end
+
+        # Find all the defined plan services for a given task
+        def find_all_plan_services(task)
+            plan_services[task] || Array.new
         end
 
         # If at least one plan service is defined for +task+, returns one of
@@ -776,35 +829,6 @@ module Roby
             end
         end
 
-        def add_mission_task(task)
-            task = normalize_add_arguments([task]).first
-	    return if missions.include?(task)
-            add([task])
-
-	    missions << task
-	    task.mission = true if task.self_owned?
-            notify_plan_status_change(task, :mission)
-	    task
-        end
-
-        def add_permanent_task(task)
-            task = normalize_add_arguments([task]).first
-            return if permanent_tasks.include?(task)
-            add([task])
-            permanent_tasks << task
-            notify_plan_status_change(task, :permanent)
-            task
-        end
-
-        def add_permanent_event(event)
-            event = normalize_add_arguments([event]).first
-            return if permanent_events.include?(event)
-            add([event])
-            permanent_events << event
-            notify_plan_status_change(event, :permanent)
-            event
-        end
-
         # @api private
         #
         # Registers a task object in this plan
@@ -813,7 +837,7 @@ module Roby
         # plans. Use {#add}.
         def register_task(task)
             task.plan = self
-            known_tasks << task
+            tasks << task
             task_index.add(task)
             task_events.merge(task.each_event)
         end
@@ -865,7 +889,7 @@ module Roby
 
             triggered = Array.new
             plans.each do |p|
-                triggered = p.known_tasks.map do |t|
+                triggered = p.tasks.map do |t|
                     [t, triggers.find_all { |trigger| trigger === t }]
                 end
                 merge!(p)
@@ -902,7 +926,7 @@ module Roby
         def add_trigger(query_object, &block)
             tr = Trigger.new(query_object, block)
             triggers << tr
-            known_tasks.each do |t|
+            tasks.each do |t|
                 if tr === t
                     tr.call(t)
                 end
@@ -986,9 +1010,9 @@ module Roby
 
         def locally_useful_roots
 	    # Create the set of tasks which must be kept as-is
-	    seeds = @missions | @permanent_tasks
+	    seeds = @mission_tasks | @permanent_tasks
 	    for trsc in transactions
-		seeds.merge trsc.proxy_objects.keys.to_set
+		seeds.merge trsc.proxy_tasks.keys.to_set
 	    end
             seeds
         end
@@ -1002,7 +1026,7 @@ module Roby
         end
 
 	def unneeded_tasks
-	    known_tasks - useful_tasks
+	    tasks - useful_tasks
 	end
 
 	def local_tasks
@@ -1011,9 +1035,9 @@ module Roby
 
 	def remote_tasks
 	    if local_tasks = task_index.self_owned
-		known_tasks - local_tasks
+		tasks - local_tasks
 	    else
-		known_tasks
+		tasks
 	    end
 	end
 
@@ -1021,7 +1045,7 @@ module Roby
 	# This is quite slow. It is here for debugging purposes. Do not use it
 	# in production code
 	def useful_task?(task)
-	    known_tasks.include?(task) && !unneeded_tasks.include?(task)
+	    tasks.include?(task) && !unneeded_tasks.include?(task)
 	end
 
         class UsefulFreeEventVisitor < RGL::DFSVisitor
@@ -1124,14 +1148,14 @@ module Roby
 
 	    result = (free_events - useful_events)
 	    result.delete_if do |ev|
-		transactions.any? { |trsc| trsc.wrap(ev, false) }
+		transactions.any? { |trsc| trsc.find_local_object_for_event(ev) }
 	    end
 	    result
 	end
 
         # The number of tasks
         def num_tasks
-            known_tasks.size
+            tasks.size
         end
 
         # The number of events that are not task events
@@ -1144,21 +1168,41 @@ module Roby
             task_events.size + free_events.size
         end
 
-	# Checks if +task+ is included in this plan
-	def include?(object); @known_tasks.include?(object) || @free_events.include?(object) end
+        # Tests whether a task is present in this plan
+        def has_task?(task)
+            tasks.include?(task)
+        end
+
+        # Tests whether a task event is present in this plan
+        def has_task_event?(generator)
+            task_events.include?(generator)
+        end
+
+        # Tests whether a free event is present in this plan
+        def has_free_event?(generator)
+            free_events.include?(generator)
+        end
+
+	# @deprecated use the more specific {#has_task?} {#has_free_event?} or
+        #   {#has_event?} instead
+	def include?(object)
+            Roby.warn_deprecated "Plan#include? is deprecated, use one of the more specific #has_task? #has_task_event? and #has_free_event?"
+            has_free_event?(object) || has_task_event?(object) || has_task?(object)
+        end
+
 	# Count of tasks in this plan
 	def size
             Roby.warn_deprecated "Plan#size is deprecated, use #num_tasks instead"
-            @known_tasks.size
+            @tasks.size
         end
 	# Returns true if there is no task in this plan
-        def empty?; @known_tasks.empty? && @free_events.empty? end
+        def empty?; @tasks.empty? && @free_events.empty? end
 	# Iterates on all tasks
         #
         # @yieldparam [Task] task
 	def each_task
             return enum_for(__method__) if !block_given?
-            @known_tasks.each { |t| yield(t) }
+            @tasks.each { |t| yield(t) }
         end
  
 	# Returns +object+ if object is a plan object from this plan, or if
@@ -1185,17 +1229,14 @@ module Roby
 	    end
 	end
 
-        def discard_modifications(object)
-            remove_object(object)
-        end
-
-        def finalize_object(object, timestamp = nil)
+        # @api private
+        #
+        # Perform sanity checks on a plan object that will be finalized
+        def verify_plan_object_finalization_sanity(object)
 	    if !object.root_object?
 		raise ArgumentError, "cannot remove #{object} which is a non-root object"
 	    elsif object.plan != self
-		if known_tasks.include?(object) || free_events.include?(object)
-		    raise ArgumentError, "#{object} is included in #{self} but #plan == #{object.plan}"
-		elsif !object.plan
+		if !object.plan
                     if object.removed_at
                         if PlanObject.debug_finalization_place?
                             raise ArgumentError, "#{object} has already been removed from its plan\n" +
@@ -1209,61 +1250,84 @@ module Roby
 		end
 		raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
 	    end
+        end
 
-            if services = plan_services.delete(object)
+        def finalize_task(task, timestamp = nil)
+            verify_plan_object_finalization_sanity(task)
+            if (task.plan != self) && has_task?(task)
+                raise ArgumentError, "#{task} is included in #{self} but #plan == #{task.plan}"
+            end
+
+            if services = plan_services.delete(task)
                 services.each(&:finalized!)
             end
 
 	    # Remove relations first. This is needed by transaction since
-	    # removing relations may need wrapping some new objects, and in
-	    # that case these new objects will be discovered as well
-	    object.clear_relations
+	    # removing relations may need wrapping some new task, and in
+	    # that case these new task will be discovered as well
+	    task.clear_relations
+            task.mission = false
 
-            if object.respond_to? :mission=
-                object.mission = false
+            for ev in task.bound_events
+                finalized_event(ev[1])
             end
+            finalized_task(task)
 
-	    case object
-	    when EventGenerator
-		finalized_event(object)
-
-	    when Task
-		for ev in object.bound_events
-		    finalized_event(ev[1])
-		end
-		finalized_task(object)
-
-	    else
-		raise ArgumentError, "unknown object type #{object}"
-	    end
-
-            object.each_plan_child do |child|
-                child.finalized!(timestamp)
+            for ev in task.bound_events
+                ev[1].finalized!(timestamp)
             end
-            object.finalized!(timestamp)
+            task.finalized!(timestamp)
         end
 
-        # Remove +object+ from this plan. You usually don't have to do that
-        # manually. Object removal is handled by the plan's garbage collection
-        # mechanism.
-	def remove_object(object, timestamp = nil)
-	    @free_events.delete(object)
-	    @missions.delete(object)
-	    @known_tasks.delete(object)
-	    @permanent_tasks.delete(object)
-	    @permanent_events.delete(object)
-            @task_index.remove(object)
-            
-            case object
-            when Task
-                for ev in object.bound_events
-		    @task_events.delete(ev[1])
-                end
+        def finalize_event(event, timestamp = nil)
+            verify_plan_object_finalization_sanity(event)
+            if (event.plan != self) && has_free_event?(event)
+                raise ArgumentError, "#{event} is included in #{self} but #plan == #{event.plan}"
             end
 
-            finalize_object(object, timestamp)
+	    # Remove relations first. This is needed by transaction since
+	    # removing relations may need wrapping some new event, and in
+	    # that case these new event will be discovered as well
+	    event.clear_relations
+            finalized_event(event)
+            event.finalized!(timestamp)
+        end
 
+        def remove_task(task, timestamp = nil)
+            if !@tasks.delete?(task)
+                raise ArgumentError, "#{task} is not a task of #{self}"
+            end
+
+            @mission_tasks.delete(task)
+            @permanent_tasks.delete(task)
+            @task_index.remove(task)
+
+            for ev in task.bound_events
+                @task_events.delete(ev[1])
+            end
+            finalize_task(task, timestamp)
 	    self
+        end
+
+        def remove_free_event(event, timestamp = nil)
+	    if !@free_events.delete?(event)
+                raise ArgumentError, "#{event} is not a free event of #{self}"
+            end
+            @permanent_events.delete(event)
+            finalize_event(event, timestamp)
+	    self
+        end
+
+        # @deprecated use {#remove_task} or {#remove_free_event} instead
+	def remove_object(object, timestamp = nil)
+            Roby.warn_deprecated "#remove_object is deprecated, use either #remove_task or #remove_free_event"
+            if has_task?(object)
+                remove_task(object, timestamp)
+            elsif has_free_event?(object)
+                remove_free_event(object, timestamp)
+            else
+                raise ArgumentError, "#{object} is neither a task nor a free event of #{self}"
+            end
 	end
 
         def clear!
@@ -1274,8 +1338,8 @@ module Roby
                 g.clear
             end
 	    @free_events.clear
-	    @missions.clear
-	    @known_tasks.clear
+	    @mission_tasks.clear
+	    @tasks.clear
 	    @permanent_tasks.clear
 	    @permanent_events.clear
             @task_index.clear
@@ -1284,16 +1348,16 @@ module Roby
 
 	# Remove all tasks
 	def clear
-	    known_tasks, @known_tasks = @known_tasks, Set.new
+	    tasks, @tasks = @tasks, Set.new
 	    free_events, @free_events = @free_events, Set.new
 
             clear!
 
-            remaining = known_tasks.find_all do |t|
+            remaining = tasks.find_all do |t|
                 if executable? && t.running?
                     true
                 else
-                    finalize_object(t)
+                    finalize_task(t)
                     false
                 end
             end
@@ -1304,7 +1368,7 @@ module Roby
                 end
             end
 	    free_events.each do |e|
-                finalize_object(e)
+                finalize_event(e)
             end
 
             self
@@ -1312,26 +1376,23 @@ module Roby
 
 	# Hook called when +task+ has been removed from this plan
 	def finalized_task(task)
-            finalized_transaction_object(task) { |trsc, proxy| trsc.finalized_plan_task(proxy) }
+            for trsc in transactions
+                next unless trsc.proxying?
+                if proxy = trsc.find_local_object_for_task(task)
+                    trsc.finalized_plan_task(proxy)
+                end
+            end
             log(:finalized_task, droby_id, task)
 	end
 
 	# Hook called when +event+ has been removed from this plan
 	def finalized_event(event)
-            finalized_transaction_object(event) { |trsc, proxy| trsc.finalized_plan_event(proxy) }
             log(:finalized_event, droby_id, event)
-        end
-
-        # Generic filter which checks if +object+ is included in one of the
-        # transactions of this plan. If it is the case, it yields the
-        # transaction and the associated proxy
-        def finalized_transaction_object(object) 
-            return unless object.root_object?
+            return unless event.root_object?
             for trsc in transactions
                 next unless trsc.proxying?
-
-                if proxy = trsc.wrap(object, false)
-                    yield(trsc, proxy)
+                if proxy = trsc.find_local_object_for_event(event)
+                    trsc.finalized_plan_event(proxy)
                 end
             end
         end
@@ -1392,7 +1453,7 @@ module Roby
         # Get all missions that have failed
         def self.check_failed_missions(plan)
             result = Array.new
-            for task in plan.missions
+            for task in plan.mission_tasks
                 result << MissionFailedError.new(task) if task.failed?
             end
             for task in plan.permanent_tasks
@@ -1457,7 +1518,7 @@ module Roby
                 end
             else
                 for t in unneeded_tasks
-                    remove_object(t)
+                    remove_task(t)
                 end
             end
         end
@@ -1465,8 +1526,8 @@ module Roby
         # Finds a single difference between this plan and the other plan, using
         # the provided mappings to map objects from self to object in other_plan
         def find_plan_difference(other_plan, mappings)
-            all_self_objects  = known_tasks | free_events | task_events
-            all_other_objects = (other_plan.known_tasks | other_plan.free_events | other_plan.task_events)
+            all_self_objects  = tasks | free_events | task_events
+            all_other_objects = (other_plan.tasks | other_plan.free_events | other_plan.task_events)
 
             all_mapped_objects = all_self_objects.map do |obj|
                 if !mappings.has_key?(obj)
@@ -1477,7 +1538,7 @@ module Roby
 
             if all_mapped_objects != all_other_objects
                 return [:removed_objects, all_other_objects - all_mapped_objects]
-            elsif missions.map { |m| mappings[m] }.to_set != other_plan.missions
+            elsif mission_tasks.map { |m| mappings[m] }.to_set != other_plan.mission_tasks
                 return [:missions_differ]
             elsif permanent_tasks.map { |p| mappings[p] }.to_set != other_plan.permanent_tasks
                 return [:permanent_tasks_differ]
@@ -1551,7 +1612,7 @@ module Roby
 	# Called by TaskMatcher#result_set and Query#result_set to get the set
 	# of tasks matching +matcher+
 	def query_result_set(matcher) # :nodoc:
-            filtered = matcher.filter(known_tasks.dup, task_index)
+            filtered = matcher.filter(tasks.dup, task_index)
 
             if matcher.indexed_query?
                 filtered

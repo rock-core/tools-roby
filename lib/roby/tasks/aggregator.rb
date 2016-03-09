@@ -27,7 +27,7 @@ module Roby::Tasks
 	    @name  = self.name
 	    @tasks = nil
 	    if plan
-		plan.remove_object(self)
+		plan.remove_task(self)
 	    else
 		clear_relations
 		freeze 

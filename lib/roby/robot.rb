@@ -51,7 +51,7 @@ module Robot
 
 	options = args.first || {}
 	task, planner = Roby.app.prepare_action(name, **options)
-        task.plan.add_mission(task)
+        task.plan.add_mission_task(task)
 	return task, planner
     end
 

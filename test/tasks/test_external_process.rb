@@ -13,14 +13,14 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     end
 
     def test_nominal
-        plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--no-output"]))
+        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--no-output"]))
         assert_event_emission(task.success_event) do
             task.start!
         end
     end
 
     def test_nominal_array_with_one_element
-        plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
+        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
         task.redirect_output "mockup-%p.log"
         assert_event_emission(task.success_event) do
             task.start!
@@ -30,7 +30,7 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     end
 
     def test_nominal_no_array
-        plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: MOCKUP))
+        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: MOCKUP))
         task.redirect_output "mockup-%p.log"
         assert_event_emission(task.success_event) do
             task.start!
@@ -41,7 +41,7 @@ class TC_Tasks_ExternalProcess < Minitest::Test
 
     def test_inexistent_program
         Roby.logger.level = Logger::FATAL
-        plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: ['does_not_exist', "--error"]))
+        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: ['does_not_exist', "--error"]))
         e = assert_raises(RuntimeError) do
             task.start!
         end
@@ -51,7 +51,7 @@ class TC_Tasks_ExternalProcess < Minitest::Test
 
     def test_failure
         Roby.logger.level = Logger::FATAL
-        plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--error"]))
+        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--error"]))
         assert_event_emission(task.failed_event) do
             task.start!
         end
@@ -60,7 +60,7 @@ class TC_Tasks_ExternalProcess < Minitest::Test
 
     def test_signaling
         Roby.logger.level = Logger::FATAL
-        plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--block"]))
+        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--block"]))
         assert_event_emission(task.start_event) do
             task.start!
         end
@@ -74,7 +74,7 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     end
 
     def do_redirection(expected)
-        plan.add_permanent(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
+        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
         yield(task)
 
         assert_event_emission(task.success_event) do

@@ -16,7 +16,7 @@ class TC_PlannedBy < Minitest::Test
     end
 
     def test_it_does_not_assign_the_error_to_any_parent
-        plan.add_permanent(root = Roby::Task.new)
+        plan.add_permanent_task(root = Roby::Task.new)
 	task = root.depends_on(Roby::Task.new)
         planner = task.planned_by(Roby::Test::Tasks::Simple.new)
 	planner.start!
@@ -35,7 +35,7 @@ class TC_PlannedBy < Minitest::Test
 	task = Roby::Task.new
 	planner = Roby::Test::Tasks::Simple.new
 	task.planned_by planner
-	plan.add_permanent(task)
+	plan.add_permanent_task(task)
 
 	assert_equal([], plan.check_structure.to_a)
 	planner.start!
@@ -80,7 +80,7 @@ class TC_PlannedBy < Minitest::Test
 	task = Roby::Task.new
 	planner = Roby::Test::Tasks::Simple.new
         task.planned_by planner
-        plan.add_permanent(task)
+        plan.add_permanent_task(task)
 
         planner.start!
         assert !task.finalized?

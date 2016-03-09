@@ -26,7 +26,7 @@ def randomly_modify_plan(plan, num_tasks, num_task_relation_changes, num_event_r
                 trsc.add(Roby::Tasks::Simple.new)
             end
         end
-        tasks = (plan.known_tasks.to_a + trsc.known_tasks.to_a)
+        tasks = (plan.tasks.to_a + trsc.tasks.to_a)
 
         num_task_relation_changes.times do
             from, to = pick_parent_child(tasks)
@@ -52,13 +52,13 @@ def randomly_modify_plan(plan, num_tasks, num_task_relation_changes, num_event_r
         # Unmark all missions
         all_missions = plan.missions.to_a + trsc.missions.to_a
         all_missions.each do |t|
-            trsc.unmark_mission(trsc[t])
+            trsc.unmark_mission_task(trsc[t])
         end
 
         # And randomly mark mission_count tasks
         num_mission_changes.times do
             task = tasks[rand(tasks.size)]
-            trsc.add_mission(trsc[task])
+            trsc.add_mission_task(trsc[task])
         end
 
         if commit
@@ -94,7 +94,7 @@ execution_engine.every(period) do
     randomly_modify_plan(plan, num_tasks, num_task_relation_changes, num_event_relation_changes, num_mission_changes)
 
     event_emissions.times do
-        task = plan.known_tasks.to_a[rand(plan.num_tasks)]
+        task = plan.tasks.to_a[rand(plan.num_tasks)]
         next if task.finished?
 
         ev = task.bound_events.values[rand(task.bound_events.values.size)]

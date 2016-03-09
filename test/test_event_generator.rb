@@ -186,7 +186,7 @@ class TC_Event < Minitest::Test
     end
 
     def test_pending_includes_queued_events
-        plan.add_permanent(e = EventGenerator.new { })
+        plan.add_permanent_event(e = EventGenerator.new { })
         execution_engine.process_events_synchronous do
             e.emit
             assert e.pending?
@@ -387,12 +387,12 @@ class TC_Event < Minitest::Test
 
         plan.add(ev = EventGenerator.new)
         ev.if_unreachable(cancel_at_emission: false) { mock.unreachable_1 }
-        plan.remove_object(ev)
+        plan.remove_free_event(ev)
 
         plan.add(ev = EventGenerator.new)
         ev.if_unreachable(cancel_at_emission: false) { mock.unreachable_2 }
         ev.emit
-        plan.remove_object(ev)
+        plan.remove_free_event(ev)
     end
 
     def test_if_unreachable_in_transaction_is_ignored_on_discard
@@ -402,7 +402,7 @@ class TC_Event < Minitest::Test
         plan.in_transaction do |trsc|
             trsc.add(ev = EventGenerator.new)
             ev.if_unreachable { mock.unreachable }
-            trsc.remove_object(ev)
+            trsc.remove_free_event(ev)
         end
     end
 
@@ -413,13 +413,13 @@ class TC_Event < Minitest::Test
 
         plan.add(ev = EventGenerator.new)
         ev.if_unreachable(cancel_at_emission: true) { mock.unreachable_1 }
-        plan.remove_object(ev)
+        plan.remove_free_event(ev)
 
         plan.add(ev = EventGenerator.new)
         mock = flexmock
         ev.if_unreachable(cancel_at_emission: true) { mock.unreachable_2 }
         ev.emit
-        plan.remove_object(ev)
+        plan.remove_free_event(ev)
     end
 
     def test_and_unreachability
@@ -525,7 +525,7 @@ class TC_Event < Minitest::Test
     def test_until
 	source, sink, filter, limit = 4.enum_for(:times).map { EventGenerator.new(true) }
         [source, sink, filter, limit].each do |ev|
-            plan.add_permanent ev
+            plan.add_permanent_event ev
         end
 
 	source.signals(filter)
@@ -780,7 +780,7 @@ class TC_Event < Minitest::Test
 	master.call
 	assert(!master.emitted?)
         assert_event_fails(master, EmissionFailed) do
-            plan.remove_object(slave)
+            plan.remove_free_event(slave)
         end
 
 	# Now test the filtering case (when a block is given)
@@ -817,7 +817,7 @@ class TC_Event < Minitest::Test
         plan.add(ev = EventGenerator.new(true))
         ev.when_unreachable(false).on { |ev| mock.unreachable_fired }
         ev.call
-        plan.remove_object(ev)
+        plan.remove_free_event(ev)
     end
 
     def test_when_unreachable_event_cancelled_at_emission
@@ -827,7 +827,7 @@ class TC_Event < Minitest::Test
         plan.add(ev = EventGenerator.new(true))
         ev.when_unreachable(true).on { |ev| mock.unreachable_fired }
         ev.call
-        plan.remove_object(ev)
+        plan.remove_free_event(ev)
     end
 
     def test_or_if_unreachable

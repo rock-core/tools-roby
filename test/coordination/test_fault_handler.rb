@@ -23,7 +23,7 @@ describe Roby::Coordination::Models::FaultHandler do
 
     describe "#find_response_locations" do
         it "returns the running lowest-level missions that have the origin task as children" do
-            [m0, m1, m2].each { |t| plan.add_mission(t) }
+            [m0, m1, m2].each { |t| plan.add_mission_task(t) }
             handler.locate_on_missions
             result = handler.find_response_locations(t2)
             assert_equal [m0, m1].to_set, result
@@ -45,7 +45,7 @@ describe Roby::Coordination::Models::FaultHandler do
     end
     describe "#activate" do
         before do
-            [m0, m1, m2].each { |t| plan.add_mission(t) }
+            [m0, m1, m2].each { |t| plan.add_mission_task(t) }
         end
 
         it "stops all the response locations and makes it so that stopping the response locations do not generate any exceptions" do
@@ -76,7 +76,7 @@ describe Roby::Coordination::Models::FaultHandler do
             repair_task = repairs.first
             assert_kind_of Roby::Coordination::FaultHandlingTask, repair_task
             assert_equal handler, repair_task.fault_handler
-            plan.remove_object t2
+            plan.remove_task t2
         end
     end
 end

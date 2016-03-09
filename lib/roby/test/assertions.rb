@@ -241,12 +241,12 @@ module Roby
 		control_priority do
 		    if !task.kind_of?(Roby::Task)
 			execution_engine.execute do
-			    plan.add_mission(task = planner.send(task, *args))
+			    plan.add_mission_task(task = planner.send(task, *args))
 			end
 		    end
 
 		    assert_event_emission([task.event(:success)], [], nil) do
-			plan.add_permanent(task)
+			plan.add_permanent_task(task)
 			task.start! if task.pending?
 			yield if block_given?
 		    end

@@ -51,7 +51,7 @@ class TC_PlanObject < Minitest::Test
                 mock.finalized
             end
             mock.should_receive(:finalized).once
-            plan.remove_object(obj)
+            plan.remove_task(obj)
         end
     end
 

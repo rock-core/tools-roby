@@ -12,7 +12,7 @@ module Roby
         end
 
         it "is deregistered from the plan on finalization" do
-            plan.remove_object(t1)
+            plan.remove_task(t1)
             assert !plan.find_plan_service(t1)
         end
 
@@ -55,8 +55,8 @@ module Roby
             end
 
             plan.replace(t1, t2)
-            plan.remove_object(t1)
-            plan.remove_object(t2)
+            plan.remove_task(t1)
+            plan.remove_task(t2)
         end
 
         describe "#on_plan_status_change" do
@@ -70,12 +70,12 @@ module Roby
                 service.on_plan_status_change { |state| spy.called(state) }
             end
             it "is called with the task's initial mission state" do
-                plan.add_mission(task)
+                plan.add_mission_task(task)
                 spy.should_receive(:called).with(:mission).once
                 service.on_plan_status_change { |state| spy.called(state) }
             end
             it "is called with the task's initial permanent state" do
-                plan.add_permanent(task)
+                plan.add_permanent_task(task)
                 spy.should_receive(:called).with(:permanent).once
                 service.on_plan_status_change { |state| spy.called(state) }
             end
@@ -83,51 +83,51 @@ module Roby
                 spy.should_receive(:called).with(:normal).once.ordered
                 spy.should_receive(:called).with(:mission).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
-                plan.add_mission(task)
+                plan.add_mission_task(task)
             end
             it "is called when the task is unmarked as mission" do
-                plan.add_mission(task)
+                plan.add_mission_task(task)
                 spy.should_receive(:called).with(:mission).once.ordered
                 spy.should_receive(:called).with(:normal).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
-                plan.unmark_mission(task)
+                plan.unmark_mission_task(task)
             end
-            it "is not called when Plan#add_mission is called on a task that is already a mission" do
+            it "is not called when Plan#add_mission_task is called on a task that is already a mission" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 spy.should_receive(:called).with(:mission).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
-                plan.add_mission(task)
-                plan.add_mission(task)
+                plan.add_mission_task(task)
+                plan.add_mission_task(task)
             end
-            it "is not called when Plan#unmark_mission is called on a task that is not a mission" do
+            it "is not called when Plan#unmark_mission_task is called on a task that is not a mission" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
-                plan.unmark_mission(task)
+                plan.unmark_mission_task(task)
             end
             it "is called when the task is marked as permanent" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 spy.should_receive(:called).with(:permanent).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
-                plan.add_permanent(task)
+                plan.add_permanent_task(task)
             end
             it "is called when the task is unmarked as permanent" do
-                plan.add_permanent(task)
+                plan.add_permanent_task(task)
                 spy.should_receive(:called).with(:permanent).once.ordered
                 spy.should_receive(:called).with(:normal).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
-                plan.unmark_permanent(task)
+                plan.unmark_permanent_task(task)
             end
-            it "is not called when Plan#add_permanent is called on a task that is already permanent" do
+            it "is not called when Plan#add_permanent_task is called on a task that is already permanent" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 spy.should_receive(:called).with(:permanent).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
-                plan.add_permanent(task)
-                plan.add_permanent(task)
+                plan.add_permanent_task(task)
+                plan.add_permanent_task(task)
             end
-            it "is not called when Plan#unmark_permanent is called on a task that is not permanent" do
+            it "is not called when Plan#unmark_permanent_task is called on a task that is not permanent" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
-                plan.unmark_permanent(task)
+                plan.unmark_permanent_task(task)
             end
         end
 
@@ -138,7 +138,7 @@ module Roby
 
                 plan.in_transaction do |t|
                     proxy = t[service.task]
-                    t.add_mission(proxy)
+                    t.add_mission_task(proxy)
                 end
             end
 
@@ -149,7 +149,7 @@ module Roby
 
                 plan.in_transaction do |t|
                     proxy = t[service.task]
-                    t.add_mission(proxy)
+                    t.add_mission_task(proxy)
                     t.commit_transaction
                 end
             end
@@ -160,14 +160,14 @@ module Roby
                     t[service].on_plan_status_change { spy.called }
                     t.commit_transaction
                 end
-                plan.add_mission(service.task)
+                plan.add_mission_task(service.task)
             end
             it "does not register new status change handlers on discard" do
                 spy.should_receive(:called).never
                 plan.in_transaction do |t|
                     t[service].on_plan_status_change { spy.called }
                 end
-                plan.add_mission(service.task)
+                plan.add_mission_task(service.task)
             end
 
             it "allows to access the service using the #[] syntax" do
@@ -182,7 +182,7 @@ module Roby
                 spy.should_receive(:called).with(:mission).once.ordered
 
                 plan.in_transaction do |t|
-                    t.add_mission(t_proxy = t[service.task])
+                    t.add_mission_task(t_proxy = t[service.task])
                     s_proxy = PlanService.get(t_proxy)
                     s_proxy.on_plan_status_change { |s| spy.called(s) }
                     t.commit_transaction

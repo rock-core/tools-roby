@@ -18,7 +18,7 @@ class TC_ThreadTask < Minitest::Test
             end
         end
 
-        plan.add_mission(task = model.new)
+        plan.add_mission_task(task = model.new)
 	wait_thread_end(task)
 
         assert task.success?
@@ -34,7 +34,7 @@ class TC_ThreadTask < Minitest::Test
             end
         end
 
-        plan.add_permanent(task = model.new)
+        plan.add_permanent_task(task = model.new)
         inhibit_fatal_messages do
             wait_thread_end(task)
         end

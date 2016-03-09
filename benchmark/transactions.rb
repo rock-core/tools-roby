@@ -9,7 +9,7 @@ def random_plan(plan, num_tasks, num_task_relations, num_event_relations)
         plan.add(Roby::Task.new)
     end
 
-    tasks = plan.known_tasks.to_a
+    tasks = plan.tasks.to_a
     num_task_relations.times do
         from_group, to_group = 0, 0
         while from_group == to_group
@@ -56,7 +56,7 @@ Benchmark.bm(70) do |x|
     (1..10).map do
         plan.add(Roby::Task.new)
     end
-    tasks = plan.known_tasks.to_a
+    tasks = plan.tasks.to_a
     plan.add(task = Roby::Task.new)
 
     x.report("creating #{COUNT} transactions") do
@@ -90,7 +90,7 @@ Benchmark.bm(70) do |x|
     x.report("import random plan iteratively (10 times and 100 tasks/plan)") do
         10.times do
             trsc = Roby::Transaction.new(plan)
-            plan.known_tasks.each do |t|
+            plan.tasks.each do |t|
                 trsc[t]
             end
         end

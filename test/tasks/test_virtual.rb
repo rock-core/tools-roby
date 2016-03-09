@@ -58,7 +58,7 @@ module Roby
                 start, success = EventGenerator.new(true), EventGenerator.new
                 plan.add(task = VirtualTask.create(start, success))
                 task.start!
-                plan.remove_object(success)
+                plan.remove_free_event(success)
                 assert task.failed?
             end
 

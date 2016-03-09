@@ -106,13 +106,13 @@ module Roby
             end
 
             error.each_involved_task.
-                find_all { |t| mission?(t) && t != error.origin }.
+                find_all { |t| mission_task?(t) && t != error.origin }.
                 each do |m|
                     add_error(MissionFailedError.new(m, error.exception))
                 end
 
             error.each_involved_task.
-                find_all { |t| permanent?(t) && t != error.origin }.
+                find_all { |t| permanent_task?(t) && t != error.origin }.
                 each do |m|
                     add_error(PermanentTaskError.new(m, error.exception))
                 end
@@ -163,7 +163,7 @@ module Roby
 
             for trsc in transactions
                 next unless trsc.proxying?
-                if (parent_proxy = trsc[parent, false]) && (child_proxy = trsc[child, false])
+                if (parent_proxy = trsc[parent, create: false]) && (child_proxy = trsc[child, create: false])
                     trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info) 
                 end
             end
@@ -230,7 +230,7 @@ module Roby
 
             for trsc in transactions
                 next unless trsc.proxying?
-                if (parent_proxy = trsc[parent, false]) && (child_proxy = trsc[child, false])
+                if (parent_proxy = trsc[parent, create: false]) && (child_proxy = trsc[child, create: false])
                     trsc.removing_plan_relation(parent_proxy, child_proxy, relations) 
                 end
             end
@@ -365,24 +365,22 @@ module Roby
             log(:merged_plan, droby_id, plan)
         end
 
-	# Hook called when +task+ is marked as garbage. It will be garbage
-	# collected as soon as possible
-	def garbage(task_or_event)
-	    # Remove all signals that go *to* the task
-	    #
-	    # While we want events which come from the task to be properly
-	    # forwarded, the signals that go to the task are to be ignored
-	    if task_or_event.respond_to?(:each_event) && task_or_event.self_owned?
-		task_or_event.each_event do |ev|
-		    for signalling_event in ev.parent_objects(EventStructure::Signal).to_a
-			signalling_event.remove_signal ev
-		    end
-		end
-	    end
+	# Hook called when a task is marked as garbage
+        def garbage_task(task)
+            task.each_event do |ev|
+                for signalling_event in ev.parent_objects(EventStructure::Signal).to_a
+                    signalling_event.remove_signal ev
+                end
+            end
+            log(:garbage_task, droby_id, task)
+            remove_task(task)
+        end
 
-            log(:garbage, droby_id, task_or_event)
-            remove_object(task_or_event)
-	end
+	# Hook called when an event is marked as garbage
+        def garbage_event(event)
+            log(:garbage_event, droby_id, event)
+            remove_free_event(event)
+        end
 
         include Roby::ExceptionHandlingObject
 
@@ -393,7 +391,7 @@ module Roby
             exception_handlers.unshift [matcher.to_execution_exception_matcher, handler]
         end
 
-        def remove_object(object, timestamp = nil)
+        def remove_task(object, timestamp = nil)
             if object.respond_to?(:running?) && object.running? && object.self_owned?
                 raise ArgumentError, "attempting to remove a running task from an executable plan"
             end

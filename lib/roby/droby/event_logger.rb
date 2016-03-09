@@ -107,7 +107,7 @@ module Roby
                     if m == :merged_plan
                         plan_id, merged_plan = *args
 
-                        merged_plan.known_tasks.each do |t|
+                        merged_plan.tasks.each do |t|
                             object_manager.register_object(t)
                         end
                         merged_plan.free_events.each do |e|

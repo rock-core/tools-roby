@@ -203,7 +203,7 @@ module Roby
                 plan_others = Set.new
                 if include_proxies
                     __getobj__.send(enum, rel) do |child|
-                        if plan[child, false]
+                        if plan[child, create: false]
                             plan_others << child
                         end
                     end
@@ -385,7 +385,7 @@ module Roby
                 break if events.empty?
             end
             proxied_events.each do |ev|
-                transaction.wrap(ev)
+                transaction.create_and_register_proxy_event(ev)
             end
 	end
 
@@ -397,7 +397,8 @@ module Roby
             if ev = find_event(name)
                 ev
             else
-                plan[__getobj__.event(name)]
+                ev = __getobj__.event(name)
+                bound_events[ev.symbol] = plan.create_and_register_proxy_event(ev)
             end
         end
 

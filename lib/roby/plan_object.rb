@@ -259,7 +259,7 @@ module Roby
                 # later.
                 new_objects = Array.new
                 enumerator.call(object) do |related_object|
-                    next if next_plan[related_object, false]
+                    next if next_plan[related_object, create: false]
 
                     if !intrusive
                         yield(object, related_object)

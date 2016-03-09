@@ -948,6 +948,10 @@ module Roby
             plan.replace_subplan(Hash[object => object])
             initialize_replacement(object)
         end
+
+        def create_transaction_proxy(transaction)
+            transaction.create_and_register_proxy_event(self)
+        end
     end
 
     unless defined? EventStructure

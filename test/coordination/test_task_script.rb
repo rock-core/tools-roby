@@ -326,7 +326,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         process_events
         assert task.done_script1?
         assert !task.done_script2?
-        plan.unmark_permanent(task)
+        plan.unmark_permanent_task(task)
         inhibit_fatal_messages do
             assert_raises(Roby::Coordination::Script::DeadInstruction) do
                 task.done_script2_event.unreachable!

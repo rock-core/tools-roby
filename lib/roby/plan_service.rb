@@ -72,9 +72,9 @@ module Roby
         def on_plan_status_change(&block)
             plan_status_handlers << block
             current_status =
-                if task.plan.mission?(task)
+                if task.plan.mission_task?(task)
                     :mission
-                elsif task.plan.permanent?(task)
+                elsif task.plan.permanent_task?(task)
                     :permanent
                 else :normal
                 end
@@ -84,7 +84,7 @@ module Roby
         # Called to notify about a plan status change for the underlying task
         #
         # @see on_plan_status_change
-        def notify_plan_status_change(new_status)
+        def notify_task_status_change(new_status)
             plan_status_handlers.each do |h|
                 h.call(new_status)
             end
@@ -187,6 +187,10 @@ module Roby
 
         def kind_of?(*args)
             super || task.kind_of?(*args)
+        end
+
+        def create_transaction_proxy(transaction)
+            transaction.create_and_register_proxy_plan_service(self)
         end
     end
 end

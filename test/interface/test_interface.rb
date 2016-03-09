@@ -55,12 +55,12 @@ describe Roby::Interface::Interface do
 
     describe "#jobs" do
         it "should return the set of job tasks existing in the plan" do
-            plan.add_mission(job_task = job_task_m.new(job_id: 10))
+            plan.add_mission_task(job_task = job_task_m.new(job_id: 10))
             assert_equal Hash[10 => [:ready, job_task, job_task]], interface.jobs
         end
         it "should return the planned task if the job task has one" do
             plan.add(job_task = job_task_m.new(job_id: 10))
-            plan.add_mission(planned_task = Roby::Task.new)
+            plan.add_mission_task(planned_task = Roby::Task.new)
             planned_task.planned_by job_task
             assert_equal Hash[10 => [:planning_ready, planned_task, job_task]], interface.jobs
         end
@@ -84,7 +84,7 @@ describe Roby::Interface::Interface do
         attr_reader :job_task, :task, :recorder, :job_listener
         before do
             plan.add(@job_task = job_task_m.new(job_id: 10))
-            plan.add_mission(@task = Roby::Tasks::Simple.new)
+            plan.add_mission_task(@task = Roby::Tasks::Simple.new)
             task.planned_by job_task
             flexmock(job_task).should_receive(:job_name).and_return("the job")
             @recorder = flexmock
@@ -125,7 +125,7 @@ describe Roby::Interface::Interface do
             job_task.success_event.emit
             task.start!
             task.success_event.emit
-            plan.remove_object(task)
+            plan.remove_task(task)
             interface.push_pending_job_notifications
         end
 
@@ -177,7 +177,7 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).with(Roby::Interface::JOB_DROPPED, 10, "the job").once.ordered
 
             interface.monitor_job(task.planning_task, task)
-            plan.unmark_mission(task)
+            plan.unmark_mission_task(task)
             interface.push_pending_job_notifications
         end
 
@@ -188,7 +188,7 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).with(Roby::Interface::JOB_PLANNING, 10, "the job").never
 
             interface.monitor_job(task.planning_task, task)
-            plan.unmark_mission(task)
+            plan.unmark_mission_task(task)
             interface.push_pending_job_notifications
             job_task.start!
             job_task.success_event.emit
@@ -204,12 +204,12 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).with(Roby::Interface::JOB_READY, 10, "the job").once.ordered
 
             interface.monitor_job(task.planning_task, task)
-            plan.unmark_mission(task)
+            plan.unmark_mission_task(task)
             interface.push_pending_job_notifications
             job_task.start!
             job_task.success_event.emit
             interface.push_pending_job_notifications
-            plan.add_mission(task)
+            plan.add_mission_task(task)
             interface.push_pending_job_notifications
         end
 
@@ -277,7 +277,7 @@ describe Roby::Interface::Interface do
         attr_reader :task
         before do
             plan.add(job_task = job_task_m.new(job_id: 10))
-            plan.add_mission(@task = Roby::Tasks::Simple.new)
+            plan.add_mission_task(@task = Roby::Tasks::Simple.new)
             task.planned_by job_task
         end
         it "returns true for an existing job" do
@@ -288,7 +288,7 @@ describe Roby::Interface::Interface do
         end
         it "unmarks the job as mission" do
             interface.kill_job 10
-            assert !plan.mission?(task)
+            assert !plan.mission_task?(task)
         end
         it "forcefully stops a running job" do
             task.start!
@@ -301,7 +301,7 @@ describe Roby::Interface::Interface do
         attr_reader :task
         before do
             plan.add(job_task = job_task_m.new(job_id: 10))
-            plan.add_mission(@task = Roby::Tasks::Simple.new)
+            plan.add_mission_task(@task = Roby::Tasks::Simple.new)
             task.planned_by job_task
         end
         it "returns true for an existing job" do
@@ -312,7 +312,7 @@ describe Roby::Interface::Interface do
         end
         it "unmarks the job as mission" do
             interface.drop_job 10
-            assert !plan.mission?(task)
+            assert !plan.mission_task?(task)
         end
         it "does not stops a running job" do
             task.start!
@@ -327,7 +327,7 @@ describe Roby::Interface::Interface do
         end
         it "returns the job information of a job" do
             plan.add(job_task = job_task_m.new(job_id: 10))
-            plan.add_mission(task = Roby::Tasks::Simple.new)
+            plan.add_mission_task(task = Roby::Tasks::Simple.new)
             task.planned_by job_task
             flexmock(interface).should_receive(:job_state).with(task).
                 and_return(expected_state = flexmock)
@@ -337,14 +337,14 @@ describe Roby::Interface::Interface do
             assert_equal job_task, planning_task
         end
         it "returns the same task as placeholder and planning task for standalone job tasks" do
-            plan.add_mission(job_task = job_task_m.new(job_id: 10))
+            plan.add_mission_task(job_task = job_task_m.new(job_id: 10))
             _, task, planning_task = interface.find_job_info_by_id(10)
             assert_equal job_task, task
             assert_equal job_task, planning_task
         end
         it "returns the job information of a job" do
             plan.add(job_task = job_task_m.new(job_id: 10))
-            plan.add_mission(task = Roby::Tasks::Simple.new)
+            plan.add_mission_task(task = Roby::Tasks::Simple.new)
             task.planned_by job_task
             job_state, task, planning_task = interface.find_job_info_by_id(20)
         end

@@ -23,9 +23,9 @@ class TC_Queries_Query < Minitest::Test
 	t1 = task_model.new(value: 1)
 	t2 = task_model.new(value: 2)
 
-	plan.add_mission(t0)
-	plan.add_mission(t1)
-	plan.add_mission(t2)
+	plan.add_mission_task(t0)
+	plan.add_mission_task(t1)
+	plan.add_mission_task(t2)
 
 	check_matches_fullfill(task_model, plan, t0, t1, t2)
     end
@@ -39,9 +39,9 @@ class TC_Queries_Query < Minitest::Test
 	t1 = task_model.new(value: 1)
 	t2 = task_model.new(value: 2)
 
-	plan.add_mission(t0)
-	plan.add_mission(t1)
-	plan.add_mission(t2)
+	plan.add_mission_task(t0)
+	plan.add_mission_task(t1)
+	plan.add_mission_task(t2)
 
         plan.in_transaction do |trsc|
             check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])
@@ -54,7 +54,7 @@ class TC_Queries_Query < Minitest::Test
 
     def test_query_plan_predicates
 	t1, t2, t3 = prepare_plan missions: 1, add: 1, tasks: 1
-	plan.add_permanent(t3)
+	plan.add_permanent_task(t3)
 	assert_query_finds_tasks([t1]) { plan.find_tasks.mission }
 	assert_query_finds_tasks([t2, t3]) { plan.find_tasks.not_mission }
 	assert_query_finds_tasks([t3]) { plan.find_tasks.permanent }
@@ -228,14 +228,14 @@ class TC_Queries_Query < Minitest::Test
 
         plan.in_transaction do |trsc|
             assert(trsc.find_tasks.which_fullfills(Tasks::Simple).to_a.empty?)
-            assert(!trsc.include?(t1))
-            assert(!trsc.include?(t2))
-            assert(!trsc.include?(t3))
+            assert(!trsc.has_task?(t1))
+            assert(!trsc.has_task?(t2))
+            assert(!trsc.has_task?(t3))
 
             result = trsc.find_tasks.which_fullfills(model, id: 1).to_a
             assert_equal([trsc[t1]], result)
-            assert(!trsc.include?(t2))
-            assert(!trsc.include?(t3))
+            assert(!trsc.has_task?(t2))
+            assert(!trsc.has_task?(t3))
 
             # Now that the proxy is in the transaction, check that it is still
             # found by the query

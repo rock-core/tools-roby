@@ -41,12 +41,12 @@ module TC_TransactionBehaviour
         t.depends_on t_child, model: Roby::Task
         t_parent.depends_on t
         transaction_commit(plan) do |trsc|
-            assert !trsc[t, false]
-            assert trsc.known_tasks.empty?
+            assert !trsc[t, create: false]
+            assert trsc.tasks.empty?
 
-            assert(proxy = trsc[t, true])
-            assert(trsc.include?(proxy))
-            assert_same(proxy, trsc[t, false])
+            assert(proxy = trsc[t, create: true])
+            assert(trsc.has_task?(proxy))
+            assert_same(proxy, trsc[t, create: false])
 
             assert_equal [], proxy.parent_objects(Dependency).to_a
             assert_equal [], proxy.child_objects(Dependency).to_a
@@ -63,7 +63,7 @@ module TC_TransactionBehaviour
         transaction_commit(plan) do |trsc|
             t_proxy = trsc[t2]
             proxy   = t_proxy.event(:start)
-            assert_same(proxy, trsc[t2.event(:start), false])
+            assert_same(proxy, trsc[t2.event(:start), create: false])
             assert_equal(trsc, proxy.plan)
 
             assert(proxy = trsc[t1.event(:start)])
@@ -72,7 +72,7 @@ module TC_TransactionBehaviour
             assert_equal(trsc, proxy.plan)
         end
 
-        assert_equal [t1, t2].to_set, plan.known_tasks
+        assert_equal [t1, t2].to_set, plan.tasks
         assert_same old_start, t1.start_event
     end
 
@@ -112,39 +112,39 @@ module TC_TransactionBehaviour
         end
     end
 
-    def test_remove_object
+    def test_remove_task
         plan.add(t = Tasks::Simple.new)
         transaction_commit(plan, t) do |trsc, p|
-            trsc.remove_object(p)
-            assert_same(nil, trsc[t, false])
-            assert(!trsc.include?(p))
+            trsc.remove_task(p)
+            assert_same(nil, trsc[t, create: false])
+            assert(!trsc.has_task?(p))
         end
 
 	t1, t2, t3 = prepare_plan missions: 1, add: 1, tasks: 1
 	t1.depends_on t2
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p1.depends_on(t3)
-	    trsc.remove_object(p1)
+	    trsc.remove_task(p1)
             refute_same p1, trsc[t1]
 	end
-	assert(plan.include?(t1))
+	assert(plan.has_task?(t1))
 	assert_equal([t2], t1.children.to_a)
  
  	t3 = Tasks::Simple.new
  	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
  	    p1.depends_on t3
  	    p1.remove_child p2
-	    trsc.remove_object(p1)
+	    trsc.remove_task(p1)
  	end
- 	assert(plan.include?(t1))
+ 	assert(plan.has_task?(t1))
  	assert_equal([t2], t1.children.to_a)
 
         t = nil
         plan.in_transaction do |trsc|
             trsc.add(t = Roby::Task.new)
-	    trsc.remove_object(t)
+	    trsc.remove_task(t)
  	end
-        assert(!plan.include?(t))
+        assert(!plan.has_task?(t))
     end
 
     def test_add_tasks_from_plan
@@ -177,8 +177,8 @@ module TC_TransactionBehaviour
         transaction_commit(plan, t2) do |trsc, p2|
             assert_equal [[t2, t1]], p2.merged_relations(:each_parent_task, false).to_a
             assert_equal [[t2, t3]], p2.merged_relations(:each_child, false).to_a
-            assert !trsc[t1, false]
-            assert !trsc[t3, false]
+            assert !trsc[t1, create: false]
+            assert !trsc[t3, create: false]
         end
     end
 
@@ -194,7 +194,7 @@ module TC_TransactionBehaviour
 	yield(trsc, *proxies)
 
 	# Check that no task in trsc are in plan, and that no task of plan are in trsc
-	assert( (trsc.known_tasks & plan.known_tasks).empty?, (trsc.known_tasks & plan.known_tasks).to_a.map(&:to_s).join("\n  "))
+	assert( (trsc.tasks & plan.tasks).empty?, (trsc.tasks & plan.tasks).to_a.map(&:to_s).join("\n  "))
 
 	plan = trsc.plan
 	trsc.send(op)
@@ -213,7 +213,7 @@ module TC_TransactionBehaviour
             end
         end
 
-	plan.known_tasks.each do |t|
+	plan.tasks.each do |t|
 	    assert_kind_of(Roby::Task, t, t.class.ancestors.inspect)
 	end
 
@@ -242,7 +242,7 @@ module TC_TransactionBehaviour
 
 	t = prepare_plan add: 1
 	transaction_commit(plan, t) do |trsc, p|
-	    trsc.add_mission(p)
+	    trsc.add_mission_task(p)
 	end
 	assert(t.event(:start).child_object?(t.event(:updated_data), Roby::EventStructure::Precedence))
 	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
@@ -384,9 +384,9 @@ module TC_TransactionBehaviour
     def test_mission_proxy_is_a_mission_and_stays_a_mission
         task = prepare_plan missions: 1
         transaction_commit(plan, task) do |trsc, proxy|
-            assert trsc.mission?(proxy)
+            assert trsc.mission_task?(proxy)
         end
-        assert plan.mission?(task)
+        assert plan.mission_task?(task)
     end
 
     def test_replacing_a_mission_with_a_new_task_makes_the_replacement_a_mission
@@ -394,8 +394,8 @@ module TC_TransactionBehaviour
         transaction_commit(plan, task) do |trsc, proxy|
             trsc.replace(proxy, replacement)
         end
-        assert !plan.mission?(task)
-        assert plan.mission?(replacement)
+        assert !plan.mission_task?(task)
+        assert plan.mission_task?(replacement)
     end
 
     def test_replacing_a_mission_with_an_existing_task_makes_the_replacement_a_mission
@@ -403,108 +403,108 @@ module TC_TransactionBehaviour
         transaction_commit(plan, task, replacement) do |trsc, p_task, p_replacement|
             trsc.replace(p_task, p_replacement)
         end
-        assert !plan.mission?(task)
-        assert plan.mission?(replacement)
+        assert !plan.mission_task?(task)
+        assert plan.mission_task?(replacement)
     end
 
     def test_a_new_mission_is_added_to_the_plan_as_a_mission
         task = prepare_plan tasks: 1
         transaction_commit(plan) do |trsc|
-            trsc.add_mission(task)
+            trsc.add_mission_task(task)
         end
-        assert plan.mission?(task)
+        assert plan.mission_task?(task)
     end
 
     def test_commit_unmarks_a_mission
         task = prepare_plan missions: 1
         transaction_commit(plan, task) do |trsc, proxy|
-            trsc.unmark_mission(proxy)
-            assert !trsc.mission?(proxy)
-            assert plan.mission?(task)
+            trsc.unmark_mission_task(proxy)
+            assert !trsc.mission_task?(proxy)
+            assert plan.mission_task?(task)
         end
-        assert !plan.mission?(task)
+        assert !plan.mission_task?(task)
     end
 
-    def test_remove_object_in_transaction_cancels_modifications_to_the_mission_flag
+    def test_remove_task_in_transaction_cancels_modifications_to_the_mission_flag
         task = prepare_plan missions: 1
         transaction_commit(plan, task) do |trsc, proxy|
-            trsc.unmark_mission(proxy)
-            trsc.remove_object(proxy)
+            trsc.unmark_mission_task(proxy)
+            trsc.remove_task(proxy)
         end
-        assert plan.mission?(task)
+        assert plan.mission_task?(task)
     end
 
     def test_permanent_proxy_is_a_permanent_and_stays_a_permanent
         task = prepare_plan permanent: 1
         transaction_commit(plan, task) do |trsc, proxy|
-            assert trsc.permanent?(proxy)
+            assert trsc.permanent_task?(proxy)
         end
-        assert plan.permanent?(task)
+        assert plan.permanent_task?(task)
     end
 
     def test_a_new_permanent_is_added_to_the_plan_as_a_permanent
         task = prepare_plan tasks: 1
         transaction_commit(plan) do |trsc|
-            trsc.add_permanent(task)
+            trsc.add_permanent_task(task)
         end
-        assert plan.permanent?(task)
+        assert plan.permanent_task?(task)
     end
 
     def test_commit_unmarks_a_permanent
         task = prepare_plan permanent: 1
         transaction_commit(plan, task) do |trsc, proxy|
-            trsc.unmark_permanent(proxy)
-            assert !trsc.permanent?(task)
-            assert plan.permanent?(task)
+            trsc.unmark_permanent_task(proxy)
+            assert !trsc.permanent_task?(task)
+            assert plan.permanent_task?(task)
         end
-        assert !plan.permanent?(task)
+        assert !plan.permanent_task?(task)
     end
 
-    def test_remove_object_in_transaction_cancels_modifications_to_the_permanent_flag
+    def test_remove_task_in_transaction_cancels_modifications_to_the_permanent_flag
         task = prepare_plan permanent: 1
         transaction_commit(plan, task) do |trsc, proxy|
-            trsc.unmark_permanent(proxy)
-            trsc.remove_object(proxy)
+            trsc.unmark_permanent_task(proxy)
+            trsc.remove_task(proxy)
         end
-        assert plan.permanent?(task)
+        assert plan.permanent_task?(task)
     end
 
     def test_it_can_wrap_an_existing_free_event
         plan.add(ev = Roby::EventGenerator.new)
         transaction_commit(plan, ev) do |trsc, p_ev|
-            assert trsc.include?(p_ev)
+            assert trsc.has_free_event?(p_ev)
         end
     end
     
     # Tests insertion and removal of free events
     def test_commit_plan_events
         e1, e2 = (1..2).map { Roby::EventGenerator.new }
-        plan.add_permanent(e1)
+        plan.add_permanent_event(e1)
         plan.add(e2)
 
 	transaction_commit(plan, e1, e2) do |trsc, p1, p2|
-	    assert(trsc.include?(p1))
-	    assert(trsc.permanent?(p1))
-	    assert(trsc.include?(p2))
-	    assert(!trsc.permanent?(p2))
+	    assert(trsc.has_free_event?(p1))
+	    assert(trsc.permanent_event?(p1))
+	    assert(trsc.has_free_event?(p2))
+	    assert(!trsc.permanent_event?(p2))
 
-            trsc.unmark_permanent(p1)
-	    assert(!trsc.permanent?(p1))
+            trsc.unmark_permanent_event(p1)
+	    assert(!trsc.permanent_event?(p1))
 	end
-        assert(!plan.permanent?(e1))
+        assert(!plan.permanent_event?(e1))
 
         e3, e4 = (1..2).map { Roby::EventGenerator.new }
 	transaction_commit(plan) do |trsc|
-            trsc.add_permanent(e3)
+            trsc.add_permanent_event(e3)
             trsc.add(e4)
-	    assert(trsc.permanent?(e3))
-	    assert(trsc.include?(e4))
-	    assert(!trsc.permanent?(e4))
+	    assert(trsc.permanent_event?(e3))
+	    assert(trsc.has_free_event?(e4))
+	    assert(!trsc.permanent_event?(e4))
 	end
-        assert(plan.include?(e3))
-        assert(plan.permanent?(e3))
-        assert(plan.include?(e4))
-        assert(!plan.permanent?(e4))
+        assert(plan.has_free_event?(e3))
+        assert(plan.permanent_event?(e3))
+        assert(plan.has_free_event?(e4))
+        assert(!plan.permanent_event?(e4))
     end
 
     def test_commit_adds_new_events_and_their_relations
@@ -623,7 +623,7 @@ module TC_TransactionBehaviour
         parent, child = prepare_plan(add: 2)
         transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
             p_parent.depends_on p_child
-            trsc.remove_object(p_child)
+            trsc.remove_task(p_child)
         end
         refute_child_of parent, child, Dependency
     end
@@ -657,12 +657,12 @@ module TC_TransactionBehaviour
         e1, e2 = (1..4).map { |ev| Roby::EventGenerator.new }
         transaction_commit(plan) do |trsc|
             trsc.add(e1)
-            trsc.add_permanent(e2)
+            trsc.add_permanent_event(e2)
         end
-        assert plan.include?(e1)
-        assert plan.include?(e2)
-        assert !plan.permanent?(e1)
-        assert plan.permanent?(e2)
+        assert plan.has_free_event?(e1)
+        assert plan.has_free_event?(e2)
+        assert !plan.permanent_event?(e1)
+        assert plan.permanent_event?(e2)
     end
 
     def test_commit_keeps_existing_task_event_relations_unchanged
@@ -880,7 +880,7 @@ module TC_TransactionBehaviour
     def test_relation_validation
 	t1, t2 = prepare_plan add: 1, tasks: 1
 	transaction_commit(plan, t1) do |trsc, p1|
-	    trsc.add_mission(t2)
+	    trsc.add_mission_task(t2)
 	    assert_equal(plan, t1.plan)
 	    assert_equal(trsc, p1.plan)
 	    assert_equal(trsc, t2.plan)
@@ -894,7 +894,7 @@ module TC_TransactionBehaviour
 
     def test_wrap_raises_if_wrapping_a_finalized_task
 	t1 = prepare_plan add: 1
-        plan.remove_object(t1)
+        plan.remove_task(t1)
 
         plan.in_transaction do |trsc|
             assert_raises(ArgumentError) { trsc.wrap(t1) }
@@ -909,8 +909,8 @@ module TC_TransactionBehaviour
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		p1.depends_on(t3)
-		assert(trsc.wrap(t1, false))
-		plan.remove_object(t1)
+		assert(trsc.wrap(t1, create: false))
+		plan.remove_task(t1)
 		assert(trsc.invalid?)
 	    end
 	end
@@ -920,8 +920,8 @@ module TC_TransactionBehaviour
 	t1 = prepare_plan add: 1
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1) do |trsc, p1|
-		plan.remove_object(t1)
-                assert(!plan.include?(t1))
+		plan.remove_task(t1)
+                assert(!plan.has_task?(t1))
 		assert(trsc.invalid?)
 	    end
 	end
@@ -930,8 +930,8 @@ module TC_TransactionBehaviour
         # then removed from the plan. We should not invalidate in that case
 	t1 = prepare_plan add: 1
         transaction_commit(plan, t1) do |trsc, p1|
-            trsc.remove_object(p1)
-            plan.remove_object(t1)
+            trsc.remove_task(p1)
+            plan.remove_task(t1)
             assert(!trsc.invalid?)
         end
     end
@@ -1095,7 +1095,7 @@ class TC_Transactions < Minitest::Test
             end
             mock.should_receive(:old_handler).with(t).once
             mock.should_receive(:new_handler).with(t).once
-            plan.remove_object(t)
+            plan.remove_task(t)
         end
     end
 
@@ -1122,9 +1122,9 @@ class TC_Transactions < Minitest::Test
             mock.should_receive(:should_be_copied).with(t2).once
             mock.should_receive(:should_be_copied).with(t3).once
             mock.should_receive(:should_not_be_copied).with(t1).once
-            plan.remove_object(t1)
-            plan.remove_object(t2)
-            plan.remove_object(t3)
+            plan.remove_task(t1)
+            plan.remove_task(t2)
+            plan.remove_task(t3)
         end
     end
 
@@ -1152,9 +1152,9 @@ class TC_Transactions < Minitest::Test
             mock.should_receive(:should_be_copied).with(t2).once
             mock.should_receive(:should_be_copied).with(t3).once
             mock.should_receive(:should_not_be_copied).with(t1).once
-            plan.remove_object(t1)
-            plan.remove_object(t2)
-            plan.remove_object(t3)
+            plan.remove_task(t1)
+            plan.remove_task(t2)
+            plan.remove_task(t3)
         end
     end
 
@@ -1194,15 +1194,15 @@ class TC_Transactions < Minitest::Test
                 trsc.replace(p1, p2)
             end
             mock.should_receive(:call).once
-            plan.remove_object(t2)
+            plan.remove_task(t2)
         end
     end
 
     def test_commit_keeps_and_generators_functioning
 	t1, (t2, t3) = prepare_plan add: 1, tasks: 2, model: Tasks::Simple
 	transaction_commit(plan, t1) do |trsc, p1|
-	    trsc.add_mission(t2)
-	    trsc.add_mission(t3)
+	    trsc.add_mission_task(t2)
+	    trsc.add_mission_task(t3)
 	    and_generator = (p1.start_event & t2.start_event)
 	    and_generator.signals t3.start_event
 	end
@@ -1229,8 +1229,8 @@ class TC_Transactions < Minitest::Test
     def test_or_event_aggregator
 	t1, (t2, t3) = prepare_plan add: 1, tasks: 2, model: Tasks::Simple
 	transaction_commit(plan, t1) do |trsc, p1|
-	    trsc.add_mission(t2)
-	    trsc.add_mission(t3)
+	    trsc.add_mission_task(t2)
+	    trsc.add_mission_task(t3)
 	    (p1.event(:start) | t2.event(:start)).signals t3.event(:start)
 	end
 
@@ -1344,7 +1344,7 @@ class TC_Transactions < Minitest::Test
                 mock.is_unreachable
             end
         end
-        plan.remove_object(t1)
+        plan.remove_task(t1)
     end
 
     def test_it_emits_add_relation_hooks_for_tasks

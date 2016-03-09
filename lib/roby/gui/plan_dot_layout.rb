@@ -18,7 +18,7 @@ module Roby
         module GraphvizPlan
             attr_accessor :layout_level
             def all_events(display)
-                known_tasks.inject(free_events.dup) do |events, task|
+                tasks.inject(free_events.dup) do |events, task|
                     if display.displayed?(task)
                         events.merge(task.events.values.to_set)
                     else
@@ -30,7 +30,7 @@ module Roby
             def to_dot(display, io, level)
                 @layout_level = level
                 io << "subgraph cluster_#{dot_id} {\n"
-                (known_tasks | finalized_tasks | free_events | finalized_events).
+                (tasks | finalized_tasks | free_events | finalized_events).
                     each do |obj|
                         obj.to_dot(display, io) if display.displayed?(obj)
                     end
@@ -41,7 +41,7 @@ module Roby
                     trsc.to_dot(display, io, level + 1)
                 end
 
-                relations_to_dot(display, io, each_task_relation_graph, known_tasks)
+                relations_to_dot(display, io, each_task_relation_graph, tasks)
             end
 
             def each_edge(graph, display, objects)
@@ -122,7 +122,7 @@ module Roby
                 end
 
 
-                (known_tasks | finalized_tasks | free_events | finalized_events).
+                (tasks | finalized_tasks | free_events | finalized_events).
                     each do |obj|
                         next if !display.displayed?(obj)
                         obj.apply_layout(bounding_rects, positions, display)
@@ -131,7 +131,7 @@ module Roby
                 transactions.each do |trsc|
                     trsc.apply_layout(bounding_rects, positions, display, max_depth)
                 end
-                layout_relations(positions, display, each_task_relation_graph.to_a, known_tasks)
+                layout_relations(positions, display, each_task_relation_graph.to_a, tasks)
             end
         end
 
@@ -356,7 +356,7 @@ module Roby
                 all_tasks = Set.new
                 bounding_boxes, positions = run_dot(graph_type: 'graph', layout_method: 'fdp', scale_x: 1.0 / 100, scale_y: 1.0 / 100) do
                     display.plans.each do |p|
-                        p_tasks = p.known_tasks | p.finalized_tasks
+                        p_tasks = p.tasks | p.finalized_tasks
                         p_tasks.each do |task|
                             task.to_dot_events(display, self)
                         end

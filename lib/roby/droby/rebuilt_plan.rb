@@ -11,10 +11,12 @@ module Roby
             # The set of free event generators that have been finalized since
             # the last call to #clear_integrated
             attr_reader :finalized_events
-            # The set of objects (tasks and events) that got garbage collected.
-            # For display purposes, they only get removed from the plan at the
-            # next cycle.
-            attr_reader :garbaged_objects
+            # The set of tasks that got garbage collected.  For display
+            # purposes, they only get removed from the plan at the next cycle.
+            attr_reader :garbaged_tasks
+            # The set of events that got garbage collected.  For display
+            # purposes, they only get removed from the plan at the next cycle.
+            attr_reader :garbaged_events
             # The set of generators that have been called since the last call to
             # #clear_integrated
             #
@@ -47,7 +49,8 @@ module Roby
                 super
                 @finalized_tasks = Set.new
                 @finalized_events = Set.new
-                @garbaged_objects = Set.new
+                @garbaged_tasks = Set.new
+                @garbaged_events = Set.new
                 @called_generators = Array.new
                 @emitted_events = Array.new
                 @propagated_events = Array.new
@@ -63,7 +66,8 @@ module Roby
                 if plan.kind_of?(RebuiltPlan)
                     finalized_tasks.merge(plan.finalized_tasks)
                     finalized_events.merge(plan.finalized_events)
-                    garbaged_objects.merge(plan.garbaged_objects)
+                    garbaged_tasks.merge(plan.garbaged_tasks)
+                    garbaged_events.merge(plan.garbaged_events)
                     called_generators.concat(plan.called_generators)
                     emitted_events.concat(plan.emitted_events)
                     propagated_events.concat(plan.propagated_events)
@@ -74,7 +78,15 @@ module Roby
                 end
             end
 
-            def finalize_object(object, timestamp = nil)
+            def finalize_event(object, timestamp = nil)
+                # Don't do anything. Due to the nature of the plan replay
+                # mechanisms, tasks that are already finalized can very well be
+                # kept included in plans. That is something that would be caught
+                # by the finalization paths in Plan
+                object.clear_relations
+            end
+
+            def finalize_task(object, timestamp = nil)
                 # Don't do anything. Due to the nature of the plan replay
                 # mechanisms, tasks that are already finalized can very well be
                 # kept included in plans. That is something that would be caught
@@ -130,13 +142,17 @@ module Roby
                 scheduler_states.clear
                 propagated_exceptions.clear
 
-                garbaged_objects.each do |object|
+                garbaged_tasks.each do |task|
                     # Do remove the GCed object. We use object.finalization_time
                     # to store the actual finalization time. Pass it again to
                     # #remove_object so that it does not get reset to Time.now
-                    remove_object(object, object.finalization_time)
+                    remove_task(task, task.finalization_time)
                 end
-                garbaged_objects.clear
+                garbaged_tasks.clear
+                garbaged_events.each do |event|
+                    remove_free_event(event, event.finalization_time)
+                end
+                garbaged_events.clear
             end
         end
     end

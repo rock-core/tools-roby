@@ -22,7 +22,7 @@ Benchmark.bm(30) do |x|
     end
 
     x.report("remove 1 tasks #{tasks.size} times") do
-        tasks.each { |t| plan.remove_object(t) }
+        tasks.each { |t| plan.remove_task(t) }
     end
 end
 

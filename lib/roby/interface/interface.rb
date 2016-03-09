@@ -168,7 +168,7 @@ module Roby
             # @see drop_job
             def kill_job(job_id)
                 if task = find_job_placeholder_by_id(job_id)
-                    plan.unmark_mission(task)
+                    plan.unmark_mission_task(task)
                     task.stop! if task.running?
                     true
                 else false
@@ -189,7 +189,7 @@ module Roby
             # @see kill_job
             def drop_job(job_id)
                 if task = find_job_placeholder_by_id(job_id)
-                    plan.unmark_mission(task)
+                    plan.unmark_mission_task(task)
                     true
                 else false
                 end
@@ -374,7 +374,7 @@ module Roby
             def job_state(task)
                 if !task
                     return JOB_FINALIZED
-                elsif !plan.mission?(task)
+                elsif !plan.mission_task?(task)
                     return JOB_DROPPED
                 elsif task.success_event.emitted?
                     return JOB_SUCCESS

@@ -593,7 +593,7 @@ module Roby
 		# Get the tasks and events matching the string
 		objects = []
 		for p in plans
-		    objects.concat p.known_tasks.
+		    objects.concat p.tasks.
 			find_all { |object| displayed?(object) && regex === object.display_name(self) }
 		    objects.concat p.free_events.
 			find_all { |object| displayed?(object) && regex === object.display_name(self) }
@@ -915,7 +915,7 @@ module Roby
 
 		# The sets of tasks and events know to the data stream
 		all_tasks  = plans.inject(Set.new) do |all_tasks, plan|
-		    all_tasks.merge plan.known_tasks
+		    all_tasks.merge plan.tasks
 		    all_tasks.merge plan.finalized_tasks
 		end
 		all_events = plans.inject(Set.new) do |all_events, plan|

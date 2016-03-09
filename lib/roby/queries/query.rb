@@ -56,15 +56,15 @@ module Roby
 	def filter(initial_set, task_index)
             result = super
 
-            if plan_predicates.include?(:mission?)
-                result = result.intersection(plan.missions)
-            elsif neg_plan_predicates.include?(:mission?)
-                result.subtract(plan.missions)
+            if plan_predicates.include?(:mission_task?)
+                result = result.intersection(plan.mission_tasks)
+            elsif neg_plan_predicates.include?(:mission_task?)
+                result.subtract(plan.mission_tasks)
             end
 
-            if plan_predicates.include?(:permanent?)
+            if plan_predicates.include?(:permanent_task?)
                 result = result.intersection(plan.permanent_tasks)
-            elsif neg_plan_predicates.include?(:permanent?)
+            elsif neg_plan_predicates.include?(:permanent_task?)
                 result.subtract(plan.permanent_tasks)
             end
 
@@ -93,21 +93,22 @@ module Roby
             # on Query objects. When one of these methods is called on a Query
             # object, plan.name?(task) must return true (resp. false) for the
             # task to match.
-	    def match_plan_predicates(*names)
-		names.each do |name|
+	    def match_plan_predicates(names)
+		names.each do |name, predicate_name|
+                    predicate_name ||= name
 		    class_eval <<-EOD, __FILE__, __LINE__+1
 		    def #{name}
-			if neg_plan_predicates.include?(:#{name}?)
-			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+			if neg_plan_predicates.include?(:#{predicate_name})
+			    raise ArgumentError, "trying to match (#{name} & !#{name})"
 		        end
-			plan_predicates << :#{name}?
+			plan_predicates << :#{predicate_name}
 			self
 		    end
 		    def not_#{name}
-			if plan_predicates.include?(:#{name}?)
-			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+			if plan_predicates.include?(:#{predicate_name})
+			    raise ArgumentError, "trying to match (#{name} & !#{name})"
 		        end
-			neg_plan_predicates << :#{name}?
+			neg_plan_predicates << :#{predicate_name}
 			self
 		    end
 		    EOD
@@ -135,8 +136,6 @@ module Roby
         # Filters permanent tasks
         #
         # Matches tasks in plan that are declared as permanent tasks.
-        #
-        # See Plan#add_permanent
 
         ##
         # :method: not_permanent
@@ -144,10 +143,9 @@ module Roby
         # Filters out permanent tasks
         #
         # Matches tasks in plan that are not declared as permanent tasks
-        #
-        # See Plan#add_permanent
 
-	match_plan_predicates :mission, :permanent
+	match_plan_predicates mission: :mission_task?
+        match_plan_predicates permanent: :permanent_task?
 	
         # Filters tasks which have no parents in the query itself.
         #

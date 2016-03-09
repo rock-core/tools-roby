@@ -175,7 +175,7 @@ class TC_Dependency < Minitest::Test
 
         assert_child_fails(child, child.failed_event, plan) { child.stop! }
         # To avoid warning messages on teardown
-        plan.remove_object(child)
+        plan.remove_task(child)
     end
 
     def test_failure_on_pending_relation
@@ -274,7 +274,7 @@ class TC_Dependency < Minitest::Test
             assert_kind_of CommandFailed, e.original_exceptions[0]
             assert_kind_of ArgumentError, e.original_exceptions[0].original_exceptions[0]
         end
-        plan.remove_object(child)
+        plan.remove_task(child)
     end
 
     def test_failure_on_unreachable
@@ -283,7 +283,7 @@ class TC_Dependency < Minitest::Test
 	error = assert_child_fails(child, child.failed_event, plan) { child.stop! }
         assert_equal(nil, error.explanation.value)
         # To avoid warning messages on teardown
-        plan.remove_object(child)
+        plan.remove_task(child)
     end
 
     def test_implicit_fullfilled_model_does_not_include_a_singleton_class_if_the_object_has_one
@@ -381,7 +381,7 @@ class TC_Dependency < Minitest::Test
         assert_equal([[Tasks::Simple], { id: 'discover-3' }], t_child.fullfilled_model)
 	t_p2.depends_on t_child, model: klass
         assert_equal([[klass], { id: 'discover-3' }], t_child.fullfilled_model)
-        trsc.remove_object(t_p2)
+        trsc.remove_task(t_p2)
         assert_equal([[klass], { id: 'discover-3' }], t_child.fullfilled_model)
     ensure
         trsc.discard_transaction if trsc
@@ -399,7 +399,7 @@ class TC_Dependency < Minitest::Test
 
     def test_remove_finished_children
 	p, c1, c2 = prepare_plan add: 3, model: Tasks::Simple
-        plan.add_permanent(p)
+        plan.add_permanent_task(p)
 	p.depends_on c1
 	p.depends_on c2
 
@@ -408,8 +408,8 @@ class TC_Dependency < Minitest::Test
         c1.success!
         p.remove_finished_children
         process_events
-        assert(!plan.include?(c1))
-        assert(plan.include?(c2))
+        assert(!plan.has_task?(c1))
+        assert(plan.has_task?(c2))
     end
 
     def test_role_definition
@@ -527,7 +527,7 @@ class TC_Dependency < Minitest::Test
     def test_depending_on_already_running_task
         Roby::ExecutionEngine.logger.level = Logger::FATAL
         parent, child = prepare_plan add: 2, model: Tasks::Simple
-        plan.add_permanent(parent)
+        plan.add_permanent_task(parent)
         parent.start!
         child.start!
 
@@ -589,7 +589,7 @@ class TC_Dependency < Minitest::Test
         assert(plan.check_structure.empty?) # no failure yet
         assert_child_fails(child, child.failed_event, plan) { parent.start! }
         # To avoid warning messages on teardown
-        plan.remove_object(child)
+        plan.remove_task(child)
     end
 
     def test_child_from_role_in_planless_tasks
@@ -664,7 +664,7 @@ class TC_Dependency < Minitest::Test
 
     def test_watches_are_updated_on_merges
         parent, child = prepare_plan add: 2, model: Roby::Tasks::Simple
-        plan.add_permanent(parent)
+        plan.add_permanent_task(parent)
         parent.start!
         child.start!
         parent.depends_on child, success: :stop
@@ -679,8 +679,8 @@ class TC_Dependency < Minitest::Test
 
     def test_direct_child_failure_due_to_grandchild_is_assigned_to_the_direct_child
         parent, child, grandchild = prepare_plan add: 3, model: Roby::Tasks::Simple
-        plan.add_permanent(parent)
-        plan.add_permanent(grandchild)
+        plan.add_permanent_task(parent)
+        plan.add_permanent_task(grandchild)
         parent.depends_on child, failure: :failed
         grandchild.stop_event.forward_to child.aborted_event
         parent.start!
@@ -696,8 +696,8 @@ class TC_Dependency < Minitest::Test
 
     def test_unreachability_child_failure_due_to_grandchild_is_assigned_to_the_direct_child
         parent, child, grandchild = prepare_plan add: 3, model: Roby::Tasks::Simple
-        plan.add_permanent(parent)
-        plan.add_permanent(grandchild)
+        plan.add_permanent_task(parent)
+        plan.add_permanent_task(grandchild)
         parent.depends_on child, failure: :start.never
         grandchild.start!
         parent.start!

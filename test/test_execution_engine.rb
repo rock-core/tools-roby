@@ -63,7 +63,7 @@ class TC_ExecutionEngine < Minitest::Test
         end
 
         def reset_event
-            plan.add_permanent(@event = Roby::EventGenerator.new(true))
+            plan.add_permanent_event(@event = Roby::EventGenerator.new(true))
         end
 
         def handler(plan)
@@ -123,8 +123,8 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_add_propagation_handlers_for_propagation_late
         FlexMock.use do |mock|
-            plan.add_permanent(event = Roby::EventGenerator.new(true))
-            plan.add_permanent(late_event = Roby::EventGenerator.new(true))
+            plan.add_permanent_event(event = Roby::EventGenerator.new(true))
+            plan.add_permanent_event(late_event = Roby::EventGenerator.new(true))
 
             index = -1
             event.on { |_| mock.event_emitted(index += 1) }
@@ -288,7 +288,7 @@ class TC_ExecutionEngine < Minitest::Test
         current_time = Time.now + 5
         time_proxy.should_receive(:now).and_return { current_time }
 
-        plan.add_mission(t = Tasks::Simple.new)
+        plan.add_mission_task(t = Tasks::Simple.new)
         e = EventGenerator.new(true)
         t.event(:start).signals e, delay: 0.1
         execution_engine.once { t.start! }
@@ -311,7 +311,7 @@ class TC_ExecutionEngine < Minitest::Test
         assert(!sink0.start_event.emitted?)
         assert(!sink1.start_event.emitted?)
 
-        plan.remove_object(sink0)
+        plan.remove_task(sink0)
         inhibit_fatal_messages { sink1.failed_to_start!("test") }
         assert(sink0.start_event.unreachable?)
         assert(sink1.start_event.unreachable?)
@@ -322,12 +322,12 @@ class TC_ExecutionEngine < Minitest::Test
 
         current_time += 0.1
         # Avoid unnecessary error messages
-        plan.unmark_permanent(sink0)
-        plan.unmark_permanent(sink1)
+        plan.unmark_permanent_task(sink0)
+        plan.unmark_permanent_task(sink1)
     end
 
     def test_duplicate_signals
-	plan.add_mission(t = Tasks::Simple.new)
+	plan.add_mission_task(t = Tasks::Simple.new)
 	
 	FlexMock.use do |mock|
             t.start_event.on   { |event| t.success_event.emit(*event.context) }
@@ -346,7 +346,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    event :intermediate
 	end.new(id: 'a')
 
-	plan.add_mission(a)
+	plan.add_mission_task(a)
 	a.depends_on(b = Tasks::Simple.new(id: 'b'))
 
 	b.success_event.forward_to a.intermediate_event
@@ -372,7 +372,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    forward child_success: :child_stop
 	end.new(id: 'a')
 
-	plan.add_mission(a)
+	plan.add_mission_task(a)
 	a.depends_on(b = Tasks::Simple.new(id: 'b'))
 
 	b.success_event.forward_to a.child_success_event
@@ -427,9 +427,9 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_event_loop
-        plan.add_mission(start_node = EmptyTask.new)
+        plan.add_mission_task(start_node = EmptyTask.new)
         next_event = [ start_node, :start ]
-        plan.add_mission(if_node    = ChoiceTask.new)
+        plan.add_mission_task(if_node    = ChoiceTask.new)
         start_node.stop_event.on { |ev| next_event = [if_node, :start] }
 	if_node.stop_event.on { |ev| }
             
@@ -503,7 +503,7 @@ class TC_ExecutionEngine < Minitest::Test
 		raise SpecificException, "bla"
             end
 	end
-	plan.add_permanent(t = model.new(id: 1))
+	plan.add_permanent_task(t = model.new(id: 1))
 
 	assert_original_error(SpecificException, CommandFailed) { t.start! }
 	assert(!t.event(:start).pending?)
@@ -519,7 +519,7 @@ class TC_ExecutionEngine < Minitest::Test
                 end
 		on(:start) { |ev| mock.handler_called }
 	    end.new(id: 2)
-	    plan.add_permanent(t)
+	    plan.add_permanent_task(t)
 
 	    mock.should_receive(:command_called).once
 	    mock.should_receive(:handler_called).never
@@ -531,7 +531,7 @@ class TC_ExecutionEngine < Minitest::Test
 	end
 
 	# Check that the task gets garbage collected in the process
-	assert(! plan.include?(t))
+	assert(! plan.has_task?(t))
     end
 
     def test_unhandled_event_handler_exception
@@ -544,7 +544,7 @@ class TC_ExecutionEngine < Minitest::Test
             end
 	end
 
-        plan.add_permanent(t = model.new)
+        plan.add_permanent_task(t = model.new)
         assert_event_emission(t.failed_event) do
             assert_raises(SpecificException) do
                 t.start!
@@ -552,7 +552,7 @@ class TC_ExecutionEngine < Minitest::Test
         end
 
 	# Check that the task has been garbage collected in the process
-	assert(! plan.include?(t))
+	assert(! plan.has_task?(t))
 	assert(t.failed?)
     end
 
@@ -717,7 +717,7 @@ class TC_ExecutionEngine < Minitest::Test
 	# Set a fake control thread
 	execution_engine.thread = Thread.main
 
-	plan.add_permanent(task = Tasks::Simple.new)
+	plan.add_permanent_task(task = Tasks::Simple.new)
 	t = Thread.new do
 	    execution_engine.wait_until(task.event(:start)) do
 		task.start!
@@ -738,7 +738,7 @@ class TC_ExecutionEngine < Minitest::Test
 	# Set a fake control thread
 	execution_engine.thread = Thread.main
 
-	plan.add_permanent(task = Tasks::Simple.new)
+	plan.add_permanent_task(task = Tasks::Simple.new)
 	t = Thread.new do
 	    begin
 		execution_engine.wait_until(task.event(:success)) do
@@ -834,19 +834,19 @@ class TC_ExecutionEngine < Minitest::Test
         p1.depends_on t3
 	t4.depends_on t5
 
-	plan.add_permanent(t4)
+	plan.add_permanent_task(t4)
 
 	assert_finalizes(plan, [])
-	assert_finalizes(plan, [m1]) { plan.unmark_mission(m1) }
+	assert_finalizes(plan, [m1]) { plan.unmark_mission_task(m1) }
 	assert_finalizes(plan, [m2, t1]) do
 	    m2.start!
-	    plan.unmark_mission(m2)
+	    plan.unmark_mission_task(m2)
 	end
 
 	assert_finalizes(plan, [], [m3, p1, t3, t2]) do
 	    m3.delays = true
 	    m3.start!
-	    plan.unmark_mission(m3)
+	    plan.unmark_mission_task(m3)
 	end
 	assert(m3.event(:stop).pending?)
 	assert_finalizes(plan, [m3, p1, t3, t2]) do
@@ -863,7 +863,7 @@ class TC_ExecutionEngine < Minitest::Test
 	t2 = Task.new
 	t1.depends_on t2
 
-	plan.add_mission(t1)
+	plan.add_mission_task(t1)
 	t1.start!
 	assert_finalizes(plan, []) do
 	    execution_engine.garbage_collect([t1])
@@ -921,8 +921,8 @@ class TC_ExecutionEngine < Minitest::Test
 	    execution_engine.garbage_collect
 	    process_events
 
-	    assert(!plan.include?(t1))
-	    assert(!plan.include?(t2))
+	    assert(!plan.has_task?(t1))
+	    assert(!plan.has_task?(t2))
 	    running_tasks.each do |t|
 		assert(t.finishing?)
 		t.stop_event.emit
@@ -930,7 +930,7 @@ class TC_ExecutionEngine < Minitest::Test
 
 	    execution_engine.garbage_collect
 	    running_tasks.each do |t|
-		assert(!plan.include?(t))
+		assert(!plan.has_task?(t))
 	    end
 	end
 
@@ -942,7 +942,7 @@ class TC_ExecutionEngine < Minitest::Test
 	t  = Tasks::Simple.new
 	e1 = EventGenerator.new(true)
 
-	plan.add_mission(t)
+	plan.add_mission_task(t)
 	plan.add(e1)
 	assert_equal([e1], plan.unneeded_events.to_a)
 	t.event(:start).signals e1
@@ -954,16 +954,16 @@ class TC_ExecutionEngine < Minitest::Test
 	e1.forward_to e2
 	assert_equal([], plan.unneeded_events.to_a)
 
-	plan.remove_object(t)
+	plan.remove_task(t)
 	assert_equal([e1, e2].to_set, plan.unneeded_events)
 
-        plan.add_permanent(e1)
+        plan.add_permanent_event(e1)
 	assert_equal([], plan.unneeded_events.to_a)
-        plan.unmark_permanent(e1)
+        plan.unmark_permanent_event(e1)
 	assert_equal([e1, e2].to_set, plan.unneeded_events)
-        plan.add_permanent(e2)
+        plan.add_permanent_event(e2)
 	assert_equal([], plan.unneeded_events.to_a)
-        plan.unmark_permanent(e2)
+        plan.unmark_permanent_event(e2)
 	assert_equal([e1, e2].to_set, plan.unneeded_events)
     end
 
@@ -982,7 +982,7 @@ class TC_ExecutionEngine < Minitest::Test
         influencing.start!
         
         process_events
-	assert(plan.known_tasks.empty?)
+	assert(plan.tasks.empty?)
     end
 
     def test_mission_failed
@@ -1307,7 +1307,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    mock.should_receive(:exception).once
 
 	    parent.depends_on task
-	    plan.add_permanent(parent)
+	    plan.add_permanent_task(parent)
             
 	    execution_engine.once { parent.start!; task.start! }
 
@@ -1421,7 +1421,7 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_nonfatal_exception_handling
         task_model = Tasks::Simple.new_submodel
-        plan.add_permanent(t = task_model.new)
+        plan.add_permanent_task(t = task_model.new)
         t.start!
 
         mock = flexmock

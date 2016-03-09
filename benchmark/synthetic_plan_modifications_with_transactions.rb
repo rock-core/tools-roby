@@ -9,7 +9,7 @@ def randomly_modify_plan(plan, num_tasks, num_relation_changes, num_mission_chan
                 trsc.add(Roby::Task.new)
             end
         end
-        tasks = (plan.known_tasks.to_a + trsc.known_tasks.to_a)
+        tasks = (plan.tasks.to_a + trsc.tasks.to_a)
 
         num_relation_changes.times do
             from_group, to_group = 0, 0
@@ -36,13 +36,13 @@ def randomly_modify_plan(plan, num_tasks, num_relation_changes, num_mission_chan
         # Unmark all missions
         all_missions = plan.missions.to_a + trsc.missions.to_a
         all_missions.each do |t|
-            trsc.unmark_mission(trsc[t])
+            trsc.unmark_mission_task(trsc[t])
         end
 
         # And randomly mark mission_count tasks
         num_mission_changes.times do
             task = tasks[rand(tasks.size)]
-            trsc.add_mission(trsc[task])
+            trsc.add_mission_task(trsc[task])
         end
 
         if commit

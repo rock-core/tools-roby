@@ -21,7 +21,7 @@ class TC_TransactionsProxy < Minitest::Test
     end
 
     def test_task_proxy
-	plan.add_mission(t = Roby::Task.new)
+	plan.add_mission_task(t = Roby::Task.new)
         assert(!t.transaction_proxy?)
 	p = transaction[t]
         assert(p.transaction_proxy?)
@@ -73,7 +73,7 @@ class TC_TransactionsProxy < Minitest::Test
 	proxy = transaction[obj]
 	assert_is_proxy_of(obj, proxy, proxy_klass)
 	assert_same(proxy, transaction[obj])
-	assert_same(proxy, transaction.wrap(obj, false))
+	assert_same(proxy, transaction.wrap(obj, create: false))
 
 	# check that may_wrap returns the object when wrapping cannot be done
 	assert_raises(TypeError) { transaction[10] }
@@ -180,7 +180,7 @@ class TC_TransactionsProxy < Minitest::Test
 
     def test_proxy_plan
 	task = Roby::Task.new
-	plan.add_mission(task)
+	plan.add_mission_task(task)
 
 	proxy = transaction[task]
 	assert_equal(plan, task.plan)

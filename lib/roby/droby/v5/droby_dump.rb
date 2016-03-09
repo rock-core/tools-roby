@@ -438,9 +438,9 @@ module Roby
 
                         if task.mission? != flags[:mission]
                             if flags[:mission]
-                                task.plan.add_mission(task)
+                                task.plan.add_mission_task(task)
                             else
-                                task.plan.unmark_mission(task)
+                                task.plan.unmark_mission_task(task)
                             end
                         end
 
@@ -454,8 +454,8 @@ module Roby
 
             module PlanDumper
                 def droby_dump(peer)
-                    peer.dump_groups(known_tasks, task_events, free_events) do |known_tasks, task_events, free_events|
-                        missions = peer.dump(self.missions)
+                    peer.dump_groups(tasks, task_events, free_events) do |tasks, task_events, free_events|
+                        mission_tasks = peer.dump(self.mission_tasks)
                         permanent_tasks  = peer.dump(self.permanent_tasks)
                         permanent_events = peer.dump(self.permanent_events)
                         task_relation_graphs = each_task_relation_graph.map do |g|
@@ -469,8 +469,8 @@ module Roby
 
                         DRoby.new(
                             DRobyConstant.new(self.class), droby_id,
-                            known_tasks, task_events, free_events,
-                            missions, permanent_tasks, permanent_events,
+                            tasks, task_events, free_events,
+                            mission_tasks, permanent_tasks, permanent_events,
                             task_relation_graphs, event_relation_graphs)
                     end
                 end
@@ -479,25 +479,25 @@ module Roby
                     attr_reader :plan_class
                     attr_reader :droby_id
                     attr_reader :groups
-                    attr_reader :known_tasks
+                    attr_reader :tasks
                     attr_reader :task_events
                     attr_reader :free_events
-                    attr_reader :missions
+                    attr_reader :mission_tasks
                     attr_reader :permanent_tasks
                     attr_reader :permanent_events
                     attr_reader :task_relation_graphs
                     attr_reader :event_relation_graphs
 
                     def initialize(plan_class, droby_id,
-                                   known_tasks, task_events, free_events,
-                                   missions, permanent_tasks, permanent_events,
+                                   tasks, task_events, free_events,
+                                   mission_tasks, permanent_tasks, permanent_events,
                                    task_relation_graphs, event_relation_graphs)
                         @plan_class            = plan_class
                         @droby_id              = droby_id
-                        @known_tasks           = known_tasks
+                        @tasks           = tasks
                         @task_events           = task_events
                         @free_events           = free_events
-                        @missions              = missions
+                        @mission_tasks         = mission_tasks
                         @permanent_tasks       = permanent_tasks
                         @permanent_events      = permanent_events
                         @task_relation_graphs  = task_relation_graphs
@@ -507,12 +507,12 @@ module Roby
                     def proxy(peer)
                         plan = Plan.new
                         peer.with_object(droby_id => plan) do
-                            peer.load_groups(known_tasks, task_events, free_events) do |known_tasks, task_events, free_events|
-                                plan.known_tasks.merge(known_tasks)
+                            peer.load_groups(tasks, task_events, free_events) do |tasks, task_events, free_events|
+                                plan.tasks.merge(tasks)
                                 plan.task_events.merge(task_events)
                                 plan.free_events.merge(free_events)
 
-                                plan.missions.replace(peer.local_object(missions))
+                                plan.mission_tasks.replace(peer.local_object(mission_tasks))
                                 plan.permanent_tasks.replace(peer.local_object(permanent_tasks))
                                 plan.permanent_events.replace(peer.local_object(permanent_events))
 
