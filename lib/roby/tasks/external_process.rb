@@ -1,3 +1,5 @@
+require 'fcntl'
+
 module Roby
     module Tasks
         # This task class can be used to monitor the execution of an external
