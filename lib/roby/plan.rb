@@ -254,6 +254,20 @@ module Roby
             merge_transaction(transaction, merged_graphs, added, removed, updated)
         end
 
+        def find_triggers_matches(plan)
+            triggers.map do |tr|
+                [tr, tr.each(plan).to_a]
+            end
+        end
+
+        def apply_triggers_matches(matches)
+            matches.each do |trigger, matched_tasks|
+                matched_tasks.each do |t|
+                    trigger.call(t)
+                end
+            end
+        end
+
         # Merges the content of a plan into self
         #
         # It is assumed that self and plan do not intersect.
@@ -264,10 +278,13 @@ module Roby
         # @param [Roby::Plan] plan the plan to merge into self
         def merge(plan)
             return if plan == self
+
+            trigger_matches = find_triggers_matches(plan)
             merging_plan(plan)
             merge_base(plan)
             merge_relation_graphs(plan)
             merged_plan(plan)
+            apply_triggers_matches(trigger_matches)
         end
 
         # Moves the content of other_plan into self, and clears other_plan
@@ -887,15 +904,8 @@ module Roby
                 plans << p
             end
 
-            triggered = Array.new
             plans.each do |p|
-                triggered = p.tasks.map do |t|
-                    [t, triggers.find_all { |trigger| trigger === t }]
-                end
                 merge!(p)
-                triggered.each do |task, triggers|
-                    triggers.each { |trigger| trigger.call(task) }
-                end
             end
 
             if is_scalar
@@ -904,9 +914,20 @@ module Roby
             end
 	end
 
-        Trigger = Struct.new :query_object, :block do
+        class Trigger
+            attr_reader :query, :block
+            def initialize(query, block)
+                @query = query.query
+                @block = block
+            end
+
             def ===(task)
-                query_object === task
+                query === task
+            end
+            def each(plan, &block)
+                query.plan = plan
+                query.reset
+                query.each(&block)
             end
             def call(task)
                 block.call(task)
@@ -926,10 +947,8 @@ module Roby
         def add_trigger(query_object, &block)
             tr = Trigger.new(query_object, block)
             triggers << tr
-            tasks.each do |t|
-                if tr === t
-                    tr.call(t)
-                end
+            tr.each(self) do |t|
+                tr.call(t)
             end
             tr
         end

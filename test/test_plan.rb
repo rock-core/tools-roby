@@ -495,56 +495,77 @@ module Roby
         end
 
         describe "#add_trigger" do
+            attr_reader :task_m, :task, :recorder
+            before do
+                @task_m = Roby::Task.new_submodel
+                @task   = task_m.new
+                @recorder = flexmock
+            end
             it "yields new tasks that match the given object" do
-                match = flexmock
-                match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
-                recorder = flexmock
                 recorder.should_receive(:called).once.with(task)
-                plan.add_trigger match do |task|
+                plan.add_trigger task_m do |task|
                     recorder.called(task)
                 end
                 plan.add task
             end
             it "does not yield new tasks that do not match the given object" do
-                match = flexmock
-                match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
-                recorder = flexmock
                 recorder.should_receive(:called).never
-                plan.add_trigger match do |task|
+                plan.add_trigger task_m.query.abstract do |task|
                     recorder.called(task)
                 end
                 plan.add task
             end
+            it "yields tasks whose modifications within the transaction created a match" do
+                recorder.should_receive(:called).once.with(task)
+                plan.add_trigger task_m.query.mission do |task|
+                    recorder.called(task)
+                end
+                plan.add task
+                plan.in_transaction do |trsc|
+                    trsc.add_mission_task trsc[task]
+                    trsc.commit_transaction
+                end
+            end
+            it "yields tasks added by applying a transaction" do
+                recorder.should_receive(:called).once.with(task)
+                plan.add_trigger task_m do |task|
+                    recorder.called(task)
+                end
+                plan.in_transaction do |trsc|
+                    trsc.add task
+                    trsc.commit_transaction
+                end
+            end
             it "yields matching tasks that already are in the plan" do
-                match = flexmock
-                match.should_receive(:===).with(task = Roby::Task.new).and_return(true)
-                recorder = flexmock
                 recorder.should_receive(:called).once
                 plan.add task
-                plan.add_trigger match do |task|
+                plan.add_trigger task_m do |task|
                     recorder.called(task)
                 end
             end
             it "does not yield not matching tasks that already are in the plan" do
-                match = flexmock
-                match.should_receive(:===).with(task = Roby::Task.new).and_return(false)
-                recorder = flexmock
                 recorder.should_receive(:called).never
                 plan.add task
-                plan.add_trigger match do |task|
+                plan.add_trigger task_m.query.abstract do |task|
                     recorder.called(task)
                 end
             end
         end
 
         describe "#remove_trigger" do
+            attr_reader :task_m, :task, :recorder
+            before do
+                @task_m = Roby::Task.new_submodel
+                @task   = task_m.new
+                @recorder = flexmock
+            end
             it "allows to remove a trigger added by #add_trigger" do
-                match = flexmock
-                trigger = plan.add_trigger match do |task|
+                trigger = plan.add_trigger task_m do |task|
+                    recorder.called
                 end
                 plan.remove_trigger trigger
-                match.should_receive(:===).never
-                plan.add Roby::Task.new
+                recorder.should_receive(:called).never
+                plan.add task
             end
         end
 

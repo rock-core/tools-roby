@@ -180,8 +180,8 @@ module Roby
         # This set is cached, i.e. #each will yield the same task set until
         # #reset is called.
 	def each(&block)
+            return enum_for(__method__) if !block_given?
 	    plan.query_each(result_set, &block)
-	    self
 	end
 	include Enumerable
     end

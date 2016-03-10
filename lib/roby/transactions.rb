@@ -605,6 +605,37 @@ module Roby
 	    end
         end
 
+        # @api private
+        #
+        # This compute the triggers that shoul be applied if we commit this
+        # transaction
+        def compute_triggers_for_committed_transaction
+            trigger_matches = Hash.new
+            plan.triggers.each do |tr|
+                tr.each(self) do |t|
+                    trigger_matches[t] = tr
+                end
+            end
+            proxy_tasks.each do |obj, proxy|
+                if tr = trigger_matches.delete(proxy)
+                    if !(tr === obj) # already triggered
+                        trigger_matches[obj] = tr
+                    end
+                end
+            end
+            trigger_matches
+        end
+
+        # @api private
+        #
+        # Apply the triggers as returned by
+        # {#compute_triggers_for_committed_transaction}
+        def apply_triggers_on_committed_transaction(triggered_matches)
+            triggered_matches.each do |task, trigger|
+                trigger.call(task)
+            end
+        end
+
         # Apply the modifications represented by self to the underlying plan
         # snippet in your redefinition if you do so.
         def apply_modifications_to_plan
@@ -762,7 +793,9 @@ module Roby
 	# in this transaction
 	def commit_transaction
 	    check_valid_transaction
+            trigger_matches = compute_triggers_for_committed_transaction
             apply_modifications_to_plan
+            apply_triggers_on_committed_transaction(trigger_matches)
 	    frozen!
 
             @committed = true
