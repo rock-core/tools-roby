@@ -11,13 +11,17 @@ module Roby
 	attr_reader :plan
 
         # Create a query object on the given plan
-	def initialize(plan)
+	def initialize(plan = nil)
             @scope = :global
 	    @plan = plan
 	    super()
 	    @plan_predicates = Set.new
 	    @neg_plan_predicates = Set.new
 	end
+
+        def query
+            self
+        end
 
         # Search scope for queries on transactions. If equal to :local, the
         # query will apply only on the scope of the searched transaction,

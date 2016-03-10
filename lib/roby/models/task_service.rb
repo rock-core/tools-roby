@@ -33,6 +33,16 @@ module Roby
                 argument_defaults.clear
             end
 
+            def query(*args)
+                query = Queries::Query.new
+                if args.empty? && self != TaskService
+                    query.which_fullfills(self)
+                else
+                    query.which_fullfills(*args)
+                end
+                query
+            end
+
             def match(*args)
                 matcher = Queries::TaskMatcher.new
                 if args.empty? && self != TaskService

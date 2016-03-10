@@ -764,6 +764,16 @@ module Roby
 
             @@exception_handler_id = 0
 
+            def query(*args)
+                q = Queries::Query.new
+                if args.empty? && self != Task
+                    q.which_fullfills(self)
+                else
+                    q.which_fullfills(*args)
+                end
+                q
+            end
+
             # Returns a TaskMatcher object that matches this task model
             def match(*args)
                 matcher = Queries::TaskMatcher.new
