@@ -34,7 +34,6 @@ Roby.
   s.add_runtime_dependency "pastel", '~> 0.5.2', '>= 0.5.2'
   s.add_runtime_dependency "hooks", '~> 0.4.0', '>= 0.4.1'
   s.add_runtime_dependency "rubigen"
-  s.add_development_dependency "webgen", "< 1.0"
   s.add_development_dependency "minitest", ">= 5.0", "~> 5.0"
   s.add_development_dependency "flexmock", "~> 2.0", ">= 2.0.3"
   s.add_development_dependency "fakefs", '~> 0.6.0', ">= 0.6.7"

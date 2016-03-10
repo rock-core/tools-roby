@@ -2,6 +2,7 @@ require "bundler/gem_tasks"
 require "rake/testtask"
 
 task :default
+
 Rake::TestTask.new(:test) do |t|
     t.libs << "."
     t.libs << "lib"
@@ -34,53 +35,4 @@ task :uic do
     end
 end
 task :compile => :uic
-
-###########
-# Documentation generation
-#
-# This redefines Hoe's targets for documentation, as the documentation
-# generation is not flexible enough for us
-
-# This is for the user's guide
-begin
-    require 'roby/app/rake'
-    require 'webgen/webgentask'
-
-    namespace 'doc' do
-        Webgen::WebgenTask.new('guide') do |website|
-            website.clobber_outdir = true
-            website.directory = File.join(Dir.pwd, 'doc', 'guide')
-            website.config_block = lambda do |config|
-                config['output'] = ['Webgen::Output::FileSystem', File.join(Dir.pwd, 'doc', 'html')]
-            end
-        end
-
-        def plugins_documentation_generation(target_prefix)
-            task "plugins_#{target_prefix}docs" do
-                Roby::Rake.invoke_plugin_target("#{target_prefix}docs")
-            end
-        end
-        desc 'generate all documentation'
-        task 'all' => ['doc:guide', 'doc:api']
-        desc 'removes all documentation'
-        task 'clobber' do
-            FileUtils.rm_rf File.join('doc', 'html')
-        end
-
-        desc 'regenerate all documentation'
-        task 'redocs' do
-            FileUtils.rm_f File.join('doc', 'guide', 'webgen.cache')
-            FileUtils.rm_rf File.join('doc', 'html')
-            if !system('rake', 'doc:all')
-                raise "failed to regenerate documentation"
-            end
-        end
-    end
-    task 'redocs' => 'doc:redocs'
-    task 'clobber_docs' => 'doc:clobber'
-
-rescue LoadError => e
-    STDERR.puts "a required gem seems to be not available, documentation generation disabled"
-    STDERR.puts "  Ruby reported the following load error: #{e.message}"
-end
 
