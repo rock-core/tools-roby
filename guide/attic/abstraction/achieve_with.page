@@ -1,8 +1,0 @@
----
-title: Achieving event commands with tasks
-sort_info: 400
----
-
-* the achieve\_with operator
-* semantics of it
-* what happens when an error occurs ?

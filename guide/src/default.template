@@ -1,9 +1,0 @@
----
-template: base.template
---- name:content pipeline:blocks
-<webgen:block name='content' />
-
---- name:leftbar 
-<div class="nav3">
-  {menu: {start_level: 1, max_levels: 2, show_current_subtree_only: true, nested: true, used_nodes: files}}
-</div>

@@ -1,23 +1,4 @@
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 home:
   title: "Introduction"
   url: "mydoc/home.html"
@@ -465,30 +446,4 @@ tag_collaboration:
   title: "Collaboration pages"
   url: "mydoc/tag_collaboration.html"
   link: "<a href='mydoc/tag_collaboration.html'>Collaboration pages</a>"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

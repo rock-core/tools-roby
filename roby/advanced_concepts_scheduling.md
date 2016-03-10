@@ -1,0 +1,90 @@
+---
+title: Scheduling
+keywords: roby, robotics, rock
+tags: [advanced]
+summary: How are tasks started in Roby ?
+permalink: /roby_advanced_concepts_scheduling/
+---
+
+Roby plans are encoding a lot of things. One thing they do not encode in general
+is __exactly__ which tasks should be started at every point in the execution.
+
+It would in principle be possible: one could use the signal relation to
+completely define the execution flow. However, this is both not very practical,
+and would break one of the main ideas behind Roby: that one should encode as
+much information as possible to represent the _context_ of running activities,
+and enough constraints to verify that the execution goes well. Based on that
+information, global reasoning can then be used to maintain the system in a "good
+state".
+
+In this scheme, the scheduling object is the object that decides which tasks
+should be started in the plan. This page will tell about the two existing
+scheduling objects (the basic and temporal schedulers), and will then talk about
+the generic scheduler interface in Roby.
+
+The basic scheduler
+-------------------
+The basic scheduler will start any task that is needed and for which the start
+event has no explicit mean of synchronization. It means that it will start a
+task that:
+ 
+ * is either toplevel or has a parent running in [the dependency
+   relation](../task_relations/dependency.html) (is needed by a running task).
+ * has a start event that is not the target of an edge in either the signal and
+   forward relations (won't be started explicitly because of one of these
+   relations).
+
+The temporal scheduler
+-------------------
+The temporal scheduler adds on top of the basic scheduler the ability to specify
+temporal constraints between any event and the task's start event. Moreover, it
+allows to tie the ability to schedule a task to the ability to schedule another.
+
+More specifically, the temporal scheduler will start a task if:
+
+ * it is either toplevel or has a parent running in [the dependency
+   relation](../task_relations/dependency.html) (is needed by a running task).
+   This is so unless there is a temporal constraint between the child and the
+   parent (in which case the child will be started before its parent).
+ * has a start event that is not the target of an edge in either the signal and
+   forward relations (won't be started explicitly because of one of these
+   relations).
+ * emitting the start event would not violate [temporal
+   constraints](../event_relations/temporal_constraints.html)
+ * if child in the [scheduling constraint
+   relation](../event_relations/scheduling_constraints.html), the parent has to
+   be schedulable.
+
+A simple example of the usage of temporal constraints is to specify a sequence:
+
+~~~ ruby
+t2.should_start_after t1
+~~~
+
+__How is this different from using the signal relation ?__ A sequence of tasks
+T1 and T2 for which there is a signal between T1.stop_event and t2.start_event
+means "t2.start MUST be called JUST AFTER t1.stop has been emitted". Adding a
+temporal constraint means that t2.start MAY be called as long as t1.stop has
+been emitted. The scheduler can decide to call it anytime after.
+{: .block}
+
+A simple example of the usage of both temporal constraints and scheduling
+constraints is to add a plan pattern to a sequence, requiring that the planner
+should only run when the task should be started (and not before).
+
+~~~ ruby
+t2.should_start_after t1
+t2.should_start_after t2.planning_task
+t2.planning_task.schedule_as(t2)
+~~~
+
+Choosing the scheduler
+----------------------
+The scheduler is in general chosen globally by setting Roby.scheduler. For
+instance:
+
+~~~ ruby
+require 'roby/schedulers/temporal'
+Roby.scheduler = Roby::Schedulers::Temporal.new
+~~~
+

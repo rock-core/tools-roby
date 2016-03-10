@@ -1,0 +1,47 @@
+entries:
+- title: Sidebar
+  product: Roby
+  version: version 1.0
+  subcategories:
+
+  - title:
+    output: pdf
+    type: frontmatter
+    items:
+    - title:
+      url: /titlepage/
+      output: pdf
+      type: frontmatter
+    - title:
+      url: /tocpage/
+      output: pdf
+      type: frontmatter
+
+  - title: Building
+    output: web, pdf
+    items:
+    - title: Introduction
+      url: /roby_building_introduction/
+      output: web, pdf
+    - title: Actions
+      url: /roby_building_actions/
+      output: web, pdf
+    - title: Action Coordination
+      url: /roby_building_action_coordination/
+      output: web, pdf
+
+  - title: Advanced Concepts
+    output: web, pdf
+    items:
+    - title: Recognizing Patterns
+      url: /roby_advanced_concepts_recognizing_patterns/
+      output: web, pdf
+
+    - title: Scheduling
+      url: /roby_advanced_concepts_scheduling/
+      output: web, pdf
+      
+    - title: Unreachability
+      url: /roby_advanced_concepts_unreachability/
+      output: web, pdf
+

@@ -1,8 +1,0 @@
----
-title: The forwarding relation
-sort_info: 300
----
-
-* we already saw its usefulness inside tasks
-* semantics of forwarding in-between tasks
-* example: loops

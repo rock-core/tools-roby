@@ -1,6 +1,0 @@
----
-template: default.template
---- pipeline:tags,blocks
-<webgen:block name="content" />
-
---- name:navbar

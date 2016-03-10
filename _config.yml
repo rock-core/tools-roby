@@ -1,21 +1,20 @@
 # project definitions
-project: mydoc_designers
-audience: designers
+project: roby
 product: doc
 platform: all
 version: all
 output: web
-topnav_title: Jekyll Documentation Theme
-homepage_title: Jekyll doc theme for designers
-site_title: Jekyll theme for designers
-project_folder: mydoc
-company_name: Your company
-github_editme_path: tomjohnson1492/documentation-theme-jekyll/edit/reviews
-disqus_shortname: idrbwjekyll
+topnav_title: Roby
+homepage_title: Roby
+site_title: A coordination environment for robotic systems
+project_folder: roby
+company_name: 
+github_editme_path: rock-core/tools-roby/branches/gh-pages/edit/reviews
+# disqus_shortname: idrbwjekyll
 # variables
 
 
-sidebar_tagline: Designers
+sidebar_tagline: Roby
 sidebar_version: Version 4.0
 theme_file: theme-blue.css
 
@@ -29,7 +28,7 @@ exclude:
 
 # same for all
 host: 127.0.0.1
-feedback_email: tomjohnson1492@gmail.com
+# feedback_email: tomjohnson1492@gmail.com
 
 # these settings should work, but they don't seem to apply the right highlighting
 
@@ -53,16 +52,22 @@ defaults:
       type: "pages"
     values:
       layout: "page"
-      comments: true
+      #comments: true
       search: true
       sidebar: home_sidebar
+
+  -
+    scope:
+      path: "roby"
+    values:
+      sidebar: roby_sidebar
   -
     scope:
       path: ""
       type: "tooltips"
     values:
       layout: "page"
-      comments: true
+      #comments: true
       search: true
       tooltip: true
 
@@ -72,13 +77,13 @@ defaults:
       type: "posts"
     values:
       layout: "post"
-      comments: true
+      #comments: true
       search: true
       sidebar: tags_sidebar
 
 permalink: /:year/:month/:day/:title/
-url: http://idratherbewriting.com
-baseurl: "/documentation-theme-jekyll"
+url: http://rock-robotics.org
+baseurl: "/roby"
 
 # the description is used in the feed.xml file
 description: "Intended as a documentation theme based on Jekyll for technical writers documenting software and other technical products, this theme has all the elements you would need to handle multiple products with both multi-level sidebar navigation, tags, and other documentation features."
