@@ -32,7 +32,7 @@ Obviously, there is a problem if:
 * none of the desirable events can be emitted ever
 * one of the forbidden events is emitted
 
-In both cases, a specific {rdoc_class: ChildFailedError} is produced. This error
+In both cases, a specific `ChildFailedError` is produced. This error
 describes what happened ("the dependency relation between tasks A and B failed
 because the event 'failed' was emitted) and who is the culprit (in the
 ChildFailedError, the child).

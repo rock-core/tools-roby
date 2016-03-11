@@ -15,7 +15,7 @@ Generally speaking, relations are graphs that allow to link plan objects _of the
 same type_ (i.e. tasks together and/or events together).
 
 To ease relation management, relations on one given object are gathered in a
-relation space (instance of {rdoc_class: RelationSpace}). Two relation spaces
+relation space (instance of `RelationSpace`). Two relation spaces
 are defined by default:
 
 ``` ruby
@@ -23,7 +23,7 @@ TaskStructure = RelationSpace(Task)
 EventStructure = RelationSpace(EventGenerator)
 ```
 
-where {rdoc_class: Task} is the task class and {rdoc_class: EventGenerator} are
+where `Task` is the task class and `EventGenerator` are
 the objects that emit events
 
 In the API, EventGenerator is the plan object that has a command and can emit
@@ -50,7 +50,7 @@ For instance, to define [the Dependency relation](dependency.html), one does:
 TaskStructure.relation 'Dependency'
 ```
 
-See the documentation of {rdoc_class: RelationSpace}#relation for the various
+See the documentation of `RelationSpace`#relation for the various
 parametrization that is possible to do on a relation.
 
 Management of information embedded in a relation
@@ -113,7 +113,7 @@ end
 ```
 
 This method must return an array of exception objects, that must all be
-subclasses of {rdoc_class: LocalizedError}. On a general level, these exception
+subclasses of `LocalizedError`. On a general level, these exception
 objects must assign the problem to one particular plan object (event, event
 generator or task). This assignation will be used by the error propagation
 mechanism to decide what to do with it.

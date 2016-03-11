@@ -6,9 +6,9 @@ permalink: "/event_relations/scheduling_constraints/"
 
 Available as Roby::EventStructure::SchedulingConstraints
 
-See {rdoc_class: EventStructure::SchedulingConstraintsGraphClass::Extension} for the list
+See `EventStructure::SchedulingConstraintsGraphClass::Extension` for the list
 of methods that are defined on Roby::EventGenerator and
-{rdoc_class: EventStructure::SchedulingConstraintsGraphClass} for the methods accessible on the
+`EventStructure::SchedulingConstraintsGraphClass` for the methods accessible on the
 relation graph.
 
 Semantics

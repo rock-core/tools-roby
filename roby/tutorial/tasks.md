@@ -10,7 +10,7 @@ Definition of Tasks
 
 Unlike with event objects, which are usually created and parametrized
 on-the-fly, tasks are mostly first _defined_ and then _used_. To define a task,
-one creates a subclass of {rdoc_class: Task}. In our examples, we'll take "the mother
+one creates a subclass of `Task`. In our examples, we'll take "the mother
 of all tasks in robotic systems": the MoveTo task.
 
 ``` ruby
@@ -141,7 +141,7 @@ Now, read that code into the ruby shell with
 Using task events
 -----------------
 Task event generators are defined using a subclass of EventGenerator,
-{rdoc_class: TaskEventGenerator}. One can access them from the task by using
+`TaskEventGenerator`. One can access them from the task by using
 either Task#event or the more widely used ${task_name}_event shortcuts. Then,
 you can manipulate them as for normal events:
 
@@ -161,7 +161,7 @@ contingent event emitted
 ```
 
 Instead of calling #on, #signal, #emit and #call on the event object, one can use
-shortcuts that are defined on {rdoc_class: Task}:
+shortcuts that are defined on `Task`:
 
 ``` ruby
 # Same as task.event(:contingent).on { |ev| ... }

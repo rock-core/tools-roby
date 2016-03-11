@@ -19,7 +19,7 @@ plans__. Modifying running plans is a bit of a harder problem, so we keep it
 for a different time.
 
 In general, an action interface is defined by creating a subclass of
-{rdoc_class: Roby::Actions::Interface}. Action interfaces are defined in
+`Roby::Actions::Interface`. Action interfaces are defined in
 a file in the models/actions/ subfolder of the Roby application. The file name is usually
 the snake_case version of the class name, as e.g. my_actions.rb for the MyAction
 class:
@@ -66,7 +66,7 @@ Roby's plan model and plan building API.
 In any case, an action definition always start with an action _description_.
 This is done by calling the "describe" statement in the context of the action
 interface class or action library module and then chaining description calls on
-the returned object (which is of type {rdoc_class: Actions::ActionModel}).
+the returned object (which is of type `Actions::ActionModel`).
 
 ~~~ ruby
 class Main

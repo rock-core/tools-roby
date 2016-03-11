@@ -9,5 +9,5 @@ now, these relations are used to build the plans that are executed by Roby.
 
 The objects representing each of these relations are stored in
 Roby::EventStructure. New relations are defined with Roby::EventStructure.relation
-(whose documentation is in {rdoc_class: RelationGraph}).
+(whose documentation is in `RelationGraph`).
 

@@ -168,7 +168,7 @@ end
 ~~~
 
 The commands available in scripts are detailed in the API
-documentation: {rdoc_class: Roby::TaskScripting::Script}
+documentation: `Roby::TaskScripting::Script`
 
 Any number of scripts can be associated, both at the model and instance levels,
 on a given task class or object.

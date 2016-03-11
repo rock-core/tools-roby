@@ -6,9 +6,9 @@ permalink: "/task_relations/executed_by/"
 
 Available as Roby::TaskStructure::ExecutionAgent
 
-See {rdoc_class: TaskStructure::ExecutionAgentGraphClass::Extension} for the list
+See `TaskStructure::ExecutionAgentGraphClass::Extension` for the list
 of methods that are defined on Roby::Task and
-{rdoc_class: TaskStructure::ExecutionAgentGraphClass} for the methods accessible on the relation graph.
+`TaskStructure::ExecutionAgentGraphClass` for the methods accessible on the relation graph.
 
 Semantics
 ---------

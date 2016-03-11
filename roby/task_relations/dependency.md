@@ -6,7 +6,7 @@ permalink: "/task_relations/dependency/"
 
 Available as Roby::TaskStructure::Dependency
 
-See {rdoc_class: TaskStructure::DependencyGraphClass::Extension} for the list
+See `TaskStructure::DependencyGraphClass::Extension` for the list
 of methods that are defined on Roby::Task and
 Roby::TaskStructure::DependencyGraphClass for the methods accessible on the
 relation graph.
@@ -95,7 +95,7 @@ default parameters of :success => \[:success], :failure => [] both specify that
 :success is a success event __and__ that :stop without :sucess is an error (as,
 once :stop is emitted, :success becomes unreachable)
 
-In both cases, a {rdoc_class: ChildFailedError} exception is generated. In the
+In both cases, a `ChildFailedError` exception is generated. In the
 first case, the failure point is the event generator that is unreachable. In the
 second case, it is the event that triggered the failure. In both cases, the
 explanation field contains the Roby::EventConstraints::Explanation object that

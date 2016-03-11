@@ -18,9 +18,9 @@ how to call it and how to emit it.
 The basics
 ----------
 Two classes are used to represent "events". The first is the event generator
-{rdoc_class: EventGenerator}. Event generators are the objects that will emit
+`EventGenerator`. Event generators are the objects that will emit
 events. In other words, they represent __the event sources__. When a generator
-does emit an event, an instance of {rdoc_class: Event} is created to represent
+does emit an event, an instance of `Event` is created to represent
 this event, with timestamp and additional information.
 
 To simplify the discourse, event generators and events are often both called
@@ -50,7 +50,7 @@ emitted.
 ```
 
 The event handler's block gets an argument which is the actual event (the
-instance of {rdoc_class: Event}). See the API documentation for what you can
+instance of `Event`). See the API documentation for what you can
 get out of it.
 
 Let's try to emit it. The event _emission_ says "the event happened just now".
@@ -182,7 +182,7 @@ Roby::EventNotExecutable: #emit called on #<Roby::EventGenerator:0x484aa3c0> whi
 ```
 
 Another common error is to try to call (or signal) and event that is non
-controllable. In that case, Roby raises a {rdoc_class: EventNotControlable}
+controllable. In that case, Roby raises a `EventNotControlable`
 exception.
 
 ``` ruby

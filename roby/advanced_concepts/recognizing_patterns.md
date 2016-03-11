@@ -12,7 +12,7 @@ principle, one could use __plan patterns__ to recognize situations or specific
 behaviours in a plan (and act upon it).
 
 Defining a pattern in the plan and testing for it is done by task matchers
-({rdoc_class: TaskMatcher}). Task matchers are objects that allow to test
+(`TaskMatcher`). Task matchers are objects that allow to test
 whether a certain task object match some criteria.  The task matchers are
 created by calling #match on the type of tasks that we want to match. For
 instance, to create a match object for running Localization tasks, one would do
@@ -67,10 +67,10 @@ matched). For instance:
 :start.followed_by(:blocked)
 ```
 
-will return an instance of {rdoc_class: EventConstraints::UnboundTaskPredicate}
+will return an instance of `EventConstraints::UnboundTaskPredicate`
 or of one of its subclasses that can then be evaluated on a task. See
-{rdoc_class: EventConstraints::UnboundPredicateSupport} for the list of methods
-available on symbols and {rdoc_class: EventConstraints::UnboundTaskPredicate}
+`EventConstraints::UnboundPredicateSupport` for the list of methods
+available on symbols and `EventConstraints::UnboundTaskPredicate`
 for the predicate interface, which allows to logically combine predicates with
 each other.
 

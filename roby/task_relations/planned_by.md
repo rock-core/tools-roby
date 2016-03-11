@@ -6,9 +6,9 @@ permalink: "/task_relations/planned_by/"
 
 Available as Roby::TaskStructure::PlannedBy
 
-See {rdoc_class: TaskStructure::PlannedByGraphClass::Extension} for the list
+See `TaskStructure::PlannedByGraphClass::Extension` for the list
 of methods that are defined on Roby::Task and
-{rdoc_class: TaskStructure::PlannedByGraphClass} for the methods accessible on the
+`TaskStructure::PlannedByGraphClass` for the methods accessible on the
 relation graph.
 
 Semantics

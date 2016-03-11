@@ -6,9 +6,9 @@ permalink: "/event_relations/temporal_constraints/"
 
 Available as Roby::EventStructure::TemporalConstraints
 
-See {rdoc_class: EventStructure::TemporalConstraintsGraphClass::Extension} for the list
+See `EventStructure::TemporalConstraintsGraphClass::Extension` for the list
 of methods that are defined on Roby::EventGenerator and
-{rdoc_class: EventStructure::TemporalConstraintsGraphClass} for the methods accessible on the
+`EventStructure::TemporalConstraintsGraphClass` for the methods accessible on the
 relation graph.
 
 Semantics
