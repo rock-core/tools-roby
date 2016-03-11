@@ -8,38 +8,36 @@ layout: default
 
 <div class="post-content">
 
-   {% if page.summary %}
+    {% if page.summary %}
     <div class="summary">{{page.summary}}</div>
-   {% endif %}
+    {% endif %}
 
     {% unless page.toc == "none" %}
     {% include toc.html %}
     {% endunless %}
 
     {% if site.github_editme_path %}
-
     <a target="_blank" href="https://github.com/{{site.github_editme_path}}{% unless page.path contains "html" %}{{page.path | replace: '.html', '.md'}}{% endunless %}{% if page.path contains "html" %}{{page.path }}{% endif %}" class="btn btn-default githubEditButton" role="button"><i class="fa fa-github fa-lg"></i> Edit me</a>
     {% endif %}
 
-  {{content}}
+    {{content}}
 
-<div class="tags">
-    {% if page.tags != null %}
-    <b>Tags: </b>
-    {% assign projectTags = site.data.tags.allowed-tags %}
-    {% for tag in page.tags %}
-    {% if projectTags contains tag %}
-    <a href="{{ "/tag_" | prepend: site.baseurl | append: tag }}" class="btn btn-default navbar-btn cursorNorm" role="button">{{page.tagName}}{{tag}}</a>
-    {% endif %}
-    {% endfor %}
-    {% endif %}
-</div>
+    <div class="tags">
+        {% if page.tags != null %}
+        <b>Tags: </b>
+        {% assign projectTags = site.data.tags.allowed-tags %}
+        {% for tag in page.tags %}
+        {% if projectTags contains tag %}
+        <a href="{{ "/tag_" | prepend: site.baseurl | append: tag }}" class="btn btn-default navbar-btn cursorNorm" role="button">{{page.tagName}}{{tag}}</a>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+    </div>
 
     {% if site.disqus %}
-{% include disqus.html %}
+    {% include disqus.html %}
     {% endif %}
-
-</div>
+</div> <!-- .post-content -->
 
 {{site.data.alerts.hr_shaded}}
 

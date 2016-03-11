@@ -1,49 +1,43 @@
 <!DOCTYPE html>
-  <head>
+<head>
 
- {% include head.html %}
+    {% include head.html %}
 
-<script>
-  $(function () {
-      $('[data-toggle="tooltip"]').tooltip()
-  })
-</script>
+    <script>
+$(function () {
+    $('[data-toggle="tooltip"]').tooltip()
+})
+    </script>
 
-{% if page.datatable == "active" %}
-<link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.5/css/jquery.dataTables.css">
-<script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.5/js/jquery.dataTables.js"></script>
-<script>
-  $(document).ready(function(){
+    {% if page.datatable == "active" %}
+    <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.5/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8" src="//cdn.datatables.net/1.10.5/js/jquery.dataTables.js"></script>
+    <script>
+$(document).ready(function(){
 
-      $('table.datatable').DataTable( {
-                  paging: false,
-                  stateSave: true
-              }
-      );
-</script>
-{% endif %}
+    $('table.datatable').DataTable( {
+        paging: false,
+        stateSave: true
+    }
+    );
+    </script>
+    {% endif %}
 
-  </head>
+</head>
 
 <body>
-
-   {% include topnav.html %}
-
+    {% include topnav.html %}
 
     <!-- Page Content -->
     <div class="container">
         <div class="col-lg-12">&nbsp;</div>
+        {% include sidebar.html %}
 
-
-{% include sidebar.html %}
-
-            <!-- Content Column -->
-            <div class="col-md-9">
-                {{content}}
-            </div><!-- /.row -->
-
+        <!-- Content Column -->
+        <div class="col-md-9">
+            {{content}}
+        </div><!-- /.col-md-9 -->
     </div>    <!-- /.container -->
-
 </body>
 {% if site.google_analytics %}
 {% include google_analytics.html %}
