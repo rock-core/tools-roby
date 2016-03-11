@@ -1,0 +1,78 @@
+---
+title: Temporal Constraints
+keywords: roby, robotics, rock, framework, ide
+permalink: "/event_relations/temporal_constraints/"
+---
+
+Available as Roby::EventStructure::TemporalConstraints
+
+See {rdoc_class: EventStructure::TemporalConstraintsGraphClass::Extension} for the list
+of methods that are defined on Roby::EventGenerator and
+{rdoc_class: EventStructure::TemporalConstraintsGraphClass} for the methods accessible on the
+relation graph.
+
+Semantics
+---------
+This relation allows to encode two type of related constraints:
+
+  * temporal relationships such as __emission of event 1 should happen within 2
+    minutes of emission of event 2__.
+  * constraints of occurence, such as __event 1 should be emitted at least twice
+    before event 2 is emitted__
+
+The temporal constraints are added with #add_temporal_constraint:
+
+``` ruby
+# Specifies that if +ev1+ is emitted, then +ev2+ should be emitted within [0.2,
+# 10] seconds. Note that emitting ev2 alone is fine.
+ev1.add_temporal_constraint(ev2, 0.2, 10)
+```
+
+The exact semantic of the temporal constraint is one of a forward relation: it
+constrains the emission of the target event __if__ the source event is emitted.
+
+The second type of constraints allows to force the issue: one can specify with
+__occurence constraints__ that, for ev2 to be emitted, ev1 should have be
+emitted a certain number of times.
+
+``` ruby
+# Specifies that +ev2+ can be emitted only if +ev1+ has already been emitted at
+# least once. If an upper bound is needed, give it as second option
+ev1.add_occurence_constraint(ev2, 1)
+ev1.add_occurence_constraint(ev2, 1, 10)
+```
+
+The most common case (by far) is to specify an ordering between two events. This
+is done by #should_emit_after:
+
+``` ruby
+ev2.should_emit_after(ev1)
+# Equivalent to
+#    ev1.add_occurence_constraint(ev2, 1)
+#    ev1.add_temporal_constraint(ev2, 0, Infinity)
+```
+
+There is also a shortcut between tasks with #should_start_after
+
+``` ruby
+task.should_start_after(event_or_task)
+```
+
+Error Conditions
+----------------
+The temporal constraint relation has two ways to report error:
+
+ * an event is emitted outside of its allowed range. Either
+   TemporalConstraintViolation or OccurenceConstraintViolation errors are
+   injected in the plan, using the event as their source.
+ * an event has not been emitted but should have according to the temporal
+   constraints. In the ev1.add_temporal_constraint(ev2, 0.2, 10) example, ev2
+   did not emit after 10 seconds of ev1's emission. The MissedDeadlineError
+   error is generated, with the relevant generator as its source point.
+
+Relationship to Scheduling
+--------------------------
+The temporal constraint relation has an influence on [the temporal
+scheduler](../advanced_concepts/scheduling.html).
+
+

@@ -1,0 +1,47 @@
+---
+title: PlannedBy
+keywords: roby, robotics, rock, framework, ide
+permalink: "/task_relations/planned_by/"
+---
+
+Available as Roby::TaskStructure::PlannedBy
+
+See {rdoc_class: TaskStructure::PlannedByGraphClass::Extension} for the list
+of methods that are defined on Roby::Task and
+{rdoc_class: TaskStructure::PlannedByGraphClass} for the methods accessible on the
+relation graph.
+
+Semantics
+---------
+The planned_by relation expresses that information necessary to execute a task
+(the parent in the relation) is going to be produced by another task (the child in the relation)
+
+This relation accepts a certain task to have only a single planning task. A
+given planning task can have multiple planned tasks.
+
+The relation is added with #planned_by
+
+``` ruby
+task.planned_by(planner_task)
+task.planning_task # => planner_task
+planner_task.planned_task # => task. Would raise if there was more than one
+```
+
+This is commonly used to implement the [planning
+pattern](../building/runtime.html#planning-pattern). In this case, the
+planned task is [marked as
+abstract](../building/patterns.html#abstract-tasks)
+
+Error Conditions
+----------------
+The planned_by relation fails if (1) the planning task has terminated and (2)
+the planned task is abstract. In other ways, it fails if a task could not be
+planned properly. To avoid having "partial plans" lingering around, planning
+tasks that modify the plan should always do so [in a
+transaction](../advanced_concepts/transactions.html).
+
+Relationship to Scheduling
+--------------------------
+The planned_by relation has no influence on [the basic and
+temporal schedulers](../advanced_concepts/scheduling.html).
+

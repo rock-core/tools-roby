@@ -3,45 +3,181 @@ entries:
   product: Roby
   version: version 1.0
   subcategories:
-
-  - title:
-    output: pdf
-    type: frontmatter
-    items:
-    - title:
-      url: /titlepage/
-      output: pdf
-      type: frontmatter
-    - title:
-      url: /tocpage/
-      output: pdf
-      type: frontmatter
-
-  - title: Building
+  - title: For Starters
     output: web, pdf
     items:
-    - title: Introduction
-      url: /roby_building_introduction/
+    - title: What is Roby?
+      url: "/index/"
+      output: web, pdf
+    - title: Installation
+      url: "/installation/index/"
+      output: web, pdf
+    - title: Publications
+      url: "/installation/publications/"
+      output: web, pdf
+    - title: Demonstration Videos
+      url: "/installation/videos/"
+      output: web, pdf
+  - title: Concepts
+    url: "/concepts/"
+    output: web, pdf
+    items:
+    - title: Concepts
+      url: "/concepts/index/"
+      output: web, pdf
+    - title: The Reactor Pattern
+      url: "/concepts/reactor/"
+      output: web, pdf
+    - title: Plans
+      url: "/concepts/plans/"
+      output: web, pdf
+    - title: Execution
+      url: "/concepts/execution/"
+      output: web, pdf
+    - title: Useful and useless tasks
+      url: "/concepts/garbage_collection/"
+      output: web, pdf
+    - title: Error Handling
+      url: "/concepts/error_handling/"
+      output: web, pdf
+    - title: Policy
+      url: "/concepts/policy/"
+      output: web, pdf
+  - title: Tutorials
+    url: "/tutorial/"
+    output: web, pdf
+    items:
+    - title: Tutorials
+      url: "/tutorial/index/"
+      output: web, pdf
+    - title: Code Examples
+      url: "/tutorial/code_examples/"
+      output: web, pdf
+    - title: Events
+      url: "/tutorial/events/"
+      output: web, pdf
+    - title: Tasks
+      url: "/tutorial/tasks/"
+      output: web, pdf
+    - title: A First Roby Application
+      url: "/tutorial/app/"
+      output: web, pdf
+    - title: Interactive Shell
+      url: "/tutorial/shell/"
+      output: web, pdf
+    - title: Task Hierarchies
+      url: "/tutorial/hierarchy/"
+      output: web, pdf
+    - title: Using Plan Display
+      url: "/tutorial/relations_display/"
+      output: web, pdf
+    - title: Error handling
+      url: "/tutorial/errors/"
+      output: web, pdf
+    - title: Don't repeat yourself !
+      url: "/tutorial/dry/"
+      output: web, pdf
+    - title: Summary
+      url: "/tutorial/summary/"
+      output: web, pdf
+  - title: Building a Roby app
+    url: "/building/"
+    output: web, pdf
+    items:
+    - title: Building a Roby app
+      url: "/building/index/"
+      output: web, pdf
+    - title: Creating a Roby App - File Layout
+      url: "/building/file_layout/"
+      output: web, pdf
+    - title: Creating Task Models
+      url: "/building/task_models/"
+      output: web, pdf
+    - title: Adding runtime code to tasks
+      url: "/building/tasks/"
       output: web, pdf
     - title: Actions
-      url: /roby_building_actions/
+      url: "/building/actions/"
       output: web, pdf
     - title: Action Coordination
-      url: /roby_building_action_coordination/
+      url: "/building/action_coordination/"
       output: web, pdf
-
-  - title: Advanced Concepts
+    - title: Runtime Considerations
+      url: "/building/runtime/"
+      output: web, pdf
+    - title: Patterns and Protocols
+      url: "/building/patterns/"
+      output: web, pdf
+  - title: Interacting with a Roby app
+    url: "/interacting/"
     output: web, pdf
     items:
-    - title: Recognizing Patterns
-      url: /roby_advanced_concepts_recognizing_patterns/
+    - title: Interacting with a Roby app
+      url: "/interacting/index/"
       output: web, pdf
-
+    - title: Running a Roby application
+      url: "/interacting/run/"
+      output: web, pdf
+    - title: Shell
+      url: "/interacting/shell/"
+      output: web, pdf
+  - title: Advanced Concepts
+    url: "/advanced_concepts/"
+    output: web, pdf
+    items:
+    - title: Advanced Concepts
+      url: "/advanced_concepts/index/"
+      output: web, pdf
     - title: Scheduling
-      url: /roby_advanced_concepts_scheduling/
+      url: "/advanced_concepts/scheduling/"
       output: web, pdf
-      
-    - title: Unreachability
-      url: /roby_advanced_concepts_unreachability/
+    - title: Event Unreachability
+      url: "/advanced_concepts/unreachability/"
       output: web, pdf
-
+    - title: Recognizing patterns in plans
+      url: "/advanced_concepts/recognizing_patterns/"
+      output: web, pdf
+    - title: Tracking History
+      url: "/advanced_concepts/history/"
+      output: web, pdf
+    - title: Transactions
+      url: "/advanced_concepts/transactions/"
+      output: web, pdf
+  - title: Event Relations
+    url: "/event_relations/"
+    output: web, pdf
+    items:
+    - title: Event Relations
+      url: "/event_relations/index/"
+      output: web, pdf
+    - title: The Signal relation
+      url: "/event_relations/signal/"
+      output: web, pdf
+    - title: The Forward relation
+      url: "/event_relations/forward/"
+      output: web, pdf
+    - title: Temporal Constraints
+      url: "/event_relations/temporal_constraints/"
+      output: web, pdf
+    - title: Scheduling Constraints
+      url: "/event_relations/scheduling_constraints/"
+      output: web, pdf
+  - title: Task Relations
+    url: "/task_relations/"
+    output: web, pdf
+    items:
+    - title: Task Relations
+      url: "/task_relations/index/"
+      output: web, pdf
+    - title: Dependency
+      url: "/task_relations/dependency/"
+      output: web, pdf
+    - title: PlannedBy
+      url: "/task_relations/planned_by/"
+      output: web, pdf
+    - title: ExecutionAgent
+      url: "/task_relations/executed_by/"
+      output: web, pdf
+    - title: Defining new relations
+      url: "/task_relations/new_relations/"
+      output: web, pdf

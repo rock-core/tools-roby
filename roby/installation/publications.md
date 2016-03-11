@@ -1,0 +1,15 @@
+---
+title: Publications
+keywords: roby, robotics, rock, framework, ide
+permalink: "/installation/publications/"
+---
+These are the papers which present Roby that I published the last years.
+
+* A Software Component for Plan Management in Robotics
+  ([PhD thesis](http://roby.rubyforge.org/papers/thesis-en.pdf), [slides](http://roby.rubyforge.org/papers/thesis-slides.pdf))
+* A Software Component for Simultaneous Plan Execution and Adaptation - 
+  IROS2007 ([paper](http://roby.rubyforge.org/papers/roby-2007-iros.pdf))
+* A Plan Manager for Multi-Robot Systems - FSR2007
+  ([paper](http://roby.rubyforge.org/papers/roby-2007-fsr.pdf), [slides](http://roby.rubyforge.org/papers/roby-2007-fsr-slides.pdf))
+
+

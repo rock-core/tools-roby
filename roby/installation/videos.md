@@ -1,0 +1,79 @@
+---
+title: Demonstration Videos
+keywords: roby, robotics, rock, framework, ide
+permalink: "/installation/videos/"
+---
+
+Normal operations
+-----------------
+
+Those videos don't show what Roby itself does, only results showing
+robots (real and in simulation) acting as they are controlled by a
+Roby application.
+
+Single robot navigation
+-----------------
+
+http://roby.rubyforge.org/videos/perception_loops.avi
+
+What we see in this video is the perception loop (whose visible part is the DEM
+building) being handled by Roby. The perception updates are triggered by Roby
+on the basis of state events: they are triggered by the translation of the
+robot and the change of heading, to reduce the number of times it is actually done.
+
+Bi-robot navigation
+-----------------
+
+http://roby.rubyforge.org/videos/birobot.avi
+
+What we see in this video is the cooperation between a rover and an UAV for a
+navigation task. Both robots, as well as the common part of their joint plan is
+written in and managed by Roby.  Including part of the data transfer process.
+This bi-robot setup has also successfully been tested on real robots, with an
+iRobot ATRV and a Yamaha RMAX helicopter.
+
+In this video, the rover plans its path (the line on the ground) in a
+traversability map (red/green map: red is non-traversable, green is
+traversable). It also generates a set of regions of interest for him. Those
+regions are then considered by the UAV which decides how it will schedule its
+own perception. When the UAV does have perceived a zone, it informs the rover
+and sends it the relevant data. The rover can then update its own map.
+
+Error handling
+---------------
+Rflex repaired
+--------------
+
+http://roby.rubyforge.org/videos/rflex_repaired.avi
+
+This is a simple example of asynchronous repairs.  In this video, the
+microcontroller which drives the robot's motors can give us spurious
+<tt>BRAKES_ON</tt> messages. Our problem is that the Roby controller must
+determine if the message is spurious, or if brakes are actually set by the means
+of an emergency switch for instance. To do that, an error handling is set up,
+which wait for a few seconds and tests the <tt>BRAKES_ON</tt> state of the
+robot. If the brakes are reported as off, then the robot can start moving again.
+Otherwise, the error was a rightful one and should be handled by other means.
+
+P3d repaired
+------------
+
+http://roby.rubyforge.org/videos/p3d_repaired.avi.
+
+In this video, the system handles a problem with DEM generation ("DEM" means
+"Digital Elevation Map". It is a representation of the terrain the robot is on).
+Due to localization issues, it is possible to have a very bad DEM in which the
+robot cannot move. If that happens, the locomotion activity (P3d::Track) emits
+the +blocked+ event. Our way to handle it in three steps:
+1. a new DEM perception is done. As the robot is not moving, it should give a
+   better result. This is called the "Stage 1 handler" in the video.
+2. if the robot is still blocked, the "Stage 2 handler" completely reinitializes
+   the DEM and do a local update.
+3. if the fault remains, the problem does not lie in the DEM perception process,
+   but in the fact that the robot is actually blocked. The error must therefore be
+   handled by other means.
+
+At all times, if the robot moves more than a given threshold, the problem was
+actually the DEM perception process and the error handler is reset at the first
+stage for following operations.
+

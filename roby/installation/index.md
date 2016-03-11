@@ -1,0 +1,146 @@
+---
+title: Installation
+keywords: roby, robotics, rock, framework, ide
+permalink: "/installation/index/"
+---
+
+Installation in Rock
+--------------------
+
+Roby is one of the underlying tools of the Rock robot development environment.
+It gets installed along with the rock toolchain. Check it out !
+(http://rock-robotics.org)
+
+External dependencies
+---------------------
+Roby requires ruby version 1.8.6 or 1.8.7. Ruby 1.9 is a work in progress, but
+will not work with this release
+
+* The Roby engine needs 
+  * +utilrb+, which is available as a RubyGem or on
+    [gitorious](git://gitorious.org/orocos-toolchain/utilrb.git)
+  * Facets, available as a RubyGem
+  * ActiveSupport, available as a RubyGem
+  * the [Boost C++ library](http://www.boost.org), including Boost/Graph
+
+* the documentation generation requires
+  * the RDoc gem (not the default RDoc) for the generation of the API
+  * the webgen gem with coderay for the generation of the user's
+    guide
+
+* the test suite needs also
+  * FlexMock, available as a RubyGem
+
+* finally, the GUI requires [QtRuby >= 1.4.9](http://rubyforge.org/projects/korundum), SVG export requires QtRuby to
+  be built with Qt >= 4.3
+
+Before installation
+-------------------
+
+Before doing anything else, you will need to have the C++ dependencies listed
+above installed on your system:
+* the boost C++ libraries with boost/graph
+* QtRuby >= 1.4.9, compiled with Qt >= 4.3
+
+See the next page for a step-by-step installation on Debian/Ubuntu.
+
+All the rest can be installed with RubyGems
+
+Setting the environment
+-----------------------
+
+As a first step, you should set you environment variables. This is done by
+the following commands.
+
+  export GEM_HOME=$HOME/gems/
+  export ROBYHOME=$HOME/roby
+  export RUBYOPT=-rubygems
+  export PATH=$PATH:$GEM_HOME/bin:$ROBYHOME/bin
+  export RUBYLIB=$RUBYLIB:$ROBYHOME/lib
+
+The +GEM_HOME+ and +ROBYHOME+ should be set to wherever you want these parts to
+be installed. It would be wise to append these lines to your ~/.bashrc so that
+they are executed each time you start a console.
+
+Debian/Ubuntu: Installing binary dependencies with apt-get
+----------------------------------------------------------
+
+You can install those packages with the following line.
+
+  sudo apt-get install ruby1.8-dev rubygems ruby libopenssl-ruby1.8
+  sudo apt-get install libqt4-ruby1.8 g++ libboost-dev git-core
+
+If you don't have administrative rights on your local pc, contact your system 
+administrator.
+
+Install using RubyGems
+----------------------
+
+This is as simple as
+
+ gem install roby
+
+RubyGems will then take care of installing Roby dependencies. If you want to run
+the unit tests and/or to generate the user's guide, you will need to do
+
+ gem install --development roby
+
+Install the development code from Gitorious
+-------------------------------------------
+
+To do this, you will need to install Roby's gems dependencies yourself. This is
+as simple as
+
+ gem install rake utilrb facets activesupport rdoc webgen maruku coderay flexmock
+
+All you have to do now is changing into your development folder and clone 
+the gitorious repository for roby.
+
+ git clone git://gitorious.org/rock-toolchain/roby.git roby
+
+The last parameter (+roby+) is the folder which should be created to put
+roby's files in. You can easily adjust this to your needs.
+
++cd+ into the newly created roby folder.
+
+To finally have a running copy of roby, run
+
+ rake setup
+
+to compile roby on your workstation and you're done. Additionally, you can run
+
+ rake doc:all
+
+To generate HTML documentation of Roby and its core plugins. The documentation
+is generated in doc/html
+
+Staying up to date
+------------------
+
+To grab the newest updates of roby just change into your robyfolder and run
+
+ git pull
+
+After you merged all possible conflicts between your work and the origin,
+you must run
+
+ rake setup
+
+again.
+
+Generating the documentation
+----------------------------
+
+To generate the documentation, you will need to install the following gems:
+
+ gem install webgen rdoc coderay
+
+Then, the following commands allow to generate separate parts of the
+documentation:
+ rake doc:api   # Generates the API documentation using RDoc
+ rake doc:guide # Generates the user's guide
+ rake doc:plugin_docs # Generate the plugin documentation
+
+Alternatively, you can generate all of the above with
+ rake docs
+

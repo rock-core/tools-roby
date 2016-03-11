@@ -58,8 +58,11 @@ defaults:
 
   -
     scope:
-    path: "roby"
+      path: "roby"
     values:
+      layout: "page"
+      #comments: true
+      search: true
       sidebar: roby_sidebar
   -
     scope:

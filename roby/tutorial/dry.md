@@ -1,0 +1,70 @@
+---
+title: Don't repeat yourself !
+keywords: roby, robotics, rock, framework, ide
+permalink: "/tutorial/dry/"
+---
+
+Unlike most (all ?) other supervision system, Roby is *not* a domain-specific
+language (DSL). Instead, it uses the facilities offered by the Ruby programming
+language to _look like_ a DSL.
+
+The main consequence, and the reason why this design decision has been made, is
+that in part of the Roby applications one can use programmatic ways to avoid
+**repeating oneself**.
+
+Let's take one simple example: in [the tasks page](tasks.html), we defined the
+MyTask task model that way:
+
+``` ruby
+class MyTask < Roby::Task
+  event :start do |context|
+     puts "start event called"
+     emit :start
+  end
+  event :controlable do |context|
+     puts "controlable event called"
+     emit :controlable
+  end
+  event :contingent
+
+  on(:start) { |event| puts "start event emitted" }
+  on(:controlable) { |event| puts "controlable event emitted" }
+  on(:contingent) { |event| puts "contingent event emitted" }
+  on(:failed) { |event| puts "failed event emitted" }
+  on(:stop) { |event| puts "stop event emitted" }
+
+  event :finished, :terminal => true
+  on(:finished) { |event| puts "finished event emitted" }
+end
+```
+
+Full of repetitions ... Now, one could have written, instead:
+
+``` ruby
+class MyTask < Roby::Task
+  event :start do |context|
+     puts "start event called"
+     emit :start
+  end
+  event :controlable do |context|
+     puts "controlable event called"
+     emit :controlable
+  end
+  event :finished, :terminal => true
+
+  each_event do |ev|
+    on(ev.symbol) { |event| puts "#{ev.symbol} event emitted" }
+  end
+end
+```
+
+This way:
+
+* if we want to display more information, changing one line does the trick
+* if a new event is added, it gets displayed automatically
+
+**Don't forget !**: every piece of text you write in a Roby application is Ruby
+code, so you have the means to avoid ugly repetitions.
+{: .warning}
+
+
