@@ -8,7 +8,7 @@ topnav:
     - title: Travis
       external_url: https://travis-ci.org/rock-core/tools-roby
     - title: API
-      external_url: http://rubydoc.info/gems/roby
+      external_url: http://www.rubydoc.info/gems/roby
 
 #Topnav dropdowns
 topnav_dropdowns:
