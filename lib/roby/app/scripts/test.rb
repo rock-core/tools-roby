@@ -12,11 +12,15 @@ app.simulation = true
 app.testing = true
 app.auto_load_models = false
 
+list_tests = false
 coverage_mode = false
 testrb_args = []
 parser = OptionParser.new do |opt|
     opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
 	Roby.app.single = !val
+    end
+    opt.on('--list', 'lists the test files that are executed, but does not execute them') do
+        list_tests = true
     end
     opt.on("-l", "--live", "run tests in live mode") do |val|
 	Roby.app.simulation = !val
@@ -48,10 +52,9 @@ parser = OptionParser.new do |opt|
     Roby::Application.common_optparse_setup(opt)
 end
 
-remaining_arguments = parser.parse(ARGV)
+test_files = parser.parse(ARGV)
 
 if coverage_mode
-    app.auto_load_models = true
     require 'simplecov'
     SimpleCov.start
 end
@@ -64,22 +67,21 @@ Roby.display_exception do
     begin
         Roby.app.prepare
         # tests.options.banner.sub!(/\[options\]/, '\& tests...')
-        if remaining_arguments.empty?
-            remaining_arguments = Roby.app.
-                find_files_in_dirs('test', 'ROBOT',
-                                   path: [Roby.app.app_dir],
-                                   all: true,
-                                   order: :specific_first,
-                                   pattern: /^(?:suite_|test_).*\.rb$/)
+        if test_files.empty?
+            test_files = app.each_test_file.map(&:first)
+        end
 
-            Roby.app.each_responding_plugin(:filter_test_files) do |plugin|
-                remaining_arguments = plugin.filter_test_files(Roby.app, remaining_arguments)
+        if list_tests
+            puts "Would load #{test_files.size} test files"
+            test_files.sort.each do |path|
+                puts "  #{path}"
             end
+        else
+            test_files.each do |arg|
+                require arg
+            end
+            Minitest.run testrb_args
         end
-        remaining_arguments.each do |arg|
-            require arg
-        end
-        Minitest.run testrb_args
     ensure
         Roby.app.cleanup
     end

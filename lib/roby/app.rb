@@ -2266,6 +2266,35 @@ module Roby
         def remove_notification_listener(listener)
             notification_listeners.delete(listener)
         end
+
+        # Enumerate the test files that should be run to test the current app
+        # configuration
+        #
+        # @yieldparam [String] path the file's path
+        # @yieldparam [Array<Class<Roby::Task>>] models the models that are
+        #   meant to be tested by 'path'. It can be empty for tests that involve
+        #   lib/
+        def each_test_file(&block)
+            models_per_file = Hash.new { |h, k| h[k] = Set.new }
+            each_model do |m|
+                next if m.respond_to?(:has_ancestor?) && m.has_ancestor?(Roby::Event)
+                next if m.respond_to?(:private_specialization?) && m.private_specialization?
+                next if !m.name
+
+                if path = test_file_for(m)
+                    suffix = File.basename(File.dirname(path))
+                    if !robot_name?(suffix) || suffix == robot_type
+                        models_per_file[path] << m
+                    end
+                end
+            end
+
+            find_dirs('test', 'suite_lib.rb', order: :specific_first, all: true).each do |path|
+                models_per_file[path] = Set.new
+            end
+
+            models_per_file.each(&block)
+        end
     end
 end
 
