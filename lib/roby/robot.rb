@@ -59,6 +59,10 @@ module Robot
         Roby.app.on_init(&block)
     end
 
+    def self.setup(&block)
+        Roby.app.on_setup(&block)
+    end
+
     def self.requires(&block)
         Roby.app.on_require(&block)
     end
