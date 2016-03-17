@@ -78,6 +78,11 @@ module Roby
             end
         end
 
+        def refresh_relations
+            super
+            execution_engine.refresh_relations
+        end
+
         def event_logger=(logger)
             super
             log :register_executable_plan, droby_id

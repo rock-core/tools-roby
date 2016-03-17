@@ -87,12 +87,12 @@ module Roby
 	    @task_index  = Roby::Queries::Index.new
 
             @graph_observer = graph_observer
-            refresh_relations
+            create_relations
 
 	    super()
 	end
 
-        def refresh_relations
+        def create_relations
             @task_relation_graphs, @event_relation_graphs =
                 self.class.instanciate_relation_graphs(graph_observer: graph_observer)
 
@@ -102,6 +102,10 @@ module Roby
                     structure_checks << graph.method(:check_structure)
                 end
             end
+        end
+
+        def refresh_relations
+            create_relations
         end
 
         def self.instanciate_relation_graphs(graph_observer: nil)

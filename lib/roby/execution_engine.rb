@@ -212,11 +212,15 @@ module Roby
             @finalizers = []
             @gc_warning = true
 
-            self.display_exceptions = true
+            refresh_relations
 
+            self.display_exceptions = true
+	end
+
+        def refresh_relations
             @dependency_graph = plan.task_relation_graph_for(TaskStructure::Dependency)
             @precedence_graph = plan.event_relation_graph_for(EventStructure::Precedence)
-	end
+        end
 
         # Cached graph object for {EventStructure::Precedence}
         #
