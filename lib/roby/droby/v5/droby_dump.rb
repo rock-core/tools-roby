@@ -11,6 +11,32 @@ module Roby
                 end
             end
 
+            module ExceptionBaseDumper
+                include Builtins::ExceptionDumper
+
+                def droby_dump(peer)
+                    droby = super(peer, droby_class: DRoby)
+                    droby.original_exceptions.concat(peer.dump(original_exceptions))
+                    droby
+                end
+
+                class DRoby < Builtins::ExceptionDumper::DRoby
+                    attr_reader :original_exceptions
+
+                    def initialize(exception_class, formatted_class, message = nil)
+                        super
+                        @original_exceptions = Array.new
+                    end
+
+                    def proxy(peer)
+                        exception = super
+                        exception.original_exceptions.
+                            concat(peer.local_object(self.original_exceptions))
+                        exception
+                    end
+                end
+            end
+
             # Exception class used on the unmarshalling of LocalizedError for exception
             # classes that do not have their own marshalling
             class UntypedLocalizedError < LocalizedError

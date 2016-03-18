@@ -298,6 +298,16 @@ module Roby
                     end
                 end
 
+                describe ExceptionBaseDumper do
+                    it "marshals and unmarshals the original_exceptions" do
+                        original_e = ::Exception.new("a message")
+                        e = ExceptionBase.new([original_e])
+                        e = transfer(e)
+                        assert_equal 1, e.original_exceptions.size
+                        assert_equal "a message", e.original_exceptions.first.message
+                    end
+                end
+
                 describe LocalizedErrorDumper do
                     attr_reader :local_task, :remote_task
 

@@ -24,6 +24,9 @@ class NilClass
 end
 
 module Roby
+    class ExceptionBase
+        include DRoby::V5::ExceptionBaseDumper
+    end
     class LocalizedError
         include DRoby::V5::LocalizedErrorDumper
     end

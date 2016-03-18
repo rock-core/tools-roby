@@ -22,9 +22,9 @@ module Roby
                 end
 
                 module ExceptionDumper
-                    def droby_dump(peer)
+                    def droby_dump(peer, droby_class: DRoby)
                         formatted = Roby.format_exception(self)
-                        droby = DRoby.new(
+                        droby = droby_class.new(
                             peer.dump(self.class),
                             formatted,
                             message)
