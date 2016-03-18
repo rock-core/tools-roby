@@ -74,8 +74,8 @@ module Roby
             #
             # @return [Time]
             def cycle_start_time
-                if stats[:start] && stats[:real_start]
-                    Time.at(*stats[:start]) + stats[:real_start]
+                if stats[:start] && stats[:actual_start]
+                    Time.at(*stats[:start]) + stats[:actual_start]
                 end
             end
 

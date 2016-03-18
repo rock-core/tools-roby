@@ -768,7 +768,7 @@ class TC_ExecutionEngine < Minitest::Test
     end
     
     def test_stats
-	time_events = [:real_start, :events, :structure_check, :exception_propagation, :exception_fatal, :garbage_collect, :application_errors, :ruby_gc, :sleep, :end]
+	time_events = [:actual_start, :events, :structure_check, :exception_propagation, :exception_fatal, :garbage_collect, :application_errors, :ruby_gc, :sleep, :end]
 	10.times do
             FlexMock.use(execution_engine) do |mock|
                 mock.should_receive(:cycle_end).and_return do |stats|

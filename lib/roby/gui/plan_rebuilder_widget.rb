@@ -130,7 +130,7 @@ module Roby
                 snapshot.plan.merge(plan_rebuilder.plan)
 
                 cycle = snapshot.stats[:cycle_index]
-                time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:real_start]
+                time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:actual_start]
 
                 item = Qt::ListWidgetItem.new(list)
                 item.text = "@#{cycle} - #{Roby.format_time(time)}"
@@ -186,7 +186,7 @@ module Roby
                     append_to_history
                 end
                 @last_cycle = cycle
-                Time.at(*plan_rebuilder.stats[:start]) + plan_rebuilder.stats[:real_start]
+                Time.at(*plan_rebuilder.stats[:start]) + plan_rebuilder.stats[:actual_start]
             end
             signals 'liveUpdate(QDateTime)'
 
