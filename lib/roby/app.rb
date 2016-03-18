@@ -1192,6 +1192,20 @@ module Roby
             call_plugins(:register_generators, self)
         end
 
+        # Returns the downmost app file that was involved in the given model's
+        # definition
+        def definition_file_for(model)
+            return if !model.respond_to?(:definition_location) || !model.definition_location 
+            model.definition_location.each do |file, *|
+                next if !(base_path = find_base_path_for(file))
+                relative = Pathname.new(file).relative_path_from(Pathname.new(base_path))
+                split = relative.each_filename.to_a
+                next if split[0] != 'models'
+                return file
+            end
+            nil
+        end
+
         # Given a model class, returns the full path of an existing test file
         # that is meant to verify this model
         def test_file_for(model)
