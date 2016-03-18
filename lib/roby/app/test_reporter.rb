@@ -14,6 +14,9 @@ module Roby
             attr_reader :server
             attr_reader :manager
 
+            # Whether some failures were reported
+            attr_predicate :has_failures?
+
             def initialize(pid, slave_name, server_pid, manager: DRoby::Marshal.new)
                 @pid = pid
                 @slave_name = slave_name
@@ -24,6 +27,7 @@ module Roby
             end
 
             def exception(e)
+                @has_failures = true
                 server.exception(pid, manager.dump(e))
             end
 
@@ -45,6 +49,7 @@ module Roby
                 c = r.class
                 file, = c.instance_method(r.name).source_location
                 failures = manager.dump(r.failures)
+                @has_failures ||= !failures.empty?
                 server.test_result(pid, file, c.name, r.name, failures, r.assertions, r.time)
             end
 
