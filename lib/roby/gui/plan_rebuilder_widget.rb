@@ -94,9 +94,8 @@ module Roby
                 job_info = Hash.new
                 tasks.each do |t|
                     if t.kind_of?(Roby::Interface::Job)
-                        placeholder_task = t.
-                            enum_parent_objects(snapshot.relations[Roby::TaskStructure::PlannedBy]).
-                            first
+                        planned_by_graph = snapshot.plan.task_relation_graph_for(Roby::TaskStructure::PlannedBy)
+                        placeholder_task = planned_by_graph.enum_for(:each_out_neighbour, t).first
                         if placeholder_task
                             job_info[placeholder_task] = t
                         end
@@ -149,7 +148,7 @@ module Roby
 
             def apply(snapshot)
                 @current_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
-                @current_plan = DRoby::RebuiltPlan.new
+                @current_plan.clear
                 @current_plan.merge(snapshot.plan)
                 emit appliedSnapshot(Qt::DateTime.new(@current_time))
             end

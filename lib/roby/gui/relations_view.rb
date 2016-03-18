@@ -105,7 +105,7 @@ class Ui::RelationsView
                 end
             end
 
-            return unless obj.kind_of?(RelationsCanvasTask)
+            return unless obj.kind_of?(Roby::Task)
 
             menu = Qt::Menu.new
             hide_this     = menu.add_action("Hide")
@@ -117,12 +117,16 @@ class Ui::RelationsView
             when "Hide"
                 display.selected_objects.delete(obj)
             when "Hide children"
-                for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
-                    display.selected_objects.delete(child)
+                obj.plan.compute_useful_tasks([obj]).each do |child|
+                    if child != obj
+                        display.selected_objects.delete(child)
+                    end
                 end
             when "Show children"
-                for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
-                    display.selected_objects << child
+                obj.plan.compute_useful_tasks([obj]).each do |child|
+                    if child != obj
+                        display.selected_objects << child
+                    end
                 end
             end
 

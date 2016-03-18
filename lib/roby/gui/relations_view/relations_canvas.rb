@@ -851,15 +851,12 @@ module Roby
                 if display_policy == :emitters_and_parents
                     while true
                         new_visible_objects = Set.new
-                        Roby::TaskStructure.each_relation do |rel|
-                            components = rel.reverse.generated_subgraphs(visible_objects, false)
-                            components.each do |c|
-                                new_visible_objects.merge(c.to_set - visible_objects)
-                            end
+                        visible_objects.group_by(&:plan).each do |plan, plan_objects|
+                            graphs = plan.each_task_relation_graph.find_all(&:root_relation?).map(&:reverse)
+                            new_visible_objects.merge(plan.compute_useful_tasks(plan_objects.to_set, graphs: graphs))
+                            new_visible_objects.subtract(plan_objects.to_set)
                         end
-                        if new_visible_objects.empty?
-                            break
-                        end
+                        break if new_visible_objects.empty?
                         visible_objects.merge(new_visible_objects)
                     end
                     visible_objects.dup.each do |obj|

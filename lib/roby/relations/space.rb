@@ -113,41 +113,6 @@ module Roby
                 end
             end
 
-            # Returns the set of objects that are reachable from +obj+ in the union
-            # graph of all the relations defined in this space. In other words, it
-            # returns the set of vertices so that it exists a path starting at
-            # +obj+ and ending at +v+ in the union graph of all the relations.
-            # 
-            # If +strict+ is true, +obj+ is not included in the returned set
-            #
-            # TODO: REIMPLEMENT
-            def children_of(obj, strict = true, relations = nil)
-                set = compute_children_of([obj].to_set, relations || self.relations.values)
-                set.delete(obj) if strict
-                set
-            end
-
-            # Internal implementation method for +children_of+
-            #
-            # TODO: REIMPLEMENT
-            def compute_children_of(current, relations) # :nodoc:
-                old_size = current.size
-                for rel in relations
-                    next if (rel.parent && relations.include?(rel.parent))
-
-                    components = rel.generated_subgraphs(current, false)
-                    for c in components
-                        current.merge c
-                    end
-                end
-
-                if current.size == old_size
-                    return current
-                else
-                    return compute_children_of(current, relations)
-                end
-            end
-
             # Defines a relation in this relation space. This defines a relation
             # graph, and various iteration methods on the vertices.  If a block is
             # given, it defines a set of functions which should additionally be

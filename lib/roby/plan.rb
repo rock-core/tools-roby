@@ -990,14 +990,19 @@ module Roby
 
         # @api private
         #
+        # Default set of graphs that should be discovered by
+        # {#compute_useful_tasks}
+        def default_useful_task_graphs
+            each_task_relation_graph.find_all { |g| g.root_relation? && !g.weak? }
+        end
+
+        # @api private
+        #
         # Compute the subplan that is useful for a given set of tasks
         #
         # @param [Set<Roby::Task>
-	def compute_useful_tasks(seeds)
+	def compute_useful_tasks(seeds, graphs: default_useful_task_graphs)
             seeds = seeds.to_set
-            graphs = each_task_relation_graph.
-                find_all { |g| g.root_relation? && !g.weak? }
-
             visitors = graphs.map do |g|
                 [g, RGL::DFSVisitor.new(g), seeds.dup]
             end
