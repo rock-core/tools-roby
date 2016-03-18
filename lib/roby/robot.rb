@@ -71,6 +71,10 @@ module Robot
         Roby.app.on_clear_models(&block)
     end
 
+    def self.cleanup(&block)
+        Roby.app.on_cleanup(&block)
+    end
+
     def self.config(&block)
         Roby.app.on_config(&block)
     end

@@ -1597,6 +1597,9 @@ module Roby
             # Deprecated version of #cleanup
             call_plugins(:reset, self)
 
+            # And run the cleanup handlers
+            cleanup_handlers.each(&:call)
+
             planners.clear
             plan.clear
             clear_models
