@@ -17,6 +17,12 @@ scripts/controllers/ and/or some explicitly given actions
 
     Roby::Application.common_optparse_setup(opt)
 
+    opt.on '--single', "run without connecting to external server. Support for this is plugin-dependent."  do
+        app.single
+    end
+    opt.on "--simulation", "run in simulation mode. All external tasks will be stubbed internally."  do
+        app.simulation
+    end
     opt.on '-c', "--controller", "run the controller files and blocks"  do
         run_controller = true
     end
