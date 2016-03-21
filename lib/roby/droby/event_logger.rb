@@ -59,10 +59,15 @@ module Roby
                 @current_cycle = Array.new
                 @sync = true
                 @dump_time = 0
+                @mutex = Mutex.new
                 if queue_size > 0
                     @dump_queue  = SizedQueue.new(queue_size)
                     @dump_thread = Thread.new(&method(:dump_loop))
                 end
+            end
+
+            def synchronize(&block)
+                @mutex.synchronize(&block)
             end
 
             def log_queue_size
@@ -98,9 +103,7 @@ module Roby
                 logfile.close
             end
 
-            # Dump one log message
-            def dump(m, time, args)
-                start = Time.now
+            def append_message(m, time, args)
                 if stats_mode? && m == :cycle_end
                     current_cycle << m << time.tv_sec << time.tv_usec << args
                 else
@@ -131,21 +134,29 @@ module Roby
 
                     current_cycle << m << time.tv_sec << time.tv_usec << args
                 end
+            end
 
-                if m == :cycle_end
-                    if threaded?
-                        if !@dump_thread.alive?
-                            @dump_thread.value
-                        end
+            # Dump one log message
+            def dump(m, time, args)
+                start = Time.now
+                synchronize do
+                    append_message(m, time, args)
 
-                        @dump_queue << current_cycle
-                        @current_cycle = Array.new
-                    else
-                        logfile.dump(current_cycle)
-                        if sync?
-                            logfile.flush
+                    if m == :cycle_end
+                        if threaded?
+                            if !@dump_thread.alive?
+                                @dump_thread.value
+                            end
+
+                            @dump_queue << current_cycle
+                            @current_cycle = Array.new
+                        else
+                            logfile.dump(current_cycle)
+                            if sync?
+                                logfile.flush
+                            end
+                            current_cycle.clear
                         end
-                        current_cycle.clear
                     end
                 end
 
