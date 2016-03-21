@@ -2145,13 +2145,18 @@ module Roby
             plan.permanent_tasks.clear
             plan.permanent_events.clear
             plan.mission_tasks.clear
-            plan.transactions.each do |trsc|
-                trsc.discard_transaction!
-            end
 
             scheduler.enabled = false
             quit
             join
+
+            start_new_cycle
+            process_events
+            cycle_end(Hash.new)
+
+            plan.transactions.each do |trsc|
+                trsc.discard_transaction!
+            end
 
             if @application_exceptions
                 process_pending_application_exceptions
