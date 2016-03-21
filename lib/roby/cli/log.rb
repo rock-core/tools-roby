@@ -28,11 +28,11 @@ module Roby
                 while data = stream.load_one_cycle
                     data.each_slice(4) do |m, sec, usec, args|
                         if m == :timepoint
-                            analyzer.add Time.at(sec, usec), args.first
+                            analyzer.add Time.at(sec, usec), *args
                         elsif m == :timepoint_group_start
-                            analyzer.group_start Time.at(sec, usec), args.first
+                            analyzer.group_start Time.at(sec, usec), *args
                         elsif m == :timepoint_group_end
-                            analyzer.group_end Time.at(sec, usec), args.first
+                            analyzer.group_end Time.at(sec, usec), *args
                         end
                     end
                 end

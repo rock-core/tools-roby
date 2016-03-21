@@ -6,6 +6,7 @@ Exception.include Roby::DRoby::V5::Builtins::ExceptionDumper
 Array.include     Roby::DRoby::V5::Builtins::ArrayDumper
 Hash.include      Roby::DRoby::V5::Builtins::HashDumper
 Set.include       Roby::DRoby::V5::Builtins::SetDumper
+Thread.include    Roby::DRoby::Identifiable
 
 class Module
     def droby_dump(dest)
