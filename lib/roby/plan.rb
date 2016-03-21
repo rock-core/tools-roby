@@ -1040,12 +1040,14 @@ module Roby
             result
 	end
 
-        def locally_useful_roots
+        def locally_useful_roots(with_transactions: true)
 	    # Create the set of tasks which must be kept as-is
 	    seeds = @mission_tasks | @permanent_tasks
-	    for trsc in transactions
-		seeds.merge trsc.proxy_tasks.keys.to_set
-	    end
+            if with_transactions
+                for trsc in transactions
+                    seeds.merge trsc.proxy_tasks.keys.to_set
+                end
+            end
             seeds
         end
 
@@ -1053,8 +1055,8 @@ module Roby
 	    compute_useful_tasks(locally_useful_roots)
 	end
 
-        def useful_tasks
-            compute_useful_tasks(locally_useful_roots)
+        def useful_tasks(with_transactions: true)
+            compute_useful_tasks(locally_useful_roots(with_transactions: with_transactions))
         end
 
 	def unneeded_tasks
