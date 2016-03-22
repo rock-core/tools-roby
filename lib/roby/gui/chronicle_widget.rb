@@ -48,12 +48,14 @@ module Roby
                     end
 
                 update_scroll_ranges
+                invalidate_layout_cache
                 invalidate_current_tasks
                 update
             end
-            # Scale factor to convert pixels to seconds
+
+            # Scale factor to convert seconds to pixels
             #
-            #   time = pixel_to_time * pixel
+            #   pixels = time_to_pixel * time
             attr_reader :time_to_pixel
 
             # Scale factor to convert seconds to pixels
@@ -91,7 +93,7 @@ module Roby
             # Scheduler information
             # 
             # @return [Schedulers::State]
-            attr_accessor :scheduler_state
+            attr_reader :scheduler_state
             # The task layout as computed in the last call to #paintEvent
             attr_reader :task_layout
             # The set of tasks that should currently be managed by the view.
@@ -142,6 +144,22 @@ module Roby
             # In :in_range mode, only the tasks that would display something
             # within the display time window are shown
             attr_reader :show_mode
+
+            # Per-task visual layout information
+            #
+            # @return [Hash<Task,TaskLayout>]
+            attr_reader :layout_cache
+
+            # Per-task messages to be displayed
+            attr_reader :messages_per_task
+
+            # @api private
+            #
+            # Clears {#layout_cache} because parameters changed that require to
+            # recompute the task layouts
+            def invalidate_layout_cache
+                layout_cache.clear
+            end
 
             # See #show_mode
             def show_mode=(mode)
@@ -196,7 +214,10 @@ module Roby
             def initialize(parent = nil)
                 super(parent)
 
+                @layout_cache = Hash.new
+                @messages_per_task = Hash.new { |h, k| h[k] = Array.new }
                 @current_tasks = Array.new
+                @current_tasks_dirty = true
                 self.time_scale = 10
                 @task_height = 10
                 @task_separation = 10
@@ -240,7 +261,6 @@ module Roby
                 vertical_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
                     value = vertical_scroll_bar.value
                     self.start_line = value
-                    invalidate_task_layout
                     update
                 end
             end
@@ -283,7 +303,28 @@ module Roby
             def clear_tasks_info
                 all_tasks.clear
                 all_job_info.clear
-                @scheduler_state = Schedulers::State.new
+                self.scheduler_state = Schedulers::State.new
+            end
+
+            def scheduler_state=(state)
+                messages_per_task.clear
+
+                state.pending_non_executable_tasks.each do |msg, *args|
+                    formatted_msg = Schedulers::State.format_message_into_string(msg, *args)
+                    args.each do |obj|
+                        if obj.kind_of?(Roby::Task)
+                            messages_per_task[obj] << formatted_msg
+                        end
+                    end
+                end
+
+                scheduler_state.non_scheduled_tasks.each do |task, messages|
+                    messages_per_task[task].concat(messages.map { |msg, *args| Schedulers::State.format_message_into_string(msg, *args) })
+                end
+                scheduler_state.actions.each do |task, messages|
+                    messages_per_task[task].concat(messages.map { |msg, *args| Schedulers::State.format_message_into_string(msg, *args) })
+                end
+                @scheduler_state = state
             end
 
             # Add information to the chronicle for the next display update
@@ -302,17 +343,6 @@ module Roby
 
                 all_tasks.merge(tasks)
                 all_job_info.merge!(job_info)
-                invalidate_task_layout
-            end
-
-            def contents_height
-                fm = Qt::FontMetrics.new(font)
-                layout = lay_out_tasks_and_events(fm, max_height: nil)
-                if layout.empty?
-                    0
-                else
-                    layout.last.top_y + layout.last.height
-                end
             end
 
             def remove_tasks(tasks)
@@ -322,18 +352,32 @@ module Roby
                 end
             end
 
+            def contents_height
+                update_current_tasks
+
+                display_start, display_end = displayed_time_range
+                fm = Qt::FontMetrics.new(font)
+                height = current_tasks.inject(0) do |h, t|
+                    h + lay_out_task(fm, t).height(display_start, display_end)
+                end
+                height + current_tasks.size * task_separation + timeline_height
+            end
+
             # @api private
             # Update the time at the start of the chronicle
             def update_base_time(time)
                 @base_time = time
                 invalidate_current_tasks
+                invalidate_layout_cache
             end
 
             # @api private
             # Update the time at the end of the chronicle
             def update_current_time(time)
                 @current_time = time
-                @base_time ||= time
+                if !base_time
+                    update_base_time(time)
+                end
                 if !display_time || track_current_time?
                     update_display_time(time)
                 else
@@ -346,7 +390,10 @@ module Roby
             # Update the currently displayed time
             def update_display_time(time)
                 @display_time = time
-                @base_time ||= time
+                if !base_time
+                    update_base_time(time)
+                end
+
                 _, end_time = displayed_time_range
                 update_display_point
 
@@ -365,7 +412,8 @@ module Roby
                 if display_point < display_point_min
                     display_point = display_point_min
                 end
-                @display_point = display_point
+                @display_point = Integer(display_point)
+                update_displayed_time_range
                 invalidate_current_tasks
             end
 
@@ -375,30 +423,38 @@ module Roby
                 elsif display_time && current_time
                     update_display_point
                 end
+                update_displayed_time_range
                 invalidate_current_tasks
                 event.accept
             end
 
-            def displayed_time_range
-                return if !display_time
-
-                display_point = self.display_point
-                window_width  = viewport.size.width
-                start_time = display_time - display_point * pixel_to_time
-                end_time   = start_time   + window_width * pixel_to_time
-                return start_time, end_time
+            def update_displayed_time_range
+                if display_time
+                    display_point = self.display_point
+                    window_width  = viewport.size.width
+                    start_time = display_time - display_point * pixel_to_time
+                    end_time   = start_time   + window_width * pixel_to_time
+                    @displayed_time_range = [start_time, end_time]
+                end
             end
+
+            # The range, in absolute time, currently visible in the view
+            #
+            # @return [(Time,Time),nil] either said range, or nil if nothing has
+            #   ever been displayed so far
+            attr_reader :displayed_time_range
 
             def invalidate_current_tasks
                 @current_tasks_dirty = true
-                invalidate_task_layout
             end
 
             def current_tasks_dirty?
                 @current_tasks_dirty
             end
 
-            def update_current_tasks
+            def update_current_tasks(force: false)
+                return if !force && !current_tasks_dirty?
+
                 current_tasks = all_tasks.dup
                 if restrict_to_jobs?
                     current_tasks = all_job_info.keys.to_set
@@ -468,6 +524,7 @@ module Roby
                 else
                     @current_tasks = tasks_in_range + tasks_outside_range
                 end
+                vertical_scroll_bar.setRange(0, current_tasks.size)
             end
 
             def massage_slot_time_argument(time, default)
@@ -548,18 +605,72 @@ module Roby
                 end
             end
 
-            def lay_out_events(fm, task, start_time, end_time)
-                # Compute the event placement. We do this before the
-                # background, as the event display might make us resize the
-                # line
-                event_base_y = fm.ascent
-                event_height = [2 * EVENT_CIRCLE_RADIUS, fm.height].max
-                event_max_x = []
-                line_height = task_height
-                events = task.history.map do |ev|
-                    next if ev.time < start_time || ev.time > end_time
+            class TaskLayout
+                attr_reader :base_time
+                attr_reader :time_to_pixel
+                attr_reader :fm
 
-                    event_x = time_to_pixel * (ev.time - display_time) + display_point
+                attr_reader :task
+                attr_reader :state
+
+                attr_reader :add_point
+                attr_reader :start_point
+                attr_reader :end_point
+
+                attr_reader :event_height
+                attr_reader :event_max_x
+                attr_reader :events
+                attr_accessor :messages
+
+                attr_reader :base_height
+
+                def initialize(task, base_time, time_to_pixel, fm)
+                    @task = task
+                    @base_time = base_time
+                    @time_to_pixel = time_to_pixel
+                    @fm = fm
+                    @event_height = [2 * EVENT_CIRCLE_RADIUS, fm.height].max
+
+                    @add_point = time_to_pixel * (task.addition_time - base_time)
+                    @history_size = 0
+                    @state = :pending
+                    @end_time = task.finalization_time
+                    @messages = Array.new
+                    @events = Array.new
+                    @event_max_x = Array.new
+                    @base_height = event_height
+                    update
+                end
+
+                def update
+                    history_size = events.size
+                    return if task.history.size == history_size
+
+                    last_event = task.last_event
+                    if !last_event
+                        @state = :pending
+                        end_time = task.finalization_time
+                    else
+                        @state = GUI.task_state_at(task, last_event.time)
+                        if state != :running
+                            end_time = last_event.time
+                        end
+                    end
+
+                    if start_time = task.start_time
+                        @start_point = time_to_pixel * (start_time - base_time)
+                    end
+                    if end_time
+                        @end_point = time_to_pixel * (end_time - base_time)
+                    end
+
+                    task.history[history_size..-1].each do |event|
+                        append_event(event, event_height)
+                    end
+                end
+
+                def append_event(event, event_height)
+                    event_x = Integer(time_to_pixel * (event.time - base_time))
                     event_current_level = nil
                     event_max_x.each_with_index do |x, idx|
                         if x < event_x - EVENT_CIRCLE_RADIUS
@@ -569,154 +680,121 @@ module Roby
                     end
                     event_current_level ||= event_max_x.size
 
-                    event_y = event_base_y + event_current_level * event_height
-                    if event_y + event_height + fm.descent > line_height
-                        line_height = event_y + event_height + fm.descent
+                    event_y = event_current_level * event_height
+                    event_max_x[event_current_level] = event_x + 2 * EVENT_CIRCLE_RADIUS + fm.width(event.symbol.to_s)
+                    events << [event.time, event_x, event_y, event.symbol.to_s]
+                end
+
+                def events_in_range(display_start_time, display_end_time)
+                    events.find_all do |time, _|
+                        time > display_start_time && time < display_end_time
                     end
-                    event_max_x[event_current_level] = event_x + 2 * EVENT_CIRCLE_RADIUS + fm.width(ev.symbol.to_s)
-                    [event_x, event_y, ev.symbol.to_s]
-                end.compact
-                return events, line_height
+                end
+
+                def height(display_start_time, display_end_time)
+                    max_event_y = events_in_range(display_start_time, display_end_time).
+                        max_by { |_, _, y, _| y } || Array.new
+                    max_event_y = max_event_y[2] || 0
+                    (max_event_y || 0) + (messages.size + 1) * fm.height
+                end
             end
 
-            TaskLayout = Struct.new :task, :top_y, :events_height, :message_height,
-                :state, :add_point, :start_point,
-                :end_point, :events, :messages do
-                    def height; events_height + message_height end
-                end
-
-            def lay_out_tasks_and_events(fm, max_height: nil)
-                current_tasks = self.current_tasks
-                return Array.new if current_tasks.empty?
-
-                display_start_time, display_end_time = displayed_time_range
-
-                # Start at the current
-                first_index =
-                    if start_line >= current_tasks.size
-                        current_tasks.size - 1
-                    else start_line
-                    end
-                current_tasks = current_tasks[first_index..-1]
-                text_height = fm.height
-                bottom_y = task_separation + text_height
-
-                layout = Array.new
-                current_tasks.each_with_index do |task, idx|
-                    top_y = bottom_y + task_separation + text_height
-                    break if max_height && top_y > max_height
-
-                    last_event = task.last_event
-                    if !last_event
-                        state = :pending
-                        end_time = task.finalization_time
-                    else
-                        state = GUI.task_state_at(task, last_event.time)
-                        if state != :running
-                            end_time = last_event.time
-                        end
-                    end
-                    add_point = time_to_pixel * (task.addition_time - display_time) + display_point
-                    if task.start_time
-                        start_point = time_to_pixel * (task.start_time - display_time) + display_point
-                    end
-                    if end_time
-                        end_point = time_to_pixel * (end_time - display_time) + display_point
-                    end
-                    events, events_height = lay_out_events(fm, task, display_start_time, display_end_time)
-
-                    messages = Array.new
-                    pending = scheduler_state.pending_non_executable_tasks.
-                        find_all { |_, *args| args.include?(task) }
-                    pending.each do |msg, *args|
-                        messages << Schedulers::State.format_message_into_string(msg, *args)
-                    end
-                    holdoffs = scheduler_state.non_scheduled_tasks.fetch(task, Set.new)
-                    holdoffs.each do |msg, *args|
-                        messages << Schedulers::State.format_message_into_string(msg, *args)
-                    end
-                    actions = scheduler_state.actions.fetch(task, Set.new)
-                    actions.each do |msg, *args|
-                        messages << Schedulers::State.format_message_into_string(msg, *args)
-                    end
-                    messages_height = text_height * messages.size
-
-                    bottom_y = top_y + events_height + messages_height
-                    layout << TaskLayout.new(task, top_y, events_height, messages_height, state, add_point,
-                                             start_point, end_point, events, messages)
-                end
+            def lay_out_task(fm, task)
+                layout = layout_cache[task] ||= TaskLayout.new(task, base_time, time_to_pixel, fm)
+                layout.messages = messages_per_task.fetch(task, Array.new)
+                layout.update
                 layout
             end
 
-            def invalidate_task_layout
-                @task_layout_dirty = true
-            end
+            def paint_tasks(painter, fm, layout, top_y)
+                current_point  = Integer((current_time -  base_time) * time_to_pixel)
+                display_offset = Integer(display_point - (display_time - base_time) * time_to_pixel)
+                display_start_time, display_end_time = displayed_time_range
+                view_height = viewport.size.height
 
-            def task_layout_dirty?
-                @task_layout_dirty
-            end
+                fm = Qt::FontMetrics.new(font)
+                text_height  = fm.height
+                text_ascent  = fm.ascent
+                text_descent = fm.descent
 
-            def update_task_layout(metrics: Qt::FontMetrics.new(font))
-                @task_layout_dirty = false
-                @task_layout = lay_out_tasks_and_events(metrics, max_height: viewport.size.height)
-            end
+                update_current_tasks
+                current_tasks[start_line..-1].each do |task|
+                    break if top_y > view_height
 
-            def paint_tasks(painter, fm, layout)
-                current_point = (current_time - display_time) * time_to_pixel + display_point
-                layout.each do |task_layout|
+                    task_layout = lay_out_task(fm, task)
                     add_point, start_point, end_point =
                         task_layout.add_point, task_layout.start_point, task_layout.end_point
-                    top_y         = task_layout.top_y
-                    events_height = task_layout.events_height
                     state         = task_layout.state
                     task          = task_layout.task
+                    event_height  = task_layout.event_height
+
+                    events = task_layout.events_in_range(display_start_time, display_end_time)
+                    task_line_height = (events.max_by { |_, _, y, _| y } || Array.new)[2] || 0
+                    task_line_height += event_height
+                    task_line_height = [task_height, task_line_height].max
 
                     # Paint the pending stage, i.e. before the task started
+                    top_task_line = top_y
                     painter.brush = TASK_BRUSHES[:pending]
                     painter.pen   = TASK_PENS[:pending]
                     painter.drawRect(
-                        add_point, top_y,
-                        (start_point || end_point || current_point) - add_point, events_height)
+                        add_point + display_offset, top_task_line,
+                        (start_point || end_point || current_point) - add_point, task_line_height)
 
                     if start_point
                         painter.brush = TASK_BRUSHES[:running]
                         painter.pen   = TASK_PENS[:running]
                         painter.drawRect(
-                            start_point, top_y,
-                            (end_point || current_point) - start_point, events_height)
+                            start_point + display_offset, top_task_line,
+                            (end_point || current_point) - start_point, task_line_height)
 
                         if state && state != :running
                             # Final state is shown by "eating" a few pixels at the task
                             painter.brush = TASK_BRUSHES[state]
                             painter.pen   = TASK_PENS[state]
-                            painter.drawRect(end_point - 2, top_y, 4, task_height)
+                            painter.drawRect(
+                                end_point - 2 + display_offset, top_task_line,
+                                4, task_height)
                         end
                     end
 
-                    # Add the text
-                    painter.pen = TASK_NAME_PEN
-                    painter.drawText(Qt::Point.new(0, top_y - fm.descent), task_timeline_title(task))
-
                     # Display the emitted events
-                    task_layout.events.each do |x, y, text|
+                    event_baseline = top_task_line + event_height / 2
+                    events.each do |_, x, y, text|
+                        x += display_offset
+                        y += event_baseline
                         painter.brush, painter.pen = EVENT_STYLES[EVENT_CONTROLABLE | EVENT_EMITTED]
-                        painter.drawEllipse(Qt::Point.new(x, top_y + y),
+                        painter.drawEllipse(Qt::Point.new(x, y),
                                             EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS)
                         painter.pen = EVENT_NAME_PEN
-                        painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, top_y + y), text)
+                        painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, y), text)
                     end
 
+                    # Add the title
+                    painter.pen = TASK_NAME_PEN
+                    title_baseline = top_task_line + task_line_height + fm.ascent
+                    painter.drawText(Qt::Point.new(0, title_baseline), task_timeline_title(task))
+
                     # And finally display associated messages
+                    messages_baseline = title_baseline + text_height
                     painter.pen = TASK_MESSAGE_PEN
-                    task_layout.messages.each_with_index do |msg, i|
-                        y = top_y + task_layout.events_height + fm.height * (i + 1) - fm.descent
-                        painter.drawText(Qt::Point.new(TASK_MESSAGE_MARGIN, y), msg)
+                    task_layout.messages.each_with_index do |msg|
+                        messages_baseline += text_height
+                        painter.drawText(Qt::Point.new(TASK_MESSAGE_MARGIN, messages_baseline), msg)
                     end
+
+                    top_y = messages_baseline + text_descent
                 end
             end
 
             TIMELINE_GRAY_PEN = Qt::Pen.new(Qt::Color.new('gray'))
             TIMELINE_BLACK_PEN = Qt::Pen.new(Qt::Color.new('black'))
+
+            def timeline_height
+                fm = Qt::FontMetrics.new(font)
+                fm.height + fm.descent + TIMELINE_RULER_LINE_LENGTH
+            end
+
             def paintEvent(event)
                 return if !display_time
 
@@ -726,15 +804,9 @@ module Roby
                 painter.font = font
 
                 fm = Qt::FontMetrics.new(font)
-                if current_tasks_dirty?
-                    update_current_tasks
-                    vertical_scroll_bar.setRange(0, current_tasks.size)
-                end
-                if task_layout_dirty?
-                    update_task_layout(metrics: fm)
-                end
+                update_current_tasks
                 paint_timeline(painter, fm)
-                paint_tasks(painter, fm, task_layout)
+                paint_tasks(painter, fm, task_layout, timeline_height)
 
                 # Draw the "zero" line
                 painter.pen = TIMELINE_GRAY_PEN
