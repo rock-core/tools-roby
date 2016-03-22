@@ -701,35 +701,31 @@ module Roby
         # Declares that the command of this event should be achieved by calling
         # the provided block
         #
-        # @option [Boolean] :emit_on_success (true) if true, the event will be
-        #   emitted if the block got called successfully. Otherwise, nothing
-        #   will be done
-        # @option [#call] :callback (nil) if given, it gets called in Roby's
-        #   event thread with the return value of the block as argument if the
-        #   block got called successfully
-        def achieve_asynchronously(emit_on_success: true, callback: proc { }, &block)
-            worker_thread = Thread.new do
-                begin
-                    result = block.call
-                    execution_engine.once do |plan|
-                        begin
-                            callback.call(result)
-                            if emit_on_success
-                                emit
-                            end
-                        rescue Exception => e
-                            emit_failed(e)
-                        end
-                    end
-
-                rescue Exception => e
-                    execution_engine.once do |plan|
-                        emit_failed(e)
-                    end
-                end
+        # @param [Boolean] emit_on_success if true, the event will be emitted if
+        #   the block got called successfully. Otherwise, nothing will be done.
+        # @param [Promise] a promise object that represents the work. Use
+        #   {ExecutionEngine#promise} to create this promise.
+        # @param [Proc,nil] block a block from which the method will create a
+        #   promise. This promise is *not* returned as it would give a false
+        #   sense of security. 
+        #
+        # @return [Promise] the promise. Do NOT chain work on this promise, as
+        #   that work won't be automatically error-checked by Roby's mechanisms
+        def achieve_asynchronously(promise = nil, emit_on_success: true, &block)
+            if promise && block
+                raise ArgumentError, "cannot give both a promise and a block"
+            elsif block
+                promise = execution_engine.promise(&block)
             end
-            execution_engine.register_worker_thread(worker_thread)
-            worker_thread
+
+            if emit_on_success
+                promise = promise.on_success { emit }
+            end
+            promise.on_error do |reason|
+                emit_failed(reason)
+            end
+            promise.execute
+            promise
         end
 
 	# A [time, event] array of past event emitted by this object

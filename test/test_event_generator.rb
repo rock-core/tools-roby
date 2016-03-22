@@ -1031,54 +1031,61 @@ describe Roby::EventGenerator do
     include Roby::SelfTest
 
     describe "#achieve_asynchronously" do
-        attr_reader :ev, :main_thread
+        attr_reader :ev, :main_thread, :recorder
+
         before do
-            plan.add(@ev = Roby::EventGenerator.new(true))
+            plan.add_permanent_event(@ev = Roby::EventGenerator.new(true))
             @main_thread = Thread.current
+            @recorder = flexmock
         end
-        it "should call the provided block in a separate thread" do
+        it "calls the provided block in a separate thread" do
             recorder = flexmock
             recorder.should_receive(:called).once.with(proc { |thread| thread != main_thread })
-            ev.achieve_asynchronously do
-                recorder.called(Thread.current)
-            end.join
+            ev.achieve_asynchronously { recorder.called(Thread.current) }
             process_events
         end
-        it "should call emit_failed if the block raises" do
+        it "calls emit_failed if the block raises" do
             flexmock(ev).should_receive(:emit_failed).once.
                 with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
-            ev.achieve_asynchronously do
-                raise ArgumentError
-            end.join
+            ev.achieve_asynchronously { raise ArgumentError }
             process_events
         end
-        it "should call the provided callback with the block's result in the execution engine thread" do
+        it "accepts a promise as argument" do
             recorder, result = flexmock, flexmock
             recorder.should_receive(:call).with(Thread.current, result)
-            ev.achieve_asynchronously(callback: recorder) do
-                result
-            end.join
+            promise = execution_engine.
+                promise { result }.
+                on_success { |result| recorder.call(Thread.current, result) }
+
+            ev.achieve_asynchronously(promise)
             inhibit_fatal_messages { process_events }
         end
-        it "should emit the event if the emit_on_success option is true" do
-            recorder = flexmock
+        it "emits the event on success if the emit_on_success option is true" do
             recorder.should_receive(:call).ordered
             flexmock(ev).should_receive(:emit).once.with(proc { |*args| Thread.current == main_thread }).ordered
-            ev.achieve_asynchronously emit_on_success: true do
-                recorder.call
-            end.join
-            process_events
+            ev.achieve_asynchronously(emit_on_success: true) { recorder.call }
+            execution_engine.join_all_waiting_work
         end
         it "should not emit the event automatically if the emit_on_success option is false" do
-            flexmock(ev).should_receive(:emit).never
-            ev.achieve_asynchronously emit_on_success: false do
-            end.join
+            ev.achieve_asynchronously(emit_on_success: false) { true }
+            process_events
+            assert !ev.emitted?
         end
-        it "should call emit_failed if the callback raises" do
+
+        it "calls emit_failed if the emission fails" do
+            flexmock(ev).should_receive(:emit).once.and_raise(ArgumentError)
+            flexmock(ev).should_receive(:emit_failed).once.with(proc { |e| Thread.current == main_thread })
+            promise = execution_engine.promise { }
+            ev.achieve_asynchronously(promise)
+            process_events
+        end
+
+        it "calls emit_failed if the callback raises" do
             flexmock(ev).should_receive(:emit_failed).once.
                 with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
-            ev.achieve_asynchronously(callback: proc { raise ArgumentError }) do
-            end.join
+            promise = execution_engine.promise { }.
+                on_success { raise ArgumentError }
+            ev.achieve_asynchronously(promise)
             process_events
         end
     end

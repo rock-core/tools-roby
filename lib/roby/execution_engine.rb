@@ -178,6 +178,7 @@ module Roby
 
             @control = control
             @scheduler = Schedulers::Null.new(plan)
+            @thread_pool = Concurrent::CachedThreadPool.new
             @thread = Thread.current
 
             @propagation = nil
@@ -221,6 +222,12 @@ module Roby
             @dependency_graph = plan.task_relation_graph_for(TaskStructure::Dependency)
             @precedence_graph = plan.event_relation_graph_for(EventStructure::Precedence)
         end
+
+        # A thread pool on which async work should be executed
+        #
+        # @see {#promise}
+        # @return [Concurrent::CachedThreadPool]
+        attr_reader :thread_pool
 
         # Cached graph object for {EventStructure::Precedence}
         #
@@ -2070,6 +2077,11 @@ module Roby
             ivar.value!
         end
 
+        def shutdown
+            killall
+            thread_pool.shutdown
+        end
+
         # Kill all tasks that are currently running in the plan
         def killall
             scheduler_enabled = scheduler.enabled?
@@ -2180,6 +2192,16 @@ module Roby
 		listener.call(self, kind, error, involved_objects)
 	    end
 	end
+
+        # Create a promise to execute the given block in a separate thread
+        #
+        # Note that the returned value is a {Roby::Promise}. This means that
+        # callbacks added with #on_success or #rescue will be executed in the
+        # execution engine thread by default.
+        def promise(&block)
+            promise = Concurrent::Promise.new(executor: thread_pool, &block)
+            Promise.new(self, promise)
+        end
     end
 
     # Execute the given block in the main plan's propagation context, but don't

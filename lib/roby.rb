@@ -46,6 +46,7 @@ require 'roby/version'
 require 'roby/droby/event_logging'
 
 require 'roby/support'
+require 'roby/promise'
 require 'roby/hooks'
 require 'roby/distributed_object'
 require 'roby/standard_errors'
