@@ -98,7 +98,7 @@ module Roby
 
             def process_events
                 @received_exceptions.clear
-                execution_engine.join_all_worker_threads
+                execution_engine.join_all_waiting_work
                 execution_engine.start_new_cycle
                 execution_engine.process_events
                 @received_exceptions.each do |kind, e|

@@ -191,7 +191,7 @@ module Roby
             @external_events_handlers = []
             @at_cycle_end_handlers = Array.new
             @process_every   = Array.new
-            @waiting_threads = Array.new
+            @waiting_work = Concurrent::Array.new
             @emitted_events  = Array.new
             @disabled_handlers = Set.new
             @additional_errors = nil
@@ -417,31 +417,14 @@ module Roby
             nil
         end
 
-        # Registers a thread on {#worker_threads}
-        def register_worker_thread(thread)
-            @worker_threads_mtx.synchronize do
-                worker_threads << thread
-            end
-        end
-
-        # Removes the dead workers from {#worker_threads} 
-        def cleanup_worker_threads
-            @worker_threads_mtx.synchronize do
-                worker_threads.delete_if { |t| !t.alive? }
-            end
-        end
-
-        # Waits for all threads in {#worker_threads} to finish
-        #
-        # It will not reflect the exceptions thrown by the thread
-        def join_all_worker_threads
-            threads = @worker_threads_mtx.synchronize do
-                worker_threads.dup
-            end
-            threads.each do |t|
-                begin t.join
-                rescue Exception
+        # Waits for all obligations in {#waiting_work} to finish
+        def join_all_waiting_work
+            while waiting_work.any? { |w| !w.unscheduled? }
+                waiting_work.delete_if do |w|
+                    w.complete?
                 end
+                process_events
+                Thread.pass
             end
         end
 
@@ -1265,8 +1248,13 @@ module Roby
         # Schedules +block+ to be called at the beginning of the next execution
         # cycle, in propagation context.
         #
-        # @yieldparam [Plan] plan the plan on which this engine works
-        def once(description: 'once block', type: :external_events, **options, &block)
+        # @param [#fail] sync a synchronization object that is used to
+        #   communicate between the once block and the calling thread. The main
+        #   use of this parameter is to make sure that #fail is called if the
+        #   execution engine quits
+        # @param (see PropagationHandlerMethods#create_propagation_handler)
+        def once(sync: nil, description: 'once block', type: :external_events, **options, &block)
+            waiting_work << sync if sync
             once_blocks << create_propagation_handler(description: description, type: type, once: true, **options, &block)
         end
 
@@ -1454,7 +1442,7 @@ module Roby
             next_steps = gather_propagation do
 	        events_errors = gather_errors do
                     if !quitting? || !garbage_collect([])
-                        cleanup_worker_threads
+                        waiting_work.delete_if { |w| w.complete? }
                         log_timepoint 'workers'
                         gather_external_events
                         log_timepoint 'external_events'
@@ -1712,19 +1700,16 @@ module Roby
             end.compact!
         end
 
-        # A list of threads which are currently waitiing for the control thread
-        # (see for instance Roby.execute)
+        # A list of threaded objects waiting for the control thread
         #
-        # #run will raise ExecutionQuitError on this threads if they
-        # are still waiting while the control is quitting
-        attr_reader :waiting_threads
-
-        # A list of threads that are performing work for the benefit of the
-        # currently running Roby plan
+        # Objects registered here will be notified them by calling {#fail} when
+        # it quits. In addition, {#join_all_waiting_work} will wait for all
+        # pending jobs to finish.
         #
-        # It is there mostly for the benefit of {#join_all_worker_threads}
-        # during testing
-        attr_reader :worker_threads
+        # Note that all {Concurrent::Obligation} subclasses fit the bill
+        #
+        # @return [Array<#fail,#complete?>]
+        attr_reader :waiting_work
 
         # A set of blocks that are called at each cycle end
         attr_reader :at_cycle_end_handlers
@@ -1830,7 +1815,7 @@ module Roby
 
 	    @quit = 0
             @allow_propagation = false
-            @waiting = Array.new
+            @waiting_work = Concurrent::Array.new
 
             @thread = Thread.current
             @thread.priority = THREAD_PRIORITY
@@ -1841,9 +1826,12 @@ module Roby
         ensure
             # reset the options only if we are in the control thread
             @thread = nil
-            waiting.each do |w|
-                w.fail ExecutionQuitError
+            waiting_work.each do |w|
+                if !w.complete?
+                    w.fail ExecutionQuitError
+                end
             end
+            waiting_work.clear
             finalizers.each { |blk| blk.call rescue nil }
             @quit = 0
             @allow_propagation = true
@@ -2034,53 +2022,23 @@ module Roby
 	    end
 	end
 
-	# If the event thread has been started in its own thread, 
-	# wait for it to terminate
-	def join
-	    thread.join if thread
-
-	rescue Interrupt
-            return unless thread
-
-            ExecutionEngine.logger.level = Logger::INFO
-            ExecutionEngine.warn "received interruption request"
-            if quitting?
-                force_quit
-                thread.raise Interrupt, "interrupting control thread at user request"
-            else
-                quit
-            end
-
-	    retry
-	end
-
         # Block until the given block is executed by the execution thread, at
         # the beginning of the event loop, in propagation context. If the block
         # raises, the exception is raised back in the calling thread.
-        #
-        # This cannot be used in the execution thread itself.
-        #
-        # If no execution thread is present, yields after having taken
-        # Roby.global_lock
         def execute
 	    if inside_control?
 		return yield
 	    end
 
             ivar = Concurrent::IVar.new
-            once do
+            once(sync: ivar) do
                 begin
                     ivar.set(yield)
                 rescue ::Exception => e
                     ivar.fail(e)
                 end
             end
-
-            ivar.wait
-            if ivar.fulfilled?
-                ivar.value
-            else raise ivar.reason
-            end
+            ivar.value!
         end
 
         # Stops the current thread until the given even is emitted. If the event
@@ -2090,21 +2048,17 @@ module Roby
                 raise ThreadMismatch, "cannot use #wait_until in execution threads"
             end
 
-            result = Concurrent::IVar.new
-            once do
+            ivar = Concurrent::IVar.new
+            once(sync: ivar) do
                 ev.if_unreachable(cancel_at_emission: true) do |reason, event|
-                    result.fail(UnreachableEvent.new(event, reason))
+                    ivar.fail(UnreachableEvent.new(event, reason))
                 end
                 ev.on do |ev|
-                    result.set(true)
+                    ivar.set(true)
                 end
                 yield if block_given?
             end
-
-            result.wait
-            if !result.fulfilled?
-                raise result.reason
-            end
+            ivar.value!
         end
 
         # Kill all tasks that are currently running in the plan

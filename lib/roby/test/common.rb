@@ -239,7 +239,7 @@ module Roby
 	def process_events
             registered_plans.each do |p|
                 engine = p.execution_engine
-                engine.join_all_worker_threads
+                engine.join_all_waiting_work
                 engine.start_new_cycle
                 engine.process_events
                 engine.cycle_end(Hash.new)
