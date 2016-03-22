@@ -667,7 +667,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    end
 
 	    # Wait for the thread to block
-	    while !t.stop?; sleep(0.1) end
+	    while !t.stop?; sleep(0.01) end
 	    mock.main_before
 	    assert(t.alive?)
             # We use execution_engine.process_events as we are making the execution_engine
@@ -695,7 +695,7 @@ class TC_ExecutionEngine < Minitest::Test
 	end
 
 	# Wait for the thread to block
-	while !t.stop?; sleep(0.1) end
+	while !t.stop?; sleep(0.01) end
         assert(t.alive?)
         # We use execution_engine.process_events as we are making the execution_engine
         # believe that it is running while it is not
@@ -714,7 +714,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    end
 	end
 
-	while !t.stop?; sleep(0.1) end
+	while !t.stop?; sleep(0.01) end
         # We use execution_engine.process_events as we are making the execution_engine
         # believe that it is running while it is not
 	execution_engine.process_events
@@ -735,7 +735,7 @@ class TC_ExecutionEngine < Minitest::Test
 	end
 
         # Wait for #wait_until, in the thread, to wait for the main thread
-	while !t.stop?; sleep(0.1) end
+	while !t.stop?; sleep(0.01) end
         # And process the events
         with_log_level(Roby, Logger::FATAL) do
             # We use execution_engine.process_events as we are making the execution_engine

@@ -7,7 +7,7 @@ class TC_ThreadTask < Minitest::Test
         task.start!
         while task.thread
             process_events
-            sleep 0.1
+            sleep 0.01
         end
     end
 
@@ -51,7 +51,7 @@ class TC_ThreadTask < Minitest::Test
             implementation do
                 loop do
                     interruption_point
-                    sleep 0.1
+                    sleep 0.01
                 end
             end
         end

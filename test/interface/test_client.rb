@@ -41,7 +41,7 @@ module Roby
                     begin
                         while true
                             server.poll
-                            sleep 0.1
+                            sleep 0.01
                         end
                     rescue ComError
                     end

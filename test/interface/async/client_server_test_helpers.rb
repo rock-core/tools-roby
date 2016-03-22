@@ -40,7 +40,7 @@ module Roby
                     client
                 ensure
                     while !client.connection_future.complete?
-                        sleep 0.1
+                        sleep 0.01
                         server.process_pending_requests
                     end
                     client.poll
