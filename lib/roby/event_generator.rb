@@ -711,7 +711,7 @@ module Roby
             worker_thread = Thread.new do
                 begin
                     result = block.call
-                    execution_engine.queue_worker_completion_block do |plan|
+                    execution_engine.once do |plan|
                         begin
                             callback.call(result)
                             if emit_on_success
@@ -723,7 +723,7 @@ module Roby
                     end
 
                 rescue Exception => e
-                    execution_engine.queue_worker_completion_block do |plan|
+                    execution_engine.once do |plan|
                         emit_failed(e)
                     end
                 end

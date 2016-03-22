@@ -198,7 +198,7 @@ module Roby
 
             @worker_threads_mtx = Mutex.new
             @worker_threads = Array.new
-            @worker_completion_blocks = Queue.new
+            @once_blocks = Queue.new
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -252,9 +252,14 @@ module Roby
         # The blocks that are currently listening to exceptions
         # @return [Array<#call>]
         attr_reader :exception_listeners
-        # @return [Queue] blocks queued for execution in the next cycle by
-        #   {#queue_worker_completion_block}
-        attr_reader :worker_completion_blocks
+        # Thread-safe queue to push work to the execution engine
+        #
+        # Do not access directly, use {#once} instead
+        #
+        # @return [Queue] blocks that should be executed at the beginning of the
+        #   next execution cycle. It is the only thread safe way to queue work
+        #   to be executed by the engine
+        attr_reader :once_blocks
 
         # @api private
         # 
@@ -317,6 +322,25 @@ module Roby
             # @return [Array<PollBlockDefinition>]
             attr_reader :propagation_handlers
 
+            # @api private
+            #
+            # Helper method that gets the arguments necessary top create a
+            # propagation handler, sanitizes and normalizes them, and returns
+            # both the propagation type and the {PollBlockDefinition} object
+            def create_propagation_handler(type: :external_events, description: 'propagation handler', **poll_options, &block)
+                check_arity block, 1
+                handler = PollBlockDefinition.new(description, block, **poll_options)
+
+                if type == :external_events
+                    if handler.late?
+                        raise ArgumentError, "only :propagation handlers can be marked as 'late', the external event handlers cannot"
+                    end
+                elsif type != :propagation
+                    raise ArgumentError, "invalid value for the :type option. Expected :propagation or :external_events, got #{type}"
+                end
+                return type, handler
+            end
+
             # The propagation handlers are blocks that should be called at
             # various places during propagation for all plans. These objects
             # are called in propagation context, which means that the events
@@ -342,20 +366,13 @@ module Roby
             # @return [Object] an ID object that can be passed to
             #   {#remove_propagation_handler}
             def add_propagation_handler(type: :external_events, description: 'propagation handler', **poll_options, &block)
-                check_arity block, 1
-                new_handler = PollBlockDefinition.new(description, block, **poll_options)
-
+                type, handler = create_propagation_handler(type: type, description: description, **poll_options, &block)
                 if type == :propagation
-                    propagation_handlers << new_handler
+                    propagation_handlers << handler
                 elsif type == :external_events
-                    if new_handler.late?
-                        raise ArgumentError, "only :propagation handlers can be marked as 'late', the external event handlers cannot"
-                    end
-                    external_events_handlers << new_handler
-                else
-                    raise ArgumentError, "invalid value for the :type option. Expected :propagation or :external_events, got #{type}"
+                    external_events_handlers << handler
                 end
-                new_handler.id
+                handler.id
             end
             
             # This method removes a propagation handler which has been added by
@@ -412,13 +429,6 @@ module Roby
             @worker_threads_mtx.synchronize do
                 worker_threads.delete_if { |t| !t.alive? }
             end
-        end
-
-        # Adds a block to be called at the beginning of the next execution cycle
-        #
-        # Unlike {#once}, it is thread-safe
-        def queue_worker_completion_block(&block)
-            worker_completion_blocks << block
         end
 
         # Waits for all threads in {#worker_threads} to finish
@@ -715,26 +725,29 @@ module Roby
             end
         end
 
-        # Process the pending worker completion blocks
-        def process_workers
-            cleanup_worker_threads
-
-            completion_blocks = []
-            while !worker_completion_blocks.empty?
-                block = worker_completion_blocks.pop
-                completion_blocks << PollBlockDefinition.new("worker completion handler", block)
+        # Dispatch {#once_blocks} to the other handler sets for further
+        # processing
+        def process_once_blocks
+            while !once_blocks.empty?
+                type, block = once_blocks.pop
+                if type == :external_events
+                    external_events_handlers << block
+                else
+                    propagation_handlers << block
+                end
             end
-            call_poll_blocks(completion_blocks)
         end
 
         # Gather the events that come out of this plan manager
         def gather_external_events
+            process_once_blocks
             gather_framework_errors('delayed events')     { execute_delayed_events }
             call_poll_blocks(self.class.external_events_handlers)
             call_poll_blocks(self.external_events_handlers)
         end
 
         def call_propagation_handlers
+            process_once_blocks
             if scheduler.enabled?
                 gather_framework_errors('scheduler') do
                     scheduler.initial_events
@@ -1253,8 +1266,8 @@ module Roby
         # cycle, in propagation context.
         #
         # @yieldparam [Plan] plan the plan on which this engine works
-        def once(description: 'once block', **options, &block)
-            add_propagation_handler(type: :external_events, once: true, description: description, **options, &block)
+        def once(description: 'once block', type: :external_events, **options, &block)
+            once_blocks << create_propagation_handler(description: description, type: type, once: true, **options, &block)
         end
 
         # Schedules +block+ to be called once after +delay+ seconds passed, in
@@ -1441,7 +1454,7 @@ module Roby
             next_steps = gather_propagation do
 	        events_errors = gather_errors do
                     if !quitting? || !garbage_collect([])
-                        process_workers
+                        cleanup_worker_threads
                         log_timepoint 'workers'
                         gather_external_events
                         log_timepoint 'external_events'
