@@ -515,7 +515,7 @@ module Roby
                     central_time_min = 3
                     central_time_max = central_time_min + central_label_width
                 end
-                painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
+                painter.pen = TIMELINE_GRAY_PEN
                 painter.drawText(central_time_min, text_height, central_label)
                 painter.drawRect(central_time_min - 2, 0, central_label_width + 4, text_height + 2)
 
@@ -528,7 +528,7 @@ module Roby
                 # Now display the timeline itself. If a normal ruler collides
                 # with the current time, just ignore it
                 start_time, end_time = displayed_time_range
-                painter.pen = Qt::Pen.new(Qt::Color.new('black'))
+                painter.pen = TIMELINE_BLACK_PEN
                 ruler_base_time = (start_time.to_f / step_size).floor * step_size
                 ruler_base_x    = (ruler_base_time - start_time.to_f) * time_to_pixel
                 step_count = ((end_time.to_f - ruler_base_time) / step_size).ceil
@@ -670,29 +670,29 @@ module Roby
                     task          = task_layout.task
 
                     # Paint the pending stage, i.e. before the task started
-                    painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[:pending])
-                    painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[:pending])
+                    painter.brush = TASK_BRUSHES[:pending]
+                    painter.pen   = TASK_PENS[:pending]
                     painter.drawRect(
                         add_point, top_y,
                         (start_point || end_point || current_point) - add_point, events_height)
 
                     if start_point
-                        painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[:running])
-                        painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[:running])
+                        painter.brush = TASK_BRUSHES[:running]
+                        painter.pen   = TASK_PENS[:running]
                         painter.drawRect(
                             start_point, top_y,
                             (end_point || current_point) - start_point, events_height)
 
                         if state && state != :running
                             # Final state is shown by "eating" a few pixels at the task
-                            painter.brush = Qt::Brush.new(TASK_BRUSH_COLORS[state])
-                            painter.pen   = Qt::Pen.new(TASK_PEN_COLORS[state])
+                            painter.brush = TASK_BRUSHES[state]
+                            painter.pen   = TASK_PENS[state]
                             painter.drawRect(end_point - 2, top_y, 4, task_height)
                         end
                     end
 
                     # Add the text
-                    painter.pen = Qt::Pen.new(TASK_NAME_COLOR)
+                    painter.pen = TASK_NAME_PEN
                     painter.drawText(Qt::Point.new(0, top_y - fm.descent), task_timeline_title(task))
 
                     # Display the emitted events
@@ -700,12 +700,12 @@ module Roby
                         painter.brush, painter.pen = EVENT_STYLES[EVENT_CONTROLABLE | EVENT_EMITTED]
                         painter.drawEllipse(Qt::Point.new(x, top_y + y),
                                             EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS)
-                        painter.pen = Qt::Pen.new(EVENT_NAME_COLOR)
+                        painter.pen = EVENT_NAME_PEN
                         painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, top_y + y), text)
                     end
 
                     # And finally display associated messages
-                    painter.pen = Qt::Pen.new(TASK_MESSAGE_COLOR)
+                    painter.pen = TASK_MESSAGE_PEN
                     task_layout.messages.each_with_index do |msg, i|
                         y = top_y + task_layout.events_height + fm.height * (i + 1) - fm.descent
                         painter.drawText(Qt::Point.new(TASK_MESSAGE_MARGIN, y), msg)
@@ -713,6 +713,8 @@ module Roby
                 end
             end
 
+            TIMELINE_GRAY_PEN = Qt::Pen.new(Qt::Color.new('gray'))
+            TIMELINE_BLACK_PEN = Qt::Pen.new(Qt::Color.new('black'))
             def paintEvent(event)
                 return if !display_time
 
@@ -733,7 +735,7 @@ module Roby
                 paint_tasks(painter, fm, task_layout)
 
                 # Draw the "zero" line
-                painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
+                painter.pen = TIMELINE_GRAY_PEN
                 painter.drawLine(display_point, fm.height + 2, display_point, size.height)
 
             ensure

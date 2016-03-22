@@ -15,6 +15,10 @@ module Roby
 	    finished: Qt::Color.new('#E2A8A8'),
 	    finalized: Qt::Color.new('#555555')
 	}
+        TASK_BRUSHES = Hash.new
+        TASK_BRUSH_COLORS.each do |name, color|
+            TASK_BRUSHES[name] = Qt::Brush.new(color)
+        end
 	TASK_PEN_COLORS = {
 	    pending:  Qt::Color.new('#6DF3FF'),
 	    running:  Qt::Color.new('#B0FFA6'),
@@ -22,10 +26,17 @@ module Roby
 	    finished: Qt::Color.new('#E2A8A8'),
 	    finalized: Qt::Color.new('#555555')
 	}
+        TASK_PENS = Hash.new
+        TASK_PEN_COLORS.each do |name, color|
+            TASK_PENS[name] = Qt::Pen.new(color)
+        end
 	TASK_NAME_COLOR = Qt::Color.new('black')
+        TASK_NAME_PEN = Qt::Pen.new(TASK_NAME_COLOR)
 	TASK_MESSAGE_COLOR = Qt::Color.new('#606060')
+        TASK_MESSAGE_PEN = Qt::Pen.new(TASK_MESSAGE_COLOR)
         TASK_MESSAGE_MARGIN = 10
 	EVENT_NAME_COLOR = Qt::Color.new('black')
+        EVENT_NAME_PEN = Qt::Pen.new(EVENT_NAME_COLOR)
 	TASK_FONTSIZE = 10
 
 	PENDING_EVENT_COLOR    = 'black' # default color for events
