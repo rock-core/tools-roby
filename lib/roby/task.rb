@@ -88,6 +88,9 @@ module Roby
 
 	# The task arguments as symbol => value associative container
 	attr_reader :arguments
+        
+        # The global history of this task
+        attr_reader :history
 
 	# The part of +arguments+ that is meaningful for this task model. I.e.
         # it returns the set of elements in the +arguments+ property that define
@@ -206,6 +209,7 @@ module Roby
             @finishing = false
             @success = nil
             @reusable = true
+            @history = Array.new
 
 	    @arguments = TaskArguments.new(self)
             assign_arguments(arguments)
@@ -324,7 +328,7 @@ module Roby
         #
         # @return [TaskEvent,nil]
         def last_event
-            each_event.map(&:last).compact.max_by(&:time)
+            history.last
         end
 
         def create_fresh_copy
@@ -535,14 +539,7 @@ module Roby
 
         # Returns a list of Event objects, for all events that have been fired
         # by this task. The list is sorted by emission times.
-	def history
-	    history = []
-	    each_event do |event|
-		history += event.history
-	    end
-
-	    history.sort_by { |ev| ev.time }
-	end
+	attr_reader :history
 
         # Returns the set of tasks directly related to this task, either because
         # of task relations or because of task events that are related to other
@@ -588,6 +585,7 @@ module Roby
         # Hook called by TaskEventGenerator#fired when one of this task's events
         # has been fired.
         def fired_event(event)
+            history << event
 	    update_task_status(event)
         end
     

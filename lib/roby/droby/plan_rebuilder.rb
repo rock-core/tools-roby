@@ -296,7 +296,7 @@ module Roby
                 generator.history << event
                 generator.instance_eval { @emitted = true }
                 if generator.respond_to?(:task)
-                    generator.task.update_task_status(event)
+                    generator.task.fired_event(event)
                 end
                 generator.plan.emitted_events << event
                 announce_event_propagation_update
