@@ -737,7 +737,7 @@ class TC_ExecutionEngine < Minitest::Test
 
 	plan.add_permanent_task(task = Tasks::Simple.new)
 	t = Thread.new do
-	    execution_engine.wait_until(task.event(:start)) do
+	    execution_engine.wait_until(task.start_event) do
 		task.start!
 	    end
 	end

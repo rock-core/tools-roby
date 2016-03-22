@@ -2080,37 +2080,20 @@ module Roby
 		return yield
 	    end
 
-	    cv = Roby.condition_variable
-
-	    return_value = nil
-	    Roby.synchronize do
-		if !running?
-		    raise ExecutionQuitError, "control thread not running"
-		end
-
-		caller_thread = Thread.current
-		waiting_threads << caller_thread
-
-                done = false
-		once do
-		    begin
-			return_value = yield
-                        done = true
-			cv.broadcast
-		    rescue Exception => e
-			caller_thread.raise e, e.message, e.backtrace
-		    end
-                    waiting_threads.delete(caller_thread)
-		end
-
-                while !done
-                    cv.wait(Roby.global_lock)
+            ivar = Concurrent::IVar.new
+            once do
+                begin
+                    ivar.set(yield)
+                rescue ::Exception => e
+                    ivar.fail(e)
                 end
-	    end
-	    return_value
+            end
 
-	ensure
-	    Roby.return_condition_variable(cv)
+            ivar.wait
+            if ivar.fulfilled?
+                ivar.value
+            else raise ivar.reason
+            end
         end
 
         # Stops the current thread until the given even is emitted. If the event
@@ -2120,34 +2103,20 @@ module Roby
                 raise ThreadMismatch, "cannot use #wait_until in execution threads"
             end
 
-            Roby.condition_variable(true) do |cv, mt|
-                caller_thread = Thread.current
-                # Note: no need to add the caller thread in waiting_threads,
-                # since the event will become unreachable if the execution
-                # thread quits
-
-                mt.synchronize do
-                    done = false
-                    once do
-                        ev.if_unreachable(cancel_at_emission: true) do |reason, event|
-                            mt.synchronize do
-                                done = true
-                                caller_thread.raise UnreachableEvent.new(event, reason)
-                            end
-                        end
-                        ev.on do |ev|
-                            mt.synchronize do
-                                done = true
-                                cv.broadcast
-                            end
-                        end
-                        yield if block_given?
-                    end
-
-                    while !done
-                        cv.wait(mt)
-                    end
+            result = Concurrent::IVar.new
+            once do
+                ev.if_unreachable(cancel_at_emission: true) do |reason, event|
+                    result.fail(UnreachableEvent.new(event, reason))
                 end
+                ev.on do |ev|
+                    result.set(true)
+                end
+                yield if block_given?
+            end
+
+            result.wait
+            if !result.fulfilled?
+                raise result.reason
             end
         end
 
