@@ -1807,7 +1807,7 @@ module Roby
 
 	# Main event loop. Valid options are
 	# cycle::   the cycle duration in seconds (default: 0.1)
-        def run(cycle: 0.1)
+        def run(cycle: 0.1, thread_priority: THREAD_PRIORITY)
 	    if running?
 		raise "#run has already been called"
 	    end
@@ -1818,13 +1818,15 @@ module Roby
             @waiting_work = Concurrent::Array.new
 
             @thread = Thread.current
-            @thread.priority = THREAD_PRIORITY
+            original_priority = @thread.priority
+            @thread.priority = thread_priority
 
             @cycle_length = cycle
             event_loop
 
         ensure
             # reset the options only if we are in the control thread
+            @thread.priority = original_priority
             @thread = nil
             waiting_work.each do |w|
                 if !w.complete?
