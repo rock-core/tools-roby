@@ -17,6 +17,7 @@ module Roby
             end
 
             desc 'timepoints', 'extract timepoint information from the log file'
+            option :raw, desc: 'display the timpoints as they appear instead of formatting them per-thread and per-group'
             option :flamegraph, type: :string, desc: 'path to a HTML file that will display a flame graph'
             def timepoints(file)
                 require 'roby/droby/logfile/reader'
@@ -24,6 +25,29 @@ module Roby
                 require 'roby/cli/log/flamegraph_renderer'
 
                 stream = Roby::DRoby::Logfile::Reader.open(file)
+
+                if options[:raw]
+                    current_context = Hash.new { |h, k| h[k] = [k.to_s] }
+                    while data = stream.load_one_cycle
+                        data.each_slice(4) do |m, sec, usec, args|
+                            thread_id, name = *args
+                            path = current_context[thread_id]
+
+                            if m == :timepoint
+                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{name}"
+                            elsif m == :timepoint_group_start
+                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{name} {"
+                                path.push name
+                            elsif m == :timepoint_group_end
+                                path.pop
+                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{name} }"
+                            end
+                        end
+                    end
+                    return
+                end
+
+
                 analyzer = Roby::DRoby::Timepoints::Analysis.new
                 while data = stream.load_one_cycle
                     data.each_slice(4) do |m, sec, usec, args|
