@@ -35,10 +35,32 @@ module Roby
             # Change the time scale and update the view
             def time_scale=(new_value)
                 @time_scale = new_value
+                @pixel_to_time =
+                    if new_value < 0
+                        new_value.abs
+                    else 1.0 / new_value
+                    end
+
+                @time_to_pixel =
+                    if new_value > 0
+                        new_value
+                    else 1.0 / new_value.abs
+                    end
+
                 update_scroll_ranges
                 invalidate_current_tasks
                 update
             end
+            # Scale factor to convert pixels to seconds
+            #
+            #   time = pixel_to_time * pixel
+            attr_reader :time_to_pixel
+
+            # Scale factor to convert seconds to pixels
+            #
+            #   pixel = time_to_pixel * time
+            attr_reader :pixel_to_time
+
             # How many pixels should there be between the 'now' line and the
             # right side, in pixels
             attr_reader :live_update_margin
@@ -174,7 +196,8 @@ module Roby
             def initialize(parent = nil)
                 super(parent)
 
-                @time_scale = 10
+                @current_tasks = Array.new
+                self.time_scale = 10
                 @task_height = 10
                 @task_separation = 10
                 @live_update_margin = 10
@@ -182,7 +205,6 @@ module Roby
                 @all_tasks = Set.new
                 @all_job_info = Hash.new
                 @scheduler_state = Schedulers::State.new
-                @current_tasks = Array.new
                 @task_layout = Array.new
                 @sort_mode = :start_time
                 @reverse_sort = false
@@ -226,26 +248,6 @@ module Roby
             # Signal emitted when the currently displayed time changed. The time
             # is provided as an offset since base_time
             signals 'void timeChanged(float)'
-
-            # Scale factor to convert pixels to seconds
-            #
-            #   time = pixel_to_time * pixel
-            def pixel_to_time
-                if time_scale < 0
-                    time_scale.abs
-                else 1.0 / time_scale
-                end
-            end
-
-            # Scale factor to convert seconds to pixels
-            #
-            #   pixel = time_to_pixel * time
-            def time_to_pixel
-                if time_scale > 0
-                    time_scale
-                else 1.0 / time_scale.abs
-                end
-            end
 
             # Event handler for wheel event
             def wheelEvent(event)
@@ -383,7 +385,7 @@ module Roby
                 display_point = self.display_point
                 window_width  = viewport.size.width
                 start_time = display_time - display_point * pixel_to_time
-                end_time   = display_time + (window_width - display_point) * pixel_to_time
+                end_time   = start_time   + window_width * pixel_to_time
                 return start_time, end_time
             end
 
