@@ -134,9 +134,10 @@ module Roby
 
             plan.execution_engine.gc_warning = false
 
+            @watched_events = nil
             @handler_ids = Array.new
             @handler_ids << execution_engine.add_propagation_handler(description: 'Test.verify_watched_events', type: :external_events) do |plan|
-                Test.verify_watched_events
+                verify_watched_events
             end
 	end
 
@@ -211,7 +212,7 @@ module Roby
                     execution_engine.remove_propagation_handler(handler_id)
                 end
             end
-            Test.verify_watched_events
+            verify_watched_events
 
             # Plan teardown would have disconnected the peers already
 	    stop_remote_processes
@@ -401,15 +402,9 @@ module Roby
 	    result
 	end
 
-	@watched_events = []
-	@waiting_threads  = []
-
-	EVENT_WATCH_TLS = :test_watched_events
-
-        class << self
-            # A [thread, cv, positive, negative] list of event assertions
-            attr_reader :watched_events
-        end
+        # A [ivar, positive, negative, deadline] tuple representing an event
+        # assertion
+        attr_reader :watched_events
 
         # Tests for events in +positive+ and +negative+ and returns
         # the set of failing events if the assertion has finished.
@@ -417,19 +412,17 @@ module Roby
         # successfully
         def self.event_watch_result(positive, negative, deadline = nil)
             if deadline && deadline < Time.now
-                return true, "timed out waiting for #{positive.map(&:to_s).join(", ")} to happen"
+                return nil, "timed out waiting for #{positive.map(&:to_s).join(", ")} to happen"
             end
-
             if positive_ev = positive.find { |ev| ev.emitted? }
-                return false, "#{positive_ev} happened"
+                return "#{positive_ev} happened", nil
             end
             failure = negative.find_all { |ev| ev.emitted? }
-            unless failure.empty?
-                return true, "#{failure} happened"
+            if !failure.empty?
+                return "#{failure} happened", nil
             end
-
             if positive.all? { |ev| ev.unreachable? }
-                return true, "all positive events are unreachable"
+                return "all positive events are unreachable", nil
             end
 
             nil
@@ -437,13 +430,17 @@ module Roby
 
         # This method is inserted in the control thread to implement
         # Assertions#assert_events
-        def self.verify_watched_events
-            watched_events.delete_if do |result_queue, positive, negative, deadline|
-                error, result = Test.event_watch_result(positive, negative, deadline)
-                if !error.nil?
-                    result_queue.push([error, result])
-                    true
-                end
+        def verify_watched_events
+            return if !watched_events
+
+            ivar, *assertion = *watched_events
+            success, error = Test.event_watch_result(*assertion)
+            if success
+                ivar.set(success)
+                @watched_events = nil
+            elsif error
+                ivar.fail(error)
+                @watched_events = nil
             end
         end
 

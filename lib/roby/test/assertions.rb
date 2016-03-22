@@ -86,16 +86,16 @@ module Roby
             # @param [Float] timeout timeout in seconds after which the
             #   assertion fails if none of the positive events got emitted
             def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, &block)
-                error, result, unreachability_reason = watch_events(positive, negative, timeout, &block)
+                ivar, unreachability_reason = watch_events(positive, negative, timeout, &block)
 
-                if error
+                if !ivar.fulfilled?
                     if !unreachability_reason.empty?
                         msg = format_unreachability_message(unreachability_reason)
                         flunk("all positive events are unreachable for the following reason:\n  #{msg}")
                     elsif msg
-                        flunk("#{msg} failed: #{result}")
+                        flunk("#{msg} failed: #{ivar.reason}")
                     else
-                        flunk(result)
+                        flunk(ivar.reason)
                     end
                 end
             end
@@ -111,50 +111,42 @@ module Roby
                     raise ArgumentError, "neither a block nor a set of positive or negative events have been given"
                 end
 
-		control_priority do
-                    execution_engine.waiting_threads << Thread.current
+                unreachability_reason = Set.new
+                ivar = Concurrent::IVar.new
 
-                    unreachability_reason = Set.new
-                    result_queue = Queue.new
+                if positive.empty? && negative.empty?
+                    positive, negative = yield
+                    positive = Array[*(positive || [])].to_set
+                    negative = Array[*(negative || [])].to_set
+                    if positive.empty? && negative.empty?
+                        raise ArgumentError, "#{block} returned no events to watch"
+                    end
+                elsif block_given?
+                    yield
+                end
 
-                    execution_engine.execute do
-                        if positive.empty? && negative.empty?
-                            positive, negative = yield
-                            positive = Array[*(positive || [])].to_set
-                            negative = Array[*(negative || [])].to_set
-                            if positive.empty? && negative.empty?
-                                raise ArgumentError, "#{block} returned no events to watch"
-                            end
-                        elsif block_given?
-                            yield
-                        end
-
-                        error, result = Test.event_watch_result(positive, negative)
-                        if !error.nil?
-                            result_queue.push([error, result])
-                        else
-                            positive.each do |ev|
-                                ev.if_unreachable(cancel_at_emission: true) do |reason, event|
-                                    unreachability_reason << [event, reason]
-                                end
-                            end
-                            Test.watched_events << [result_queue, positive, negative, Time.now + timeout]
+                success, error = Test.event_watch_result(positive, negative)
+                if success
+                    ivar.set(success)
+                elsif error
+                    ivar.fail(error)
+                else
+                    positive.each do |ev|
+                        ev.if_unreachable(cancel_at_emission: true) do |reason, event|
+                            unreachability_reason << [event, reason]
                         end
                     end
+                    @watched_events = [ivar, positive, negative, Time.now + timeout]
+                end
 
-                    begin
-                        while result_queue.empty?
-                            process_events
-                            sleep(0.05)
-                        end
-                        error, result = result_queue.pop
-                    ensure
-                        Test.watched_events.delete_if { |_, q, _| q == result_queue }
+                begin
+                    while !ivar.fulfilled?
+                        process_events
                     end
-                    return error, result, unreachability_reason
-		end
-            ensure
-                execution_engine.waiting_threads.delete(Thread.current)
+                ensure
+                    @watched_events = nil
+                end
+                return ivar, unreachability_reason
             end
 
             def format_unreachability_message(unreachability_reason)
@@ -201,7 +193,7 @@ module Roby
             def assert_event_becomes_unreachable(event, timeout = 5, &block)
                 old_level = Roby.logger.level
                 Roby.logger.level = Logger::FATAL
-                error, message, unreachability_reason = watch_events(event, [], timeout, &block)
+                ivar, unreachability_reason = watch_events(event, [], timeout, &block)
                 if error = unreachability_reason.find { |ev, _| ev == event }
                     return
                 end
