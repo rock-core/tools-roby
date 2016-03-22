@@ -1513,18 +1513,38 @@ module Roby
 
 	    engine_config = self.engine
 	    engine = self.plan.execution_engine
-	    options = { cycle: engine_config['cycle'] || 0.1 }
-	    
-	    engine.run options
-	    plugins = self.plugins.map { |_, mod| mod if (mod.respond_to?(:start) || mod.respond_to?(:run)) }.compact
-	    run_plugins(plugins, &block)
+            plugins = self.plugins.map { |_, mod| mod if (mod.respond_to?(:start) || mod.respond_to?(:run)) }.compact
+            engine.once do
+                run_plugins(plugins, &block)
+            end
+            @thread = Thread.new do
+                engine.run cycle: engine_config['cycle'] || 0.1
+            end
+            join
 
         ensure
             cleanup
+            @thread = nil
             if restarting?
                 Kernel.exec *@restart_cmdline
             end
 	end
+
+        def join
+            @thread.join
+
+	rescue Exception => e
+	    if execution_engine.running?
+                if execution_engine.forced_exit?
+                    raise
+                else
+                    execution_engine.quit
+                    retry
+                end
+	    else
+		raise
+	    end
+        end
 
         # Whether {#run} should exec a new process on quit or not
         def restarting?
@@ -1568,7 +1588,6 @@ module Roby
 		yield if block_given?
 
                 Robot.info "ready"
-		engine.join
 	    else
 		mod = mods.shift
                 if mod.respond_to?(:start)
@@ -1579,15 +1598,6 @@ module Roby
                         run_plugins(mods, &block)
                     end
                 end
-	    end
-
-	rescue Exception => e
-	    if engine.running?
-		engine.quit
-		engine.join
-		raise e, e.message, e.backtrace
-	    else
-		raise
 	    end
 	end
 

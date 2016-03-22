@@ -47,9 +47,6 @@ module Roby
 
             @plan    = ExecutablePlan.new
             @control = DecisionControl.new
-            if !plan.execution_engine
-                ExecutionEngine.new(@plan, @control)
-            end
 
             Roby.app.public_logs = false
 

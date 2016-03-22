@@ -246,10 +246,6 @@ module Roby
 	    end
 
 	    def control_priority
-                if !execution_engine.thread
-                    return yield
-                end
-
 		old_priority = Thread.current.priority 
 		Thread.current.priority = execution_engine.thread.priority + 1
 

@@ -239,10 +239,6 @@ module Roby
 	def process_events
             registered_plans.each do |p|
                 engine = p.execution_engine
-                if engine.running?
-                    raise NotImplementedError, "using running engines in tests is not supported anymore"
-                end
-
                 engine.join_all_worker_threads
                 engine.start_new_cycle
                 engine.process_events

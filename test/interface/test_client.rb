@@ -37,6 +37,7 @@ module Roby
                 server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0) 
                 @server    = Server.new(DRobyChannel.new(server_socket, false), interface)
                 @server_thread = Thread.new do
+                    plan.execution_engine.thread = Thread.current
                     begin
                         while true
                             server.poll

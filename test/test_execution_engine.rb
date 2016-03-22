@@ -465,24 +465,28 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_every
-	# Check that every(cycle_length) works fine
-	execution_engine.run
+        time = Time.now
+        flexmock(Time).should_receive(:now).and_return { time }
 
+	# Check that every(cycle_length) works fine
 	samples = []
 	id = execution_engine.every(0.1) do
 	    samples << execution_engine.cycle_start
 	end
-	sleep(1)
+
+        expected_samples = Array.new
+        expected_samples << time
+        process_events
+        expected_samples << (time += 0.12)
+        process_events
+        process_events
+        process_events
+        expected_samples << (time += 0.1)
+        process_events
+        process_events
 	execution_engine.remove_periodic_handler(id)
-	size = samples.size
-	assert(size > 2, "expected 2 samples, got #{samples.size}")
-
-	samples.each_cons(2) do |a, b|
-	    assert_in_delta(0.1, b - a, 0.001)
-	end
-
-	# Check that no samples have been added after the 'remove_periodic_handler'
-	assert_equal(size, samples.size)
+        process_events
+        assert_equal expected_samples, samples, "expected #{expected_samples.map { |t| Roby.format_time(t) }}, got #{samples.map { |t| Roby.format_time(t) }}"
     end
 
     def test_once_blocks_are_called_by_proces_events
@@ -627,45 +631,25 @@ class TC_ExecutionEngine < Minitest::Test
 		    execution_engine.quit
 		end
             end
-            execution_engine.run
-            execution_engine.join
+
+            process_events
+            process_events
         end
     end
 
     def test_inside_outside_control
 	# First, no control thread
 	assert(execution_engine.inside_control?)
-	assert(execution_engine.outside_control?)
+	assert(!execution_engine.outside_control?)
 
-	# Add a fake control thread
-	begin
-	    execution_engine.thread = Thread.main
-	    assert(execution_engine.inside_control?)
-	    assert(!execution_engine.outside_control?)
-
-	    t = Thread.new do
-		assert(!execution_engine.inside_control?)
-		assert(execution_engine.outside_control?)
-	    end
-	    t.value
-	ensure
-	    execution_engine.thread = nil
-	end
-
-	# .. and test with the real one
-	execution_engine.run
-	execution_engine.execute do
-	    assert(execution_engine.inside_control?)
-	    assert(!execution_engine.outside_control?)
-	end
-	assert(!execution_engine.inside_control?)
-	assert(execution_engine.outside_control?)
+        t = Thread.new do
+            assert(!execution_engine.inside_control?)
+            assert(execution_engine.outside_control?)
+        end
+        t.value
     end
 
     def test_execute
-	# Set a fake control thread
-	execution_engine.thread = Thread.main
-
 	FlexMock.use do |mock|
 	    mock.should_receive(:thread_before).once.ordered
 	    mock.should_receive(:main_before).once.ordered
@@ -694,15 +678,9 @@ class TC_ExecutionEngine < Minitest::Test
 
 	    assert_equal(42, returned_value)
 	end
-
-    ensure
-	execution_engine.thread = nil
     end
 
     def test_execute_error
-	assert(!execution_engine.thread)
-	# Set a fake control thread
-	execution_engine.thread = Thread.main
 	assert(!execution_engine.quitting?)
 
 	returned_value = nil
@@ -726,15 +704,9 @@ class TC_ExecutionEngine < Minitest::Test
 
 	assert_kind_of(ArgumentError, returned_value)
 	assert(!execution_engine.quitting?)
-
-    ensure
-	execution_engine.thread = nil
     end
     
     def test_wait_until
-	# Set a fake control thread
-	execution_engine.thread = Thread.main
-
 	plan.add_permanent_task(task = Tasks::Simple.new)
 	t = Thread.new do
 	    execution_engine.wait_until(task.start_event) do
@@ -747,15 +719,9 @@ class TC_ExecutionEngine < Minitest::Test
         # believe that it is running while it is not
 	execution_engine.process_events
 	t.value
-
-    ensure
-	execution_engine.thread = nil
     end
  
     def test_wait_until_unreachable
-	# Set a fake control thread
-	execution_engine.thread = Thread.main
-
 	plan.add_permanent_task(task = Tasks::Simple.new)
 	t = Thread.new do
 	    begin
@@ -780,9 +746,6 @@ class TC_ExecutionEngine < Minitest::Test
 	result = t.value
 	assert_kind_of(UnreachableEvent, result)
 	assert_equal(task.event(:success), result.failed_generator)
-
-    ensure
-	execution_engine.thread = nil
     end
     
     def test_stats

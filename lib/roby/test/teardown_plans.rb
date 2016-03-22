@@ -12,14 +12,8 @@ module Roby
 
             def clear_registered_plans
                 registered_plans.each do |p|
-                    engine = p.execution_engine
-                    while engine && engine.running?
-                        engine.quit
-                        engine.join rescue nil
-                    end
                     p.clear
                 end
-
                 registered_plans.clear
             end
 

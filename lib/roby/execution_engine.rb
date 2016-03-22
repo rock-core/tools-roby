@@ -178,6 +178,7 @@ module Roby
 
             @control = control
             @scheduler = Schedulers::Null.new(plan)
+            @thread = Thread.current
 
             @propagation = nil
             @propagation_id = 0
@@ -204,7 +205,6 @@ module Roby
 
 	    @quit        = 0
             @allow_propagation = true
-	    @thread      = nil
 	    @cycle_index = 0
 	    @cycle_start = Time.now
             @cycle_length = 0.1
@@ -1778,7 +1778,7 @@ module Roby
         # The execution thread if there is one running
 	attr_accessor :thread
         # True if an execution thread is running
-	def running?; !!@thread end
+	attr_predicate :running?, true
 
 	# The cycle length in seconds
 	attr_reader :cycle_length
@@ -1822,44 +1822,31 @@ module Roby
 
 	# Main event loop. Valid options are
 	# cycle::   the cycle duration in seconds (default: 0.1)
-	def run(options = {})
+        def run(cycle: 0.1)
 	    if running?
-		raise "there is already a control running in thread #{@thread}"
+		raise "#run has already been called"
 	    end
-
-	    options = validate_options options, cycle: 0.1
+            self.running = true
 
 	    @quit = 0
             @allow_propagation = false
+            @waiting = Array.new
 
-            # Start the control thread and wait for @thread to be set
-            Roby.condition_variable(true) do |cv, mt|
-                mt.synchronize do
-                    @thread = Thread.new do
-                        @thread = Thread.current
-                        @thread.priority = THREAD_PRIORITY
+            @thread = Thread.current
+            @thread.priority = THREAD_PRIORITY
 
-                        begin
-                            @cycle_length = options[:cycle]
-                            mt.synchronize { cv.signal }
-                            event_loop
+            @cycle_length = cycle
+            event_loop
 
-                        ensure
-                            # reset the options only if we are in the control thread
-                            @thread = nil
-                            waiting_threads.each do |th|
-                                th.raise ExecutionQuitError
-                            end
-                            finalizers.each { |blk| blk.call rescue nil }
-                            @quit = 0
-                            @allow_propagation = true
-                        end
-                    end
-                    while !cycle_length
-                        cv.wait(mt)
-                    end
-                end
+        ensure
+            # reset the options only if we are in the control thread
+            @thread = nil
+            waiting.each do |w|
+                w.fail ExecutionQuitError
             end
+            finalizers.each { |blk| blk.call rescue nil }
+            @quit = 0
+            @allow_propagation = true
 	end
 
 	attr_reader :last_stop_count # :nodoc:
@@ -2130,7 +2117,6 @@ module Roby
 
             scheduler.enabled = false
             quit
-            join
 
             start_new_cycle
             process_events
