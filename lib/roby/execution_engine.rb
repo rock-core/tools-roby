@@ -327,6 +327,13 @@ module Roby
             # Helper method that gets the arguments necessary top create a
             # propagation handler, sanitizes and normalizes them, and returns
             # both the propagation type and the {PollBlockDefinition} object
+            #
+            # @param [:external_events,:propagation] type whether the block should be registered as an
+            #   :external_events block, processed at the beginning of the cycle,
+            #   or a :propagation block, processed at each propagation loop.
+            # @param [String] description a string describing the block. It will
+            #   be used when adding timepoints to the event log
+            # @param poll_options (see PollBlockDefinition#initialize)
             def create_propagation_handler(type: :external_events, description: 'propagation handler', **poll_options, &block)
                 check_arity block, 1
                 handler = PollBlockDefinition.new(description, block, **poll_options)
