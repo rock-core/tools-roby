@@ -437,7 +437,7 @@ module Roby
                 waiting_work.delete_if do |w|
                     w.complete?
                 end
-                process_events
+                execute_once_blocks_synchronous
                 Thread.pass
             end
         end
@@ -732,6 +732,16 @@ module Roby
                 else
                     propagation_handlers << block
                 end
+            end
+        end
+
+        def execute_once_blocks_synchronous
+            blocks = Array.new
+            while !once_blocks.empty?
+                blocks << once_blocks.pop.last
+            end
+            process_events_synchronous do
+                call_poll_blocks(blocks)
             end
         end
 
