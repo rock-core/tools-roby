@@ -22,7 +22,7 @@ module Roby
         def on_success(in_engine: true)
             if in_engine
                 child = promise.on_success do |*args|
-                    execution_engine.execute do
+                    execution_engine.execute(type: :propagation) do
                         yield(*args)
                     end
                 end
@@ -40,7 +40,7 @@ module Roby
         def on_error(in_engine: true)
             if in_engine
                 child = promise.on_error do |*args|
-                    execution_engine.execute do
+                    execution_engine.execute(type: :propagation) do
                         yield(*args)
                     end
                 end

@@ -2051,13 +2051,13 @@ module Roby
         # Block until the given block is executed by the execution thread, at
         # the beginning of the event loop, in propagation context. If the block
         # raises, the exception is raised back in the calling thread.
-        def execute
+        def execute(type: :external_events)
 	    if inside_control?
 		return yield
 	    end
 
             ivar = Concurrent::IVar.new
-            once(sync: ivar) do
+            once(sync: ivar, type: type) do
                 begin
                     ivar.set(yield)
                 rescue ::Exception => e
