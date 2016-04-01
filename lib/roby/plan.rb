@@ -665,6 +665,10 @@ module Roby
         def handle_force_replace(from, to)
             if from.plan != self
                 raise ArgumentError, "trying to replace #{from} but its plan is #{from.plan}, expected #{self}"
+            elsif !from.plan
+                raise ArgumentError, "#{from} has been removed from plan, cannot use as source in a replacement"
+            elsif !to.plan
+                raise ArgumentError, "#{to} has been removed from plan, cannot use as target in a replacement"
             elsif to.plan.template?
                 add(to)
             elsif to.plan != self

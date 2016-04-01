@@ -177,6 +177,22 @@ module TC_PlanStatic
 	assert(plan.permanent_task?(t))
     end
 
+    def test_replace_task_raises_ArgumentError_if_one_argument_is_finalized
+        plan.add(task = Roby::Task.new)
+        plan.add(finalized = Roby::Task.new)
+        plan.remove_object(finalized)
+        assert_raises(ArgumentError) { plan.replace_task(task, finalized) }
+        assert_raises(ArgumentError) { plan.replace_task(finalized, task) }
+    end
+
+    def test_replace_raises_ArgumentError_if_one_argument_is_nil
+        plan.add(task = Roby::Task.new)
+        plan.add(finalized = Roby::Task.new)
+        plan.remove_object(finalized)
+        assert_raises(ArgumentError) { plan.replace(task, finalized) }
+        assert_raises(ArgumentError) { plan.replace(finalized, task) }
+    end
+
     def test_replace
 	(p, c1), (c11, c12, c2, c3) = prepare_plan missions: 2, tasks: 4, model: Roby::Tasks::Simple
 	p.depends_on c1, model: Roby::Tasks::Simple
