@@ -398,48 +398,6 @@ module Roby
 	    result
 	end
 
-        # A [ivar, positive, negative, deadline] tuple representing an event
-        # assertion
-        attr_reader :watched_events
-
-        # Tests for events in +positive+ and +negative+ and returns
-        # the set of failing events if the assertion has finished.
-        # If the set is empty, it means that the assertion finished
-        # successfully
-        def self.event_watch_result(positive, negative, deadline = nil)
-            if deadline && deadline < Time.now
-                return nil, "timed out waiting for #{positive.map(&:to_s).join(", ")} to happen"
-            end
-            if positive_ev = positive.find { |ev| ev.emitted? }
-                return "#{positive_ev} happened", nil
-            end
-            failure = negative.find_all { |ev| ev.emitted? }
-            if !failure.empty?
-                return "#{failure} happened", nil
-            end
-            if positive.all? { |ev| ev.unreachable? }
-                return "all positive events are unreachable", nil
-            end
-
-            nil
-        end
-
-        # This method is inserted in the control thread to implement
-        # Assertions#assert_events
-        def verify_watched_events
-            return if !watched_events
-
-            ivar, *assertion = *watched_events
-            success, error = Test.event_watch_result(*assertion)
-            if success
-                ivar.set(success)
-                @watched_events = nil
-            elsif error
-                ivar.fail(error)
-                @watched_events = nil
-            end
-        end
-
         def develop_planning_method(method_name, args = Hash.new)
             options, args = Kernel.filter_options args,
                 planner_model: MainPlanner
