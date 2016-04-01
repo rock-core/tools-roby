@@ -909,7 +909,9 @@ module Roby
 
 	# Called internally when the event becomes unreachable
 	def unreachable!(reason = nil, plan = self.plan)
-            if !plan.executable?
+            if !plan
+                raise FinalizedPlanObject, "#unreachable! called on #{self} but this is a finalized generator"
+            elsif !plan.executable?
                 unreachable_without_propagation(reason)
             elsif execution_engine.gathering?
                 unreachable_without_propagation(reason, plan)

@@ -135,6 +135,10 @@ module Roby
         attr_reader :parent
     end
 
+
+    # Exception class used when trying to perform an operation on a finalized
+    # object and the operation requires a plan
+    class FinalizedPlanObject < RuntimeError; end
     # Raised during event propagation if a task event is called or emitted,
     # while this task is not executable.
     class TaskNotExecutable < LocalizedError; end

@@ -3,6 +3,25 @@ require 'roby/test/self'
 module Roby
     module Relations
         describe Graph do
+            describe "#remove_vertex" do
+                it "notifies the edge removals" do
+                    graph_m = Graph.new_submodel
+                    parent, obj, child = (1..3).map { Object.new }
+                    observer = flexmock do |f|
+                        f.should_receive(:adding_edge)
+                        f.should_receive(:added_edge)
+                        f.should_receive(:removing_edge).with(parent, obj, [graph_m]).once
+                        f.should_receive(:removing_edge).with(obj, child, [graph_m]).once
+                        f.should_receive(:removed_edge).with(parent, obj, [graph_m]).once
+                        f.should_receive(:removed_edge).with(obj, child, [graph_m]).once
+                    end
+                    graph = graph_m.new(observer: observer)
+                    graph.add_edge(parent, obj, nil)
+                    graph.add_edge(obj, child, nil)
+                    graph.remove_vertex(obj)
+                end
+            end
+
             describe "behaviour related to edge info" do
                 let(:graph_m) { Graph.new_submodel }
                 subject { graph_m.new }

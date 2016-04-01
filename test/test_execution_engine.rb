@@ -29,6 +29,24 @@ module Roby
                 parent.remove_precedence child
             end
         end
+
+        it "removes queued emissions whose task event target has been finalized" do
+            plan.add(task = Roby::Tasks::Simple.new)
+            execution_engine.gather_propagation do
+                task.start_event.emit
+                plan.remove_task(task)
+                assert !execution_engine.has_queued_events?
+            end
+        end
+
+        it "removes queued emissions whose free event target has been finalized" do
+            plan.add(generator = Roby::EventGenerator.new)
+            execution_engine.gather_propagation do
+                generator.emit
+                plan.remove_free_event(generator)
+                assert !execution_engine.has_queued_events?
+            end
+        end
     end
 end
 

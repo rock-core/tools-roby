@@ -522,6 +522,9 @@ module Roby
 
         # Called by #plan when an event has been finalized
         def finalized_event(event)
+            if @propagation
+                @propagation.delete(event)
+            end
             event.unreachable!(nil, plan)
             # since the event is already finalized, 
         end
@@ -1345,6 +1348,8 @@ module Roby
 
             debug "#{fatal_errors.size} fatal errors found"
             fatal_errors
+        ensure
+            @additional_errors = nil
         end
 
         # Tests are using a special mode for propagation, in which everything is

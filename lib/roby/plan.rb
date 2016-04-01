@@ -1321,7 +1321,7 @@ module Roby
             event.finalized!(timestamp)
         end
 
-        def remove_task(task, timestamp = nil)
+        def remove_task(task, timestamp = Time.now)
             if !@tasks.delete?(task)
                 raise ArgumentError, "#{task} is not a task of #{self}"
             end
@@ -1337,7 +1337,7 @@ module Roby
 	    self
         end
 
-        def remove_free_event(event, timestamp = nil)
+        def remove_free_event(event, timestamp = Time.now)
 	    if !@free_events.delete?(event)
                 raise ArgumentError, "#{event} is not a free event of #{self}"
             end
@@ -1347,7 +1347,7 @@ module Roby
         end
 
         # @deprecated use {#remove_task} or {#remove_free_event} instead
-	def remove_object(object, timestamp = nil)
+        def remove_object(object, timestamp = Time.now)
             Roby.warn_deprecated "#remove_object is deprecated, use either #remove_task or #remove_free_event"
             if has_task?(object)
                 remove_task(object, timestamp)

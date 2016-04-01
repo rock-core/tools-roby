@@ -345,6 +345,34 @@ module Roby
                 raise ArgumentError, "cannot update edge information in #{self}: #merge_info is not implemented"
             end
 
+            alias :remove_vertex! :remove_vertex
+
+            def remove_vertex(object)
+                if !observer
+                    return super
+                end
+
+                rel = self
+                relations, relations_ids = [], []
+                while rel
+                    relations << rel
+                    relations_ids << rel.class
+                    rel = rel.parent
+                end
+
+                removed_relations = Array.new
+                in_neighbours(object).each { |parent| removed_relations << parent << object }
+                out_neighbours(object).each { |child| removed_relations << object << child }
+
+                removed_relations.each_slice(2) do |parent, child|
+                    observer.removing_edge(parent, child, relations_ids)
+                end
+                relations.each { |rel| rel.remove_vertex!(object) }
+                removed_relations.each_slice(2) do |parent, child|
+                    observer.removed_edge(parent, child, relations_ids)
+                end
+            end
+
             # Remove the relation between +from+ and +to+, in this graph and in its
             # parent graphs as well.
             #

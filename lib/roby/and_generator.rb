@@ -77,7 +77,7 @@ module Roby
 
         # Helper method that will emit the event if all the sources are emitted.
 	def emit_if_achieved(context) # :nodoc:
-	    return unless @active
+            return if @events.empty? || !@active
 	    each_parent_object(EventStructure::Signal) do |source|
 		return if @events[source] == source.last
 	    end
@@ -97,6 +97,7 @@ module Roby
 	    # removed, nor it has been emitted
 	    parent.if_unreachable(cancel_at_emission: true) do |reason, event|
 		if @events.has_key?(parent) && @events[parent] == parent.last
+                    @active = false
 		    unreachable!(reason || parent)
 		end
 	    end

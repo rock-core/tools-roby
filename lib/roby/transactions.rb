@@ -315,7 +315,7 @@ module Roby
             return object, proxy
 	end
 
-        def remove_task(task)
+        def remove_task(task, timestamp = Time.now)
             unwrapped, proxy = remove_plan_object(task, proxy_tasks)
             if proxy
                 unmarked_mission_tasks.delete(unwrapped)
@@ -324,15 +324,15 @@ module Roby
                     remove_plan_object(task_event_proxy, proxy_events)
                 end
             end
-            super(proxy || task)
+            super(proxy || task, timestamp)
         end
 
-        def remove_free_event(event)
+        def remove_free_event(event, timestamp = Time.now)
             unwrapped, proxy = remove_plan_object(event, proxy_events)
             if proxy
                 unmarked_permanent_events.delete(unwrapped)
             end
-            super(proxy || event)
+            super(proxy || event, timestamp)
         end
 
 	def may_wrap(objects, create: true)
