@@ -1,20 +1,3 @@
-require 'thread'
-require 'facets/string/camelcase'
-require 'facets/string/snakecase'
-require 'facets/string/modulize'
-require 'facets/kernel/constant'
-require 'utilrb/enumerable'
-require 'utilrb/time/to_hms'
-require 'utilrb/module/cached_enum'
-require 'utilrb/module/define_or_reuse'
-require 'utilrb/logger'
-require 'utilrb/gc/force'
-require 'utilrb/hash/to_sym_keys'
-require 'utilrb/array/to_s'
-require 'utilrb/hash/to_s'
-require 'utilrb/set/to_s'
-require 'utilrb/marshal/load_with_missing_constants'
-
 class IO
     def ask(question, default, output_io = STDOUT)
 	output_io.print question
