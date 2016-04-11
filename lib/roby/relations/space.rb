@@ -223,7 +223,6 @@ module Roby
                     klass.const_set("SynthetizedMethods", synthetized_methods)
                     klass.const_set("Extension", extension)
                     klass.const_set("ModelExtension", class_extension)
-                    extension.const_set("ClassExtension", class_extension)
                     klass
                 end
                 subsets.each do |subset_rel|
@@ -231,9 +230,11 @@ module Roby
                 end
                 synthetized_methods = graph_class::SynthetizedMethods
                 extension = graph_class::Extension
+                model_extension = graph_class::ModelExtension
                 applied.each do |klass|
                     klass.include synthetized_methods
                     klass.include extension
+                    klass.extend model_extension
                 end
 
                 if parent_name

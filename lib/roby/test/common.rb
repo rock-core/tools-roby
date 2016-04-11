@@ -457,24 +457,6 @@ module Roby
             Roby.log_exception_with_backtrace(e, Roby, :fatal)
             raise
         end
-
-        module ClassExtension
-            attr_reader :planning_method_tests
-
-            def test_planning_method(method_name, args = Hash.new)
-                @planning_method_tests ||= Hash.new { |h, k| h[k] = Array.new }
-                @planning_method_tests[method_name.to_sym] << args
-
-                if !instance_method?("test_planning_method_#{method_name}")
-                    define_method("test_planning_method_#{method_name}") do
-                        tests = self.class.planning_method_tests[method_name.to_sym]
-                        tests.each do |t|
-                            develop_planning_method(method_name, t)
-                        end
-                    end
-                end
-            end
-        end
     end
 end
 
