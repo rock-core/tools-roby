@@ -66,7 +66,17 @@ module Roby
 	    AndGenerator.new << self << generator
 	end
 
-	attr_enumerable(:handler, :handlers) { Array.new }
+        # The set of blocks that should be called when the event is emitted
+        #
+        # @return [Array<EventHandler>]
+        attr_reader :handlers
+
+        # Enumerate the {#handlers}
+        #
+        # @yieldparam [EventHandler] handler
+        def each_handler(&block)
+            handlers.each(&block)
+        end
 
 	def initialize_copy(old) # :nodoc:
 	    super
@@ -558,7 +568,7 @@ module Roby
 	    # Since we are in a gathering context, call
 	    # to other objects are not done, but gathered in the 
 	    # :propagation TLS
-            all_handlers = enum_for(:each_handler).to_a
+            all_handlers = handlers.dup
 	    all_handlers.each do |h| 
 		begin
 		    h.call(event)
