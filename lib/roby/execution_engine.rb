@@ -797,6 +797,7 @@ module Roby
             # Do the exception handling phase
             fatal_errors =
                 log_timepoint_group 'compute_fatal_errors' do
+                    binding.pry if !events_errors.empty?
                     compute_fatal_errors(events_errors)
                 end
             return if fatal_errors.empty?
@@ -1098,6 +1099,10 @@ module Roby
                     Roby.display_exception(Roby.logger.io(:warn), e.exception)
                     e.generator.unreachable!(e.exception)
                     false
+                elsif !e.origin.plan
+                    Roby.display_exception(Roby.logger.io(:warn), e.exception)
+                    e.generator.unreachable!(e.exception)
+                    false
                 else true
                 end
             end
@@ -1217,6 +1222,7 @@ module Roby
 
             debug "Propagating #{exceptions.size} non-inhibited exceptions"
             log_nest(2) do
+                binding.pry if !exceptions.empty?
                 unhandled, handled = propagate_exception_in_plan(exceptions) do |e, object|
                     object.handle_exception(e)
                 end
@@ -1403,7 +1409,7 @@ module Roby
         def error_handling_phase_synchronous(errors)
             kill_tasks, fatal_errors = error_handling_phase(errors || [])
             if fatal_errors
-                garbage_collect(kill_tasks)
+                kill_tasks.each { |t| force_gc_on(t) }
                 if fatal_errors.size == 1
                     e = fatal_errors.first.first.exception
                     raise e.dup, e.message, e.backtrace
@@ -1422,7 +1428,7 @@ module Roby
                     tasks_size = plan.tasks.size
                 end
                 process_events_synchronous do
-                    garbage_collect([])
+                    garbage_collect
                 end
             end
         end
@@ -1440,7 +1446,7 @@ module Roby
 	    events_errors = nil
             next_steps = gather_propagation do
 	        events_errors = gather_errors do
-                    if !quitting? || !garbage_collect([])
+                    if !quitting? || !garbage_collect
                         process_workers
                         log_timepoint 'workers'
                         gather_external_events
@@ -1460,11 +1466,12 @@ module Roby
                         end
 
                     if fatal_errors
+                        kill_tasks.each { |t| force_gc_on(t) }
                         all_fatal_errors.concat(fatal_errors)
                     end
 
                     events_errors = gather_errors do
-                        garbage_collect(kill_tasks)
+                        garbage_collect
                     end
                     log_timepoint 'garbage_collect'
                 end
@@ -1482,11 +1489,12 @@ module Roby
                         end
 
                     if fatal_errors
+                        kill_tasks.each { |t| force_gc_on(t) }
                         all_fatal_errors.concat(fatal_errors)
                     end
 
                     events_errors = gather_errors do
-                        garbage_collect(kill_tasks)
+                        garbage_collect
                     end
                     log_timepoint 'garbage_collect'
                 end
@@ -1502,22 +1510,175 @@ module Roby
             @application_exceptions = nil
         end
 
+        # @api private
+        #
+        # Called at the beginning of {#garbage_collect} to remove the
+        # mission/permanent status on finished tasks
         def unmark_finished_missions_and_permanent_tasks
+            # The initial set is both finished and failed, to include the
+            # tasks that have failed to start (which are failed but not
+            # finished)
             to_unmark = plan.task_index.by_predicate[:finished?] | plan.task_index.by_predicate[:failed?]
 
-            finished_missions = (plan.mission_tasks & to_unmark)
 	    # Remove all missions that are finished
-	    for finished_mission in finished_missions
+	    for finished_mission in (plan.mission_tasks & to_unmark)
                 if !finished_mission.being_repaired?
                     plan.unmark_mission_task(finished_mission)
                 end
 	    end
+
             finished_permanent = (plan.permanent_tasks & to_unmark)
 	    for finished_permanent in (plan.permanent_tasks & to_unmark)
                 if !finished_permanent.being_repaired?
                     plan.unmark_permanent_task(finished_permanent)
                 end
 	    end
+        end
+
+        # @api private
+        #
+        # Find all tasks in the plan that should be considered for being stop by
+        # the garbage collector
+        def gc_find_all_candidates
+            root_relations = plan.each_task_relation_graph.find_all(&:root_relation?)
+
+            # The tasks we have to filter
+            candidates = plan.find_local_tasks.
+                find_all { |t| plan.force_gc.include?(t) || !plan.directly_useful_task?(t) }.
+                to_a
+            removal_candidates, kill_candidates =
+                candidates.partition { |t| !t.starting? && !t.running? }
+            finished_non_useful_tasks = plan.find_local_tasks.not_pending.not_running.
+                find_all { |t| !plan.directly_useful_task?(t) && !t.keep_subplan? }.
+                to_set
+
+            removal_candidates.delete_if { |t| t.keep_in_plan? }
+
+            root_relations.each do |rel|
+                removal_candidates.delete_if do |t|
+                    !rel.root?(t)
+                end
+                kill_candidates.delete_if do |t|
+                    parents = rel.in_neighbours(t)
+                    !parents.subset?(finished_non_useful_tasks)
+                end
+            end
+
+            return removal_candidates, kill_candidates
+        end
+
+        # @api private
+        #
+        # Find all tasks in the plan that can be removed as-is
+        def gc_find_all_removal_candidates
+            root_relations = plan.each_task_relation_graph.find_all(&:root_relation?)
+
+            # The tasks we have to filter
+            candidates = plan.find_local_tasks.pending.to_set |
+                plan.find_local_tasks.finished.to_set |
+                plan.find_local_tasks.not_running.failed.to_set
+            # The finished tasks that can protect other tasks from being killed
+            finished_non_useful_tasks = plan.find_local_tasks.finished.
+                find_all { |t| !plan.directly_useful_task?(t) && !t.keep_subplan? }.
+                to_set
+
+            root_relations.each do |rel|
+                candidates.delete_if do |t|
+                    parents = rel.in_neighbours(t)
+                    !parents.subset?(finished_non_useful_tasks)
+                end
+                break if candidates.empty?
+            end
+            candidates
+        end
+
+        # @api private
+        #
+        # Remove a set of unneeded tasks from the weak relation to attempt
+        # breaking a GC cycle
+        #
+        # This is used by {#find_all_kill_candidates_with_possible_cycles}
+        def gc_remove_weak_relations(to_garbage)
+            changed_graphs = false
+            plan.each_task_relation_graph do |graph|
+                next if !graph.weak?
+
+                current_vertex_count = graph.num_vertices
+                to_garbage.each do |t|
+                    graph.remove_vertex(t)
+                end
+                changed_graphs ||= (current_vertex_count != graph.num_vertices)
+            end
+            changed_graphs
+        end
+        
+        # @api private
+        #
+        # Process a possible cycle during garbage collection
+        #
+        # {#gc_find_all_candidates} is sensitive to the existence of cycles in
+        # the merged graph of all task relations. Make sure we don't have
+        # one by calling unneeded_tasks, and break the cycle
+        #
+        # It assumes that there are no tasks reported by
+        # {#gc_find_all_candidates}, i.e. that all the tasks in
+        # {#unneeded_tasks} are actually part of a cycle
+        def gc_find_all_kill_candidates_with_possible_cycles
+            # find_all_garbage_collection_candidates is sensitive to the
+            # existence of cycles in the merged graph of all task relation
+            # graphs. Make sure we don't have one by calling unneeded_tasks
+            to_garbage = plan.unneeded_tasks.
+                find_all { |t| !t.pending? && !t.finished? }
+            return Array.new if to_garbage.empty?
+
+            # There is a cycle somewhere. Try to break it by removing
+            # weak relations within elements of local_tasks
+            finishing = Array.new
+            if !gc_remove_weak_relations(to_garbage)
+                finished_non_useful_tasks = plan.find_local_tasks.finished.
+                    find_all { |t| !plan.directly_useful_task?(t) && !t.keep_subplan? }.
+                    to_set
+
+                # There were no relations to remove. Garbage-collect by
+                # considering only Dependency
+                to_garbage.each do |t|
+                    parents = dependency_graph.in_neighbours(t)
+                    if parents.subset?(finished_non_useful_tasks) && gc_process_running_task(t)
+                        finishing << t
+                    end
+                end
+            end
+            finishing
+        end
+
+        # Force the following task to be garbage collected
+        #
+        # @param [Roby::Task] task
+        # @raise [ArgumentError] if the task is not from {#plan}
+        def force_gc_on(task)
+            if task.plan == self.plan
+                plan.force_gc << task
+                needs_garbage_collection!
+            else
+                raise ArgumentError, "#force_gc_on(#{task}) called but the task is not in #{plan}"
+            end
+        end
+
+        # Flag indicating whether the next call to {#garbage_collect} might do
+        # something
+        #
+        # It is set to true with {#needs_garbage_collection!} whenever the
+        # underlying plan is modified in a way that might require garbage
+        # collection
+        #
+        # Note if it is true, it does not mean that {#garbage_collect} will do
+        # something. If it is false, it does mean that {#garbage_collect} will
+        # be a (expensive) no-op.
+        attr_predicate :needs_garbage_collection?
+
+        # Mark this engine as needing to run {#garbage_collect}
+        def needs_garbage_collection!
+            @needs_garbage_collection = true
         end
         
         # Kills and removes all unneeded tasks. +force_on+ is a set of task
@@ -1527,128 +1688,33 @@ module Roby
         #
         # @return [Boolean] true if events have been called (thus requiring
         #   some propagation) and false otherwise
-        def garbage_collect(force_on = nil)
-            if force_on && !force_on.empty?
-                ExecutionEngine.info "GC: adding #{force_on.size} tasks in the force_gc set"
-                mismatching_plan = force_on.find_all do |t|
-                    if t.plan == self.plan
-                        plan.force_gc << t
-                        false
-                    else
-                        true
-                    end
-                end
-                if !mismatching_plan.empty?
-                    raise ArgumentError, "#{mismatching_plan.map { |t| "#{t}(plan=#{t.plan})" }.join(", ")} have been given to #{self}.garbage_collect, but they are not tasks in #{plan}"
+        def garbage_collect(force: false)
+            unmark_finished_missions_and_permanent_tasks
+
+            if !needs_garbage_collection?
+                if force
+                    self.needs_garbage_collection!
+                else return
                 end
             end
 
-            unmark_finished_missions_and_permanent_tasks
-
-            # The set of tasks for which we queued stop! at this cycle
-            # #finishing? is false until the next event propagation cycle
             finishing = Set.new
-            did_something = true
-            while did_something
-                did_something = false
+            while needs_garbage_collection?
+                while needs_garbage_collection?
+                    @needs_garbage_collection = false
 
-                tasks = plan.unneeded_tasks | plan.force_gc
-                local_tasks  = plan.local_tasks & tasks
-                remote_tasks = tasks - local_tasks
+                    removal_candidates, kill_candidates =
+                        gc_find_all_candidates
 
-                # Remote tasks are simply removed, regardless of other concerns
-                for t in remote_tasks
-                    ExecutionEngine.debug { "GC: removing the remote task #{t}" }
-                    plan.garbage_task(t)
-                end
-
-                break if local_tasks.empty?
-
-                debug do
-                    debug "#{local_tasks.size} tasks are unneeded in this plan"
-                    local_tasks.each do |t|
-                        debug "  #{t} mission=#{plan.mission_task?(t)} permanent=#{plan.permanent?(t)}"
+                    removal_candidates.each do |task|
+                        binding.pry
+                        gc_process_removal(task)
                     end
-                    break
-                end
-
-                if local_tasks.all? { |t| t.pending? || t.finished? }
-                    local_tasks.each do |t|
-                        debug { "GC: #{t} is not running, removed" }
-                        plan.garbage_task(t)
-                    end
-                    break
-                end
-
-                # Mark all root local_tasks as garbage.
-                roots = nil
-                2.times do |i|
-                    roots = local_tasks.dup
-                    plan.each_task_relation_graph do |g|
-                        next if !g.root_relation?
-                        roots.delete_if do |t|
-                            g.each_in_neighbour(t).any? { |p| !p.finished? }
+                    kill_candidates.each do |task|
+                        next if finishing.include?(task)
+                        if gc_process_kill(task)
+                            finishing << task
                         end
-                        break if roots.empty?
-                    end
-
-                    break if i == 1 || !roots.empty?
-
-                    # There is a cycle somewhere. Try to break it by removing
-                    # weak relations within elements of local_tasks
-                    debug "cycle found, removing weak relations"
-
-                    plan.each_task_relation_graph do |g|
-                        if g.weak?
-                            local_tasks.each do |t|
-                                g.remove_vertex(t)
-                            end
-                        end
-                    end
-                end
-
-                (roots.to_set - finishing - plan.gc_quarantine).each do |local_task|
-                    if local_task.pending?
-                        info "GC: removing pending task #{local_task}"
-
-                        plan.garbage_task(local_task)
-                        did_something = true
-                    elsif local_task.failed_to_start?
-                        info "GC: removing task that failed to start #{local_task}"
-                        plan.garbage_task(local_task)
-                        did_something = true
-                    elsif local_task.starting?
-                        # wait for task to be started before killing it
-                        debug { "GC: #{local_task} is starting" }
-                    elsif local_task.finished?
-                        debug { "GC: #{local_task} is not running, removed" }
-                        plan.garbage_task(local_task)
-                        did_something = true
-                    elsif !local_task.finishing?
-                        if local_task.event(:stop).controlable?
-                            debug { "GC: queueing #{local_task}/stop" }
-                            if !local_task.respond_to?(:stop!)
-                                fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
-                                plan.quarantine(local_task)
-                            else
-                                finishing << local_task
-                            end
-                        else
-                            warn "GC: ignored #{local_task}, it cannot be stopped"
-                            # We don't use Plan#quarantine as it is normal that
-                            # this task does not get GCed
-                            plan.gc_quarantine << local_task
-                        end
-                    elsif local_task.finishing?
-                        debug do
-			    debug "GC: waiting for #{local_task} to finish"
-			    local_task.history.each do |ev|
-			        debug "GC:   #{ev}"
-			    end
-			    break
-			end
-                    else
-                        warn "GC: ignored #{local_task}"
                     end
                 end
             end
@@ -1656,12 +1722,67 @@ module Roby
             finishing.each do |task|
                 task.stop!
             end
-
             plan.unneeded_events.each do |event|
                 plan.garbage_event(event)
             end
 
             !finishing.empty?
+        end
+
+        # @api private
+        #
+        # Do what needs to be done for a task that has been selected for garbage
+        # collection
+        def gc_process_removal(task)
+            if !task.self_owned?
+                info "GC: removing remote task #{task}"
+                plan.garbage_task(task)
+                false
+            elsif task.pending?
+                info "GC: removing pending task #{task}"
+                plan.garbage_task(task)
+                false
+            elsif task.failed_to_start?
+                info "GC: removing task that failed to start #{task}"
+                plan.garbage_task(task)
+                false
+            elsif task.finished?
+                debug { "GC: #{task} is not running, removed" }
+                plan.garbage_task(task)
+                false
+            end
+        end
+
+        def gc_process_kill(task)
+            if task.starting?
+                # wait for task to be started before killing it
+                debug { "GC: #{task} is starting" }
+                false
+            elsif task.finishing?
+                debug do
+                    debug "GC: waiting for #{task} to finish"
+                    task.history.each do |ev|
+                        debug "GC:   #{ev}"
+                    end
+                    break
+                end
+                false
+            elsif task.stop_event.controlable?
+                debug { "GC: queueing #{task}/stop" }
+                if task.respond_to?(:stop!)
+                    true
+                else
+                    fatal "something fishy: #{task}/stop is controlable but there is no #stop! method"
+                    plan.quarantine(task)
+                    false
+                end
+            else
+                warn "GC: ignored #{task}, it cannot be stopped"
+                # We don't use Plan#quarantine as it is normal that
+                # this task does not get GCed
+                plan.quarantine(task)
+                false
+            end
         end
 
 	# Do not sleep or call Thread#pass if there is less that
@@ -1861,7 +1982,7 @@ module Roby
             plan.mission_tasks.dup.each { |t| plan.unmark_mission_task(t) }
             plan.permanent_tasks.dup.each { |t| plan.unmark_permanent_task(t) }
             plan.permanent_events.dup.each { |t| plan.unmark_permanent_event(t) }
-            plan.force_gc.merge( plan.tasks )
+            plan.tasks.each { |t| plan.force_gc_on(t) }
 
             quaranteened_subplan = plan.compute_useful_tasks(plan.gc_quarantine)
             remaining = plan.tasks - quaranteened_subplan

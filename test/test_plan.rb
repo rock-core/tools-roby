@@ -364,6 +364,30 @@ module TC_PlanStatic
             assert(!plan.has_task_event?(ev))
         end
     end
+
+    def test_directly_useful_task_returns_true_for_a_mission_task
+        plan.add_mission_task(task = Roby::Task.new)
+        assert plan.directly_useful_task?(task)
+    end
+
+    def test_directly_useful_task_returns_true_for_a_permanent_task
+        plan.add_permanent_task(task = Roby::Task.new)
+        assert plan.directly_useful_task?(task)
+    end
+
+    def test_directly_useful_task_returns_false_by_default
+        plan.add(task = Roby::Task.new)
+        refute plan.directly_useful_task?(task)
+    end
+
+    def test_directly_useful_task_returns_true_for_a_task_that_is_proxied_by_a_transaction
+        plan.add(task = Roby::Task.new)
+        plan.in_transaction do |trsc|
+            trsc.wrap(task)
+            assert plan.directly_useful_task?(task)
+        end
+        refute plan.directly_useful_task?(task)
+    end
 end
 
 class TC_Plan < Minitest::Test

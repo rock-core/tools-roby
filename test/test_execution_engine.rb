@@ -2,6 +2,8 @@ require 'roby/test/self'
 require './test/mockups/tasks'
 require 'utilrb/hash/slice'
 
+Roby::TaskStructure.relation :WeakTest, weak: true, child_name: 'weak_test'
+
 module Roby
     describe ExecutionEngine do
         describe "event_ordering" do
@@ -47,9 +49,516 @@ module Roby
                 assert !execution_engine.has_queued_events?
             end
         end
+
+        describe "management of the needs_garbage_collection flag" do
+            after do
+                plan.each_task do |task|
+                    if task.starting?
+                        task.start_event.emit
+                    end
+                    if task.running?
+                        task.stop_event.emit
+                    end
+                end
+            end
+            it "is set if a new task is added" do
+                flexmock(execution_engine).should_receive(:needs_garbage_collection!).once
+                plan.add(Task.new)
+            end
+            it "is set if a new free event is added" do
+                flexmock(execution_engine).should_receive(:needs_garbage_collection!).once
+                plan.add(EventGenerator.new)
+            end
+            it "is set if a relation with a free event as parent is removed" do
+                plan.add(t = Task.new)
+                plan.add(e = EventGenerator.new)
+                e.forward_to t.start_event
+                flexmock(execution_engine).should_receive(:needs_garbage_collection!).once
+                e.remove_forwarding t.start_event
+            end
+            it "is set if a relation with a free event as child is removed" do
+                plan.add(t = Task.new)
+                plan.add(e = EventGenerator.new)
+                t.start_event.forward_to e
+                flexmock(execution_engine).should_receive(:needs_garbage_collection!).once
+                t.start_event.remove_forwarding e
+            end
+            it "is set if a relation involving a task is removed" do
+                plan.add(parent = Task.new)
+                plan.add(child = Task.new)
+                parent.depends_on child
+                flexmock(execution_engine).should_receive(:needs_garbage_collection!).once
+                parent.remove_child child
+            end
+            it "is set if a mission task is unmarked" do
+                plan.add_mission_task(task = Task.new)
+                flexmock(execution_engine).should_receive(:needs_garbage_collection!).once
+                plan.unmark_mission_task task
+            end
+            it "is set if a permanent task is unmarked" do
+                plan.add_permanent_task(task = Task.new)
+                flexmock(execution_engine).should_receive(:needs_garbage_collection!).once
+                plan.unmark_permanent_task task
+            end
+            it "is set if a permanent event is unmarked" do
+                plan.add_permanent_event(event = EventGenerator.new)
+                flexmock(execution_engine).should_receive(:needs_garbage_collection!).once
+                plan.unmark_permanent_event event
+            end
+            it "is set if a starting task already processed by #garbage_collect got started" do
+                task_m = Tasks::Simple.new_submodel { event(:start) { |context| } }
+                plan.add(task = task_m.new)
+                task.start!
+                execution_engine.garbage_collect
+                task.start_event.emit
+                assert execution_engine.needs_garbage_collection?
+            end
+            it "is set if a finishing task already processed by #garbage_collect got finished" do
+                task_m = Tasks::Simple.new_submodel { event(:stop) { |context| } }
+                plan.add(task = task_m.new)
+                task.start!
+                task.stop!
+                execution_engine.garbage_collect
+                task.stop_event.emit
+                assert execution_engine.needs_garbage_collection?
+            end
+        end
+
+        describe "#unmark_finished_missions_and_permanent_tasks" do
+            attr_reader :task
+            before do
+                task_m = Task.new_submodel { event(:stop) { |context| } }
+                @task = task_m.new
+            end
+            after do
+                if task.running?
+                    task.stop_event.emit
+                end
+            end
+
+            def self.common(test_class)
+                test_class.it "does not unmark pending tasks" do
+                    execution_engine.unmark_finished_missions_and_permanent_tasks
+                    assert_plan_predicate
+                end
+                test_class.it "does not unmark running tasks" do
+                    task.start!
+                    execution_engine.unmark_finished_missions_and_permanent_tasks
+                    assert_plan_predicate
+                end
+                test_class.it "does not unmark finishing tasks" do
+                    task.start!
+                    task.stop!
+                    execution_engine.unmark_finished_missions_and_permanent_tasks
+                    assert_plan_predicate
+                end
+                test_class.it "unmarks tasks that are finished" do
+                    task.start!
+                    task.stop_event.emit
+                    execution_engine.unmark_finished_missions_and_permanent_tasks
+                    refute_plan_predicate
+                end
+                test_class.it "does not unmark finished tasks that are being repaired" do
+                    task.start!
+                    task.stop_event.emit
+                    flexmock(task).should_receive(:being_repaired?).and_return(true)
+                    execution_engine.unmark_finished_missions_and_permanent_tasks
+                    assert_plan_predicate
+                end
+            end
+
+            describe "handling of mission tasks" do
+                attr_reader :task
+                before do
+                    plan.add_mission_task(task)
+                end
+
+                def assert_plan_predicate; assert plan.mission_task?(task) end
+                def refute_plan_predicate; refute plan.mission_task?(task) end
+
+                common(self)
+
+                it "unmarks tasks that have failed to start" do
+                    assert_raises(MissionFailedError) do
+                        task.start_event.emit_failed
+                    end
+                    assert plan.mission_task?(task)
+                    execution_engine.unmark_finished_missions_and_permanent_tasks
+                    refute plan.mission_task?(task)
+                end
+            end
+
+            describe "handling of permanent tasks" do
+                before do
+                    plan.add_permanent_task(task)
+                end
+
+                def assert_plan_predicate; assert plan.permanent_task?(task) end
+                def refute_plan_predicate; refute plan.permanent_task?(task) end
+
+                common(self)
+
+                it "unmarks tasks that have failed to start" do
+                    inhibit_fatal_messages do
+                        task.start_event.emit_failed
+                    end
+                    assert plan.permanent_task?(task)
+                    execution_engine.unmark_finished_missions_and_permanent_tasks
+                    refute plan.permanent_task?(task)
+                end
+            end
+        end
+
+        describe "#gc_find_all_candidates" do
+            it "returns empty if none of the tasks are eligible" do
+                plan.add_mission_task(task = Tasks::Simple.new)
+                assert_equal [[], []], execution_engine.gc_find_all_candidates
+            end
+
+            describe "removal tasks" do
+                attr_reader :task
+                before do
+                    plan.add(@task = Tasks::Simple.new)
+                end
+                after do
+                    plan.unmark_mission_task(task)
+                    plan.unmark_permanent_task(task)
+                    task.stop! if task.running?
+                end
+
+                it "returns a task that is root in all the task relations" do
+                    assert_equal [[task], []], execution_engine.gc_find_all_candidates
+                end
+                it "does not return a task that has keep_in_plan?" do
+                    flexmock(task).should_receive(:keep_in_plan?).and_return(true)
+                    assert_equal [[], []], execution_engine.gc_find_all_candidates
+                end
+                it "considers directly useful tasks if they are in the force_gc set" do
+                    plan.add_permanent_task(task)
+                    execution_engine.force_gc_on(task)
+                    assert_equal [[task], []], execution_engine.gc_find_all_candidates
+                end
+
+                it "does not return a finished task that is not root" do
+                    plan.add_mission_task(root = task)
+                    root.depends_on(parent = Tasks::Simple.new, remove_when_done: false)
+                    parent.depends_on(child = Tasks::Simple.new)
+                    parent.start!
+                    parent.success_event.emit
+                    assert_equal [[], []], execution_engine.gc_find_all_candidates
+                end
+            end
+
+            describe "kill tasks" do
+                attr_reader :task
+                before do
+                    plan.add(@task = Tasks::Simple.new)
+                    task.start!
+                end
+                after do
+                    plan.unmark_mission_task(task)
+                    plan.unmark_permanent_task(task)
+                    task.stop! if task.running?
+                end
+
+                it "returns a task that is root in all the task relations" do
+                    assert_equal [[], [task]], execution_engine.gc_find_all_candidates
+                end
+                it "considers directly useful tasks if they are in the force_gc set" do
+                    plan.add_permanent_task(task)
+                    execution_engine.force_gc_on(task)
+                    assert_equal [[], [task]], execution_engine.gc_find_all_candidates
+                end
+                describe "handling of finished tasks" do
+                    attr_reader :root, :parent, :child
+                    before do
+                        plan.add_mission_task(@root = task)
+                        root.depends_on(@parent = Tasks::Simple.new, remove_when_done: false)
+                        parent.depends_on(@child = Tasks::Simple.new)
+                        parent.start!
+                        parent.success_event.emit
+                        child.start!
+                    end
+
+                    it "returns a non-root running task that only has finished parents" do
+                        assert_equal [[], [child]], execution_engine.gc_find_all_candidates
+                    end
+                    it "does not return a non-root task that has finished parents for which #keep_subplan? returns true" do
+                        flexmock(parent).should_receive(:keep_subplan?).and_return(true)
+                        assert_equal [[], []], execution_engine.gc_find_all_candidates
+                    end
+                    it "does not return a non-root task that has finished parents for which directly_useful_task? returns true" do
+                        flexmock(plan).should_receive(:directly_useful_task?).with(parent).and_return(true)
+                        flexmock(plan).should_receive(:directly_useful_task?).pass_thru
+                        assert_equal [[], []], execution_engine.gc_find_all_candidates
+                    end
+                end
+            end
+        end
+
+        describe "#gc_remove_weak_relations" do
+            attr_reader :weak_graph
+            before do
+                @weak_graph = plan.task_relation_graph_for(TaskStructure::WeakTest)
+            end
+
+            it "removes the passed tasks from all weak relations and keeps the others" do
+                plan.add(parent = Task.new)
+                plan.add(child = Task.new)
+                parent.add_weak_test(child)
+                child.add_weak_test(grandchild = Task.new)
+                execution_engine.gc_remove_weak_relations([parent])
+
+                refute weak_graph.has_vertex?(parent)
+                assert weak_graph.has_edge?(child, grandchild)
+            end
+
+            it "returns true if some vertices have been removed" do
+                plan.add(task = Task.new)
+                weak_graph.add_vertex(task)
+                assert execution_engine.gc_remove_weak_relations([task])
+            end
+
+            it "returns false if nothing needed to be done" do
+                plan.add(task = Task.new)
+                weak_graph.add_vertex(task)
+                refute execution_engine.gc_remove_weak_relations([])
+            end
+
+            it "returns false if no vertices were removed" do
+                plan.add(task = Task.new)
+                refute execution_engine.gc_remove_weak_relations([task])
+            end
+        end
+
+        describe "#gc_find_all_kill_candidates_with_possible_cycles" do
+            it "does nothing if removing the weak relations changed the graphs" do
+                plan.add(task = Task.new)
+                flexmock(execution_engine).should_receive(:gc_remove_weak_relations).
+                    and_return(true)
+                assert_equal [], execution_engine.gc_find_all_kill_candidates_with_possible_cycles
+            end
+
+            it "garbage collects using the dependency graph if weak graph removal did nothing" do
+                plan.add(parent = Tasks::Simple.new)
+                parent.depends_on(child = Tasks::Simple.new)
+                parent.start!
+
+                flexmock(execution_engine).should_receive(:gc_remove_weak_relations).
+                    and_return(false)
+                flexmock(execution_engine).should_receive(:gc_process_running_task).with(parent).
+                    and_return(true)
+                assert_equal [parent], execution_engine.
+                    gc_find_all_kill_candidates_with_possible_cycles
+            end
+        end
+
+        describe "#gc_process_removal" do
+            attr_reader :task
+            before do
+                plan.add(@task = Tasks::Simple.new)
+            end
+            it "does not remove a task that has parents" do
+                refute execution_engine.gc_process_removal(task)
+                assert !plan.has_task?(task)
+            end
+            it "removes a pending task and returns false" do
+                refute execution_engine.gc_process_removal(task)
+                assert !plan.has_task?(task)
+            end
+            it "removes a task that failed to start and returns false" do
+                task.start_event.emit_failed
+                refute execution_engine.gc_process_removal(task)
+                assert !plan.has_task?(task)
+            end
+            it "removes a finished task and returns false" do
+                task.start!
+                task.stop!
+                refute execution_engine.gc_process_removal(task)
+                refute plan.has_task?(task)
+            end
+        end
+
+        describe "#gc_process_kill" do
+            attr_reader :task
+            before do
+                plan.add(@task = Tasks::Simple.new)
+            end
+            after do
+                if task.starting?
+                    task.start_event.emit
+                    task.stop_event.emit
+                elsif task.finishing?
+                    task.stop_event.emit
+                end
+            end
+            it "waits for a task that is starting and returns false" do
+                task_m = Task.new_submodel { event(:start) { |context| } }
+                plan.add(@task = task_m.new)
+                task.start!
+                refute execution_engine.gc_process_kill(task)
+                assert plan.has_task?(task)
+            end
+            it "waits for a task that is finishing and returns false" do
+                task_m = Task.new_submodel { event(:stop) { |context| } }
+                plan.add(@task = task_m.new)
+                task.start!
+                task.stop!
+                refute execution_engine.gc_process_kill(task)
+                assert plan.has_task?(task)
+            end
+            it "does nothing and returns true for a task that is running and interruptible" do
+                task.start!
+                assert execution_engine.gc_process_kill(task)
+                assert plan.has_task?(task)
+            end
+            it "quarantines and returns false for a task that is running, interruptible but for which stop! is not defined" do
+                task.start!
+                flexmock(plan).should_receive(:quarantine).with(task).once
+                flexmock(task).should_receive(:respond_to?).with(:stop!).and_return(false)
+
+                refute execution_engine.gc_process_kill(task)
+                assert plan.has_task?(task)
+            end
+            it "quarantines and returns false for a task that is running but for which the stop event is not controlable" do
+                task_m = Task.new_submodel
+                plan.add(@task = task_m.new)
+                task.start!
+                flexmock(plan).should_receive(:quarantine).with(task).once
+
+                refute execution_engine.gc_process_kill(task)
+                assert plan.has_task?(task)
+            end
+        end
+
+        describe "#garbage_collect" do
+            after do
+                plan.tasks.each do |t|
+                    if t.starting?
+                        t.start_event.emit
+                    end
+                    if t.running?
+                        t.stop_event.emit
+                    end
+                end
+            end
+            it "recursively removes pending tasks" do
+                plan.add(parent = Task.new)
+                parent.depends_on(child = Task.new)
+                child.depends_on(grandchild = Task.new)
+                execution_engine.garbage_collect
+                assert !plan.has_task?(parent)
+                assert !plan.has_task?(child)
+                assert !plan.has_task?(grandchild)
+            end
+
+            it "stops iterating when it has to stop a task, and calls the stop event on it" do
+                plan.add(parent = Tasks::Simple.new)
+                parent.depends_on(child = Tasks::Simple.new)
+                child.depends_on(grandchild = Task.new)
+
+                child.start!
+                execution_engine.garbage_collect
+
+                refute plan.has_task?(parent)
+                assert plan.has_task?(child)
+                assert plan.has_task?(grandchild)
+                assert child.finished?
+            end
+
+            it "stops iterating when it has to wait on a finishing task" do
+                task_m = Tasks::Simple.new_submodel { event(:stop) { |context| } }
+                plan.add(parent = Tasks::Simple.new)
+                parent.depends_on(child = task_m.new)
+                child.depends_on(grandchild = Task.new)
+
+                child.start!
+                child.stop!
+                execution_engine.garbage_collect
+
+                refute plan.has_task?(parent)
+                assert plan.has_task?(child)
+                assert plan.has_task?(grandchild)
+            end
+
+            it "collects on a starting task once it is started" do
+                task_m = Tasks::Simple.new_submodel { event(:stop) { |context| } }
+                plan.add(task = task_m.new)
+                task.start!
+                task.stop!
+                execution_engine.garbage_collect
+                assert plan.has_task?(task)
+                task.stop_event.emit
+                execution_engine.garbage_collect
+                refute plan.has_task?(task)
+            end
+
+            it "stops iterating when it has to wait on a starting task" do
+                task_m = Tasks::Simple.new_submodel { event(:start) { |context| } }
+                plan.add(parent = Tasks::Simple.new)
+                parent.depends_on(child = task_m.new)
+                child.depends_on(grandchild = Task.new)
+
+                child.start!
+                execution_engine.garbage_collect
+
+                refute plan.has_task?(parent)
+                assert plan.has_task?(child)
+                assert plan.has_task?(grandchild)
+            end
+
+            it "collects on a starting task once it is started" do
+                task_m = Tasks::Simple.new_submodel { event(:start) { |context| } }
+                plan.add(task = task_m.new)
+                task.start!
+                execution_engine.garbage_collect
+                assert plan.has_task?(task)
+                task.start_event.emit
+                assert execution_engine.garbage_collect
+                assert task.finished?
+            end
+
+            it "removes unneeded events" do
+                plan.add(ev = EventGenerator.new)
+                flexmock(plan).should_receive(:unneeded_events).and_return([ev])
+                execution_engine.garbage_collect
+                assert !plan.has_free_event?(ev)
+            end
+
+            it "leaves useful free events alone" do
+                plan.add(ev = EventGenerator.new)
+                flexmock(plan).should_receive(:unneeded_events).and_return([])
+                execution_engine.garbage_collect
+                assert plan.has_free_event?(ev)
+            end
+
+            it "garbage-collects a useful task that is added to the force-gc set" do
+                plan.add_permanent_task(task = Tasks::Simple.new)
+                task.start!
+                execution_engine.force_gc_on(task)
+                execution_engine.garbage_collect
+                assert task.finished?
+            end
+
+            it "stops tasks that have finished parents but do not remove them" do
+                plan.add_permanent_task(parent = Tasks::Simple.new)
+                parent.depends_on(child = Tasks::Simple.new, remove_when_done: false)
+                child.depends_on(grandchild = Tasks::Simple.new, remove_when_done: false)
+
+                parent.start!
+                child.start!
+                grandchild.start!
+                child.success_event.emit
+                assert_event_emission(grandchild.stop_event)
+
+                assert parent.running?
+                assert plan.has_task?(parent)
+                assert plan.has_task?(child)
+                assert plan.has_task?(grandchild)
+            end
+        end
     end
 end
-
 
 class TC_ExecutionEngine < Minitest::Test
     def test_gather_propagation
@@ -564,10 +1073,9 @@ class TC_ExecutionEngine < Minitest::Test
 
         plan.add_permanent_task(t = model.new)
         assert_event_emission(t.failed_event) do
-            assert_raises(SpecificException) do
-                t.start!
-            end
+            t.start!
         end
+        assert_kind_of SpecificException, t.failure_reason
 
 	# Check that the task has been garbage collected in the process
 	assert(! plan.has_task?(t))
@@ -884,7 +1392,8 @@ class TC_ExecutionEngine < Minitest::Test
 	plan.add_mission_task(t1)
 	t1.start!
 	assert_finalizes(plan, []) do
-	    execution_engine.garbage_collect([t1])
+            execution_engine.force_gc_on(t1)
+	    execution_engine.garbage_collect
 	end
 	assert(t1.event(:stop).pending?)
 
@@ -985,8 +1494,6 @@ class TC_ExecutionEngine < Minitest::Test
 	assert_equal([e1, e2].to_set, plan.unneeded_events)
     end
 
-    Roby::TaskStructure.relation :WeakTest, weak: true
-
     def test_garbage_collect_weak_relations
         planning, planned, influencing = prepare_plan discover: 3, model: Tasks::Simple
 
@@ -1063,7 +1570,6 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_one_can_add_errors_during_garbage_collection
-        plan = flexmock(self.plan)
         plan.add(task = Roby::Tasks::Simple.new)
         task.stop_event.when_unreachable do
             execution_engine.add_error LocalizedError.new(task)
@@ -1379,7 +1885,6 @@ class TC_ExecutionEngine < Minitest::Test
         assert_equal 1, repairs.size
         repair_task = repairs.first
 
-	Roby.app.abort_on_exception = false
         # Verify that both the repair and root tasks are not garbage collected
 	process_events
 	assert(repair_task.running?)

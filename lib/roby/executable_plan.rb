@@ -138,6 +138,21 @@ module Roby
             super
         end
 
+        def unmark_mission_task(task)
+            super
+            execution_engine.needs_garbage_collection!
+        end
+
+        def unmark_permanent_task(task)
+            super
+            execution_engine.needs_garbage_collection!
+        end
+
+        def unmark_permanent_event(event)
+            super
+            execution_engine.needs_garbage_collection!
+        end
+
         # Hook called before an edge gets added to this plan
         #
         # If an exception is raised, the edge will not be added
@@ -248,6 +263,10 @@ module Roby
         # @param [Array<Class<Relations::Graph>>] relations the graphs in which an edge
         #   has been removed
         def removed_edge(parent, child, relations)
+            if parent.root_object? || child.root_object?
+                execution_engine.needs_garbage_collection!
+            end
+
             relations.each do |rel|
                 if name = rel.child_name
                     parent.send("removed_#{rel.child_name}", child)
@@ -336,6 +355,7 @@ module Roby
                 log(:added_edge, parent, child, [graph.class], info)
             end
             removed.each do |graph, parent, child|
+                execution_agent.needs_garbage_collection!
                 log(:removed_edge, parent, child, [graph.class])
             end
             updated.each do |graph, parent, child, info|
@@ -356,6 +376,10 @@ module Roby
         def merged_plan(plan)
             if !plan.event_relation_graph_for(EventStructure::Precedence).empty?
                 execution_engine.event_ordering.clear
+            end
+
+            if !plan.tasks.empty? || !plan.free_events.empty?
+                execution_engine.needs_garbage_collection!
             end
 
             plan.each_task_relation_graph do |graph|

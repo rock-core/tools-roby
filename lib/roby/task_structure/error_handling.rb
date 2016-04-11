@@ -111,7 +111,11 @@ module Roby::TaskStructure
 
         # Test if this task has an active repair tasks associated
         def being_repaired?
-            each_child_object(ErrorHandling).any? { |t| t.running? }
+            each_error_handler.any? { |t| t.running? }
+        end
+
+        def keep_in_plan?
+            being_repaired?
         end
     end
 

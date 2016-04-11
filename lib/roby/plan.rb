@@ -1073,12 +1073,33 @@ module Roby
 	    end
 	end
 
-	# Computes the set of useful tasks and checks that +task+ is in it.
+	# Computes the set of useful tasks and checks that task is in it.
+        #
 	# This is quite slow. It is here for debugging purposes. Do not use it
 	# in production code
+        #
+        # @param [Roby::Task] task
 	def useful_task?(task)
 	    tasks.include?(task) && !unneeded_tasks.include?(task)
 	end
+
+        # Checks whether the task is one of the "root" needed tasks (e.g.
+        # mission, permanent, ...)
+        #
+        # All other useful tasks are dependencies of a directly useful task
+        #
+        # @param [Roby::Task] task
+        def directly_useful_task?(task)
+            if mission_tasks.include?(task) || permanent_tasks.include?(task)
+                true
+            else
+                for trsc in transactions
+                    return true if trsc.has_proxy_for_task?(task)
+                end
+                false
+            end
+        end
+
 
         class UsefulFreeEventVisitor < RGL::DFSVisitor
             attr_reader :useful_free_events, :task_events, :stack

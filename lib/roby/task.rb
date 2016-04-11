@@ -463,6 +463,21 @@ module Roby
         # and is not finished)
         def running?; started? && !finished? end
 
+        # Whether this object should be kept in the plan even if it is ready to
+        # be finalized
+        #
+        # @see keep_subplan? ExecutionEngine#garbage_collect
+        def keep_in_plan?; false end
+
+        # Whether this object's subplan should be protected from garbage
+        # collection even if the object itself is ready to be finalized
+        #
+        # If it returns true, it will be effective only if {#keep_in_plan?}
+        # returns true as well
+        #
+        # @see keep_in_plan? ExecutionEngine#garbage_collect
+        def keep_subplan?; false end
+
 	attr_predicate :started?, true
 	attr_predicate :finished?, true
 	attr_predicate :success?, true
@@ -629,11 +644,13 @@ module Roby
 		@terminal_event ||= event
 	    end
 	    
-	    if event.symbol == :start
+            if event.symbol == :start
+                plan.execution_engine.needs_garbage_collection!
 		plan.task_index.set_state(self, :running?)
 		self.started = true
 		@executable = true
 	    elsif event.symbol == :stop
+                plan.execution_engine.needs_garbage_collection!
 		plan.task_index.remove_state(self, :running?)
                 plan.task_index.add_state(self, :finished?)
 		self.finished = true
@@ -1138,8 +1155,6 @@ module Roby
         #
         # @param [ExecutionException] e
         def handle_exception(e)
-            return if !plan
-
             tasks = find_all_matching_repair_tasks(e)
             return super if tasks.empty?
             if !tasks.any? { |t| t.running? }
