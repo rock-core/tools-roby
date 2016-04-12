@@ -1,0 +1,97 @@
+/* CTF 1.8 */
+
+typealias integer { size = 8; align = 8; signed = false; } := uint8_t;
+typealias integer { size = 16; align = 8; signed = false; } := uint16_t;
+typealias integer { size = 32; align = 8; signed = false; } := uint32_t;
+typealias integer { size = 64; align = 8; signed = false; } := uint64_t;
+typealias integer { size = 64; align = 8; signed = false; } := unsigned long;
+
+trace {
+    major = 1;
+    minor = 8;
+    uuid = "<%= _uuid_s %>";
+    byte_order = le;
+    packet.header := struct {
+        uint32_t magic;
+        uint8_t  uuid[16];
+        uint32_t stream_id;
+    };
+};
+
+clock {
+    name = wall;
+    freq = 1000000;           /* microseconds */
+    offset_s = <%= _clock_base %>;
+};
+
+typealias integer {
+    size = 32; align = 8; signed = false;
+    map = clock.wall.value;
+} := uint32_wallclock_t;
+
+typealias integer {
+    size = 64; align = 8; signed = false;
+    map = clock.wall.value;
+} := uint64_wallclock_t;
+
+struct packet_context {
+    uint64_t timestamp_begin;
+    uint64_t timestamp_end;
+    uint32_t cpu_id;
+} align(8);
+
+struct event_header {
+    /*
+     * id: range: 0 - 65534.
+     * id 65535 is reserved to indicate an extended header.
+     */
+    enum : uint16_t { compact = 0 ... 65534, extended = 65535 } id;
+    variant <id> {
+        struct {
+            uint32_wallclock_t timestamp;
+        } compact;
+        struct {
+            uint32_t id;        /* 32-bit event IDs */
+            uint64_wallclock_t timestamp; /* 64-bit timestamps */
+        } extended;
+    } v;
+} align(8);
+
+stream {
+    id = 0;
+    packet.context := struct packet_context;
+    event.header := struct event_header;
+    event.context := struct {
+        uint32_t _vtid;
+        integer { size = 16; align = 8; signed = false; } __procname_length;
+        integer { size = 8; align = 8; signed = 1; encoding = UTF8; } _procname[__procname_length];
+        integer { size = 16; align = 8; signed = false; } __name_length;
+        integer { size = 8; align = 8; signed = 1; encoding = UTF8; } _name[__name_length];
+    };
+};
+
+event {
+    name = "event";
+    id = 1;
+    stream_id = 0;
+    fields := struct {
+    };
+};
+
+event {
+    name = "lttng_ust_cyg_profile_fast:func_entry";
+    id = 2;
+    stream_id = 0;
+    fields := struct {
+        uint32_t _addr;
+    };
+};
+
+event {
+    name = "lttng_ust_cyg_profile_fast:func_exit";
+    id = 3;
+    stream_id = 0;
+    fields := struct {
+    };
+};
+

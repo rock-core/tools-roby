@@ -19,9 +19,11 @@ module Roby
             desc 'timepoints', 'extract timepoint information from the log file'
             option :raw, desc: 'display the timpoints as they appear instead of formatting them per-thread and per-group'
             option :flamegraph, type: :string, desc: 'path to a HTML file that will display a flame graph'
+            option :ctf, type: :boolean, desc: 'generate a CTF file suitable to be analyzed by e.g. Trace Compass'
             def timepoints(file)
                 require 'roby/droby/logfile/reader'
                 require 'roby/droby/timepoints'
+                require 'roby/droby/timepoints_ctf'
                 require 'roby/cli/log/flamegraph_renderer'
 
                 stream = Roby::DRoby::Logfile::Reader.open(file)
@@ -49,6 +51,11 @@ module Roby
 
 
                 analyzer = Roby::DRoby::Timepoints::Analysis.new
+                if options[:ctf]
+                    analyzer = Roby::DRoby::Timepoints::CTF.new
+                else
+                    analyzer = Roby::DRoby::Timepoints::Analysis.new
+                end
                 while data = stream.load_one_cycle
                     data.each_slice(4) do |m, sec, usec, args|
                         if m == :timepoint
@@ -61,7 +68,12 @@ module Roby
                     end
                 end
 
-                if options[:flamegraph]
+                if options[:ctf]
+                    path = Pathname.new(file).expand_path.sub_ext('.ctf')
+                    path.mkpath
+                    puts "saving in #{path}"
+                    analyzer.save(path)
+                elsif options[:flamegraph]
                     graph = analyzer.flamegraph
                     graph = graph.map do |name, duration|
                         [name, (duration * 1000).round]
