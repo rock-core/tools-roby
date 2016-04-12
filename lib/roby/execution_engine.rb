@@ -161,6 +161,17 @@ module Roby
         include Logger::Hierarchy
         include DRoby::EventLogging
 
+        # Whether this engine should use the OOB GC from the gctools gem
+        attr_predicate :use_oob_gc?, true
+
+        class << self
+            # Whether the engines should use the OOB GC from the gctools gem by
+            # default
+            #
+            # It is enabled in lib/roby.rb if the gctools are installed
+            attr_predicate :use_oob_gc?, true
+        end
+
         # Create an execution engine acting on +plan+, using +control+ as the
         # decision control object
         #
@@ -175,6 +186,8 @@ module Roby
         def initialize(plan, control: Roby::DecisionControl.new, event_logger: plan.event_logger)
             @plan = plan
             @event_logger = event_logger
+
+            @use_oob_gc = ExecutionEngine.use_oob_gc?
 
             @control = control
             @scheduler = Schedulers::Null.new(plan)
@@ -1961,6 +1974,11 @@ module Roby
                     end
 
                     remaining_cycle_time = cycle_length - (Time.now - cycle_start)
+
+                    if use_oob_gc?
+                        stats[:pre_oob_gc] = GC.stat
+                        GC::OOB.run
+                    end
 		    
 		    # Sleep if there is enough time for it
 		    if remaining_cycle_time > SLEEP_MIN_TIME

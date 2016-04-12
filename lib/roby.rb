@@ -98,6 +98,11 @@ require 'roby/transactions'
 require 'roby/decision_control'
 require 'roby/schedulers/null'
 require 'roby/execution_engine'
+begin
+    require 'gctools/oobgc'
+    Roby::ExecutionEngine.use_oob_gc = true
+rescue LoadError
+end
 require 'roby/app'
 require 'roby/state'
 require 'roby/singletons'
