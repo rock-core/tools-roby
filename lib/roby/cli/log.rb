@@ -124,12 +124,24 @@ module Roby
                     io = File.open(options[:save], 'w')
                 end
 
-                io.puts "1_cycle_index,2_log_queue_size,3_plan_task_count,4_plan_event_count,5_utime,6_stime,7_dump_time,8_duration,9_min_gc,10_maj_gc,11_allocated"
+                header = %w{1_cycle_index 2_log_queue_size 3_plan_task_count 4_plan_event_count 5_utime 6_stime 7_dump_time 8_duration 9_total_allocated_objects 10_minor 11_major 12_count 13_oob_removed}
+                formatting = %w{%i %i %i %i %.3f %.3f %.3f %.3f %i %i %i %i %i}
+                formatting = formatting.join(",")
+
+                puts header.join(",")
                 index.each do |info|
-                    io.puts "%i,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%i,%i,%i" % [
+                    gc = info[:gc]
+                    oob_gc = info[:pre_oob_gc] || gc
+
+                    io.puts formatting % [
                         *info.values_at(:cycle_index, :log_queue_size, :plan_task_count, :plan_event_count, :utime, :stime, :dump_time, :end),
-                        *info[:gc].values_at(:minor_gc_count, :major_gc_count, :total_allocated_object)]
+                        gc[:total_allocated_object],
+                        gc[:minor_gc_count],
+                        gc[:major_gc_count],
+                        gc[:total_allocated_object] - gc[:total_freed_object],
+                        gc[:total_freed_object] - oob_gc[:total_freed_object]]
                 end
+
                 exit(0)
             end
 
