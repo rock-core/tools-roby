@@ -64,14 +64,12 @@ module Roby
             result = Module.new do
                 attr_accessor :__getobj__
                 def transaction_proxy?; true end
-                for name in mod.instance_methods(false)
+                mod.instance_methods(false).each do |name|
                     next if name =~ /^__.*__$/
                     next if name == :object_id
-                    class_eval <<-EOD, __FILE__, __LINE__+1
-                    def #{name}(*args, &block)
-                        __getobj__.send("#{name}", *args, &block)
+                    define_method(name) do |*args, &block|
+                        __getobj__.send(name, *args, &block)
                     end
-                    EOD
                 end 
             end
 
