@@ -578,7 +578,8 @@ module Roby
             @plan = ExecutablePlan.new
 
             @auto_load_all = false
-            @auto_load_models = true
+            @default_auto_load = true
+            @auto_load_models = nil
             @app_dir = nil
             @backward_compatible_naming = true
             @development_mode = true
@@ -1376,7 +1377,7 @@ module Roby
                 find_file('config', 'robots', "#{robot_type}.rb", order: :specific_first)
 
             if p
-                self.auto_load_models = false
+                @default_auto_load = false
                 require p
                 if !robot_type
                     robot(robot_name, robot_name)
@@ -1961,7 +1962,15 @@ module Roby
         # automatically in {#require_models}
         #
         # @return [Boolean]
-	attr_predicate :auto_load_models?, true
+	attr_writer :auto_load_models
+
+        def auto_load_models?
+            if @auto_load_models.nil?
+                @default_auto_load
+            else
+                @auto_load_models
+            end
+        end
 
         # @return [Array<String>] the search path for the auto-load feature. It
         #   depends on the value of {#auto_load_all?}
@@ -2300,7 +2309,7 @@ module Roby
 
                 if path = test_file_for(m)
                     suffix = File.basename(File.dirname(path))
-                    if !robot_name?(suffix) || suffix == robot_type
+                    if !robot_name?(suffix) || (suffix == robot_type)
                         models_per_file[path] << m
                     end
                 end

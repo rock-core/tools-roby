@@ -16,6 +16,10 @@ list_tests = false
 coverage_mode = false
 testrb_args = []
 parser = OptionParser.new do |opt|
+    opt.on('--all', 'auto-load all models and the corresponding tests') do |val|
+        app.auto_load_models = true
+    end
+
     opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
 	Roby.app.single = !val
     end
