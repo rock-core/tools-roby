@@ -6,6 +6,8 @@ app.require_app_dir
 app.public_shell_interface = true
 app.public_logs = true
 
+MetaRuby.keep_definition_location = false
+
 run_controller = false
 options = OptionParser.new do |opt|
     opt.banner = <<-EOD
