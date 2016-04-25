@@ -13,14 +13,8 @@ module Roby::TaskStructure
             if remove_when_done
                 repairing_task.stop_event.on do |event|
                     repairing_task = event.task
-                    if task.child_object?(repairing_task, ErrorHandling)
-                        matcher_sets = task[repairing_task, ErrorHandling]
-                        matcher_sets.delete_if do |m|
-                            m.matches_task?(event.task)
-                        end
-                        if matcher_sets.empty?
-                            task.remove_error_handler(repairing_task)
-                        end
+                    if task.plan && task.child_object?(repairing_task, ErrorHandling)
+                        task.remove_error_handler(repairing_task)
                     end
                 end
             end

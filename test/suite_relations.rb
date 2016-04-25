@@ -7,5 +7,6 @@ require './test/task_structure/test_dependency'
 require './test/task_structure/test_executed_by'
 require './test/task_structure/test_planned_by'
 require './test/task_structure/test_conflicts'
+require './test/task_structure/test_error_handling'
 require './test/event_structure/test_temporal_constraints'
 
