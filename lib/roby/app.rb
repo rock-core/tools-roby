@@ -1434,7 +1434,9 @@ module Roby
 
         rescue Exception
             begin cleanup
-            rescue Exception
+            rescue Exception => e
+                Roby.warn "failed to cleanup after #setup raised"
+                Roby.log_exception_with_backtrace(e, Roby, :warn)
             end
             raise
 	end
