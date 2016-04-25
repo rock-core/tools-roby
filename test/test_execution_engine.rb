@@ -1031,7 +1031,7 @@ class TC_ExecutionEngine < Minitest::Test
         task.stop_event.when_unreachable do
             execution_engine.add_error LocalizedError.new(task)
         end
-        inhibit_fatal_messages { process_events }
+        inhibit_fatal_messages { process_events(raise_errors: false) }
     end
 
     class SpecializedError < LocalizedError; end

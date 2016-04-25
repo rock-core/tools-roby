@@ -236,13 +236,32 @@ module Roby
 	end
         
 	# Process pending events
-	def process_events
+	def process_events(raise_errors: true)
+            exceptions = Array.new
             registered_plans.each do |p|
                 engine = p.execution_engine
-                engine.join_all_waiting_work
-                engine.start_new_cycle
-                engine.process_events
-                engine.cycle_end(Hash.new)
+                listener = engine.on_exception do |kind, exception, tasks|
+                    if kind == ExecutionEngine::EXCEPTION_FATAL
+                        exceptions << exception
+                    end
+                end
+                begin
+                    engine.join_all_waiting_work
+                    engine.start_new_cycle
+                    engine.process_events
+                    engine.cycle_end(Hash.new)
+                ensure
+                    engine.remove_exception_listener(listener)
+                end
+            end
+
+            if raise_errors && !exceptions.empty?
+                if exceptions.size == 1
+                    e = exceptions.first
+                    raise e.exception
+                else
+                    raise SynchronousEventProcessingMultipleErrors.new(exceptions)
+                end
             end
 	end
 
