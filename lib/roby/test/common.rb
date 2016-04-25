@@ -31,6 +31,8 @@ require 'roby/test/assertion'
 require 'roby/test/error'
 require 'roby/test/teardown_plans'
 
+FlexMock.partials_are_based = true
+
 module Roby
     # This module is defining common support for tests that need the Roby
     # infrastructure

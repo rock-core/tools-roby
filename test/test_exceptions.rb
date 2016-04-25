@@ -20,9 +20,9 @@ describe Roby do
         end
 
         let :stub_m do
-            Class.new do
+            Class.new(Roby::ExceptionBase) do
                 attr_reader :text
-                def initialize(text); @text = text end
+                def initialize(text); super([]); @text = text end
                 def pretty_print(pp)
                     pp.text text
                 end

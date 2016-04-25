@@ -15,6 +15,12 @@ module Roby
                     @model = model
                 end
 
+                # Method that must be reimplemented in the task objects actually
+                # used in the coordination primitives
+                def resolve
+                    raise NotImplementedError, "#resolve must be reimplemented in objects meant to be used in the coordination primitives"
+                end
+
                 def find_child(role, child_model = nil)
                     child_model ||= model.find_child_model(role)
                     if !child_model

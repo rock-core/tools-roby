@@ -145,6 +145,12 @@ module Roby
                     self
                 end
 
+                # This method must be overloaded in the tasks that will be
+                # actually used in the coordination primitives
+                def instanciate
+                    raise NotImplementedError, "must reimplement #instanciate in the task objects used in coordination primitives"
+                end
+
                 def setup_instanciated_task(coordination_context, task, arguments = Hash.new)
                 end
             end

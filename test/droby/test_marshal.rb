@@ -7,6 +7,8 @@ module Roby
 
         class IdentifiableObject
             include Identifiable
+            # To please flexmock strict mode
+            def droby_dump; raise NotImplementedError end
         end
 
         describe Marshal do

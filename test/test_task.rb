@@ -4,7 +4,7 @@ require 'roby/tasks/group'
 module Roby
     describe Task do
         describe "the argument handling" do
-            describe "__assign_arguments__" do
+            describe "assign_arguments" do
                 let(:task_m) do
                     Task.new_submodel do
                         argument :high_level_arg
@@ -41,11 +41,15 @@ module Roby
                 end
 
                 it "does parallel-assignment of arguments given to it at initialization" do
-                    flexmock(task_m).new_instances.
-                        should_receive(:__assign_arguments__).
-                        with(high_level_arg: 10, low_level_arg: 10)
-
-                    plan.add(task = task_m.new(high_level_arg: 10, low_level_arg: 10))
+                    task_m = Class.new(self.task_m) do
+                        attr_reader :parallel_assignment
+                        def assign_arguments(args)
+                            @parallel_assignment = args
+                            super
+                        end
+                    end
+                    task = task_m.new(high_level_arg: 10, low_level_arg: 10)
+                    assert_equal Hash[high_level_arg: 10, low_level_arg: 10], task.parallel_assignment
                 end
 
                 it "does parallel-assignment of delayed arguments in #freeze_delayed_arguments" do

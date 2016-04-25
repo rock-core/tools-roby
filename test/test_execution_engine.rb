@@ -1180,21 +1180,24 @@ class TC_ExecutionEngine < Minitest::Test
 	# We build a 0 -> 1 -> 2 3 -> 2 task tree with
 	# 0 being able to handle the exception and 1, 3 not
 
-	mock = flexmock
+	recorder = flexmock
 
         t1, t2, t3 = prepare_plan add: 3
         t0 = Task.new_submodel do 
             on_exception(Roby::CodeError) do |exception|
-                mock.handler(exception, exception.trace, self)
+                recorder.handler(exception, exception.trace, self)
             end
         end.new
+        execution_engine.on_exception do |kind, exception, tasks|
+            recorder.on_exception(kind, exception, tasks)
+        end
         dependency_chain t0, t1, t2
         dependency_chain t3, t2
 
-        mock.should_receive(:handler).
-            with(ExecutionException, [t2, t1, t0], t0).once
-        flexmock(execution_engine).should_receive(:handled_exception).
-            with(on { |e| e.trace == [t2, t1, t0] }, t0)
+        recorder.should_receive(:handler).once.
+            with(ExecutionException, [t2, t1, t0], t0)
+        recorder.should_receive(:on_exception).once.
+            with(ExecutionEngine::EXCEPTION_HANDLED, on { |e| e.trace == [t2, t1, t0] }, [t0])
 
         error = ExecutionException.new(CodeError.new(nil, t2))
         fatal = execution_engine.propagate_exceptions([error])
