@@ -29,15 +29,45 @@ scripts/controllers/ and/or some explicitly given actions
         run_controller = true
     end
 end
-remaining_arguments = options.parse(ARGV)
 
-direct_files, actions = remaining_arguments.partition do |arg|
-    File.file?(arg)
+has_double_dash = false
+extra_args = Array.new
+ARGV.delete_if do |arg|
+    if arg == '--'
+        has_double_dash = true
+    elsif has_double_dash
+        extra_args << arg
+        true
+    else false
+    end
 end
-Roby.app.additional_model_files.concat(direct_files)
+
+remaining_arguments = options.parse(ARGV)
+additional_controller_files = Array.new
+if !extra_args.empty?
+    additional_controller_files << extra_args.shift
+    ARGV.replace(extra_args)
+end
+
+additional_model_files = Array.new
+actions = Array.new
+remaining_arguments.each do |arg|
+    if File.file?(arg)
+        additional_model_files << arg
+    else actions << arg
+    end
+end
+
+Roby.app.additional_model_files.concat(additional_model_files)
 
 Roby.display_exception do
-    app.setup
+    begin
+        app.setup
+    rescue Exception => e
+        #app.cleanup
+        raise
+    end
+
     Roby.plan.execution_engine.once(description: 'roby run bootup') do
         Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
 
@@ -68,6 +98,14 @@ Roby.display_exception do
                 Robot.info "no controller block registered, and found no controller file to load for #{Roby.app.robot_name}:#{Roby.app.robot_type}"
             end
         end
+
+        if additional_controller_files
+            additional_controller_files.each do |c|
+                Robot.info "loading #{c}"
+                load c
+            end
+        end
+
         Robot.info "done initialization"
     end
     app.run
