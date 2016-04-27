@@ -540,10 +540,6 @@ module Roby
         end
 
         describe "#replace_by" do
-            def replace(task0, task1)
-                task0.replace_subplan_by(task1)
-            end
-
             it "moves relations between events in the task and its direct children" do
                 task0, child, task1 = prepare_plan add: 3
                 task0.depends_on child
