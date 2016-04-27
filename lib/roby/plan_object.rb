@@ -347,6 +347,11 @@ module Roby
         # It raises RuntimeError if both objects are already included in a
         # plan, but their plan mismatches.
 	def synchronize_plan(other) # :nodoc:
+            if !plan
+                raise RuntimeError, "cannot add a relation with #{self}, which has already been finalized"
+            elsif !other.plan
+                raise RuntimeError, "cannot add a relation with #{other}, which has already been finalized"
+            end
 	    return if plan == other.plan
 
             if other.plan.template?
