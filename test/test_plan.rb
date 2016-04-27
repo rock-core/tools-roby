@@ -180,7 +180,7 @@ module TC_PlanStatic
     def test_replace_task_raises_ArgumentError_if_one_argument_is_finalized
         plan.add(task = Roby::Task.new)
         plan.add(finalized = Roby::Task.new)
-        plan.remove_object(finalized)
+        plan.remove_task(finalized)
         assert_raises(ArgumentError) { plan.replace_task(task, finalized) }
         assert_raises(ArgumentError) { plan.replace_task(finalized, task) }
     end
@@ -188,7 +188,7 @@ module TC_PlanStatic
     def test_replace_raises_ArgumentError_if_one_argument_is_nil
         plan.add(task = Roby::Task.new)
         plan.add(finalized = Roby::Task.new)
-        plan.remove_object(finalized)
+        plan.remove_task(finalized)
         assert_raises(ArgumentError) { plan.replace(task, finalized) }
         assert_raises(ArgumentError) { plan.replace(finalized, task) }
     end
