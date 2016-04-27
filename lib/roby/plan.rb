@@ -782,7 +782,19 @@ module Roby
             end
         end
 
-        # Replace a subplan
+        # Replace subgraphs by another in the plan
+        #
+        # It copies relations that are not within the keys in task_mappings and
+        # event_mappings to the corresponding task/events. The targets might be
+        # nil, in which case the relations involving the source will be simply
+        # ignored.
+        #
+        # If needed, instead of providing an object as target, one can provide a
+        # resolver object which will be called with #call and the source, The
+        # resolver should be given as a second element of a pair, e.g.
+        #
+        #    source => [nil, #call]
+        #
         def replace_subplan(task_mappings, event_mappings, task_children: true, event_children: true)
             new_relations, removed_relations =
                 compute_subplan_replacement(task_mappings, each_task_relation_graph,

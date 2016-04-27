@@ -585,6 +585,94 @@ module Roby
             end
         end
 
+        describe "#compute_subplan_replacement" do
+            attr_reader :graph
+            before do
+                @graph = Roby::Relations::Graph.new
+            end
+            it "moves relations for which the source is not a key in the task mapping" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(source = Roby::Task.new)
+                plan.add(target = Roby::Task.new)
+                graph.add_edge(parent, source, info = flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[source => target], [graph])
+                assert_equal [[graph, parent, target, info]], new
+                assert_equal [[graph, parent, source]], removed
+            end
+            it "moves relations for which the target is not a key in the task mapping" do
+                plan.add(source = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(target = Roby::Task.new)
+                graph.add_edge(source, child, info = flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[source => target], [graph])
+                assert_equal [[graph, target, child, info]], new
+                assert_equal [[graph, source, child]], removed
+            end
+            it "ignores relations if both objects are within the mapping" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(parent_target = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(child_target = Roby::Task.new)
+                graph.add_edge(parent, child, flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[parent => parent_target, child => child_target], [graph])
+                assert_equal [], new
+                assert_equal [], removed
+            end
+            it "ignores relations involving parents that are not mapped" do
+                plan.add(root = Roby::Task.new)
+                plan.add(parent = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(child_target = Roby::Task.new)
+                graph.add_edge(root, parent, flexmock)
+                graph.add_edge(parent, child, flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[parent => nil, child => child_target], [graph])
+                assert_equal [], new
+                assert_equal [], removed
+            end
+            it "accept a resolver object" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(child_target = Roby::Task.new)
+                graph.add_edge(parent, child, info = flexmock)
+                mapping = Hash[child => child_target]
+                resolver = ->(t) { mapping[t] }
+                new, removed = plan.compute_subplan_replacement(
+                    Hash[child => [nil, resolver]], [graph])
+                assert_equal [[graph, parent, child_target, info]], new
+                assert_equal [[graph, parent, child]], removed
+            end
+            it "ignores child objects if child_objects is false" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(parent_target = Roby::Task.new)
+                graph.add_edge(parent, child, flexmock)
+                new, removed = plan.compute_subplan_replacement(
+                    Hash[parent => parent_target], [graph], child_objects: false)
+                assert_equal [], new
+                assert_equal [], removed
+            end
+            it "ignores strong relations" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(source = Roby::Task.new)
+                plan.add(target = Roby::Task.new)
+                graph = Roby::Relations::Graph.new(strong: true)
+                graph.add_edge(parent, source, info = flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[source => target], [graph])
+                assert_equal [], new
+                assert_equal [], removed
+            end
+            it "copies relations instead of moving them if the graph is copy_on_replace" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(source = Roby::Task.new)
+                plan.add(target = Roby::Task.new)
+                graph = Roby::Relations::Graph.new(copy_on_replace: true)
+                graph.add_edge(parent, source, info = flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[source => target], [graph])
+                assert_equal [[graph, parent, target, info]], new
+                assert_equal [], removed
+            end
+        end
+
         describe "#unneeded_events" do
             it "returns free events that are connected to nothing" do
                 plan.add(ev = Roby::EventGenerator.new)
