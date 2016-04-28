@@ -122,8 +122,11 @@ module Roby
 	# The plan this object belongs to
 	attr_reader :plan
 
-        # The engine which acts on +plan+ (if there is one)
-        def engine; plan.execution_engine if plan && plan.executable? end
+        # @deprecated use {#execution_engine} instead
+        def engine
+            Roby.warn_deprecated "PlanObject#engine is deprecated, use #execution_engine instead"
+            execution_engine
+        end
 
         # True if this object is a transaction proxy, false otherwise
         def transaction_proxy?; false end

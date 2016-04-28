@@ -192,7 +192,7 @@ module Roby
                         if exit_status = $?
                             exit_status = exit_status.dup
                         end
-                        engine.once { dead!(pid, exit_status) }
+                        execution_engine.once { dead!(pid, exit_status) }
                         return
                     end
                 rescue Errno::ECHILD

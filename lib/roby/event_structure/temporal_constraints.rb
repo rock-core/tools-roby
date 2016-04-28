@@ -358,11 +358,11 @@ module Roby
                     # Verify that the event matches any running constraint
                     parent, intervals = find_failed_temporal_constraint(event.time)
                     if parent
-                        plan.engine.add_error TemporalConstraintViolation.new(event, parent, intervals.intervals)
+                        plan.execution_engine.add_error TemporalConstraintViolation.new(event, parent, intervals.intervals)
                     end
                     parent, count, allowed_interval, since = find_failed_occurence_constraint(false)
                     if parent
-                        plan.engine.add_error OccurenceConstraintViolation.new(event, parent, count, allowed_interval, since)
+                        plan.execution_engine.add_error OccurenceConstraintViolation.new(event, parent, count, allowed_interval, since)
                     end
 
                     deadlines = plan.emission_deadlines

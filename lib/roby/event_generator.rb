@@ -92,7 +92,7 @@ module Roby
 	# The count of command calls that have not a corresponding emission
 	attr_reader :pending
 	# True if this event has been called but is not emitted yet
-	def pending?; pending || (engine && engine.has_propagation_for?(self)) end
+	def pending?; pending || (execution_engine && execution_engine.has_propagation_for?(self)) end
 
         def plan=(plan)
             super
