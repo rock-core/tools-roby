@@ -49,7 +49,7 @@ module Roby
                 c = r.class
                 file, = c.instance_method(r.name).source_location
                 failures = manager.dump(r.failures)
-                @has_failures ||= failures.any? { |e| !e.kind_of?(Minitest::Skip) }
+                @has_failures ||= r.failures.any? { |e| !e.kind_of?(Minitest::Skip) }
                 server.test_result(pid, file, c.name, r.name, failures, r.assertions, r.time)
             end
 
