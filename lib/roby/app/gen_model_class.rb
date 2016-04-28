@@ -62,7 +62,6 @@ module Roby
                         'require_path' => require_path]
 
                     m.template 'class.rb', "#{require_path}.rb", assigns: local_vars
-                    register_in_aggregate_require_files(m, "require_file.rb", "#{require_path}.rb", "models/", "%s.rb")
                     if has_test? || force_tests?
                         m.directory "test/#{subdir}"
                         m.template 'test.rb', "#{test_require_path}.rb", assigns: local_vars
