@@ -1141,18 +1141,6 @@ module Roby
 
         # Loads the models, based on the given robot name and robot type
 	def require_models
-	    # Require all common task models and the task models specific to
-	    # this robot
-            if auto_load_models?
-                search_path = self.auto_load_search_path
-                all_files =
-                    find_files_in_dirs('models', 'tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/) +
-                    find_files_in_dirs('tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/)
-                all_files.each do |p|
-                    require(p)
-                end
-            end
-
 	    # Set up the loaded plugins
 	    call_plugins(:require_models, self)
             require_handlers.each do |handler|
@@ -1165,6 +1153,19 @@ module Roby
 
             additional_model_files.each do |path|
                 require path
+            end
+
+	    # Require all common task models and the task models specific to
+	    # this robot
+            if auto_load_models?
+                search_path = self.auto_load_search_path
+                all_files =
+                    find_files_in_dirs('models', 'tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/) +
+                    find_files_in_dirs('tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/)
+                all_files.each do |p|
+                    require(p)
+                end
+                call_plugins(:auto_require_models, self)
             end
 
 	    # Set up the loaded plugins
