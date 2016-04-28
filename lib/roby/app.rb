@@ -2321,10 +2321,7 @@ module Roby
                 next if !m.name
 
                 if path = test_file_for(m)
-                    suffix = File.basename(File.dirname(path))
-                    if !robot_name?(suffix) || (suffix == robot_type)
-                        models_per_file[path] << m
-                    end
+                    models_per_file[path] << m
                 end
             end
 
