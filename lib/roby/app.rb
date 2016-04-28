@@ -1149,28 +1149,77 @@ module Roby
                 end
             end
 
-            require_planners
+            define_actions_module
+            if auto_load_models?
+                auto_require_planners
+            end
+            define_main_planner_if_needed
+
+            action_handlers.each do |act|
+                isolate_load_errors("error in #{act}") do
+                    app_module::Actions::Main.class_eval(&act)
+                end
+            end
+
 
             additional_model_files.each do |path|
                 require path
             end
 
-	    # Require all common task models and the task models specific to
-	    # this robot
             if auto_load_models?
-                search_path = self.auto_load_search_path
-                all_files =
-                    find_files_in_dirs('models', 'tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/) +
-                    find_files_in_dirs('tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/)
-                all_files.each do |p|
-                    require(p)
-                end
-                call_plugins(:auto_require_models, self)
+                auto_require_models
             end
 
 	    # Set up the loaded plugins
 	    call_plugins(:finalize_model_loading, self)
 	end
+
+        def load_all_model_files_in(prefix_name, ignored_exceptions: Array.new)
+            search_path = auto_load_search_path
+            files = find_files_in_dirs(
+                "models", prefix_name, "ROBOT",
+                path: search_path,
+                all: true,
+                order: :specific_last,
+                pattern: /\.rb$/)
+
+            files.each do |path|
+                suffix = File.basename(File.dirname(path))
+                basename = File.basename(path, '.rb')
+                begin
+                    if suffix == prefix_name
+                        # Toplevel directory, do not load the
+                        # <robot_name>.rb
+                        if !robot_name?(basename) || [robot_name, robot_type].include?(basename)
+                            require(path)
+                        end
+                    elsif [prefix_name, robot_name, robot_type].include?(suffix)
+                        require(path)
+                    else
+                        Roby.info "not loading #{path}: not matching robot name"
+                    end
+                rescue *ignored_exceptions => e
+                    ::Robot.warn "ignored file #{path}: #{e.message}"
+                end
+            end
+        end
+        
+        def auto_require_models
+	    # Require all common task models and the task models specific to
+	    # this robot
+            if auto_load_models?
+                load_all_model_files_in('tasks')
+                
+                if backward_compatible_naming?
+                    search_path = self.auto_load_search_path
+                    all_files = find_files_in_dirs('tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/)
+                    all_files.each do |p|
+                        require(p)
+                    end
+                end
+                call_plugins(:auto_require_models, self)
+            end
+        end
 
         # Test if the given name is a valid robot name
         def robot_name?(name)
@@ -1228,25 +1277,13 @@ module Roby
             nil
         end
 
-        # Loads the planner models
-        #
-        # This method is called at the end of {#require_models}, before the
-        # plugins' require_models hook is called
-        def require_planners
-            search_path = self.auto_load_search_path
-            if auto_load_models?
-                main_files =
-                    find_files('models', 'actions', 'ROBOT', 'main.rb', path: search_path, all: true, order: :specific_first) +
-                    find_files('models', 'planners', 'ROBOT', 'main.rb', path: search_path, all: true, order: :specific_first) +
-                    find_files('planners', 'ROBOT', 'main.rb', all: true, order: :specific_first)
-                main_files.each do |path|
-                    require path
-                end
-            end
-
+        def define_actions_module
             if !app_module.const_defined_here?(:Actions)
                 app_module.const_set(:Actions, Module.new)
             end
+        end
+
+        def define_main_planner_if_needed
             if !app_module::Actions.const_defined_here?(:Main)
                 app_module::Actions.const_set(:Main, Class.new(Roby::Actions::Interface))
             end
@@ -1255,25 +1292,38 @@ module Roby
                     Object.const_set(:Main, app_module::Actions::Main)
                 end
             end
+        end
 
-            action_handlers.each do |act|
-                isolate_load_errors("error in #{act}") do
-                    app_module::Actions::Main.class_eval(&act)
-                end
+        # Loads the planner models
+        #
+        # This method is called at the end of {#require_models}, before the
+        # plugins' require_models hook is called
+        def require_planners
+            Roby.warn_deprecated "Application#require_planners is deprecated and has been renamed into #auto_require_planners"
+            auto_require_planners
+        end
+
+        def auto_require_planners
+            search_path = self.auto_load_search_path
+
+            prefixes = ['actions']
+            if backward_compatible_naming?
+                prefixes << 'planners'
+            end
+            prefixes.each do |prefix|
+                load_all_model_files_in(prefix)
             end
 
-            if auto_load_models?
-                all_files =
-                    find_files_in_dirs('models', 'actions', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/) +
-                    find_files_in_dirs('models', 'planners', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/) +
-                    find_files_in_dirs('planners', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/)
-                all_files.each do |p|
-                    if robot_name?(File.basename(p, '.rb'))
-                        require(p)
-                    end
+            if backward_compatible_naming?
+                main_files = find_files('planners', 'ROBOT', 'main.rb', all: true, order: :specific_first)
+                main_files.each do |path|
+                    require path
+                end
+                planner_files = find_files_in_dirs('planners', 'ROBOT', all: true, order: :specific_first, pattern: /\.rb$/)
+                planner_files.each do |path|
+                    require path
                 end
             end
-
 	    call_plugins(:require_planners, self)
         end
 
