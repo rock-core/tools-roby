@@ -61,12 +61,7 @@ end
 Roby.app.additional_model_files.concat(additional_model_files)
 
 Roby.display_exception do
-    begin
-        app.setup
-    rescue Exception => e
-        #app.cleanup
-        raise
-    end
+    app.setup
 
     Roby.plan.execution_engine.once(description: 'roby run bootup') do
         Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
