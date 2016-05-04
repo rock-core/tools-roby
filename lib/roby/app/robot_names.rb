@@ -37,6 +37,14 @@ module Roby
                 self.strict = !!options['robots']
             end
 
+            # Declare the type of an existing robot
+            def declare_robot_type(robot_name, robot_type)
+                if strict? && !has_robot?(robot_type)
+                    raise ArgumentError, "#{robot_type} is not a known robot"
+                end
+                robots[robot_name] = robot_type
+            end
+
             # Enumerate the list of known robots
             #
             # @yieldparam [String] robot_name the robot name

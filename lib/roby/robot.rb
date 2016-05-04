@@ -55,6 +55,16 @@ module Robot
 	return task, planner
     end
 
+    # Declare the robot type of the robot configuration being loaded
+    #
+    # Place this on top of the robot file in config/robots/
+    def self.robot_type(robot_type)
+        # Declare it first
+        Roby.app.robots.declare_robot_type(Roby.app.robot_name, robot_type)
+        # And then set it up
+        Roby.app.robot(Roby.app.robot_name, robot_type)
+    end
+
     def self.init(&block)
         Roby.app.on_init(&block)
     end
