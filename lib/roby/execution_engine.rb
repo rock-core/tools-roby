@@ -2233,8 +2233,6 @@ module Roby
             @cycle_index  = 0
 
             force_exit_deadline = nil
-            last_process_times = Process.times
-            last_dump_time = plan.event_logger.dump_time
 
             loop do
                 begin
@@ -2267,63 +2265,9 @@ module Roby
                         end
                     end
 
-                    log_timepoint_group_start "cycle"
-
-                    while Time.now > cycle_start + cycle_length
-                        @cycle_start += cycle_length
-                        @cycle_index += 1
+                    log_timepoint_group "cycle" do
+                        execute_one_cycle
                     end
-                    stats = Hash.new
-                    stats[:start] = [cycle_start.tv_sec, cycle_start.tv_usec]
-                    stats[:actual_start] = Time.now - cycle_start
-                    stats[:cycle_index] = cycle_index
-
-                    log_timepoint_group 'process_events' do
-                        process_events
-                    end
-
-                    remaining_cycle_time = cycle_length - (Time.now - cycle_start)
-
-                    if use_oob_gc?
-                        stats[:pre_oob_gc] = GC.stat
-                        GC::OOB.run
-                    end
-
-                    # Sleep if there is enough time for it
-                    if remaining_cycle_time > SLEEP_MIN_TIME
-                        sleep(remaining_cycle_time)
-                    end
-                    log_timepoint 'sleep'
-
-                    cycle_end(stats)
-
-                    # Log cycle statistics
-                    process_times = Process.times
-                    dump_time = plan.event_logger.dump_time
-                    stats[:log_queue_size]   = plan.log_queue_size
-                    stats[:plan_task_count]  = plan.num_tasks
-                    stats[:plan_event_count] = plan.num_free_events
-                    stats[:gc] = GC.stat
-                    stats[:utime] = process_times.utime - last_process_times.utime
-                    stats[:stime] = process_times.stime - last_process_times.stime
-                    stats[:dump_time] = dump_time - last_dump_time
-                    stats[:state] = Roby::State
-                    stats[:end] = Time.now - cycle_start
-                    if profile_gc?
-                        stats[:gc_profile_data] = GC::Profiler.raw_data
-                        stats[:gc_total_time] = GC::Profiler.total_time
-                    else
-                        stats[:gc_profile_data] = nil
-                        stats[:gc_total_time] = 0
-                    end
-                    log_flush_cycle :cycle_end, stats
-
-                    last_dump_time = dump_time
-                    last_process_times = process_times
-                    stats = Hash.new
-
-                    @cycle_start += cycle_length
-                    @cycle_index += 1
 
                     if profile_gc?
                         GC::Profiler.disable
@@ -2354,8 +2298,6 @@ module Roby
                         Roby.log_exception_with_backtrace(e, self, :fatal)
                         raise
                     end
-                ensure
-                    log_timepoint_group_end "cycle"
                 end
             end
 
@@ -2366,6 +2308,63 @@ module Roby
                     warn "  #{t}"
                 end
             end
+        end
+
+        def execute_one_cycle(time = Time.now)
+            last_process_times = Process.times
+            last_dump_time = plan.event_logger.dump_time
+
+            while time > cycle_start + cycle_length
+                @cycle_start += cycle_length
+                @cycle_index += 1
+            end
+            stats = Hash.new
+            stats[:start] = [cycle_start.tv_sec, cycle_start.tv_usec]
+            stats[:actual_start] = time - cycle_start
+            stats[:cycle_index] = cycle_index
+
+            log_timepoint_group 'process_events' do
+                process_events
+            end
+
+            if use_oob_gc?
+                stats[:pre_oob_gc] = GC.stat
+                GC::OOB.run
+            end
+
+            # Sleep if there is enough time for it
+            remaining_cycle_time = cycle_length - (Time.now - cycle_start)
+            if remaining_cycle_time > SLEEP_MIN_TIME
+                sleep(remaining_cycle_time)
+            end
+            log_timepoint 'sleep'
+
+
+            # Log cycle statistics
+            process_times = Process.times
+            dump_time = plan.event_logger.dump_time
+            stats[:log_queue_size]   = plan.log_queue_size
+            stats[:plan_task_count]  = plan.num_tasks
+            stats[:plan_event_count] = plan.num_free_events
+            stats[:gc] = GC.stat
+            stats[:utime] = process_times.utime - last_process_times.utime
+            stats[:stime] = process_times.stime - last_process_times.stime
+            stats[:dump_time] = dump_time - last_dump_time
+            stats[:state] = Roby::State
+            stats[:end] = Time.now - cycle_start
+            if profile_gc?
+                stats[:gc_profile_data] = GC::Profiler.raw_data
+                stats[:gc_total_time] = GC::Profiler.total_time
+            else
+                stats[:gc_profile_data] = nil
+                stats[:gc_total_time] = 0
+            end
+
+            cycle_end(stats)
+            log_flush_cycle :cycle_end, stats
+
+            @cycle_start += cycle_length
+            @cycle_index += 1
         end
 
         # Set the cycle_start attribute and increment cycle_index
