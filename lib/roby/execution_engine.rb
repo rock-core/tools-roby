@@ -97,6 +97,7 @@ module Roby
             @event_priorities = Hash.new
             @propagation_handlers = []
             @external_events_handlers = []
+            @side_work_handlers = []
             @at_cycle_end_handlers = Array.new
             @process_every   = Array.new
             @waiting_work = Concurrent::Array.new
@@ -272,6 +273,11 @@ module Roby
             #
             # @return [Array<PollBlockDefinition>]
             attr_reader :propagation_handlers
+            # Code blocks that get called at the very end of the execution
+            # cycle, **outside** propagation context
+            #
+            # @return [Array<PollBlockDefinition>]
+            attr_reader :side_work_handlers
 
             # @api private
             #
@@ -359,9 +365,35 @@ module Roby
             def each_cycle(description: 'each_cycle', &block)
                 add_propagation_handler(description: description, &block)
             end
+
+            # Execute the given block at the end of a cycle, just before
+            # sleeping until the beginning of the next cycle.
+            #
+            # The blocks are NOT called in propagation context, do NOT do
+            # anything event-related in there
+            #
+            # @return [Object] an object that can be passed to
+            #   {#remove_side_work_handler} to remove the handler
+            def add_side_work_handler(description: 'side work handler', **poll_options, &block)
+                # Reuse the propagation handler stuff, even if it's a bit
+                # overkill
+                handler = PollBlockDefinition.new(description, block, **poll_options)
+                side_work_handlers << handler
+                handler.id
+            end
+
+            # Remove a handler registered with {#add_side_work_handler}
+            #
+            # @param handler_id the ID object returned by
+            #   {#add_side_work_handler}
+            def remove_side_work_handler(handler_id)
+                side_work_handlers.delete_if { |p| p.id == handler_id }
+                nil
+            end
         end
 
         @propagation_handlers = Array.new
+        @side_work_handlers = Array.new
         @external_events_handlers = Array.new
         extend PropagationHandlerMethods
         include PropagationHandlerMethods
@@ -384,6 +416,12 @@ module Roby
                     end
                 end
             end
+        end
+
+        # Execute the work registered with {#add_side_work_handler}
+        def execute_side_work
+            call_poll_blocks(self.side_work_handlers, false)
+            call_poll_blocks(self.class.side_work_handlers, false)
         end
 
         # Waits for all obligations in {#waiting_work} to finish
@@ -2326,6 +2364,9 @@ module Roby
             log_timepoint_group 'process_events' do
                 process_events
             end
+
+            execute_side_work
+            log_timepoint 'side-work'
 
             if use_oob_gc?
                 stats[:pre_oob_gc] = GC.stat
