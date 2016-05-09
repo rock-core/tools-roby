@@ -49,9 +49,14 @@ module Roby
             def initialize(app)
                 @app = app
                 @subcommands = Hash.new
+                refresh_subcommands
+            end
 
+            def refresh_subcommands
                 self.class.each_subcommand do |name, (interface_model, description)|
-                    subcommand(name, interface_model.new(app), description)
+                    if !subcommands[name]
+                        subcommand(name, interface_model.new(app), description)
+                    end
                 end
             end
 
@@ -68,6 +73,8 @@ module Roby
             # @yieldparam [String] name the subcommand name
             def each_subcommand
                 return enum_for(__method__) if !block_given?
+
+                refresh_subcommands
                 subcommands.each do |name, (interface, description)|
                     yield(name, interface, description)
                 end
