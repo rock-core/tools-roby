@@ -35,6 +35,12 @@ class IO
     end
 end
 
+class Object
+    def inspect
+        to_s
+    end
+end
+
 class Set
     def inspect
         to_s
