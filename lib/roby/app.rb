@@ -657,8 +657,8 @@ module Roby
         # @return [Interface]
         attr_reader :shell_interface
 
-        def initialize
-            @plan = ExecutablePlan.new
+        def initialize(plan: ExecutablePlan.new)
+            @plan = plan
             @argv_set = Array.new
 
             @auto_load_all = false
