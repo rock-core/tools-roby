@@ -208,13 +208,13 @@ module Roby
                 each_in_neighbour(from) do |parent|
                     if parent != to
                         add_edge(parent, to, edge_info(parent, from))
-                        edges << [parent, to]
+                        edges << [parent, from]
                     end
                 end
                 each_out_neighbour(from) do |child|
                     if to != child
                         add_edge(to, child, edge_info(from, child))
-                        edges << [to, child]
+                        edges << [from, child]
                     end
                 end
 

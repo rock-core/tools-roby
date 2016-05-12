@@ -3,6 +3,60 @@ require 'roby/test/self'
 module Roby
     module Relations
         describe Graph do
+            describe "#replace_vertex" do
+                attr_reader :graph
+                attr_reader :old, :new, :parent, :child
+                before do
+                    graph_m = Graph.new_submodel
+                    @graph = graph_m.new
+                    vertices = (1..4).map { Object.new }
+                    vertices.each { |v| graph.add_vertex(v) }
+                    @old, @new, @parent, @child = *vertices
+                end
+
+                it "moves the in-edges of the old vertex to the new vertex" do
+                    graph.add_edge(parent, old, (info = Object.new))
+                    graph.replace_vertex(old, new)
+                    assert graph.has_edge?(parent, new)
+                    assert_same info, graph.edge_info(parent, new)
+                    assert !graph.has_edge?(parent, old)
+                end
+
+                it "does not touch the existing in-edges of the new vertex" do
+                    graph.add_edge(parent, new, (info = Object.new))
+                    graph.replace_vertex(old, new)
+                    assert graph.has_edge?(parent, new)
+                    assert_same info, graph.edge_info(parent, new)
+                    assert !graph.has_edge?(parent, old)
+                end
+                
+                it "moves the out-edges of the old vertex to the new vertex" do
+                    graph.add_edge(old, child, (info = Object.new))
+                    graph.replace_vertex(old, new)
+                    assert graph.has_edge?(new, child)
+                    assert_same info, graph.edge_info(new, child)
+                    assert !graph.has_edge?(old, child)
+                end
+                
+                it "does not touch the existing out-edges of the new vertex" do
+                    graph.add_edge(new, child, (info = Object.new))
+                    graph.replace_vertex(old, new)
+                    assert graph.has_edge?(new, child)
+                    assert_same info, graph.edge_info(new, child)
+                    assert !graph.has_edge?(old, child)
+                end
+
+                it "removes the old vertex if remove is true" do
+                    graph.replace_vertex(old, new, remove: true)
+                    assert !graph.has_vertex?(old)
+                end
+
+                it "leaves the old vertex in the graph if remove is false" do
+                    graph.replace_vertex(old, new, remove: false)
+                    assert graph.has_vertex?(old)
+                end
+            end
+
             describe "#remove_vertex" do
                 it "notifies the edge removals" do
                     graph_m = Graph.new_submodel
