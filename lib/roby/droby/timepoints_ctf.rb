@@ -12,6 +12,8 @@ module Roby
                 attr_reader :packet_timestamp_end
                 attr_reader :packet_contents
 
+                attr_reader :thread_ids
+
                 def initialize(clock_base: 0)
                     @uuid = SecureRandom.random_bytes(16).unpack("C*")
                     @clock_base = clock_base
@@ -20,6 +22,8 @@ module Roby
                     @packet_timestamp_end = nil
                     @packet_contents = String.new
                     @name_to_addr_mapping = Hash.new
+
+                    @thread_ids = Hash.new
                 end
 
                 def make_timestamp(time)
@@ -40,17 +44,25 @@ module Roby
                     packet_contents << marshalled_event
                 end
 
-                def group_start(time, name)
-                    marshalled = marshal_event(time, ID_GROUP_START, 0, name)
+                def thread_id_of(thread_id)
+                    if id = thread_ids[thread_id]
+                        id
+                    else
+                        thread_ids[thread_id] = thread_ids.size
+                    end
+                end
+
+                def group_start(time, thread_id, name)
+                    marshalled = marshal_event(time, ID_GROUP_START, thread_id_of(thread_id), name)
                     update_packet(time, marshalled + [addr_from_name(name)].pack("L<"))
                 end
 
-                def group_end(time, name)
-                    update_packet(time, marshal_event(time, ID_GROUP_END, 0, name))
+                def group_end(time, thread_id, name)
+                    update_packet(time, marshal_event(time, ID_GROUP_END, thread_id_of(thread_id), name))
                 end
 
-                def add(time, name)
-                    update_packet(time, marshal_event(time, ID_TIMEPOINT, 0, name))
+                def add(time, thread_id, name)
+                    update_packet(time, marshal_event(time, ID_TIMEPOINT, thread_id_of(thread_id), name))
                 end
 
                 def self.generate_metadata(path, _uuid, _clock_base)
@@ -99,7 +111,7 @@ module Roby
                     (path + "channel0_0").open('w') do |io|
                         io.write marshal_packet
                     end
-                    (path + "name_mappings.txt").open('w') do |io|
+                    path.sub_ext('.ctf.names').open('w') do |io|
                         name_to_addr_mapping.each do |name, id|
                             io.puts("%016x T %s" % [id, name.gsub(/[^\w]/, '_')])
                         end
