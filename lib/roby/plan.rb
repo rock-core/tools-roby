@@ -1343,7 +1343,10 @@ module Roby
             if !@tasks.delete?(task)
                 raise ArgumentError, "#{task} is not a task of #{self}"
             end
+            remove_task!(task, timestamp)
+        end
 
+        def remove_task!(task, timestamp = Time.now)
             @mission_tasks.delete(task)
             @permanent_tasks.delete(task)
             @task_index.remove(task)
@@ -1359,6 +1362,10 @@ module Roby
 	    if !@free_events.delete?(event)
                 raise ArgumentError, "#{event} is not a free event of #{self}"
             end
+            remove_free_event!(event, timestamp)
+        end
+
+        def remove_free_event!(event, timestamp = Time.now)
             @permanent_events.delete(event)
             finalize_event(event, timestamp)
 	    self
