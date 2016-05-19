@@ -399,6 +399,15 @@ module Roby
                 end
             end
 
+            def freeze
+                @vertices_dict.each_value do |out_e, in_e|
+                    out_e.freeze
+                    in_e.freeze
+                end
+                @vertices_dict.freeze
+                @edge_info_map.freeze
+            end
+
             # Returns a set of removed edges and a set of new edges between elements
             # of +vertices+ in +self+ and +other_graph+.
             #
