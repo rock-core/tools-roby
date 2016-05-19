@@ -252,10 +252,10 @@ module Roby
 
             def merge(graph)
                 graph_vertices = graph.instance_variable_get(:@vertices_dict)
-                @vertices_dict.merge!(graph_vertices) do |_, (out_edges, in_edges), (g_out_edges, g_in_edges)|
+                graph_vertices.each do |v, (g_out_edges, g_in_edges)|
+                    out_edges, in_edges = (@vertices_dict[v] ||= [@edgelist_class.new, @edgelist_class.new])
                     out_edges.merge(g_out_edges)
                     in_edges.merge(g_in_edges)
-                    [out_edges, in_edges]
                 end
                 edge_info_map.merge!(graph.edge_info_map)
             end
