@@ -316,11 +316,19 @@ module Roby
                         end
                     end
                     in_edges.each do |in_e|
-                        if !@vertices_dict[in_e][0].include?(v)
+                        if !@vertices_dict[in_e]
+                            raise Inconsistent, "#{in_e} is listed as an in-neighbour of #{v} but is not included in the graph"
+                        elsif !@vertices_dict[in_e][0].include?(v)
                             raise Inconsistent, "#{in_e} is listed as an in-neighbour of #{v} but #{in_e} does not list it as out-neighbour"
                         elsif !edge_info_map.has_key?([in_e, v])
                             raise Inconsistent, "#{in_e} is listed as an in-neighbour of #{v} but the edge is not registered in the edge info map"
                         end
+                    end
+                end
+
+                @edge_info_map.each_key do |u, v|
+                    if !@vertices_dict[u][0].include?(v)
+                        raise Inconsistent, "#{v} is listed as an out-neighbour of #{u} in the edge-info-map but is not in the @vertices_dict"
                     end
                 end
             end
