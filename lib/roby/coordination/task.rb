@@ -11,6 +11,10 @@ module Roby
                     @task  = nil
                 end
 
+                def root_task
+                    self
+                end
+
                 # Associate this coordination task to the given roby task
                 #
                 # This sets the next value returned by #resolve
