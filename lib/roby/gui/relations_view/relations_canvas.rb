@@ -160,7 +160,12 @@ module Roby
             attr_accessor :last_event
 
             def display_name(display)
-                name = display.filter_prefixes(model.ancestors[0].name.dup)
+                ancestor_with_name = model.ancestors.find { |m| m.name }
+                if ancestor_with_name
+                    name = display.filter_prefixes(ancestor_with_name.name)
+                else
+                    name = "<anonymous>"
+                end
                 if display.show_ownership
                     owners = self.owners.dup
                     owners.delete_if { |o| o.remote_name == "log_replay" }

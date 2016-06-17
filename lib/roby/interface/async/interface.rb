@@ -339,7 +339,7 @@ module Roby
                 #
                 # @param [String] action_name the action name
                 # @return [Array<JobMonitor>] the matching jobs
-                def find_all_jobs(action_name, jobs: jobs)
+                def find_all_jobs(action_name, jobs: self.jobs)
                     jobs.find_all do |job|
                         job.task.action_model.name == action_name
                     end

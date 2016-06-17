@@ -146,11 +146,11 @@ module Roby
                     # Do remove the GCed object. We use object.finalization_time
                     # to store the actual finalization time. Pass it again to
                     # #remove_object so that it does not get reset to Time.now
-                    remove_task(task, task.finalization_time)
+                    remove_task!(task, task.finalization_time)
                 end
                 garbaged_tasks.clear
                 garbaged_events.each do |event|
-                    remove_free_event(event, event.finalization_time)
+                    remove_free_event!(event, event.finalization_time)
                 end
                 garbaged_events.clear
             end

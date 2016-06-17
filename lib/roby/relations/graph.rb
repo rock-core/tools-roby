@@ -457,20 +457,20 @@ module Roby
             # One single graph can be the superset of multiple subgraphs (these are
             # stored in the {#subsets} attribute), but one graph can have only one
             # parent {#parent}.
+            #
+            # This operation can be called only if the new subset is empty (no
+            # edges and no vertices)
+            #
+            # @param [Graph] relation the relation that should be added as a
+            #   subset of self
+            # @raise [ArgumentError] if 'relation' is not empty
             def superset_of(relation)
-                relation.each_edge do |source, target, info|
-                    if has_edge_in_hierarchy?(source, target)
-                        raise ArgumentError, "relation and self already share an edge"
-                    end
+                if !relation.empty?
+                    raise ArgumentError, "cannot pass a non-empty graph to #superset_of"
                 end
 
                 relation.parent = self
                 subsets << relation
-
-                # Copy the relations of the child into this graph
-                relation.each_edge do |source, target, info|
-                    source.add_child_object(target, self, info)
-                end
             end
 
             def remove(vertex)

@@ -79,6 +79,7 @@ module Roby
 
         def deprecated_feature
             Roby.enable_deprecation_warnings = false
+            flexmock(Roby).should_receive(:warn_deprecated).at_least.once
             yield
         ensure
             Roby.enable_deprecation_warnings = true

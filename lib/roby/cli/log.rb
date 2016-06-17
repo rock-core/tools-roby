@@ -17,7 +17,8 @@ module Roby
             end
 
             desc 'timepoints', 'extract timepoint information from the log file'
-            option :raw, desc: 'display the timpoints as they appear instead of formatting them per-thread and per-group'
+            option :raw, desc: 'display the timpoints as they appear instead of formatting them per-thread and per-group',
+                type: :boolean, default: false
             option :flamegraph, type: :string, desc: 'path to a HTML file that will display a flame graph'
             option :ctf, type: :boolean, desc: 'generate a CTF file suitable to be analyzed by e.g. Trace Compass'
             def timepoints(file)

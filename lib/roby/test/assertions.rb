@@ -278,7 +278,13 @@ module Roby
 
             def assert_droby_compatible(object, local_marshaller: DRoby::Marshal.new, remote_marshaller: DRoby::Marshal.new)
                 droby = local_marshaller.dump(object)
-                dumped = Marshal.dump(droby)
+                dumped =
+                    begin Marshal.dump(droby)
+                    rescue Exception => e
+                        require 'roby/droby/logfile/writer'
+                        obj, exception = Roby::DRoby::Logfile::Writer.find_invalid_marshalling_object(droby)
+                        raise e, "#{obj} cannot be marshalled: #{exception.message}", exception.backtrace
+                    end
                 loaded = Marshal.load(dumped)
                 remote_marshaller.local_object(loaded)
             end
