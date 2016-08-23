@@ -250,7 +250,7 @@ module Roby
     end
 
     Minitest::Spec.register_spec_type Roby::Test::Spec do |desc|
-        desc <= Roby::Task
+        desc.kind_of?(Class) && (desc <= Roby::Task)
     end
 end
 
