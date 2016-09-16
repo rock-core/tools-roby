@@ -234,7 +234,7 @@ module Roby
             if @app_name
                 @app_name
             elsif app_dir
-                File.basename(app_dir)
+                @app_name = File.basename(app_dir).gsub(/[^\w]/, '_')
             else 'default'
             end
         end

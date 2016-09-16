@@ -37,6 +37,8 @@ module Roby
         include Roby::Test::Assertions
 
         def setup
+            @temp_dirs = Array.new
+
             Roby.app.log['server'] = false
             Roby.app.auto_load_models = false
             Roby.app.plugins_enabled = false
@@ -60,6 +62,7 @@ module Roby
         end
 
         def teardown
+            @temp_dirs.each { |p| FileUtils.rm_rf(p) }
             begin
                 super
             rescue Exception => e
@@ -78,6 +81,11 @@ module Roby
             if teardown_failure
                 raise teardown_failure
             end
+        end
+
+        def make_tmpdir
+            @temp_dirs << (dir = Dir.mktmpdir)
+            dir
         end
     end
     end

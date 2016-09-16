@@ -1,4 +1,5 @@
 require 'find'
+require 'fileutils'
 module Roby
     class Installer
 	# The directory in which we are installing
