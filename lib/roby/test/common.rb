@@ -48,7 +48,7 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
 
-	BASE_PORT     = 1245
+	BASE_PORT     = 21000
 	DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
 	REMOTE_PORT    = BASE_PORT + 1
 	LOCAL_PORT     = BASE_PORT + 2
