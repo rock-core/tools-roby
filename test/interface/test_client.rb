@@ -135,6 +135,13 @@ module Roby
                 assert(/does_not_exist/ === e.message)
             end
 
+            it "appends the local client's backtrace to the remote's" do
+                e = assert_raises(Exception::DRoby) { client.does_not_exist(arg0: 10) }
+                assert(remote = e.backtrace.index { |l| l =~ /interface\/server.rb.*process_call/ })
+                assert(local  = e.backtrace.index { |l| l =~ /#{__FILE__}:#{__LINE__-2}/ })
+                assert(remote < local)
+            end
+
             describe "#find_action_by_name" do
                 it "returns a matching action" do
                     interface_mock.should_receive(actions:  [stub_action("Test")])

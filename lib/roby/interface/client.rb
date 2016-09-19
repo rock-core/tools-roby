@@ -99,7 +99,7 @@ module Roby
 
                 if m == :bad_call
                     e = args.first
-                    raise e, e.message, e.backtrace
+                    raise e, e.message, (e.backtrace + caller)
                 elsif m == :reply
                     yield args.first
                 elsif m == :job_progress
