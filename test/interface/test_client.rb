@@ -77,18 +77,50 @@ module Roby
                 assert_equal 10, client.Test!(arg0: 10)
             end
 
-            it "gets notified of the new jobs on creation" do
-                action_m = Actions::Interface.new_submodel do
-                    describe 'test'
-                    def test; Roby::Task.new_submodel end
+            describe "job handling" do
+                before do
+                    action_m = Actions::Interface.new_submodel do
+                        describe 'test'
+                        def test; Roby::Task.new_submodel end
+                        describe 'other_test'
+                        def other_test; Roby::Task.new_submodel end
+                    end
+                    app.planners << action_m
                 end
-                app.planners << action_m
-                job_id = client.test!
-                interface_mock.push_pending_job_notifications
-                client.poll
-                assert client.has_job_progress?
-                assert_equal [:monitored, job_id], client.pop_job_progress[1][0, 2]
-                assert_equal [:planning_ready, job_id], client.pop_job_progress[1][0, 2]
+
+                describe "#each_job" do
+                    attr_reader :test_id, :other_test_id
+                    before do
+                        @test_id = client.test!
+                        @other_test_id = client.other_test!
+                    end
+
+                    it "enumerates the jobs" do
+                        jobs = client.each_job.to_a
+                        assert_equal 2, jobs.size
+                        assert_equal test_id, jobs[0].job_id
+                        assert_equal 'test', jobs[0].action_model.name
+                        assert_equal other_test_id, jobs[1].job_id
+                        assert_equal 'other_test', jobs[1].action_model.name
+                    end
+
+                    it "allows to filter them by action name" do
+                        jobs = client.find_all_jobs_by_action_name('test')
+                        assert_equal 1, jobs.size
+                        job = jobs.first
+                        assert_equal test_id, job.job_id
+                        assert_equal 'test', job.action_model.name
+                    end
+                end
+
+                it "gets notified of the new jobs on creation" do
+                    job_id = client.test!
+                    interface_mock.push_pending_job_notifications
+                    client.poll
+                    assert client.has_job_progress?
+                    assert_equal [:monitored, job_id], client.pop_job_progress[1][0, 2]
+                    assert_equal [:planning_ready, job_id], client.pop_job_progress[1][0, 2]
+                end
             end
 
             it "raises NoSuchAction on invalid actions without accessing the network" do

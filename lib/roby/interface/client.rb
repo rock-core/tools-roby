@@ -323,6 +323,29 @@ module Roby
                 end
             end
 
+            Job = Struct.new :job_id, :state, :placeholder_task, :task do
+                def action_model
+                    task.action_model
+                end
+            end
+
+            # Enumerate the current jobs
+            def each_job
+                return enum_for(__method__) if !block_given?
+                jobs.each do |job_id, (job_state, placeholder_task, job_task)|
+                    yield(Job.new(job_id, job_state, placeholder_task, job_task))
+                end
+            end
+
+            # Find all the jobs that match the given action name
+            #
+            # @return [Array<Job>]
+            def find_all_jobs_by_action_name(action_name)
+                each_job.find_all do |j|
+                    j.action_model.name == action_name
+                end
+            end
+
             # Create a batch context
             #
             # Messages sent to the returned object are validated as much as
