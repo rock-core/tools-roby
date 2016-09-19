@@ -28,6 +28,9 @@ scripts/controllers/ and/or some explicitly given actions
     opt.on '-c', "--controller", "run the controller files and blocks"  do
         run_controller = true
     end
+    opt.on '-p', '--plugin=PLUGIN', String, 'load this plugin' do |plugin|
+        Roby.app.using plugin
+    end
 end
 
 has_double_dash = false
@@ -49,31 +52,43 @@ if !extra_args.empty?
     ARGV.replace(extra_args)
 end
 
+additional_controller_files.each do |file|
+    if !File.file?(file)
+        Roby.error "#{file}, given as a controller script on the command line, does not exist"
+        exit 1
+    end
+end
+
 additional_model_files = Array.new
 actions = Array.new
 remaining_arguments.each do |arg|
     if File.file?(arg)
-        additional_model_files << arg
+        additional_model_files << File.expand_path(arg)
+    elsif File.extname(arg) == '.rb'
+        Roby.error "#{arg}, given as a model script on the command line, does not exist"
+        exit 1
     else actions << arg
     end
 end
-
 Roby.app.additional_model_files.concat(additional_model_files)
 
-Roby.display_exception do
+error = Roby.display_exception do
     app.setup
+    actions = actions.map do |act_name|
+        action = Roby.app.find_action_from_name(act_name)
+        if !action
+            Robot.error "#{act_name}, given as an action on the command line, does not exist"
+            exit 1
+        end
+        action
+    end
 
     Roby.plan.execution_engine.once(description: 'roby run bootup') do
         Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
 
         # Start the requested actions
         actions.each do |act|
-            begin
-                eval "Robot.#{act}"
-            rescue Exception => e
-                Robot.warn "cannot start action #{act} specified on the command line"
-                Roby.log_exception_with_backtrace(e, Robot, :warn)
-            end
+            Roby.plan.add_mission_task(act.plan_pattern)
         end
 
         if run_controller
@@ -105,4 +120,6 @@ Roby.display_exception do
     end
     app.run
 end
-
+if error
+    exit 1
+end

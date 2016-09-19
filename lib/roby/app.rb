@@ -1163,7 +1163,7 @@ module Roby
 
 
             additional_model_files.each do |path|
-                require path
+                require File.expand_path(path)
             end
 
             if auto_load_models?
@@ -1597,6 +1597,11 @@ module Roby
 	    else
 		raise
 	    end
+        end
+
+        # Whether we're inside {#run}
+        def running?
+            !!@thread
         end
 
         # Whether {#run} should exec a new process on quit or not

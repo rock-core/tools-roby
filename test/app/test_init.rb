@@ -10,8 +10,8 @@ module Roby
             dir = make_tmpdir
             capture_subprocess_io do
                 assert system(roby_bin, 'init', chdir: dir)
-                pid = spawn roby_bin, 'run', chdir: dir
-                wait_and_quit_roby_app(pid)
+                pid = roby_app_spawn 'run', chdir: dir
+                assert_roby_app_quits(pid)
             end
         end
     end
