@@ -60,6 +60,9 @@ module Roby
                         end
                     socket.fcntl(Fcntl::FD_CLOEXEC, 1)
                     socket.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
+                rescue Exception
+                    socket.close if socket
+                    raise
                 end
 
                 def disconnect
