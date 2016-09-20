@@ -129,7 +129,7 @@ module Roby
             def log_server_port
                 app.log_server_port
             end
-            command :log_port, 'returns the port of the log server',
+            command :log_server_port, 'returns the port of the log server',
                 advanced: true
 
             # The set of actions available on {#app}
