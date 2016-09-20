@@ -43,6 +43,7 @@ module Roby
             Roby.app.auto_load_models = false
             Roby.app.plugins_enabled = false
             Roby.app.testing = true
+            Roby.app.log_base_dir = make_tmpdir
             Roby.app.setup
             Roby.app.prepare
 
