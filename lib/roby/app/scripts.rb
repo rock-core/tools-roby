@@ -41,13 +41,9 @@ module Roby
                 end
 
                 def host
-                    remote_url = @host_options[:host] || app.droby['host'] || 'localhost'
+                    remote_url = @host_options[:host] || app.shell_interface_host || 'localhost'
                     if remote_url !~ /:\d+$/
-                        if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
-                            remote_url << $1
-                        else
-                            remote_url << ":#{Roby::Interface::DEFAULT_PORT}"
-                        end
+                        remote_url += ":#{app.shell_interface_port.to_s}"
                     end
 
                     match = /(.*):(\d+)$/.match(remote_url)

@@ -116,7 +116,7 @@ module Roby
                     resolve_thread = Thread.new { cli.resolve_remote_host }
                     capture_subprocess_io do
                         while resolve_thread.alive?
-                            app.shell_server.process_pending_requests
+                            app.shell_interface.process_pending_requests
                         end
                     end
                     assert_roby_app_can_connect_to_log_server

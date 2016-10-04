@@ -19,6 +19,9 @@ scripts/controllers/ and/or some explicitly given actions
 
     Roby::Application.common_optparse_setup(opt)
 
+    opt.on '--port=PORT', Integer, 'the interface port' do |port|
+        app.shell_interface_port = port
+    end
     opt.on '--single', "run without connecting to external server. Support for this is plugin-dependent."  do
         app.single
     end

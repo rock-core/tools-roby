@@ -128,6 +128,31 @@ module Roby
                 return logfile_path, writer
             end
 
+            def roby_app_call_interface(host: 'localhost', port: Interface::DEFAULT_PORT)
+                client_thread = Thread.new do
+                    begin
+                        interface = Interface.connect_with_tcp_to(host, port)
+                        if block_given?
+                            result = yield(interface)
+                        end
+                    rescue Exception => e
+                        error = e
+                    end
+                    [interface, result, error]
+                end
+                while client_thread.alive?
+                    app.shell_interface.process_pending_requests
+                end
+                begin 
+                    interface, result, error = client_thread.value
+                rescue Exception => e
+                    raise e, e.message, e.backtrace + caller
+                end
+                interface.close
+                raise error if error
+                result
+            end
+
             def assert_roby_app_can_connect_to_log_server(timeout: 2, port: app.log_server_port)
                 client = roby_app_with_polling(timeout: timeout, message: "connecting to the log server on port #{port}") do
                     begin DRoby::Logfile::Client.new('localhost', port)

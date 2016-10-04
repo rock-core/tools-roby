@@ -2,6 +2,7 @@ require 'facets/string/camelcase'
 require 'roby/support'
 require 'roby/robot'
 require 'roby/app/robot_names'
+require 'roby/interface'
 require 'singleton'
 require 'utilrb/hash'
 require 'utilrb/module/attr_predicate'
@@ -292,7 +293,7 @@ module Roby
         attr_reader :log_server_port
 
         # The TCP server that gives access to the {Interface}
-        attr_reader :shell_server
+        attr_reader :shell_interface
 
         # Tests if the given directory looks like the root of a Roby app
         #
@@ -405,12 +406,6 @@ module Roby
 	# The discovery options in multi-robot mode
 	attr_config :discovery
 
-	# The robot's dRoby options
-	# period:: the period of neighbour discovery
-	# max_errors:: disconnect from a peer if there is more than +max_errors+ consecutive errors
-	#              detected
-	attr_config :droby
-	
         # @!method abort_on_exception?
         # @!method abort_on_exception=(flag)
         #
@@ -590,9 +585,20 @@ module Roby
         DEFAULT_OPTIONS = {
 	    'log' => Hash['events' => true, 'server' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
 	    'discovery' => Hash.new,
-	    'droby' => Hash['period' => 0.5, 'max_errors' => 1],
             'engine' => Hash.new
         }
+
+        # The host to which the shell interface server should bind
+        #
+        # @return [String]
+        attr_accessor :shell_interface_host
+        # The port on which the shell interface server should be
+        #
+        # @return [Integer]
+        attr_accessor :shell_interface_port
+        # The {Interface} bound to this app
+        # @return [Interface]
+        attr_reader :shell_interface
 
 	def initialize
             @plan = ExecutablePlan.new
@@ -612,6 +618,10 @@ module Roby
             @created_log_base_dirs = []
             @additional_model_files = []
             @restarting = false
+
+            @shell_interface = nil
+            @shell_interface_host = nil
+            @shell_interface_port = Interface::DEFAULT_PORT
 
 	    @automatic_testing = true
             @registered_exceptions = []
@@ -761,25 +771,6 @@ module Roby
 	    each_responding_plugin(method) do |config_extension|
 		config_extension.send(method, *args)
 	    end
-	end
-
-	# Load configuration from the given option hash
-	def load_yaml(options)
-	    options = options.dup
-
-	    if robot_name && (robot_config = options['robots'])
-		if robot_config = robot_config[robot_name]
-		    robot_config.delete_if do |section, values|
-			if section != "robots" && options[section]
-			    options[section].merge! values
-			end
-		    end
-		end
-	    end
-            options = options.map_value do |k, val|
-                val || Hash.new
-            end
-            @options = @options.recursive_merge(options)
 	end
 
         def register_plugins(force: false)
@@ -1352,11 +1343,52 @@ module Roby
         end
 
         def load_config_yaml
-            if file = find_file('config', 'app.yml', order: :specific_first)
-                Application.info "loading config file #{file}"
-                file = YAML.load(File.open(file)) || Hash.new
-                load_yaml(file)
+            file = find_file('config', 'app.yml', order: :specific_first)
+            return if !file
+
+            Application.info "loading config file #{file}"
+            options = YAML.load(File.open(file)) || Hash.new
+
+            if robot_name && (robot_config = options.delete('robots'))
+                options = options.recursive_merge(robot_config[robot_name] || Hash.new)
             end
+            options = options.map_value do |k, val|
+                val || Hash.new
+            end
+            options = @options.recursive_merge(options)
+            apply_config(options)
+            @options = options
+        end
+
+        # @api private
+        #
+        # Sets relevant configuration values from a configuration hash
+        def apply_config(config)
+            if host_port = config['interface']
+                apply_config_interface(host_port)
+            elsif host_port = config.fetch('droby', Hash.new)['host']
+                Roby.warn_deprecated 'the droby.host configuration parameter in config/app.yml is deprecated, use "interface" at the toplevel instead'
+                apply_config_interface(host_port)
+            end
+        end
+
+        # @api private
+        #
+        # Parses and applies the 'interface' value from a configuration hash
+        #
+        # It is a helper for {#apply_config}
+        def apply_config_interface(host_port)
+            if host_port !~ /:\d+$/
+                host_port += ":#{Interface::DEFAULT_PORT}"
+            end
+
+            match = /(.*):(\d+)$/.match(host_port)
+            host = match[1]
+            @shell_interface_host =
+                if !host.empty?
+                    host
+                end
+            @shell_interface_port = Integer(match[2])
         end
 
         # Loads the base configuration
@@ -1518,35 +1550,34 @@ module Roby
 
         # Publishes a shell interface
         #
-        # This method publishes a Roby::Interface object. The port on which this
-        # object is published can be configured through the droby/host
-        # configuration variable, i.e.:
+        # This method publishes a Roby::Interface object using
+        # {Interface::TCPServer}. It is published on {Interface::DEFAULT_PORT}
+        # by default. This default can be overriden by setting
+        # {#shell_interface_port} either in config/init.rb, or in a
+        # {Robot.setup} block in the robot configuration file.
         #
-        #   droby:
-        #       host: ":7873"
+        # The shell interface is started in #setup and stopped in #cleanup
         #
-        # As this variable is also used by the Roby shell to automatically
-        # access a remote shell, one can provide a host part. This part will
-        # simply be ignored in #setup_shell_interface
-        #
-        # The shell interface is started in #setup and teared down in #cleanup
-        #
-        # The default port is defined in Roby::Interface::DEFAULT_PORT
+        # @see stop_shell_interface
         def setup_shell_interface
-	    # Set up dRoby, setting an Interface object as front server, for shell access
-	    host = droby['host'] || ""
-            if host =~ /:(\d+)$/
-                port = Integer($1)
+            if @shell_interface
+                raise RuntimeError, "there is already a shell interface started, call #stop_shell_interface first"
+            end
+            @shell_interface = Interface::TCPServer.new(self, host: shell_interface_host, port: shell_interface_port)
+            if shell_interface_port != Interface::DEFAULT_PORT
+                Robot.info "shell interface started on port #{shell_interface_port}"
             else
-		port = Interface::DEFAULT_PORT
-	    end
-
-            @shell_server = Interface::TCPServer.new(self, port)
+                Robot.debug "shell interface started on port #{shell_interface_port}"
+            end
         end
 
+        # Stops a running shell interface
+        #
+        # This is a no-op if no shell interface is currently running
         def stop_shell_interface
-            if @shell_server
-                @shell_server.close
+            if @shell_interface
+                @shell_interface.close
+                @shell_interface = nil
             end
         end
 

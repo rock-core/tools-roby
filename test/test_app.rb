@@ -241,6 +241,34 @@ module Roby
             end
         end
 
+        describe "shell interface setup" do
+            it "binds the shell interface to the value specified in #shell_interface_host" do
+                flexmock(::TCPServer).should_receive(:new).with('127.0.0.1', Interface::DEFAULT_PORT).pass_thru
+                app.shell_interface_host = '127.0.0.1'
+                app.setup_shell_interface
+                assert_equal '127.0.0.1', app.shell_interface.ip_address
+                roby_app_call_interface
+            end
+            it "starts the shell interface on the port specified by #shell_interface_port" do
+                flexmock(::TCPServer).should_receive(:new).with(nil, 0).pass_thru
+                app.shell_interface_port = 0
+                app.setup_shell_interface
+                roby_app_call_interface(port: app.shell_interface.ip_port)
+            end
+            it "refuses to start a shell interface if one is already setup" do
+                app.setup_shell_interface
+                assert_raises(RuntimeError) do
+                    app.setup_shell_interface
+                end
+            end
+            it "accepts restarting a shell interface after the previous one has been stopped" do
+                app.setup_shell_interface
+                app.stop_shell_interface
+                app.setup_shell_interface
+                roby_app_call_interface(port: app.shell_interface.ip_port)
+            end
+        end
+
         describe "#start_log_server" do
             attr_reader :logfile_path
             before do
@@ -260,17 +288,93 @@ module Roby
             it "gives access to this port through the Roby interface" do
                 app.setup_shell_interface
                 app.start_log_server(logfile_path)
-                client_thread = Thread.new do
-                    interface = Interface.connect_with_tcp_to('localhost', Interface::DEFAULT_PORT)
+                actual_port = roby_app_call_interface do |interface|
                     interface.log_server_port
                 end
-                while client_thread.alive?
-                    app.shell_server.process_pending_requests
-                end
-                assert_equal app.log_server_port, client_thread.value
+                assert_equal app.log_server_port, actual_port
                 # synchronize on the log server startup
                 assert_roby_app_can_connect_to_log_server 
             end
         end
+
+        describe "#load_config_yaml" do
+            def create_app_yml(options)
+                FileUtils.mkdir_p File.join(app_dir, 'config')
+                File.open(File.join(app_dir, 'config', 'app.yml'), 'w') do |io|
+                    YAML.dump(options, io)
+                end
+            end
+            before do
+                app.app_dir = app_dir
+                app.robots.strict = false
+                app.robots.declare_robot_type 'test', 'test'
+            end
+
+            it "does nothing if it does not find an app.yml file" do
+                FileUtils.rm_f File.join(app_dir, "config", "app.yml")
+                refute app.load_config_yaml
+            end
+            it "loads the configuration found in app.yml" do
+                before = app.options.dup
+                create_app_yml('interface' => 'test')
+                assert_equal before.merge('interface' => 'test'), app.load_config_yaml
+            end
+            it "merges configuration options in robot-specific sections" do
+                before = app.options.dup
+                app.robot 'test'
+                create_app_yml('robots' => Hash['test' => Hash['interface' => 'test']])
+                assert_equal before.merge('interface' => 'test'), app.load_config_yaml
+            end
+            it "does a recursive merge for hash entries" do
+                before = app.options.dup
+                app.options['test'] = Hash['kept' => 10, 'overriden' => 20]
+                app.robot 'test'
+                create_app_yml('robots' => Hash['test' => Hash['test' => Hash['overriden' => 30]]])
+                assert_equal Hash['kept' => 10, 'overriden' => 30], app.load_config_yaml['test']
+            end
+            it "simply overrides non-hash entries" do
+                before = app.options.dup
+                app.options['overriden'] = 10
+                app.robot 'test'
+                create_app_yml('robots' => Hash['test' => Hash['overriden' => 30]])
+                assert_equal 30, app.load_config_yaml['overriden']
+            end
+        end
+
+        describe "#apply_config" do
+            before do
+                flexmock(app)
+            end
+
+            it "applies the configuration from the 'interface' key" do
+                app.should_receive(:apply_config_interface).with(host_port = flexmock).once
+                app.apply_config('interface' => host_port)
+            end
+
+            it "falls back to droby.host for backward compatibility" do
+                flexmock(Roby).should_receive(:warn_deprecated).with(/droby\.host/).once
+                app.should_receive(:apply_config_interface).with(host_port = flexmock).once
+                app.apply_config('droby' => Hash['host' => host_port])
+            end
+        end
+
+        describe "#apply_config_interface" do
+            it "parses host and port" do
+                app.apply_config_interface('host:23455')
+                assert_equal 'host', app.shell_interface_host
+                assert_equal 23455, app.shell_interface_port
+            end
+            it "uses the default interface port if none is specified" do
+                app.apply_config_interface('host')
+                assert_equal 'host', app.shell_interface_host
+                assert_equal Interface::DEFAULT_PORT, app.shell_interface_port
+            end
+            it "sets the host to 'nil' if none is given" do
+                app.apply_config_interface(':2354')
+                assert_nil app.shell_interface_host
+                assert_equal 2354, app.shell_interface_port
+            end
+        end
     end
 end
+

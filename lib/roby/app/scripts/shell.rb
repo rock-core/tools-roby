@@ -21,14 +21,10 @@ opt.parse! ARGV
 error = Roby.display_exception do
     app.base_setup
 
-    remote_url ||= app.droby['host']
-    remote_url ||= 'localhost'
-    if remote_url !~ /:\d+$/
-        if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
-            remote_url << $1
-        else
-            remote_url << ":#{Roby::Interface::DEFAULT_PORT}"
-        end
+    if !remote_url
+        remote_url = "#{app.shell_interface_host}:#{app.shell_interface_port}"
+    elsif remote_url !~ /:\d+$/
+        remote_url += ":#{app.interface_port}"
     end
 end
 if error
