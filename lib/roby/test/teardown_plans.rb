@@ -26,7 +26,7 @@ module Roby
 
                 plans = self.registered_plans.map do |p|
                     if p.executable?
-                        [p, p.execution_engine, p.tasks.to_set, p.gc_quarantine.to_set]
+                        [p, p.execution_engine, Set.new, Set.new]
                     end
                 end.compact
 
@@ -38,7 +38,7 @@ module Roby
                             if last_tasks != plan.tasks
                                 Roby.warn "Known tasks:"
                                 plan.tasks.each do |t|
-                                    Roby.warn "  #{t}"
+                                    Roby.warn "  #{t} running=#{t.running?} finishing=#{t.finishing?}"
                                 end
                                 last_tasks = plan.tasks.dup
                             end
