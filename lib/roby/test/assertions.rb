@@ -1,6 +1,9 @@
 module Roby
     module Test
         module Assertions
+            # Asserts that a block will add a LocalizedError to be processed
+            #
+            # @param [#match,Queries::LocalizedErrorMatcher] an error matcher
             def assert_adds_roby_localized_error(matcher)
                 matcher = matcher.match
                 errors = plan.execution_engine.gather_errors do
@@ -21,10 +24,13 @@ module Roby
                 end
             end
 
+            # Verifies that the given exception object does not raise when
+            # pretty-printed
             def assert_exception_can_be_pretty_printed(e)
                 PP.pp(e, "") # verify that the exception can be pretty-printed, all Roby exceptions should
             end
 
+            # Asserts the type of the exception that caused a localized error
             def assert_original_error(klass, localized_error_type = LocalizedError)
                 old_level = Roby.logger.level
                 Roby.logger.level = Logger::FATAL
@@ -64,6 +70,11 @@ module Roby
                 end
             end
 
+            # Checks that the given block raises FailedTimeout
+            def assert_times_out(&block)
+                assert_raises(Timeout::Error, &block)
+            end
+
 	    # Wait for events to be emitted, or for some events to not be
             # emitted
             #
@@ -85,7 +96,12 @@ module Roby
             # @param [String] msg assertion failure message
             # @param [Float] timeout timeout in seconds after which the
             #   assertion fails if none of the positive events got emitted
-            def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, &block)
+            def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, scheduler: nil, &block)
+                old_scheduler = plan.execution_engine.scheduler.enabled?
+                if !scheduler.nil?
+                    plan.execution_engine.scheduler.enabled = scheduler
+                end
+
                 ivar, unreachability_reason = watch_events(positive, negative, timeout, &block)
 
                 if !ivar.fulfilled?
@@ -98,6 +114,9 @@ module Roby
                         flunk(ivar.reason)
                     end
                 end
+
+            ensure
+                plan.execution_engine.scheduler.enabled = old_scheduler
             end
 
             def watch_events(positive, negative, timeout, &block)
@@ -112,7 +131,11 @@ module Roby
                 end
 
                 unreachability_reason = Set.new
-                ivar = Concurrent::IVar.new
+                positive.each do |ev|
+                    ev.if_unreachable(cancel_at_emission: true) do |reason, event|
+                        unreachability_reason << [event, reason]
+                    end
+                end
 
                 if positive.empty? && negative.empty?
                     positive, negative = yield
@@ -126,21 +149,18 @@ module Roby
                 end
 
                 success, error = Assertions.event_watch_result(positive, negative)
+
+                ivar = Concurrent::IVar.new
                 if success
                     ivar.set(success)
                 elsif error
                     ivar.fail(error)
                 else
-                    positive.each do |ev|
-                        ev.if_unreachable(cancel_at_emission: true) do |reason, event|
-                            unreachability_reason << [event, reason]
-                        end
-                    end
                     @watched_events = [ivar, positive, negative, Time.now + timeout]
                 end
 
                 begin
-                    while !ivar.fulfilled?
+                    while !ivar.complete?
                         process_events
                     end
                 ensure
@@ -158,6 +178,10 @@ module Roby
                                       Roby.format_exception(reason.context).join("\n")
                                   end
                         "the emission of #{reason}#{context}"
+                    elsif !reason
+                        "unknown"
+                    else
+                        reason.to_s
                     end
                 end
                 msg.join("\n  ")
@@ -194,16 +218,16 @@ module Roby
                 old_level = Roby.logger.level
                 Roby.logger.level = Logger::FATAL
                 ivar, unreachability_reason = watch_events(event, [], timeout, &block)
-                if error = unreachability_reason.find { |ev, _| ev == event }
-                    return
+                if reason = unreachability_reason.find { |ev, _| ev == event }
+                    return reason.last
                 end
-                if !error
+                if ivar.fulfilled?
                     flunk("event has been emitted")
                 else
                     msg = if !unreachability_reason.empty?
                               format_unreachability_message(unreachability_reason)
                           else
-                              message
+                              ivar.reason
                           end
                     flunk("the following error happened before #{event} became unreachable:\n #{msg}")
                 end
@@ -309,7 +333,7 @@ module Roby
                     return "#{failure} happened", nil
                 end
                 if positive.all? { |ev| ev.unreachable? }
-                    return "all positive events are unreachable", nil
+                    return nil, "all positive events are unreachable"
                 end
 
                 nil
