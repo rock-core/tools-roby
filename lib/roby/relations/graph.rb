@@ -268,9 +268,12 @@ module Roby
             # Unlike {BidirectionalDirectedAdjacencyGraph#add_edge}, it will
             # update the edge info (using {#merge_info}) if the edge already
             # exists.
+            #
+            # @return true if a new edge was created
             def add_edge(a, b, info)
                 if !try_updating_existing_edge_info(a, b, info)
                     super
+                    true
                 end
             end
 
