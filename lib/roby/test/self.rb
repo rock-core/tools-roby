@@ -20,6 +20,7 @@ require 'minitest/autorun'
 require 'flexmock/minitest'
 require 'roby'
 require 'roby/test/common'
+require 'roby/test/event_reporter'
 require 'roby/test/minitest_helpers'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
@@ -47,7 +48,7 @@ module Roby
             Roby.app.setup
             Roby.app.prepare
 
-            @plan    = ExecutablePlan.new
+            @plan    = ExecutablePlan.new(event_logger: EventReporter.new(STDOUT))
             @control = DecisionControl.new
 
             Roby.app.public_logs = false
@@ -60,6 +61,11 @@ module Roby
 	    save_collection Roby::Plan.structure_checks
 	    Roby.app.abort_on_exception = false
 	    Roby.app.abort_on_application_exception = true
+        end
+
+        def enable_event_reporting(*filters)
+            plan.event_logger.enabled = true
+            filters.each { |f| plan.event_logger.filter(f) }
         end
 
         def teardown
