@@ -15,7 +15,12 @@ module Roby
         # It is always self.class
         def concrete_model; self.class end
 
+        # The underlying execution engine if {#plan} is executable
         attr_reader :execution_engine
+
+        # A thread pool that ensures that any work queued using {#promise} is
+        # serialized
+        attr_reader :promise_executor
 
         def connection_space
             if plan
@@ -153,11 +158,25 @@ module Roby
 	    end
             @addition_time = Time.now
 	    @plan = new_plan
-            @execution_engine =
-                if new_plan && new_plan.executable?
-                    new_plan.execution_engine
-                end
+            if new_plan && new_plan.executable?
+                @execution_engine = new_plan.execution_engine
+                @promise_executor = Concurrent::SerializedExecutionDelegator.
+                    new(@execution_engine.thread_pool)
+            else
+                @execution_engine = nil
+                @promise_executor = nil
+            end
 	end
+
+        # Create a promise that is serialized with all promises created for this
+        # object
+        #
+        # @param [String] description  a textual description of the promise's
+        #   role (used for debugging and timing)
+        # @return [Promise]
+        def promise(description: nil, executor: promise_executor, &block)
+            execution_engine.promise(description: "#{self}.promise(#{description})", executor: executor, &block)
+        end
 
         # Used in plan management as a way to extract a plan object from any
         # object
