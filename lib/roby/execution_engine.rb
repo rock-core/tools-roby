@@ -1411,35 +1411,42 @@ module Roby
         # into one.
         def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new, enable_scheduler: false)
             scheduler_was_enabled, scheduler.enabled = scheduler.enabled?, enable_scheduler
-            gather_framework_errors("process_events_simple") do
-                next_steps = seeds.dup
-                errors = initial_errors.dup
-                if block_given?
-                    if !seeds.empty?
-                        raise ArgumentError, "cannot give both seeds and block"
-                    end
-
-                    next_steps = gather_propagation do
-                        new_errors = gather_errors do
-                            yield
+            error = catch(:synchronous_fatal_plan_error) do
+                gather_framework_errors("process_events_simple") do
+                    next_steps = seeds.dup
+                    errors = initial_errors.dup
+                    if block_given?
+                        if !seeds.empty?
+                            raise ArgumentError, "cannot give both seeds and block"
                         end
-                        errors.concat(new_errors)
-                    end
-                end
 
-                if next_steps.empty? && errors.empty?
-                    next_steps = gather_propagation do
-                        error_handling_phase_synchronous(errors)
+                        next_steps = gather_propagation do
+                            new_errors = gather_errors do
+                                yield
+                            end
+                            errors.concat(new_errors)
+                        end
                     end
-                end
 
-                while !next_steps.empty? || !errors.empty?
-                    errors.concat(event_propagation_phase(next_steps))
-                    next_steps = gather_propagation do
-                        error_handling_phase_synchronous(errors)
-                        errors.clear
+                    if next_steps.empty? && errors.empty?
+                        next_steps = gather_propagation do
+                            error_handling_phase_synchronous(errors)
+                        end
+                    end
+
+                    while !next_steps.empty? || !errors.empty?
+                        errors.concat(event_propagation_phase(next_steps))
+                        next_steps = gather_propagation do
+                            error_handling_phase_synchronous(errors)
+                            errors.clear
+                        end
                     end
                 end
+                nil
+            end
+
+            if error
+                raise error
             end
         ensure
             scheduler.enabled = scheduler_was_enabled
@@ -1450,10 +1457,9 @@ module Roby
             if fatal_errors
                 garbage_collect(kill_tasks)
                 if fatal_errors.size == 1
-                    e = fatal_errors.first.first.exception
-                    raise e.dup, e.message, e.backtrace
+                    throw :synchronous_fatal_plan_error, fatal_errors.first.first.exception
                 elsif !fatal_errors.empty?
-                    raise SynchronousEventProcessingMultipleErrors.new(fatal_errors), "multiple exceptions in synchronous propagation"
+                    throw :synchronous_fatal_plan_error, SynchronousEventProcessingMultipleErrors.new(fatal_errors)
                 end
             end
         end
