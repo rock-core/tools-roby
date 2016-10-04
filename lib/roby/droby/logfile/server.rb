@@ -41,11 +41,7 @@ module Roby
                     @pending_data = Hash.new
                     @sampling_period = sampling_period
                     @event_file_path = event_file_path
-                    if File.respond_to?(:binread) # Ruby 1.9, need to take care about the encoding
-                        @event_file = File.open(event_file_path, 'r:BINARY')
-                    else
-                        @event_file = File.open(event_file_path)
-                    end
+                    @event_file = File.open(event_file_path, 'r:BINARY')
                 end
 
                 def found_header?
