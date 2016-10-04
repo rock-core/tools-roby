@@ -1572,7 +1572,7 @@ module Roby
             end
 
         ensure
-            @application_exceptions = nil
+            clear_application_exceptions
         end
 
         def unmark_finished_missions_and_permanent_tasks
@@ -2164,8 +2164,8 @@ module Roby
                 trsc.discard_transaction!
             end
 
-            if @application_exceptions
-                process_pending_application_exceptions
+            if application_exceptions = clear_application_exceptions
+                process_pending_application_exceptions(application_exceptions)
             end
 
             start_new_cycle
