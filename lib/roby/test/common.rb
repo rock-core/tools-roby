@@ -239,7 +239,7 @@ module Roby
 	end
         
 	# Process pending events
-	def process_events(raise_errors: true)
+	def process_events(timeout: 5, raise_errors: true)
             exceptions = Array.new
             registered_plans.each do |p|
                 engine = p.execution_engine
@@ -249,7 +249,7 @@ module Roby
                     end
                 end
                 begin
-                    engine.join_all_waiting_work
+                    engine.join_all_waiting_work(timeout: timeout)
                     engine.start_new_cycle
                     engine.process_events
                     engine.cycle_end(Hash.new)

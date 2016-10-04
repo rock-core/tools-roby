@@ -445,13 +445,20 @@ module Roby
         end
 
         # Waits for all obligations in {#waiting_work} to finish
-        def join_all_waiting_work
+        def join_all_waiting_work(timeout: nil)
+            deadline = if timeout
+                           Time.now + timeout
+                       end
+
             while waiting_work.any? { |w| !w.unscheduled? }
                 waiting_work.delete_if do |w|
                     w.complete?
                 end
                 execute_once_blocks_synchronous
                 Thread.pass
+                if deadline && (Time.now > deadline)
+                    raise Timeout::Error, "timed out in #join_all_waiting_work, remaining pending work is #{waiting_work.map(&:to_s).join(", ")}"
+                end
             end
         end
 
