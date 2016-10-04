@@ -1891,7 +1891,7 @@ module Roby
 
             @thread = Thread.current
             original_priority = @thread.priority
-            @thread.priority = thread_priority
+            @thread.priority = 0
 
             @cycle_length = cycle
             event_loop
