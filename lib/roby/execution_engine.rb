@@ -451,9 +451,7 @@ module Roby
                        end
 
             while waiting_work.any? { |w| !w.unscheduled? }
-                waiting_work.delete_if do |w|
-                    w.complete?
-                end
+                process_waiting_work
                 execute_once_blocks_synchronous
                 Thread.pass
                 if deadline && (Time.now > deadline)
@@ -637,11 +635,20 @@ module Roby
             end
         end
 
-        def process_pending_application_exceptions
-            application_errors, @application_exceptions = 
-                @application_exceptions, nil
-            for error, origin in application_errors
-                add_framework_error(error, origin)
+        def process_pending_application_exceptions(application_errors = clear_application_exceptions)
+            # We don't aggregate exceptions, so report them all and raise one
+            application_errors.each do |error, source|
+                ExecutionEngine.error "Application error in #{source}"
+                Roby.format_exception(error).each do |line|
+                    Roby.warn line
+                end
+            end
+
+            error, source = application_errors.find do |error, _|
+                Roby.app.abort_on_application_exception? || error.kind_of?(SignalException)
+            end
+            if error
+                raise error, "in #{source}: #{error.message}", error.backtrace
             end
         end
 
@@ -652,13 +659,8 @@ module Roby
         def add_framework_error(error, source)
             if @application_exceptions
                 @application_exceptions << [error, source]
-            elsif Roby.app.abort_on_application_exception? || error.kind_of?(SignalException)
-                raise error, "in #{source}: #{error.message}", error.backtrace
             else
-                ExecutionEngine.error "Application error in #{source}"
-                Roby.format_exception(error).each do |line|
-                    Roby.warn line
-                end
+                process_pending_application_exceptions([[error, source]])
             end
         end
 
@@ -1477,6 +1479,26 @@ module Roby
                 end
             end
         end
+
+        def process_waiting_work
+            finished, not_finished = waiting_work.partition do |work|
+                work.complete?
+            end
+
+            errors = Hash.new
+            finished.each do |work|
+                if work.rejected?
+                    if work.respond_to?(:has_rejection_handled?) && !work.has_rejection_handled?
+                        errors[work.reason] ||= work
+                    end
+                end
+            end
+            errors.each do |e, work|
+                add_framework_error(e, work.to_s)
+            end
+
+            @waiting_work = not_finished
+        end
         
         # Process the pending events.
         def process_events
@@ -1492,7 +1514,7 @@ module Roby
             next_steps = gather_propagation do
 	        events_errors = gather_errors do
                     if !quitting? || !garbage_collect([])
-                        waiting_work.delete_if { |w| w.complete? }
+                        process_waiting_work
                         log_timepoint 'workers'
                         gather_external_events
                         log_timepoint 'external_events'
@@ -2239,9 +2261,9 @@ module Roby
         # Note that the returned value is a {Roby::Promise}. This means that
         # callbacks added with #on_success or #rescue will be executed in the
         # execution engine thread by default.
-        def promise(&block)
-            promise = Concurrent::Promise.new(executor: thread_pool, &block)
-            Promise.new(self, promise)
+        def promise(description: nil, executor: thread_pool, &block)
+            promise = Concurrent::Promise.new(executor: executor, &block)
+            Promise.new(self, promise, description: description)
         end
     end
 

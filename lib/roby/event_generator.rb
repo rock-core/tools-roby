@@ -711,17 +711,17 @@ module Roby
         #
         # @return [Promise] the promise. Do NOT chain work on this promise, as
         #   that work won't be automatically error-checked by Roby's mechanisms
-        def achieve_asynchronously(promise = nil, emit_on_success: true, &block)
+        def achieve_asynchronously(promise = nil, description: "#{self}#achieve_asynchronously", emit_on_success: true, &block)
             if promise && block
                 raise ArgumentError, "cannot give both a promise and a block"
             elsif block
-                promise = execution_engine.promise(&block)
+                promise = execution_engine.promise(description: description, &block)
             end
 
             if emit_on_success
-                promise = promise.on_success { emit }
+                promise = promise.on_success(description: "#{self}.emit") { emit }
             end
-            promise.on_error do |reason|
+            promise.on_error(description: "#{self}#emit_failed") do |reason|
                 emit_failed(reason)
             end
             promise.execute

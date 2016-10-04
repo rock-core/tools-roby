@@ -48,6 +48,89 @@ module Roby
             end
         end
 
+        describe "promise handling" do
+            it "queues promises in the #waiting_work list" do
+                p = execution_engine.promise { }
+                assert execution_engine.waiting_work.include?(p)
+            end
+
+            it "removes completed promises from #waiting_work" do
+                p = execution_engine.promise { }
+                p.on_error { }
+                p.execute
+                p.wait
+                execution_engine.process_waiting_work
+                refute execution_engine.waiting_work.include?(p)
+            end
+
+            it "leaves non-completed promises within #waiting_work" do
+                p = execution_engine.promise { }
+                p.on_error { }
+                flexmock(p).should_receive(:complete?).and_return(false)
+                p.execute
+                p.wait
+                execution_engine.process_waiting_work
+                assert execution_engine.waiting_work.include?(p)
+            end
+
+            it "adds a promise error as a framework error if it is not handled" do
+                e = ArgumentError.new
+                p = execution_engine.promise { raise e }
+                p.execute
+                p.wait
+                flexmock(execution_engine).should_receive(:add_framework_error).
+                    with(e, String).once
+                execution_engine.process_waiting_work
+                refute execution_engine.waiting_work.include?(p)
+            end
+
+            it "does not add a promise error handled at the promise level as a framework error" do
+                e = ArgumentError.new
+                p = execution_engine.promise { raise e }
+                p.on_error { }
+                p.execute
+                p.wait
+                flexmock(execution_engine).should_receive(:add_framework_error).never
+                execution_engine.process_waiting_work
+                refute execution_engine.waiting_work.include?(p)
+            end
+
+            it "does not add a promise error handled on a child as a framework error" do
+                e = ArgumentError.new
+                p = execution_engine.promise { raise e }
+                p.on_success { }.on_error { }
+                p.execute
+                p.wait
+                flexmock(execution_engine).should_receive(:add_framework_error).never
+                execution_engine.process_waiting_work
+                refute execution_engine.waiting_work.include?(p)
+            end
+
+            it "does not add a promise error handled on a parent as a framework error" do
+                e = ArgumentError.new
+                p = execution_engine.promise { raise e }
+                p.on_error { }
+                p.on_success { }
+                p.execute
+                p.wait
+                flexmock(execution_engine).should_receive(:add_framework_error).never
+                execution_engine.process_waiting_work
+                refute execution_engine.waiting_work.include?(p)
+            end
+
+            it "adds a promise error as a framework error only once regardless of the presence of success handlers" do
+                e = ArgumentError.new
+                p = execution_engine.promise { raise e }
+                p.on_success { }
+                p.execute
+                p.wait
+                flexmock(execution_engine).should_receive(:add_framework_error).
+                    with(e, String).once
+                execution_engine.process_waiting_work
+                refute execution_engine.waiting_work.include?(p)
+            end
+        end
+
         describe "#finalized_event" do
             it "marks the event as unreachable" do
                 plan.add(event = Roby::EventGenerator.new)
@@ -1465,7 +1548,7 @@ class TC_ExecutionEngine < Minitest::Test
         mock.should_receive(:called).once.with(false)
 
         plan.on_exception(PermanentTaskError) do |plan, error|
-            plan.unmark_permanent(error.task)
+            plan.unmark_permanent_task(error.task)
             mock.called(error.fatal?)
         end
 
