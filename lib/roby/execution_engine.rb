@@ -545,7 +545,7 @@ module Roby
             if @propagation
                 @propagation.delete(event)
             end
-            event.unreachable!(nil, plan)
+            event.unreachable!("finalized", plan)
             # since the event is already finalized, 
         end
 

@@ -868,9 +868,7 @@ module Roby
 	attr_predicate :unreachable?
 
         # If the event became unreachable, this holds the reason for its
-        # unreachability, if that reason is known. This reason is always an
-        # Event instance which represents the emission that triggered this
-        # unreachability.
+        # unreachability, if that reason is known.
         attr_reader :unreachability_reason
 
         # Internal helper for unreachable!

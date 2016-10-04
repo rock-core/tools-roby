@@ -47,6 +47,19 @@ module Roby
                 assert !execution_engine.has_queued_events?
             end
         end
+
+        describe "#finalized_event" do
+            it "marks the event as unreachable" do
+                plan.add(event = Roby::EventGenerator.new)
+                plan.remove_free_event(event)
+                assert event.unreachable?
+            end
+            it "reports 'finalized' as the unreachability reason" do
+                plan.add(event = Roby::EventGenerator.new)
+                plan.remove_free_event(event)
+                assert_equal 'finalized', event.unreachability_reason
+            end
+        end
     end
 end
 
