@@ -224,7 +224,7 @@ module Roby
 
 	    if defined? Roby::Application
 		Roby.app.abort_on_exception = false
-		Roby.app.abort_on_application_exception = false
+		Roby.app.abort_on_application_exception = true
 	    end
 
             super
