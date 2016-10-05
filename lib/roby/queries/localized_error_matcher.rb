@@ -10,11 +10,15 @@ module Roby
             # @return [#===] the object that will be used to match the error
             #   origin
             attr_reader :failure_point_matcher
+            # @return [#===,nil] match object to validate the exception's
+            #   ExeptionBase#original_exceptions
+            attr_reader :original_exception_model
 
             def initialize
                 super
                 @model = LocalizedError
                 @failure_point_matcher = Queries.any
+                @original_exception_model = nil
             end
 
             # Specifies which subclass of LocalizedError this matcher should
@@ -22,6 +26,15 @@ module Roby
             # @return self
             def with_model(model)
                 @model = model
+                self
+            end
+
+            # Specifies that the exception object should have an
+            # original_exception registered of the given model
+            #
+            # Set to nil to allow for no original exception at all
+            def with_original_exception(model)
+                @original_exception_model = model
                 self
             end
 
@@ -46,6 +59,14 @@ module Roby
                     return false
                 end
 
+                if original_exception_model
+                    original_exception = exception.original_exceptions.
+                        find { |e| original_exception_model === e }
+                    if !original_exception
+                        return false
+                    end
+                end
+
                 if !exception.failed_task
                     # Cannot match exceptions assigned to free events
                     return false
@@ -58,7 +79,7 @@ module Roby
                     return false if !(failure_point_matcher === exception.failed_task)
                 end
 
-                true
+                original_exception || true
             end
 
             def to_s

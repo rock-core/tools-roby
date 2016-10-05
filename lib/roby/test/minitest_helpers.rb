@@ -32,18 +32,31 @@ module Roby
 
                 msg = exp.pop if String === exp.last
 
+                matchers = exp.dup
+                exp = exp.map do |e|
+                    if e.kind_of?(Queries::LocalizedErrorMatcher)
+                        e.model
+                    else
+                        e
+                    end
+                end
+
                 # The caller expects a non-Roby exception. It is going to be
                 # wrapped in a LocalizedError, so make sure we properly
                 # process it
                 begin
                     yield
                 rescue *exp => e
-                    assert_exception_can_be_pretty_printed(e)
-                    return e
+                    if matchers.any? { |m| m === e }
+                        assert_exception_can_be_pretty_printed(e)
+                        return e
+                    else
+                        flunk("#{matchers.map(&:to_s).join(", ")} exceptions expected, not #{root_e.class} #{actually_caught}")
+                    end
                 rescue Exception => root_e
                     assert_exception_can_be_pretty_printed(root_e)
                     all = Roby.flatten_exception(root_e)
-                    if actual_e = all.find { |e| exp.any? { |expected_e| e.kind_of?(expected_e) } }
+                    if actual_e = all.find { |e| matchers.any? { |expected_e| expected_e === e } }
                         return actual_e
                     end
                     actually_caught = roby_exception_to_string(*all)
