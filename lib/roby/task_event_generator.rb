@@ -211,7 +211,8 @@ module Roby
         def call_without_propagation(context) # :nodoc:
             super
     	rescue EventNotExecutable => e
-	    refine_call_exception(e)
+	    e = refine_call_exception(e)
+            raise CommandFailed.new(e, self), e.message, e.backtrace
         end
 
 	# Checks that the event can be called. Raises various exception
@@ -240,7 +241,8 @@ module Roby
             end
 
     	rescue EventNotExecutable => e
-	    refine_call_exception(e)
+	    e = refine_call_exception(e)
+            raise CommandFailed.new(e, self), e.message, e.backtrace
 	end
 
 	# Checks that the event can be emitted. Raises various exception
@@ -248,7 +250,7 @@ module Roby
 	def check_emission_validity # :nodoc:
   	    super
     	rescue EventNotExecutable => e
-	    refine_emit_exception(e)
+            raise EmissionFailed.new(refine_emit_exception(e), self)
     	end
 
         # When an emissio and/or call exception is raised by the base
@@ -256,17 +258,22 @@ module Roby
         # relevant task-related error.
 	def refine_call_exception (e) # :nodoc:
 	    if task.partially_instanciated?
-		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} which is partially instanciated\n" + 
+                TaskEventNotExecutable.new(self).
+                    exception("#{symbol}! called on #{task} which is partially instanciated\n" + 
 			"The following arguments were not set: \n" +
-			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
+			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n")
 	    elsif !plan
-		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} but the task has been removed from its plan"
+                TaskEventNotExecutable.new(self).
+                    exception("#{symbol}! called on #{task} but the task has been removed from its plan")
 	    elsif !plan.executable?
-		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} but the plan is not executable"
+                TaskEventNotExecutable.new(self).
+                    exception("#{symbol}! called on #{task} but the plan is not executable")
 	    elsif task.abstract?
-		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is abstract"
+                TaskEventNotExecutable.new(self).
+                    exception("#{symbol}! called on #{task} but the task is abstract")
 	    else
-		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} which is not executable: #{e.message}"
+                TaskEventNotExecutable.new(self).
+                    exception("#{symbol}! called on #{task} which is not executable: #{e.message}")
 	    end
 	end
 
@@ -275,17 +282,17 @@ module Roby
         # relevant task-related error.
 	def refine_emit_exception (e) # :nodoc:
 	    if task.partially_instanciated?
-		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is partially instanciated\n" + 
+                TaskEventNotExecutable.new(self).exception("emit(#{symbol}) called on #{task} which is partially instanciated\n" + 
 			"The following arguments were not set: \n" +
-			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
+			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n")
 	    elsif !plan
-		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the task is in no plan"
+                TaskEventNotExecutable.new(self).exception("emit(#{symbol}) called on #{task} but the task has been removed from its plan")
 	    elsif !plan.executable?
-		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the plan is not executable"
+                TaskEventNotExecutable.new(self).exception("emit(#{symbol}) called on #{task} but the plan is not executable")
 	    elsif task.abstract?
-		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the task is abstract"
+                TaskEventNotExecutable.new(self).exception("emit(#{symbol}) called on #{task} but the task is abstract")
 	    else
-		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is not executable: #{e.message}"
+                TaskEventNotExecutable.new(self).exception("emit(#{symbol}) called on #{task} which is not executable: #{e.message}")
 	    end
 	end
 

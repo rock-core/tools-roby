@@ -1023,8 +1023,6 @@ module Roby
                             propagation_context(source_events | source_generators) do |result|
                                 begin
                                     signalled.call_without_propagation(context) 
-                                rescue Roby::EventNotExecutable => e
-                                    add_error(e)
                                 rescue Roby::LocalizedError => e
                                     if signalled.command_emitted?
                                         add_error(e)

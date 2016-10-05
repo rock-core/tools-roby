@@ -1,6 +1,39 @@
 module Roby
     module Test
         module Assertions
+            # Capture log output and returns it
+            def capture_log(object, level)
+                capture = Array.new
+                if object.respond_to?(:logger)
+                    object = object.logger
+                end
+
+                original_level = object.level
+                level_value = Logger.const_get(level.upcase)
+                if original_level > level_value
+                    object.level = level_value
+                end
+
+                FlexMock.use(object) do |mock|
+                    mock.should_receive(level).
+                        and_return do |msg|
+                            if msg.respond_to?(:to_str)
+                                capture << msg
+                            else
+                                mock.invoke_original(level) do
+                                    capture << msg.call
+                                    break
+                                end
+                            end
+                        end
+
+                    yield
+                end
+                capture
+            ensure
+                object.level = original_level
+            end
+
             # Asserts that a block will add a LocalizedError to be processed
             #
             # @param [#match,Queries::LocalizedErrorMatcher] an error matcher
@@ -353,6 +386,75 @@ module Roby
                     ivar.fail(error)
                     @watched_events = nil
                 end
+            end
+
+            def assert_fails_to_start(task)
+                yield
+                assert task.failed_to_start?
+            end
+
+            def assert_event_emission_failed(expected_code_error = nil, failure_point: nil)
+                e = assert_raises(Roby::EmissionFailed) do
+                    yield
+                end
+                if expected_code_error && !e.error.kind_of?(expected_code_error)
+                    flunk("expected a Roby::EmissionFailed wrapping #{expected_code_error}, but \"#{e.error}\" (#{e.error.class}) was raised")
+                end
+                if failure_point && e.failure_point != failure_point
+                    flunk("expected a Roby::EmissionFailed located on #{failure_point}, but #{e} is located on #{e.failure_point}")
+                end
+                e
+            end
+
+            def assert_event_command_failed(expected_code_error = nil, failure_point: nil)
+                e = assert_raises(Roby::CommandFailed) do
+                    yield
+                end
+                if expected_code_error && !e.error.kind_of?(expected_code_error)
+                    flunk("expected a Roby::CommandFailed wrapping #{expected_code_error}, but \"#{e.error}\" (#{e.error.class}) was raised")
+                end
+                if failure_point && e.failure_point != failure_point
+                    flunk("expected a Roby::EmissionFailed located on #{failure_point}, but #{e} is located on #{e.failure_point}")
+                end
+                e
+            end
+
+            def assert_fatal_exception(expected_exception = nil, failure_point: nil, tasks: [])
+                e = nil
+                messages = capture_log(plan.execution_engine, :warn) do
+                    if expected_exception
+                        e = assert_raises(expected_exception) do
+                            yield
+                        end
+                        if failure_point
+                            if e.failure_point.kind_of?(Event)
+                                assert_equal failure_point, e.failure_point.generator,
+                                    "unexpected failure point for #{e}"
+                            else
+                                assert_equal failure_point, e.failure_point,
+                                    "unexpected failure point for #{e}"
+                            end
+                        end
+                    else
+                        yield
+                    end
+                end
+                assert_equal "will kill the following #{tasks.size} tasks because of unhandled exceptions:", messages[0]
+                task_messages = tasks.flat_map { |t| PP.pp(t, '').chomp.split("\n") }.to_set
+                assert_equal task_messages, messages[1..-1].to_set
+                e
+            end
+
+            def assert_logs_exception_with_backtrace(exception_m, logger, level)
+                flexmock(Roby).should_receive(:log_exception_with_backtrace).once.
+                    with(exception_m, logger, level)
+            end
+
+            def assert_has_nonfatal_exception(matcher, tasks)
+                flexmock(execution_engine).should_receive(:warn).at_least.once.
+                    with("unhandled 1 non-fatal exceptions")
+                flexmock(execution_engine).should_receive(:notify_exception).at_least.once.
+                    with(ExecutionEngine::EXCEPTION_NONFATAL, matcher, tasks)
             end
         end
     end

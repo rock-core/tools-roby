@@ -191,7 +191,12 @@ module Roby
 
 	# Calls the command from within the event propagation code
 	def call_without_propagation(context)
-            check_call_validity
+            begin
+                check_call_validity
+            rescue Exception => e
+                execution_engine.add_error(e)
+                return
+            end
             
 	    if !controlable?
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
@@ -611,7 +616,12 @@ module Roby
 	#
 	# This is used by event propagation. Do not call directly: use #call instead
 	def emit_without_propagation(context)
-            check_emission_validity
+            begin
+                check_emission_validity
+            rescue Exception => e
+                execution_engine.add_error(e)
+                return
+            end
             
 	    if !executable?
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"

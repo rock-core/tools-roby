@@ -724,6 +724,109 @@ module Roby
                 assert_equal subject.end_time - subject.start_time, subject.lifetime
             end
         end
+        describe "call and emission validity checks" do
+            it "reports a finalized task" do
+                assert_validity_checks_fail_at_toplevel(/the task has been removed from its plan/) do
+                    plan.add(task = Tasks::Simple.new)
+                    plan.remove_task(task)
+                    task
+                end
+            end
+
+            it "reports a task in a non-executable plan" do
+                assert_validity_checks_fail_at_toplevel(/plan is not executable/) do
+                    Tasks::Simple.new
+                end
+            end
+            
+            it "reports a non-executable task" do
+                # test for a not executable task
+                assert_validity_checks_fail_during_propagation(/is not executable/) do
+                    plan.add(task = Tasks::Simple.new)
+                    task.executable = false
+                    task
+                end
+            end
+
+            it "reports a partially instanciated task" do
+                assert_validity_checks_fail_during_propagation(/partially instanciated/) do
+                    task_m = Tasks::Simple.new_submodel { argument :arg }
+                    plan.add(task = task_m.new)
+                    task
+                end
+            end
+
+            it "reports an abstract task" do
+                assert_validity_checks_fail_during_propagation(/abstract/) do
+                    task_m = Tasks::Simple.new_submodel { abstract }
+                    plan.add(task = task_m.new)
+                    task
+                end
+            end
+
+            def assert_validity_checks_fail_at_toplevel(substring)
+                task = yield
+                error = assert_event_command_failed(
+                    TaskEventNotExecutable,
+                    failure_point: task.start_event) { task.start! }
+                assert_match substring, error.original_exceptions[0].message
+
+                task = yield
+                error = assert_event_command_failed(
+                    TaskEventNotExecutable,
+                    failure_point: task.start_event) { task.start_event.call(nil) }
+                assert_match substring, error.original_exceptions[0].message
+
+                task = yield
+                error = assert_event_emission_failed(
+                    TaskEventNotExecutable,
+                    failure_point: task.start_event) { task.start_event.emit(nil) }
+                assert_match substring, error.original_exceptions[0].message
+            end
+
+            def assert_validity_checks_fail_during_propagation(substring)
+                task = yield
+                error = assert_fatal_exception(
+                    CommandFailed.match.with_original_exception(TaskEventNotExecutable),
+                    tasks: [task], failure_point: task.start_event) { task.start! }
+                assert_match substring, error.original_exceptions[0].message
+
+                task = yield
+                error = assert_fatal_exception(
+                    CommandFailed.match.with_original_exception(TaskEventNotExecutable),
+                    tasks: [task], failure_point: task.start_event) { task.start_event.call(nil) }
+                assert_match substring, error.original_exceptions[0].message
+
+                task = yield
+                error = assert_event_emission_failed(
+                    TaskEventNotExecutable,
+                    failure_point: task.start_event) { task.start_event.emit(nil) }
+                assert_match substring, error.original_exceptions[0].message
+
+                task = yield
+                error = assert_fatal_exception(
+                    CommandFailed.match.with_original_exception(TaskEventNotExecutable),
+                    tasks: [task], failure_point: task.start_event) do
+                    exception_propagator(task, :signals)
+                end
+                assert_match substring, error.original_exceptions[0].message
+
+                task = yield
+                error = assert_fatal_exception(
+                    EmissionFailed.match.with_original_exception(TaskEventNotExecutable),
+                    tasks: [task], failure_point: task.start_event) do
+                    exception_propagator(task, :forward_to)
+                end
+                assert_match substring, error.original_exceptions[0].message
+            end
+
+            def exception_propagator(task, relation)
+                first_task  = Tasks::Simple.new
+                second_task = task
+                first_task.start_event.send(relation, second_task.start_event)
+                first_task.start!
+            end
+        end
     end
 end
 
@@ -1554,123 +1657,6 @@ class TC_Task < Minitest::Test
         task.executable = nil
         task.start!
 	assert_raises(ModelViolation) { task.executable = false }
-    end
-	
-    class ParameterizedTask < Roby::Task
-        argument :arg
-    end
-    
-    class AbstractTask < Roby::Task
-        abstract
-    end
-
-    class NotExecutablePlan < Roby::Plan
-        def executable?
-            false
-	end
-    end
-    
-    def exception_propagator(task, relation)
-	first_task  = Tasks::Simple.new
-	second_task = task
-	first_task.send(relation, :start, second_task, :start)
-	first_task.start!
-    end
-    
-    def assert_direct_call_validity_check(substring, check_signaling)
-        with_log_level(Roby, Logger::FATAL) do
-            error = yield
-            assert_exception_message(TaskEventNotExecutable, substring) { error.start! }
-            error = yield
-            assert_exception_message(TaskEventNotExecutable, substring) {error.start_event.call(nil)}
-            error = yield
-            assert_exception_message(TaskEventNotExecutable, substring) {error.start_event.emit(nil)}
-            
-            if check_signaling then
-                error = yield
-                assert_exception_message(TaskEventNotExecutable, substring) do
-                   exception_propagator(error, :signals)
-                end
-                error = yield
-                assert_exception_message(TaskEventNotExecutable, substring) do
-                   exception_propagator(error, :forward_to)
-                end
-            end
-        end
-    end
-
-    def assert_failure_reason(task, exception, message = nil)
-        if block_given?
-            begin
-                yield
-            rescue exception
-            end
-        end
-
-        assert(task.failed?, "#{task} did not fail")
-        assert_kind_of(exception, task.failure_reason, "wrong error type for #{task}: expected #{exception}, got #{task.failure_reason}")
-        assert(task.failure_reason.message =~ message, "error message '#{task.failure_reason.message}' was expected to match #{message}") if message
-    end
-    
-    def assert_emission_fails(message_match, check_signaling)
-        error = yield
-	assert_failure_reason(error, TaskEventNotExecutable, message_match) do
-            error.start!
-        end
-        error = yield
-	assert_failure_reason(error, TaskEventNotExecutable, message_match) do
-            error.start_event.call(nil)
-        end
-
-        error = yield
-        assert_exception_message(TaskEventNotExecutable, message_match) do
-            error.start_event.emit(nil)
-        end
-	
-	if check_signaling then
-	    error = yield
-	    assert_exception_message(TaskEventNotExecutable, message_match) do
-                exception_propagator(error, :forward_to)
-            end
-
-	    error = yield
-            exception_propagator(error, :signals)
-	    assert_failure_reason(error, TaskEventNotExecutable, message_match)
-	end
-    end
-        
-    def test_exception_refinement
-        # test for a task that is in no plan
-        assert_direct_call_validity_check(/plan is not executable/,false) do
-            Tasks::Simple.new
-	end
-
-	# test for a not executable plan
-	erroneous_plan = NotExecutablePlan.new	
-	assert_direct_call_validity_check(/plan is not executable/,false) do
-	   erroneous_plan.add(task = Tasks::Simple.new)
-	   task
-	end
-        erroneous_plan.clear
-
-        # test for a not executable task
-        assert_direct_call_validity_check(/is not executable/,true) do
-            plan.add(task = Tasks::Simple.new)
-            task.executable = false
-            task
-	end
-        
-	# test for partially instanciation
-	assert_direct_call_validity_check(/partially instanciated/,true) do
-	   plan.add(task = ParameterizedTask.new)
-	   task
-	end
-
-        # test for an abstract task
-        assert_direct_call_validity_check(/abstract/,true) do
-            plan.add(task = AbstractTask.new)
-            task
-	end
     end
 	
     
