@@ -46,27 +46,21 @@ class TC_Actions_Task < Minitest::Test
     def test_it_emits_failed_if_the_action_raised
         flexmock(iface_m).new_instances.
             should_receive(:test_action).and_raise(ArgumentError)
-        inhibit_fatal_messages do
-            assert_raises(Roby::PlanningFailedError) { task.start! }
-        end
+        assert_raises(Roby::PlanningFailedError) { task.start! }
         assert task.failed?
     end
 
     def test_it_emits_failed_if_the_transaction_failed_to_commit
         flexmock(Transaction).new_instances.
             should_receive(:commit_transaction).and_raise(ArgumentError)
-        inhibit_fatal_messages do
-            assert_raises(Roby::PlanningFailedError) { task.start! }
-        end
+        assert_raises(Roby::PlanningFailedError) { task.start! }
         assert task.failed?
     end
 
     def test_it_discards_the_transaction_on_failure
         flexmock(iface_m).new_instances.should_receive(:test_action).and_raise(ArgumentError)
         flexmock(Transaction).new_instances.should_receive(:discard_transaction).once.pass_thru
-        inhibit_fatal_messages do
-            assert_raises(Roby::PlanningFailedError) { task.start! }
-        end
+        assert_raises(Roby::PlanningFailedError) { task.start! }
         assert task.failed?
         assert !task.transaction.plan, "transaction is neither discarded nor committed"
     end

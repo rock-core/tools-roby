@@ -48,9 +48,7 @@ describe Roby::Coordination::ActionScript do
             script = script_model.new(script_model.action_interface, root_task)
             root_task.start!
             action_task.start!
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) { action_task.intermediate_event.unreachable! }
-            end
+            assert_raises(Roby::ChildFailedError) { action_task.intermediate_event.unreachable! }
         end
 
         it "fails if the event it is waiting for becomes unreachable" do
@@ -63,10 +61,8 @@ describe Roby::Coordination::ActionScript do
             root_task.start!
             action_task.start!
             action_task.second_event.unreachable!
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) do
-                    action_task.intermediate_event.emit
-                end
+            assert_raises(Roby::ChildFailedError) do
+                action_task.intermediate_event.emit
             end
         end
 
@@ -95,10 +91,8 @@ describe Roby::Coordination::ActionScript do
                 new_child = Roby::Tasks::Simple.new)
             child.start!
             child.success_event.emit
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) do
-                    new_child.failed_to_start!(nil)
-                end
+            assert_raises(Roby::ChildFailedError) do
+                new_child.failed_to_start!(nil)
             end
         end
 

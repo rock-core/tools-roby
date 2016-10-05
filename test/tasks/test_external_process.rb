@@ -40,7 +40,6 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     end
 
     def test_inexistent_program
-        Roby.logger.level = Logger::FATAL
         plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: ['does_not_exist', "--error"]))
         e = assert_raises(RuntimeError) do
             task.start!
@@ -50,7 +49,6 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     end
 
     def test_failure
-        Roby.logger.level = Logger::FATAL
         plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--error"]))
         assert_event_emission(task.failed_event) do
             task.start!
@@ -59,7 +57,6 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     end
 
     def test_signaling
-        Roby.logger.level = Logger::FATAL
         plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--block"]))
         assert_event_emission(task.start_event) do
             task.start!

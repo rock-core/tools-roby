@@ -309,7 +309,6 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_propagation_handlers_disabled_on_error
-        Roby.logger.level = Logger::FATAL
         FlexMock.use do |mock|
             execution_engine.add_propagation_handler on_error: :disable do |plan|
                 mock.called
@@ -528,7 +527,6 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_add_framework_errors
 	# Shut up the logger in this test
-	Roby.logger.level = Logger::FATAL
 	exception = begin; raise RuntimeError
 		    rescue; $!
 		    end
@@ -653,9 +651,6 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_unhandled_event_handler_exception
-        # To stop the error message
-	Roby.logger.level = Logger::FATAL
-
 	model = Tasks::Simple.new_submodel do
 	    on :start do |event|
 		raise SpecificException, "bla"
@@ -706,8 +701,6 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_at_cycle_end
-	# Shut up the logger in this test
-	Roby.logger.level = Logger::FATAL
         Roby.app.abort_on_application_exception = false
 
         FlexMock.use do |mock|
@@ -833,11 +826,10 @@ class TC_ExecutionEngine < Minitest::Test
         # Wait for #wait_until, in the thread, to wait for the main thread
 	while !t.stop?; sleep(0.01) end
         # And process the events
-        with_log_level(Roby, Logger::FATAL) do
-            # We use execution_engine.process_events as we are making the execution_engine
-            # believe that it is running while it is not
-            execution_engine.process_events
-        end
+        #
+        # We use execution_engine.process_events as we are making the execution_engine
+        # believe that it is running while it is not
+        execution_engine.process_events
 
 	result = t.value
 	assert_kind_of(UnreachableEvent, result)
@@ -1368,7 +1360,6 @@ class TC_ExecutionEngine < Minitest::Test
     # Tests exception handling mechanism during event propagation
     def test_task_propagation_with_exception
 	Roby.app.abort_on_exception = true
-	Roby::ExecutionEngine.logger.level = Logger::FATAL + 1
 
 	task = Tasks::Simple.new_submodel do
 	    event :start do |context|

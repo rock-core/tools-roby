@@ -26,9 +26,7 @@ class TC_PlannedBy < Minitest::Test
             s.should_receive(:propagate_exceptions).
                 with(->(e) { e.first.first.exception.kind_of?(Exception) && e.first.last == [] })
         end
-        inhibit_fatal_messages do
-            assert_raises(PlanningFailedError) { planner.failed! }
-        end
+        assert_raises(PlanningFailedError) { planner.failed! }
     end
 
     def test_check
@@ -50,9 +48,7 @@ class TC_PlannedBy < Minitest::Test
 	assert_equal([], plan.check_structure.to_a)
 	planner.start!
 	assert_equal([], plan.check_structure.to_a)
-        error = inhibit_fatal_messages do
-            assert_raises(PlanningFailedError) { planner.failed! }
-        end
+        error = assert_raises(PlanningFailedError) { planner.failed! }
 
         assert(error, "no PlanningFailedError generated while one was expected")
         error = error.exception
@@ -76,7 +72,6 @@ class TC_PlannedBy < Minitest::Test
     end
 
     def test_failure_on_abstract_task_leads_to_task_removal
-	Roby::ExecutionEngine.logger.level = Logger::FATAL + 1
 	task = Roby::Task.new
 	planner = Roby::Test::Tasks::Simple.new
         task.planned_by planner

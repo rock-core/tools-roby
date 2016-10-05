@@ -182,9 +182,7 @@ describe Roby::Coordination::ActionStateMachine do
 
         task = start_machine('test')
         task.current_task_child.start!
-        inhibit_fatal_messages do
-            assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
-        end
+        assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
         plan.remove_task(task.children.first)
     end
 

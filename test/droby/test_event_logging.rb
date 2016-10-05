@@ -400,7 +400,11 @@ module Roby
                     process_logged_events
                     r_task = rebuilt_plan.tasks.first
 
-                    task.start_event.emit_failed(ArgumentError.new)
+                    error_m = Class.new(ArgumentError)
+                    assert_event_emission_failed(error_m) do
+                        task.start_event.emit_failed(error_m.new)
+                    end
+
                     process_logged_events
                     assert_equal r_task, rebuilt_plan.failed_to_start[0][0]
                     assert_kind_of EmissionFailed, rebuilt_plan.failed_to_start[0][1]

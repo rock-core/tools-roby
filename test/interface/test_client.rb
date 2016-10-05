@@ -200,10 +200,8 @@ module Roby
             it "queues exceptions and allows to retrieve the notifications in FIFO order" do
                 plan.add(t0 = Tasks::Simple.new(id: 1))
                 plan.add(t1 = Tasks::Simple.new(id: 2))
-                inhibit_fatal_messages do
-                    plan.execution_engine.notify_exception :fatal, Exception.new, [t0]
-                    plan.execution_engine.notify_exception :warn, Exception.new, [t1]
-                end
+                plan.execution_engine.notify_exception :fatal, Exception.new, [t0]
+                plan.execution_engine.notify_exception :warn, Exception.new, [t1]
                 client.poll
                 assert client.has_exceptions?
 
@@ -218,9 +216,7 @@ module Roby
                 task = Class.new(Tasks::Simple) do
                     provides Job
                 end.new(job_id: 1)
-                inhibit_fatal_messages do
-                    plan.execution_engine.notify_exception :fatal, Exception.new, [task]
-                end
+                plan.execution_engine.notify_exception :fatal, Exception.new, [task]
                 client.poll
                 *_, jobs = client.pop_exception.last
                 assert_equal [1], jobs.to_a

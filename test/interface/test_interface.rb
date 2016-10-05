@@ -137,9 +137,7 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).with(Roby::Interface::JOB_FINALIZED, 10, "the job").once.ordered
             interface.monitor_job(task.planning_task, task)
             job_task.start!
-            inhibit_fatal_messages do
-                assert_raises(Roby::PlanningFailedError) { job_task.failed_event.emit }
-            end
+            assert_raises(Roby::PlanningFailedError) { job_task.failed_event.emit }
             interface.push_pending_job_notifications
         end
 
@@ -255,20 +253,16 @@ describe Roby::Interface::Interface do
                 error.origin == child_task && error.exception.class == Roby::ChildFailedError
             end
             recorder.should_receive(:called).with(Roby::ExecutionEngine::EXCEPTION_FATAL, exception_validator, [child_task, parent_task])
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) do
-                    child_task.stop!
-                end
+            assert_raises(Roby::ChildFailedError) do
+                child_task.stop!
             end
         end
 
         it "allows to remove a listener" do
             recorder.should_receive(:called).never
             interface.remove_exception_listener(exception_listener)
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) do
-                    child_task.stop!
-                end
+            assert_raises(Roby::ChildFailedError) do
+                child_task.stop!
             end
         end
     end

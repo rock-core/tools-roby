@@ -18,9 +18,7 @@ class TC_Event < Minitest::Test
 
     def test_call_without_propagation_raises
         plan.add(ev = Roby::EventGenerator.new { |_| raise ArgumentError })
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(Roby::CommandFailed) { ev.call }
-        end
+        assert_raises(Roby::CommandFailed) { ev.call }
     end
 
     def test_emit_without_propagation_raises
@@ -28,9 +26,7 @@ class TC_Event < Minitest::Test
         ev.on do |_|
             raise ArgumentError
         end
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(Roby::EventHandlerError) { ev.emit }
-        end
+        assert_raises(Roby::EventHandlerError) { ev.emit }
     end
 
     def test_error_in_command_before_emission_causes_an_emission_failure
@@ -50,9 +46,7 @@ class TC_Event < Minitest::Test
             end
 
         plan.add(ev)
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(Roby::CommandFailed) { ev.call }
-        end
+        assert_raises(Roby::CommandFailed) { ev.call }
         assert(!ev.emitted?)
     end
 
@@ -73,9 +67,7 @@ class TC_Event < Minitest::Test
             end
 
         plan.add(ev)
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(Roby::CommandFailed) { ev.call }
-        end
+        assert_raises(Roby::CommandFailed) { ev.call }
         assert(ev.emitted?)
     end
 
@@ -110,13 +102,12 @@ class TC_Event < Minitest::Test
 	plan.add(event = EventGenerator.new(true))
         assert(event.executable?)
 	event.executable = false
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(EventNotExecutable) { event.call(nil) }
 
-            plan.add(event = EventGenerator.new(true))
-            event.executable = false
-            assert_raises(EventNotExecutable) { event.emit(nil) }
-        end
+        assert_raises(EventNotExecutable) { event.call(nil) }
+
+        plan.add(event = EventGenerator.new(true))
+        event.executable = false
+        assert_raises(EventNotExecutable) { event.emit(nil) }
 
 	event.executable = true
 	event.call(nil)
@@ -142,11 +133,9 @@ class TC_Event < Minitest::Test
     end
 
     def assert_event_fails(ev, error_type)
-        with_log_level(Roby, Logger::FATAL) do
-            begin
-                yield
-            rescue error_type
-            end
+        begin
+            yield
+        rescue error_type
         end
         assert(ev.unreachable?, "#{ev} was expected to be marked as unreachable, but is not")
         assert_kind_of(error_type, ev.unreachability_reason)
@@ -374,9 +363,7 @@ class TC_Event < Minitest::Test
 	a.signals b
 	def b.controlable?; false end
 
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(EmissionFailed) { a.call(nil) }
-        end
+        assert_raises(EmissionFailed) { a.call(nil) }
     end
 
 
@@ -553,9 +540,7 @@ class TC_Event < Minitest::Test
 	end.new(true)
 	plan.add(generator)
 
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(EmissionFailed) { generator.emit(nil) }
-        end
+        assert_raises(EmissionFailed) { generator.emit(nil) }
 
 	generator = Class.new(EventGenerator) do
 	    def new(context)
@@ -618,9 +603,7 @@ class TC_Event < Minitest::Test
 	    context
 	end
 
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(EventPreconditionFailed) { e1.call(nil) }
-        end
+        assert_raises(EventPreconditionFailed) { e1.call(nil) }
         plan.add(e1 = EventGenerator.new(true))
 	e1.call(true)
     end
@@ -632,9 +615,7 @@ class TC_Event < Minitest::Test
 	    end
 	end.new(true)
 	plan.add(e1)
-        with_log_level(Roby, Logger::FATAL) do
-            assert_raises(EventCanceled) { e1.call(nil) }
-        end
+        assert_raises(EventCanceled) { e1.call(nil) }
     end
 
     def test_related_events
@@ -918,9 +899,7 @@ class TC_Event < Minitest::Test
 
             mock.should_receive(:called_other_handler).once
             mock.should_receive(:called_other_once_handler).once
-            with_log_level(Roby, Logger::FATAL) do
-                assert_raises(EventHandlerError) { ev.call }
-            end
+            assert_raises(EventHandlerError) { ev.call }
         end
     end
 
@@ -933,9 +912,7 @@ class TC_Event < Minitest::Test
 
             mock.should_receive(:called_other_handler).once
             mock.should_receive(:called_other_once_handler).once
-            with_log_level(Roby, Logger::FATAL) do
-                assert_raises(EventHandlerError) { ev.call }
-            end
+            assert_raises(EventHandlerError) { ev.call }
         end
     end
 
@@ -945,12 +922,11 @@ class TC_Event < Minitest::Test
                 pending?
             end
         end
-        with_log_level(Roby, Logger::FATAL) do
-            plan.add(ev = model.new(true))
-            assert_raises(Roby::EventNotExecutable) { ev.call }
-            plan.add(ev = model.new(true))
-            assert_raises(Roby::EventNotExecutable) { ev.emit }
-        end
+
+        plan.add(ev = model.new(true))
+        assert_raises(Roby::EventNotExecutable) { ev.call }
+        plan.add(ev = model.new(true))
+        assert_raises(Roby::EventNotExecutable) { ev.emit }
     end
 
     def test_forward_source_is_event_source
