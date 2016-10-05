@@ -23,25 +23,36 @@ module Roby
                 it "raises if the constant resolves to another object" do
                     obj = flexmock(name: "Roby::DRoby")
                     obj.singleton_class.include DRobyConstant::Dump
-                    assert_raises(ArgumentError) do
+                    e = assert_raises(DRobyConstant::Dump::MismatchingLocalConstant) do
                         obj.droby_dump(flexmock)
                     end
+                    assert_equal "got DRobyConstant whose name 'Roby::DRoby' resolves to Roby::DRoby(Module), not itself (#{obj})", e.message
                 end
 
                 it "raises on dump if the object's name cannot be resolved" do
                     obj = flexmock(name: "Does::Not::Exist")
                     obj.singleton_class.include DRobyConstant::Dump
-                    assert_raises(ArgumentError) do
-                        obj.droby_dump(flexmock)
+                    messages = capture_log(Roby, :warn) do
+                        e = assert_raises(DRobyConstant::Dump::ConstantResolutionFailed) do
+                            obj.droby_dump(flexmock)
+                        end
+                        assert_equal "cannot resolve constant name for #{obj}", e.message
                     end
+                    assert_equal ["could not resolve constant name for #{obj}",
+                                  "uninitialized constant FlexMock::Does (NameError)"], messages
                 end
 
                 it "raises on dump if the object's name is not a valid constant name" do
                     obj = flexmock(name: "0_does.not_exist")
                     obj.singleton_class.include DRobyConstant::Dump
-                    assert_raises(ArgumentError) do
-                        obj.droby_dump(flexmock)
+                    messages = capture_log(Roby, :warn) do
+                        e = assert_raises(DRobyConstant::Dump::ConstantResolutionFailed) do
+                            obj.droby_dump(flexmock)
+                        end
+                        assert_equal "cannot resolve constant name for #{obj}", e.message
                     end
+                    assert_equal ["could not resolve constant name for #{obj}",
+                                  "wrong constant name 0_does.not_exist (NameError)"], messages
                 end
             end
         end
