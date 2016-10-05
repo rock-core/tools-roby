@@ -3,6 +3,37 @@ require 'roby/tasks/group'
 
 module Roby
     describe Task do
+        describe "model-level event handlers" do
+            attr_reader :task_m
+            before do
+                @task_m = Tasks::Simple.new_submodel
+            end
+
+            it "calls the handler at runtime" do
+                mock = flexmock
+                task_m.on(:start) { |_| mock.start_called }
+                plan.add(task = task_m.new)
+                mock.should_receive(:start_called).once
+                task.start!
+            end
+
+            it "evaluates the block in the instance's context" do
+                mock = flexmock
+                task_m.on(:start) { |_| mock.start_called(self) }
+                plan.add(task = task_m.new)
+                mock.should_receive(:start_called).with(task)
+                task.start!
+            end
+
+            it "does not add the handlers on its parent model" do
+                mock = flexmock
+                task_m.on(:start) { |_| mock.start_called }
+                plan.add(task = Tasks::Simple.new)
+                mock.should_receive(:start_called).never
+                task.start!
+            end
+        end
+
         describe "the argument handling" do
             describe "assign_arguments" do
                 let(:task_m) do
@@ -911,25 +942,6 @@ class TC_Task < Minitest::Test
 	plan.add(task = Tasks::Simple.new)
 	task.start!
 	assert(!task.failed?)
-    end
-
-    def test_model_event_handlers
-	model = Tasks::Simple.new_submodel
-        assert_raises(ArgumentError) { model.on(:start) { |a, b| } }
-
-	FlexMock.use do |mock|
-	    model.on :start do |ev|
-		mock.start_called(self)
-	    end
-	    plan.add(task = model.new)
-	    mock.should_receive(:start_called).with(task).once
-	    task.start!
-
-            # Make sure the model-level handler is not applied to parent models
-            plan.add(task = Tasks::Simple.new)
-            task.start!
-            assert(!task.failed?)
-	end
     end
 
     def test_instance_forward_to

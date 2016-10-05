@@ -51,6 +51,45 @@ module Roby
                     assert_same model.find_event_model('custom'), event_model
                 end
             end
+
+            describe "#event" do
+                attr_reader :task_m
+                before do
+                    @task_m = Tasks::Simple.new_submodel
+                end
+
+                it "validates the block arity" do
+                    assert_raises(ArgumentError) { task_m.event(:start) { |a, b| } }
+                    assert_raises(ArgumentError) { task_m.event(:start) { } }
+                    task_m.event(:start) { |*| }
+                end
+            end
+
+            describe "#on_exception" do
+                attr_reader :task_m
+                before do
+                    @task_m = Tasks::Simple.new_submodel
+                end
+
+                it "validates the block arity" do
+                    assert_raises(ArgumentError) { task_m.on_exception(LocalizedError) { |a, b| } }
+                    assert_raises(ArgumentError) { task_m.on_exception(LocalizedError) { } }
+                    task_m.on_exception(LocalizedError) { |*| }
+                end
+            end
+
+            describe "#on" do
+                attr_reader :task_m
+                before do
+                    @task_m = Tasks::Simple.new_submodel
+                end
+
+                it "validates the block arity" do
+                    assert_raises(ArgumentError) { task_m.on(:start) { |a, b| } }
+                    assert_raises(ArgumentError) { task_m.on(:start) { } }
+                    task_m.on(:start) { |*| }
+                end
+            end
         end
     end
 end

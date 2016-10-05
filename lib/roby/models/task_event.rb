@@ -28,7 +28,7 @@ module Roby
                 if command
                     if command.respond_to?(:call)
                         # check that the supplied command handler can take two arguments
-                        check_arity(command, 2)
+                        check_arity(command, 2, strict: true)
                         submodel.singleton_class.class_eval do
                             define_method(:call, &command)
                         end
