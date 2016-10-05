@@ -1640,7 +1640,7 @@ module Roby
                 debug do
                     debug "#{local_tasks.size} tasks are unneeded in this plan"
                     local_tasks.each do |t|
-                        debug "  #{t} mission=#{plan.mission_task?(t)} permanent=#{plan.permanent?(t)}"
+                        debug "  #{t} mission=#{plan.mission_task?(t)} permanent=#{plan.permanent_task?(t)}"
                     end
                     break
                 end
