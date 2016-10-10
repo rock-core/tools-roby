@@ -406,16 +406,23 @@ class TC_Plan < Minitest::Test
         t2.start!
         t3.start!
         t4.start!
-        error = assert_raises(SynchronousEventProcessingMultipleErrors) { t4.stop! }
+        error = assert_raises(SynchronousEventProcessingMultipleErrors) do
+            messages = capture_log(execution_engine, :warn) do
+                t4.stop!
+            end
+            assert_equal "2 unhandled fatal exceptions, involving 4 tasks that will be forcefully killed", messages[0]
+            pp_tasks = [t1, t2, t3, t4].map { |t| PP.pp(t, "") }.to_set
+            assert_equal pp_tasks, messages[1..-1].to_set
+        end
         errors = error.errors
         assert_equal 2, errors.size
-        child_failed   = errors.find { |e, _| e.exception.kind_of?(ChildFailedError) }
-        mission_failed = errors.find { |e, _| e.exception.kind_of?(MissionFailedError) }
+        child_failed   = errors.find { |e| e.kind_of?(ChildFailedError) }
+        mission_failed = errors.find { |e| e.kind_of?(MissionFailedError) }
 
         assert child_failed
-        assert_equal t4, child_failed.first.origin
+        assert_equal t4, child_failed.failed_task
         assert mission_failed
-        assert_equal t2, mission_failed.first.origin
+        assert_equal t2, mission_failed.failed_task
     end
 end
 

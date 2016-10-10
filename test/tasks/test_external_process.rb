@@ -40,28 +40,26 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     end
 
     def test_inexistent_program
-        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: ['does_not_exist', "--error"]))
-        e = assert_raises(RuntimeError) do
+        plan.add(task = Tasks::ExternalProcess.new(command_line: ['does_not_exist', "--error"]))
+        assert_task_fails_to_start(task, CommandFailed, original_exception: Tasks::ExternalProcess::ProgramNotFound) do
             task.start!
         end
-        assert_match /provided command does not exist/, e.original_exception.message
-        assert task.failed?
     end
 
     def test_failure
-        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--error"]))
-        assert_event_emission(task.failed_event) do
+        plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--error"]))
+        assert_event_emission(task.failed_event, garbage_collect_pass: false) do
             task.start!
         end
         assert_equal 1, task.event(:failed).last.context.first.exitstatus
     end
 
     def test_signaling
-        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--block"]))
+        plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--block"]))
         assert_event_emission(task.start_event) do
             task.start!
         end
-        assert_event_emission(task.failed_event) do
+        assert_event_emission(task.failed_event, garbage_collect_pass: false) do
             Process.kill 'KILL', task.pid
         end
         assert task.signaled?

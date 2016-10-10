@@ -3,11 +3,13 @@ require 'roby/tasks/thread'
 
 class TC_ThreadTask < Minitest::Test 
     # Starts +task+ and waits for the thread to end
-    def wait_thread_end(task)
-        task.start!
-        while task.thread
-            process_events
-            sleep 0.01
+    def wait_thread_end(task, exception: nil)
+        if exception
+            begin task.thread.join
+            rescue exception
+            end
+        else
+            task.thread.join
         end
     end
 
@@ -19,23 +21,28 @@ class TC_ThreadTask < Minitest::Test
         end
 
         plan.add_mission_task(task = model.new)
+        task.start!
 	wait_thread_end(task)
+        process_events
 
         assert task.success?
         assert_equal 1, task.result
     end
 
     def test_implementation_fails
-        Thread.abort_on_exception = false
-        Roby.app.abort_on_exception = false
+        error = Class.new(ArgumentError)
         model = Roby::Tasks::Thread.new_submodel do
             implementation do
-                raise ArgumentError, "blaaaaaaaaah"
+                raise error, "blaaaaaaaaah"
             end
         end
 
         plan.add_permanent_task(task = model.new)
-        wait_thread_end(task)
+        task.start!
+        wait_thread_end(task, exception: error)
+        assert_nonfatal_exception(PermanentTaskError, tasks: [task], original_exception: error, failure_point: task) do
+            process_events
+        end
 
         assert task.failed?
         assert_kind_of ArgumentError, task.event(:failed).last.context.first
@@ -43,7 +50,6 @@ class TC_ThreadTask < Minitest::Test
     end
 
     def test_interruptible
-        Thread.abort_on_exception = false
         model = Roby::Tasks::Thread.new_submodel do
             interruptible
             implementation do
@@ -54,11 +60,16 @@ class TC_ThreadTask < Minitest::Test
             end
         end
 
-        plan.add(task = model.new)
-	wait_thread_end(task)
+        plan.add_permanent_task(task = model.new)
+        task.start!
+        task.stop!
+        wait_thread_end(task, exception: Interrupt)
+        assert_nonfatal_exception(PermanentTaskError, original_exception: Interrupt, tasks: [task]) do
+            process_events
+        end
 
         assert task.failed?
-        assert_kind_of Interrupt, task.event(:failed).last.context.first
+        assert_kind_of Interrupt, task.failed_event.last.context.first
         assert_equal nil, task.result
     end
 end

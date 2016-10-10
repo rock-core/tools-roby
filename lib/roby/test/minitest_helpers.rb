@@ -51,7 +51,7 @@ module Roby
                         assert_exception_can_be_pretty_printed(e)
                         return e
                     else
-                        flunk("#{matchers.map(&:to_s).join(", ")} exceptions expected, not #{root_e.class} #{actually_caught}")
+                        flunk("#{matchers.map(&:to_s).join(", ")} exceptions expected, not #{e.class}")
                     end
                 rescue Exception => root_e
                     assert_exception_can_be_pretty_printed(root_e)
@@ -108,13 +108,14 @@ module Roby
                     begin
                         yield
                     rescue SynchronousEventProcessingMultipleErrors => aggregate_e
-                        exceptions = aggregate_e.errors.map do |execution_exception, _|
-                            execution_exception.exception
-                        end
+                        exceptions = aggregate_e.errors
 
                         # Try to be smart and to only keep the toplevel
                         # exceptions
                         filter_execution_exceptions(exceptions).each do |e|
+                            if !e.backtrace
+                                e.set_backtrace(aggregate_e.backtrace)
+                            end
                             case e
                             when Assertion
                                 self.failures << e

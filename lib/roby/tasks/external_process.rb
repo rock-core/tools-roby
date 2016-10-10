@@ -14,6 +14,11 @@ module Roby
         #   status
         # * the success event is emitted when the process exits with a zero status
         # * the stop event is emitted when the process exits
+        #
+        # The task by default is not interruptible, because there is no good
+        # common way to gracefully terminate an external program. To e.g. use
+        # signals, one would need to explicitely make the :stop command send a
+        # signal to {#pid} and let ExternalProcess' signal handling do the rest.
         class ExternalProcess < Roby::Task
             ##
             # :attr_reader:
@@ -122,6 +127,8 @@ module Roby
                 pattern.gsub '%p', Process.pid.to_s
             end
 
+            class ProgramNotFound < RuntimeError; end
+
             # Starts the child process
             def start_process # :nodoc:
                 # Open a pipe to monitor the child startup
@@ -178,7 +185,7 @@ module Roby
                     when KO_REDIRECTION
                         raise "could not start #{command_line.first}: cannot establish output redirections"
                     when KO_NO_SUCH_FILE
-                        raise "could not start #{command_line.first}: provided command does not exist"
+                        raise ProgramNotFound, "could not start #{command_line.first}: provided command does not exist"
                     when KO_EXEC
                         raise "could not start #{command_line.first}: exec() call failed"
                     end

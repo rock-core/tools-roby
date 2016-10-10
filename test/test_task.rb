@@ -3,6 +3,108 @@ require 'roby/tasks/group'
 
 module Roby
     describe Task do
+        describe "the failure of the start command" do
+            it "sets failed_to_start if the start command fails before the start event was emitted" do
+                error = Class.new(ArgumentError)
+                task_m = Roby::Tasks::Simple.new_submodel do
+                    event :start do |context|
+                        raise error
+                        start_event.emit
+                    end
+                end
+                plan.add(task = task_m.new)
+                actual_exception = assert_handled_exception(Roby::CommandFailed, original_exception: error, tasks: [task], failure_point: task.start_event) do
+                    task.start!
+                end
+                assert task.failed_to_start?, "#{task} is not marked as failed to start but should be"
+                assert_equal actual_exception, task.failure_reason
+                assert task.failed?
+            end
+
+            it "emits the internal error if it fails after it emitted the event" do
+                error = Class.new(ArgumentError)
+                task_m = Roby::Tasks::Simple.new_submodel do
+                    event :start do |context|
+                        start_event.emit
+                        raise error
+                    end
+                end
+                plan.add(task = task_m.new)
+                actual_exception = assert_handled_exception(Roby::CommandFailed, original_exception: error, tasks: [task], failure_point: task.start_event) do
+                    task.start!
+                end
+                refute task.failed_to_start?, "#{task} is marked as failed to start but should not be"
+                refute task.running?
+                assert task.internal_error?
+            end
+        end
+        describe "event validation" do
+            attr_reader :task
+            before do
+                model = Tasks::Simple.new_submodel do
+                    event(:inter, command: true)
+                end
+                plan.add(@task = model.new)
+                plan.execution_engine.display_exceptions = false
+            end
+
+            after do
+                plan.execution_engine.display_exceptions = true
+            end
+
+            describe "a pending task" do
+                it "raises if calling an intermediate event" do
+                    assert_raises(CommandRejected.match.with_origin(task.inter_event)) do
+                        task.inter!
+                    end
+                    assert !task.inter_event.pending?
+                end
+                it "raises if emitting an intermediate event" do
+                    assert_raises(EmissionRejected.match.with_origin(task.inter_event)) do
+                        task.inter_event.emit
+                    end
+                end
+            end
+
+            describe "a running task" do
+                before do
+                    task.start!
+                end
+                it "raises if calling the start event" do
+                    assert_raises(CommandRejected) { task.start! }
+                end
+            end
+            describe "a finished task" do
+                before do
+                    task.start!
+                    task.inter!
+                    task.stop!
+                end
+                it "raises if calling an intermediate event" do
+                    assert_raises(CommandRejected) { task.inter! }
+                end
+                it "raises if emitting an intermediate event" do
+                    assert_raises(TaskEventNotExecutable) { task.inter_event.emit }
+                end
+            end
+
+            it "correctly handles unordered emissions during the propagation phase" do
+                model = Tasks::Simple.new_submodel do
+                    event :start do |context|
+                        inter_event.emit
+                        start_event.emit
+                    end
+
+                    event :inter do |context|
+                        inter_event.emit
+                    end
+                end
+                plan.add(task = model.new)
+                task.start!
+                assert task.inter_event.emitted?
+            end
+        end
+
         describe "model-level event handlers" do
             attr_reader :task_m
             before do
@@ -795,10 +897,11 @@ module Roby
 
                 # polling errors are reported directly
                 assert_logs_exception_with_backtrace(error_m, Roby.logger, :warn)
-                assert_has_nonfatal_exception(PermanentTaskError, [task])
                 mock.should_receive(:polled).once
                 assert_event_emission(task.internal_error_event) do
-                    task.start!
+                    assert_nonfatal_exception(PermanentTaskError, tasks: [task]) do
+                        task.start!
+                    end
                 end
                 assert task.stop?
             end
@@ -816,13 +919,15 @@ module Roby
                 plan.add_permanent_task(task = task_m.new)
                 mock.should_receive(:polled).once
                 assert_logs_exception_with_backtrace(error_m, Roby.logger, :warn)
-                assert_has_nonfatal_exception(PermanentTaskError, [task])
                 assert_event_emission(task.internal_error_event) do
-                    task.start!
+                    assert_nonfatal_exception(PermanentTaskError, tasks: [task]) do
+                        task.start!
+                    end
                 end
                 assert(task.failed?)
                 assert(task.running?)
                 assert(task.finishing?)
+                plan.unmark_permanent_task(task)
                 task.stop_event.emit
                 assert(task.failed?)
                 assert(!task.running?)
@@ -860,108 +965,118 @@ module Roby
 
                 master.start!
                 assert master.start_event.pending?
-                assert_fatal_exception(EmissionFailed.match.with_original_exception(UnreachableEvent),
+                assert_handled_exception(EmissionFailed,
                                        tasks: [master],
-                                       failure_point: master.start_event) do
+                                       failure_point: master.start_event,
+                                       original_exception: UnreachableEvent) do
                     plan.remove_task(slave)
                 end
             end
         end
 
         describe "call and emission validity checks" do
-            it "reports a finalized task" do
-                assert_validity_checks_fail_at_toplevel(/the task has been removed from its plan/) do
-                    plan.add(task = Tasks::Simple.new)
+            # We isolate call from emission by making the task's start event not
+            # emit anything
+            attr_reader :task, :task_m
+
+            before do
+                @task_m = Task.new_submodel { event(:start) { |context| } }
+            end
+
+            after do
+                task.start_event.emit if task.start_event.pending?
+            end
+
+            def self.validity_checks_fail_at_toplevel(context, exception = TaskEventNotExecutable, *_)
+                context.it "fails in #call" do
+                    error = assert_event_exception(
+                        exception,
+                        direct: true, failure_point: task.start_event) do
+                            task.start_event.call
+                        end
+                    assert_equal yield(true, task), error.message
+                end
+                context.it "fails in #emit" do
+                    error = assert_event_exception(
+                        exception,
+                        direct: true, failure_point: task.start_event) { task.start_event.emit }
+                    assert_equal yield(false, task), error.message
+                end
+            end
+
+            def self.validity_checks_fail_during_propagation(context, exception = TaskEventNotExecutable, *_)
+                context.it "fails in #call_without_propagation" do
+                    error = assert_fatal_exception(
+                        exception,
+                        tasks: [task], failure_point: task.start_event) { task.start_event.call }
+                    assert_equal yield(true, task), error.message
+                end
+
+                context.it "fails in #emit" do
+                    error = assert_event_exception(
+                        exception,
+                        direct: true, failure_point: task.start_event) { task.start_event.emit }
+                    assert_match yield(false, task), error.message
+                end
+            end
+
+            describe "reporting of a finalized task" do
+                before do
+                    plan.add(@task = task_m.new)
                     plan.remove_task(task)
-                    task
+                end
+                validity_checks_fail_at_toplevel(self, TaskEventNotExecutable) do |is_call, task|
+                    "start_event.#{is_call ? "call" : "emit"} on #{task} but the task has been removed from its plan"
                 end
             end
 
-            it "reports a task in a non-executable plan" do
-                assert_validity_checks_fail_at_toplevel(/plan is not executable/) do
-                    Tasks::Simple.new
+            describe "reporting of a task in a non-executable plan" do
+                before do
+                    @task = task_m.new
+                end
+                validity_checks_fail_at_toplevel(self, TaskEventNotExecutable) do |is_call, task|
+                    "start_event.#{is_call ? "call" : "emit"} on #{task} but its plan is not executable"
                 end
             end
-            
-            it "reports a non-executable task" do
-                # test for a not executable task
-                assert_validity_checks_fail_during_propagation(/is not executable/) do
-                    plan.add(task = Tasks::Simple.new)
+
+            describe "reporting of an abstract task" do
+                before do
+                    plan.add(@task = task_m.new)
+                    task.abstract = true
+                end
+                validity_checks_fail_during_propagation(self, TaskEventNotExecutable) do |is_call, task|
+                    "start_event.#{is_call ? "call" : "emit"} on #{task} but the task is abstract"
+                end
+            end
+
+            describe "reporting of a non-executable task" do
+                before do
+                    plan.add(@task = task_m.new)
                     task.executable = false
-                    task
+                end
+                validity_checks_fail_during_propagation(self, TaskEventNotExecutable) do |is_call, task|
+                    "start_event.#{is_call ? "call" : "emit"} on #{task} which is not executable"
                 end
             end
 
-            it "reports a partially instanciated task" do
-                assert_validity_checks_fail_during_propagation(/partially instanciated/) do
-                    task_m = Tasks::Simple.new_submodel { argument :arg }
-                    plan.add(task = task_m.new)
-                    task
+            describe "reporting of a partially instanciated task" do
+                before do
+                    task_m = Task.new_submodel { argument :arg }
+                    plan.add(@task = task_m.new)
+                end
+                validity_checks_fail_during_propagation(self, TaskEventNotExecutable) do |is_call, task|
+                    "start_event.#{is_call ? "call" : "emit"} on #{task} which is partially instanciated\nThe following arguments were not set:\n  arg"
                 end
             end
 
-            it "reports an abstract task" do
-                assert_validity_checks_fail_during_propagation(/abstract/) do
-                    task_m = Tasks::Simple.new_submodel { abstract }
-                    plan.add(task = task_m.new)
-                    task
+            describe "reporting a task whose start event is unreachable" do
+                before do
+                    plan.add(@task = task_m.new)
+                    task.start_event.unreachable!
                 end
-            end
-
-            def assert_validity_checks_fail_at_toplevel(substring)
-                task = yield
-                error = assert_event_command_failed(
-                    TaskEventNotExecutable,
-                    failure_point: task.start_event) { task.start! }
-                assert_match substring, error.original_exceptions[0].message
-
-                task = yield
-                error = assert_event_command_failed(
-                    TaskEventNotExecutable,
-                    failure_point: task.start_event) { task.start_event.call(nil) }
-                assert_match substring, error.original_exceptions[0].message
-
-                task = yield
-                error = assert_event_emission_failed(
-                    TaskEventNotExecutable,
-                    failure_point: task.start_event) { task.start_event.emit(nil) }
-                assert_match substring, error.original_exceptions[0].message
-            end
-
-            def assert_validity_checks_fail_during_propagation(substring)
-                task = yield
-                error = assert_fatal_exception(
-                    CommandFailed.match.with_original_exception(TaskEventNotExecutable),
-                    tasks: [task], failure_point: task.start_event) { task.start! }
-                assert_match substring, error.original_exceptions[0].message
-
-                task = yield
-                error = assert_fatal_exception(
-                    CommandFailed.match.with_original_exception(TaskEventNotExecutable),
-                    tasks: [task], failure_point: task.start_event) { task.start_event.call(nil) }
-                assert_match substring, error.original_exceptions[0].message
-
-                task = yield
-                error = assert_event_emission_failed(
-                    TaskEventNotExecutable,
-                    failure_point: task.start_event) { task.start_event.emit(nil) }
-                assert_match substring, error.original_exceptions[0].message
-
-                task = yield
-                error = assert_fatal_exception(
-                    CommandFailed.match.with_original_exception(TaskEventNotExecutable),
-                    tasks: [task], failure_point: task.start_event) do
-                    exception_propagator(task, :signals)
+                validity_checks_fail_at_toplevel(self, UnreachableEvent) do |is_call, task|
+                    "#{is_call ? "#call" : "#emit"} called on #{task.start_event} which has been made unreachable"
                 end
-                assert_match substring, error.original_exceptions[0].message
-
-                task = yield
-                error = assert_fatal_exception(
-                    EmissionFailed.match.with_original_exception(TaskEventNotExecutable),
-                    tasks: [task], failure_point: task.start_event) do
-                    exception_propagator(task, :forward_to)
-                end
-                assert_match substring, error.original_exceptions[0].message
             end
 
             def exception_propagator(task, relation)
@@ -1639,72 +1754,6 @@ class TC_Task < Minitest::Test
 	assert( ev_models[:start].name || ev_models[:start].name.length > 0 )
     end
 
-    describe "event validation" do
-        attr_reader :task
-        before do
-            model = Tasks::Simple.new_submodel do
-                event(:inter, command: true)
-            end
-            plan.add(@task = model.new)
-            plan.execution_engine.display_exceptions = false
-        end
-
-        after do
-            plan.execution_engine.display_exceptions = true
-        end
-
-        describe "a pending task" do
-            it "raises if calling an intermediate event" do
-                assert_raises(CommandFailed) { task.inter! }
-                assert(!task.inter_event.pending)
-            end
-            it "raises if emitting an intermediate event" do
-                inhibit_fatal_messages do
-                    assert_raises(EmissionFailed) { task.inter_event.emit }
-                end
-                assert(!task.inter_event.pending)
-            end
-        end
-
-        describe "a running task" do
-            before do
-                task.start!
-            end
-            it "raises if calling the start event" do
-                assert_raises(CommandFailed) { task.start! }
-            end
-        end
-        describe "a finished task" do
-            before do
-                task.start!
-                task.inter!
-                task.stop!
-            end
-            it "raises if calling an intermediate event" do
-                assert_raises(CommandFailed) { task.inter! }
-            end
-            it "raises if emitting an intermedikate event" do
-                assert_raises(TaskEventNotExecutable) { task.inter_event.emit }
-            end
-        end
-
-        it "correctly handles unordered emissions during the propagation phase" do
-            model = Tasks::Simple.new_submodel do
-                event :start do |context|
-                    inter_event.emit
-                    start_event.emit
-                end
-
-                event :inter do |context|
-                    inter_event.emit
-                end
-            end
-            plan.add(task = model.new)
-            task.start!
-            assert task.inter_event.emitted?
-        end
-    end
-
     def test_finished
 	model = Roby::Task.new_submodel do
 	    event :start, command: true
@@ -1756,12 +1805,12 @@ class TC_Task < Minitest::Test
 	end
 
         plan.add(task = model.new)
-        assert_fatal_exception(TaskEventNotExecutable, tasks: [task], failure_point: task.start_event) do
+        assert_fatal_exception(EventNotExecutable, tasks: [task], failure_point: task.start_event) do
             task.start_event.call
         end
 
         plan.add(task = model.new)
-        assert_fatal_exception(TaskEventNotExecutable, tasks: [task], failure_point: task.start_event) do
+        assert_fatal_exception(EventNotExecutable, tasks: [task], failure_point: task.start_event) do
             task.start!
         end
     end
@@ -1772,7 +1821,7 @@ class TC_Task < Minitest::Test
         end
 	plan.add(task = model.new)
         assert_fatal_exception(
-            CommandFailed.match.with_original_exception(TaskEventNotExecutable),
+            EventNotExecutable,
             tasks: [task], failure_point: task.start_event) do
             task.start!
         end
@@ -2121,14 +2170,14 @@ class TC_Task < Minitest::Test
         task.failed_to_start!("test")
         assert task.plan
         assert task.failed_to_start?
-        assert_raises(Roby::CommandFailed) { task.stop! }
+        assert_raises(Roby::CommandRejected) { task.stop! }
     end
 
     def test_cannot_call_event_on_task_that_finished
 	plan.add(task = Roby::Test::Tasks::Simple.new)
         task.start_event.emit
         task.stop_event.emit
-        assert_raises(Roby::CommandFailed) { task.stop! }
+        assert_raises(Roby::CommandRejected) { task.stop! }
     end
 
     def test_intermediate_emit_failed
@@ -2313,25 +2362,6 @@ class TC_Task < Minitest::Test
         value_obj.value = 20
         task.start!
         assert_equal 20, task.arg
-    end
-
-    def test_as_plan
-        plan.add(task = Tasks::Simple.new)
-        model = Tasks::Simple.new_submodel
-
-        child = task.depends_on(model)
-        assert_kind_of model, child
-        assert task.depends_on?(child)
-    end
-
-    def test_as_plan_with_arguments
-        plan.add(task = Tasks::Simple.new)
-        model = Tasks::Simple.new_submodel
-
-        child = task.depends_on(model.with_arguments(id: 20))
-        assert_kind_of model, child
-        assert_equal 20, child.arguments[:id]
-        assert task.depends_on?(child)
     end
 
     def test_can_merge_model
@@ -2584,7 +2614,7 @@ class TC_Task < Minitest::Test
 
     def test_emit_failed_on_start_event_causes_the_task_to_be_marked_as_failed_to_start
         plan.add(task = Roby::Tasks::Simple.new)
-        e = assert_fatal_exception(EmissionFailed, failure_point: task.start_event, tasks: [task]) do
+        e = assert_handled_exception(EmissionFailed, failure_point: task.start_event, tasks: [task]) do
             task.start_event.emit_failed("test")
         end
         assert task.failed_to_start?
@@ -2595,7 +2625,7 @@ class TC_Task < Minitest::Test
         plan.add(task = Tasks::Simple.new)
         e = EmissionFailed.new(nil, task.start_event)
         flexmock(task.start_event).should_receive(:calling).and_raise(e)
-        assert_fatal_exception(EmissionFailed, tasks: [task], failure_point: task.start_event) do
+        assert_handled_exception(EmissionFailed, tasks: [task], failure_point: task.start_event) do
             task.start!
         end
         assert task.failed_to_start?
@@ -2605,42 +2635,10 @@ class TC_Task < Minitest::Test
         plan.add(task = Tasks::Simple.new)
         e = CommandFailed.new(nil, task.start_event)
         flexmock(task.start_event).should_receive(:calling).and_raise(e)
-        assert_fatal_exception(CommandFailed, tasks: [task], failure_point: task.start_event) do
+        assert_handled_exception(CommandFailed, tasks: [task], failure_point: task.start_event) do
             task.start!
         end
         assert task.failed_to_start?
-    end
-
-    def test_start_command_raises_before_emission
-        klass = Roby::Tasks::Simple.new_submodel do
-            event :start do |context|
-                if context == [true]
-                    raise ArgumentError
-                end
-                start_event.emit
-            end
-        end
-        plan.add(task = klass.new)
-        assert_fatal_exception(Roby::CommandFailed, tasks: [task], failure_point: task.start_event) do
-            task.start!(true)
-        end
-        assert(task.failed_to_start?, "#{task} is not marked as failed to start but should be")
-        assert(task.failed?)
-    end
-
-    def test_start_command_raises_after_emission
-        klass = Roby::Tasks::Simple.new_submodel do
-            event :start do |context|
-                start_event.emit
-                raise ArgumentError
-            end
-        end
-        plan.add(task = klass.new)
-        task.start!
-        assert(!task.failed_to_start?, "#{task} is marked as failed to start but should not be")
-        assert(!task.executable?)
-        assert(task.internal_error?)
-        assert(!task.running?)
     end
 
     def test_new_tasks_are_reusable
@@ -2758,7 +2756,7 @@ class TC_Task < Minitest::Test
     def test_it_does_not_call_the_setters_for_delayed_arguments
         task_m = Roby::Task.new_submodel { argument :arg }
         flexmock(task_m).new_instances.should_receive(:arg=).never
-        plan.add(task_m.new(arg: flexmock(:evaluate_delayed_argument)))
+        task_m.new(arg: flexmock(evaluate_delayed_argument: 10))
     end
 
     def test_it_calls_the_setters_when_delayed_arguments_are_resolved

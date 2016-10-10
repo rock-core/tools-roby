@@ -565,20 +565,16 @@ module Roby
             
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
-        def emitting_event(event, context) # :nodoc:
-	    if !executable?
-		raise TaskNotExecutable.new(self), "trying to emit #{symbol} on #{self} but #{self} is not executable"
-	    end
-
+        def check_emission_validity(event) # :nodoc:
             if finished? && !event.terminal?
-                raise EmissionFailed.new(nil, event),
-                    "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{stop_event.last.sources}."
+                EmissionRejected.new(event).
+                    exception("#{self}.emit(#{event.symbol}) called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{stop_event.last.sources.to_a}.")
             elsif pending? && event.symbol != :start
-                raise EmissionFailed.new(nil, event),
-		    "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task has never been started"
+                EmissionRejected.new(event).
+                    exception("#{self}.emit(#{event.symbol}) called by #{execution_engine.propagation_sources.to_a} but the task has never been started")
             elsif running? && event.symbol == :start
-                raise EmissionFailed.new(nil, event),
-                    "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task is already running. Task has been started by #{start_event.last.sources}."
+                EmissionRejected.new(event).
+                    exception("#{self}.emit(#{event.symbol}) called by #{execution_engine.propagation_sources.to_a} but the task is already running. Task has been started by #{start_event.last.sources.to_a}.")
             end
         end
 
@@ -1391,7 +1387,9 @@ module Roby
             if exception.originates_from?(self) && (gen = exception.generator)
                 error = exception.exception
                 if (gen == start_event) && !gen.emitted?
-                    failed_to_start!(error)
+                    if !failed_to_start?
+                        failed_to_start!(error)
+                    end
                 elsif pending?
                     pass_exception
                 elsif !gen.terminal? && !internal_error_event.emitted?
@@ -1481,6 +1479,10 @@ module Roby
 
         def create_transaction_proxy(transaction)
             transaction.create_and_register_proxy_task(self)
+        end
+
+        def match
+            self.class.match.with_instance(self)
         end
     end
 

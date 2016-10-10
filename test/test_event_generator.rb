@@ -1,76 +1,6 @@
 require 'roby/test/self'
 
 class TC_Event < Minitest::Test
-    def setup
-        super
-        Roby.app.filter_backtraces = false
-    end
-
-    def test_no_plan
-        event = EventGenerator.new { }
-        assert(!event.executable?)
-        assert_raises(Roby::EventNotExecutable) { event.emit }
-        assert_raises(Roby::EventNotExecutable) { event.call }
-
-        plan.add(event)
-        assert(event.executable?)
-    end
-
-    def test_call_without_propagation_raises
-        plan.add(ev = Roby::EventGenerator.new { |_| raise ArgumentError })
-        assert_raises(Roby::CommandFailed) { ev.call }
-    end
-
-    def test_emit_without_propagation_raises
-        plan.add(ev = Roby::EventGenerator.new)
-        ev.on do |_|
-            raise ArgumentError
-        end
-        assert_raises(Roby::EventHandlerError) { ev.emit }
-    end
-
-    def test_error_in_command_before_emission_causes_an_emission_failure
-        mock = flexmock
-        mock.should_receive(:event_handler_called).never
-
-        ev = Roby::EventGenerator.new do |context|
-            raise ArgumentError
-            ev.emit
-        end
-        ev.on { mock.event_handler_called }
-
-        ev_mock = flexmock(ev)
-        ev_mock.should_receive(:emit_failed).once.
-            and_return do |error, *_|
-                plan.engine.add_error(error)
-            end
-
-        plan.add(ev)
-        assert_raises(Roby::CommandFailed) { ev.call }
-        assert(!ev.emitted?)
-    end
-
-    def test_error_in_command_after_emission_does_not_causes_an_emission_failure
-        mock = flexmock
-        mock.should_receive(:event_handler_called).once
-
-        ev = Roby::EventGenerator.new do |context|
-            ev.emit
-            raise ArgumentError
-        end
-        ev.on { mock.event_handler_called }
-
-        ev_mock = flexmock(ev)
-        ev_mock.should_receive(:emit_failed).never.
-            and_return do |error, *_|
-                plan.engine.add_error(error)
-            end
-
-        plan.add(ev)
-        assert_raises(Roby::CommandFailed) { ev.call }
-        assert(ev.emitted?)
-    end
-
     def test_controlable_events
 	event = EventGenerator.new(true)
 	assert(event.controlable?)
@@ -98,82 +28,6 @@ class TC_Event < Minitest::Test
 	end
     end
 
-    def test_explicit_executable_flag
-	plan.add(event = EventGenerator.new(true))
-        assert(event.executable?)
-	event.executable = false
-
-        assert_raises(EventNotExecutable) { event.call(nil) }
-
-        plan.add(event = EventGenerator.new(true))
-        event.executable = false
-        assert_raises(EventNotExecutable) { event.emit(nil) }
-
-	event.executable = true
-	event.call(nil)
-	event.emit(nil)
-
-	plan.add(other = EventGenerator.new(true))
-	other.executable = false
-	event.signals other
-        assert_event_fails(other, EventNotExecutable) { event.call(nil) }
-
-	plan.add(event = EventGenerator.new(true))
-	plan.add(other = EventGenerator.new(true))
-	other.executable = false
-	event.remove_signal(other)
-	event.emit(nil)
-	event.forward_to other
-        assert_event_fails(other, EventNotExecutable) { event.call(nil) }
-
-	plan.add(event = EventGenerator.new(true))
-	event.emit(nil)
-	event.on { |ev| other.emit(nil) }
-	assert_original_error(EventNotExecutable, EventHandlerError) { event.call(nil) }
-    end
-
-    def assert_event_fails(ev, error_type)
-        begin
-            yield
-        rescue error_type
-        end
-        assert(ev.unreachable?, "#{ev} was expected to be marked as unreachable, but is not")
-        assert_kind_of(error_type, ev.unreachability_reason)
-    end
-
-    def assert_emission_failed(ev, error_type)
-        assert_event_fails(ev, EmissionFailed) do
-            assert_raises(error_type) do
-                yield
-            end
-        end
-        assert_kind_of(error_type, ev.unreachability_reason.error, "unreachability reason set to #{ev.unreachability_reason.error}, expected an instance of #{error_type}")
-    end
-
-    def test_emit_failed_raises
-	plan.add(event = EventGenerator.new)
-	assert_original_error(NilClass, EmissionFailed) { event.emit_failed }
-	plan.add(event = EventGenerator.new)
-	assert_original_error(NilClass, EmissionFailed) { event.emit_failed("test") }
-
-	klass = Class.new(EmissionFailed)
-	plan.add(event = EventGenerator.new)
-	assert_event_fails(event, klass) { event.emit_failed(klass) }
-	plan.add(event = EventGenerator.new)
-	assert_event_fails(event, klass) { event.emit_failed(klass, "test") }
-        inhibit_fatal_messages do
-            begin; event.emit_failed(klass, "test")
-            rescue klass => e
-                assert( e.message =~ /: test$/ )
-            end
-        end
-
-	plan.add(event = EventGenerator.new)
-	exception = klass.new(nil, event)
-	assert_event_fails(event, klass) { event.emit_failed(exception, "test") }
-        assert_equal(event, event.unreachability_reason.failed_generator)
-    end
-
     def test_pending_includes_queued_events
         plan.add_permanent_event(e = EventGenerator.new { })
         execution_engine.process_events_synchronous do
@@ -183,30 +37,6 @@ class TC_Event < Minitest::Test
         end
         assert !e.pending?
         assert e.emitted?
-    end
-
-    def test_command_failure_does_not_remove_pending
-        e = EventGenerator.new do
-            raise ArgumentError
-        end
-        plan.add(e)
-        flexmock(e).should_receive(:emit_failed).once.and_return do |*args|
-            assert(e.pending?)
-            flexmock_call_original(e, :emit_failed, *args)
-        end
-        inhibit_fatal_messages do
-            assert_raises(Roby::CommandFailed) { e.call }
-        end
-        assert(!e.pending?)
-    end
-
-    def test_emit_failed_removes_pending
-	event = EventGenerator.new { }
-	plan.add(event)
-	event.call
-	assert(event.pending?)
-	assert_event_fails(event, EmissionFailed) { event.emit_failed }
-	assert(!event.pending?)
     end
 
     def test_propagation_id
@@ -265,22 +95,6 @@ class TC_Event < Minitest::Test
 
         e1.emit(nil)
         assert(e2.emitted?)
-    end
-
-    def test_handlers
-	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
-	plan.add([e1, e2])
-	e1.on { |ev| e2.call(nil) }
-
-	FlexMock.use do |mock|
-	    e1.on { |ev| mock.e1 }
-	    e2.on { |ev| mock.e2 }
-	    e1.on { |ev| mock.emitted?(e1.emitted?) }
-	    mock.should_receive(:emitted?).once.with(true)
-	    mock.should_receive(:e1).once.ordered
-	    mock.should_receive(:e2).once.ordered
-	    e1.call(nil)
-	end
     end
 
     def common_test_source_setup(keep_source)
@@ -349,21 +163,6 @@ class TC_Event < Minitest::Test
 	    end
             generator.call(nil)
         end
-    end
-
-
-    def test_can_signal
-	a, b = EventGenerator.new(true), EventGenerator.new
-	plan.add([a, b])
-	assert_raises(EventNotControlable) { a.signals b }
-	a.forward_to b
-
-	a, b = EventGenerator.new(true), EventGenerator.new(true)
-	plan.add([a, b])
-	a.signals b
-	def b.controlable?; false end
-
-        assert_raises(EmissionFailed) { a.call(nil) }
     end
 
 
@@ -527,97 +326,6 @@ class TC_Event < Minitest::Test
         source.call(nil)
     end
 
-    FakeEvent = Struct.new :propagation_id, :context, :generator, :sources, :time
-    class FakeEvent
-        def add_sources(*args)
-        end
-    end
-
-    def test_event_creation
-	# Test for validation of the return value of #event
-	generator = Class.new(EventGenerator) do
-	    def new(context); [] end
-	end.new(true)
-	plan.add(generator)
-
-        assert_raises(EmissionFailed) { generator.emit(nil) }
-
-	generator = Class.new(EventGenerator) do
-	    def new(context)
-                FakeEvent.new(plan.execution_engine.propagation_id, context, self, Time.now)
-	    end
-	end.new(true)
-	plan.add(generator)
-	generator.call(nil)
-    end
-
-    def test_context_propagation
-	FlexMock.use do |mock|
-	    e1 = EventGenerator.new { |context| mock.e1_cmd(context); e1.emit(*context) }
-	    e2 = EventGenerator.new { |context| mock.e2_cmd(context); e2.emit(*context) }
-	    e1.signals e2
-	    e1.on { |event| mock.e1(event.context) }
-	    e2.on { |event| mock.e2(event.context) }
-	    plan.add([e1, e2])
-
-	    mock.should_receive(:e1_cmd).with([mock]).once
-	    mock.should_receive(:e2_cmd).with([mock]).once
-	    mock.should_receive(:e1).with([mock]).once
-	    mock.should_receive(:e2).with([mock]).once
-	    e1.call(mock)
-	end
-
-	FlexMock.use do |mock|
-	    pass_through = EventGenerator.new(true)
-	    e2 = EventGenerator.new { |context| mock.e2_cmd(context); e2.emit(*context) }
-	    pass_through.signals e2
-	    pass_through.on { |event| mock.e1(event.context) }
-	    e2.on { |event| mock.e2(event.context) }
-	    plan.add([pass_through, e2])
-
-	    mock.should_receive(:e2_cmd).with([mock]).once
-	    mock.should_receive(:e1).with([mock]).once
-	    mock.should_receive(:e2).with([mock]).once
-	    pass_through.call(mock)
-	end
-
-	FlexMock.use do |mock|
-	    e1 = EventGenerator.new { |context| mock.e1_cmd(context); e1.emit(*context) }
-	    e2 = EventGenerator.new { |context| mock.e2_cmd(context); e2.emit(*context) }
-	    e1.signals e2
-	    e1.on { |event| mock.e1(event.context) }
-	    e2.on { |event| mock.e2(event.context) }
-	    plan.add([e1, e2])
-
-	    mock.should_receive(:e1_cmd).with(nil).once
-	    mock.should_receive(:e2_cmd).with(nil).once
-	    mock.should_receive(:e1).with(nil).once
-	    mock.should_receive(:e2).with(nil).once
-	    e1.call
-	end
-    end
-
-    def test_preconditions
-	plan.add(e1 = EventGenerator.new(true))
-	e1.precondition("context must be non-nil") do |generator, context|
-	    context
-	end
-
-        assert_raises(EventPreconditionFailed) { e1.call(nil) }
-        plan.add(e1 = EventGenerator.new(true))
-	e1.call(true)
-    end
-
-    def test_cancel
-	e1 = Class.new(EventGenerator) do
-	    def calling(context)
-		cancel("testing cancel method")
-	    end
-	end.new(true)
-	plan.add(e1)
-        assert_raises(EventCanceled) { e1.call(nil) }
-    end
-
     def test_related_events
 	e1, e2 = (1..2).map { EventGenerator.new(true) }.
 	    each { |ev| plan.add(ev) }
@@ -715,67 +423,6 @@ class TC_Event < Minitest::Test
 	    ev1.call
 	    ev1.call
 	end
-    end
-
-    def test_filter
-	ev1, ev_block, ev_value, ev_nil = (1..4).map { EventGenerator.new(true) }.
-	    each { |e| plan.add(e) }
-
-	FlexMock.use do |mock|
-	    ev1.filter { |v| mock.filtering(v); v*2 }.signals ev_block
-	    ev_block.on { |ev| mock.block_filter(ev.context) }
-
-	    ev1.filter(42).signals ev_value
-	    ev_value.on { |ev| mock.value_filter(ev.context) }
-
-	    ev1.filter.signals ev_nil
-	    ev_nil.on { |ev| mock.nil_filter(ev.context) }
-
-	    mock.should_receive(:filtering).with(21).once
-	    mock.should_receive(:block_filter).with([ 42 ]).once
-	    mock.should_receive(:value_filter).with([42]).once
-	    mock.should_receive(:nil_filter).with(nil).once
-	    ev1.call(21)
-	end
-    end
-
-    def test_achieve_with
-	slave  = EventGenerator.new
-	master = EventGenerator.new do
-	    master.achieve_with slave
-	end
-	plan.add([master, slave])
-
-	master.call
-	assert(!master.emitted?)
-	slave.emit
-	assert(master.emitted?)
-
-	# Test what happens if the slave fails
-	slave  = EventGenerator.new
-	master = EventGenerator.new do
-	    master.achieve_with slave
-	end
-	plan.add([master, slave])
-
-	master.call
-	assert(!master.emitted?)
-        assert_event_fails(master, EmissionFailed) do
-            plan.remove_free_event(slave)
-        end
-
-	# Now test the filtering case (when a block is given)
-	slave  = EventGenerator.new
-	master = EventGenerator.new do
-	    master.achieve_with(slave) { [21, 42] }
-	end
-	plan.add([master, slave])
-
-	master.call
-	slave.emit
-	assert(master.emitted?)
-	assert_equal(nil,  slave.history[0].context)
-	assert_equal([[21, 42]], master.history[0].context)
     end
 
     def test_when_unreachable_block
@@ -890,45 +537,6 @@ class TC_Event < Minitest::Test
 	end
     end
 
-    def test_exception_in_once_handler
-        plan.add(ev = EventGenerator.new(true))
-        FlexMock.use do |mock|
-            ev.on { |ev| mock.called_other_handler }
-            ev.once { |_| raise ArgumentError }
-            ev.once { |_| mock.called_other_once_handler }
-
-            mock.should_receive(:called_other_handler).once
-            mock.should_receive(:called_other_once_handler).once
-            assert_raises(EventHandlerError) { ev.call }
-        end
-    end
-
-    def test_exception_in_handler
-        plan.add(ev = EventGenerator.new(true))
-        FlexMock.use do |mock|
-            ev.on { |ev| mock.called_other_handler }
-            ev.on { |ev| raise ArgumentError }
-            ev.once { |ev| mock.called_other_once_handler }
-
-            mock.should_receive(:called_other_handler).once
-            mock.should_receive(:called_other_once_handler).once
-            assert_raises(EventHandlerError) { ev.call }
-        end
-    end
-
-    def test_cannot_be_pending_if_not_executable
-        model = Class.new(EventGenerator) do
-            def executable?
-                pending?
-            end
-        end
-
-        plan.add(ev = model.new(true))
-        assert_raises(Roby::EventNotExecutable) { ev.call }
-        plan.add(ev = model.new(true))
-        assert_raises(Roby::EventNotExecutable) { ev.emit }
-    end
-
     def test_forward_source_is_event_source
         GC.disable
         plan.add(target = Roby::EventGenerator.new(true))
@@ -985,84 +593,1006 @@ class TC_Event < Minitest::Test
         assert_equal [root.last, i1.last, i2.last].to_set, event.all_sources.to_set
         assert_equal [root.last].to_set, event.root_sources.to_set
     end
+end
 
-    def test_adding_a_handler_from_within_a_handler_does_not_call_the_new_handler
-        plan.add(event = Roby::EventGenerator.new)
-        called = false
-        event.on do |context|
-            event.on { |context| called = true }
+module Roby
+    describe EventGenerator do
+        describe "context propagation" do
+            attr_reader :mock
+            before do
+                @mock = flexmock
+            end
+
+            describe "within the default pass-thru command" do
+                it "passes the context as-is" do
+                    plan.add(generator = EventGenerator.new(true))
+                    generator.on { |event| mock.called(event.context) }
+                    mock.should_receive(:called).with([1, 2]).once
+                    generator.call(1, 2)
+                end
+
+                it "passes the context as-is" do
+                    plan.add(generator = EventGenerator.new(true))
+                    generator.on { |event| mock.called(event.context) }
+                    mock.should_receive(:called).with([]).once
+                    generator.call
+                end
+            end
+
+            describe "passed to commands" do
+                describe "from #call" do
+                    it "passes an empty array to its command when given no context" do
+                        plan.add(generator = EventGenerator.new { |context| mock.called(context) })
+                        mock.should_receive(:called).with([]).once
+                        generator.call
+                    end
+                    it "passes an array with a single value if given one" do
+                        plan.add(generator = EventGenerator.new { |context| mock.called(context) })
+                        mock.should_receive(:called).with([1]).once
+                        generator.call(1)
+                    end
+                    it "splats multiple values" do
+                        plan.add(generator = EventGenerator.new { |context| mock.called(context) })
+                        mock.should_receive(:called).with([1, 2]).once
+                        generator.call(1, 2)
+                    end
+                end
+
+                describe "from signals" do
+                    attr_reader :source, :generator
+                    before do
+                        plan.add(@source = EventGenerator.new)
+                        @generator = EventGenerator.new { |context| mock.called(context) }
+                        source.signals generator
+                    end
+                    it "passes an empty array to its command when given no context" do
+                        mock.should_receive(:called).with([]).once
+                        source.emit
+                    end
+                    it "passes an array with a single value to its command" do
+                        mock.should_receive(:called).with([1]).once
+                        source.emit(1)
+                    end
+                    it "splats multiple values" do
+                        mock.should_receive(:called).with([1, 2]).once
+                        source.emit(1, 2)
+                    end
+                    it "concatenates the context of multiple sources" do
+                        empty_source = EventGenerator.new
+                        other_source = EventGenerator.new
+                        empty_source.signals generator
+                        other_source.signals generator
+                        mock.should_receive(:called).once.
+                            with(->(context) { context.to_set == Set[1, 2, 3, 4] })
+
+                        seeds = execution_engine.gather_propagation do
+                            empty_source.emit
+                            source.emit(1, 2)
+                            other_source.emit(3, 4)
+                        end
+                        execution_engine.process_events_synchronous(seeds)
+                    end
+                end
+            end
+
+            describe "passed to emission" do
+                attr_reader :generator
+                before do
+                    plan.add(@generator = EventGenerator.new)
+                end
+                describe "from #emit" do
+                    it "sets the events context to an empty array if given no context" do
+                        generator.on { |event| mock.called(event.context) }
+                        mock.should_receive(:called).with([]).once
+                        generator.emit
+                    end
+                    it "aggregates values in an array" do
+                        generator.on { |event| mock.called(event.context) }
+                        mock.should_receive(:called).with([1, 2]).once
+                        generator.emit(1, 2)
+                    end
+                end
+
+                describe "from forwarding" do
+                    attr_reader :source
+                    before do
+                        plan.add(@source = EventGenerator.new)
+                        source.forward_to generator
+                    end
+                    it "sets the events context to an empty array if given no context" do
+                        generator.on { |event| mock.called(event.context) }
+                        mock.should_receive(:called).with([]).once
+                        source.emit
+                    end
+                    it "propagates multiple values in an array" do
+                        generator.on { |event| mock.called(event.context) }
+                        mock.should_receive(:called).with([1, 2]).once
+                        source.emit(1, 2)
+                    end
+                    it "concatenates the context of multiple sources" do
+                        empty_source = EventGenerator.new
+                        other_source = EventGenerator.new
+                        generator.on { |event| mock.called(event.context) }
+                        empty_source.forward_to generator
+                        other_source.forward_to generator
+                        mock.should_receive(:called).once.
+                            with(->(context) { context.to_set == Set[1, 2, 3, 4] })
+
+                        seeds = execution_engine.gather_propagation do
+                            empty_source.emit
+                            source.emit(1, 2)
+                            other_source.emit(3, 4)
+                        end
+                        execution_engine.process_events_synchronous(seeds)
+                    end
+                end
+            end
         end
-        event.emit
-        assert !called
-    end
 
-    def test_calling_unreachable_outside_propagation_raises_the_unreachability_reason
-        plan.add(event = Roby::EventGenerator.new)
-        exception = Class.new(Exception).new
-        assert_raises(exception.class) { event.unreachable!(exception) }
+        describe "#achieve_asynchronously" do
+            attr_reader :ev, :main_thread, :recorder
+
+            before do
+                plan.add_permanent_event(@ev = Roby::EventGenerator.new(true))
+                @main_thread = Thread.current
+                @recorder = flexmock
+            end
+            it "calls the provided block in a separate thread" do
+                recorder = flexmock
+                recorder.should_receive(:called).once.with(proc { |thread| thread != main_thread })
+                ev.achieve_asynchronously { recorder.called(Thread.current) }
+                process_events
+            end
+            it "calls emit_failed if the block raises" do
+                flexmock(ev).should_receive(:emit_failed).once.
+                    with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
+                ev.achieve_asynchronously { raise ArgumentError }
+                process_events
+            end
+            it "accepts a promise as argument" do
+                recorder, result = flexmock, flexmock
+                recorder.should_receive(:call).with(Thread.current, result)
+                promise = execution_engine.
+                    promise { result }.
+                    on_success { |result| recorder.call(Thread.current, result) }
+
+                ev.achieve_asynchronously(promise)
+                process_events
+            end
+            it "emits the event on success if the emit_on_success option is true" do
+                recorder.should_receive(:call).ordered
+                flexmock(ev).should_receive(:emit).once.with(proc { |*args| Thread.current == main_thread }).ordered
+                ev.achieve_asynchronously(emit_on_success: true) { recorder.call }
+                execution_engine.join_all_waiting_work
+            end
+            it "should not emit the event automatically if the emit_on_success option is false" do
+                ev.achieve_asynchronously(emit_on_success: false) { true }
+                process_events
+                assert !ev.emitted?
+            end
+
+            it "calls emit_failed if the emission fails" do
+                flexmock(ev).should_receive(:emit).once.and_raise(ArgumentError)
+                flexmock(ev).should_receive(:emit_failed).once.with(proc { |e| Thread.current == main_thread })
+                promise = execution_engine.promise { }
+                ev.achieve_asynchronously(promise)
+                process_events
+            end
+
+            it "calls emit_failed if the callback raises" do
+                flexmock(ev).should_receive(:emit_failed).once.
+                    with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
+                promise = execution_engine.promise { }.
+                    on_success { raise ArgumentError }
+                ev.achieve_asynchronously(promise)
+                process_events
+            end
+        end
+
+        describe "#check_call_validity" do
+            attr_reader :generator
+            before do
+                plan.add(@generator = EventGenerator.new(true))
+                flexmock(execution_engine)
+            end
+
+            it "does not check if the event is executable" do
+                # It is checked after the #calling hooks are called, as #calling
+                # can be used to verify executability
+                generator.executable = false
+                assert_nil generator.check_call_validity
+            end
+
+            it "reports if the event has been finalized" do
+                plan.remove_free_event(generator)
+                assert_kind_of EventNotExecutable, generator.check_call_validity
+            end
+
+            it "reports if the event is in a non-executable plan" do
+                generator = EventGenerator.new
+                assert_kind_of EventNotExecutable, generator.check_call_validity
+            end
+
+            it "reports if the event is not controlable" do
+                plan.add(generator = EventGenerator.new)
+                assert_kind_of EventNotControlable, generator.check_call_validity
+            end
+
+            it "does not report a nil unreachability reason" do
+                generator.unreachable!
+                error = generator.check_call_validity
+                assert_kind_of UnreachableEvent, error
+                assert_equal "#call called on #{generator} which has been made unreachable",
+                    error.message
+            end
+
+            it "reports the unreachability reason if it is available" do
+                generator.unreachable!("test")
+                error = generator.check_call_validity
+                assert_kind_of UnreachableEvent, error
+                assert_equal "#call called on #{generator} which has been made unreachable because of test",
+                    error.message
+            end
+
+            it "reports if called outside propagation context" do
+                execution_engine.should_receive(:allow_propagation?).and_return(false)
+                assert_kind_of PhaseMismatch, generator.check_call_validity
+            end
+
+            it "reports if called outside the engine thread" do
+                execution_engine.should_receive(:inside_control?).and_return(false)
+                assert_kind_of ThreadMismatch, generator.check_call_validity
+            end
+        end
+
+        describe "#call_without_propagation" do
+            attr_reader :generator, :command_hook
+            before do
+                @command_hook = flexmock
+                command_hook.should_receive(:call).by_default
+                plan.add(@generator = Roby::EventGenerator.new { command_hook.call })
+                flexmock(generator)
+                flexmock(execution_engine)
+            end
+
+            def assert_event_exception(*args)
+                super(*args) do
+                    errors = execution_engine.gather_errors do
+                        yield
+                    end
+                    execution_engine.process_events_synchronous([], errors)
+                end
+            end
+
+            def call_without_propagation(generator, context = [])
+                execution_engine.gather_propagation do
+                    generator.call_without_propagation(context)
+                    yield if block_given?
+                end
+            end
+
+            it "returns nil if #check_call_validity returns an error, and registers the error" do
+                error = Class.new(LocalizedError).new(generator)
+                generator.should_receive(:check_call_validity).
+                    and_return(error).once
+                generator.should_receive(:calling).never
+
+                assert_free_event_exception LocalizedError, failure_point: generator do
+                    call_without_propagation(generator)
+                end
+            end
+
+            it "reports an error if #executable? is false after #calling" do
+                generator.executable = true
+                flexmock(generator).should_receive(:calling).
+                    and_return { generator.executable = false }
+
+                command_hook.should_receive(:call).never
+                assert_free_event_exception EventNotExecutable, failure_point: generator do
+                    call_without_propagation(generator)
+                end
+            end
+
+            it "lets the #calling hook set the executable flag to true" do
+                generator.executable = false
+                flexmock(generator).should_receive(:calling).and_return { generator.executable = true }
+
+                call_without_propagation(generator)
+            end
+
+            it "sets #command_emitted? if the command called #emit" do
+                command_hook.should_receive(:call).
+                    and_return do
+                        refute generator.command_emitted?
+                        generator.emit
+                        assert generator.command_emitted?
+                    end
+                call_without_propagation(generator)
+            end
+
+            it "sets pending after the executable check has been done" do
+                test_context = self
+                generator.define_singleton_method :executable? do
+                    test_context.refute pending?
+                    false
+                end
+                assert_free_event_exception EventNotExecutable, failure_point: generator do
+                    call_without_propagation(generator)
+                end
+            end
+
+            describe "the command raises before the emission" do
+                it "does not itself remove pending" do
+                    command_hook.should_receive(:call).and_raise(RuntimeError)
+                    generator.should_receive(:emit_failed).once.and_return do |*args|
+                        assert generator.pending?
+                        flexmock_invoke_original(generator, :emit_failed, *args)
+                    end
+                    assert_free_event_exception CommandFailed, failure_point: generator, original_exception: RuntimeError do
+                        call_without_propagation(generator)
+                    end
+                    refute generator.pending?
+                end
+
+                it "reports a emission failure with a CommandFailed exception if the error was not a LocalizedError" do
+                    error = Class.new(RuntimeError)
+                    command_hook.should_receive(:call).and_raise(error)
+                    assert_free_event_emission_failed(CommandFailed, original_exception: error, failure_point: generator) do
+                        call_without_propagation(generator)
+                    end
+                end
+
+                it "reports a emission failure with the raised LocalizedError" do
+                    error = Class.new(LocalizedError).new(generator)
+                    command_hook.should_receive(:call).and_raise(error)
+                    assert_free_event_emission_failed(error.class, failure_point: generator) do
+                        call_without_propagation(generator)
+                    end
+                end
+            end
+
+            describe "the command raises after the emission" do
+                it "registers a CommandFailed error directly - without emit_failed" do
+                    error = Class.new(RuntimeError)
+                    command_hook.should_receive(:call).
+                        and_return { generator.emit; raise error }
+                    generator.should_receive(:emit_failed).never
+                    assert_free_event_exception(CommandFailed, original_exception: error, failure_point: generator) do
+                        call_without_propagation(generator)
+                    end
+                end
+
+                it "reports a emission failure with the raised LocalizedError without emit_failed" do
+                    error = Class.new(LocalizedError).new(generator)
+                    command_hook.should_receive(:call).
+                        and_return { generator.emit; raise error }
+                    generator.should_receive(:emit_failed).never
+                    assert_free_event_exception(error.class, failure_point: generator) do
+                        call_without_propagation(generator)
+                    end
+                end
+            end
+        end
+
+        describe "#check_emission_validity" do
+            attr_reader :generator
+            before do
+                plan.add(@generator = Roby::EventGenerator.new(true))
+                flexmock(execution_engine)
+            end
+
+            it "checks if the event is executable" do
+                generator = EventGenerator.new
+                assert_kind_of EventNotExecutable, generator.check_emission_validity
+            end
+
+            it "does not report a nil unreachability reason" do
+                generator.unreachable!
+                error = generator.check_emission_validity
+                assert_kind_of UnreachableEvent, error
+                assert_equal "#emit called on #{generator} which has been made unreachable",
+                    error.message
+            end
+
+            it "reports the unreachability reason if it is available" do
+                generator.unreachable!("test")
+                error = generator.check_emission_validity
+                assert_kind_of UnreachableEvent, error
+                assert_equal "#emit called on #{generator} which has been made unreachable because of test",
+                    error.message
+            end
+
+            it "reports if called outside propagation context" do
+                execution_engine.should_receive(:allow_propagation?).and_return(false)
+                assert_kind_of PhaseMismatch, generator.check_emission_validity
+            end
+
+            it "reports if called outside the engine thread" do
+                execution_engine.should_receive(:inside_control?).and_return(false)
+                assert_kind_of ThreadMismatch, generator.check_emission_validity
+            end
+        end
+
+        describe "#emit_without_propagation" do
+            attr_reader :generator
+            before do
+                plan.add(@generator = Roby::EventGenerator.new(true))
+                flexmock(generator)
+                flexmock(execution_engine)
+            end
+
+            def assert_free_event_exception(*args)
+                super(*args) do
+                    errors = execution_engine.gather_errors do
+                        yield
+                    end
+                    execution_engine.process_events_synchronous([], errors)
+                end
+            end
+
+            def emit_without_propagation(generator, context = [])
+                if !execution_engine.gathering_errors?
+                    result = nil
+                    errors = execution_engine.gather_errors do
+                        result = emit_without_propagation(generator, context)
+                    end
+                    execution_engine.process_events_synchronous([], errors)
+                    return result
+                end
+
+                execution_engine.gather_propagation do
+                    event = generator.emit_without_propagation(context)
+                    yield if block_given?
+                    return event
+                end
+            end
+
+            it "returns nil if #check_emission_validity returns an error, and registers the error" do
+                error = Class.new(LocalizedError).new(generator)
+                generator.should_receive(:check_emission_validity).
+                    and_return(error).once
+                generator.should_receive(:emitting).never
+
+                assert_free_event_exception error.class, failure_point: generator do
+                    assert_nil emit_without_propagation(generator)
+                end
+            end
+
+            it "returns the event that has been emitted" do
+                event = emit_without_propagation(generator)
+                assert_kind_of Event, event
+                assert_equal generator, event.generator
+                assert_same event, generator.last
+            end
+
+            it "calls the event handlers" do
+                mock = flexmock
+                mock.should_receive(:called).once
+                generator.on { mock.called }
+                generator.emit
+            end
+
+            it "sets emitted? before calling the handlers" do
+                mock = flexmock
+                mock.should_receive(:called).once.with(true)
+                generator.on { mock.called(generator.emitted?) }
+                generator.emit
+            end
+
+            it "calls all handlers regardless of one handler raising" do
+                mock = flexmock
+                generator.on { mock.failed; raise }
+                generator.on { mock.success }
+                mock.should_receive(:failed).once.globally.ordered
+                mock.should_receive(:success).once.globally.ordered
+                assert_free_event_exception EventHandlerError, original_exception: any, failure_point: generator do
+                    emit_without_propagation(generator)
+                end
+            end
+
+            it "propagates signals even if a handler raises" do
+                generator.signals(target = EventGenerator.new { })
+                generator.on { raise }
+                assert_free_event_exception EventHandlerError, failure_point: generator, original_exception: any do
+                    emit_without_propagation(generator) do
+                        assert execution_engine.has_pending_signal?(generator, target, [])
+                    end
+                end
+            end
+
+            it "propagates forwarding even if a handler raises" do
+                generator.forward_to(target = EventGenerator.new)
+                generator.on { raise }
+                assert_free_event_exception EventHandlerError, failure_point: generator, original_exception: any do
+                    emit_without_propagation(generator) do
+                        assert execution_engine.has_pending_forward?(generator, target, [])
+                    end
+                end
+            end
+
+            it "emits the event even if a handler raises" do
+                generator.on { raise }
+                assert_free_event_exception EventHandlerError, failure_point: generator, original_exception: any do
+                    event = emit_without_propagation(generator)
+                    assert_kind_of Event, event
+                    assert_equal generator, event.generator
+                    assert_same event, generator.last
+                end
+            end
+
+            it "registers as-is a LocalizedError raised by a handler" do
+                error = Class.new(LocalizedError).new(generator)
+                generator.on { raise error }
+                assert_free_event_exception error.class, failure_point: generator do
+                    emit_without_propagation(generator)
+                end
+            end
+
+            it "transforms a non-LocalizedError raised by a handler into a EventHandlerError error" do
+                error = Class.new(RuntimeError).exception("test")
+                generator.on { raise error }
+
+                assert_free_event_exception EventHandlerError, original_exception: error, failure_point: generator do
+                    event = emit_without_propagation(generator)
+                    assert_kind_of Event, event
+                    assert_equal generator, event.generator
+                end
+            end
+
+            it "uses #new to create the new event object" do
+                generator.should_receive(:new).with(context = flexmock).once.
+                    and_return(event = flexmock(propagation_id: 0, context: 1, generator: 2, sources: 3, time: 4, add_sources: nil))
+                assert_equal event, emit_without_propagation(generator, *context)
+            end
+            
+            it "validates that the value returned by #new is a valid event object" do
+                generator.should_receive(:new).once.
+                    and_return(flexmock)
+                assert_raises(TypeError) do
+                    emit_without_propagation(generator)
+                end
+            end
+
+            it "does not call handlers that are added within the handlers themselves" do
+                mock = flexmock
+                generator.on do
+                    generator.on { mock.called }
+                end
+                mock.should_receive(:called).never
+                emit_without_propagation(generator)
+            end
+
+            it "removes once handlers within the handler list" do
+                generator.once { }
+                emit_without_propagation(generator)
+                assert generator.handlers.empty?
+            end
+
+            it "does not remove once handlers that have been added by the handlers themselves" do
+                mock = flexmock
+                generator.on do
+                    generator.once { mock.called }
+                end
+                emit_without_propagation(generator)
+                assert_equal 2, generator.handlers.size
+
+                mock.should_receive(:called).once
+                emit_without_propagation(generator)
+            end
+        end
+
+        describe "#emit_failed" do
+            attr_reader :generator
+            before do
+                plan.add(@generator = EventGenerator.new)
+            end
+
+            it "uses EmissionFailed as error by default" do
+                assert_free_event_exception EmissionFailed.match.without_ruby_exception, failure_point:generator do
+                    generator.emit_failed
+                end
+            end
+
+            it "transforms a non-localized error into a EmissionFailed error" do
+                error = Class.new(RuntimeError).new
+                assert_free_event_exception EmissionFailed, failure_point: generator, original_exception: error.class do
+                    generator.emit_failed(error)
+                end
+            end
+
+            it "logs the exception" do
+                error = Class.new(RuntimeError).new
+                flexmock(execution_engine).should_receive(:log).
+                    with(:generator_emit_failed, generator, EmissionFailed.match.with_original_exception(error.class)).
+                    once
+                flexmock(execution_engine).should_receive(:add_error)
+                generator.emit_failed(error)
+            end
+
+            it "causes the event to become unreachable" do
+                error = Class.new(RuntimeError).new
+                flexmock(generator).should_receive(:unreachable!).
+                    with(EmissionFailed.match.with_original_exception(error.class)).
+                    once
+                assert_free_event_exception EmissionFailed, failure_point: generator, original_exception: error.class do
+                    generator.emit_failed(error)
+                end
+            end
+
+            it "resets the event's pending flag" do
+                plan.add(generator = EventGenerator.new { })
+                generator.call
+                assert generator.pending?
+                assert_free_event_exception EmissionFailed.match.without_ruby_exception, failure_point: generator do
+                    generator.emit_failed
+                end
+                refute generator.pending?
+            end
+        end
+
+        describe "#achieve_with" do
+            attr_reader :master, :slave
+            before do
+                @slave  = EventGenerator.new
+                @master = EventGenerator.new do
+                    master.achieve_with slave
+                end
+                plan.add([master, slave])
+            end
+
+            it "emits the master when the slave is emitted" do
+                master.call
+                refute master.emitted?
+                assert_event_emission master do
+                    slave.emit
+                end
+            end
+
+            it "propagates the context of the slave to emit the master" do
+                master.call
+                slave.emit(context = flexmock)
+                assert_equal [context], master.last.context
+            end
+
+            it "optionally filters the slave's context" do
+                master_context = flexmock
+                slave_context  = flexmock
+                master = EventGenerator.new do
+                    master.achieve_with(slave) { |event| master_context if event.context == [slave_context] }
+                end
+                plan.add(master)
+                master.call
+                slave.emit(slave_context)
+                assert_equal [master_context], master.last.context
+            end
+
+            it "does not emit the master if the filte raises" do
+                master = EventGenerator.new { master.achieve_with(slave) { raise } }
+                plan.add(master)
+                master.call
+                assert_free_event_exception EmissionFailed, failure_point: master, original_exception: any do
+                    slave.emit
+                end
+                refute master.emitted?
+            end
+
+            it "reports filter exceptions on the master" do
+                error_e = Class.new(RuntimeError)
+                master = EventGenerator.new do
+                    master.achieve_with(slave) { raise error_e }
+                end
+                plan.add(master)
+                master.call
+                assert_free_event_exception EmissionFailed, failure_point: master, original_exception:error_e do
+                    slave.emit
+                end
+            end
+
+            it "fails the master if the slave becomes unreachable" do
+                master.call
+                assert_free_event_emission_failed(original_exception: UnreachableEvent.match.with_origin(slave), failure_point: master) do
+                    slave.unreachable!
+                end
+            end
+        end
+
+        describe "#call" do
+            attr_reader :generator
+            before do
+                plan.add(@generator = EventGenerator.new(true))
+                flexmock(generator)
+                flexmock(execution_engine)
+            end
+            it "queues the call on the engine" do
+                execution_engine.should_receive(:queue_signal).
+                    with([], generator, [context = flexmock], nil).once
+                generator.call(context)
+            end
+            it "uses the engine's propagation sources as propagation sources" do
+                source_generator = EventGenerator.new
+                execution_engine.gather_propagation do
+                    execution_engine.propagation_context([source_generator]) do
+                        generator.call
+                    end
+                end
+            end
+            it "validates the call validity with #check_call_validity" do
+                error = Class.new(RuntimeError)
+                generator.should_receive(:check_call_validity).and_return(error)
+                execution_engine.should_receive(:queue_signal).never
+                assert_raises(error) do
+                    generator.call
+                end
+            end
+        end
+
+        describe "#emit" do
+            attr_reader :generator
+            before do
+                plan.add(@generator = EventGenerator.new)
+                flexmock(generator)
+                flexmock(execution_engine)
+            end
+            it "queues the emission on the engine" do
+                execution_engine.should_receive(:queue_forward).
+                    with([], generator, [context = flexmock], nil).once
+                generator.emit(context)
+            end
+            it "uses the engine's propagation sources as propagation sources" do
+                source_generator = EventGenerator.new
+                execution_engine.gather_propagation do
+                    execution_engine.propagation_context([source_generator]) do
+                        generator.emit
+                    end
+                end
+            end
+            it "validates the emission validity with #check_emit_validity" do
+                error = Class.new(RuntimeError)
+                generator.should_receive(:check_emission_validity).and_return(error)
+                execution_engine.should_receive(:queue_forward).never
+                assert_raises(error) do
+                    generator.emit
+                end
+            end
+        end
+
+        describe "#forward_to" do
+            attr_reader :source, :target, :context
+            before do
+                @source = EventGenerator.new
+                @context = flexmock
+                plan.add(source)
+                flexmock(execution_engine)
+                execution_engine.should_receive(:queue_forward).once.
+                    with([], source, [context], nil).pass_thru
+            end
+            it "queues the target emission when the source emits" do
+                target = EventGenerator.new
+                source.forward_to target
+                execution_engine.should_receive(:queue_forward).once.
+                    with(->(sources) { sources == [source.last] }, target, [context], nil).
+                    pass_thru
+                source.emit(context)
+                assert target.emitted?
+            end
+        end
+
+        describe "#signals" do
+            attr_reader :source, :target
+            before do
+                @source = EventGenerator.new
+                plan.add(source)
+                flexmock(execution_engine)
+            end
+            it "establishes a signal if the target is controlable" do
+                target = EventGenerator.new(true)
+                source.signals target
+                context = flexmock
+                execution_engine.should_receive(:queue_signal).once.
+                    with(->(sources) { sources == [source.last] }, target, [context], nil).
+                    pass_thru
+                source.emit(context)
+                assert target.emitted?
+            end
+            it "verifies that the target event is controlable at the point of call" do
+                target = EventGenerator.new
+                assert_raises(EventNotControlable) do
+                    source.signals target
+                end
+                refute source.child_object?(target, EventStructure::Signal)
+            end
+            it "triggers at runtime if the target event is not controlable then" do
+                # This should basically be triggering the controlable? check in
+                # #call_without_propagation
+                target = EventGenerator.new(true)
+                source.signals target
+                flexmock(target).should_receive(:controlable?).and_return(false)
+                assert_free_event_exception EventNotControlable, failure_point: target do
+                    source.emit
+                end
+            end
+        end
+
+        describe "#filter" do
+            attr_reader :source, :mock
+            before do
+                @mock = flexmock
+                plan.add(@source = EventGenerator.new)
+            end
+
+            describe "when given a filter block" do
+                it "emits a new event after having processed the context through the block" do
+                    filter = source.filter { |val| mock.filtering(val); val * 2 }
+                    filter.on { |event| mock.emitted(event.context) }
+                    mock.should_receive(:filtering).with(21).once
+                    mock.should_receive(:emitted).with([42]).once
+                    source.emit(21)
+                end
+
+                it "filters each context value separately" do
+                    filter = source.filter { |val| mock.filtering(val); val * 2 }
+                    filter.on { |event| mock.emitted(event.context) }
+                    mock.should_receive(:filtering).with(10).once
+                    mock.should_receive(:filtering).with(20).once
+                    mock.should_receive(:emitted).with([20, 40]).once
+                    source.emit(10, 20)
+                end
+            end
+
+            describe "when given a new context" do
+                it "replaces the context by the value given" do
+                    filter = source.filter(10)
+                    filter.on { |event| mock.emitted(event.context) }
+                    mock.should_receive(:emitted).with([10]).once
+                    source.emit(20)
+                end
+                it "splats the value when emitting" do
+                    filter = source.filter(10, 30)
+                    filter.on { |event| mock.emitted(event.context) }
+                    mock.should_receive(:emitted).with([10, 30]).once
+                    source.emit(20)
+                end
+                it "removes the context when given no arguments" do
+                    filter = source.filter
+                    filter.on { |event| mock.emitted(event.context) }
+                    mock.should_receive(:emitted).with([]).once
+                    source.emit(20)
+                end
+            end
+        end
+
+        describe "preconditions" do
+            attr_reader :generator
+            before do
+                plan.add(@generator = EventGenerator.new(true))
+            end
+
+            it "passes the actual generator and context" do
+                expected_context = flexmock
+                generator.precondition do |g, context|
+                    assert_equal generator, g
+                    assert_equal [expected_context], context
+                    true
+                end
+                generator.call(expected_context)
+            end
+
+            it "raises if the precondition is failed" do
+                generator.precondition { false }
+                assert_free_event_exception EventPreconditionFailed, failure_point: generator do
+                    generator.call
+                end
+                refute generator.pending?
+                refute generator.emitted?
+            end
+
+            it "lets the call go through if the precondition is true" do
+                generator.precondition { true }
+                generator.call
+                assert generator.emitted?
+            end
+        end
+
+        describe "#cancel" do
+            it "raises EventCanceled and avoids emission when called within #calling" do
+                generator_class = Class.new(EventGenerator) do
+                    def calling(context)
+                        cancel("testing cancel method")
+                    end
+                end
+                plan.add(generator = generator_class.new(true))
+                assert_free_event_exception(EventCanceled, failure_point: generator) { generator.call }
+                refute generator.pending?
+                refute generator.emitted?
+            end
+        end
+        
+        describe "#on" do
+            attr_reader :generator
+            before do
+                plan.add(@generator = EventGenerator.new)
+            end
+            it "raises if the on_replace argument is invalid" do
+                e = assert_raises(ArgumentError) do
+                    generator.on(on_replace: :invalid)
+                end
+                assert_equal "wrong value for the :on_replace option. Expecting either :drop or :copy, got invalid", e.message
+            end
+            it "sets the copy-on-replace policy" do
+                generator.on(on_replace: :copy) { }
+                handler = generator.handlers.last
+                assert handler.copy_on_replace?
+            end
+            it "sets the drop-on-replace policy" do
+                generator.on(on_replace: :drop) { }
+                handler = generator.handlers.last
+                refute handler.copy_on_replace?
+            end
+        end
+
+        describe "#replace_by" do
+            attr_reader :generator, :new, :mock
+            before do
+                plan.add(@generator = EventGenerator.new)
+                plan.add(@new = EventGenerator.new)
+                @mock = flexmock
+            end
+
+            describe "event handlers" do
+                it "ignores handlers which have the drop-on-replace policy" do
+                    generator.on(on_replace: :drop) { mock.called }
+                    generator.replace_by(new)
+                    mock.should_receive(:called).never
+                    new.emit
+                end
+                it "copies handlers which have the copy-on-replace policy" do
+                    generator.on(on_replace: :copy) { mock.called }
+                    generator.replace_by(new)
+                    mock.should_receive(:called).once
+                    new.emit
+                end
+                it "sets the copy-on-replace policy on the copied handlers" do
+                    generator.on(on_replace: :copy) { mock.called }
+                    generator.replace_by(new)
+                    assert new.handlers.first.copy_on_replace?
+                end
+                it "copies the once flag" do
+                    generator.once(on_replace: :copy) { mock.called }
+                    generator.replace_by(new)
+                    assert new.handlers.first.once?
+                end
+            end
+
+            describe "unreachability handlers" do
+                it "ignores handlers which have the drop-on-replace policy" do
+                    generator.if_unreachable(on_replace: :drop) { mock.called }
+                    generator.replace_by(new)
+                    mock.should_receive(:called).never
+                    new.unreachable!
+                end
+                it "copies handlers which have the copy-on-replace policy" do
+                    generator.if_unreachable(on_replace: :copy) { mock.called }
+                    generator.replace_by(new)
+                    mock.should_receive(:called).once
+                    new.unreachable!
+                end
+                it "sets the copy-on-replace policy on the copied handlers" do
+                    generator.if_unreachable(on_replace: :copy) { mock.called }
+                    generator.replace_by(new)
+                    assert new.unreachable_handlers[0][1].copy_on_replace?
+                end
+                it "copies cancel_at_emission: true" do
+                    generator.if_unreachable(cancel_at_emission: true, on_replace: :copy) {}
+                    generator.replace_by(new)
+                    assert new.unreachable_handlers[0][0]
+                end
+                it "copies cancel_at_emission: false" do
+                    generator.if_unreachable(cancel_at_emission: false, on_replace: :copy) {}
+                    generator.replace_by(new)
+                    refute new.unreachable_handlers[0][0]
+                end
+            end
+        end
     end
 end
 
-describe Roby::EventGenerator do
-    include Roby::SelfTest
-
-    describe "#achieve_asynchronously" do
-        attr_reader :ev, :main_thread, :recorder
-
-        before do
-            plan.add_permanent_event(@ev = Roby::EventGenerator.new(true))
-            @main_thread = Thread.current
-            @recorder = flexmock
-        end
-        it "calls the provided block in a separate thread" do
-            recorder = flexmock
-            recorder.should_receive(:called).once.with(proc { |thread| thread != main_thread })
-            ev.achieve_asynchronously { recorder.called(Thread.current) }
-            process_events
-        end
-        it "calls emit_failed if the block raises" do
-            flexmock(ev).should_receive(:emit_failed).once.
-                with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
-            ev.achieve_asynchronously { raise ArgumentError }
-            process_events
-        end
-        it "accepts a promise as argument" do
-            recorder, result = flexmock, flexmock
-            recorder.should_receive(:call).with(Thread.current, result)
-            promise = execution_engine.
-                promise { result }.
-                on_success { |result| recorder.call(Thread.current, result) }
-
-            ev.achieve_asynchronously(promise)
-            inhibit_fatal_messages { process_events }
-        end
-        it "emits the event on success if the emit_on_success option is true" do
-            recorder.should_receive(:call).ordered
-            flexmock(ev).should_receive(:emit).once.with(proc { |*args| Thread.current == main_thread }).ordered
-            ev.achieve_asynchronously(emit_on_success: true) { recorder.call }
-            execution_engine.join_all_waiting_work
-        end
-        it "should not emit the event automatically if the emit_on_success option is false" do
-            ev.achieve_asynchronously(emit_on_success: false) { true }
-            process_events
-            assert !ev.emitted?
-        end
-
-        it "calls emit_failed if the emission fails" do
-            flexmock(ev).should_receive(:emit).once.and_raise(ArgumentError)
-            flexmock(ev).should_receive(:emit_failed).once.with(proc { |e| Thread.current == main_thread })
-            promise = execution_engine.promise { }
-            ev.achieve_asynchronously(promise)
-            process_events
-        end
-
-        it "calls emit_failed if the callback raises" do
-            flexmock(ev).should_receive(:emit_failed).once.
-                with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
-            promise = execution_engine.promise { }.
-                on_success { raise ArgumentError }
-            ev.achieve_asynchronously(promise)
-            process_events
-        end
-    end
-end

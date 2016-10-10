@@ -1,34 +1,57 @@
 require 'roby/test/self'
 require 'roby/tasks/simple'
 
-class TC_Conflicts < Minitest::Test
-    def test_model_relations
-	m1, m2 = (1..2).map do
-	    Tasks::Simple.new_submodel
-	end
+module Roby
+    module TaskStructure
+        describe Conflicts do
+            attr_reader :task_m_1, :task_m_2
+            before do
+                @task_m_1 = Tasks::Simple.new_submodel
+                @task_m_2 = Tasks::Simple.new_submodel
+            end
 
-	m1.conflicts_with m2
-	assert(!m1.conflicts_with?(m1))
-	assert(m1.conflicts_with?(m2))
-	assert(m2.conflicts_with?(m1))
+            describe "model-level API" do
+                it "allows to declare conflicts between instances of two models" do
+                    task_m_1.conflicts_with task_m_2
+                    assert task_m_1.conflicts_with?(task_m_2)
+                end
 
-	# Create two tasks ...
-	plan.add(t1 = m1.new)
-	plan.add(t2 = m2.new)
-	assert !t1.child_object?(t2, Roby::TaskStructure::Conflicts)
-	assert !t2.child_object?(t1, Roby::TaskStructure::Conflicts)
+                it "it is commutative" do
+                    task_m_1.conflicts_with task_m_2
+                    assert task_m_2.conflicts_with?(task_m_1)
+                end
 
-	# Start t1 ...
-	t1.start!
-	assert !t1.child_object?(t2, Roby::TaskStructure::Conflicts)
-	assert t2.child_object?(t1, Roby::TaskStructure::Conflicts)
+                it "returns false between models that have no relations" do
+                    refute task_m_1.conflicts_with?(task_m_2)
+                end
+            end
 
-	# And now, start the conflicting task. The default decision control
-	# calls failed_to_start
-        assert_raises(UnreachableEvent) do
-            t2.start!
+            describe "runtime handling" do
+                attr_reader :task_1, :task_2
+                before do
+                    task_m_1.conflicts_with task_m_2
+                    plan.add(@task_1 = task_m_1.new)
+                    plan.add(@task_2 = task_m_2.new)
+                end
+
+                it "does not add conflicts if the tasks are pending" do
+                    refute task_1.child_object?(task_2, Roby::TaskStructure::Conflicts)
+                    refute task_2.child_object?(task_1, Roby::TaskStructure::Conflicts)
+                end
+                it "marks in the conflict graph the tasks that cannot start due to a started task" do
+                    task_1.start!
+                    refute task_1.child_object?(task_2, Roby::TaskStructure::Conflicts)
+                    assert task_2.child_object?(task_1, Roby::TaskStructure::Conflicts)
+                end
+                it "fails a conflicting task that attempts to start" do
+                    task_1.start!
+                    assert_fatal_exception(CommandRejected, tasks: [task_2], failure_point: task_2.start_event) do
+                        task_2.start!
+                    end
+                    assert task_2.failed_to_start?
+                    assert_kind_of Roby::TaskStructure::ConflictError, task_2.failure_reason
+                end
+            end
         end
-        assert t2.failed_to_start?
     end
 end
-

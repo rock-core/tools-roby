@@ -112,10 +112,11 @@ module Roby
 	# as soon as its command is called. If no argument is given (or a
 	# +false+ argument), then it is not controlable
         def initialize(command_object = nil, controlable: false, plan: TemplatePlan.new, &command_block)
-	    @preconditions = []
-	    @handlers      = []
-	    @pending       = false
-	    @unreachable   = false
+	    @preconditions   = []
+	    @handlers        = []
+	    @pending         = false
+	    @pending_sources = []
+	    @unreachable     = false
             @unreachable_events   = Hash.new
 	    @unreachable_handlers = []
 	    @history       = Array.new
@@ -153,72 +154,99 @@ module Roby
 	# when it is not the case.
 	def check_call_validity
             if !plan
-		raise EventNotExecutable.new(self), "#emit called on #{self} which has been removed from its plan"
+                EventNotExecutable.new(self).
+                    exception("#emit called on #{self} which has been removed from its plan")
             elsif !plan.executable?
-		raise EventNotExecutable.new(self), "#emit called on #{self} which is not in an executable plan"
+                EventNotExecutable.new(self).
+                    exception("#emit called on #{self} which is not in an executable plan")
 	    elsif !controlable?
-		raise EventNotControlable.new(self), "#call called on a non-controlable event"
+                EventNotControlable.new(self).
+                    exception("#call called on a non-controlable event")
             elsif unreachable?
                 if unreachability_reason
-                    raise UnreachableEvent.new(self, unreachability_reason), "#call called on #{self} which has been made unreachable because of #{unreachability_reason}"
+                    UnreachableEvent.new(self, unreachability_reason).
+                        exception("#call called on #{self} which has been made unreachable because of #{unreachability_reason}")
                 else
-                    raise UnreachableEvent.new(self, unreachability_reason), "#call called on #{self} which has been made unreachable"
+                    UnreachableEvent.new(self, unreachability_reason).
+                        exception("#call called on #{self} which has been made unreachable")
                 end
             elsif !execution_engine.allow_propagation?
-                raise PhaseMismatch, "call to #emit is not allowed in this context"
+                PhaseMismatch.exception("call to #emit is not allowed in this context")
 	    elsif !execution_engine.inside_control?
-		raise ThreadMismatch, "#call called while not in control thread"
+                ThreadMismatch.exception("#call called while not in control thread")
 	    end
 	end
+
+        def check_call_validity_after_calling
+            if !executable?
+                EventNotExecutable.new(self).
+                    exception("#call called on #{self} which is a non-executable event")
+            end
+        end
 
 	# Checks that the event can be emitted. Raises various exception
 	# when it is not the case.
 	def check_emission_validity
-	    if !executable?
-		raise EventNotExecutable.new(self), "#emit called on #{self} which is a non-executable event"
+            if !plan
+                EventNotExecutable.new(self).
+                    exception("#emit called on #{self} which has been removed from its plan")
+            elsif !plan.executable?
+                EventNotExecutable.new(self).
+                    exception("#emit called on #{self} which is not in an executable plan")
+	    elsif !executable?
+                EventNotExecutable.new(self).
+                    exception("#emit called on #{self} which is a non-executable event")
             elsif unreachable?
                 if unreachability_reason
-                    raise UnreachableEvent.new(self, unreachability_reason), "#emit called on #{self} which has been made unreachable because of #{unreachability_reason}"
+                    UnreachableEvent.new(self, unreachability_reason).
+                        exception("#emit called on #{self} which has been made unreachable because of #{unreachability_reason}")
                 else
-                    raise UnreachableEvent.new(self, unreachability_reason), "#emit called on #{self} which has been made unreachable"
+                    UnreachableEvent.new(self, unreachability_reason).
+                        exception("#emit called on #{self} which has been made unreachable")
                 end
             elsif !execution_engine.allow_propagation?
-                raise PhaseMismatch, "call to #emit is not allowed in this context"
+                PhaseMismatch.exception("call to #emit is not allowed in this context")
 	    elsif !execution_engine.inside_control?
-		raise ThreadMismatch, "#emit called while not in control thread"
+                ThreadMismatch.exception("#emit called while not in control thread")
 	    end
 	end
 
 	# Calls the command from within the event propagation code
 	def call_without_propagation(context)
-            begin
-                check_call_validity
-            rescue Exception => e
-                execution_engine.add_error(e)
+            if error = check_call_validity
+                execution_engine.add_error(error)
                 return
             end
             
-	    if !controlable?
-		raise EventNotControlable.new(self), "#call called on a non-controlable event"
-	    end
-
             calling(context)
-            if !executable?
-                raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+
+            if (error = check_call_validity) || (error = check_call_validity_after_calling)
+                execution_engine.add_error(error)
+                return
             end
 
             @pending = true
             @pending_sources = execution_engine.propagation_source_events
-            execution_engine.propagation_context([self]) do
-                begin
-                    @calling_command = true
-                    @command_emitted = false
-                    command[context]
-                ensure
-                    @calling_command = false
+            begin
+                @calling_command = true
+                @command_emitted = false
+                execution_engine.propagation_context([self]) do
+                    command.call(context)
                 end
-            end
 
+            rescue Exception => e
+                if !e.kind_of?(LocalizedError)
+                    e = CommandFailed.new(e, self)
+                end
+                if command_emitted?
+                    execution_engine.add_error(e)
+                else
+                    emit_failed(e)
+                end
+
+            ensure
+                @calling_command = false
+            end
             called(context)
 	end
 
@@ -231,7 +259,15 @@ module Roby
 	# non-controlable and respond to the :call message. Controlability must
 	# be checked using #controlable?
 	def call(*context)
-            check_call_validity
+            engine = execution_engine
+	    if engine && !engine.gathering?
+                engine.process_events_synchronous { call(*context) }
+                return
+            end
+
+            if error = check_call_validity
+                raise error
+            end
 
             # This test must not be done in #emit_without_propagation as the
             # other ones: it is possible, using Distributed.update, to disable
@@ -241,19 +277,7 @@ module Roby
 		raise OwnershipError, "not owner"
             end
 
-	    context.compact!
-            engine = execution_engine
-	    if engine.gathering?
-		engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
-            else
-                seeds = engine.gather_propagation do
-                    engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
-                end
-                engine.process_events_synchronous(seeds)
-                if unreachable? && unreachability_reason.kind_of?(Exception)
-                    raise unreachability_reason
-                end
-	    end
+            execution_engine.queue_signal(engine.propagation_sources, self, context, nil)
 	end
 
         # Class used to register event handler blocks along with their options
@@ -520,43 +544,43 @@ module Roby
 
 	# Create a new event object for +context+
         def new(context, propagation_id = nil, time = nil) # :nodoc:
-            event_model.new(self, propagation_id || execution_engine.propagation_id, context, time || Time.now)
+            event_model.new(self, propagation_id || execution_engine.propagation_id,
+                            context, time || Time.now)
         end
-
-	# Adds a propagation originating from this event to event propagation
-	def add_propagation(only_forward, event, signalled, context, timespec) # :nodoc:
-	    if self == signalled
-		raise PropagationError, "#{self} is trying to signal itself"
-	    elsif !only_forward && !signalled.controlable?
-		raise PropagationError, "trying to signal #{signalled} from #{self}"
-	    end
-
-	    execution_engine.add_event_propagation(only_forward, [event], signalled, context, timespec)
-	end
-	private :add_propagation
 
 	# Do fire this event. It gathers the list of signals that are to
 	# be propagated in the next step and calls fired()
 	#
 	# This method is always called in a propagation context
 	def fire(event)
-	    execution_engine.propagation_context([event]) do |result|
-		@emitted = true
-                @pending = false
-		fired(event)
+            @emitted = true
+            @pending = false
+            fired(event)
 
-		each_signal do |signalled|
-		    add_propagation(false, event, signalled, event.context, self[signalled, EventStructure::Signal])
-		end
-		each_forwarding do |signalled|
-		    add_propagation(true, event, signalled, event.context, self[signalled, EventStructure::Forwarding])
-		end
+            execution_engine = self.execution_engine
 
+            signal_graph = execution_engine.signal_graph
+            each_signal do |target|
+                if self == target
+                    raise PropagationError, "#{self} is trying to signal itself"
+                end
+                execution_engine.queue_signal([event], target, event.context,
+                                              signal_graph.edge_info(self, target))
+            end
+
+            forward_graph = execution_engine.forward_graph
+            each_forwarding do |target|
+                if self == target
+                    raise PropagationError, "#{self} is trying to signal itself"
+                end
+                execution_engine.queue_forward([event], target, event.context,
+                                               forward_graph.edge_info(self, target))
+            end
+
+	    execution_engine.propagation_context([event]) do
 		call_handlers(event)
 	    end
 	end
-
-	private :fire
 	
 	# Call the event handlers defined for this event generator
 	def call_handlers(event)
@@ -564,7 +588,7 @@ module Roby
 	    # to other objects are not done, but gathered in the 
 	    # :propagation TLS
             all_handlers = enum_for(:each_handler).to_a
-	    all_handlers.each do |h| 
+	    processed_once_handlers = all_handlers.find_all do |h|
 		begin
 		    h.call(event)
                 rescue LocalizedError => e
@@ -572,13 +596,20 @@ module Roby
 		rescue Exception => e
 		    execution_engine.add_error( EventHandlerError.new(e, event) )
 		end
+                h.once?
 	    end
-            handlers.delete_if { |h| h.once? }
+            handlers.delete_if { |h| processed_once_handlers.include?(h) }
 	end
 
 	# Raises an exception object when an event whose command has been
 	# called won't be emitted (ever)
 	def emit_failed(error = nil, message = nil)
+            engine = execution_engine
+	    if engine && !engine.gathering?
+                engine.process_events_synchronous { emit_failed(error, message) }
+                return
+            end
+
 	    error ||= EmissionFailed
 
 	    if !message && !(error.kind_of?(Class) || error.kind_of?(Exception))
@@ -616,29 +647,22 @@ module Roby
 	#
 	# This is used by event propagation. Do not call directly: use #call instead
 	def emit_without_propagation(context)
-            begin
-                check_emission_validity
-            rescue Exception => e
-                execution_engine.add_error(e)
+            if error = check_emission_validity
+                execution_engine.add_error(error)
                 return
             end
-            
-	    if !executable?
-		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
-	    end
 
 	    emitting(context)
+
 	    # Create the event object
 	    event = new(context)
-	    unless event.respond_to?(:context)
+	    if !event.respond_to?(:add_sources)
 		raise TypeError, "#{event} is not a valid event object in #{self}"
 	    end
-	    event.sources = execution_engine.propagation_source_events
+	    event.add_sources(execution_engine.propagation_source_events)
+            event.add_sources(@pending_sources)
 	    fire(event)
-            if @pending_sources
-                event.add_sources(@pending_sources)
-                @pending_sources = nil
-            end
+            @pending_sources = []
             event
         ensure
             @pending = false
@@ -646,7 +670,15 @@ module Roby
 
 	# Emit the event with +context+ as the event context
 	def emit(*context)
-            check_emission_validity
+            engine = execution_engine
+	    if engine && !engine.gathering?
+                engine.process_events_synchronous { emit(*context) }
+                return
+            end
+
+            if error = check_emission_validity
+                raise error
+            end
 
             # This test must not be done in #emit_without_propagation as the
             # other ones: it is possible, using Distributed.update, to disable
@@ -656,46 +688,46 @@ module Roby
 		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
             end
 
-	    context.compact!
-            engine = execution_engine
-	    if engine.gathering?
-                if @calling_command
-                    @command_emitted = true
-                end
+            if @calling_command
+                @command_emitted = true
+            end
 
-		engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
-            else
-                seeds = engine.gather_propagation do
-                    engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
-                end
-                engine.process_events_synchronous(seeds)
-                if unreachable? && unreachability_reason.kind_of?(Exception)
-                    raise unreachability_reason
-                end
-	    end
+            engine.queue_forward(
+                engine.propagation_sources, self, context, nil)
 	end
 
-        # Sets up +ev+ and +self+ to represent that the command of +self+ is to
-        # be achieved by the emission of +ev+. It is to be used in a command
-        # handler:
+        # Set this generator up so that it "delegates" its emission to another
+        # event
         #
-	#   event :start do |context|
-	#	init = <create an initialization event>
-	#	event(:start).achieve_with(init)
-	#   end
+        # @overload achieve_with(generator)
+        #   Emit self next time generator is emitted, and mark it as unreachable
+        #   if generator is. The event context is propagated through.
+        #   
+        #   @param [EventGenerator] generator
         #
-        # If +ev+ becomes unreachable, an EmissionFailed exception will be
-        # raised. If a block is given, it is supposed to return the context of
-        # the event emitted by +self+, given the context of the event emitted
-        # by +ev+.
+        # @overload achieve_with(generator) { |event| ... }
+        #   Emit self next time generator is emitted, and mark it as unreachable
+        #   if generator is. The value returned by the block is used as self's
+        #   event context
         #
-        # From an event propagation point of view, it looks like:
-        # TODO: add a figure
+        #   An exception raised by the filter will be localized on self.
+        #   
+        #   @param [EventGenerator] generator
+        #   @yieldparam [Event] event the event emitted by 'generator'
+        #   @yieldreturn [Object] the context to be used for self's event
 	def achieve_with(ev)
 	    if block_given?
 		ev.add_causal_link self
-		ev.once do |context|
-		    self.emit(yield(context))
+		ev.once do |event|
+                    begin
+                        context = yield(event)
+                        do_emit = true
+                    rescue Exception => e
+                        emit_failed(e)
+                    end
+                    if do_emit
+                        self.emit(context)
+                    end
 		end
 	    else
 		ev.forward_to_once self
@@ -913,19 +945,20 @@ module Roby
 
 	# Called internally when the event becomes unreachable
 	def unreachable!(reason = nil, plan = self.plan)
+            engine = execution_engine
+            if engine && !engine.gathering?
+                execution_engine.process_events_synchronous do
+                    unreachable!(reason, plan)
+                end
+                return
+            end
+
             if !plan
                 raise FinalizedPlanObject, "#unreachable! called on #{self} but this is a finalized generator"
             elsif !plan.executable?
                 unreachable_without_propagation(reason)
-            elsif execution_engine.gathering?
+            else
                 unreachable_without_propagation(reason, plan)
-            elsif !@unreachable
-                execution_engine.process_events_synchronous do
-                    unreachable_without_propagation(reason, plan)
-                end
-                if unreachability_reason.kind_of?(Exception)
-                    raise unreachability_reason
-                end
             end
 	end
 
@@ -946,12 +979,17 @@ module Roby
             LocalizedError.to_execution_exception_matcher.with_origin(self)
         end
 
+
+        def self.match
+            Queries::EventGeneratorMatcher.new.with_model(self)
+        end
+
         def match
-            Queries::TaskEventGeneratorMatcher.new(task, symbol)
+            Queries::EventGeneratorMatcher.new(self)
         end
 
         def replace_by(object)
-            plan.replace_subplan(Hash[object => object])
+            plan.replace_subplan(Hash.new, Hash[object => object])
             initialize_replacement(object)
         end
 

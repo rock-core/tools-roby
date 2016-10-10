@@ -68,8 +68,9 @@ module Roby
                 end
 
                 if !exception.failed_task
-                    # Cannot match exceptions assigned to free events
-                    return false
+                    if !(failure_point_matcher === exception.failed_generator)
+                        return false
+                    end
                 elsif failure_point_matcher.respond_to?(:task_matcher)
                     if exception.failed_generator
                         return false if !(failure_point_matcher === exception.failed_generator)

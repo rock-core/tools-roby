@@ -155,9 +155,9 @@ module Roby
                 task_model = Tasks::Simple.new_submodel
                 task_model.executed_by ExecutionAgentModel, id: 2
                 plan.add(task = task_model.new)
-                e = assert_raises(TaskStructure::MissingRequiredExecutionAgent) { task.start! }
-                assert task.failed_to_start?
-                assert_kind_of TaskStructure::MissingRequiredExecutionAgent, task.failure_reason
+                assert_task_fails_to_start(task, TaskStructure::MissingRequiredExecutionAgent) do
+                    task.start!
+                end
             end
 
             def test_as_plan
@@ -186,10 +186,9 @@ module Roby
                 plan.add(task = Tasks::Simple.new)
                 plan.add(agent = ExecutionAgentModel.new)
                 task.executed_by agent
-                e = assert_raises(TaskStructure::ExecutionAgentNotReady) do
+                assert_task_fails_to_start(task, TaskStructure::ExecutionAgentNotReady) do
                     task.start!
                 end
-                assert task.failed_to_start?
             end
         end
     end

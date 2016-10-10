@@ -72,3 +72,40 @@ class TC_PlanObject < Minitest::Test
     end
 end
 
+module Roby
+    describe PlanObject do
+        describe "#executable?" do
+            attr_reader :plan_object
+            before do
+                @plan_object = PlanObject.new
+            end
+
+            it "matches the plan's executable flag by default" do
+                refute plan_object.executable?
+                flexmock(plan_object.plan).should_receive(:executable?).and_return(true)
+                assert plan_object.executable?
+            end
+
+            it "can be overriden to true" do
+                plan_object.executable = true
+                assert plan_object.executable?
+            end
+
+            it "can be overriden to false" do
+                flexmock(plan_object.plan).should_receive(:executable?).and_return(true)
+                plan_object.executable = false
+                refute plan_object.executable?
+            end
+
+            it "reverts to the default behaviour if #executable is set to nil" do
+                plan_object.executable = true
+                plan_object.executable = nil
+                refute plan_object.executable?
+                flexmock(plan_object.plan).should_receive(:executable?).and_return(true)
+                assert plan_object.executable?
+            end
+        end
+    end
+end
+
+

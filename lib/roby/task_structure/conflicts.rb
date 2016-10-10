@@ -49,6 +49,7 @@ module Roby
 
                     if !result.empty?
                         plan.control.conflict(task, result)
+                        return
                     end
 
                     # Add the needed conflict relations

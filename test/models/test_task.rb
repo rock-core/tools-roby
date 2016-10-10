@@ -52,6 +52,15 @@ module Roby
                 end
             end
 
+            describe "#with_arguments" do
+                it "returns a proxy object whose #as_plan method creates a task with arguments set" do
+                    model = Tasks::Simple.new_submodel
+                    task = model.with_arguments(id: 20).as_plan
+                    assert_kind_of model, task
+                    assert_equal 20, task.arguments[:id]
+                end
+            end
+
             describe "#event" do
                 attr_reader :task_m
                 before do

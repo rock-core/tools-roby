@@ -126,6 +126,10 @@ module Roby
             self
         end
 
+        def to_s
+            PP.pp(self, '')
+        end
+
         def pretty_print(pp)
             pp.text "from #{origin} with trace "
             pp.nest(2) do

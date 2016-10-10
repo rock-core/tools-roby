@@ -96,11 +96,11 @@ module Roby
                 end
             end
 
-            def process_events
+            def process_events(**options)
                 @received_exceptions.clear
                 execution_engine.join_all_waiting_work
                 execution_engine.start_new_cycle
-                execution_engine.process_events
+                execution_engine.process_events(**options)
                 @received_exceptions.each do |kind, e|
                     if kind == Roby::ExecutionEngine::EXCEPTION_FATAL
                         raise e

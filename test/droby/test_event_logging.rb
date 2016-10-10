@@ -401,7 +401,7 @@ module Roby
                     r_task = rebuilt_plan.tasks.first
 
                     error_m = Class.new(ArgumentError)
-                    assert_event_emission_failed(error_m) do
+                    assert_task_fails_to_start(task, EmissionFailed, original_exception: error_m) do
                         task.start_event.emit_failed(error_m.new)
                     end
 

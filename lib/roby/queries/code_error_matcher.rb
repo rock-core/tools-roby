@@ -17,8 +17,14 @@ module Roby
             # @param [#===,Class] matcher an object that can match an Exception
             #   object, usually an exception class
             def with_ruby_exception(matcher)
+                with_original_exception(matcher)
                 @ruby_exception_class = matcher
                 self
+            end
+
+            # Match a CodeError without an original exception
+            def without_ruby_exception
+                with_ruby_exception(nil)
             end
 
             def ===(error)

@@ -145,22 +145,21 @@ module Roby
 	end
 
         def assert_adds_roby_localized_error(matcher)
-            matcher = matcher.match
+            matcher = matcher.match.to_execution_exception_matcher
             errors = plan.execution_engine.gather_errors do
                 yield
             end
 
-            errors = errors.map(&:exception)
             assert !errors.empty?, "expected to have added a LocalizedError, but got none"
             errors.each do |e|
-                assert_exception_can_be_pretty_printed(e)
+                assert_exception_can_be_pretty_printed(e.exception)
             end
             if matched_e = errors.find { |e| matcher === e }
-                return matched_e
+                return matched_e.exception
             elsif errors.empty?
                 flunk "block was expected to add an error matching #{matcher}, but did not"
             else
-                raise SynchronousEventProcessingMultipleErrors.new(errors)
+                raise SynchronousEventProcessingMultipleErrors.new(errors.map(&:exception))
             end
         end
 
@@ -239,23 +238,15 @@ module Roby
 	end
         
 	# Process pending events
-	def process_events(timeout: 5, raise_errors: true)
+	def process_events(timeout: 5, raise_errors: true, garbage_collect_pass: true)
             exceptions = Array.new
             registered_plans.each do |p|
                 engine = p.execution_engine
-                listener = engine.on_exception do |kind, exception, tasks|
-                    if kind == ExecutionEngine::EXCEPTION_FATAL
-                        exceptions << exception
-                    end
-                end
-                begin
-                    engine.join_all_waiting_work(timeout: timeout)
-                    engine.start_new_cycle
-                    engine.process_events
-                    engine.cycle_end(Hash.new)
-                ensure
-                    engine.remove_exception_listener(listener)
-                end
+                engine.join_all_waiting_work(timeout: timeout)
+                engine.start_new_cycle
+                errors = engine.process_events(garbage_collect_pass: garbage_collect_pass)
+                exceptions.concat(errors.exceptions)
+                engine.cycle_end(Hash.new)
             end
 
             if raise_errors && !exceptions.empty?
