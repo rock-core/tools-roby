@@ -948,6 +948,14 @@ module Roby
             @log_dir
 	end
 
+        # Explicitely set the log directory
+        #
+        # It is usually automatically created under {#log_base_dir} during
+        # {#base_setup}
+        def log_dir=(dir)
+            @log_dir = dir
+        end
+
         # The time tag. It is a time formatted as YYYYMMDD-HHMM used to mark log
         # directories
 	def time_tag
