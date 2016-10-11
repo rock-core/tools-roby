@@ -132,7 +132,6 @@ module Roby
 	    Thread.abort_on_exception = false
 	    @remote_processes = []
 
-            Roby.app.log_setup 'robot', 'DEBUG:robot.txt'
             Roby.app.log_server = false
 
             plan.execution_engine.gc_warning = false
