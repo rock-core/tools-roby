@@ -6,7 +6,7 @@ task :default
 Rake::TestTask.new(:test) do |t|
     t.libs << "."
     t.libs << "lib"
-    t.test_files = FileList['test/suite_core.rb']
+    t.test_files = FileList['test/**/test_*.rb']
 end
 
 begin
