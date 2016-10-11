@@ -24,10 +24,10 @@ class TC_Actions_Task < Minitest::Test
             should_receive(:test_action).once.
             and_return(result_task = TaskModel.new)
         flexmock(Transaction).new_instances.
-            should_receive(:add).with(any).pass_thru
-        flexmock(Transaction).new_instances.
             should_receive(:add).once.
             with(result_task).pass_thru
+        flexmock(Transaction).new_instances.
+            should_receive(:add).with(any).pass_thru
         task.start!
     end
 
