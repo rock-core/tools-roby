@@ -188,7 +188,6 @@ module Roby
                 if abstract?
                     raise Application::ActionResolutionError, "#{self} is abstract and no planning method exists that returns it"
                 else
-                    Robot.warn "no planning method for #{self}, and #{self} is not abstract. Returning new instance"
                     new(arguments)
                 end
             end
