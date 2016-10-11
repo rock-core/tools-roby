@@ -2,13 +2,23 @@ module Roby
     module Test
         # Helpers to test a full Roby app started as a subprocess
         module RobyAppHelpers
+            attr_reader :app, :app_dir
             def setup
                 @spawned_pids = Array.new
                 super
+                @app = Roby::Application.new
+                app.public_logs = false
+                app.plugins_enabled = false
+                app.base_setup
+                register_plan(@app.plan)
+                @app_dir = make_tmpdir
             end
 
             def teardown
                 super
+                app.stop_log_server
+                app.stop_shell_interface
+                app.cleanup
                 pending_children = @spawned_pids.find_all do |pid|
                     begin
                         Process.kill 'INT', pid
@@ -28,11 +38,18 @@ module Roby
                     __dir__)
             end
 
-            def roby_app_with_polling(timeout: 2, period: 0.01)
+            def roby_app_with_polling(timeout: 2, period: 0.01, message: nil)
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
-                    return if yield
+                    if result = yield
+                        return result
+                    end
                     sleep 0.01
+                end
+                if message
+                    flunk "#{message} did not happen within #{timeout} seconds"
+                else
+                    flunk "failed to reach expected result within #{timeout} seconds"
                 end
             end
 
@@ -101,6 +118,32 @@ module Roby
                 pid = spawn(roby_bin, *args, **options)
                 @spawned_pids << pid
                 return pid
+            end
+
+            def roby_app_create_logfile
+                require 'roby/droby/logfile/writer'
+                logfile_dir = make_tmpdir
+                logfile_path = File.join(logfile_dir, 'logfile')
+                writer = DRoby::Logfile::Writer.open(logfile_path)
+                return logfile_path, writer
+            end
+
+            def assert_roby_app_can_connect_to_log_server(timeout: 2, port: app.log_server_port)
+                client = roby_app_with_polling(timeout: timeout, message: "connecting to the log server on port #{port}") do
+                    begin DRoby::Logfile::Client.new('localhost', port)
+                    rescue Interface::ConnectionError
+                    end
+                end
+                while !client.init_done?
+                    client.read_and_process_pending
+                end
+            rescue Exception => e
+                # Give time to the log server to report errors before we
+                # terminate it with SIGINT
+                sleep 0.1
+                raise
+            ensure
+                client.close if client
             end
         end
     end

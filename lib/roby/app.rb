@@ -274,6 +274,26 @@ module Roby
             end
         end
 
+        # The PID of the server that gives access to the log file
+        #
+        # Its port is allocated automatically, and must be discovered through
+        # the Roby interface
+        #
+        # @return [Integer,nil]
+        attr_reader :log_server_pid
+
+        # The port on which the log server is started
+        #
+        # It is by default started on an ephemeral port, that needs to be
+        # discovered by clients through the Roby interface's
+        # {Interface#log_server_port}
+        #
+        # @return [Integer,nil]
+        attr_reader :log_server_port
+
+        # The TCP server that gives access to the {Interface}
+        attr_reader :shell_server
+
         # Tests if the given directory looks like the root of a Roby app
         #
         # @param [String] test_dir the path to test
@@ -1093,6 +1113,10 @@ module Roby
 	    end
 	end
 
+        # Register a server port that can be discovered later
+        def register_server(name, port)
+        end
+
         # Transforms +path+ into a path relative to an entry in +search_path+
         # (usually the application root directory)
         def make_path_relative(path)
@@ -1547,14 +1571,16 @@ module Roby
 
                 # Start a log server if needed, and poll the log directory for new
                 # data sources
-                if log_server = (log.has_key?('server') ? log['server'] : true)
+                if log_server_options = (log.has_key?('server') ? log['server'] : Hash.new)
+                    if !log_server_options.kind_of?(Hash)
+                        log_server_options = Hash.new
+                    end
                     plan.event_logger.sync = true
-
-                    start_log_server(logfile_path)
-                    Robot.info "log server running on port #{log_server_port}"
+                    start_log_server(logfile_path, log_server_options)
+                    Roby.info "log server started"
                 else
                     plan.event_logger.sync = false
-                    Robot.info "log server disabled"
+                    Roby.warn "log server disabled"
                 end
 	    end
 
@@ -1690,36 +1716,33 @@ module Roby
 
 	def stop; call_plugins(:stop, self) end
 
-	attr_reader :log_server
-        attr_reader :log_server_port
-
-        def start_log_server(logfile)
+        def start_log_server(logfile, options = Hash.new)
             require 'roby/droby/logfile/server'
 
-            port = DRoby::Logfile::Server::DEFAULT_PORT
+            # Allocate a TCP server to get an ephemeral port, and pass it to
+            # roby-display
             sampling_period = DRoby::Logfile::Server::DEFAULT_SAMPLING_PERIOD
-            if log_server.kind_of?(Hash)
-                port = Integer(log_server['port'] || port)
-                sampling_period = Float(log_server['sampling_period'] || sampling_period)
-                debug = log_server['debug']
-            end
+            sampling_period = Float(options['sampling_period'] || sampling_period)
 
-            server_flags = ["--server=#{port}", "--sampling=#{sampling_period}", logfile]
-            if debug
+            tcp_server = TCPServer.new(Integer(options['port'] || 0))
+            server_flags = ["--fd=#{tcp_server.fileno}", "--sampling=#{sampling_period}", logfile]
+            redirect_flags = Hash[tcp_server => tcp_server]
+            if options['debug']
                 server_flags << "--debug"
+            elsif options['silent']
+                redirect_flags[:out] = redirect_flags[:err] = :close
             end
 
-            @log_server = fork do
-                exec("roby-display", *server_flags)
-            end
-            @log_server_port = port
+            @log_server_port = tcp_server.local_address.ip_port
+            @log_server_pid = Kernel.spawn("roby-display", 'server', *server_flags, redirect_flags)
+        ensure
+            tcp_server.close if tcp_server
         end
 
         def stop_log_server
-            if @log_server
-                Process.kill('INT', @log_server)
-                @log_server = nil
-                @log_server_port = nil
+            if @log_server_pid
+                Process.kill('INT', @log_server_pid)
+                @log_server_pid = nil
             end
         end
 

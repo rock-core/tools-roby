@@ -22,8 +22,8 @@ module Roby
                 DEFAULT_SAMPLING_PERIOD = 0.05
                 DATA_CHUNK_SIZE = 512 * 1024
 
-                # The port we are listening on
-                attr_reader :port
+                # The IO we are listening on
+                attr_reader :server_io
                 # The sampling period (in seconds)
                 attr_reader :sampling_period
                 # The path to the event file this server is listening to
@@ -36,8 +36,8 @@ module Roby
                 # The server socket
                 attr_reader :server
 
-                def initialize(event_file_path, sampling_period = DEFAULT_SAMPLING_PERIOD, port = DEFAULT_PORT)
-                    @port = port
+                def initialize(event_file_path, sampling_period = DEFAULT_SAMPLING_PERIOD, io)
+                    @server = io
                     @pending_data = Hash.new
                     @sampling_period = sampling_period
                     @event_file_path = event_file_path
@@ -53,22 +53,6 @@ module Roby
                 end
 
                 def exec
-                    @server =
-                        begin TCPServer.new(port)
-                        rescue TypeError # Workaround for https://bugs.ruby-lang.org/issues/10203
-                            raise Errno::EADDRINUSE, "Address already in use - bind(2) for \"0.0.0.0\" port #{port}"
-                        end
-                    server.fcntl(Fcntl::FD_CLOEXEC, 1)
-
-                    raise_level = (port != DEFAULT_PORT || sampling_period != DEFAULT_SAMPLING_PERIOD)
-                    level = if raise_level then
-                                :warn
-                            else :info
-                            end
-
-                    Server.send(level, "Roby log server listening on port #{port}, sampling period=#{sampling_period}")
-                    Server.send(level, "watching #{event_file_path}")
-
                     while true
                         sockets_with_pending_data = pending_data.find_all do |socket, chunks|
                             !chunks.empty?
