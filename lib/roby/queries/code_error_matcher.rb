@@ -31,6 +31,15 @@ module Roby
                 return false if !super
                 ruby_exception_class === error.error
             end
+
+            def to_s
+                description = super
+                if ruby_exception_class
+                    description.concat(".with_ruby_exception(#{ruby_exception_class})")
+                else
+                    description.concat(".without_ruby_exception")
+                end
+            end
         end
     end
 end

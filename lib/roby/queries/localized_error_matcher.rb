@@ -84,7 +84,11 @@ module Roby
             end
 
             def to_s
-                "#{model}.with_origin(#{failure_point_matcher})"
+                description = "#{model}.with_origin(#{failure_point_matcher})"
+                if original_exception_model
+                    description.concat(".with_original_exception(#{original_exception_model})")
+                end
+                description
             end
 
             def matches_task?(task)

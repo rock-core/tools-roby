@@ -242,6 +242,18 @@ module Roby
                 Index::PREDICATES.superset?(neg_predicates)
         end
 
+        def to_s
+            description = 
+                if instance
+                    instance.to_s
+                elsif model.size == 1
+                    model.first.to_s
+                else
+                    "(#{model.map(&:to_s).join(",")})"
+                end
+            ([description] + predicates.map(&:to_s) + neg_predicates.map { |p| "not_#{p}" }).join(".")
+        end
+
 
         # Tests whether the given object matches this predicate
         #
