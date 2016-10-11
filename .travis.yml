@@ -6,7 +6,7 @@ rvm:
   - 2.2.5
   - 2.3.1
 script:
-    - bundle exec rake
+    - bundle exec rake test
     - bundle exec rake coveralls:push
 bundler_args: --without gui
 env:
