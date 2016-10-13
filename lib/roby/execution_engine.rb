@@ -1469,7 +1469,7 @@ module Roby
 	    events_errors = nil
             next_steps = gather_propagation do
 	        events_errors = gather_errors do
-                    if !quitting?
+                    if !quitting? || !garbage_collect([])
                         process_waiting_work
                         log_timepoint 'workers'
                         gather_external_events
