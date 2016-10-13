@@ -1086,6 +1086,30 @@ module Roby
                 first_task.start!
             end
         end
+
+        describe "#clear_relations" do
+            attr_reader :task
+            before do
+                plan.add(@task = Tasks::Simple.new)
+            end
+            it "clears the bound events" do
+                flexmock(task.start_event).should_receive(:clear_relations).once
+                task.clear_relations
+            end
+            it "returns false if neither the bound events nor the task were involved in a relation" do
+                assert task.clear_relations # clears event relations
+                refute task.clear_relations
+            end
+            it "returns true if the bound events were involved in a relation" do
+                flexmock(task.start_event).should_receive(:clear_relations).once.and_return(true)
+                assert task.clear_relations
+            end
+            it "passes the strong flag to the bound events" do
+                flexmock(task.start_event).should_receive(:clear_relations).
+                    with(strong: (strong = flexmock)).once
+                assert task.clear_relations(strong: strong)
+            end
+        end
     end
 end
 

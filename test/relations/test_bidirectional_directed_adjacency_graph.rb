@@ -2,8 +2,7 @@ require 'roby/test/self'
 
 module Roby
     module Relations
-
-        class TestBidirectionalDirectedAdjacencyGraph < Minitest::Test
+        describe BidirectionalDirectedAdjacencyGraph do
             include RGL
             include RGL::Edge
 
@@ -31,7 +30,7 @@ module Roby
                 assert_equal(0, dg.size)
                 assert_equal(0, dg.num_vertices)
                 assert_equal(0, dg.num_edges)
-                assert_equal(DirectedEdge, dg.edge_class)
+                assert_equal(graph_class::DirectedEdge, dg.edge_class)
                 assert([].eql?(dg.edges))
             end
 
@@ -45,7 +44,7 @@ module Roby
                 assert(!dg.has_vertex?(3))
 
                 assert_equal([1, 2], dg.vertices.sort)
-                assert([DirectedEdge.new(1, 2)].eql?(dg.edges))
+                assert([graph_class::DirectedEdge.new(1, 2)].eql?(dg.edges))
                 assert_equal("(1-2)", dg.edges.join)
 
                 assert_equal([2], dg.adjacent_vertices(1).to_a)
@@ -189,6 +188,26 @@ module Roby
                 a.add_edge(v_a[2], v_a[1], [])
                 assert_equal([Set.new, [[v_b[0], v_b[2]]].to_set, [[v_a[2], v_a[1]]].to_set],
                              a.difference(b, v_a, &mapping.method(:[])))
+            end
+
+            describe "#remove_vertex" do
+                attr_reader :graph, :obj
+                before do
+                    @graph = BidirectionalDirectedAdjacencyGraph.new
+                    @obj   = Object.new
+                end
+                it "returns true if the vertex had out edges" do
+                    graph.add_edge(obj, Object.new, nil)
+                    assert graph.remove_vertex(obj)
+                end
+                it "returns true if the vertex had in edges" do
+                    graph.add_edge(Object.new, obj, nil)
+                    assert graph.remove_vertex(obj)
+                end
+                it "returns false if the vertex had no edges" do
+                    graph.add_vertex(obj)
+                    refute graph.remove_vertex(obj)
+                end
             end
         end
     end

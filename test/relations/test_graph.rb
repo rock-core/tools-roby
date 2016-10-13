@@ -204,8 +204,12 @@ module Roby
             end
 
             describe "#remove_vertex" do
+                attr_reader :graph_m
+                before do
+                    @graph_m = Graph.new_submodel
+                end
+
                 it "notifies the edge removals" do
-                    graph_m = Graph.new_submodel
                     parent, obj, child = (1..3).map { Object.new }
                     observer = flexmock do |f|
                         f.should_receive(:adding_edge)
@@ -219,6 +223,22 @@ module Roby
                     graph.add_edge(parent, obj, nil)
                     graph.add_edge(obj, child, nil)
                     graph.remove_vertex(obj)
+                end
+
+                it "returns true if the vertex had in relations" do
+                    graph = graph_m.new
+                    graph.add_edge(Object.new, obj = Object.new, nil)
+                    assert graph.remove_vertex(obj)
+                end
+                it "returns true if the vertex had out relations" do
+                    graph = graph_m.new
+                    graph.add_edge(obj = Object.new, Object.new, nil)
+                    assert graph.remove_vertex(obj)
+                end
+                it "returns false if the vertex did not have relations" do
+                    graph = graph_m.new
+                    graph.add_vertex(obj = Object.new)
+                    refute graph.remove_vertex(obj)
                 end
             end
 

@@ -218,6 +218,54 @@ module Roby
                 end
             end
         end
+
+        describe "#garbage_task" do
+            attr_reader :task
+            before do
+                plan.add(@task = Tasks::Simple.new)
+                flexmock(plan)
+                flexmock(task)
+            end
+
+            describe "task.can_finalize? => true" do
+                it "removes any signal that has the task as target and removes the task" do
+                    plan.add_permanent_task(source = Tasks::Simple.new)
+                    source.start_event.signals task.stop_event
+                    plan.should_receive(:remove_task).once.
+                        and_return do
+                            assert task.stop_event.parent_objects(EventStructure::Signal).empty?
+                        end
+                    process_events
+                end
+
+                it "emits the garbage_task log event" do
+                    assert_logs_event(:garbage_task, plan.droby_id, task)
+                    process_events
+                end
+            end
+
+            describe "task.can_finalize? => false" do
+                before do
+                    task.should_receive(:can_finalize? => false)
+                end
+                it "emits the garbage_task log event" do
+                    assert_logs_event(:garbage_task, plan.droby_id, task)
+                    process_events
+                end
+                it "removes all non-strong task relations" do
+                    task.should_receive(:clear_relations).with(strong: false).once
+                    process_events
+                end
+                it "removes all task event relations" do
+                    flexmock(task.start_event).should_receive(:clear_relations).with(strong: false).once
+                    process_events
+                end
+                it "does not remove the task from the plan" do
+                    plan.should_receive(:remove_task).never
+                    process_events
+                end
+            end
+        end
     end
 end
 

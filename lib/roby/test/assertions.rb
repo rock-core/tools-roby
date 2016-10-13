@@ -1,6 +1,24 @@
 module Roby
     module Test
         module Assertions
+            def setup
+                @expected_events = Array.new
+                super
+            end
+
+            def teardown
+                @expected_events.each do |m, args|
+                    if !plan.event_logger.has_received_event?(m, *args)
+                        flunk("expected to receive a log event #{m}(#{args.map(&:to_s).join(", ")}) but did not. Received:\n  " +
+                        plan.event_logger.received_events.
+                            find_all { |m, _, args| m.to_s !~ /timegroup/ }.
+                            map { |m, time, args| "#{m}(#{args.map(&:to_s).join(", ")})" }.
+                            join("\n  "))
+                    end
+                end
+                super
+            end
+
             # Capture log output and returns it
             def capture_log(object, level)
                 Roby.disable_colors
@@ -583,6 +601,10 @@ module Roby
                 assert_raises(matcher) do
                     yield
                 end
+            end
+
+            def assert_logs_event(event_name, *args)
+                @expected_events << [event_name, args]
             end
         end
     end

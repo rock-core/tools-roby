@@ -237,7 +237,7 @@ module Roby
                     edge_info_map.delete([parent, v])
                     @vertices_dict[parent][0].delete(v)
                 end
-                return out_edges, in_edges
+                return !out_edges.empty? || !in_edges.empty?
             end
 
             # See MutableGraph::remove_edge.

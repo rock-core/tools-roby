@@ -28,6 +28,18 @@ module Roby
             end
         end
 
+        # Whether this task can be finalized
+        #
+        # Unlike plan-level structure, a task that is marked as keepalive *will*
+        # be processed by garbage collection (e.g. stopping it). However, it
+        # will not be finalized (removed from the plan). The garbage collection
+        # will clear its relations instead of finalizing it
+        #
+        # The default returns true
+        def can_finalize?
+            true
+        end
+
         # Generic handling object for blocks that are stored on tasks (event
         # handlers,poll, ...)
         #

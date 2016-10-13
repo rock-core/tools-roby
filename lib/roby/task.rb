@@ -501,10 +501,14 @@ module Roby
 	def failed?; failed_to_start? || (@success == false) end
 
         # Remove all relations in which +self+ or its event are involved
-	def clear_relations
-            each_event { |ev| ev.clear_relations }
-	    super()
-            self
+	def clear_relations(strong: true)
+            modified_plan = false
+            each_event do |ev|
+                if ev.clear_relations(strong: strong)
+                    modified_plan = true
+                end
+            end
+	    super(strong: strong) || modified_plan
 	end
 
         def invalidated_terminal_flag?; !!@terminal_flag_invalid end

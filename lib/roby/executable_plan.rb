@@ -370,21 +370,52 @@ module Roby
             log(:merged_plan, droby_id, plan)
         end
 
-	# Hook called when a task is marked as garbage
+	# Called to handle a task that should be garbage-collected
+        #
+        # What actually happens to the task is controlled by
+        # {PlanObject#can_finalize?}. If the task can be finalized, it is (i.e.
+        # removed from the plan, after having triggered all relevant log
+        # events/hooks). Otherwise, its relations and the relations of its
+        # events are cleared and the task is left in the plan
+        #
+        # @return [Boolean] true if the plan got modified, and false otherwise.
+        #   In practice, it will return false only for tasks that had no
+        #   relations and that cannot be finalized.
         def garbage_task(task)
-            task.each_event do |ev|
-                for signalling_event in ev.parent_objects(EventStructure::Signal).to_a
-                    signalling_event.remove_signal ev
-                end
-            end
             log(:garbage_task, droby_id, task)
-            remove_task(task)
+            if task.can_finalize?
+                signal_graph = execution_engine.signal_graph
+                task.each_event do |ev|
+                    for signalling_event in signal_graph.in_neighbours(ev).dup
+                        signalling_event.remove_signal ev
+                    end
+                end
+                remove_task(task)
+                true
+            else
+                task.clear_relations(strong: false)
+            end
         end
 
-	# Hook called when an event is marked as garbage
+	# Called to handle a free event that should be garbage-collected
+        #
+        # What actually happens to the event is controlled by
+        # {PlanObject#can_finalize?}. If the event can be finalized, it is (i.e.
+        # removed from the plan, after having triggered all relevant log
+        # events/hooks). Otherwise, its relations are cleared and the task is
+        # left in the plan
+        #
+        # @return [Boolean] true if the plan got modified, and false otherwise.
+        #   In practice, it will return false only for events that had no
+        #   relations and that cannot be finalized.
         def garbage_event(event)
             log(:garbage_event, droby_id, event)
-            remove_free_event(event)
+            if event.can_finalize?
+                remove_free_event(event)
+                true
+            else
+                event.clear_relations(strong: false)
+            end
         end
 
         include Roby::ExceptionHandlingObject

@@ -1659,7 +1659,9 @@ module Roby
                 if local_tasks.all? { |t| t.pending? || t.finished? }
                     local_tasks.each do |t|
                         debug { "GC: #{t} is not running, removed" }
-                        plan.garbage_task(t)
+                        if plan.garbage_task(t)
+                            did_something = true
+                        end
                     end
                     break
                 end
@@ -1695,19 +1697,22 @@ module Roby
                     if local_task.pending?
                         info "GC: removing pending task #{local_task}"
 
-                        plan.garbage_task(local_task)
-                        did_something = true
+                        if plan.garbage_task(local_task)
+                            did_something = true
+                        end
                     elsif local_task.failed_to_start?
                         info "GC: removing task that failed to start #{local_task}"
-                        plan.garbage_task(local_task)
-                        did_something = true
+                        if plan.garbage_task(local_task)
+                            did_something = true
+                        end
                     elsif local_task.starting?
                         # wait for task to be started before killing it
                         debug { "GC: #{local_task} is starting" }
                     elsif local_task.finished?
                         debug { "GC: #{local_task} is not running, removed" }
-                        plan.garbage_task(local_task)
-                        did_something = true
+                        if plan.garbage_task(local_task)
+                            did_something = true
+                        end
                     elsif !local_task.finishing?
                         if local_task.event(:stop).controlable?
                             debug { "GC: queueing #{local_task}/stop" }

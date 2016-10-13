@@ -374,6 +374,7 @@ module Roby
                 removed_relations.each_slice(2) do |parent, child|
                     observer.removed_edge(parent, child, relations_ids)
                 end
+                !removed_relations.empty?
             end
 
             # Remove the relation between +from+ and +to+, in this graph and in its
