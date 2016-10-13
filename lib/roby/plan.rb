@@ -17,11 +17,11 @@ module Roby
 	attr_reader :tasks
 	# The set of events that are defined by #tasks
 	attr_reader :task_events
-        # The list of the robot's missions. Do not change that set directly, use
-        # #add_mission_task and #remove_mission instead.
+        # The set of the robot's missions
+        # @see add_mission_task unmark_mission_task
 	attr_reader :mission_tasks
-	# The list of tasks that are kept outside GC. Do not change that set
-        # directly, use #permanent and #auto instead.
+	# The set of tasks that are kept around "just in case"
+        # @see add_permanent_task unmark_permanent_task
 	attr_reader :permanent_tasks
 	# The list of events that are not included in a task
 	attr_reader :free_events
