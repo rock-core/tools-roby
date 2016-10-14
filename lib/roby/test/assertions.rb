@@ -473,12 +473,25 @@ module Roby
                 end
             end
 
-            def assert_task_fails_to_start(task, matcher, failure_point: task.start_event, original_exception: nil, tasks: [])
-                exception = assert_handled_exception(matcher, failure_point: failure_point, original_exception: original_exception, tasks: tasks + [task], execution_engine: task.execution_engine) do
+            def assert_task_fails_to_start(task, matcher, failure_point: task.start_event, original_exception: nil, tasks: [], direct: false)
+                if direct
+                    matcher = create_exception_matcher(
+                        matcher, original_exception: original_exception,
+                        failure_point: failure_point)
                     yield
+                    assert task.failed_to_start?, "task is not marked as failed to start"
+                    if !(matcher === task.failure_reason)
+                        flunk("the failure reason does not match the expected #{matcher} (#{matcher.describe_failed_match(task.failure_reason)})")
+                    end
+                    task.failure_reason
+                else
+                    exception = assert_handled_exception(matcher, failure_point: failure_point, original_exception: original_exception, tasks: tasks + [task], execution_engine: task.execution_engine) do
+                        yield
+                    end
+                    assert task.failed_to_start?, "task is not marked as failed to start"
+                    assert_equal exception, task.failure_reason, "the expected failure reason is not the caught exception"
+                    exception
                 end
-                assert task.failed_to_start?
-                assert_equal exception, task.failure_reason
             end
 
 
