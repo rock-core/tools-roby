@@ -9,7 +9,8 @@ module Roby
             noinfo: true,
             distribute: false,
             single_child: true,
-            copy_on_replace: true
+            copy_on_replace: true,
+            strong: true
 
         class ExecutedTaskAlreadyRunning < RuntimeError; end
 
