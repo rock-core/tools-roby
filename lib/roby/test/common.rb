@@ -253,7 +253,7 @@ module Roby
                     e = exceptions.first
                     raise e.exception
                 else
-                    raise SynchronousEventProcessingMultipleErrors.new(exceptions)
+                    raise SynchronousEventProcessingMultipleErrors.new(exceptions.map(&:exception))
                 end
             end
 	end
