@@ -274,6 +274,7 @@ module Roby
         def pretty_print(pp)
             pp.text "uncaught exception in the command of the "
             failed_generator.pretty_print(pp)
+            pp.text " (#{self.class})"
         end
     end
     # Raised during event propagation if an event is called, while this event
@@ -298,6 +299,7 @@ module Roby
 	def pretty_print(pp) # :nodoc:
             pp.text "failed emission of the "
             failed_generator.pretty_print(pp)
+            pp.text " (#{self.class})"
 	end
     end
     # Raised when an event handler has raised.
@@ -305,6 +307,7 @@ module Roby
         def pretty_print(pp)
             pp.text "uncaught exception in an event handler of the "
             failed_generator.pretty_print(pp)
+            pp.text " (#{self.class})"
             pp.breakable
             pp.text "called during the propagation of "
             failed_event.pretty_print(pp)
