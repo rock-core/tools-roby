@@ -40,6 +40,18 @@ module Roby
                     description.concat(".without_ruby_exception")
                 end
             end
+
+            def describe_failed_match(exception)
+                if description = super
+                    return description
+                elsif !(ruby_exception_class === exception.error)
+                    if ruby_exception_class
+                        return "the underlying exception #{exception.error} does not match the expected #{ruby_exception_class}"
+                    else
+                        return "there is an underlying exception (#{exception.error}) but the matcher expected none"
+                    end
+                end
+            end
         end
     end
 end

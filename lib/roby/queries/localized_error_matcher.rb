@@ -83,6 +83,41 @@ module Roby
                 original_exception || true
             end
 
+            def describe_failed_match(exception)
+                if !(model === exception)
+                    return "exception model #{exception} does not match #{model}"
+                end
+
+                if original_exception_model
+                    original_exception = exception.original_exceptions.
+                        find { |e| original_exception_model === e }
+                    if !original_exception
+                        if exception.original_exceptions.empty?
+                            return "expected one of the original exceptions to match #{original_exception_model}, but none are registered"
+                        else
+                            return "expected one of the original exceptions to match #{original_exception_model}, but got #{exception.original_exceptions.map(&:to_s).join(", ")}"
+                        end
+                    end
+                end
+
+                if !exception.failed_task
+                    if !(failure_point_matcher === exception.failed_generator)
+                        return "failure point #{exception.failed_generator} does not match #{failure_point_matcher}"
+                    end
+                elsif failure_point_matcher.respond_to?(:task_matcher)
+                    if exception.failed_generator
+                        if !(failure_point_matcher === exception.failed_generator)
+                            return "failure point #{exception.failed_generator} does not match #{failure_point_matcher}"
+                        end
+                    else
+                        return "exception reports no failure generator but was expected to"
+                    end
+                elsif !(failure_point_matcher === exception.failed_task)
+                    return "failure point #{exception.failed_task} does not match #{failure_point_matcher}"
+                end
+                nil
+            end
+
             def to_s
                 description = "#{model}.with_origin(#{failure_point_matcher})"
                 if original_exception_model

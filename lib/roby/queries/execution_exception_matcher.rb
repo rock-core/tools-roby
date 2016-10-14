@@ -59,6 +59,14 @@ module Roby
                     involved_tasks_matchers.all? { |m| exception.trace.any? { |t| m === t } }
             end
 
+            def describe_failed_match(exception)
+                if !(exception_matcher === exception.exception)
+                    return exception_matcher.describe_failed_match(exception.exception)
+                elsif missing_involved_task = involved_tasks_matchers.find { |m| exception.trace.none? { |t| m === t } }
+                    return "#{missing_involved_task} cannot be found in the exception trace\n  #{exception.trace.map(&:to_s).join("\n  ")}"
+                end
+            end
+
             def matches_task?(task)
                 involved_tasks_matchers.all? { |m| m === task } &&
                     exception_matcher.matches_task?(task)

@@ -490,7 +490,8 @@ module Roby
                 error = nil
                 messages = capture_log(plan.execution_engine, :warn) do
                     flexmock(execution_engine).should_receive(:notify_exception).at_least.once.
-                        with(ExecutionEngine::EXCEPTION_FATAL, matcher.to_execution_exception_matcher, tasks.to_set)
+                        with(ExecutionEngine::EXCEPTION_FATAL,
+                             *roby_make_flexmock_exception_matcher(matcher, tasks))
                     error = assert_raises(matcher) do
                         yield
                     end
@@ -512,6 +513,37 @@ module Roby
                 end
             end
 
+            FlexmockExceptionMatcher = Struct.new :matcher do
+                def ===(exception)
+                    if !(matcher === exception)
+                        if description = matcher.describe_failed_match(exception)
+                            raise FlexMock::CheckFailedError, "expected exception to match #{matcher}, but #{description}"
+                        else
+                            return false
+                        end
+                    end
+                    true
+                end
+                def inspect; to_s end
+                def to_s; matcher.to_s; end
+            end
+
+            FlexmockExceptionTasks = Struct.new :tasks do
+                def ===(tasks)
+                    if self.tasks.to_set != tasks
+                        raise FlexMock::CheckFailedError, "involved tasks #{tasks.to_a} do not match expected #{self.tasks.to_a}"
+                    end
+                    true
+                end
+                def inspect; to_s end
+                def to_s; "involved_tasks(#{tasks})" end
+            end
+
+            def roby_make_flexmock_exception_matcher(matcher, tasks)
+                return FlexmockExceptionMatcher.new(matcher.to_execution_exception_matcher),
+                    FlexmockExceptionTasks.new(tasks)
+            end
+
             def assert_handled_exception(matcher, failure_point: Task, original_exception: nil, tasks: [], execution_engine: nil)
                 matcher = create_exception_matcher(
                     matcher, original_exception: original_exception,
@@ -521,11 +553,15 @@ module Roby
 
                 error = nil
                 flexmock(execution_engine).should_receive(:notify_exception).at_least.once.
-                    with(ExecutionEngine::EXCEPTION_HANDLED, matcher.to_execution_exception_matcher, tasks.to_set).
+                    with(ExecutionEngine::EXCEPTION_HANDLED,
+                         *roby_make_flexmock_exception_matcher(matcher, tasks)).
                     and_return do |_, execution_exception, _|
                         error = execution_exception.exception
                     end
                 yield
+                if !error
+                    flunk("expected to notify_exception(:handled, #{matcher}) but got nothing")
+                end
                 error
             end
 
@@ -539,7 +575,8 @@ module Roby
                 error = nil
                 messages = capture_log(plan.execution_engine, :warn) do
                     flexmock(execution_engine).should_receive(:notify_exception).at_least.once.
-                        with(ExecutionEngine::EXCEPTION_NONFATAL, matcher.to_execution_exception_matcher, tasks.to_set)
+                        with(ExecutionEngine::EXCEPTION_NONFATAL,
+                             *roby_make_flexmock_exception_matcher(matcher, tasks))
                     error = assert_raises(matcher) do
                         yield
                     end
@@ -563,7 +600,8 @@ module Roby
 
             def assert_notifies_free_event_exception(error, failure_point: nil)
                 flexmock(execution_engine).should_receive(:notify_exception).
-                    with(ExecutionEngine::EXCEPTION_FREE_EVENT, error.to_execution_exception_matcher, ->(generators) { generators.to_a == [failure_point] }).
+                    with(ExecutionEngine::EXCEPTION_FREE_EVENT,
+                         *roby_make_flexmock_exception_matcher(matcher, tasks)).
                     once
             end
 
@@ -574,7 +612,8 @@ module Roby
                 execution_engine = exception_assertion_guess_execution_engine(
                     execution_engine, failure_point, [])
                 flexmock(execution_engine).should_receive(:notify_exception).
-                    with(ExecutionEngine::EXCEPTION_FREE_EVENT, matcher.to_execution_exception_matcher, Set[failure_point]).
+                    with(ExecutionEngine::EXCEPTION_FREE_EVENT,
+                         *roby_make_flexmock_exception_matcher(matcher, tasks)).
                     once
 
                 error = nil
