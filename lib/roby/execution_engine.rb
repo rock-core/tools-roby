@@ -363,8 +363,14 @@ module Roby
                        end
 
             while waiting_work.any? { |w| !w.unscheduled? }
-                process_waiting_work
-                execute_once_blocks_synchronous
+                process_events_synchronous do
+                    process_waiting_work
+                    blocks = Array.new
+                    while !once_blocks.empty?
+                        blocks << once_blocks.pop.last
+                    end
+                    call_poll_blocks(blocks)
+                end
                 Thread.pass
                 if deadline && (Time.now > deadline)
                     raise Timeout::Error, "timed out in #join_all_waiting_work, remaining pending work is #{waiting_work.map(&:to_s).join(", ")}"
@@ -517,9 +523,14 @@ module Roby
             end
         end
 
-        # If called in execution context, adds the plan-based error +e+ to be
-        # handled later in the execution cycle. Otherwise, calls
-        # #add_framework_error
+        # Register a LocalizedError for future propagation
+        #
+        # This method must be called in a error-gathering context (i.e.
+        # {#gather_error}.
+        #
+        # @param [#to_execution_exception] e the exception
+        # @raise [NotPropagationContext] raised if called outside
+        #   {#gather_error}
         def add_error(e)
             plan_exception = e.to_execution_exception
             if @additional_errors
@@ -529,23 +540,36 @@ module Roby
             elsif @propagation_exceptions
                 @propagation_exceptions << plan_exception
             else
-                process_events_synchronous([], [plan_exception])
+                raise NotPropagationContext, "#add_error called outside an error-gathering context (#add_error)"
             end
         end
 
-        # Yields to the block, calling #add_framework_error if an exception is
-        # raised 
-        def gather_framework_errors(source)
+        # Yields to the block and registers any raised exception using
+        # {#add_framework_error}
+        #
+        # If the method is called within an exception-gathering context (either
+        # {#process_events} or {#gather_framework_errors} itself), nothing else
+        # is done. Otherwise, {#process_pending_application_exceptions} is
+        # called to re-raise any caught exception
+        def gather_framework_errors(source, raise_caught_exceptions: true)
             if @application_exceptions
-                has_application_errors = true
+                recursive_error_gathering_context = true
             else
                 @application_exceptions = []
             end
+
             yield
+
+            if !recursive_error_gathering_context && !raise_caught_exceptions
+                clear_application_exceptions
+            end
         rescue Exception => e
             add_framework_error(e, source)
+            if !recursive_error_gathering_context && !raise_caught_exceptions
+                clear_application_exceptions
+            end
         ensure
-            if !has_application_errors
+            if !recursive_error_gathering_context && raise_caught_exceptions
                 process_pending_application_exceptions
             end
         end
@@ -567,15 +591,21 @@ module Roby
             end
         end
 
-        # If called in execution context, adds the framework error +error+ to be
-        # handled later in the execution cycle. Otherwise, either raises the
-        # error again if Application#abort_on_application_exception is true. IF
-        # abort_on_application_exception is false, simply displays a warning
+        # Registers the given error and a description of its source in the list
+        # of application/framework errors
+        #
+        # It must be called within an exception-gathering context, that is
+        # either within {#process_events}, or within {#gather_framework_errors}
+        #
+        # These errors will terminate the event loop
+        #
+        # @param [Exception] error
+        # @param [Object] source
         def add_framework_error(error, source)
             if @application_exceptions
                 @application_exceptions << [error, source]
             else
-                process_pending_application_exceptions([[error, source]])
+                raise NotPropagationContext, "#add_framework_error called outside an exception-gathering context"
             end
         end
 
@@ -692,16 +722,6 @@ module Roby
                 else
                     propagation_handlers << block
                 end
-            end
-        end
-
-        def execute_once_blocks_synchronous
-            blocks = Array.new
-            while !once_blocks.empty?
-                blocks << once_blocks.pop.last
-            end
-            process_events_synchronous do
-                call_poll_blocks(blocks)
             end
         end
 
@@ -1289,6 +1309,10 @@ module Roby
         # down.
         attr_reader :application_exceptions
         def clear_application_exceptions
+            if !@application_exceptions
+                raise RecursivePropagationContext, "unbalanced call to #clear_application_exceptions"
+            end
+
             result, @application_exceptions = @application_exceptions, nil
             result
         end
@@ -1449,6 +1473,10 @@ module Roby
         #
         # This exception is thrown if such a recursive call is detected
         class RecursivePropagationContext < RuntimeError; end
+
+        # Some methods require to be called within a gather_* block. This
+        # exception is raised when they're called outside of it
+        class NotPropagationContext < RuntimeError; end
         
         # The inside part of the event loop
         #
@@ -1461,8 +1489,8 @@ module Roby
             if @application_exceptions
                 raise RecursivePropagationContext, "recursive call to process_events"
             end
+            passed_recursive_check = true # to avoid having a almost-method-global ensure block
             @application_exceptions = []
-
             @emitted_events = Array.new
 
             # Gather new events and propagate them
@@ -1481,16 +1509,15 @@ module Roby
             end
 
             all_errors = propagate_events_and_errors(next_steps, events_errors, garbage_collect_pass: garbage_collect_pass)
-            process_pending_application_exceptions
-
             if Roby.app.abort_on_exception? && !all_errors.fatal_errors.empty?
                 reraise(all_errors.fatal_errors.keys)
             end
-
             all_errors
 
         ensure
-            clear_application_exceptions
+            if passed_recursive_check
+                process_pending_application_exceptions
+            end
         end
 
         # Tests are using a special mode for propagation, in which everything is
@@ -1506,6 +1533,12 @@ module Roby
         # SynchronousEventProcessingMultipleErrors to wrap all the exceptions
         # into one.
         def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new, enable_scheduler: false, raise_errors: true)
+            if @application_exceptions
+                raise RecursivePropagationContext, "recursive call to process_events"
+            end
+            passed_recursive_check = true # to avoid having a almost-method-global ensure block
+            @application_exceptions = []
+
             # Save early for the benefit of the 'ensure' block
             current_scheduler_enabled = scheduler.enabled?
 
@@ -1523,12 +1556,14 @@ module Roby
 
             all_errors = propagate_events_and_errors(seeds, initial_errors, garbage_collect_pass: false)
             if !all_errors.kill_tasks.empty?
-                garbage_collect_errors = process_events_synchronous(
-                    enable_scheduler: enable_scheduler, raise_errors: false) do
+                gc_initial_errors = nil
+                gc_seeds = gather_propagation do
+                    gc_initial_errors = gather_errors do
                         garbage_collect(all_errors.kill_tasks)
                     end
-
-                all_errors.merge(garbage_collect_errors)
+                end
+                gc_errors = propagate_events_and_errors(gc_seeds, gc_initial_errors, garbage_collect_pass: false)
+                all_errors.merge(gc_errors)
             end
 
             if raise_errors
@@ -1541,7 +1576,21 @@ module Roby
             else
                 all_errors
             end
+
+        rescue SynchronousEventProcessingMultipleErrors => e
+            raise SynchronousEventProcessingMultipleErrors.new(e.errors + clear_application_exceptions)
+
+        rescue Exception => e
+            application_exceptions = clear_application_exceptions
+            if !application_exceptions.empty?
+                raise SynchronousEventProcessingMultipleErrors.new(application_exceptions + [e])
+            else raise e
+            end
+
         ensure
+            if @application_exceptions
+                process_pending_application_exceptions
+            end
             scheduler.enabled = current_scheduler_enabled
         end
 
@@ -2178,10 +2227,6 @@ module Roby
 
             plan.transactions.each do |trsc|
                 trsc.discard_transaction!
-            end
-
-            if application_exceptions = clear_application_exceptions
-                process_pending_application_exceptions(application_exceptions)
             end
 
             start_new_cycle
