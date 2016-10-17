@@ -19,19 +19,28 @@ module Roby
                 super
             end
 
-            # Capture log output and returns it
+            # Capture log output from one logger and returns it
+            #
+            # Note that it currently does not "de-shares" loggers
+            #
+            # @param [Logger,#logger] a logger object, or an object that holds
+            #   one
+            # @param [Symbol] level the name of the logging method (e.g. :warn)
+            # @return [Array<String>]
             def capture_log(object, level)
                 Roby.disable_colors
 
                 capture = Array.new
                 if object.respond_to?(:logger)
-                    object = object.logger
+                    object_logger = object.logger
+                else
+                    object_logger = object
                 end
 
-                original_level = object.level
+                original_level = object_logger.level
                 level_value = Logger.const_get(level.upcase)
                 if original_level > level_value
-                    object.level = level_value
+                    object_logger.level = level_value
                 end
 
                 FlexMock.use(object) do |mock|
@@ -52,7 +61,7 @@ module Roby
                 capture
             ensure
                 Roby.enable_colors_if_available
-                object.level = original_level
+                object_logger.level = original_level
             end
 
             # Asserts that a block will add a LocalizedError to be processed
@@ -500,6 +509,10 @@ module Roby
                     matcher, original_exception: original_exception,
                     failure_point: failure_point)
 
+                tasks.each do |t|
+                    flexmock(execution_engine).should_receive(:log_pp).with(:warn, t).once
+                end
+
                 error = nil
                 messages = capture_log(plan.execution_engine, :warn) do
                     flexmock(execution_engine).should_receive(:notify_exception).at_least.once.
@@ -510,8 +523,6 @@ module Roby
                     end
                 end
                 assert_equal "1 unhandled fatal exceptions, involving #{tasks.size} tasks that will be forcefully killed", messages[0]
-                task_messages = tasks.flat_map { |t| PP.pp(t, '').chomp.split("\n") }.to_set
-                assert_equal task_messages, messages[1..-1].to_set
                 error
             end
 

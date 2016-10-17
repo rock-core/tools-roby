@@ -865,11 +865,8 @@ module Roby
                 fatal_errors.each do |exception, tasks|
                     notify_exception(EXCEPTION_FATAL, exception, tasks)
                 end
-                warn do
-                    kill_tasks.each do |task|
-                        log_pp :warn, task
-                    end
-                    break
+                kill_tasks.each do |task|
+                    log_pp :warn, task
                 end
             end
         end
@@ -1431,6 +1428,11 @@ module Roby
                     garbage_collect([])
                 end
             end
+        end
+
+        # Whether this EE has asynchronous waiting work waiting to be processed
+        def has_waiting_work?
+            !waiting_work.empty?
         end
 
         # Process asynchronous work registered in {#waiting_work} to clear

@@ -237,15 +237,22 @@ module Roby
 	end
         
 	# Process pending events
-	def process_events(timeout: 5, raise_errors: true, garbage_collect_pass: true)
+	def process_events(timeout: 2, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true)
             exceptions = Array.new
             registered_plans.each do |p|
                 engine = p.execution_engine
-                engine.join_all_waiting_work(timeout: timeout)
-                engine.start_new_cycle
-                errors = engine.process_events(garbage_collect_pass: garbage_collect_pass)
-                exceptions.concat(errors.exceptions)
-                engine.cycle_end(Hash.new)
+
+                first_pass = true
+                while first_pass || (engine.has_waiting_work? && join_all_waiting_work)
+                    first_pass = false
+                    if join_all_waiting_work
+                        engine.join_all_waiting_work(timeout: timeout)
+                    end
+                    engine.start_new_cycle
+                    errors = engine.process_events(garbage_collect_pass: garbage_collect_pass)
+                    exceptions.concat(errors.exceptions)
+                    engine.cycle_end(Hash.new)
+                end
             end
 
             if raise_errors && !exceptions.empty?
