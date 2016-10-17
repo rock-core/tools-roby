@@ -304,21 +304,37 @@ module Roby
         message.split("\n")
     end
 
-    def self.log_pp(obj, logger, level)
-        if logger.respond_to?(:logger)
-            logger = logger.logger
-        end
+    LOG_SYMBOLIC_TO_NUMERIC = Array[
+        :debug,
+        :info,
+        :warn,
+        :error,
+        :fatal,
+        :unknown]
 
-        logger.send(level) do
-            first_line = true
-            format_exception(obj).each do |line|
-                if first_line
-                    line = color(line, :bold, :red)
-                    first_line = false
-                end
-                logger.send(level, line)
+    def self.log_level_enabled?(logger, level)
+        logger_level = if logger.respond_to?(:log_level)
+                           logger.log_level
+                       else logger.level
+                       end
+
+        if numeric_level = LOG_SYMBOLIC_TO_NUMERIC.index(level.to_sym)
+            logger_level <= numeric_level
+        else
+            raise ArgumentError, "#{level} is not a valid log level, log levels are #{LOG_SYMBOLIC_TO_NUMERIC.map(&:inspect).join(", ")}"
+        end
+    end
+
+    def self.log_pp(obj, logger, level)
+        return if !log_level_enabled?(logger, level)
+
+        first_line = true
+        format_exception(obj).each do |line|
+            if first_line
+                line = color(line, :bold, :red)
+                first_line = false
             end
-            break
+            logger.send(level, line)
         end
     end
 
