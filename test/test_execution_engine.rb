@@ -605,17 +605,24 @@ class TC_ExecutionEngine < Minitest::Test
 	end
     end
 
-    def test_add_framework_errors
-	# Shut up the logger in this test
-	exception = begin; raise RuntimeError
-		    rescue; $!
-		    end
+    describe "#add_framework_error" do
+        it "raises NotPropagationContext if called outside of a gathering context" do
+            assert_raises(Roby::ExecutionEngine::NotPropagationContext) do
+                execution_engine.add_framework_error(RuntimeError.exception("test"), :exceptions)
+            end
+        end
 
-	Roby.app.abort_on_application_exception = false
-	execution_engine.add_framework_error(exception, :exceptions)
-
-	Roby.app.abort_on_application_exception = true
-	assert_raises(RuntimeError) { execution_engine.add_framework_error(exception, :exceptions) }
+        it "registers the exception in the application exceptions set" do
+            expected_error = Class.new(RuntimeError).exception("test error message")
+            errors = execution_engine.gather_framework_errors("test", raise_caught_exceptions: false) do
+                execution_engine.add_framework_error(expected_error, :exceptions) 
+            end
+            assert_equal 1, errors.size
+            error, context = errors.first
+            assert_equal :exceptions, context
+            assert_kind_of expected_error.class, error
+            assert_equal "test error message", error.message
+        end
     end
 
     def test_event_loop

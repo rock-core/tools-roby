@@ -2176,13 +2176,11 @@ module Roby
 
 	# Called at each cycle end
 	def cycle_end(stats)
-	    at_cycle_end_handlers.each do |handler|
-		begin
-		    handler.call(self)
-		rescue Exception => e
-		    add_framework_error(e, "during cycle end handler #{handler}")
-		end
-	    end
+            gather_framework_errors('#cycle_end') do
+                at_cycle_end_handlers.each do |handler|
+                    handler.call(self)
+                end
+            end
 	end
 
         # Block until the given block is executed by the execution thread, at

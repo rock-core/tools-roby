@@ -2721,14 +2721,6 @@ class TC_Task < Minitest::Test
         assert(task.event(:terminal).terminal?)
     end
 
-    def test_add_error_propagates_it_using_process_events_synchronous
-        error_m = Class.new(LocalizedError)
-        error = error_m.new(Roby::Task.new)
-        error = error.to_execution_exception
-        flexmock(execution_engine).should_receive(:process_events_synchronous).with([], [error]).once
-        execution_engine.add_error(error)
-    end
-
     def test_unreachable_handlers_are_called_after_on_stop
         task_m = Roby::Task.new_submodel do
             terminates

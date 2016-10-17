@@ -449,6 +449,7 @@ module Roby
                 if failure_point
                     matcher.with_origin(failure_point)
                 end
+                matcher
             end
 
 
@@ -668,6 +669,25 @@ module Roby
 
             def assert_logs_event(event_name, *args)
                 @expected_events << [event_name, args]
+            end
+
+            def assert_adds_error(matcher, original_exception: nil, failure_point: PlanObject)
+                matcher = create_exception_matcher(
+                    matcher, original_exception: original_exception,
+                    failure_point: failure_point)
+                caught_error = nil
+                FlexMock.use(execution_engine) do |mock|
+                    mock.should_receive(:add_error).with(matcher, any).
+                        once.
+                        and_return { |error, *_| caught_error = error }
+                    yield
+                end
+                caught_error
+            end
+
+            def assert_adds_framework_error(matcher)
+                flexmock(execution_engine).should_receive(:add_framework_error).with(matcher, any).once
+                yield
             end
         end
     end
