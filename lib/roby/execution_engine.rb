@@ -356,6 +356,23 @@ module Roby
             nil
         end
 
+        class JoinAllWaitingWorkTimeout < RuntimeError
+            attr_reader :waiting_work
+            def initialize(waiting_work)
+                @waiting_work = waiting_work
+            end
+
+            def pretty_print(pp)
+                pp.text "timed out in #join_all_waiting_work, #{waiting_work.size} promises waiting"
+                waiting_work.each do |w|
+                    pp.breakable
+                    pp.nest(2) do
+                        w.pretty_print(pp)
+                    end
+                end
+            end
+        end
+
         # Waits for all obligations in {#waiting_work} to finish
         def join_all_waiting_work(timeout: nil)
             deadline = if timeout
@@ -373,7 +390,7 @@ module Roby
                 end
                 Thread.pass
                 if deadline && (Time.now > deadline)
-                    raise Timeout::Error, "timed out in #join_all_waiting_work, remaining pending work is #{waiting_work.map(&:to_s).join(", ")}"
+                    raise JoinAllWaitingWorkTimeout.new(waiting_work)
                 end
             end
         end

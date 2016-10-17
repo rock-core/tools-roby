@@ -40,6 +40,18 @@ module Roby
             "#<Roby::Promise #{description}>"
         end
 
+        def pretty_print(pp)
+            description = self.description.split(/\.on_/)
+            pp.text "Roby::Promise(#{description[0]}"
+            description[1..-1].each do |on_handler|
+                pp.nest(2) do
+                    pp.breakable
+                    pp.text ".on_#{on_handler}"
+                end
+            end
+            pp.text ")"
+        end
+
         # Whether this promise can have children
         #
         # Error handlers (created with {#on_error}) are final by default
