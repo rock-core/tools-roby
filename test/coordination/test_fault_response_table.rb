@@ -100,6 +100,46 @@ describe Roby::Coordination::FaultResponseTable do
             parent.test_child.start!
         end
     end
+
+    describe "the fault response" do
+        attr_reader :error_m, :response_task_m, :table_m, :fault_handler_m
+        attr_reader :root_task
+        before do
+            @error_m = Class.new(Roby::LocalizedError)
+            @response_task_m = response_task_m = Roby::Task.new_submodel do
+                terminates
+            end
+            @table_m = Roby::Coordination::FaultResponseTable.new_submodel
+            @fault_handler_m = table_m.on_fault error_m do
+                locate_on_origin
+                response = task(response_task_m)
+                execute response
+            end
+
+            plan.use_fault_response_table(table_m)
+            plan.add_permanent_task(@root_task = Roby::Tasks::Simple.new)
+        end
+
+        it "registers a fault response task and starts it" do
+            root_task.start!
+            execution_engine.process_events_synchronous do
+                execution_engine.add_error(error_m.new(root_task))
+            end
+            fault_handling_task = root_task.each_error_handler.to_a.first.first
+            assert_kind_of Roby::Coordination::FaultHandlingTask, fault_handling_task
+            assert_equal fault_handler_m, fault_handling_task.fault_handler
+            assert fault_handling_task.running?
+        end
+
+        it "inhibits the localized error that caused it to trigger" do
+            root_task.start!
+            execution_engine.process_events_synchronous do
+                execution_engine.add_error(error_m.new(root_task))
+            end
+            assert execution_engine.inhibited_exception?(error_m.new(root_task))
+        end
+    end
+
 end
 
 

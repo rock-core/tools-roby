@@ -1295,6 +1295,11 @@ module Roby
             return unhandled
         end
 
+        # Query whether the given exception is inhibited in this plan
+        def inhibited_exception?(exception)
+            remove_inhibited_exceptions([exception.to_execution_exception]).empty?
+        end
+
         # Schedules +block+ to be called at the beginning of the next execution
         # cycle, in propagation context.
         #
