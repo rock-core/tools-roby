@@ -1270,7 +1270,7 @@ module Roby
                 master = EventGenerator.new { master.achieve_with(slave) { raise } }
                 plan.add(master)
                 master.call
-                assert_free_event_exception EmissionFailed, failure_point: master, original_exception: any do
+                assert_free_event_exception EmissionFailed, failure_point: master, original_exception: any, event_generators: [master] do
                     slave.emit
                 end
                 refute master.emitted?
@@ -1283,7 +1283,7 @@ module Roby
                 end
                 plan.add(master)
                 master.call
-                assert_free_event_exception EmissionFailed, failure_point: master, original_exception:error_e do
+                assert_free_event_exception EmissionFailed, failure_point: master, original_exception: error_e, event_generators: [master] do
                     slave.emit
                 end
             end
