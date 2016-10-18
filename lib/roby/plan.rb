@@ -934,21 +934,39 @@ module Roby
             end
 	end
 
+        # @api private
+        #
+        # A trigger created by {Plan#add_trigger}
         class Trigger
-            attr_reader :query, :block
+            # The query that is being watched
+            attr_reader :query
+            # The block that will be called if {#query} matches
+            attr_reader :block
+
             def initialize(query, block)
                 @query = query.query
                 @block = block
             end
 
+            # Whether self would be triggering on task
+            #
+            # @param [Roby::Task] task
+            # @return [Boolean]
             def ===(task)
                 query === task
             end
+
+            # Lists the tasks that match the query
+            #
+            # @param [Plan] plan
+            # @yieldparam [Roby::Task] task tasks that match {#query}
             def each(plan, &block)
                 query.plan = plan
                 query.reset
                 query.each(&block)
             end
+
+            # Call the trigger's observer for the given task
             def call(task)
                 block.call(task)
             end

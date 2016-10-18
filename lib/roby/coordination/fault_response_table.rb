@@ -11,8 +11,15 @@ module Roby
         #     end
         #   end
         #
-        # Where the content of a fault handler is an {Coordination::ActionScript} with the
-        # following additional statements:
+        # The fault response description is [an action
+        # script]({Coordination::ActionScript}). It is represented by a
+        # {FaultHandlingTask} that is added when a fault response triggers.
+        #
+        # When a {#on_fault} declaration matches an exception, the table will
+        # create a {FaultHandlingTask} task and attach it to a task in the plan.
+        # The task it attaches it to depends on statements that extend the
+        # action script:
+        #
         #  * locate_on_missions: the fault response will be assigned to the
         #    downmost missions which are affected by the fault.
         #  * locate_on_actions:  the fault response will be assigned to the
@@ -20,15 +27,22 @@ module Roby
         #    default.
         #  * locate_on_origins: the fault response will be assigned to the fault
         #    origin
-        #  * restart: if specified, the action, mission or task that was
-        #    assigned to the fault handler will be restarted once the fault
-        #    handler script terminates. It can optionally be given a number of
-        #    allowed restarts (to avoid infinite loops) as well as a timeout (to
-        #    reset the counter if the fault did not occur for a certain length
-        #    of time)
         #
-        # And can then be attached to running plans through the action
-        # interface:
+        # The task on which the fault response is attached is stopped. The
+        # exception that caused the response is inhibited while the response is
+        # running.
+        #
+        # By default, once the fault response is finished, the plan will resume
+        # normal exception processing. I.e., it is the fault response's
+        # responsibility to fix the exception(s) in the plan. This default can
+        # be changed by adding the 'restart' statement in the action script. In
+        # this case, the mission or task that was assigned to the fault handler
+        # will be restarted once the fault handler script terminates. It can
+        # optionally be given a number of allowed restarts (to avoid infinite
+        # loops) as well as a timeout (to reset the counter if the fault did not
+        # occur for a certain length of time)
+        #
+        # And can then be attached to plans within an action interface:
         #  
         # @example enable a fault response table globally
         #   use_fault_response_table MyTable

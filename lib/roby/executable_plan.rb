@@ -88,6 +88,12 @@ module Roby
             log :register_executable_plan, droby_id
         end
 
+        # @api private
+        #
+        # Default toplevel error handling for {LocalizedError}
+        #
+        # It activates fault handlers, and adds {MissionFailedError} /
+        # {PermanentTaskError}
         def default_localized_error_handling(error)
             matching_handlers = Array.new
             active_fault_response_tables.each do |table|
