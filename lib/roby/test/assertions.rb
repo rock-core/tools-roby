@@ -119,6 +119,7 @@ module Roby
                         flunk(ivar.reason)
                     end
                 end
+                ivar.value
 
             ensure
                 plan.execution_engine.scheduler.enabled = old_scheduler
@@ -354,11 +355,11 @@ module Roby
                     return nil, "timed out waiting for #{positive.map(&:to_s).join(", ")} to happen"
                 end
                 if positive_ev = positive.find { |ev| ev.emitted? }
-                    return "#{positive_ev} happened", nil
+                    return positive_ev.last, nil
                 end
                 failure = negative.find_all { |ev| ev.emitted? }
                 if !failure.empty?
-                    return "#{failure} happened", nil
+                    return nil, "#{failure} happened"
                 end
                 if positive.all? { |ev| ev.unreachable? }
                     return nil, "all positive events are unreachable"
