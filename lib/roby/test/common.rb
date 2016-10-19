@@ -276,14 +276,19 @@ module Roby
             end
 	end
 
-        def process_events_until(timeout = 5)
+        # Repeatedly process events until a condition is met
+        #
+        # @yieldreturn [Boolean] true if the condition is met, false otherwise
+        def process_events_until(timeout: 5, **options)
             start = Time.now
             while !yield
-                process_events
-                Thread.pass
-                if Time.now - start > timeout
-                    flunk("failed to reach expected condition")
+                now = Time.now
+                remaining = timeout - (now - start)
+                if remaining < 0
+                    flunk("failed to reach expected condition within #{timeout} seconds")
                 end
+                process_events(timeout: remaining, **options)
+                sleep 0.01
             end
         end
 
