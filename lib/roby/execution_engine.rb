@@ -379,9 +379,10 @@ module Roby
                            Time.now + timeout
                        end
 
+            finished = Array.new
             while waiting_work.any? { |w| !w.unscheduled? }
                 process_events_synchronous do
-                    process_waiting_work
+                    finished.concat(process_waiting_work)
                     blocks = Array.new
                     while !once_blocks.empty?
                         blocks << once_blocks.pop.last
@@ -393,6 +394,7 @@ module Roby
                     raise JoinAllWaitingWorkTimeout.new(waiting_work)
                 end
             end
+            finished
         end
 
         # The scheduler is the object which handles non-generic parts of the
@@ -1449,7 +1451,7 @@ module Roby
             end
 
             finished.find_all do |work|
-                work.rejected? && (work.respond_to?(:has_rejection_handled?) && !work.has_rejection_handled?)
+                work.rejected? && (work.respond_to?(:has_error_handler?) && !work.has_error_handler?)
             end.each do |work|
                 e = work.reason
                 e.set_backtrace(e.backtrace + caller)
@@ -1457,6 +1459,7 @@ module Roby
             end
 
             @waiting_work = not_finished
+            finished
         end
 
         # Gathering of all the errors that happened during an event processing
@@ -2350,8 +2353,7 @@ module Roby
         # callbacks added with #on_success or #rescue will be executed in the
         # execution engine thread by default.
         def promise(description: nil, executor: thread_pool, &block)
-            promise = Concurrent::Promise.new(executor: executor, &block)
-            Promise.new(self, promise, description: description)
+            Promise.new(self, executor: thread_pool, description: description, &block)
         end
     end
 

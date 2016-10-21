@@ -7,33 +7,102 @@ module Roby
     # {#on_success} and {#rescue} gain an in_engine argument, which decides
     # whether the given block should be executed by the underlying execution
     # engine's or not. It is true by default. Note that {#then} is not overriden
+    #
+    # This promise implementation has no graph capabilities. The execution must
+    # be a pipeline, and a whole pipeline is represented by a single Promise.
+    # State predicates such as #fulfilled? or #rejected? are valid for the whole
+    # pipeline. There is no way to handle errors for only parts of the pipeline.
     class Promise
-        # Exception raised when attempting to add a child to a promise that
-        # already has one
-        class AlreadyHasChild < RuntimeError; end
-
-        # Exception raised when attempting to add a child to a final promise
-        class Final < RuntimeError; end
+        class AlreadyHasErrorHandler < RuntimeError; end
+        class NotComplete < RuntimeError; end
 
         # The execution engine we execute on
         attr_reader :execution_engine
-        # The actual Promise object from concurrent-ruby
+        # The Promise object from concurrent-ruby that handles the nominal part
+        # of the execution
         attr_reader :promise
         # A description text for debugging purposes
         attr_reader :description
-        # This promise's parent
-        attr_reader :parent
+        # The pipeline itself
+        #
+        # @return [Array<PipelineElement>]
+        attr_reader :pipeline
 
-        def initialize(execution_engine, promise, description: nil, final: false, parent: nil)
+        def initialize(execution_engine, executor: execution_engine.thread_pool, description: nil, &block)
             @execution_engine = execution_engine
             execution_engine.waiting_work << self
-            @promise = promise
             @description = description
 
-            @final = final
-            @parent     = parent
-            @on_success = nil
-            @on_error   = nil
+            @pipeline = Array.new
+            @promise = Concurrent::Promise.new(executor: executor, &method(:run_pipeline))
+            if block
+                self.then(&block)
+            end
+        end
+
+        # Representation of one element in the pipeline
+        PipelineElement = Struct.new :description, :run_in_engine, :callback
+
+        # @api private
+        #
+        # Internal implementation of the pipeline. This holds a thread until it
+        # is finished - there's no point in giving the thread back between the
+        # steps in the pipeline, given how the promises are used in Roby (to
+        # avoid freezing due to blocking calls)
+        def run_pipeline(*state)
+            pipeline = self.pipeline.dup
+            on_error = @on_error
+            begin
+                while !pipeline.empty?
+                    state = run_pipeline_elements(pipeline, state, false)
+                    if !pipeline.empty?
+                        execution_engine.execute(type: :propagation) do
+                            state = run_pipeline_elements(pipeline, state, true)
+                        end
+                    end
+                end
+                state
+            rescue Exception => exception
+                if on_error
+                    if on_error.run_in_engine
+                        execution_engine.execute(type: :propagation) do
+                            on_error.callback.call(exception)
+                        end
+                    else
+                        on_error.callback.call(exception)
+                    end
+                end
+                raise Failure.new(exception)
+            end
+        end
+
+        # @api private
+        #
+        # Encapsulation of an exception raised by a callback
+        #
+        # For whatever reason, the concurrent-ruby developers decided that a
+        # non-RuntimeError would be fatal to the promise (not be handled
+        # "normally").
+        #
+        # Roby never had such a constraint, so that's dangerous here.
+        # Encapsulate an exception in Failure to pass it out of the
+        # concurrent-ruby promise.
+        class Failure < RuntimeError
+            attr_reader :actual_exception
+            def initialize(error)
+                @actual_exception = error
+            end
+        end
+
+        # @api private
+        #
+        # Helper method for {#run_pipeline}
+        def run_pipeline_elements(pipeline, state, in_engine)
+            while (element = pipeline.first) && !(in_engine ^ element.run_in_engine)
+                pipeline.shift
+                state = element.callback.call(state)
+            end
+            state
         end
 
         def to_s
@@ -41,30 +110,26 @@ module Roby
         end
 
         def pretty_print(pp)
-            description = self.description.split(/\.on_/)
-            pp.text "Roby::Promise(#{description[0]}"
-            description[1..-1].each do |on_handler|
+            description = self.description
+            pp.text "Roby::Promise(#{description})"
+            pipeline.each do |element|
                 pp.nest(2) do
+                    pp.text "."
                     pp.breakable
-                    pp.text ".on_#{on_handler}"
+                    if element.run_in_engine
+                        pp.text "on_success(#{element.description})"
+                    else
+                        pp.text "then(#{element.description})"
+                    end
                 end
             end
-            pp.text ")"
-        end
-
-        # Whether this promise can have children
-        #
-        # Error handlers (created with {#on_error}) are final by default
-        def final?
-            @final
-        end
-
-        # Whether self already has a success handler
-        #
-        # Unlike {Concurrent::Promise}, {Roby::Promise} only allows to build
-        # pipelines, i.e. a promise can have only one success handler
-        def has_success_handler?
-            !!@on_success
+            if @on_error
+                pp.nest(2) do
+                    pp.text "."
+                    pp.breakable
+                    pp.text "on_error(#{@on_error.description}, in_engine: #{@on_error.run_in_engine})"
+                end
+            end
         end
 
         # Whether self already has an error handler
@@ -75,53 +140,15 @@ module Roby
             !!@on_error
         end
 
-        # True if self or one of its downstream promises have an error handler
-        def would_handle_rejections?
-            @on_error ||
-                (@on_success && @on_success.would_handle_rejections?)
-        end
-
-        # Whether this promise's {#reason} has been handled by an error handler
-        def has_rejection_handled?
-            if would_handle_rejections?
-                return true
-            end
-
-            p = @parent
-            r = reason
-            while p
-                if p.rejected? && p.reason == r && p.has_error_handler?
-                    return true
-                end
-                p = p.parent
-            end
-            false
-        end
-
         # Schedule execution of a block on the success of self
         #
         # @param [String] description a textual description useful for debugging
         # @param [Boolean] in_engine whether the block should be executed within
         #   the underlying {ExecutionEngine}, a.k.a. in the main thread, or
         #   scheduled in a separate thread.
-        def on_success(description: nil, in_engine: true)
-            if final?
-                raise Final, "#{self} is final, cannot chain it"
-            elsif has_success_handler?
-                raise AlreadyHasChild, "#{self} already has a success handler, Roby::Promise can only be used to build pipelines"
-            end
-
-            if in_engine
-                child = promise.on_success do |*args|
-                    execution_engine.execute(type: :propagation) do
-                        yield(*args)
-                    end
-                end
-            else
-                child = promise.on_success(&proc)
-            end
-            @on_success = Promise.new(execution_engine, child, parent: self,
-                                      description: "#{self.description}.on_success(#{description})")
+        def on_success(description: nil, in_engine: true, &block)
+            pipeline << PipelineElement.new(description, in_engine, block)
+            self
         end
 
         # Schedule execution of a block if self or one of its parents failed
@@ -132,24 +159,12 @@ module Roby
         #   scheduled in a separate thread.
         # @yieldparam [Object] reason the exception that caused the failure,
         #   usually an exception that was raised by one of the promise blocks.
-        def on_error(description: nil, in_engine: true)
-            if final?
-                raise Final, "#{self} is final, cannot chain it"
-            elsif has_error_handler?
-                raise AlreadyHasChild, "#{self} already has an error handler, Roby::Promise supports only one error handler per element in the pipeline"
+        def on_error(description: nil, in_engine: true, &block)
+            if has_error_handler?
+                raise AlreadyHasErrorHandler, "Roby::Promise can have only one error handler"
             end
-
-            if in_engine
-                child = promise.on_error do |*args|
-                    execution_engine.execute(type: :propagation) do
-                        yield(*args)
-                    end
-                end
-            else
-                child = promise.rescue(&proc)
-            end
-            @on_error = Promise.new(execution_engine, child, final: true, parent: self,
-                                    description: "#{self.description}.on_error(#{description})")
+            @on_error = PipelineElement.new(description, in_engine, block)
+            self
         end
 
         # Alias for {#on_success}, but defaulting to execution as a separate
@@ -162,12 +177,12 @@ module Roby
             promise.execute
         end
 
-        def pending?
-            promise.pending?
-        end
-
         def unscheduled?
             promise.unscheduled?
+        end
+
+        def pending?
+            promise.pending?
         end
 
         def complete?
@@ -183,19 +198,28 @@ module Roby
         end
 
         def value(timeout = nil)
-            promise.value(timeout)
+            if promise.complete?
+                promise.value(timeout)
+            else
+                raise NotComplete, "cannot call #value on a non-complete promise"
+            end
         end
 
         def value!(timeout = nil)
-            promise.value!(timeout)
+            if promise.complete?
+                promise.value!(timeout)
+            else
+                raise NotComplete, "cannot call #value on a non-complete promise"
+            end
+        rescue Failure => e
+            raise e.actual_exception
         end
 
+        # Returns the exception that caused the promise to be rejected
         def reason
-            promise.reason
-        end
-
-        def wait(timeout = nil)
-            promise.wait(timeout)
+            if failure = promise.reason
+                failure.actual_exception
+            end
         end
     end
 end

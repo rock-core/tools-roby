@@ -17,6 +17,119 @@ module Roby
             execution_engine.join_all_waiting_work
         end
 
+        it "provides a stringified description" do
+            p = execution_engine.promise(description: 'the promise description') { }
+            assert_match /the promise description/, p.to_s
+        end
+
+        describe "#pretty_print" do
+            it "shows all the steps" do
+                p = execution_engine.promise(description: 'the promise description')
+                p.on_success(description: "first step")
+                p.then(description: "second step")
+                p.on_error(description: "if something fails")
+                text = PP.pp(p, "")
+                assert_equal <<-EOD, text
+Roby::Promise(the promise description).
+  on_success(first step).
+  then(second step).
+  on_error(if something fails, in_engine: true)
+                EOD
+            end
+
+            it "properly handles a promise without steps" do
+                p = execution_engine.promise(description: 'the promise description')
+                text = PP.pp(p, "")
+                assert_equal <<-EOD, text
+Roby::Promise(the promise description)
+                EOD
+            end
+
+            it "properly handles a promise without on_error" do
+                p = execution_engine.promise(description: 'the promise description')
+                p.on_success(description: 'first step')
+                p.then(description: 'second step')
+                text = PP.pp(p, "")
+                assert_equal <<-EOD, text
+Roby::Promise(the promise description).
+  on_success(first step).
+  then(second step)
+                EOD
+            end
+
+            it "properly handles a promise with only an error handler" do
+                p = execution_engine.promise(description: 'the promise description')
+                p.on_error(description: "error handler") { }
+                text = PP.pp(p, "")
+                assert_equal <<-EOD, text
+Roby::Promise(the promise description).
+  on_error(error handler, in_engine: true)
+                EOD
+            end
+        end
+
+        describe "state predicates" do
+            it "is unscheduled at creation" do
+                p = execution_engine.promise { }
+                assert p.unscheduled?
+                refute p.pending?
+                refute p.complete?
+            end
+            it "is pending when waiting for an executor" do
+                executor = Concurrent::SingleThreadExecutor.new
+                barrier  = Concurrent::CyclicBarrier.new(2)
+                Concurrent::Promise.new(executor: executor) do
+                    2.times { barrier.wait }
+                end.execute
+                barrier.wait
+                p = execution_engine.promise(executor: executor) { }.execute
+                refute p.unscheduled?
+                assert p.pending?
+                refute p.complete?
+                barrier.wait; p.wait
+            end
+            it "is complete and fulfilled once the whole pipeline finished successfuly" do
+                p = execution_engine.promise { }.execute
+                p.wait
+                refute p.unscheduled?
+                refute p.pending?
+                assert p.complete?
+                assert p.fulfilled?
+            end
+            it "is complete and fulfilled once the whole pipeline finished successfuly even if an error handler has been defined" do
+                p = execution_engine.promise { }.execute
+                p.on_error { }
+                p.wait
+                refute p.unscheduled?
+                refute p.pending?
+                assert p.complete?
+                assert p.fulfilled?
+            end
+            it "is not complete if the error handler is being executed" do
+                p = execution_engine.promise { raise }
+                barrier = Concurrent::CyclicBarrier.new(2)
+                p.on_error(in_engine: false) do
+                    barrier.wait; barrier.wait
+                end
+                p.execute
+                barrier.wait
+                refute p.unscheduled?
+                assert p.pending?
+                refute p.complete?
+            end
+            it "is complete and rejected if the error handler has finished execution" do
+                p = execution_engine.promise { raise }
+                barrier = Concurrent::CyclicBarrier.new(2)
+                p.on_error(in_engine: false) { }
+                p.execute
+                execution_engine.join_all_waiting_work
+                refute p.unscheduled?
+                refute p.pending?
+                assert p.complete?
+                assert p.rejected?
+            end
+        end
+
         describe "#on_success" do
             it "queues on_success handlers to be executed on the engine" do
                 order = Array.new
@@ -33,21 +146,28 @@ module Roby
                 assert_equal Thread.current, order[1]
                 refute_equal Thread.current, order[2]
             end
-            
-            it "raises if the promise is final" do
+
+            it "queues follow-up succes handlers" do
                 p = execution_engine.promise { }
-                flexmock(p).should_receive(:final?).and_return(true)
-                assert_raises(Promise::Final) do
-                    p.on_success { }
-                end
+                order = Array.new
+                p.on_success { order << 1 }
+                p.on_success { order << 2 }
+                p.execute
+                execution_engine.join_all_waiting_work
+                assert_equal [1, 2], order
             end
 
-            it "raises if attempting to add more than one sucess handler to the same promise" do
-                p = execution_engine.promise { }
-                p.on_success { }
-                assert_raises(Promise::AlreadyHasChild) do
-                    p.on_success { }
-                end
+            it "passes the result of one handler to the next" do
+                p = execution_engine.promise { [1, 2] }
+                p.on_success { |a, b| recorder.called(a, b); [3, 4, 5] }
+                p.then { |a, b, c| recorder.called(a, b, c); 6 }
+                p.on_success { |a| recorder.called(a) }
+
+                recorder.should_receive(:called).with(1, 2).once.ordered
+                recorder.should_receive(:called).with(3, 4, 5).once.ordered
+                recorder.should_receive(:called).with(6).once.ordered
+                p.execute
+                process_events_until { p.fulfilled? }
             end
 
             it "optionally executes on_success handlers on the thread pool" do
@@ -71,26 +191,12 @@ module Roby
             it "raises if attempting to add more than one error handler to the same promise" do
                 p = execution_engine.promise { }
                 p.on_error { }
-                assert_raises(Promise::AlreadyHasChild) do
+                assert_raises(Promise::AlreadyHasErrorHandler) do
                     p.on_error { }
                 end
             end
             
-            it "raises if the promise is final" do
-                p = execution_engine.promise { }
-                flexmock(p).should_receive(:final?).and_return(true)
-                assert_raises(Promise::Final) do
-                    p.on_error { }
-                end
-            end
-
-            it "marks the returned promise as final" do
-                p = execution_engine.promise { }
-                error_p = p.on_error { }
-                assert error_p.final?
-            end
-
-            it "calls its block if the promise is rejected" do
+            it "calls its block if the promise is rejected from within the thread pool" do
                 p = execution_engine.promise { raise ArgumentError }
                 p.on_error   { recorder.error }
                 recorder.should_receive(:error).once
@@ -106,6 +212,25 @@ module Roby
                 recorder.should_receive(:error).once
                 p.execute
                 execution_engine.join_all_waiting_work
+            end
+
+            it "passes the exception to the error handler" do
+                error_m = Class.new(RuntimeError)
+                p = execution_engine.promise { raise error_m }
+                p.on_error   { |e| recorder.error(e) }
+                recorder.should_receive(:error).with(error_m).once
+                p.execute
+                execution_engine.join_all_waiting_work
+            end
+
+            it "reports the exception in the promise's #reason" do
+                error_m = Class.new(RuntimeError)
+                p = execution_engine.promise { raise error_m }
+                p.on_error   { |e| recorder.error(e) }
+                recorder.should_receive(:error).with(error_m).once
+                p.execute
+                execution_engine.join_all_waiting_work
+                assert_kind_of error_m, p.reason
             end
 
             it "queues on_error handlers to be executed on the engine" do
@@ -137,62 +262,59 @@ module Roby
             end
         end
         
-        describe "#would_handle_rejections?" do
-            it "returns false if there is no error handler at all" do
-                p = execution_engine.promise { }
-                refute p.would_handle_rejections?
-            end
-
-            it "returns true if the promise has an error handler" do
-                p = execution_engine.promise { }
-                p.on_error { }
-                assert p.would_handle_rejections?
-            end
-
-            it "returns true if one of the promise children has an error handler" do
-                p = execution_engine.promise { }
-                p.on_success { }.on_success { }.on_error { }
-                assert p.would_handle_rejections?
-            end
-
-            it "returns false if one of the promise parents has an error handler" do
-                p = execution_engine.promise { }
-                p.on_error { }
-                refute p.on_success { }.would_handle_rejections?
-            end
-        end
-        
-        describe "#has_rejection_handled?" do
+        describe "#has_error_handler?" do
             it "returns false if there are no error handlers" do
                 p = execution_engine.promise { raise "TEST" }
-                p.on_success { }
-                p.execute; p.wait;
-                refute p.has_rejection_handled?
-                # Add an error handler to avoid warnings on teardown
-                p.on_error { }
+                refute p.has_error_handler?
             end
-            it "returns true if itself or its children would handle it" do
+            it "returns true if there is an error handler" do
                 p = execution_engine.promise { raise "TEST" }
                 p.on_error { }
-                p.execute; p.wait;
-                flexmock(p).should_receive(:would_handle_rejections?).and_return(true)
-                assert p.has_rejection_handled?
+                assert p.has_error_handler?
             end
-            it "returns true if the error was generated by one of its parent, and handled by it" do
-                p = execution_engine.promise { raise "TEST" }
-                p.on_error { }
-                child = p.on_success { }
-                grandchild = child.on_success { }
-                p.execute; grandchild.wait;
-                assert grandchild.has_rejection_handled?
+        end
+
+        describe "#value" do
+            it "raises if the promise is not finished" do
+                p = execution_engine.promise { }
+                assert_raises(Promise::NotComplete) { p.value }
             end
-            it "returns true if the error was generated by one of its parent, and there was an error handler on the way" do
-                p = execution_engine.promise { raise "TEST" }
-                child = p.on_success { }
-                child.on_error { }
-                grandchild = child.on_success { }
-                p.execute; grandchild.wait;
-                assert grandchild.has_rejection_handled?
+            it "returns nil if the promise is rejected" do
+                error_m = Class.new(RuntimeError)
+                p = execution_engine.promise { raise error_m }
+                p.on_error { } # to avoid raising in #join_all_waiting_work
+                p.execute
+                execution_engine.join_all_waiting_work
+                assert_nil p.value
+            end
+            it "returns the last success handler result if the promise is finished" do
+                result = flexmock
+                p = execution_engine.promise { result }
+                p.execute
+                execution_engine.join_all_waiting_work
+                assert_equal result, p.value
+            end
+        end
+
+        describe "#value!" do
+            it "raises if the promise is not finished" do
+                p = execution_engine.promise { }
+                assert_raises(Promise::NotComplete) { p.value! }
+            end
+            it "raises with the reason if the promise has been rejected" do
+                error_m = Class.new(RuntimeError)
+                p = execution_engine.promise { raise error_m }
+                p.on_error { } # to avoid raising in #join_all_waiting_work
+                p.execute
+                execution_engine.join_all_waiting_work
+                assert_raises(error_m) { p.value! }
+            end
+            it "returns the last success handler result if the promise is finished" do
+                result = flexmock
+                p = execution_engine.promise { result }
+                p.execute
+                execution_engine.join_all_waiting_work
+                assert_equal result, p.value!
             end
         end
     end

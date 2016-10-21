@@ -84,18 +84,15 @@ module Roby
                 p = execution_engine.promise { }
                 p.on_error { }
                 p.execute
-                p.wait
-                execution_engine.process_waiting_work
+                assert_equal [p], execution_engine.join_all_waiting_work
                 refute execution_engine.waiting_work.include?(p)
             end
 
             it "leaves non-completed promises within #waiting_work" do
                 p = execution_engine.promise { }
-                p.on_error { }
                 flexmock(p).should_receive(:complete?).and_return(false)
                 p.execute
-                p.wait
-                execution_engine.process_waiting_work
+                assert_equal [], execution_engine.process_waiting_work
                 assert execution_engine.waiting_work.include?(p)
             end
 
@@ -103,59 +100,20 @@ module Roby
                 e = ArgumentError.new
                 p = execution_engine.promise { raise e }
                 p.execute
-                p.wait
                 flexmock(execution_engine).should_receive(:add_framework_error).
                     with(e, String).once
-                execution_engine.process_waiting_work
+                execution_engine.join_all_waiting_work
                 refute execution_engine.waiting_work.include?(p)
             end
 
-            it "does not add a promise error handled at the promise level as a framework error" do
+            it "does not add a handled promise error as a framework error" do
                 e = ArgumentError.new
                 p = execution_engine.promise { raise e }
                 p.on_error { }
                 p.execute
-                p.wait
                 flexmock(execution_engine).should_receive(:add_framework_error).never
-                execution_engine.process_waiting_work
+                assert execution_engine.join_all_waiting_work.include?(p)
                 refute execution_engine.waiting_work.include?(p)
-            end
-
-            it "does not add a promise error handled on a child as a framework error" do
-                e = ArgumentError.new
-                p = execution_engine.promise { raise e }
-                p.on_success { }.on_error { }
-                p.execute
-                p.wait
-                flexmock(execution_engine).should_receive(:add_framework_error).never
-                execution_engine.process_waiting_work
-                refute execution_engine.waiting_work.include?(p)
-            end
-
-            it "does not add a promise error handled on a parent as a framework error" do
-                e = ArgumentError.new
-                p = execution_engine.promise { raise e }
-                p.on_error { }
-                p.on_success { }
-                p.execute
-                p.wait
-                flexmock(execution_engine).should_receive(:add_framework_error).never
-                execution_engine.process_waiting_work
-                refute execution_engine.waiting_work.include?(p)
-            end
-
-            it "adds a promise error as a framework error as many times as promises that were failed by it" do
-                error = Class.new(ArgumentError)
-                p = execution_engine.promise { raise error }
-                success = p.on_success { }
-                p.execute
-                success.wait
-                flexmock(execution_engine).should_receive(:add_framework_error).
-                    with(error, p.to_s).once
-                flexmock(execution_engine).should_receive(:add_framework_error).
-                    with(error, success.to_s).once
-                execution_engine.process_waiting_work
-                assert execution_engine.waiting_work.empty?
             end
         end
 
