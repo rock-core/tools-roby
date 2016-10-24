@@ -375,6 +375,39 @@ module Roby
                 assert_equal 2354, app.shell_interface_port
             end
         end
+
+        describe "#find_file" do
+            it "raises ArgumentError if no path is given" do
+                exception = assert_raises(ArgumentError) { app.find_file }
+                assert_equal "no path given", exception.message
+            end
+        end
+
+        describe "#find_files" do
+            it "raises ArgumentError if no path is given" do
+                exception = assert_raises(ArgumentError) { app.find_files }
+                assert_equal "no path given", exception.message
+            end
+        end
+
+        describe "#find_files_in_dirs" do
+            it "raises ArgumentError if no path is given" do
+                exception = assert_raises(ArgumentError) { app.find_files_in_dirs }
+                assert_equal "no path given", exception.message
+            end
+        end
+
+        describe "#find_dir" do
+            it "raises ArgumentError if no path is given" do
+                exception = assert_raises(ArgumentError) { app.find_dir }
+                assert_equal "no path given", exception.message
+            end
+        end
+
+        describe "#find_dirs" do
+            it "raises ArgumentError if no path is given" do
+            end
+        end
     end
 end
 

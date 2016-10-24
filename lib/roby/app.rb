@@ -1824,6 +1824,11 @@ module Roby
                 options = dir_path.pop
             end
             options = Kernel.validate_options(options || Hash.new, :all, :order, :path)
+
+            if dir_path.empty?
+                raise ArgumentError, "no path given"
+            end
+
             search_path = options[:path] || self.search_path
             if !options.has_key?(:all)
                 raise ArgumentError, "no :all argument given"
@@ -1975,6 +1980,10 @@ module Roby
                 options = file_path.pop
             end
             options = Kernel.validate_options(options || Hash.new, :all, :order, :path)
+
+            if file_path.empty?
+                raise ArgumentError, "no path given"
+            end
 
             # Remove the filename from the complete path
             filename = file_path.pop
