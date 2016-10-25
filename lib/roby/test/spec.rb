@@ -61,11 +61,6 @@ module Roby
                 @watch_events_handler_id = execution_engine.add_propagation_handler(type: :external_events) do |plan|
                     verify_watched_events
                 end
-                @received_exceptions = Array.new
-                @exception_handler = execution_engine.on_exception do |kind, e|
-                    @received_exceptions << [kind, e]
-
-                end
             end
 
             def teardown
@@ -96,15 +91,41 @@ module Roby
                 end
             end
 
-            def process_events(**options)
-                @received_exceptions.clear
-                execution_engine.join_all_waiting_work
-                execution_engine.start_new_cycle
-                execution_engine.process_events(**options)
-                @received_exceptions.each do |kind, e|
-                    if kind == Roby::ExecutionEngine::EXCEPTION_FATAL
-                        raise e
+            def process_events(timeout: 10, **options)
+                exceptions = Array.new
+                first_pass = true
+                while first_pass || execution_engine.has_waiting_work?
+                    first_pass = false
+
+                    execution_engine.join_all_waiting_work(timeout: timeout)
+                    execution_engine.start_new_cycle
+                    errors = execution_engine.process_events(**options)
+                    exceptions.concat(errors.exceptions)
+                    execution_engine.cycle_end(Hash.new)
+                end
+
+                if !exceptions.empty?
+                    if exceptions.size == 1
+                        raise exceptions.first.exception
+                    else
+                        raise SynchronousEventProcessingMultipleErrors.new(exceptions.map(&:exception))
                     end
+                end
+            end
+
+            # Repeatedly process events until a condition is met
+            #
+            # @yieldreturn [Boolean] true if the condition is met, false otherwise
+            def process_events_until(timeout: 5, **options)
+                start = Time.now
+                while !yield
+                    now = Time.now
+                    remaining = timeout - (now - start)
+                    if remaining < 0
+                        flunk("failed to reach expected condition within #{timeout} seconds")
+                    end
+                    process_events(timeout: remaining, **options)
+                    sleep 0.01
                 end
             end
 
