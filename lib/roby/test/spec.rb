@@ -3,6 +3,10 @@ require 'roby/test/error'
 require 'roby/test/common'
 require 'roby/test/teardown_plans'
 require 'roby/test/minitest_helpers'
+
+FlexMock.partials_are_based = true
+FlexMock.partials_verify_signatures = true
+
 module Roby
     module Test
         class Spec < Minitest::Spec

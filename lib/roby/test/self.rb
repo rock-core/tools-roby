@@ -99,6 +99,9 @@ module Roby
     SelfTest = Test::Self
 end
 
+FlexMock.partials_are_based = true
+FlexMock.partials_verify_signatures = true
+
 module Minitest
     class Test
         include Roby::Test::Self

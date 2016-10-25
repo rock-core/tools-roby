@@ -147,7 +147,7 @@ module Roby
 
                 # This method must be overloaded in the tasks that will be
                 # actually used in the coordination primitives
-                def instanciate
+                def instanciate(plan, variables = Hash.new)
                     raise NotImplementedError, "must reimplement #instanciate in the task objects used in coordination primitives"
                 end
 
