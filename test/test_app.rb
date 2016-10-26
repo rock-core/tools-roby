@@ -108,14 +108,14 @@ module Roby
 
                 it "returns a matching test file" do
                     m = flexmock(definition_location: [
-                        [File.join(base_dir, 'models', 'compositions', 'file.rb'), 120, :m]
+                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
                     assert_equal File.join(base_dir, 'test', 'compositions', 'test_file.rb'),
                         app.test_file_for(m)
                 end
                 it "ignores entries not in the search path" do
                     m = flexmock(definition_location: [
-                        [File.join(base_dir, 'models', 'compositions', 'file.rb'), 120, :m]
+                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
                     app.search_path = []
                     assert_equal nil, app.test_file_for(m)
@@ -123,13 +123,13 @@ module Roby
                 it "ignores entries whose first element is not 'models'" do
                     create_file 'compositions', 'file.rb'
                     m = flexmock(definition_location: [
-                        [File.join(base_dir, 'compositions', 'file.rb'), 120, :m]
+                        flexmock(absolute_path: File.join(base_dir, 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
                     assert_equal nil, app.test_file_for(m)
                 end
                 it "returns nil if the expected test file does not exist" do
                     m = flexmock(definition_location: [
-                        [File.join(base_dir, 'models', 'compositions', 'file.rb'), 120, :m]
+                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
                     FileUtils.rm_f File.join(base_dir, 'test', 'compositions', 'test_file.rb')
                     assert_equal nil, app.test_file_for(m)

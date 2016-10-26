@@ -23,9 +23,12 @@ module Roby
                 end
 
                 def self.find_definition_place(model)
-                    model.definition_location.find do |file, _, method|
-                        return if method == :require || method == :using_task_library
-                        Roby.app.app_file?(file)
+                    location = model.definition_location.find do |location|
+                        return if location.label == 'require' || location.label == 'using_task_library'
+                        Roby.app.app_file?(location.absolute_path)
+                    end
+                    if location
+                        return location.absolute_path, location.lineno
                     end
                 end
 

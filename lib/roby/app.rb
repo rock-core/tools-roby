@@ -1270,7 +1270,8 @@ module Roby
         # definition
         def definition_file_for(model)
             return if !model.respond_to?(:definition_location) || !model.definition_location 
-            model.definition_location.each do |file, *|
+            model.definition_location.each do |location|
+                file = location.absolute_path
                 next if !(base_path = find_base_path_for(file))
                 relative = Pathname.new(file).relative_path_from(Pathname.new(base_path))
                 split = relative.each_filename.to_a
@@ -1284,7 +1285,8 @@ module Roby
         # that is meant to verify this model
         def test_file_for(model)
             return if !model.respond_to?(:definition_location) || !model.definition_location 
-            model.definition_location.each do |file, *|
+            model.definition_location.each do |location|
+                file = location.absolute_path
                 next if !(base_path = find_base_path_for(file))
                 relative = Pathname.new(file).relative_path_from(Pathname.new(base_path))
                 split = relative.each_filename.to_a
@@ -2200,9 +2202,9 @@ module Roby
 
         # Tests whether a model class has been defined in this app's code
         def model_defined_in_app?(model)
-            model.definition_location.each do |file, _, method|
-                return if method == :require
-                return true if app_file?(file)
+            model.definition_location.each do |location|
+                return if location.label == 'require'
+                return true if app_file?(location.absolute_path)
             end
             false
         end
