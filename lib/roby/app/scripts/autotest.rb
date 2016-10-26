@@ -14,6 +14,8 @@ app.simulation = true
 app.testing = true
 app.auto_load_models = false
 
+MetaRuby.keep_definition_location = false
+
 modes = []
 robots = []
 cmdline_args = []
