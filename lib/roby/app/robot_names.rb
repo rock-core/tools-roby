@@ -45,6 +45,11 @@ module Roby
                 robots[robot_name] = robot_type
             end
 
+            # Enumerate the robot names and types
+            def each(&block)
+                robots.each(&block)
+            end
+
             # Enumerate the list of known robots
             #
             # @yieldparam [String] robot_name the robot name
