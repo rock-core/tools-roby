@@ -65,7 +65,7 @@ if coverage_mode
     SimpleCov.start
 end
 
-Roby.display_exception do
+exception = Roby.display_exception do
     Roby.app.setup
     if Roby.app.public_logs?
         STDOUT.puts "Test logs are saved in #{Roby.app.log_dir}"
@@ -92,4 +92,4 @@ Roby.display_exception do
         Roby.app.cleanup
     end
 end
-
+exit(exception ? 1 : 0)
