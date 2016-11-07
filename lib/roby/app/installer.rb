@@ -2,7 +2,14 @@ require 'find'
 require 'fileutils'
 module Roby
     class Installer
-	# The directory in which we are installing
+        # Create a fresh app on this application's #app_dir attribute
+        def self.install(app, quiet: false)
+            new(app, quiet: quiet).install
+        end
+
+	# The application we are installing
+        #
+        # @return [Application]
 	attr_reader :app
 
 	def initialize(app)

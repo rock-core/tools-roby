@@ -12,6 +12,45 @@ module Roby
                 app.search_path = [app_dir]
             end
 
+            describe ".guess_app_dir" do
+                after do
+                    ENV.delete('ROBY_APP_DIR')
+                end
+                it "resolves the ROBY_APP_DIR environment variable if given" do
+                    Installer.install(app, quiet: true)
+                    ENV['ROBY_APP_DIR'] = app_dir
+                    assert_equal app_dir, Application.guess_app_dir
+                end
+                it "raises if ROBY_APP_DIR points to a directory that is not a valid Roby app" do
+                    ENV['ROBY_APP_DIR'] = app_dir
+                    assert_raises(Application::InvalidRobyAppDirEnv) do
+                        Application.guess_app_dir
+                    end
+                end
+                it "returns Dir.pwd if it is the root of a Roby application" do
+                    Installer.install(app, quiet: true)
+                    FlexMock.use(Dir) do |mock|
+                        mock.should_receive(:pwd).and_return(app_dir)
+                        assert_equal app_dir, Application.guess_app_dir
+                    end
+                end
+                it "looks for a roby application starting at the current working directory" do
+                    Installer.install(app, quiet: true)
+                    FileUtils.mkdir_p(path = File.join(app_dir, 'test', 'path', 'in', 'app'))
+                    FlexMock.use(Dir) do |mock|
+                        mock.should_receive(:pwd).and_return(path)
+                        assert_equal app_dir, Application.guess_app_dir
+                    end
+                end
+                it "returns nil if Dir.pwd is not within a valid application " do
+                    FileUtils.mkdir_p(path = File.join(app_dir, 'test', 'path', 'in', 'app'))
+                    FlexMock.use(Dir) do |mock|
+                        mock.should_receive(:pwd).and_return(path)
+                        assert_nil Application.guess_app_dir
+                    end
+                end
+            end
+
             describe "#make_path_relative" do
                 it "keeps absolute paths that are not in the search path as-is" do
                     absolute_path = "/not/in/search/path"

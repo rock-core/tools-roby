@@ -305,11 +305,20 @@ module Roby
                 File.directory?(File.join(test_dir, 'config', 'robots'))
         end
 
+        class InvalidRobyAppDirEnv < ArgumentError; end
+
         # Guess the app directory based on the current directory
         #
         # @return [String,nil] the base of the app, or nil if the current
         #   directory is not within an app
         def self.guess_app_dir
+            if test_dir = ENV['ROBY_APP_DIR']
+                if !Application.is_app_dir?(test_dir)
+                    raise InvalidRobyAppDirEnv, "the ROBY_APP_DIR envvar is set to #{test_dir}, but this is not a valid Roby application path"
+                end
+                return test_dir
+            end
+
             path = Pathname.new(Dir.pwd).find_matching_parent do |test_dir|
                 Application.is_app_dir?(test_dir.to_s)
             end
