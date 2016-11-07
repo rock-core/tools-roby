@@ -61,10 +61,6 @@ module Roby
                 register_plan(Roby.plan)
 
                 super
-
-                @watch_events_handler_id = execution_engine.add_propagation_handler(type: :external_events) do |plan|
-                    verify_watched_events
-                end
             end
 
             def teardown
@@ -75,9 +71,6 @@ module Roby
                 end
 
                 teardown_registered_plans
-                if @watch_events_handler_id
-                    execution_engine.remove_propagation_handler(@watch_events_handler_id)
-                end
 
                 Roby.app.root_models.each do |root_model|
                     ([root_model] + root_model.each_submodel.to_a).each do |m|

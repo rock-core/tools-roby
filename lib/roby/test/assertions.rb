@@ -158,23 +158,18 @@ module Roby
                     yield
                 end
 
-                success, error = Assertions.event_watch_result(positive, negative)
-
                 ivar = Concurrent::IVar.new
-                if success
-                    ivar.set(success)
-                elsif error
-                    ivar.fail(error)
-                else
-                    @watched_events = [ivar, positive, negative, Time.now + timeout]
-                end
+                while !ivar.complete?
+                    success, error = Assertions.event_watch_result(positive, negative, Time.now + timeout)
+                    if success
+                        ivar.set(success)
+                    elsif error
+                        ivar.fail(error)
+                    end
 
-                begin
-                    while !ivar.complete?
+                    if !ivar.complete?
                         process_events(garbage_collect_pass: garbage_collect_pass)
                     end
-                ensure
-                    @watched_events = nil
                 end
                 return ivar, unreachability_reason
             end
