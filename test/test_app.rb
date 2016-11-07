@@ -549,6 +549,31 @@ module Roby
                 end
             end
         end
+
+        describe ".common_optparse_setup" do
+            attr_reader :parser
+            before do
+                @parser = OptionParser.new
+                Application.common_optparse_setup(parser)
+            end
+
+            describe "--set" do
+                it "sets the specified configuration parameter to the given value" do
+                    parser.parse(['--set=a=10'])
+                    assert_equal 10, Conf.a
+                end
+                it "parses words separated by dots as a chain of elements in the conf structure" do
+                    parser.parse(['--set=a.deep.value=10'])
+                    assert_equal 10, Conf.a.deep.value
+                end
+                it "parses the value in YAML" do
+                    flexmock(YAML).should_receive(:load).
+                        with('random_string').and_return(value = flexmock)
+                    parser.parse(['--set=a.deep.value=random_string'])
+                    assert_equal value, Conf.a.deep.value
+                end
+            end
+        end
     end
 end
 

@@ -505,6 +505,12 @@ module Roby
         # scripts
         def self.common_optparse_setup(parser)
             Roby.app.load_config_yaml
+            parser.on("--set=KEY=VALUE", String, "set a value on the Conf object") do |value|
+                key, value = value.split('=')
+                path = key.split('.')
+                base_conf = path[0..-2].inject(Conf) { |c, name| c.send(name) }
+                base_conf.send("#{path[-1]}=", YAML.load(value))
+            end
             parser.on("--log=SPEC", String, "configuration specification for text loggers. SPEC is of the form path/to/a/module:LEVEL[:FILE][,path/to/another]") do |log_spec|
                 log_spec.split(',').each do |spec|
                     mod, level, file = spec.split(':')
