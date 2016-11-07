@@ -145,6 +145,57 @@ module Roby
                 end
             end
 
+            # Plan the given task
+            def roby_run_planner(task, recursive: true)
+                if task.respond_to?(:as_plan)
+                    task = task.as_plan
+                    plan.add_permanent_task(task)
+                end
+
+                while (planner = task.planning_task) && !planner.finished?
+                    handler = Spec.planner_handler_for(task)
+                    task = instance_exec(task, &handler.block)
+                    break if !recursive
+                end
+                task
+            end
+
+            # Handler used by {#roby_run_planner} to develop a subplan
+            PlanningHandler = Struct.new :matcher, :block do
+                def call(task); block.call(task) end
+                def ===(task); matcher === task end
+            end
+
+            @@roby_planner_handlers = Array.new
+
+            # @api private
+            #
+            # Find the handler that should be used by {#roby_run_planner}
+            def self.planner_handler_for(task)
+                if handler = @@roby_planner_handlers.find { |handler| handler === task }
+                    handler
+                else
+                    raise ArgumentError, "no planning handler found for #{task}"
+                end
+            end
+
+            # Declare what {#roby_run_planner} should use to develop a given
+            # task during a test
+            #
+            # The default is to simply start the planner and wait for it to
+            # finish
+            #
+            # The latest handler registered wins
+            def self.roby_plan_with(matcher, &block)
+                @@roby_planner_handlers.unshift PlanningHandler.new(matcher, block)
+            end
+
+            roby_plan_with Roby::Task.match.with_child(Roby::Actions::Task) do |task|
+                placeholder = task.as_service
+                assert_event_emission task.planning_task.success_event
+                placeholder.to_task
+            end
+
             # Enable this test only on the configurations in which the given
             # block returns true
             #
