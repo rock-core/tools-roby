@@ -90,5 +90,15 @@ class TC_Actions_Task < Minitest::Test
         assert_kind_of planning_m, tracker.task.planning_task
         assert_equal 10, tracker.task.planning_task.job_id
     end
+
+    def test_it_emits_the_start_event_after_having_created_the_transaction
+        flexmock(Transaction).should_receive(:new).and_raise(RuntimeError)
+        plan.unmark_mission_task(task.planned_task)
+        assert_fatal_exception(Roby::PlanningFailedError, tasks: [task.planned_task], failure_point: task.planned_task) do
+            assert_task_fails_to_start(task, CodeError, original_exception: RuntimeError, tasks: [task]) do
+                task.start!
+            end
+        end
+    end
 end
 

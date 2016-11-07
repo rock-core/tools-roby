@@ -71,8 +71,6 @@ module Roby
 
             # Starts planning
             event :start do |context|
-                start_event.emit
-
                 if owners.size > 1
                     @transaction = Distributed::Transaction.new(plan)
                     owners.each do |peer|
@@ -81,6 +79,7 @@ module Roby
                 else
                     @transaction = Transaction.new(plan)
                 end
+                start_event.emit
             end
 
             poll do
