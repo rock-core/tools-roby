@@ -3,6 +3,7 @@ module Roby
         # Helpers to test a full Roby app started as a subprocess
         module RobyAppHelpers
             attr_reader :app, :app_dir
+
             def setup
                 @spawned_pids = Array.new
                 super
@@ -12,6 +13,7 @@ module Roby
                 app.base_setup
                 register_plan(@app.plan)
                 @app_dir = make_tmpdir
+                app.app_dir = app_dir
             end
 
             def teardown

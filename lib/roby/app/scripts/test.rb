@@ -16,10 +16,16 @@ MetaRuby.keep_definition_location = false
 
 list_tests = false
 coverage_mode = false
+really_all = false
 testrb_args = []
 parser = OptionParser.new do |opt|
-    opt.on('--all', 'auto-load all models and the corresponding tests') do |val|
+    opt.on('--really-all', 'auto-load models and run the corresponding tests found within the search path') do |val|
         app.auto_load_models = true
+        really_all = true
+    end
+    opt.on('--all', 'auto-load models and run the corresponding tests found within this app dir') do |val|
+        app.auto_load_models = true
+        really_all = false
     end
 
     opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
@@ -78,6 +84,9 @@ exception = Roby.display_exception do
         # tests.options.banner.sub!(/\[options\]/, '\& tests...')
         if test_files.empty?
             test_files = app.each_test_file.map(&:first)
+            if !really_all
+                test_files = test_files.find_all { |path| app.self_file?(path) }
+            end
         end
 
         if list_tests

@@ -2154,6 +2154,11 @@ module Roby
             candidates.max_by(&:size)
         end
 
+        # Returns true if the given path points to a file under {#app_dir}
+        def self_file?(path)
+            find_base_path_for(path) == app_dir
+        end
+
         # Returns true if the given path points to a file in the Roby app
         #
         # @param [String] path

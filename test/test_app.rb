@@ -408,6 +408,108 @@ module Roby
             it "raises ArgumentError if no path is given" do
             end
         end
+
+        describe "#self_file?" do
+            it "returns true if the file's base path is the app dir" do
+                assert app.self_file?(File.join(app_dir, "test", "file"))
+            end
+            it "returns false if the file's base path is not the app dir" do
+                refute app.self_file?('/not/in/app/dir')
+            end
+        end
+
+        describe "#each_test_file" do
+            attr_reader :app
+            before do
+                @app = Roby::Application.new
+                app.app_dir = make_tmpdir
+                installer = Roby::Installer.new(app, quiet: true)
+                installer.install
+            end
+
+            describe "included models" do
+                attr_reader :task_m, :path
+
+                before do
+                    @task_m = Roby::Task.new_submodel(name: 'Test')
+                    flexmock(app).should_receive(:test_file_for).
+                        with(task_m).once.
+                        and_return(@path = flexmock)
+                    flexmock(app).should_receive(:test_file_for)
+                end
+
+                it "registers models using #test_file_for" do
+                    assert_equal [[path, Set[task_m].to_set]], app.each_test_file.to_a
+                end
+                it "registers models that private_specializations? defined but are not specialized" do
+                    flexmock(task_m).should_receive(:private_specialization?).explicitly.
+                        and_return(false)
+                    assert_equal [[path, Set[task_m].to_set]], app.each_test_file.to_a
+                end
+            end
+
+            describe "ignored models" do
+                attr_reader :task_m
+
+                before do
+                    @task_m = Roby::Task.new_submodel(name: 'Test')
+                    flexmock(app).should_receive(:test_file_for).
+                        with(task_m).never
+                    flexmock(app).should_receive(:test_file_for)
+                end
+
+                it "ignores models that have no names" do
+                    flexmock(task_m).should_receive(:name)
+                    assert_equal [], app.each_test_file.to_a
+                end
+
+                it "ignores event models" do
+                    flexmock(task_m).should_receive(:has_ancestor?).
+                        with(Roby::Event).and_return(true)
+                    assert_equal [], app.each_test_file.to_a
+                end
+
+                it "ignores private specializations" do
+                    flexmock(task_m).should_receive(:private_specialization?).
+                        explicitly.and_return(true)
+                    assert_equal [], app.each_test_file.to_a
+                end
+            end
+
+            describe "lib tests" do
+                before do
+                    flexmock(app).should_receive(:test_file_for)
+                end
+
+                def touch_test_files(*paths)
+                    paths.map do |p|
+                        full_p = File.join(app.app_dir, 'test', 'lib', *p)
+                        FileUtils.mkdir_p File.dirname(full_p)
+                        FileUtils.touch full_p
+                        [full_p, Set.new]
+                    end
+                end
+
+                it "enumerates test_*.rb files in test/lib" do
+                    expected = touch_test_files \
+                        ['test_root.rb'],
+                        ['subdir', 'test_subdir.rb']
+                    assert_equal expected.to_set, app.each_test_file.to_set
+                end
+                it "enumerates *_test.rb files in test/lib" do
+                    expected = touch_test_files \
+                        ['root_test.rb'],
+                        ['subdir', 'subdir_test.rb']
+                    assert_equal expected.to_set, app.each_test_file.to_set
+                end
+                it "ignores files not matching the test pattern" do
+                    touch_test_files \
+                        ['root_test_root.rb'],
+                        ['subdir', 'subdir.rb']
+                    assert_equal [], app.each_test_file.to_a
+                end
+            end
+        end
     end
 end
 
