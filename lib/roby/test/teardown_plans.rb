@@ -13,6 +13,7 @@ module Roby
             def clear_registered_plans
                 registered_plans.each do |p|
                     p.execution_engine.killall
+                    p.execution_engine.reset
                     p.clear
                 end
                 registered_plans.clear

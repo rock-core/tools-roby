@@ -2182,6 +2182,11 @@ module Roby
         # Force quitting, without cleaning up
         def force_quit; @quit = 2 end
 
+        # Make a quit EE ready for reuse
+        def reset
+            @quit = 0
+        end
+
 	# Called at each cycle end
 	def cycle_end(stats)
             gather_framework_errors('#cycle_end') do
