@@ -11,6 +11,7 @@ module Roby
                 @io = io
                 @enabled = enabled
                 @filters = Array.new
+                @filters_out = Array.new
                 @received_events = Array.new
             end
 
@@ -22,6 +23,14 @@ module Roby
                 @filters << pattern
             end
 
+            # Hide events that match this pattern
+            #
+            # Patterns are OR-ed (i.e. an event is displayed if it matches at
+            # least one pattern)
+            def filter_out(pattern)
+                @filters_out << pattern
+            end
+
             # Remove all filters
             def clear_filters
                 @filters.clear
@@ -31,7 +40,9 @@ module Roby
             #
             # It returns a match if no filters have been added
             def matches_filter?(event)
-                @filters.empty? || @filters.any? { |pattern| pattern === event.to_s }
+                if @filters.empty? || @filters.any? { |pattern| pattern === event.to_s }
+                    @filters_out.empty? || @filters_out.none? { |pattern| pattern === event.to_s }
+                end
             end
 
             # This is the API used by Roby to actually log events
