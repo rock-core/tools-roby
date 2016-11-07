@@ -19,6 +19,10 @@ scripts/controllers/ and/or some explicitly given actions
 
     Roby::Application.common_optparse_setup(opt)
 
+    opt.on '--quiet' do
+        Roby.logger.level = Logger::WARN
+        Robot.logger.level = Logger::WARN
+    end
     opt.on '--port=PORT', Integer, 'the interface port' do |port|
         app.shell_interface_port = port
     end
