@@ -59,6 +59,9 @@ parser = OptionParser.new do |opt|
 end
 
 test_files = parser.parse(ARGV)
+if test_files.empty?
+    MetaRuby.keep_definition_location = true
+end
 
 if coverage_mode
     require 'simplecov'
