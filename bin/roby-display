@@ -1,7 +1,7 @@
 #! /usr/bin/env ruby
-require 'roby/cli/display'
 
 begin
+    require 'roby/cli/display'
     Roby::CLI::Display.start(ARGV)
     exit 0
 rescue Interrupt
