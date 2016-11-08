@@ -21,13 +21,19 @@ module Roby
                 inherited_attribute(:enabled_robot, :enabled_robots) { Set.new }
             end
 
-            def app; Roby.app end
-            def plan; app.plan end
+            def app
+                Roby.app
+            end
+            def plan
+                app.plan
+            end
             def engine
                 Roby.warn_deprecated "#engine is deprecated, use #execution_engine instead"
                 execution_engine
             end
-            def execution_engine; app.execution_engine end
+            def execution_engine
+                app.execution_engine
+            end
 
             def self.test_methods
                 methods = super
@@ -52,13 +58,13 @@ module Roby
                 # Mark every app-defined model as permanent, so that the tests can define
                 # their own and get cleanup up properly on teardown
                 @models_present_in_setup = Set.new
-                Roby.app.root_models.each do |root_model|
+                app.root_models.each do |root_model|
                     models_present_in_setup << root_model
                     root_model.each_submodel do |m|
                         models_present_in_setup << m
                     end
                 end
-                register_plan(Roby.plan)
+                register_plan(plan)
 
                 super
             end
@@ -72,7 +78,7 @@ module Roby
 
                 teardown_registered_plans
 
-                Roby.app.root_models.each do |root_model|
+                app.root_models.each do |root_model|
                     ([root_model] + root_model.each_submodel.to_a).each do |m|
                         if !models_present_in_setup.include?(m)
                             m.permanent_model = false
@@ -308,7 +314,7 @@ module Roby
             def run
                 time_it do
                     capture_exceptions do
-                        self.class.roby_should_run(self, Roby.app)
+                        self.class.roby_should_run(self, app)
                         super
                     end
                 end
