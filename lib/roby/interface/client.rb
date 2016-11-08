@@ -308,6 +308,13 @@ module Roby
                     end
                 end
 
+                # Drop the given job within the batch
+                #
+                # Note that as all batch operations, order does NOT matter
+                def drop_job(job_id)
+                    __push([], :drop_job, job_id)
+                end
+
                 # Kill the given job within the batch
                 #
                 # Note that as all batch operations, order does NOT matter

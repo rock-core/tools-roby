@@ -21,6 +21,9 @@ module Roby
                 # @return [Roby::Interface::Client,nil]
                 attr_reader :roby_interface
 
+                # The set of jobs started by {#start_monitoring_job}
+                attr_reader :background_jobs
+
                 # Whether this started a Roby controller
                 def roby_running?
                     !!@roby_pid
@@ -35,6 +38,7 @@ module Roby
                     @roby_pid = nil
                     @roby_interface = Roby::Interface::Async::Interface.
                         new('localhost', port: port)
+                    @background_jobs = Array.new
                 end
 
                 # Start a Roby controller
@@ -162,24 +166,102 @@ module Roby
                     @roby_pid = nil
                 end
 
+                # Exception raised when an monitor failed while an action was
+                # running
+                class FailedBackgroundJob < RuntimeError; end
+
                 # Exception raised when an action finished with any other state
                 # than 'success'
                 class FailedAction < RuntimeError; end
+
+                BackgroundJob = Struct.new :action_monitor, :description, :monitoring do
+                    def monitoring?
+                        monitoring
+                    end
+                end
+
+                # Start a job in the background
+                #
+                # Its failure will make the next #run_job step fail. Unlike a
+                # job created by {#start_monitoring_job}, it will not be stopped
+                # when {#run_job} is called.
+                def start_job(description, m, arguments = Hash.new)
+                    action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
+                    action.restart
+                    background_jobs << BackgroundJob.new(action, description, false)
+                    action
+                end
+
+                # Start a background action whose failure will make the next
+                # #run_job step fail
+                #
+                # This action will be stopped at the end of the next {#run_job}
+                def start_monitoring_job(description, m, arguments = Hash.new)
+                    action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
+                    action.restart
+                    background_jobs << BackgroundJob.new(action, description, true)
+                    action
+                end
+
+                # Find one monitoring job that failed
+                def find_failed_background_job
+                    background_jobs.find do |a|
+                        a.action_monitor.terminated? && !a.action_monitor.success?
+                    end
+                end
 
                 # Start an action
                 def run_job(m, arguments = Hash.new)
                     action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
                     action.restart
-                    while !action.terminated?
-                        if ::Cucumber.wants_to_quit
+                    while !action.async
+                        roby_interface.poll
+                        roby_interface.wait
+                    end
+
+                    while !action.terminated? && !(failed_monitor = find_failed_background_job)
+                        if defined?(::Cucumber) && ::Cucumber.wants_to_quit
                             raise Interrupt, "Interrupted"
                         end
                         roby_interface.poll
                         roby_interface.wait
                     end
-                    if !action.success?
-                        raise FailedAction, "action #{m} finished unsuccessfully"
+
+                    if action.success?
+                        return
+                    elsif failed_monitor
+                        raise FailedBackgroundJob, "monitoring job #{failed_monitor.description} failed"
+                    else
+                        raise FailedAction, "action #{m} failed"
                     end
+
+                ensure
+                    # Kill the monitoring actions as well as the main actions
+                    drop_monitoring_jobs(action)
+                end
+
+                def drop_all_jobs(*extra_jobs)
+                    jobs, @background_jobs =
+                        background_jobs, Array.new
+                    drop_jobs(*extra_jobs, *jobs.map(&:action_monitor))
+                end
+
+                def drop_monitoring_jobs(*extra_jobs)
+                    monitoring_jobs, @background_jobs =
+                        background_jobs.partition { |j| j.monitoring? }
+                    drop_jobs(*extra_jobs, *monitoring_jobs.map(&:action_monitor))
+                end
+
+                def drop_jobs(*jobs)
+                    batch = roby_interface.create_batch
+                    jobs.each do |act|
+                        if !act.terminated? && act.async
+                            act.drop(batch: batch)
+                        end
+                    end
+                    batch.__process
+                    @monitoring_jobs = Array.new
+                    @main_jobs = Array.new
                 end
             end
         end

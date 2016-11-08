@@ -15,6 +15,7 @@ module Roby
                     installer = Roby::Installer.new(app, quiet: true)
                     installer.install
                 end
+
                 after do
                     if controller.roby_running?
                         if !controller.roby_connected?
@@ -144,6 +145,146 @@ module Roby
                         controller.roby_connect
                         controller.roby_stop
                         refute controller.roby_connected?
+                    end
+                end
+
+                describe "handling of actions" do
+                    before do
+                        File.open(File.join(roby_app_dir, 'config', 'robots', 'default.rb'), 'w') do |io|
+                            io.puts <<-EOACTION
+                            class CucumberTestTask < Roby::Task
+                                argument :arg, default: 10
+                                argument :task_fail, default: false
+                                argument :task_success, default: false
+                                terminates
+
+                                on :start do |event|
+                                    if task_fail
+                                        raise "failed because task_fail=true"
+                                    elsif task_success
+                                        success_event.emit
+                                    end
+                                end
+                            end
+                            class CucumberTestActions < Roby::Actions::Interface
+                                describe('the test monitor').
+                                    optional_arg('fail', 'whether the action should fail').
+                                    optional_arg('task_fail', 'whether the action\\'s task should fail').
+                                    optional_arg('task_success', 'whether the action\\'s task should success after startup').
+                                    optional_arg('arg', 'the task argument').
+                                    returns(CucumberTestTask)
+                                def cucumber_monitoring(arguments = Hash.new)
+                                    if arguments.delete(:fail)
+                                        raise "failing the action"
+                                    end
+                                    CucumberTestTask.new(arguments)
+                                end
+
+                                describe('the test action').
+                                    optional_arg('fail', 'whether the action should fail').
+                                    optional_arg('task_fail', 'whether the action\\'s task should fail').
+                                    optional_arg('task_success', 'whether the action\\'s task should success after startup').
+                                    optional_arg('arg', 'the task argument').
+                                    returns(CucumberTestTask)
+                                def cucumber_action(arguments = Hash.new)
+                                    CucumberTestTask.new(arguments)
+                                end
+                            end
+                            Robot.actions { use_library CucumberTestActions }
+                            EOACTION
+                        end
+                        controller.roby_start('default', 'default', app_dir: roby_app_dir)
+                    end
+
+                    def poll_interface_until(timeout: 10)
+                        deadline = Time.now + timeout
+                        remaining_timeout = timeout
+                        while !yield
+                            controller.roby_interface.wait(timeout: remaining_timeout)
+                            controller.roby_interface.poll
+                            remaining_timeout = deadline - Time.now
+                            if remaining_timeout < 0
+                                flunk("timed out waiting in poll_interface_until")
+                            end
+                        end
+                    end
+
+                    describe "#start_monitoring_job" do
+                        it "runs the action on the remote controller" do
+                            controller.start_monitoring_job('cucumber test job', 'cucumber_monitoring')
+                            jobs = controller.roby_interface.client.each_job.to_a
+                            assert_equal "CucumberTestTask", jobs.first.placeholder_task.model.name
+                            assert_equal 10, jobs.first.placeholder_task.arg
+                        end
+                        it "passes arguments to the action" do
+                            controller.start_monitoring_job('cucumber test job', 'cucumber_monitoring', arg: 20)
+                            jobs = controller.roby_interface.client.each_job.to_a
+                            assert_equal Hash[arg: 20], jobs.first.task.action_arguments
+                        end
+                    end
+
+                    describe "#run_job" do
+                        it "runs the action and waits for it to end" do
+                            controller.run_job('cucumber_action', task_success: true)
+                            assert controller.roby_interface.client.each_job.to_a.empty?
+                        end
+                        it "raises FailedAction if the action failed" do
+                            assert_raises(Controller::FailedAction) do
+                                controller.run_job('cucumber_action', task_fail: true)
+                            end
+                        end
+                        it "fails if an active monitor job failed" do
+                            action = controller.start_monitoring_job(
+                                'cucumber test job', 'cucumber_monitoring', task_fail: true)
+                            poll_interface_until { action.failed? }
+                            assert_raises(Controller::FailedBackgroundJob) do
+                                controller.run_job('cucumber_action')
+                            end
+                        end
+                        it "drops the job if a monitor failed" do
+                            action = controller.start_monitoring_job(
+                                'cucumber test job', 'cucumber_monitoring', task_fail: true)
+                            poll_interface_until { action.failed? }
+                            assert_raises(Controller::FailedBackgroundJob) do
+                                controller.run_job('cucumber_action')
+                            end
+                            poll_interface_until do
+                                controller.roby_interface.client.each_job.to_a.empty?
+                            end
+                        end
+                        it "drops the active monitors if the job finishes successfully" do
+                            action = controller.start_monitoring_job(
+                                'cucumber test job', 'cucumber_monitoring')
+                            controller.run_job('cucumber_action', task_success: true)
+                            assert controller.background_jobs.empty?
+                            poll_interface_until do
+                                controller.roby_interface.client.each_job.to_a.empty?
+                            end
+                        end
+                        it "drops the active monitors if the job fails" do
+                            action = controller.start_monitoring_job(
+                                'cucumber test job', 'cucumber_monitoring')
+                            assert_raises(Controller::FailedAction) do
+                                controller.run_job('cucumber_action', task_fail: true)
+                            end
+                            assert controller.background_jobs.empty?
+                            poll_interface_until do
+                                controller.roby_interface.client.each_job.to_a.empty?
+                            end
+                        end
+                        it "ignores monitoring actions that finished successfully" do
+                            action = controller.start_monitoring_job(
+                                'cucumber test job', 'cucumber_monitoring', task_success: true)
+                            poll_interface_until { action.success? }
+                            controller.run_job('cucumber_action', task_success: true)
+                        end
+                        it "does not stop background jobs" do
+                            action = controller.start_job(
+                                'cucumber test job', 'cucumber_monitoring')
+                            controller.run_job('cucumber_action', task_success: true)
+                            job = controller.roby_interface.client.each_job.first
+                            assert_equal 1, job.job_id
+                        end
                     end
                 end
             end

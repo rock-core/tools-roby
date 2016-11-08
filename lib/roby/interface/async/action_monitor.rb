@@ -65,6 +65,17 @@ module Roby
                     end
                 end
 
+                # Drop this job
+                #
+                # @param [Client::BatchContext] batch if given, the restart
+                #   commands will be added to this batch. Otherwise, a new batch
+                #   is created and {Client::BatchContext#__process} is called.
+                def drop(batch: nil)
+                    handle_batch_argument(batch) do |b|
+                        b.drop_job(async.job_id)
+                    end
+                end
+
                 # Kill this job
                 #
                 # @param [Client::BatchContext] batch if given, the restart
