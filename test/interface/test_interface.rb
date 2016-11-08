@@ -389,5 +389,17 @@ describe Roby::Interface::Interface do
             app.plan.execution_engine.cycle_end(Hash.new)
         end
     end
+
+    describe "#enable_backtrace_filtering" do
+        it "disables backtrace filtering on the app" do
+            interface.enable_backtrace_filtering(enable: false)
+            refute interface.app.filter_backtraces?
+        end
+        it "reenables backtrace filtering on the app" do
+            interface.enable_backtrace_filtering(enable: false)
+            interface.enable_backtrace_filtering(enable: true)
+            assert interface.app.filter_backtraces?
+        end
+    end
 end
 

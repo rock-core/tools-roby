@@ -166,6 +166,14 @@ module Roby
                     @roby_pid = nil
                 end
 
+                # Enable or disable backtrace filtering on the Roby instance
+                def roby_enable_backtrace_filtering(enable: true)
+                    if !roby_connected?
+                        raise InvalidState, "you need to successfully connect to the Roby controller with #roby_connect before you can call #roby_enable_backtrace_filtering"
+                    end
+                    roby_interface.client.enable_backtrace_filtering(enable: enable)
+                end
+
                 # Exception raised when an monitor failed while an action was
                 # running
                 class FailedBackgroundJob < RuntimeError; end

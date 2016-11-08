@@ -556,6 +556,14 @@ module Roby
             # This is implemented on Server directly
             command 'enable_notifications', 'enables the forwarding of notifications'
             command 'disable_notifications', 'disables the forwarding of notifications'
+
+            # Enable or disable backtrace filtering
+            def enable_backtrace_filtering(enable: true)
+                app.filter_backtraces = enable
+            end
+            command :enable_backtrace_filtering, 'enable or disable backtrace filtering',
+                enable: 'true to enable, false to disable',
+                advanced: true
         end
     end
 end
