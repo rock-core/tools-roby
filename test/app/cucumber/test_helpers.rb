@@ -4,6 +4,29 @@ require 'roby/app/cucumber/helpers'
 module Roby
     module App
         describe CucumberHelpers do
+            describe ".parse_argument_text_to_hash" do
+                it "parses a simple comma-separated sequence" do
+                    assert_equal Hash[x: 'a', y: 'b', z: 'c'],
+                        CucumberHelpers.parse_argument_text_to_hash("x=a, y=b, z=c")
+                end
+                it "parses a 'and' separator at the end" do
+                    assert_equal Hash[x: 'a', y: 'b', z: 'c'],
+                        CucumberHelpers.parse_argument_text_to_hash("x=a, y=b and z=c")
+                end
+                it "parses a hash construct that ends at the end of the stream" do
+                    assert_equal Hash[x: Hash[y: 'z']],
+                        CucumberHelpers.parse_argument_text_to_hash("x={y=z}")
+                end
+                it "parses a hash value" do
+                    assert_equal Hash[x: Hash[a: 'x', b: 'y'], y: 'b', z: 'c'],
+                        CucumberHelpers.parse_argument_text_to_hash("x={a=x and b=y}, y=b and z=c")
+                end
+                it "parses hash values recursively" do
+                    assert_equal Hash[x: Hash[a: 'x', b: Hash[j: 'i']], y: 'b', z: 'c'],
+                        CucumberHelpers.parse_argument_text_to_hash("x={a=x and b={j=i}}, y=b and z=c")
+                end
+            end
+
             describe ".parse_arguments" do
                 it "parses a sequence with comma and 'and' statements" do
                     assert_equal Hash[x: 'a', y: 'b', z: 'c'],
@@ -21,7 +44,6 @@ module Roby
                     assert_equal Hash[x: 'a', y: 'b'],
                         CucumberHelpers.parse_arguments("x=a, y=b")
                 end
-
                 it "parses a positive numerical value with unit" do
                     flexmock(CucumberHelpers).should_receive(:apply_unit).
                         with(10, 'unit').
@@ -36,12 +58,20 @@ module Roby
                     assert_equal Hash[x: 20],
                         CucumberHelpers.parse_arguments("x=-10unit")
                 end
+                it "parses hashes recursively" do
+                    assert_equal Hash[x: Hash[y: 20]],
+                        CucumberHelpers.parse_arguments("x={y=20m}")
+                end
             end
 
             describe ".parse_arguments_respectively" do
                 it "uses the first argument's keys as default names for the parsed values" do
                     assert_equal Hash[x: 10, y: 20],
                         CucumberHelpers.parse_arguments_respectively([:x, :y], "10m and 20m")
+                end
+                it "applies the same value to all keys if a single numerical value is provided" do
+                    assert_equal Hash[x: 10, y: 10],
+                        CucumberHelpers.parse_arguments_respectively([:x, :y], "10m")
                 end
                 it "does not allow to mix name and order" do
                     assert_raises(CucumberHelpers::MixingOrderAndNames) do
@@ -118,6 +148,22 @@ module Roby
                 it "raises for any other unit" do
                     assert_raises(CucumberHelpers::InvalidUnit) do
                         CucumberHelpers.apply_unit(10, 'unknown')
+                    end
+                end
+            end
+
+            describe ".parse_numerical_value" do
+                it "returns a pure numerical value as-is" do
+                    assert_equal 10, CucumberHelpers.parse_numerical_value("10")
+                end
+                it "applies a unit if present" do
+                    flexmock(CucumberHelpers).should_receive(:apply_unit).with(1, 'deg').
+                        and_return(ret = flexmock)
+                    assert_equal [ret, 'deg'], CucumberHelpers.parse_numerical_value('1deg')
+                end
+                it "raises ArgumentError if the string is not a numerical value, with or without a unit" do
+                    assert_raises(ArgumentError) do
+                        CucumberHelpers.parse_numerical_value("bla")
                     end
                 end
             end
