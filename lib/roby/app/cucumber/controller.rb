@@ -92,7 +92,7 @@ module Roby
                         if status
                             raise InvalidState, "remote Roby controller quit before we could get a connection"
                         end
-                        sleep 0.01
+                        roby_interface.wait
                     end
                 end
 
@@ -175,7 +175,7 @@ module Roby
                             raise Interrupt, "Interrupted"
                         end
                         roby_interface.poll
-                        sleep 0.01
+                        roby_interface.wait
                     end
                     if !action.success?
                         raise FailedAction, "action #{m} finished unsuccessfully"

@@ -114,6 +114,16 @@ module Roby
                 false
             end
 
+            # Wait until there is data to process on the IO channel
+            #
+            # @param [Numeric,nil] timeout a timeout after which the method
+            #   will return. Use nil for no timeout
+            # @return [Boolean] falsy if the timeout was reached, true
+            #   otherwise
+            def wait(timeout: nil)
+                io.read_wait(timeout: timeout)
+            end
+
             # Polls for new data on the IO channel
             #
             # @return [Object] a call reply

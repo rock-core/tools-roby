@@ -182,11 +182,6 @@ module Roby
                     end
                 end
 
-                # Wait for the current connection attempt to finish
-                def wait_connection_attempt_result
-                    connection_future.wait
-                end
-
                 # @private
                 #
                 # Process the message queues from {#client}
@@ -278,6 +273,32 @@ module Roby
                     attempt_connection
                     false
                 end
+
+                # Blocking call that waits until calling #poll would do something
+                #
+                # @param [Numeric,nil] timeout a timeout after which the method
+                #   will return. Use nil for no timeout
+                # @return [Boolean] falsy if the timeout was reached, true
+                #   otherwise
+                def wait(timeout: nil)
+                    if connected?
+                        client.wait(timeout: timeout)
+                    else
+                        wait_connection_attempt_result(timeout: timeout)
+                    end
+                end
+
+                # Wait for the current connection attempt to finish
+                #
+                # @param [Numeric,nil] timeout a timeout after which the method
+                #   will return. Use nil for no timeout
+                # @return [Boolean] falsy if the timeout was reached, true
+                #   otherwise
+                def wait_connection_attempt_result(timeout: nil)
+                    connection_future.wait(timeout)
+                    connection_future.complete?
+                end
+
 
                 # Active part of the async. This has to be called regularly within
                 # the system's main event loop (e.g. Roby's, Vizkit's or Qt's)
