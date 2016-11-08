@@ -114,7 +114,7 @@ module Roby
                 super(app)
                 app.plan.add_trigger Roby::Interface::Job do |task|
                     if task.job_id && (planned_task = task.planned_task)
-                        monitor_job(task, planned_task)
+                        monitor_job(task, planned_task, new_task: true)
                     end
                 end
                 execution_engine.at_cycle_end do
@@ -323,7 +323,7 @@ module Roby
             # Monitor the given task as a job
             #
             # It must be called within the Roby execution thread
-            def monitor_job(planning_task, task)
+            def monitor_job(planning_task, task, new_task: false)
                 # NOTE: this method MUST queue job notifications
                 # UNCONDITIONALLY. Job tracking is done on a per-cycle basis (in
                 # at_cycle_end) by {#push_pending_job_notifications}
@@ -332,7 +332,7 @@ module Roby
                 job_name = planning_task.job_name
 
                 service = PlanService.new(task)
-                service.on_plan_status_change do |status|
+                service.on_plan_status_change(initial: !new_task) do |status|
                     if status == :mission
                         job_notify(JOB_MONITORED, job_id, job_name, service.task, service.task.planning_task)
                         job_notify(job_state(service.task), job_id, job_name)
