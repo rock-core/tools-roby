@@ -117,7 +117,9 @@ module Roby
                 @current_time = time
 
                 begin
-                    send(m, time, *args)
+                    if respond_to?(m)
+                        send(m, time, *args)
+                    end
                 rescue Interrupt
                     raise
                 rescue Exception => e
