@@ -1563,6 +1563,7 @@ module Roby
             if public_shell_interface?
                 setup_shell_interface
             end
+            plan.refresh_relations
 
         rescue Exception
             begin cleanup
