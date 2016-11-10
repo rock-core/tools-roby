@@ -17,7 +17,7 @@ module Roby
                     Coordination::Event.new(execution_context, self)
                 end
 
-                def to_s; "#{task_model}.#{symbol}_event" end
+                def to_s; "#{task}.#{symbol}_event" end
             end
         end
     end
