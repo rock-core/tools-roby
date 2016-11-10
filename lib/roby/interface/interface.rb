@@ -564,6 +564,13 @@ module Roby
             command :enable_backtrace_filtering, 'enable or disable backtrace filtering',
                 enable: 'true to enable, false to disable',
                 advanced: true
+
+            # Returns the app's log directory
+            def log_dir
+                app.log_dir
+            end
+            command :log_dir, "the app's log directory",
+                advanced: true
         end
     end
 end

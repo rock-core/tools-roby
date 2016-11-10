@@ -49,6 +49,14 @@ module Roby
                     end
                 end
 
+                describe "#roby_log_dir" do
+                    it "returns the app's log dir" do
+                        log_dir = make_tmpdir
+                        controller.roby_start('default', 'default', app_dir: roby_app_dir, log_dir: log_dir)
+                        assert_equal log_dir, controller.roby_log_dir
+                    end
+                end
+
                 describe "#roby_stop" do
                     it "stops and joins by default" do
                         controller.roby_start('default', 'default', app_dir: roby_app_dir)

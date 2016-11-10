@@ -60,14 +60,19 @@ module Roby
                 # @param [Hash] state initial values for the state
                 #
                 # @raise InvalidState if a controller is already running
-                def roby_start(robot_name, robot_type, connect: true, controller: true, app_dir: Dir.pwd, state: Hash.new)
+                def roby_start(robot_name, robot_type, connect: true, controller: true, app_dir: Dir.pwd, log_dir: nil, state: Hash.new)
                     if roby_running?
                         raise InvalidState, "a Roby controller is already running, call #roby_stop and #roby_join first"
                     end
 
+                    options = Array.new
+                    if log_dir
+                        options << "--log-dir=#{log_dir}"
+                    end
                     @roby_pid = spawn Gem.ruby, '-S', 'roby', 'run',
                         "--robot=#{robot_name},#{robot_type}",
                         '--quiet',
+                        *options,
                         *state.map { |k, v| "--set=#{k}=#{v}" },
                         chdir: app_dir,
                         pgroup: 0
@@ -180,6 +185,13 @@ module Roby
                         raise InvalidState, "you need to successfully connect to the Roby controller with #roby_connect before you can call #roby_enable_backtrace_filtering"
                     end
                     roby_interface.client.enable_backtrace_filtering(enable: enable)
+                end
+
+                # The log dir of the Roby app
+                #
+                # Since the roby app is local, this is a valid local path
+                def roby_log_dir
+                    roby_interface.client.log_dir
                 end
 
                 # Exception raised when an monitor failed while an action was

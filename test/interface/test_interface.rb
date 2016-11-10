@@ -401,5 +401,12 @@ describe Roby::Interface::Interface do
             assert interface.app.filter_backtraces?
         end
     end
+
+    describe "#log_dir" do
+        it "returns the app's log dir" do
+            flexmock(interface.app).should_receive(:log_dir).and_return(result = flexmock)
+            assert_equal result, interface.log_dir
+        end
+    end
 end
 

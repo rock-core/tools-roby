@@ -574,6 +574,53 @@ module Roby
                 end
             end
         end
+
+        describe "#log_current_dir" do
+            before do
+                @app = Application.new
+            end
+            it "returns #log_dir if it is set" do
+                app.log_dir = make_tmpdir
+                assert_equal app.log_dir, app.log_current_dir
+            end
+            describe "discovery through the 'current' symlink" do
+                attr_reader :log_dir, :current_path
+                before do
+                    app.log_base_dir = make_tmpdir
+                    @log_dir = make_tmpdir
+                    @current_path = File.join(app.log_base_dir, "current")
+                end
+                it "resolves the symlink ${log_current_dir}/current" do
+                    FileUtils.ln_s log_dir, current_path
+                    assert_equal log_dir, app.log_current_dir
+                end
+                it "raises ArgumentError if there is no symlink" do
+                    error = assert_raises(ArgumentError) { app.log_current_dir }
+                    assert_equal "#{current_path} does not exist or is not a symbolic link",
+                        error.message
+                end
+                it "raises ArgumentError if the link is not a symlink" do
+                    FileUtils.touch current_path
+                    error = assert_raises(ArgumentError) { app.log_current_dir }
+                    assert_equal "#{current_path} does not exist or is not a symbolic link",
+                        error.message
+                end
+                it "raises ArgumentError if the link points to a non-existent directory" do
+                    log_dir = File.join(self.log_dir, 'test')
+                    FileUtils.ln_s log_dir, current_path
+                    error = assert_raises(ArgumentError) { app.log_current_dir }
+                    assert_equal "#{current_path} points to #{log_dir}, which does not exist",
+                        error.message
+                end
+                it "raises ArgumentError if the link does not point to a directory" do
+                    FileUtils.touch(log_dir = File.join(self.log_dir, 'test'))
+                    FileUtils.ln_s log_dir, current_path
+                    error = assert_raises(ArgumentError) { app.log_current_dir }
+                    assert_equal "#{current_path} points to #{log_dir}, which is not a directory",
+                        error.message
+                end
+            end
+        end
     end
 end
 

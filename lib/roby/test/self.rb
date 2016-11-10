@@ -45,6 +45,7 @@ module Roby
             Roby.app.plugins_enabled = false
             Roby.app.testing = true
             Roby.app.log_base_dir = make_tmpdir
+            Roby.app.reset_log_dir
             Roby.app.setup
             Roby.app.prepare
 

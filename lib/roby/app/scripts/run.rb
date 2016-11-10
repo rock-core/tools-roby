@@ -23,6 +23,10 @@ scripts/controllers/ and/or some explicitly given actions
         Roby.logger.level = Logger::WARN
         Robot.logger.level = Logger::WARN
     end
+    opt.on '--log-dir=DIR', String, "explicitely set the log dir (must exist)" do |dir|
+        app.log_dir = dir
+        app.log_create_current = false
+    end
     opt.on '--port=PORT', Integer, 'the interface port' do |port|
         app.shell_interface_port = port
     end

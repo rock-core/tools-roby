@@ -629,6 +629,9 @@ module Roby
             @plugins_enabled = true
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
+
+            @public_logs = false
+            @log_create_current = true
             @created_log_dirs = []
             @created_log_base_dirs = []
             @additional_model_files = []
@@ -963,11 +966,19 @@ module Roby
             @log_dir
 	end
 
+        # Reset the current log dir so that {#setup} picks a new one
+        def reset_log_dir
+            @log_dir = nil
+        end
+
         # Explicitely set the log directory
         #
         # It is usually automatically created under {#log_base_dir} during
         # {#base_setup}
         def log_dir=(dir)
+            if !File.directory?(dir)
+                raise ArgumentError, "log directory #{dir} does not exist"
+            end
             @log_dir = dir
         end
 
@@ -1047,12 +1058,35 @@ module Roby
         end
 
         # The path to the current log directory
+        #
+        # If {#log_dir} is set, it is used. Otherwise, the current log directory
+        # is inferred by the directory pointed to the 'current' symlink
         def log_current_dir
-            basedir = self.log_base_dir
-            if !File.symlink?(File.join(basedir, "current"))
-                raise ArgumentError, "no data/current symlink found, cannot guess the current log directory"
+            if @log_dir
+                @log_dir
+            else
+                current_path = File.join(log_base_dir, "current")
+                self.class.read_current_dir(current_path)
             end
-            File.readlink(File.join(basedir, "current"))
+        end
+
+        # @api private
+        #
+        # Read and validate the 'current' dir by means of the 'current' symlink
+        # that Roby maintains in its log base directory
+        #
+        # @param [String] current_path the path to the 'current' symlink
+        def self.read_current_dir(current_path)
+            if !File.symlink?(current_path)
+                raise ArgumentError, "#{current_path} does not exist or is not a symbolic link"
+            end
+            resolved_path = File.readlink(current_path)
+            if !File.exist?(resolved_path)
+                raise ArgumentError, "#{current_path} points to #{resolved_path}, which does not exist"
+            elsif !File.directory?(resolved_path)
+                raise ArgumentError, "#{current_path} points to #{resolved_path}, which is not a directory"
+            end
+            resolved_path
         end
 
 	# A path => File hash, to re-use the same file object for different
@@ -1469,7 +1503,9 @@ module Roby
 
             setup_robot_names_from_config_dir
 	    load_base_config
-            find_and_create_log_dir
+            if !@log_dir
+                find_and_create_log_dir
+            end
 	    setup_loggers
             init_handlers.each(&:call)
 
@@ -1609,7 +1645,7 @@ module Roby
 
         # Prepares the environment to actually run
         def prepare
-            if public_logs?
+            if public_logs? && log_create_current?
                 FileUtils.rm_f File.join(log_base_dir, "current")
                 FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
             end
@@ -2088,6 +2124,18 @@ module Roby
         #
         # Only the run modes have public logs by default
         attr_predicate :public_logs?, true
+
+        # @!method log_create_current?
+        # @!method log_create_current=(flag)
+        #
+        # If set to true, this Roby application will create a 'current' entry in
+        # {#log_base_dir} that points to the latest log directory. Otherwise, it
+        # will not. It is false when 'roby run' is started with an explicit log
+        # directory (the --log-dir option)
+        #
+        # This symlink will never be created if {#public_logs?} is false,
+        # regardless of this setting.
+        attr_predicate :log_create_current?, true
 
 	attr_predicate :simulation?, true
 	def simulation; self.simulation = true end
