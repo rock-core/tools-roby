@@ -189,11 +189,17 @@ module Roby
                                 def cucumber_action(arguments = Hash.new)
                                     CucumberTestTask.new(arguments)
                                 end
+
+                                describe('a test action with required argument').
+                                    required_arg('req', '')
+                                def cucumber_action_with_required_argument(arguments)
+                                end
                             end
                             Robot.actions { use_library CucumberTestActions }
                             EOACTION
                         end
                         controller.roby_start('default', 'default', app_dir: roby_app_dir)
+                        controller.roby_enable_backtrace_filtering(enable: false)
                     end
 
                     def poll_interface_until(timeout: 10)
@@ -209,6 +215,40 @@ module Roby
                         end
                     end
 
+                    describe "#start_job" do
+                        it "runs the action on the remote controller" do
+                            controller.start_job('cucumber test job', 'cucumber_monitoring')
+                            jobs = controller.roby_interface.client.each_job.to_a
+                            assert_equal "CucumberTestTask", jobs.first.placeholder_task.model.name
+                            assert_equal 10, jobs.first.placeholder_task.arg
+                        end
+                        it "passes arguments to the action" do
+                            controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 20)
+                            jobs = controller.roby_interface.client.each_job.to_a
+                            assert_equal 20, jobs.first.placeholder_task.arg
+                        end
+                        it "registers the job as a main job" do
+                            job = controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 20)
+                            assert_equal [job], controller.each_main_job.to_a
+                        end
+                        describe "the validation mode" do
+                            before do
+                                controller.validation_mode = true
+                            end
+                            it "does not actually start the action" do
+                                flexmock(controller.roby_interface.client).
+                                    should_receive(:process_batch).never
+                                flexmock(controller).should_receive(:validate_job)
+                                controller.start_job("", flexmock, flexmock)
+                            end
+                            it "validates the action" do
+                                flexmock(controller).should_receive(:validate_job).
+                                    with(:action_name, action_arguments = flexmock)
+                                controller.start_job("", :action_name, action_arguments)
+                            end
+                        end
+                    end
+
                     describe "#start_monitoring_job" do
                         it "runs the action on the remote controller" do
                             controller.start_monitoring_job('cucumber test job', 'cucumber_monitoring')
@@ -220,6 +260,26 @@ module Roby
                             controller.start_monitoring_job('cucumber test job', 'cucumber_monitoring', arg: 20)
                             jobs = controller.roby_interface.client.each_job.to_a
                             assert_equal Hash[arg: 20], jobs.first.task.action_arguments
+                        end
+                        it "registers the job as a monitoring job" do
+                            job = controller.start_monitoring_job('cucumber test job', 'cucumber_monitoring', arg: 20)
+                            assert_equal [job], controller.each_monitoring_job.to_a
+                        end
+                        describe "the validation mode" do
+                            before do
+                                controller.validation_mode = true
+                            end
+                            it "does not actually start the action" do
+                                flexmock(controller.roby_interface.client).
+                                    should_receive(:process_batch).never
+                                flexmock(controller).should_receive(:validate_job)
+                                controller.start_monitoring_job("", flexmock, flexmock)
+                            end
+                            it "validates the action" do
+                                flexmock(controller).should_receive(:validate_job).
+                                    with(:action_name, action_arguments = flexmock)
+                                controller.start_monitoring_job("", :action_name, action_arguments)
+                            end
                         end
                     end
 

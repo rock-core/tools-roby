@@ -24,6 +24,13 @@ module Roby
                 # The set of jobs started by {#start_monitoring_job}
                 attr_reader :background_jobs
 
+                # Whether we run the jobs, or only validate their existence and
+                # arguments
+                #
+                # The validation mode is activated by setting
+                # ROBY_VALIDATE_STEPS to '1'
+                attr_predicate :validation_mode?, true
+
                 # Whether this started a Roby controller
                 def roby_running?
                     !!@roby_pid
@@ -34,11 +41,12 @@ module Roby
                     roby_interface.connected?
                 end
 
-                def initialize(port: Roby::Interface::DEFAULT_PORT)
+                def initialize(port: Roby::Interface::DEFAULT_PORT, validation_mode: (ENV['ROBY_VALIDATE_STEPS'] == '1'))
                     @roby_pid = nil
                     @roby_interface = Roby::Interface::Async::Interface.
                         new('localhost', port: port)
                     @background_jobs = Array.new
+                    @validation_mode = validation_mode
                 end
 
                 # Start a Roby controller
@@ -194,10 +202,7 @@ module Roby
                 # job created by {#start_monitoring_job}, it will not be stopped
                 # when {#run_job} is called.
                 def start_job(description, m, arguments = Hash.new)
-                    action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
-                    action.restart
-                    background_jobs << BackgroundJob.new(action, description, false)
-                    action
+                    __start_job(description, m, arguments, false)
                 end
 
                 # Start a background action whose failure will make the next
@@ -205,10 +210,41 @@ module Roby
                 #
                 # This action will be stopped at the end of the next {#run_job}
                 def start_monitoring_job(description, m, arguments = Hash.new)
+                    __start_job(description, m, arguments, true)
+                end
+
+                # @api private
+                #
+                # Helper job-starting method
+                def __start_job(description, m, arguments, monitoring)
+                    if validation_mode?
+                        validate_job(m, arguments)
+                        return
+                    end
+
                     action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
                     action.restart
-                    background_jobs << BackgroundJob.new(action, description, true)
+                    background_jobs << BackgroundJob.new(action, description, monitoring)
                     action
+                end
+
+                # Enumerate all jobs started with {#start_monitoring_job}
+                def each_monitoring_job
+                    return enum_for(__method__) if !block_given?
+                    background_jobs.each do |job|
+                        yield(job.action_monitor) if job.monitoring
+                    end
+                end
+
+                # Enumerate all jobs started with {#start_job}
+                #
+                # These jobs are usually the job-under-test, hence the 'main'
+                # moniker
+                def each_main_job
+                    return enum_for(__method__) if !block_given?
+                    background_jobs.each do |job|
+                        yield(job.action_monitor) if !job.monitoring
+                    end
                 end
 
                 # Find one monitoring job that failed
@@ -218,21 +254,36 @@ module Roby
                     end
                 end
 
-                # Start an action
-                def run_job(m, arguments = Hash.new)
-                    action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
-                    action.restart
-                    while !action.async
-                        roby_interface.poll
-                        roby_interface.wait
-                    end
-
-                    while !action.terminated? && !(failed_monitor = find_failed_background_job)
+                # @api private
+                #
+                # Poll the interface until the block returns a truthy value
+                def roby_poll_interface_until
+                    while !(result = yield)
                         if defined?(::Cucumber) && ::Cucumber.wants_to_quit
                             raise Interrupt, "Interrupted"
                         end
                         roby_interface.poll
                         roby_interface.wait
+                    end
+                    result
+                end
+
+                # Start an action
+                def run_job(m, arguments = Hash.new)
+                    if validation_mode?
+                        validate_job(m, arguments)
+                        return
+                    end
+
+                    action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
+                    action.restart
+                    roby_poll_interface_until { action.async }
+                    failed_monitor = roby_poll_interface_until do
+                        if action.terminated?
+                            break
+                        else
+                            find_failed_background_job
+                        end
                     end
 
                     if action.success?
@@ -246,6 +297,31 @@ module Roby
                 ensure
                     # Kill the monitoring actions as well as the main actions
                     drop_monitoring_jobs(*Array(action))
+                end
+
+                # Raised when validating the jobs
+                class InvalidJob < ArgumentError; end
+
+                # @api private
+                #
+                # Validate that the given action name and arguments match the
+                # interface's description
+                def validate_job(m, arguments)
+                    if !(action = roby_interface.client.find_action_by_name(m))
+                        raise InvalidJob, "no action is named '#{m}'"
+                    end
+                    arguments = arguments.dup
+                    action.arguments.each do |arg|
+                        arg_sym = arg.name.to_sym
+                        has_arg = arguments.has_key?(arg_sym)
+                        if !has_arg && arg.required?
+                            raise InvalidJob, "#{m} requires an argument named #{arg.name} which is not provided"
+                        end
+                        arguments.delete(arg_sym)
+                    end
+                    if !arguments.empty?
+                        raise InvalidJob, "arguments #{arguments.keys.map(&:to_s).sort.join(", ")} are not declared arguments of #{m}"
+                    end
                 end
 
                 def drop_all_jobs(*extra_jobs)
