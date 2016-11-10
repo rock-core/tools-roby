@@ -245,7 +245,7 @@ module Roby
 
                 ensure
                     # Kill the monitoring actions as well as the main actions
-                    drop_monitoring_jobs(action)
+                    drop_monitoring_jobs(*Array(action))
                 end
 
                 def drop_all_jobs(*extra_jobs)
