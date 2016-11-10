@@ -14,8 +14,9 @@ module Roby
             #     Roby::App::Rake::TestTask.new
             #
             # It create a test task per robot configuration, named
-            # "test:${robot_name}". It also creates a test:all task that runs all
-            # tests in sequence. You can inspect these tasks with
+            # "test:${robot_name}". It also creates a test:all-robots task that
+            # runs each robot's configuration in sequence. You can inspect these
+            # tasks with
             #
             #     rake --tasks
             #
@@ -23,32 +24,36 @@ module Roby
             #
             #     rake test:default
             #
-            # The test:all task will fail only at the end of all tests, reporting
+            # The test:all-robots task will fail only at the end of all tests, reporting
             # which configuration actually failed. To stop at the first failure,
             # pass a '0' as argument, e.g.
             #
-            #    rake 'test:all[0]'
+            #    rake 'test:all-robots[0]'
             #
-            # To use, just create a TestTask in your Rakefile:
+            # Finally, the 'test:all' target runs syskit test --all (i.e. runs
+            # all tests in the default robot configuration)
             #
-            #    Roby::App::Rake::TestTask.new
+            # The 'test' target points by default to test:all-robots. See below
+            # to change this.
             #
-            # Modify the 'robot_names' array if you want to restrict the tests
-            # to some configurations
+            # The following examples show how to fine-tune the creates tests:
             #
             # @example restrict the tests to run only under the
             #   'only_this_configuration' configuration
             #
-            #       Roby::App::Rake::TestTask.new do |t|
-            #         t.robot_names = ['only_this_configuration']
-            #       end
-            #
-            # The namespace under which the tasks are created can also be
-            # changed by passing a parameter to the task's constructor.
+            #      Roby::App::Rake::TestTask.new do |t|
+            #          t.robot_names = ['only_this_configuration']
+            #      end
             #
             # @example create tasks under the roby_tests namespace instead of 'test'
             #
             #      Roby::App::Rake::TestCase.new('roby_tests')
+            #
+            # @example make 'test' point to 'test:all'
+            #
+            #      Roby::App::Rake::TestCase.new do |t|
+            #          t.all_by_default = true
+            #      end
             #
             class TestTask < ::Rake::TaskLib
                 # The base test task name
@@ -67,12 +72,16 @@ module Roby
                 # @return [Array<String,(String,String)>]
                 attr_accessor :robot_names
 
-                def initialize(task_name = 'test')
-                    super()
+                # Whether the 'test' target should run all robot tests (false, the
+                # default) or the 'all tests' target (true)
+                attr_predicate :all_by_default?, true
 
+                def initialize(task_name = 'test', all_by_default: false)
                     @task_name = task_name
                     @app = Roby.app
+                    @all_by_default = all_by_default
                     @robot_names = discover_robot_names
+                    yield self if block_given?
                     define
                 end
 
@@ -91,7 +100,7 @@ module Roby
                     end
 
                     desc "run tests for all known robots"
-                    task "#{task_name}:all", [:keep_going] do |t, args|
+                    task "#{task_name}:all-robots", [:keep_going] do |t, args|
                         failures = Array.new
                         keep_going = args.fetch(:keep_going, '1') == '1'
                         each_robot do |robot_name, robot_type|
@@ -106,6 +115,21 @@ module Roby
                         if !failures.empty?
                             raise Failed.new("failed to run the following test(s): #{failures.map { |name, type| "#{name}:#{type}" }.join(", ")}")
                         end
+                    end
+
+                    desc "run all tests"
+                    task "#{task_name}:all" do
+                        if !run_roby('test', '-all')
+                            raise Failed.new("failed to run tests")
+                        end
+                    end
+
+                    if all_by_default?
+                        desc "run all tests"
+                        task task_name => "#{task_name}:all"
+                    else
+                        desc "run all robot tests"
+                        task task_name => "#{task_name}:all-robots"
                     end
                 end
 
