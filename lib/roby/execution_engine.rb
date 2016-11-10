@@ -2032,35 +2032,28 @@ module Roby
                 emitted_events.clear
                 return
             end
-
-            if last_stop_count != remaining.size
-                if last_stop_count == 0
-                    ExecutionEngine.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.num_tasks} tasks still in plan)"
-                    remaining.each do |task|
-                        ExecutionEngine.info "  #{task}"
-                    end
-                else
-                    ExecutionEngine.info "waiting for #{remaining.size} tasks to finish (#{plan.num_tasks} tasks still in plan)"
-                    remaining.each do |task|
-                        ExecutionEngine.info "  #{task}"
-                    end
-                end
-                if plan.gc_quarantine.size != 0
-                    ExecutionEngine.info "#{plan.gc_quarantine.size} tasks in quarantine"
-                end
-                @last_stop_count = remaining.size
-            end
             remaining
 	end
 
         # If set to true, Roby will warn if the GC cannot be controlled by Roby
         attr_predicate :gc_warning?, true
 
+        def issue_quit_progression_warning(remaining)
+            info "Waiting for #{remaining.size} tasks to finish (#{plan.num_tasks} tasks still in plan) and #{waiting_work.size} async work jobs"
+            remaining.each do |task|
+                info "  #{task}"
+            end
+            if plan.gc_quarantine.size != 0
+                info "#{plan.gc_quarantine.size} tasks in quarantine"
+            end
+        end
+
         # The main event loop. It returns when the execution engine is asked to
         # quit. In general, this does not need to be called direclty: use #run
         # to start the event loop in a separate thread.
 	def event_loop
-	    @last_stop_count = 0
+	    last_stop_count = 0
+            last_quit_warning = Time.now
 	    @cycle_start  = Time.now
 	    @cycle_index  = 0
 
@@ -2073,13 +2066,26 @@ module Roby
                         if thread
                             thread.priority = 0
                         end
+                        if forced_exit?
+                            return
+                        end
+
 			begin
-			    return if forced_exit? || !clear
+			    remaining = clear
+                            return if !remaining
+
+                            if (last_stop_count != remaining.size) || (Time.now - last_quit_warning) > 10
+                                if last_stop_count == 0
+                                    info "Roby quitting ..."
+                                end
+
+                                issue_quit_progression_warning(remaining)
+                                last_quit_warning = Time.now
+                                last_stop_count = remaining.size
+                            end
 			rescue Exception => e
 			    ExecutionEngine.warn "Execution thread failed to clean up"
-                            Roby.format_exception(e).each do |line|
-                                ExecutionEngine.warn line
-                            end
+                            Roby.log_exception_with_backtrace(e, Roby, :warn, filter: false)
 			    return
 			end
 		    end
