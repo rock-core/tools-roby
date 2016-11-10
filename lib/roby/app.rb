@@ -2522,8 +2522,12 @@ module Roby
                 end
             end
 
-            find_dirs('test', 'suite_lib.rb', order: :specific_first, all: true).each do |path|
-                models_per_file[path] = Set.new
+            find_dirs('test', 'lib', order: :specific_first, all: true).each do |path|
+                Pathname.new(path).find do |p|
+                    if p.basename.to_s =~ /^test_.*.rb$/ || p.basename.to_s =~ /_test\.rb$/
+                        models_per_file[p.to_s] = Set.new
+                    end
+                end
             end
 
             models_per_file.each(&block)
