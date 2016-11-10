@@ -477,7 +477,7 @@ module Roby
 
         # True if this task can be reused by some other parts in the plan
         def reusable?
-            @reusable && !finished? && !finishing?
+            plan && @reusable && !failed_to_start? && !finished? && !finishing?
         end
 
         def failed_to_start?; !!@failed_to_start end

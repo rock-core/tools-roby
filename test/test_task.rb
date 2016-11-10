@@ -1110,6 +1110,79 @@ module Roby
                 assert task.clear_relations(strong: strong)
             end
         end
+
+        describe "#reusable?" do
+            attr_reader :task
+            before do
+                task_m = Roby::Task.new_submodel do
+                    event(:start) { |context| start_event.emit }
+                    event(:stop) { |context| }
+                end
+                plan.add(@task = task_m.new)
+            end
+            after do
+                task.stop_event.emit if task.running?
+            end
+            it "is true on new tasks" do
+                assert task.reusable?
+            end
+            it "is false if #do_not_reuse has been called" do
+                task.do_not_reuse
+                assert !task.reusable?
+            end
+            it "is true on running tasks" do
+                task.start!
+                assert task.reusable?
+            end
+            it "is false on finishing tasks" do
+                task.start!
+                task.stop!
+                refute task.reusable?
+            end
+            it "is false on finished tasks "do
+                task.start!
+                task.stop_event.emit
+                refute task.reusable?
+            end
+            it "is false on finalized pending tasks" do
+                task.failed_to_start! "bla"
+                refute task.reusable?
+            end
+            it "is false on failed-to-start tasks" do
+                plan.remove_task(task)
+                refute task.reusable?
+            end
+            it "propagates a 'true' to a transaction proxy" do
+                plan.in_transaction do |trsc|
+                    assert trsc[task].reusable?
+                end
+            end
+            it "propagates a 'false' to a transaction proxy" do
+                task.do_not_reuse
+                plan.in_transaction do |trsc|
+                    refute trsc[task].reusable?
+                end
+            end
+            it "propagates #do_not_reuse back from a proxy on commit" do
+                plan.in_transaction do |trsc|
+                    trsc[task].do_not_reuse
+                    trsc.commit_transaction
+                end
+                refute task.reusable?
+            end
+            it "does not modify the underlying task's reusable flag from a transaction proxy" do
+                plan.in_transaction do |trsc|
+                    trsc[task].do_not_reuse
+                    assert task.reusable?
+                end
+            end
+            it "does not propagate #do_not_reuse back from a proxy on discard" do
+                plan.in_transaction do |trsc|
+                    trsc[task].do_not_reuse
+                end
+                assert task.reusable?
+            end
+        end
     end
 end
 
@@ -2663,55 +2736,6 @@ class TC_Task < Minitest::Test
             task.start!
         end
         assert task.failed_to_start?
-    end
-
-    def test_new_tasks_are_reusable
-        assert Roby::Task.new.reusable?
-    end
-    def test_do_not_reuse
-        task = Roby::Task.new
-        task.do_not_reuse
-        assert !task.reusable?
-    end
-    def test_running_tasks_are_reusable
-        task = Roby::Task.new
-        flexmock(task).should_receive(:running?).and_return(true)
-        assert task.reusable?
-    end
-    def test_finishing_tasks_are_not_reusable
-        task = Roby::Task.new
-        flexmock(task).should_receive(:finishing?).and_return(true)
-        assert !task.reusable?
-    end
-    def test_finished_tasks_are_not_reusable
-        task = Roby::Task.new
-        flexmock(task).should_receive(:finished?).and_return(true)
-        assert !task.reusable?
-    end
-    def test_reusable_propagation_to_transaction
-        plan.add(task = Roby::Task.new)
-        plan.in_transaction do |trsc|
-            assert trsc[task].reusable?
-        end
-    end
-    def test_do_not_reuse_propagation_to_transaction
-        plan.add(task = Roby::Task.new)
-        task.do_not_reuse
-        plan.in_transaction do |trsc|
-            assert !trsc[task].reusable?
-        end
-    end
-    def test_do_not_reuse_propagation_from_transaction
-        plan.add(task = Roby::Task.new)
-        plan.in_transaction do |trsc|
-            proxy = trsc[task]
-            assert proxy.reusable?
-            proxy.do_not_reuse
-            assert !proxy.reusable?
-            assert task.reusable?
-            trsc.commit_transaction
-        end
-        assert !task.reusable?
     end
     def test_model_terminal_event_forces_terminal
         task_model = Roby::Task.new_submodel do
