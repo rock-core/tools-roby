@@ -100,7 +100,9 @@ module Roby
         def run_pipeline_elements(pipeline, state, in_engine)
             while (element = pipeline.first) && !(in_engine ^ element.run_in_engine)
                 pipeline.shift
-                state = element.callback.call(state)
+                state = execution_engine.log_timepoint_group "#{element.description} in_engine=#{element.run_in_engine}" do
+                    element.callback.call(state)
+                end
             end
             state
         end
@@ -146,7 +148,7 @@ module Roby
         # @param [Boolean] in_engine whether the block should be executed within
         #   the underlying {ExecutionEngine}, a.k.a. in the main thread, or
         #   scheduled in a separate thread.
-        def on_success(description: nil, in_engine: true, &block)
+        def on_success(description: "#{self.description}.on_success[#{pipeline.size}]", in_engine: true, &block)
             pipeline << PipelineElement.new(description, in_engine, block)
             self
         end
@@ -159,7 +161,7 @@ module Roby
         #   scheduled in a separate thread.
         # @yieldparam [Object] reason the exception that caused the failure,
         #   usually an exception that was raised by one of the promise blocks.
-        def on_error(description: nil, in_engine: true, &block)
+        def on_error(description: "#{self.description}.on_error", in_engine: true, &block)
             if has_error_handler?
                 raise AlreadyHasErrorHandler, "Roby::Promise can have only one error handler"
             end
@@ -169,7 +171,7 @@ module Roby
 
         # Alias for {#on_success}, but defaulting to execution as a separate
         # thread
-        def then(description: nil, &block)
+        def then(description: "#{self.description}.then[#{pipeline.size}]", &block)
             on_success(description: description, in_engine: false, &block)
         end
 
