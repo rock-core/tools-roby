@@ -153,31 +153,32 @@ module Roby
                 # with {#on_reachable}
                 def poll_connection_attempt
                     return if client
+                    return if !connection_future.complete?
 
-                    if connection_future.complete?
-                        case e = connection_future.reason
-                        when ConnectionError, ComError, ProtocolError
-                            Interface.info "failed connection attempt: #{e}"
-                            attempt_connection
-                            if @first_connection_attempt
-                                @first_connection_attempt = false
-                                run_hook :on_unreachable
-                            end
-                            nil
-                        when NilClass
-                            Interface.info "successfully connected"
-                            @client, jobs = connection_future.value
-                            jobs = jobs.map do |job_id, (job_state, placeholder_task, job_task)|
-                                JobMonitor.new(self, job_id, state: job_state, placeholder_task: placeholder_task, task: job_task)
-                            end
-                            run_hook :on_reachable, jobs
-                            new_job_listeners.each do |listener|
-                                listener.reset
-                                run_initial_new_job_hooks_events(listener, jobs)
-                            end
-                        else
-                            raise connection_future.reason
+                    case e = connection_future.reason
+                    when ConnectionError, ComError, ProtocolError
+                        Interface.info "failed connection attempt: #{e}"
+                        attempt_connection
+                        if @first_connection_attempt
+                            @first_connection_attempt = false
+                            run_hook :on_unreachable
                         end
+                        nil
+                    when NilClass
+                        Interface.info "successfully connected"
+                        @client, jobs = connection_future.value
+                        @connection_future = nil
+                        jobs = jobs.map do |job_id, (job_state, placeholder_task, job_task)|
+                            JobMonitor.new(self, job_id, state: job_state, placeholder_task: placeholder_task, task: job_task)
+                        end
+                        run_hook :on_reachable, jobs
+                        new_job_listeners.each do |listener|
+                            listener.reset
+                            run_initial_new_job_hooks_events(listener, jobs)
+                        end
+                    else
+                        future, @connection_future = @connection_future, nil
+                        raise future.reason
                     end
                 end
 
