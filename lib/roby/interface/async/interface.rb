@@ -305,8 +305,16 @@ module Roby
                     end
                 end
 
-                def close
+                # Close the connection to the Roby interface
+                #
+                # @param [Boolean] reconnect if true, attempt to reconnect right
+                #   away. If false, the caller will be responsible to call
+                #   {#attempt_connection} before any future call to {#poll}
+                def close(reconnect: false)
                     unreachable!
+                    if reconnect
+                        attempt_connection
+                    end
                 end
 
                 # True if we are connected to a client
