@@ -231,11 +231,11 @@ module Roby
                     return false
                 elsif on_error == :disable
                     ExecutionEngine.warn "propagation handler #{description} disabled because of the following error"
-                    Roby.display_exception(ExecutionEngine.logger.io(:warn), e)
+                    Roby.log_exception_with_backtrace(e, ExecutionEngine, :warn)
                     return false
                 elsif on_error == :ignore
                     ExecutionEngine.warn "ignored error from propagation handler #{description}"
-                    Roby.display_exception(ExecutionEngine.logger.io(:warn), e)
+                    Roby.log_exception_with_backtrace(e, ExecutionEngine, :warn)
                     return true
                 end
             end
@@ -596,9 +596,9 @@ module Roby
         def process_pending_application_exceptions(application_errors = clear_application_exceptions)
             # We don't aggregate exceptions, so report them all and raise one
             application_errors.each do |error, source|
-                ExecutionEngine.error "Application error in #{source}"
-                Roby.format_exception(error).each do |line|
-                    Roby.warn line
+                if !error.kind_of?(Interrupt)
+                    error "Application error in #{source}"
+                    Roby.log_exception_with_backtrace(error, self, :fatal)
                 end
             end
 
@@ -1689,7 +1689,7 @@ module Roby
         #   some propagation) and false otherwise
         def garbage_collect(force_on = nil)
             if force_on && !force_on.empty?
-                ExecutionEngine.info "GC: adding #{force_on.size} tasks in the force_gc set"
+                info "GC: adding #{force_on.size} tasks in the force_gc set"
                 mismatching_plan = force_on.find_all do |t|
                     if t.plan == self.plan
                         plan.force_gc << t
@@ -1718,7 +1718,7 @@ module Roby
 
                 # Remote tasks are simply removed, regardless of other concerns
                 for t in remote_tasks
-                    ExecutionEngine.debug { "GC: removing the remote task #{t}" }
+                    debug { "GC: removing the remote task #{t}" }
                     plan.garbage_task(t)
                 end
 
@@ -2084,8 +2084,8 @@ module Roby
                                 last_stop_count = remaining.size
                             end
 			rescue Exception => e
-			    ExecutionEngine.warn "Execution thread failed to clean up"
-                            Roby.log_exception_with_backtrace(e, Roby, :warn, filter: false)
+			    warn "Execution thread failed to clean up"
+                            Roby.log_exception_with_backtrace(e, self, :warn, filter: false)
 			    return
 			end
 		    end
@@ -2160,9 +2160,9 @@ module Roby
 
 	ensure
 	    if !plan.tasks.empty?
-		ExecutionEngine.warn "the following tasks are still present in the plan:"
+		warn "the following tasks are still present in the plan:"
 		plan.tasks.each do |t|
-		    ExecutionEngine.warn "  #{t}"
+		    warn "  #{t}"
 		end
 	    end
 	end
