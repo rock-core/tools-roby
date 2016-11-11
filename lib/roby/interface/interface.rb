@@ -30,10 +30,15 @@ module Roby
         # under the same job
         JOB_REPLACED         = :replaced
 
+        # Whether the given state indicates that the job's planning is finished
+        def self.planning_finished_state?(state)
+            ![JOB_PLANNING_READY, JOB_PLANNING, JOB_FINALIZED].include?(state)
+        end
+
         # Tests if the given state (one of the JOB_ constants) is terminal, e.g.
         # means that the job is finished
         def self.terminal_state?(state)
-            [JOB_PLANNING_FAILED, JOB_FAILED, JOB_FINISHED, JOB_FINALIZED].include?(state)
+            [JOB_PLANNING_FAILED, JOB_FAILED, JOB_SUCCESS, JOB_FINISHED, JOB_FINALIZED].include?(state)
         end
 
         # Tests if the given state (one of the JOB_ constants) means that the

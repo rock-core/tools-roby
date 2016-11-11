@@ -181,6 +181,11 @@ module Roby
                     end
                 end
 
+                # Wait for the current connection attempt to finish
+                def wait_connection_attempt_result
+                    connection_future.wait
+                end
+
                 # @private
                 #
                 # Process the message queues from {#client}

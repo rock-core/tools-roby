@@ -124,6 +124,22 @@ module Roby
                     async && async.running?
                 end
 
+                def success?
+                    async && async.success?
+                end
+
+                def failed?
+                    async && async.failed?
+                end
+
+                def finished?
+                    async && async.finished?
+                end
+
+                def terminated?
+                    async && async.terminated?
+                end
+
                 def state
                     if interface.reachable?
                         if !async
