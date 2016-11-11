@@ -717,6 +717,24 @@ module Roby
                 end
             end
         end
+
+        describe "#log_read_metadata" do
+            it "returns an empty array if the current log directory cannot be determined" do
+                flexmock(app).should_receive(:log_current_dir).and_raise(ArgumentError)
+                assert_equal Array.new, app.log_read_metadata
+            end
+            it "returns an empty array if the log directory does not have an info.yml file" do
+                app.log_dir = make_tmpdir
+                assert_equal Array.new, app.log_read_metadata
+            end
+            it "returns the unmarshalled contents of the info.yml file" do
+                app.log_dir = make_tmpdir
+                File.open(File.join(app.log_dir, 'info.yml'), 'w') do |io|
+                    YAML.dump(Hash['test' => true], io)
+                end
+                assert_equal Hash['test' => true], app.log_read_metadata
+            end
+        end
     end
 end
 

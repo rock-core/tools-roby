@@ -1045,8 +1045,8 @@ module Roby
                   rescue ArgumentError
                   end
 
-            if dir && File.exists?(File.join(log_dir, 'info.yml'))
-                YAML.load(File.read(File.join(log_dir, 'info.yml')))
+            if dir && File.exists?(File.join(dir, 'info.yml'))
+                YAML.load(File.read(File.join(dir, 'info.yml')))
             else
                 Array.new
             end
