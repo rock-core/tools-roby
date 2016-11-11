@@ -15,6 +15,14 @@ module Roby
                 @received_events = Array.new
             end
 
+            def dump_time
+                Time.now
+            end
+
+            def log_queue_size
+                0
+            end
+
             # Show only events matching this pattern
             #
             # Patterns are OR-ed (i.e. an event is displayed if it matches at

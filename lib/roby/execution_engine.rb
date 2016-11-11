@@ -2048,6 +2048,10 @@ module Roby
             end
         end
 
+        # How many seconds between two Interrupt before the execution engine's
+        # loop can forcefully quit
+        INTERRUPT_FORCE_EXIT_DEAD_ZONE = 10
+
         # The main event loop. It returns when the execution engine is asked to
         # quit. In general, this does not need to be called direclty: use #run
         # to start the event loop in a separate thread.
@@ -2057,6 +2061,7 @@ module Roby
 	    @cycle_start  = Time.now
 	    @cycle_index  = 0
 
+            force_exit_deadline = nil
             last_process_times = Process.times
             last_dump_time = plan.event_logger.dump_time
 
@@ -2143,14 +2148,28 @@ module Roby
 		    @cycle_index += 1
 
 		rescue Exception => e
-                    if !quitting?
+                    if e.kind_of?(Interrupt)
+                        if quitting?
+                            if force_exit_deadline && (force_exit_deadline - Time.now) < 0
+                                fatal "Quitting without cleaning up"
+                                force_quit
+                            else
+                                fatal "Still #{Integer(force_exit_deadline - Time.now)}s before interruption will quit without cleaning up"
+                            end
+                        else
+                            fatal "Received interruption request"
+                            fatal "Interrupt again in #{INTERRUPT_FORCE_EXIT_DEAD_ZONE}s to quit without cleaning up"
+                            quit
+                            force_exit_deadline = Time.now + INTERRUPT_FORCE_EXIT_DEAD_ZONE
+                        end
+                    elsif !quitting?
                         quit
 
-                        ExecutionEngine.fatal "Execution thread quitting because of unhandled exception"
-                        Roby.display_exception(ExecutionEngine.logger.io(:fatal), e)
-                    elsif !e.kind_of?(Interrupt)
-                        ExecutionEngine.fatal "Execution thread FORCEFULLY quitting because of unhandled exception"
-                        Roby.display_exception(ExecutionEngine.logger.io(:fatal), e)
+                        fatal "Execution thread quitting because of unhandled exception"
+                        Roby.log_exception_with_backtrace(e, self, :fatal)
+                    else
+                        fatal "Execution thread FORCEFULLY quitting because of unhandled exception"
+                        Roby.log_exception_with_backtrace(e, self, :fatal)
                         raise
                     end
                 ensure

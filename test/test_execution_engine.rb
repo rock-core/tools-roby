@@ -1,6 +1,7 @@
 require 'roby/test/self'
 require './test/mockups/tasks'
 require 'utilrb/hash/slice'
+require 'timecop'
 
 module Roby
     describe ExecutionEngine do
@@ -177,6 +178,106 @@ module Roby
                     execution_engine.propagation_context([]) { }
                 end
                 assert_equal sources, execution_engine.propagation_sources
+            end
+        end
+
+        describe "#quit" do
+            it "sets the quitting flag but not forced_exit?" do
+                execution_engine.quit
+                assert execution_engine.quitting?
+                refute execution_engine.forced_exit?
+                execution_engine.quit
+                assert execution_engine.quitting?
+                refute execution_engine.forced_exit?
+            end
+        end
+
+        describe "#force_quit" do
+            it "sets both quitting flag and forced_exit?" do
+                execution_engine.force_quit
+                assert execution_engine.quitting?
+                assert execution_engine.forced_exit?
+            end
+        end
+
+        describe "#reset" do
+            it "resets the quitting flag" do
+                execution_engine.quit
+                execution_engine.reset
+                refute execution_engine.quitting?
+            end
+            it "does nothing if the EE is not quitting" do
+                execution_engine.reset
+                refute execution_engine.quitting?
+            end
+        end
+
+        describe "#event_loop" do
+            describe "exit behaviour" do
+                it "quits when receiving a Interrupt" do
+                    execution_engine.once do
+                        execution_engine.add_framework_error(Interrupt.exception, "test")
+                    end
+                    flexmock(execution_engine).should_expect do |m|
+                        m.error.with_any_args
+                        m.info.with_any_args
+                        m.fatal("Received interruption request").once
+                        m.fatal("Interrupt again in 10s to quit without cleaning up").once
+                        m.clear.at_least.once
+                    end
+                    execution_engine.event_loop
+                end
+
+                it "does not forcefully quit when receiving two Interrupts closer than the dead zone parameter" do
+                    Timecop.freeze do
+                        # The plan is 'clean' when #clear returns nil
+                        clear_return = []
+                        flexmock(execution_engine).should_receive(:clear).and_return { clear_return }.
+                            at_least.once
+                        execution_engine.once do
+                            execution_engine.add_framework_error(Interrupt.exception, "test")
+                            execution_engine.once do
+                                Timecop.freeze(5)
+                                execution_engine.add_framework_error(Interrupt.exception, "test")
+                                execution_engine.once do
+                                    clear_return = nil
+                                end
+                            end
+                        end
+                        flexmock(execution_engine).should_expect do |m|
+                            m.error.with_any_args
+                            m.info.with_any_args
+                            m.fatal("Received interruption request").once
+                            m.fatal("Interrupt again in 10s to quit without cleaning up").once
+                            m.fatal("Still 5s before interruption will quit without cleaning up").once
+                        end
+                        execution_engine.event_loop
+                    end
+                end
+
+                it "does forcefully quit when receiving two Interrupts spaced by more than the dead zone parameter" do
+                    Timecop.freeze do
+                        # The plan is 'clean' when #clear returns nil
+                        clear_return = []
+                        flexmock(execution_engine).should_receive(:clear).and_return { clear_return }.
+                            at_least.once
+                        execution_engine.once do
+                            execution_engine.add_framework_error(Interrupt.exception, "test")
+                            execution_engine.once do
+                                Timecop.freeze(12)
+                                execution_engine.add_framework_error(Interrupt.exception, "test")
+                            end
+                        end
+                        flexmock(execution_engine).should_expect do |m|
+                            m.error.with_any_args
+                            m.info.with_any_args
+                            m.fatal("Received interruption request").once
+                            m.fatal("Interrupt again in 10s to quit without cleaning up").once
+                            m.fatal("Quitting without cleaning up").once
+                        end
+                        execution_engine.event_loop
+                    end
+                end
             end
         end
     end
