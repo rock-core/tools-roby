@@ -243,6 +243,10 @@ module Roby
                     client.exception_queue.clear
                 end
 
+                def connecting?
+                    connection_future
+                end
+
                 def connected?
                     !!client
                 end
@@ -284,7 +288,7 @@ module Roby
                     if connected?
                         poll_messages
                         true
-                    else
+                    elsif connecting?
                         poll_connection_attempt
                         !!client
                     end
