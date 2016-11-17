@@ -1680,7 +1680,7 @@ module Roby
             call_plugins(:prepare, self)
         end
 
-	def run(&block)
+	def run(thread_priority: 0, &block)
             prepare
 
 	    engine_config = self.engine
@@ -1690,6 +1690,7 @@ module Roby
                 run_plugins(plugins, &block)
             end
             @thread = Thread.new do
+                Thread.current.priority = thread_priority
                 engine.run cycle: engine_config['cycle'] || 0.1
             end
             join

@@ -129,7 +129,7 @@ error = Roby.display_exception do
 
         Robot.info "done initialization"
     end
-    app.run
+    app.run(thread_priority: -1)
 end
 if error
     exit 1
