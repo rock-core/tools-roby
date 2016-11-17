@@ -80,7 +80,7 @@ module Roby
                         batch.kill_job(job_id)
                     end
                     batch.start_job(action_name, action_arguments)
-                    job_id = batch.__process.last
+                    job_id = batch.__process.started_jobs_id.first
                     interface.monitor_job(job_id)
                 end
 

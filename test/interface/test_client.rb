@@ -164,16 +164,91 @@ module Roby
             end
 
             describe "command batches" do
-                it "gathers commands and executes them all at once" do
-                    interface_mock.should_receive(actions:  [stub_action("Test")])
-                    batch = client.create_batch
-                    batch.Test!(arg: 10)
-                    batch.kill_job 1
-                    batch.Test!(arg: 20)
-                    interface_mock.should_receive(:start_job).with('Test', arg: 10).and_return(1).ordered.once
-                    interface_mock.should_receive(:kill_job).with(1).and_return(2).ordered.once
-                    interface_mock.should_receive(:start_job).with('Test', arg: 20).and_return(3).ordered.once
-                    assert_equal [1, 2, 3], client.process_batch(batch)
+                describe "nominal cases" do
+                    before do
+                        interface_mock.should_receive(actions:  [stub_action("Test")])
+                        interface_mock.should_receive(:start_job).with('Test', arg: 10).and_return(1).ordered.once
+                        interface_mock.should_receive(:kill_job).with(1).and_return(2).ordered.once
+                        interface_mock.should_receive(:start_job).with('Test', arg: 20).and_return(3).ordered.once
+                    end
+
+                    it "gathers commands and executes them all at once" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        client.process_batch(batch)
+                    end
+
+                    it "returns a Return object which contains the calls associated with their return values" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        assert_kind_of Client::BatchContext::Return, ret
+                        expected = [[[[], :start_job, 'Test', Hash[arg: 10]], 1],
+                                    [[[], :kill_job, 1], 2],
+                                    [[[], :start_job, 'Test', Hash[arg: 20]], 3]].
+                            map do |call, ret|
+                                Client::BatchContext::Return::Element.new(call, ret)
+                            end
+                        assert_equal expected, ret.each_element.to_a
+                    end
+
+                    it "the Return object behaves as an enumeration on the return values" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        assert_equal [1, 2, 3], ret.to_a
+                        assert_equal [1, 2, 3], ret.each.to_a
+                        assert_equal 2, ret[1]
+                    end
+
+                    it "the Return may filter on the call name" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        expected = [[[[], :start_job, 'Test', Hash[arg: 10]], 1],
+                                    [[[], :start_job, 'Test', Hash[arg: 20]], 3]].
+                            map do |call, ret|
+                                Client::BatchContext::Return::Element.new(call, ret)
+                            end
+                        assert_equal expected, ret.filter(call: :start_job).each_element.to_a
+                    end
+
+                    it "the Return provides a shortcut to return the started job IDs" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        assert_equal [1, 3], ret.started_jobs_id
+                    end
+
+                    it "the Return provides a shortcut to return the killed job IDs" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        assert_equal [1], ret.killed_jobs_id
+                    end
+
+                    it "the Return provides a shortcut to return the dropped job IDs" do
+                        interface_mock.should_receive(:drop_job).with(2).and_return(4).ordered.once
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        batch.drop_job 2
+                        ret = client.process_batch(batch)
+                        assert_equal [2], ret.dropped_jobs_id
+                    end
                 end
 
                 it "raises NoSuchAction if trying to queue an unknown action" do

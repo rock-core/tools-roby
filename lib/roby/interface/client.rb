@@ -338,6 +338,65 @@ module Roby
                 def __process
                     @context.process_batch(self)
                 end
+
+                class Return
+                    include Enumerable
+
+                    Element = Struct.new :call, :return_value
+
+                    def self.from_calls_and_return(calls, return_values)
+                        elements = calls.zip(return_values).map do |c, r|
+                            Element.new(c, r)
+                        end
+                        new(elements)
+                    end
+
+                    def initialize(elements)
+                        @elements = elements
+                    end
+
+                    def each(&block)
+                        return enum_for(__method__) if !block_given?
+                        @elements.each { |e| yield(e.return_value) }
+                    end
+
+                    def each_element(&block)
+                        @elements.each(&block)
+                    end
+
+                    def [](index)
+                        @elements[index].return_value
+                    end
+
+                    def call_at(index)
+                        @elements[index].call
+                    end
+
+                    def return_value_at(index)
+                        @elements[index].return_value
+                    end
+
+                    def filter(call: nil)
+                        filtered = @elements.find_all do |e|
+                            e.call[1] == call
+                        end
+                        Return.new(filtered)
+                    end
+
+                    def started_jobs_id
+                        filter(call: :start_job).to_a
+                    end
+
+                    def killed_jobs_id
+                        filter(call: :kill_job).each_element.
+                            map { |e| e.call[2] }
+                    end
+
+                    def dropped_jobs_id
+                        filter(call: :drop_job).each_element.
+                            map { |e| e.call[2] }
+                    end
+                end
             end
 
             Job = Struct.new :job_id, :state, :placeholder_task, :task do
@@ -381,7 +440,8 @@ module Roby
             # @return [Array] the return values of each of the calls gathered in
             #   the batch
             def process_batch(batch)
-                call([], :process_batch, batch.__calls)
+                ret = call([], :process_batch, batch.__calls)
+                BatchContext::Return.from_calls_and_return(batch.__calls, ret)
             end
 
             def reload_actions
