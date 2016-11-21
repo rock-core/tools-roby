@@ -559,6 +559,7 @@ module Roby
             elsif @propagation_exceptions
                 @propagation_exceptions << plan_exception
             else
+                Roby.log_exception_with_backtrace(e, self, :fatal)
                 raise NotPropagationContext, "#add_error called outside an error-gathering context (#add_error)"
             end
         end
@@ -624,6 +625,7 @@ module Roby
             if @application_exceptions
                 @application_exceptions << [error, source]
             else
+                Roby.log_exception_with_backtrace(error, self, :fatal)
                 raise NotPropagationContext, "#add_framework_error called outside an exception-gathering context"
             end
         end
