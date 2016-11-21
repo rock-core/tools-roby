@@ -177,6 +177,10 @@ module Roby
             on_success(description: description, in_engine: false, &block)
         end
 
+        def fail(exception = StandardError)
+            promise.fail(exception)
+        end
+
         def execute
             promise.execute
         end
