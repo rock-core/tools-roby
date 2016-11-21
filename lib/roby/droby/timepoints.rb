@@ -5,24 +5,29 @@ module Roby
         module Timepoints
             class Analysis
                 attr_reader :roots
+                attr_reader :thread_names
                 attr_reader :current_groups
 
                 def initialize
+                    @thread_names = Hash.new
                     @roots = roots = Hash.new
                     @current_groups = Hash.new do |h, thread_id|
                         roots[thread_id] = h[thread_id] = Root.new(thread_id)
                     end
                 end
 
-                def add(time, thread_id, name)
+                def add(time, thread_id, thread_name, name)
+                    thread_names[thread_id] ||= thread_name
                     current_groups[thread_id].add(time, name)
                 end
 
-                def group_start(time, thread_id, name)
+                def group_start(time, thread_id, thread_name, name)
+                    thread_names[thread_id] ||= thread_name
                     @current_groups[thread_id] = current_groups[thread_id].group_start(time, name)
                 end
 
-                def group_end(time, thread_id, name)
+                def group_end(time, thread_id, thread_name, name)
+                    thread_names[thread_id] ||= thread_name
                     current_g = current_groups[thread_id]
                     if current_g == roots[thread_id]
                         raise ArgumentError, "called #group_end on the root group"

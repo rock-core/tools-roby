@@ -1979,6 +1979,7 @@ module Roby
             @waiting_work = Concurrent::Array.new
 
             @thread = Thread.current
+            @thread.name = "#{self}.MAIN"
 
             @cycle_length = cycle
             event_loop

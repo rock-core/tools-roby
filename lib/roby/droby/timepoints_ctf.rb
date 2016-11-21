@@ -52,17 +52,17 @@ module Roby
                     end
                 end
 
-                def group_start(time, thread_id, name)
-                    marshalled = marshal_event(time, ID_GROUP_START, thread_id_of(thread_id), name)
+                def group_start(time, thread_id, thread_name, name)
+                    marshalled = marshal_event(time, ID_GROUP_START, thread_id_of(thread_id), thread_name, name)
                     update_packet(time, marshalled + [addr_from_name(name)].pack("L<"))
                 end
 
-                def group_end(time, thread_id, name)
-                    update_packet(time, marshal_event(time, ID_GROUP_END, thread_id_of(thread_id), name))
+                def group_end(time, thread_id, thread_name, name)
+                    update_packet(time, marshal_event(time, ID_GROUP_END, thread_id_of(thread_id), thread_name, name))
                 end
 
-                def add(time, thread_id, name)
-                    update_packet(time, marshal_event(time, ID_TIMEPOINT, thread_id_of(thread_id), name))
+                def add(time, thread_id, thread_name, name)
+                    update_packet(time, marshal_event(time, ID_TIMEPOINT, thread_id_of(thread_id), thread_name, name))
                 end
 
                 def self.generate_metadata(path, _uuid, _clock_base)
@@ -79,10 +79,10 @@ module Roby
                     self.class.generate_metadata(metadata_template_path, uuid, clock_base)
                 end
 
-                def marshal_event(time, event_id, thread_id, name)
+                def marshal_event(time, event_id, thread_id, thread_name, name)
                     timestamp = make_timestamp(time)
                     event_header  = [0xFFFF, event_id, make_timestamp(time)].pack("S<L<Q<")
-                    event_context = [thread_id, 0, name.size, name].pack("L<S<S<A#{name.size}")
+                    event_context = [thread_id, thread_name.size, thread_name, name.size, name].pack("L<S<A#{thread_name.size}S<A#{name.size}")
                     event_header + event_context
                 end
 
