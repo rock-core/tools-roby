@@ -1240,6 +1240,10 @@ module Roby
         #   we should propagate them (if empty, all parents)
         # @return (see propagate_exception_in_plan)
         def propagate_exceptions(exceptions)
+            if exceptions.empty?
+                return Hash.new, Hash.new
+            end
+
             # Remove all exception that are not associated with a task
             exceptions, free_events_exceptions = exceptions.partition do |e, _|
                 e.origin
