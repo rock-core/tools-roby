@@ -1881,8 +1881,8 @@ module Roby
         #   it can be removed with {#remove_at_cycle_end}
         #
         # @yieldparam [Plan] plan the plan on which this engine runs
-        def at_cycle_end(description: 'at_cycle_end', &block)
-            handler = PollBlockDefinition.new(description, block, Hash.new)
+        def at_cycle_end(description: 'at_cycle_end', **options, &block)
+            handler = PollBlockDefinition.new(description, block, **options)
             at_cycle_end_handlers << handler
             handler.object_id
         end
@@ -2205,10 +2205,8 @@ module Roby
 
 	# Called at each cycle end
 	def cycle_end(stats)
-            gather_framework_errors('#cycle_end') do
-                at_cycle_end_handlers.each do |handler|
-                    handler.call(self)
-                end
+            gather_framework_errors("#cycle_end") do
+                call_poll_blocks(at_cycle_end_handlers)
             end
 	end
 
