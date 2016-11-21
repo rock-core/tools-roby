@@ -98,7 +98,11 @@ module Roby
                 # @param [Client::BatchContext] batch if given, the restart
                 #   commands will be added to this batch. Otherwise, a new batch
                 #   is created and {Client::BatchContext#__process} is called.
-                def restart(arguments = self.action_arguments, batch: nil)
+                def restart(arguments = self.action_arguments, batch: nil, lazy: false)
+                    if lazy && running? && (arguments == async.action_arguments)
+                        return
+                    end
+
                     handle_batch_argument(batch) do |b|
                         if running?
                             kill(batch: b)
