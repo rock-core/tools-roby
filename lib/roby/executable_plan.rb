@@ -388,12 +388,6 @@ module Roby
         def garbage_task(task)
             log(:garbage_task, droby_id, task)
             if task.can_finalize?
-                signal_graph = execution_engine.signal_graph
-                task.each_event do |ev|
-                    for signalling_event in signal_graph.in_neighbours(ev).dup
-                        signalling_event.remove_signal ev
-                    end
-                end
                 remove_task(task)
                 true
             else
