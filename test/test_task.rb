@@ -1241,6 +1241,59 @@ module Roby
                 assert task.reusable?
             end
         end
+
+        describe "#mark_failed_to_start" do
+            def self.nominal_behaviour(context)
+                context.it "marks the task as failed_to_start?" do
+                    task.mark_failed_to_start(flexmock, Time.now)
+                    assert task.failed_to_start?
+                end
+                it "sets the failure time" do
+                    task.mark_failed_to_start(flexmock, t = Time.now)
+                    assert_equal t, task.failed_to_start_time
+                end
+                it "sets the failure reason" do
+                    task.mark_failed_to_start(reason = flexmock, Time.now)
+                    assert_equal reason, task.failure_reason
+                end
+                it "sets the task as failed in the index" do
+                    task.mark_failed_to_start(reason = flexmock, Time.now)
+                    assert_equal [task], plan.find_tasks.failed.to_a
+                end
+            end
+
+            describe "pending tasks" do
+                attr_reader :task
+                before do
+                    plan.add(@task = Tasks::Simple.new)
+                end
+                nominal_behaviour(self)
+            end
+
+            describe "starting tasks" do
+                attr_reader :task
+                before do
+                    task_m = Roby::Task.new_submodel do
+                        terminates
+                        event(:start) { |_| }
+                    end
+                    plan.add(@task = task_m.new)
+                    task.start!
+                end
+                nominal_behaviour(self)
+            end
+
+            describe "running tasks" do
+                it "raises InternalError and does not mark the task" do
+                    plan.add(task = Tasks::Simple.new)
+                    task.start!
+                    assert_raises(InternalError) do
+                        task.mark_failed_to_start(flexmock, Time.now)
+                    end
+                    assert !task.failed_to_start?
+                end
+            end
+        end
     end
 end
 

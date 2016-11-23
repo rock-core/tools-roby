@@ -483,6 +483,9 @@ module Roby
         def failed_to_start?; !!@failed_to_start end
 
         def mark_failed_to_start(reason, time)
+            if !pending? && !starting?
+                raise InternalError, "#{self} is already running, cannot mark as failed_to_start!"
+            end
             @failed_to_start = true
             @failed_to_start_time = time
             @failure_reason = reason
