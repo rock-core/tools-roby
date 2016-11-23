@@ -1088,26 +1088,84 @@ module Roby
         end
 
         describe "#clear_relations" do
-            attr_reader :task
+            attr_reader :task, :strong_graph, :ev
             before do
-                plan.add(@task = Tasks::Simple.new)
+                strong_relation_m = Relations::Graph.new_submodel(strong: true)
+                EventStructure.add_relation(strong_relation_m)
+                plan.refresh_relations
+                @strong_graph = plan.event_relation_graph_for(strong_relation_m)
+                task_m = Tasks::Simple.new_submodel
+                plan.add(@task = task_m.new)
+                event_m = Roby::EventGenerator.new_submodel
+                @ev = event_m.new
             end
-            it "clears the bound events" do
-                flexmock(task.start_event).should_receive(:clear_relations).once
-                task.clear_relations
+            after do
+                EventStructure.remove_relation(strong_graph.class)
+                plan.refresh_relations
             end
+            describe "remove_internal: false" do
+                it "clears the external relations to the task's events" do
+                    task.start_event.forward_to ev
+                    ev.signals task.stop_event
+                    assert task.clear_relations(remove_internal: false)
+                    refute task.start_event.child_object?(ev, Roby::EventStructure::Forwarding)
+                    refute task.stop_event.parent_object?(ev, Roby::EventStructure::Signal)
+                    assert task.failed_event.child_object?(task.stop_event, Roby::EventStructure::Forwarding)
+                end
+                it "keeps strong relations with remove_strong: false" do
+                    strong_graph.add_edge(task.start_event, ev, nil)
+                    strong_graph.add_edge(ev, task.stop_event, nil)
+                    refute task.clear_relations(remove_internal: false, remove_strong: false)
+                    assert strong_graph.has_edge?(task.start_event, ev)
+                    assert strong_graph.has_edge?(ev, task.stop_event)
+                end
+                it "removes strong relations with remove_strong: true" do
+                    strong_graph.add_edge(task.start_event, ev, nil)
+                    strong_graph.add_edge(ev, task.stop_event, nil)
+                    assert task.clear_relations(remove_internal: false, remove_strong: true)
+                    refute strong_graph.has_edge?(task.start_event, ev)
+                    refute strong_graph.has_edge?(ev, task.stop_event)
+                end
+            end
+            describe "remove_internal: true" do
+                it "clears both internal and external relations involving the task's events" do
+                    plan.add(ev = Roby::EventGenerator.new)
+                    task.start_event.forward_to ev
+                    ev.signals task.stop_event
+                    assert task.clear_relations(remove_internal: true)
+                    refute task.start_event.child_object?(ev, Roby::EventStructure::Forwarding)
+                    refute task.stop_event.parent_object?(ev, Roby::EventStructure::Signal)
+                    refute task.failed_event.child_object?(task.stop_event, Roby::EventStructure::Forwarding)
+                end
+                it "keeps strong relations with remove_strong: false" do
+                    task.clear_relations(remove_internal: true) # Get a blank task
+                    strong_graph.add_edge(task.start_event, ev, nil)
+                    strong_graph.add_edge(ev, task.stop_event, nil)
+                    strong_graph.add_edge(task.start_event, task.stop_event, nil)
+                    refute task.clear_relations(remove_internal: false, remove_strong: false)
+                    assert strong_graph.has_edge?(task.start_event, ev)
+                    assert strong_graph.has_edge?(ev, task.stop_event)
+                    assert strong_graph.has_edge?(task.start_event, task.stop_event)
+                end
+                it "removes strong relations with remove_strong: true" do
+                    task.clear_relations(remove_internal: true) # Get a blank task
+                    strong_graph.add_edge(task.start_event, ev, nil)
+                    strong_graph.add_edge(ev, task.stop_event, nil)
+                    strong_graph.add_edge(task.start_event, task.stop_event, nil)
+                    assert task.clear_relations(remove_internal: true, remove_strong: true)
+                    refute strong_graph.has_edge?(task.start_event, ev)
+                    refute strong_graph.has_edge?(ev, task.stop_event)
+                    refute strong_graph.has_edge?(task.start_event, task.stop_event)
+                end
+            end
+
             it "returns false if neither the bound events nor the task were involved in a relation" do
-                assert task.clear_relations # clears event relations
                 refute task.clear_relations
             end
             it "returns true if the bound events were involved in a relation" do
-                flexmock(task.start_event).should_receive(:clear_relations).once.and_return(true)
+                plan.add(ev = Roby::EventGenerator.new)
+                task.start_event.forward_to ev
                 assert task.clear_relations
-            end
-            it "passes the strong flag to the bound events" do
-                flexmock(task.start_event).should_receive(:clear_relations).
-                    with(strong: (strong = flexmock)).once
-                assert task.clear_relations(strong: strong)
             end
         end
 

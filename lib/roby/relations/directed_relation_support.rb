@@ -107,10 +107,10 @@ module Roby
             end
 
             # Removes +self+ from all the graphs it is included in.
-            def clear_vertex(strong: true)
+            def clear_vertex(remove_strong: true)
                 for rel in sorted_relations
                     graph = relation_graphs[rel]
-                    if strong || !graph.strong?
+                    if remove_strong || !graph.strong?
                         if graph.remove_vertex(self)
                             removed = true
                         end

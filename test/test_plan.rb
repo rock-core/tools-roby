@@ -392,7 +392,7 @@ class TC_Plan < Minitest::Test
         end
         assert_equal([t2], plan.gc_quarantine.to_a)
         assert(t2.leaf?)
-        assert(t2.success_event.leaf?)
+        refute t2.success_event.child_object?(p.start_event, Roby::EventStructure::Signal)
 
         plan.remove_task(t2)
         assert(plan.gc_quarantine.empty?)

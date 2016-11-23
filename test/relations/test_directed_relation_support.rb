@@ -25,9 +25,9 @@ module Roby
                 end
 
                 it "does not remove the strong relations with strong: false" do
-                    flexmock(graph, :strong? => true)
+                    flexmock(graph, strong?: true)
                     graph.add_edge(v = vertex_m.new, target = vertex_m.new, nil)
-                    refute v.clear_vertex(strong: false)
+                    refute v.clear_vertex(remove_strong: false)
                     assert graph.has_edge?(v, target)
                 end
             end

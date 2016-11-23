@@ -500,15 +500,52 @@ module Roby
         # True if the +failed+ event of this task has been fired
 	def failed?; failed_to_start? || (@success == false) end
 
-        # Remove all relations in which +self+ or its event are involved
-	def clear_relations(strong: true)
-            modified_plan = false
-            each_event do |ev|
-                if ev.clear_relations(strong: strong)
-                    modified_plan = true
+        # Clear relations events of this task have with events outside the task
+        def clear_events_external_relations(remove_strong: true)
+            removed = false
+            task_events = bound_events.values
+            each_event do |event|
+                for rel in event.sorted_relations
+                    graph = plan.event_relation_graph_for(rel)
+                    next if !remove_strong && graph.strong?
+
+                    to_remove = Array.new
+                    graph.each_in_neighbour(event) do |neighbour|
+                        if !task_events.include?(neighbour)
+                            to_remove << neighbour << event
+                        end
+                    end
+                    graph.each_out_neighbour(event) do |neighbour|
+                        if !task_events.include?(neighbour)
+                            to_remove << event << neighbour
+                        end
+                    end
+                    to_remove.each_slice(2) do |from, to|
+                        graph.remove_edge(from, to)
+                    end
+                    removed ||= !to_remove.empty?
                 end
             end
-	    super(strong: strong) || modified_plan
+            removed
+        end
+
+        # Remove all relations in which +self+ or its event are involved
+        #
+        # @param [Boolean] remove_internal if true, remove in-task relations between
+        #   events
+        # @param [Boolean] remove_strong if true, remove strong relations as well
+	def clear_relations(remove_internal: false, remove_strong: true)
+            modified_plan = false
+            if remove_internal
+                each_event do |ev|
+                    if ev.clear_relations(remove_strong: remove_strong)
+                        modified_plan = true
+                    end
+                end
+            else
+                modified_plan = clear_events_external_relations(remove_strong: remove_strong)
+            end
+	    super(remove_strong: remove_strong) || modified_plan
 	end
 
         def invalidated_terminal_flag?; !!@terminal_flag_invalid end

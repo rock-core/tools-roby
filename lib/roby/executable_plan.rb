@@ -41,9 +41,7 @@ module Roby
         # This is used as a last resort, when the task cannot be stopped/GCed by
         # normal means.
         def quarantine(task)
-            task.each_event do |ev|
-                ev.clear_relations
-            end
+            task.clear_events_external_relations
             for rel in task.sorted_relations
                 next if rel == Roby::TaskStructure::ExecutionAgent
                 for child in task.child_objects(rel).to_a
@@ -399,7 +397,7 @@ module Roby
                 remove_task(task)
                 true
             else
-                task.clear_relations(strong: false)
+                task.clear_relations(remove_internal: false, remove_strong: false)
             end
         end
 
@@ -420,7 +418,7 @@ module Roby
                 remove_free_event(event)
                 true
             else
-                event.clear_relations(strong: false)
+                event.clear_relations(remove_strong: false)
             end
         end
 

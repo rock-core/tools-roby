@@ -1329,7 +1329,7 @@ module Roby
 	    # Remove relations first. This is needed by transaction since
 	    # removing relations may need wrapping some new task, and in
 	    # that case these new task will be discovered as well
-	    task.clear_relations
+	    task.clear_relations(remove_internal: true)
             task.mission = false
 
             for ev in task.bound_events
