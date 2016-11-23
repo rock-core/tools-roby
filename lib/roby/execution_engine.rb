@@ -1749,30 +1749,13 @@ module Roby
                 end
 
                 # Mark all root local_tasks as garbage.
-                roots = nil
-                2.times do |i|
-                    roots = local_tasks.dup
-                    plan.each_task_relation_graph do |g|
-                        next if !g.root_relation?
-                        roots.delete_if do |t|
-                            g.each_in_neighbour(t).any? { |p| !p.finished? }
-                        end
-                        break if roots.empty?
+                roots = local_tasks.dup
+                plan.each_task_relation_graph do |g|
+                    next if !g.root_relation? || g.weak?
+                    roots.delete_if do |t|
+                        g.each_in_neighbour(t).any? { |p| !p.finished? }
                     end
-
-                    break if i == 1 || !roots.empty?
-
-                    # There is a cycle somewhere. Try to break it by removing
-                    # weak relations within elements of local_tasks
-                    debug "cycle found, removing weak relations"
-
-                    plan.each_task_relation_graph do |g|
-                        if g.weak?
-                            local_tasks.each do |t|
-                                g.remove_vertex(t)
-                            end
-                        end
-                    end
+                    break if roots.empty?
                 end
 
                 (roots.to_set - finishing - plan.gc_quarantine).each do |local_task|
