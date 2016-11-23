@@ -427,7 +427,7 @@ module Roby
 
         def remove_task(object, timestamp = nil)
             if object.respond_to?(:running?) && object.running? && object.self_owned?
-                raise ArgumentError, "attempting to remove a running task from an executable plan"
+                raise ArgumentError, "attempting to remove #{object}, which is a running task, from an executable plan"
             end
 
             super
