@@ -806,7 +806,7 @@ module Roby
         # +seeds+ si a list of procs which should be called to initiate the propagation
         # (i.e. build an initial set of events)
         def event_propagation_phase(initial_events)
-            @propagation_id = (@propagation_id += 1)
+            @propagation_id += 1
 
 	    gather_errors do
                 next_steps = initial_events
