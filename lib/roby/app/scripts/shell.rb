@@ -24,7 +24,7 @@ error = Roby.display_exception do
     if !remote_url
         remote_url = "#{app.shell_interface_host}:#{app.shell_interface_port}"
     elsif remote_url !~ /:\d+$/
-        remote_url += ":#{app.interface_port}"
+        remote_url += ":#{app.shell_interface_port}"
     end
 end
 if error
