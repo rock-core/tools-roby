@@ -82,6 +82,7 @@ module Roby
                 def marshal_event(time, event_id, thread_id, thread_name, name)
                     timestamp = make_timestamp(time)
                     event_header  = [0xFFFF, event_id, make_timestamp(time)].pack("S<L<Q<")
+                    thread_name ||= ''
                     event_context = [thread_id, thread_name.size, thread_name, name.size, name].pack("L<S<A#{thread_name.size}S<A#{name.size}")
                     event_header + event_context
                 end
