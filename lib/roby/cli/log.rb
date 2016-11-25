@@ -138,11 +138,11 @@ module Roby
 
                     io.puts (start + info[:actual_start]).strftime("%H:%M:%S.%3N") + " " + formatting % [
                         *info.values_at(:cycle_index, :log_queue_size, :plan_task_count, :plan_event_count, :utime, :stime, :dump_time, :end),
-                        gc[:total_allocated_object],
+                        gc[:total_allocated_objects],
                         gc[:minor_gc_count],
                         gc[:major_gc_count],
-                        gc[:total_allocated_object] - gc[:total_freed_object],
-                        gc[:total_freed_object] - oob_gc[:total_freed_object]]
+                        gc[:total_allocated_objects] - gc[:total_freed_objects],
+                        gc[:total_freed_objects] - oob_gc[:total_freed_objects]]
                 end
 
                 exit(0)
