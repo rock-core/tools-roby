@@ -50,7 +50,7 @@ module Roby
         # steps in the pipeline, given how the promises are used in Roby (to
         # avoid freezing due to blocking calls)
         def run_pipeline(*state)
-            Thread.current.name = "#{execution_engine}.run_promises"
+            Thread.current.name = "run_promises"
 
             pipeline = self.pipeline.dup
             on_error = @on_error
