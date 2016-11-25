@@ -60,6 +60,9 @@ module Roby
         # Whether this engine should use the OOB GC from the gctools gem
         attr_predicate :use_oob_gc?, true
 
+        # Whether this engine should trace and log GC-related information
+        attr_predicate :profile_gc?, true
+
         class << self
             # Whether the engines should use the OOB GC from the gctools gem by
             # default
@@ -2055,6 +2058,10 @@ module Roby
 
 	    loop do
 		begin
+                    if profile_gc?
+                        GC::Profiler.enable
+                    end
+
 		    if quitting?
                         if forced_exit?
                             return
@@ -2123,6 +2130,13 @@ module Roby
                     stats[:dump_time] = dump_time - last_dump_time
                     stats[:state] = Roby::State
                     stats[:end] = Time.now - cycle_start
+                    if profile_gc?
+                        stats[:gc_profile_data] = GC::Profiler.raw_data
+                        stats[:gc_total_time] = GC::Profiler.total_time
+                    else
+                        stats[:gc_profile_data] = nil
+                        stats[:gc_total_time] = 0
+                    end
                     log(:cycle_end, stats)
 
                     last_dump_time = dump_time
@@ -2131,6 +2145,10 @@ module Roby
 
 		    @cycle_start += cycle_length
 		    @cycle_index += 1
+
+                    if profile_gc?
+                        GC::Profiler.disable
+                    end
 
 		rescue Exception => e
                     if e.kind_of?(Interrupt)

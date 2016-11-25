@@ -125,8 +125,8 @@ module Roby
                     io = File.open(options[:save], 'w')
                 end
 
-                header = %w{0_actual_start 1_cycle_index 2_log_queue_size 3_plan_task_count 4_plan_event_count 5_utime 6_stime 7_dump_time 8_duration 9_total_allocated_objects 10_minor 11_major 12_count 13_oob_removed}
-                formatting = %w{%i %i %i %i %.3f %.3f %.3f %.3f %i %i %i %i %i}
+                header = %w{0_actual_start 1_cycle_index 2_log_queue_size 3_plan_task_count 4_plan_event_count 5_utime 6_stime 7_dump_time 8_duration 9_total_allocated_objects 10_minor 11_major 12_count 13_oob_removed 14_gc_total_time}
+                formatting = %w{%i %i %i %i %.3f %.3f %.3f %.3f %i %i %i %i %i %.3f}
                 formatting = formatting.join(",")
 
                 puts header.join(",")
@@ -142,7 +142,8 @@ module Roby
                         gc[:minor_gc_count],
                         gc[:major_gc_count],
                         gc[:total_allocated_objects] - gc[:total_freed_objects],
-                        gc[:total_freed_objects] - oob_gc[:total_freed_objects]]
+                        gc[:total_freed_objects] - oob_gc[:total_freed_objects],
+                        info[:gc_total_time] || 0]
                 end
 
                 exit(0)
