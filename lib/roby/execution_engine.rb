@@ -13,7 +13,12 @@ module Roby
         #
         # @return [Array<Exception>]
         def original_exceptions
-            errors.flat_map { |e| e.original_exceptions }.to_set.to_a
+            errors.flat_map do |e|
+                if e.respond_to?(:original_exceptions)
+                    e.original_exceptions
+                else e
+                end
+            end
         end
 
         def initialize(errors)
@@ -1616,7 +1621,7 @@ module Roby
         rescue Exception => e
             application_exceptions = clear_application_exceptions
             if !application_exceptions.empty?
-                raise SynchronousEventProcessingMultipleErrors.new(application_exceptions + [e])
+                raise SynchronousEventProcessingMultipleErrors.new(application_exceptions.map(&:first) + [e])
             else raise e
             end
 
