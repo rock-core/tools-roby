@@ -1071,6 +1071,25 @@ module Roby
             end
         end
 
+        class NoCurrentLog < RuntimeError; end
+
+        # The path to the current log file
+        def log_current_file
+            log_current_dir = self.log_current_dir
+            metadata = log_read_metadata
+            if metadata.empty?
+                raise NoCurrentLog, "#{log_current_dir} is not a valid Roby log dir, it does not have an info.yml metadata file"
+            elsif !(robot_name = metadata.map { |h| h['robot_name'] }.compact.last)
+                raise NoCurrentLog, "#{log_current_dir}'s metadata does not specify the robot name"
+            end
+
+            full_path = File.join(log_current_dir, "#{robot_name}-events.log")
+            if !File.file?(full_path)
+                raise NoCurrentLog, "inferred log file #{full_path} for #{log_current_dir}, but that file does not exist"
+            end
+            full_path
+        end
+
         # @api private
         #
         # Read and validate the 'current' dir by means of the 'current' symlink
