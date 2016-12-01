@@ -136,7 +136,11 @@ module Roby
         # Remove all references of +task+ from the index.
 	def remove(task)
 	    for klass in task.model.ancestors
-		by_model[klass].delete(task)
+                set = by_model[klass]
+                set.delete(task)
+                if set.empty?
+                    by_model.delete(klass)
+                end
 	    end
 	    for state_set in by_predicate
 		state_set.last.delete(task)
