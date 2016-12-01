@@ -240,6 +240,13 @@ module Roby
                 Roby.app.robot(robot_name)
                 puts Roby.app.log_current_file
             end
+
+            desc 'display', "start roby-display to visualize the log file's contents"
+            def display(file)
+                file = handle_file_argument(file)
+                require 'roby/cli/display'
+                Display.new.file(file)
+            end
         end
     end
 end
