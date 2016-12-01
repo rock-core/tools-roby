@@ -168,7 +168,7 @@ module Roby
                     app.exec
                 ensure
                     if config_path
-                        save_config(config_path)
+                        save_config(display, config_path)
                     end
                 end
 
@@ -177,9 +177,9 @@ module Roby
                         display.load_options(config_path)
                     end
                 end
-                def save_config(config_path)
-                    FileUtils.mkdir_p(File.dirname(config))
-                    File.open(config, 'w') do |io|
+                def save_config(display, config_path)
+                    FileUtils.mkdir_p(File.dirname(config_path))
+                    File.open(config_path, 'w') do |io|
                         YAML.dump(display.save_options, io)
                     end
                 end
