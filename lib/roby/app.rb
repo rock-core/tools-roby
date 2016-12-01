@@ -525,9 +525,7 @@ module Roby
             parser.on('--debug', 'run in debug mode') do
                 Roby.app.public_logs = true
                 Roby.app.filter_backtraces = false
-            end
-            parser.on('--enable-profiling', 'enable the profiling subcommand on the Roby interface') do
-                require 'roby/app/profiling'
+                require 'roby/app/debug'
             end
             parser.on_tail('-h', '--help', 'this help message') do
                 STDERR.puts parser
