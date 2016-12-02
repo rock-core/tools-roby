@@ -101,6 +101,20 @@ class SynchronizedReadlineInput < IRB::ReadlineInputMethod
     end
 end
 
+Readline.completer_word_break_characters = ""
+Readline.completion_proc = lambda do |string|
+    if string =~ /^\w+$/
+        prefix_match = /^#{string}/
+        actions = __main_remote_interface__.client.actions.find_all do |act|
+            prefix_match === act.name
+        end
+        if !actions.empty?
+            return actions.map { |act| "#{act.name}!" }
+        end
+    end
+    return Array.new
+end
+
 begin
     # Make __main_remote_interface__ the top-level object
     bind = __main_remote_interface__.instance_eval { binding }
