@@ -90,13 +90,24 @@ module RbReadline
     end
 end
 
+class SynchronizedReadlineInput < IRB::ReadlineInputMethod
+    def initialize(mutex)
+        @mutex = mutex
+        super()
+    end
+
+    def gets
+        mutex.synchronize { super }
+    end
+end
+
 begin
     # Make __main_remote_interface__ the top-level object
     bind = __main_remote_interface__.instance_eval { binding }
     ws  = IRB::WorkSpace.new(bind)
     irb = IRB::Irb.new(ws)
 
-    context = irb.context
+    context = IRB::Context.new(irb, ws, SynchronizedReadlineInput.new(__main_remote_interface__.mutex))
     context.save_history = 100
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
