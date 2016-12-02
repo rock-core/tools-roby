@@ -11,9 +11,13 @@ app.load_config_yaml
 require 'pp'
 
 remote_url = nil
+silent = false
 opt = OptionParser.new do |opt|
     opt.on('--host URL', String, "sets the host to connect to") do |url|
 	remote_url = url
+    end
+    opt.on '--silent', 'disable notifications (can also be controlled in the shell itself)' do
+        silent = true
     end
 end
 opt.parse! ARGV
@@ -63,6 +67,8 @@ __main_remote_interface__ =
         exit(1)
     end
 
+__main_remote_interface__.silent(silent)
+
 module RbReadline
     def self.puts(msg)
         if needs_save_and_restore = rl_isstate(RL_STATE_READCMD)
@@ -97,7 +103,9 @@ begin
     Thread.new do
         begin
             __main_remote_interface__.notification_loop(0.1) do |msg|
-                RbReadline.puts(msg)
+                if !__main_remote_interface__.silent?
+                    RbReadline.puts(msg)
+                end
             end
         rescue Exception => e
             puts e

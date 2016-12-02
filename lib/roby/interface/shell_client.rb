@@ -14,10 +14,13 @@ module Roby
             #   the mutex to protect when required
             attr_reader :mutex
 
+            attr_predicate :silent?, false
+
             def initialize(remote_name, &connection_method)
                 @connection_method = connection_method
                 @remote_name = remote_name
                 @mutex = Mutex.new
+                @silent = false
                 connect
             end
 
@@ -345,6 +348,11 @@ module Roby
                     end
                     sleep period
                 end
+            end
+
+            # Whether the shell should stop displaying any notification
+            def silent(be_silent)
+                @silent = be_silent
             end
         end
     end
