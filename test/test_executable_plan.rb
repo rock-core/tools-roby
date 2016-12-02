@@ -220,6 +220,27 @@ module Roby
             end
         end
 
+        describe "#quarantine_task" do
+            attr_reader :task
+            before do
+                plan.add(@task = Tasks::Simple.new)
+                flexmock(task)
+            end
+
+            it "emits the quarantined_task log event" do
+                assert_logs_event(:quarantined_task, plan.droby_id, task)
+                plan.quarantine_task(task)
+            end
+            it "marks the task as quarantined" do
+                plan.quarantine_task(task)
+                assert task.quarantined?
+            end
+            it "removes all non-strong task relations and all external event relations" do
+                task.should_receive(:clear_relations).with(remove_internal: false, remove_strong: false).once
+                plan.quarantine_task(task)
+            end
+        end
+
         describe "handling of garbage objects" do
             attr_reader :task, :garbage_task, :free_event, :garbage_free_event
             before do

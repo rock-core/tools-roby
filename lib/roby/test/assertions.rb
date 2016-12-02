@@ -200,7 +200,7 @@ module Roby
             # Asserts that the given task is added to the quarantine
             def assert_task_quarantined(task, timeout: 5)
                 yield
-                while !task.plan.quarantined_task?(task)
+                while !task.quarantined?
                     process_events
                     if (Time.now - start) > timeout
                         flunk("timed out while waiting for #{task} to be added to quarantine")

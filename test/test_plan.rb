@@ -376,28 +376,6 @@ class TC_Plan < Minitest::Test
         assert_equal [plan], plan.transaction_stack
     end
 
-
-    def test_quarantine
-        t1, t2, t3, p = prepare_plan add: 4
-        t1.depends_on t2
-        t2.depends_on t3
-        t2.planned_by p
-
-        t1.start_event.signals p.start_event
-        t2.success_event.signals p.start_event
-
-        plan.add(t2)
-        with_log_level(Roby, Logger::FATAL) do
-            plan.quarantine(t2)
-        end
-        assert_equal([t2], plan.gc_quarantine.to_a)
-        assert(t2.leaf?)
-        refute t2.success_event.child_object?(p.start_event, Roby::EventStructure::Signal)
-
-        plan.remove_task(t2)
-        assert(plan.gc_quarantine.empty?)
-    end
-    
     def test_failed_mission
         t1, t2, t3, t4 = prepare_plan add: 4, model: Tasks::Simple
         t1.depends_on t2

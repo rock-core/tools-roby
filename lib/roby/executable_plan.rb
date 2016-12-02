@@ -35,13 +35,6 @@ module Roby
         # @return [Set<Roby::Task>]
 	attr_reader :force_gc
 
-	# A set of task for which GC should not be attempted, either because
-	# they are not interruptible or because their start or stop command
-	# failed
-        #
-        # @return [Set<Roby::Task>]
-	attr_reader :gc_quarantine
-
         # The list of plan-wide exception handlers 
         #
         # @return [Array<(#===, #call)>]
@@ -52,38 +45,28 @@ module Roby
 
             @execution_engine = ExecutionEngine.new(self)
 	    @force_gc    = Set.new
-	    @gc_quarantine = Set.new
             @exception_handlers = Array.new
             on_exception LocalizedError do |plan, error|
                 plan.default_localized_error_handling(error)
             end
         end
 
+        # @api private
+        #
         # Put the given task in quarantine. In practice, it means that all the
         # event relations of that task's events are removed, as well as its
-        # children. Then, the task is added to gc_quarantine (the task will not
-        # be GCed anymore).
+        # children. Then, the task is marked as quarantined with
+        # {Task#quarantined?} and the engine will not attempt to garbage-collect
+        # it anymore
         #
         # This is used as a last resort, when the task cannot be stopped/GCed by
         # normal means.
-        def quarantine(task)
-            task.clear_events_external_relations
-            for rel in task.sorted_relations
-                next if rel == Roby::TaskStructure::ExecutionAgent
-                for child in task.child_objects(rel).to_a
-                    task.remove_child_object(child, rel)
-                end
-            end
-            Roby::ExecutionEngine.warn "putting #{task} in quarantine"
-            gc_quarantine << task
-            self
-        end
+        def quarantine_task(task)
+            log(:quarantined_task, droby_id, task)
 
-        # Tests whether a task is in the quarantine
-        #
-        # @see quarantine
-        def quarantined_task?(task)
-            gc_quarantine.include?(task)
+            task.quarantined!
+            task.clear_relations(remove_internal: false, remove_strong: false)
+            self
         end
 
 	# Check that this is an executable plan
@@ -521,14 +504,12 @@ module Roby
 
             super
 	    @force_gc.delete(object)
-            @gc_quarantine.delete(object)
         end
 
         # Clear the plan
         def clear
             super
             @force_gc.clear
-            @gc_quarantine.clear
         end
 
 	# Replace +task+ with a fresh copy of itself and start it.

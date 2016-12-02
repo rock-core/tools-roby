@@ -1766,7 +1766,7 @@ module Roby
                     break if roots.empty?
                 end
 
-                (roots.to_set - finishing - plan.gc_quarantine).each do |local_task|
+                (roots.to_set - finishing).each do |local_task|
                     if local_task.pending?
                         info "GC: removing pending task #{local_task}"
 
@@ -1787,19 +1787,19 @@ module Roby
                             did_something = true
                         end
                     elsif !local_task.finishing?
-                        if local_task.event(:stop).controlable?
-                            debug { "GC: queueing #{local_task}/stop" }
+                        if local_task.quarantined?
+                            warn "GC: #{local_task} is running but in quarantine"
+                        elsif local_task.event(:stop).controlable?
+                            debug { "GC: attempting to stop #{local_task}" }
                             if !local_task.respond_to?(:stop!)
-                                fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
-                                plan.quarantine(local_task)
+                                warn "something fishy: #{local_task}/stop is controlable but there is no #stop! method, putting in quarantine"
+                                plan.quarantine_task(local_task)
                             else
                                 finishing << local_task
                             end
                         else
-                            warn "GC: ignored #{local_task}, it cannot be stopped"
-                            # We don't use Plan#quarantine as it is normal that
-                            # this task does not get GCed
-                            plan.gc_quarantine << local_task
+                            warn "GC: #{local_task} cannot be stopped, putting in quarantine"
+                            plan.quarantine_task(local_task)
                         end
                     elsif local_task.finishing?
                         debug do
@@ -2008,7 +2008,7 @@ module Roby
             plan.permanent_events.dup.each { |t| plan.unmark_permanent_event(t) }
             plan.force_gc.merge( plan.tasks )
 
-            quaranteened_subplan = plan.compute_useful_tasks(plan.gc_quarantine)
+            quaranteened_subplan = plan.compute_useful_tasks(plan.quarantined_tasks)
             remaining = plan.tasks - quaranteened_subplan
 
             if remaining.empty?
@@ -2034,8 +2034,9 @@ module Roby
             remaining.each do |task|
                 info "  #{task}"
             end
-            if plan.gc_quarantine.size != 0
-                info "#{plan.gc_quarantine.size} tasks in quarantine"
+            quarantined = remaining.find_all { |t| t.quarantined? }
+            if quarantined.size != 0
+                info "#{quarantined.size} tasks in quarantine"
             end
         end
 

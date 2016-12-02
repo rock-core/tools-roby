@@ -477,12 +477,24 @@ module Roby
 
         # True if this task can be reused by some other parts in the plan
         def reusable?
-            plan && @reusable && !garbage? && !failed_to_start? && !finished? && !finishing?
+            plan && @reusable && !quarantined? && !garbage? && !failed_to_start? && !finished? && !finishing?
         end
 
         def garbage!
             bound_events.each_value(&:garbage!)
             super
+        end
+
+        # @!method quarantined?
+        #
+        # Whether this task has been quarantined
+        attr_predicate :quarantined?
+
+        # Mark the task as quarantined
+        #
+        # Once set it cannot be unset
+        def quarantined!
+            @quarantined = true
         end
 
         def failed_to_start?; !!@failed_to_start end
@@ -1456,11 +1468,11 @@ module Roby
                     # interface, as we can't emergency stop it. Quarantine it
                     # and inject it in the normal exception propagation
                     # mechanisms.
-                    Robot.fatal "putting #{self} in quarantine: #{self} failed to emit"
-                    Robot.fatal "the error is:"
-                    Roby.log_exception_with_backtrace(error, Robot, :fatal)
+                    execution_engine.fatal "putting #{self} in quarantine: #{self} failed to emit"
+                    execution_engine.fatal "the error is:"
+                    Roby.log_exception_with_backtrace(error, execution_engine, :fatal)
 
-                    plan.quarantine(self)
+                    plan.quarantine_task(self)
                     add_error(TaskEmergencyTermination.new(self, error, true))
                 end
             else
