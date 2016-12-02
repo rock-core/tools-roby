@@ -173,9 +173,13 @@ module Roby
         # @param [Object] info the associated edge info that applies to
         #   relations.first
         def adding_edge(parent, child, relations, info)
-            unless parent.read_write? || child.child.read_write?
+            if !parent.read_write? || !child.read_write?
 		raise OwnershipError, "cannot remove a relation between two objects we don't own"
-	    end
+            elsif parent.garbage?
+                raise ReusingGarbage, "attempting to reuse #{parent} which is marked as garbage"
+            elsif child.garbage?
+                raise ReusingGarbage, "attempting to reuse #{child} which is marked as garbage"
+            end
 
             if last_dag = relations.find_all(&:dag?).last
                 if child.relation_graph_for(last_dag).reachable?(child, parent)
@@ -357,6 +361,14 @@ module Roby
         # Applies modification information extracted from a transaction. This is
         # used by {Transaction#commit_transaction}
         def merge_transaction(transaction, merged_graphs, added, removed, updated)
+            added.each do |_, parent, child, _|
+                if parent.garbage?
+                    raise ReusingGarbage, "attempting to reuse #{parent} which is marked as garbage"
+                elsif child.garbage?
+                    raise ReusingGarbage, "attempting to reuse #{child} which is marked as garbage"
+                end
+            end
+
             emit_relation_graph_transaction_application_hooks(added, prefix: 'adding')
             emit_relation_graph_transaction_application_hooks(removed, prefix: 'removing')
             emit_relation_graph_transaction_application_hooks(updated, prefix: 'updating')
@@ -419,6 +431,8 @@ module Roby
             log(:merged_plan, droby_id, plan)
         end
 
+        # @api private
+        #
 	# Called to handle a task that should be garbage-collected
         #
         # What actually happens to the task is controlled by
@@ -440,10 +454,12 @@ module Roby
         #   finalized *and* has external relations.
         def garbage_task(task)
             log(:garbage_task, droby_id, task)
+
             if task.can_finalize?
                 remove_task(task)
                 true
             else
+                task.garbage!
                 task.clear_relations(remove_internal: false, remove_strong: false)
             end
         end

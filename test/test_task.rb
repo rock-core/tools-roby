@@ -1210,6 +1210,10 @@ module Roby
                 plan.remove_task(task)
                 refute task.reusable?
             end
+            it "is false if the task is garbage" do
+                task.garbage!
+                refute task.reusable?
+            end
             it "propagates a 'true' to a transaction proxy" do
                 plan.in_transaction do |trsc|
                     assert trsc[task].reusable?
@@ -1239,6 +1243,14 @@ module Roby
                     trsc[task].do_not_reuse
                 end
                 assert task.reusable?
+            end
+        end
+
+        describe "#garbage!" do
+            it "marks its bound events as garbage" do
+                plan.add(task = Tasks::Simple.new)
+                task.garbage!
+                assert task.start_event.garbage?
             end
         end
 
