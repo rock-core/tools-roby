@@ -52,7 +52,7 @@ module Robot
 	options = args.first || {}
 	task, planner = Roby.app.prepare_action(name, **options)
         task.plan.add_mission_task(task)
-	return task, planner
+	return task, planner, planner.allocate_job_id
     end
 
     # Declare the robot type of the robot configuration being loaded
@@ -97,4 +97,3 @@ module Robot
         Roby.app.actions(&block)
     end
 end
-
