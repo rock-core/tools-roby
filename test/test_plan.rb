@@ -8,7 +8,7 @@ module TC_PlanStatic
             assert(!plan.permanent_task?(task), "task was meant to be removed, but Plan#permanent_task? still returns true")
             assert(!plan.mission_task?(task), "task was meant to be removed, but Plan#mission_task? returns true")
             assert(!task.mission?, "task was meant to be removed, but Task#mission? returns true")
-            assert_equal(nil, task.plan, "task was meant to be removed, but PlanObject#plan returns a non-nil value")
+            assert_nil task.plan, "task was meant to be removed, but PlanObject#plan returns a non-nil value"
         else
             assert_equal(plan, task.plan, "task was meant to be included in a plan but PlanObject#plan returns nil")
             assert(plan.has_task?(task), "task was meant to be included in a plan but Plan#has_task? returned false")
@@ -34,7 +34,7 @@ module TC_PlanStatic
         if state == :removed
             assert(!plan.has_free_event?(event), "event was meant to be removed, but Plan#has_free_event? still returns true")
             assert(!plan.permanent_event?(event), "event was meant to be removed, but Plan#permanent_event? still returns true")
-            assert_equal(nil, event.plan, "event was meant to be removed, but PlanObject#plan returns a non-nil value")
+            assert_nil event.plan, "event was meant to be removed, but PlanObject#plan returns a non-nil value"
         else
             assert_equal(plan, event.plan, "event was meant to be included in a plan but PlanObject#plan returns nil")
             assert(plan.has_free_event?(event), "event was meant to be included in a plan but Plan#has_free_event? returned false")
@@ -433,7 +433,7 @@ module Roby
             end
             it "configures #task_relation_graphs to return nil if nil is being resolved" do
                 plan = Roby::Plan.new
-                assert_equal nil, plan.task_relation_graphs[nil]
+                assert_nil plan.task_relation_graphs[nil]
             end
 
             it "instanciates graphs for all the relation graphs registered on Roby::EventGenerator" do
@@ -451,7 +451,7 @@ module Roby
             end
             it "configures #task_relation_graphs to return nil if nil is being resolved" do
                 plan = Roby::Plan.new
-                assert_equal nil, plan.event_relation_graphs[nil]
+                assert_nil plan.event_relation_graphs[nil]
             end
         end
         describe "#locally_useful_tasks" do

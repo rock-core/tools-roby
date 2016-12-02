@@ -71,7 +71,7 @@ module Roby
                     it "stops marshalling at the toplevel ClassDumper class in the ancestry" do
                         parent.extend Builtins::ClassDumper
                         marshalled = marshaller.dump(child)
-                        assert_equal nil, marshalled.superclass.superclass
+                        assert_nil marshalled.superclass.superclass
                     end
 
                     it "raises NoLocalObject on demarshalling if the toplevel class cannot be resolved locally" do

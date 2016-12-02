@@ -259,7 +259,7 @@ module Roby
 
                 it "is nil by default" do
                     parent.add_child_object(child, graph_m)
-                    assert_equal nil, parent[child, graph_m]
+                    assert_nil parent[child, graph_m]
                 end
 
                 it "can be overriden from a nil to a non-nil value" do
@@ -317,15 +317,15 @@ module Roby
                         it "sets the edge info only at the level it has been set" do
                             parent.add_child_object(child, graph_m, info = flexmock)
                             assert_equal info, parent[child, graph_m]
-                            assert_equal nil, parent[child, superset_graph_m]
+                            assert_nil parent[child, superset_graph_m]
                         end
                         it "updates the edge info only at the level it is being updated" do
                             parent.add_child_object(child, graph_m)
-                            assert_equal nil, parent[child, superset_graph_m]
-                            assert_equal nil, parent[child, graph_m]
+                            assert_nil parent[child, superset_graph_m]
+                            assert_nil parent[child, graph_m]
                             parent.add_child_object(child, superset_graph_m, info = flexmock)
                             assert_equal info, parent[child, superset_graph_m]
-                            assert_equal nil, parent[child, graph_m]
+                            assert_nil parent[child, graph_m]
                         end
                     end
                 end

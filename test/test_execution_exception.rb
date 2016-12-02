@@ -12,7 +12,7 @@ module Roby
                 error = create_exception_from(task)
                 assert_equal(task, error.task)
                 assert_equal([task], error.trace)
-                assert_equal(nil, error.generator)
+                assert_nil error.generator
             end
 
             it "can initialize from a task event" do

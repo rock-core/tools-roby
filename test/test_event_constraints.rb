@@ -35,7 +35,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
 
     def refute_static(predicate, task)
         assert(!predicate.static?(task), "#{predicate} is static but should not be")
-        assert_equal(nil, predicate.explain_static(task))
+        assert_nil predicate.explain_static(task)
     end
 
     def assert_static(value, predicate, events, task, actual_predicate = nil)
@@ -79,7 +79,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
 
         plan.add(task = TaskModel.new)
         assert(!pred.static?(task))
-        assert_equal(nil, pred.explain_static(task))
+        assert_nil pred.explain_static(task)
         task.start!
         assert(pred.static?(task))
         assert_explained_by(true, pred, task.start_event.last, pred.explain_static(task))
@@ -91,7 +91,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         plan.add(task = TaskModel.new)
         task.start!
         assert(!pred.static?(task))
-        assert_equal(nil, pred.explain_static(task))
+        assert_nil pred.explain_static(task)
         task.stop!
         assert(pred.static?(task))
         assert_explained_by(nil, pred, task.first_event, pred.explain_static(task))
@@ -117,7 +117,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
 
         plan.add(task = TaskModel.new)
         assert(!pred.static?(task))
-        assert_equal(nil, pred.explain_static(task))
+        assert_nil pred.explain_static(task)
         task.start!
         assert(pred.static?(task))
         assert_explained_by(true, root_pred, task.start_event.last,

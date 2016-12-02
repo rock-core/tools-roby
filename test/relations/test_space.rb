@@ -112,7 +112,7 @@ module Roby
                         parent, child = create_node, create_node
                         parent.add_child child
                         parent.remove_child child
-                        assert_equal nil, parent.child
+                        assert_nil parent.child
                     end
 
                     it "resets the accessor to other children if there are some when the child is removed" do
@@ -165,11 +165,11 @@ module Roby
                         it "is passed the child only" do
                             subject.add_child(child = create_node)
                             recorder.should_receive(:called).with([child]).once
-                            assert_equal nil, subject.find_child { |*c| recorder.called(c) }
+                            assert_nil subject.find_child { |*c| recorder.called(c) }
                         end
 
                         it "returns nil if there are no matching children" do
-                            assert_equal nil, subject.find_child { |c| false }
+                            assert_nil subject.find_child { |c| false }
                         end
 
                         it "returns the first child for which the block returns true" do
@@ -197,23 +197,23 @@ module Roby
 
                     describe "#find_CHILD" do
                         it "returns nil if there are no children" do
-                            assert_equal nil, subject.find_child
+                            assert_nil subject.find_child
                         end
 
                         it "yields the child only if its argument is false" do
                             subject.add_child(child = create_node, info = flexmock)
                             recorder.should_receive(:called).with([child]).once
-                            assert_equal nil, subject.find_child(false) { |*c| recorder.called(c) }
+                            assert_nil subject.find_child(false) { |*c| recorder.called(c) }
                         end
 
                         it "yields the child and info" do
                             subject.add_child(child = create_node, info = flexmock)
                             recorder.should_receive(:called).with([child, info]).once
-                            assert_equal nil, subject.find_child { |*c| recorder.called(c) }
+                            assert_nil subject.find_child { |*c| recorder.called(c) }
                         end
 
                         it "returns nil if there are no matching children" do
-                            assert_equal nil, subject.find_child { |c| false }
+                            assert_nil subject.find_child { |c| false }
                         end
 
                         it "returns the first child for which the block returns true" do

@@ -44,12 +44,12 @@ describe Roby::Interface::Interface do
             plan.add(job_task = job_task_m.new(job_id: nil))
             plan.add(planned_task = Roby::Task.new)
             planned_task.planned_by job_task
-            assert_equal nil, interface.job_id_of_task(job_task)
-            assert_equal nil, interface.job_id_of_task(planned_task)
+            assert_nil interface.job_id_of_task(job_task)
+            assert_nil interface.job_id_of_task(planned_task)
         end
         it "should return nil for plain tasks" do
             plan.add(plain = Roby::Task.new)
-            assert_equal nil, interface.job_id_of_task(plain)
+            assert_nil interface.job_id_of_task(plain)
         end
     end
 
@@ -76,7 +76,7 @@ describe Roby::Interface::Interface do
             assert_equal job_task, interface.find_job_by_id(10)
         end
         it "should return nil if no job with the given ID exists" do
-            assert_equal nil, interface.find_job_by_id(10)
+            assert_nil interface.find_job_by_id(10)
         end
     end
 

@@ -51,7 +51,7 @@ module Roby
 
                 assert task.failed?
                 assert_kind_of ArgumentError, task.failed_event.last.context.first
-                assert_equal nil, task.result
+                assert_nil task.result
             end
 
             it "provides a way to declare interruption points in the threaded computation" do
@@ -74,7 +74,7 @@ module Roby
                 end
 
                 assert_kind_of Interrupt, task.failed_event.last.context.first
-                assert_equal nil, task.result
+                assert_nil task.result
             end
         end
     end
