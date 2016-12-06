@@ -287,6 +287,5 @@ describe Roby::Coordination::ActionStateMachine do
         task.stop!
         task.current_task_child.success_event.emit
     end
-
 end
 

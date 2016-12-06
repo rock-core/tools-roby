@@ -5,6 +5,14 @@ module Roby
         module Actions
             include Base
 
+            # Exception thrown when a toplevel state was expected but a
+            # dependency was given
+            class NotToplevelState < CoordinationModelError; end
+
+            # Exception thrown when using an event in a context where it is not
+            # active
+            class EventNotActiveInState < CoordinationModelError; end
+
             # The action interface model this state machine model is defined on
             # @return [Model<Interface>,Model<Library>]
             attr_accessor :action_interface
@@ -82,8 +90,37 @@ module Roby
                     raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
                 else
                     state, event, target_event = *spec
+                    if !toplevel_state?(state)
+                        raise NotToplevelState, "cannot specify #{state} as the state to forward from as it is not a toplevel state"
+                    elsif !event_active_in_state?(event, state)
+                        raise EventNotActiveInState, "cannot forward from #{event} while in state #{state} as the event is not active in this state"
+                    elsif !root_event?(target_event)
+                        raise NotRootEvent, "can only forward to a root event"
+                    end
+
                     forwards << [state, event, target_event]
                 end
+            end
+
+            # @api private
+            #
+            # Raise if the given state is not a toplevel state
+            def toplevel_state?(state)
+                true
+            end
+
+            # @api private
+            #
+            # Raise if an event is not "active" while in a particular state
+            def event_active_in_state?(event, state)
+                required_tasks_for(state).has_key?(event.task)
+            end
+
+            # @api private
+            #
+            # Raises if the event is not an event of the root task
+            def root_event?(event)
+                event.task == root
             end
 
             # Adds a toplevel dependency

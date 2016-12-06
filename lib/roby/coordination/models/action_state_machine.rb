@@ -84,6 +84,12 @@ module Roby
             # @return [Array<(Task,Event,Task)>]
             inherited_attribute(:transition, :transitions) { Array.new }
 
+            # (see Actions#toplevel_state?)
+            def toplevel_state?(state)
+                starting_state == state ||
+                    transitions.any? { |from_state, _, to_state| from_state == state || to_state == state }
+            end
+
             # @see (Base#map_task)
             def map_tasks(mapping)
                 super

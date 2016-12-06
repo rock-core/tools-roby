@@ -76,6 +76,72 @@ describe Roby::Coordination::Models::ActionStateMachine do
         assert_equal task_m, machine.find_child('first_state')
     end
 
+    describe "event forwarding" do
+        attr_reader :state_machine, :start
+        before do
+            _, @state_machine = @action_m.action_state_machine 'test' do
+                start = state(start_task)
+                start(start)
+            end
+            @start = state_machine.find_state_by_name('start')
+        end
+
+        describe "Event#forward_to" do
+            it "forwards an event to the state machine's root using Event#forward_to" do
+                flexmock(state_machine).should_receive(:forward).
+                    with(start, start.success_event, state_machine.success_event).once
+                start.success_event.forward_to(state_machine.success_event)
+            end
+            it "raises if the target event is not a root event" do
+                monitoring = state_machine.state(action_m.monitoring_task)
+                # NOTE: it has to be handled separately from #forward, as we
+                # need a root event to know which state machine should be called
+                assert_raises(Roby::Coordination::Models::Actions::NotRootEvent) do
+                    start.success_event.forward_to(monitoring.success_event)
+                end
+            end
+        end
+
+        it "forwards an event in a particular state using the state machine's #forward" do
+            monitoring = state_machine.state(action_m.monitoring_task)
+            start.depends_on(monitoring)
+            state_machine.forward start, monitoring.success_event,
+                state_machine.success_event
+
+            assert_equal 1, state_machine.forwards.size
+            state, from_event, to_event = state_machine.forwards.first
+            assert_equal start, state
+            assert_equal monitoring.success_event, from_event
+            assert_equal state_machine.root.success_event, to_event
+        end
+        it "raises if attempting to specify a state that is not a toplevel state" do
+            monitoring = state_machine.state(action_m.monitoring_task)
+            start.depends_on(monitoring)
+            
+            assert_raises(Roby::Coordination::Models::Actions::NotToplevelState) do
+                state_machine.forward monitoring, monitoring.success_event,
+                    state_machine.success_event
+            end
+        end
+        it "raises if attempting to specify an event that is not active in the state" do
+            monitoring = state_machine.state(action_m.monitoring_task)
+            state_machine.transition start.success_event, monitoring
+            
+            assert_raises(Roby::Coordination::Models::Actions::EventNotActiveInState) do
+                state_machine.forward start, monitoring.success_event,
+                    state_machine.success_event
+            end
+        end
+        it "raises if attempting to forward to a non-root event" do
+            monitoring = state_machine.state(action_m.monitoring_task)
+            state_machine.transition start.success_event, monitoring
+            assert_raises(Roby::Coordination::Models::Actions::NotRootEvent) do
+                state_machine.forward start.success_event,
+                    monitoring.success_event
+            end
+        end
+    end
+
     describe "validation" do
         it "raises ArgumentError if a plain task is used as a state" do
             obj = flexmock
