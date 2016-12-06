@@ -17,6 +17,12 @@ module Roby
                 model.name
             end
 
+            def ==(other)
+                other.kind_of?(Action) &&
+                    model == other.model &&
+                    arguments == other.arguments
+            end
+
             # Update this object with new arguments and returns it
             #
             # @param [Hash] arguments new arguments

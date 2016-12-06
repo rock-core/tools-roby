@@ -79,6 +79,12 @@ module Roby
                 super
                 @arguments = arguments.map(&:dup)
             end
+            
+            def ==(other)
+                other.kind_of?(self.class) &&
+                    other.action_interface_model == action_interface_model &&
+                    other.name == name
+            end
 
             # @api private
             #
