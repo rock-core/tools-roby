@@ -287,7 +287,6 @@ describe Roby::Coordination::ActionStateMachine do
         task.stop!
         task.current_task_child.success_event.emit
     end
-    it "adds state-local dependencies as children of the state task" do
-    end
+
 end
 

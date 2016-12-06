@@ -84,6 +84,18 @@ module Roby
             # @return [Array<(Task,Event,Task)>]
             inherited_attribute(:transition, :transitions) { Array.new }
 
+            # @see (Base#map_task)
+            def map_tasks(mapping)
+                super
+
+                @starting_state = mapping[starting_state]
+                @transitions = transitions.map do |state, event, new_state|
+                    [mapping[state],
+                     mapping[event.task].find_event(event.symbol),
+                     mapping[new_state]]
+                end
+            end
+
             # Declares the starting state
             def start(state)
                 parse_task_names '_state'

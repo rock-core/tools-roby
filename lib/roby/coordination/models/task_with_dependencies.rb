@@ -14,18 +14,31 @@ module Roby
                 @dependencies = Set.new
             end
 
+            def initialize_copy(old)
+                super
+                @dependencies = @dependencies.dup
+            end
+
+            # Modify this task's internal structure to change relationships
+            # between tasks
+            def map_tasks(mapping)
+                super
+                @dependencies = dependencies.map do |task, role|
+                    [mapping[task] || task, role]
+                end
+            end
+
             def find_child_model(name)
                 if d = dependencies.find { |_, role| role == name }
                     d[0].model
                 end
             end
 
-            def depends_on(action, options = Hash.new)
-                options = Kernel.validate_options options, :role
+            def depends_on(action, role: nil)
                 if !action.kind_of?(Coordination::Models::Task)
                     raise ArgumentError, "expected a task, got #{action}. You probably forgot to convert it using #task or #state"
                 end
-                dependencies << [action, options[:role]]
+                dependencies << [action, role]
             end
         end
         end

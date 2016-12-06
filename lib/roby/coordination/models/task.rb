@@ -20,7 +20,7 @@ module Roby
                 #
                 # @return [Model<Roby::Task>] the Roby task model, as a subclass
                 #   of Roby::Task
-                attr_reader :model
+                attr_accessor :model
 
                 # The task name
                 #
@@ -34,6 +34,19 @@ module Roby
                 #   either Roby::Task or one of its subclasses
                 def initialize(model)
                     @model = model
+                end
+
+                # Create a new coordination task based on a different
+                # coordination model
+                def rebind(coordination_model)
+                    dup
+                end
+
+                # @api private
+                #
+                # Used in {Base#rebind} to update the internal relationships
+                # between coordination tasks
+                def map_tasks(mapping)
                 end
 
                 # Returns an instance-level coordination task that can be used

@@ -9,6 +9,37 @@ module Roby
             # @return [Model<Interface>,Model<Library>]
             attr_accessor :action_interface
 
+            # Create a new coordination model based on a different action
+            # interface
+            def rebind(action_interface)
+                m = dup
+                m.action_interface = action_interface
+
+                task_mapping = Hash.new
+                task_mapping[root] = root.rebind(m)
+                tasks.each do |task|
+                    task_mapping[task] = task.rebind(m)
+                end
+                m.map_tasks(task_mapping)
+                m
+            end
+
+            # (see Base#map_tasks)
+            def map_tasks(mapping)
+                super
+
+                @forwards = forwards.map do |state, event, target_event|
+                    state = mapping[state]
+                    event = mapping[event.task].find_event(event.symbol)
+                    target_event = mapping[target_event.task].find_event(target_event.symbol)
+                    [state, event, target_event]
+                end
+
+                @dependencies = dependencies.map do |task, role|
+                    [mapping[task], role]
+                end
+            end
+
             # The set of defined forwards
             #
             # @return [Array<(Task,Event,Event)>]

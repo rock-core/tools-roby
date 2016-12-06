@@ -12,10 +12,10 @@ module Roby
             #   task this execution context is going to be run on
             def root(*new_root)
                 if !new_root.empty?
-                    @root = Root.new(new_root.first)
+                    @root = Root.new(new_root.first, self)
                 elsif @root then @root
                 elsif superclass.respond_to?(:root)
-                    superclass.root
+                    @root = superclass.root.rebind(self)
                 end
             end
 
@@ -92,6 +92,21 @@ module Roby
                     tasks << task
                     task
                 else raise ArgumentError, "cannot create a task from #{object}"
+                end
+            end
+
+            # @api private
+            #
+            # Transform the model by exchanging tasks
+            #
+            # @param [#[]] mapping a mapping that replaces an existing task by a
+            #   new one. All tasks must be mapped
+            def map_tasks(mapping)
+                @root  = mapping.fetch(root)
+                @tasks = tasks.map do |t|
+                    new_task = mapping.fetch(t)
+                    new_task.map_tasks(mapping)
+                    new_task
                 end
             end
 

@@ -43,6 +43,8 @@ module Roby
             # @return [Model<Roby::Task>,Model<Roby::TaskService>]
             attr_reader :returned_type
             # If this action is actually a coordination model, returns it
+            #
+            # @return [nil,Coordination::Models::Base]
             attr_accessor :coordination_model
 
             # @return [Action] an action using this action model and the given
@@ -223,6 +225,9 @@ module Roby
                 # old one
                 if force || (action_interface_model <= self.action_interface_model)
                     m.action_interface_model = action_interface_model
+                    if coordination_model
+                        m.coordination_model = coordination_model.rebind(action_interface_model)
+                    end
                 end
                 m
             end
