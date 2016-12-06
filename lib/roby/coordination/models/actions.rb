@@ -27,10 +27,9 @@ module Roby
             #   interface model on which this state machine is defined
             # @option options [Model<Roby::Task>] :root the task model that is
             #   going to be used as a toplevel task for the state machine
-            def setup_submodel(submodel, options = Hash.new)
-                options, super_options = Kernel.filter_options options, :action_interface
-                super(submodel, super_options)
-                submodel.action_interface = options[:action_interface]
+            def setup_submodel(submodel, action_interface: nil, **super_options)
+                super(submodel, **super_options)
+                submodel.action_interface = action_interface
                 submodel
             end
 
@@ -63,10 +62,9 @@ module Roby
             #
             # @param [Task] task
             # @return [Task] the task itself
-            def depends_on(task, options = Hash.new)
-                options = Kernel.validate_options options, :role
+            def depends_on(task, role: nil)
                 task = validate_task(task)
-                dependencies << [task, options[:role]]
+                dependencies << [task, role]
                 task
             end
 
