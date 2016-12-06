@@ -58,6 +58,18 @@ describe Roby::Coordination::Models::ActionStateMachine do
                 end
             end
         end
+
+        it "raises if the event is not active in the source state" do
+            assert_raises(Roby::Coordination::Models::EventNotActiveInState) do
+                state_machine 'test' do
+                    start_state = state start_task
+                    monitor = state(monitoring_task)
+                    next_state  = state next_task
+                    start(start_state)
+                    transition(start_state, monitor.success_event, next_state)
+                end
+            end
+        end
     end
 
     it "assigns the name of the local variable, suffixed with _suffix, to the state name" do
@@ -96,7 +108,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
                 monitoring = state_machine.state(action_m.monitoring_task)
                 # NOTE: it has to be handled separately from #forward, as we
                 # need a root event to know which state machine should be called
-                assert_raises(Roby::Coordination::Models::Actions::NotRootEvent) do
+                assert_raises(Roby::Coordination::Models::NotRootEvent) do
                     start.success_event.forward_to(monitoring.success_event)
                 end
             end
@@ -118,7 +130,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
             monitoring = state_machine.state(action_m.monitoring_task)
             start.depends_on(monitoring)
             
-            assert_raises(Roby::Coordination::Models::Actions::NotToplevelState) do
+            assert_raises(Roby::Coordination::Models::NotToplevelState) do
                 state_machine.forward monitoring, monitoring.success_event,
                     state_machine.success_event
             end
@@ -127,7 +139,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
             monitoring = state_machine.state(action_m.monitoring_task)
             state_machine.transition start.success_event, monitoring
             
-            assert_raises(Roby::Coordination::Models::Actions::EventNotActiveInState) do
+            assert_raises(Roby::Coordination::Models::EventNotActiveInState) do
                 state_machine.forward start, monitoring.success_event,
                     state_machine.success_event
             end
@@ -135,7 +147,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
         it "raises if attempting to forward to a non-root event" do
             monitoring = state_machine.state(action_m.monitoring_task)
             state_machine.transition start.success_event, monitoring
-            assert_raises(Roby::Coordination::Models::Actions::NotRootEvent) do
+            assert_raises(Roby::Coordination::Models::NotRootEvent) do
                 state_machine.forward start.success_event,
                     monitoring.success_event
             end

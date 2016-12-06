@@ -21,6 +21,7 @@ end
 
 require 'binding_of_caller'
 require 'roby/coordination/calculus'
+require 'roby/coordination/models/exceptions'
 require 'roby/coordination/models/task'
 require 'roby/coordination/models/event'
 require 'roby/coordination/models/root'

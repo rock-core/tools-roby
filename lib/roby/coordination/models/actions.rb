@@ -5,14 +5,6 @@ module Roby
         module Actions
             include Base
 
-            # Exception thrown when a toplevel state was expected but a
-            # dependency was given
-            class NotToplevelState < CoordinationModelError; end
-
-            # Exception thrown when using an event in a context where it is not
-            # active
-            class EventNotActiveInState < CoordinationModelError; end
-
             # The action interface model this state machine model is defined on
             # @return [Model<Interface>,Model<Library>]
             attr_accessor :action_interface

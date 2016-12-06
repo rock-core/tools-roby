@@ -6,13 +6,6 @@ module Roby
             include MetaRuby::ModelAsClass
             include Arguments
 
-            # Base class for model validation errors
-            class CoordinationModelError < Exception; end
-
-            # Exception thrown when using a non-root event in a context where
-            # only root events are allowed
-            class NotRootEvent < CoordinationModelError; end
-
             # Gets or sets the root task model
             #
             # @return [Root] the root task model, i.e. a representation of the
