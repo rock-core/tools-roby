@@ -92,6 +92,11 @@ module Roby
         # The global history of this task
         attr_reader :history
 
+        # The list of coordination objects attached to this task
+        #
+        # @return [Array<Coordination::Base>]
+        attr_reader :coordination_objects
+
 	# The part of +arguments+ that is meaningful for this task model. I.e.
         # it returns the set of elements in the +arguments+ property that define
         # arguments listed in the task model
@@ -210,6 +215,7 @@ module Roby
             @success = nil
             @reusable = true
             @history = Array.new
+            @coordination_objects = Array.new
 
 	    @arguments = TaskArguments.new(self)
             assign_arguments(arguments)
@@ -1546,6 +1552,31 @@ module Roby
 
         def match
             self.class.match.with_instance(self)
+        end
+
+        # Enumerate the coordination objects currently attached to this task
+        #
+        # @yieldparam [Coordination::Base] object
+        def each_coordination_object(&block)
+            coordination_objects.each(&block)
+        end
+
+        # @api private
+        #
+        # Declare that a coordination object is attached to this task
+        #
+        # @param [Coordination::Base] object
+        def add_coordination_object(object)
+            coordination_objects.push(object)
+        end
+
+        # @api private
+        #
+        # Declare that a coordination object is no longer attached to this task
+        #
+        # @param [Coordination::Base] object
+        def remove_coordination_object(object)
+            coordination_objects.delete(object)
         end
     end
 
