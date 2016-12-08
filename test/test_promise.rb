@@ -188,14 +188,6 @@ Roby::Promise(the promise description).
         end
 
         describe "#on_error" do
-            it "raises if attempting to add more than one error handler to the same promise" do
-                p = execution_engine.promise { }
-                p.on_error { }
-                assert_raises(Promise::AlreadyHasErrorHandler) do
-                    p.on_error { }
-                end
-            end
-            
             it "calls its block if the promise is rejected from within the thread pool" do
                 p = execution_engine.promise { raise ArgumentError }
                 p.on_error   { recorder.error }
@@ -219,6 +211,16 @@ Roby::Promise(the promise description).
                 p = execution_engine.promise { raise error_m }
                 p.on_error   { |e| recorder.error(e) }
                 recorder.should_receive(:error).with(error_m).once
+                p.execute
+                execution_engine.join_all_waiting_work
+            end
+
+            it "passes the exception object to all error handlers" do
+                error_m = Class.new(RuntimeError)
+                p = execution_engine.promise { raise error_m }
+                p.on_error   { |e| recorder.error(e); Object.new }
+                p.on_error   { |e| recorder.error(e); Object.new }
+                recorder.should_receive(:error).with(error_m).twice
                 p.execute
                 execution_engine.join_all_waiting_work
             end
