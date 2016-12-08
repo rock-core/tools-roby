@@ -7,6 +7,13 @@ module Roby
             # ModelAsClass) and Library (which is a ModelAsModule)
             extend MetaRuby::Attributes
 
+            # @api private
+            #
+            # Internal handler for MetaRuby's inherited-attribute functionality.
+            # It updates an action from a parent model to match this model.
+            #
+            # In particular, it updates coordination models to point to actions
+            # of this 
             def promote_registered_action(name, action)
                 actions[name] ||= action.rebind(self)
             end
@@ -69,7 +76,7 @@ module Roby
                 if @current_description
                     Actions::Interface.warn "#{@current_description} started but never used. Did you forget to add a method to your action interface ?"
                 end
-                @current_description = Models::Action.new(self, doc)
+                @current_description = Models::MethodAction.new(self, doc)
             end
 
             # Registers a new action on this model

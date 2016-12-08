@@ -17,9 +17,27 @@ module Roby
                     end
                 end
 
+                # Representation of a fault handler at the interface level
+                class Action < Roby::Actions::Models::Action
+                    attr_reader :fault_response_table_model
+
+                    # The fault handler model itself
+                    def fault_handler_model
+                        coordination_model
+                    end
+
+                    # The common interface to set the fault handler
+                    attr_accessor :coordination_model
+
+                    def initialize(fault_response_table_model)
+                        super()
+                        @fault_response_table_model = fault_response_table_model
+                    end
+                end
+
                 def on_fault(exception_matcher, &block)
                     exception_matcher = exception_matcher.to_execution_exception_matcher
-                    @current_description = Roby::Actions::Models::Action.new
+                    @current_description = Action.new(self)
                     each_argument do |_, arg|
                         @current_description.required_arg(arg.name)
                     end

@@ -597,11 +597,17 @@ module Roby
                         end
 
                         def droby_dump!(peer)
-                            @action_interface_model = peer.dump(action_interface_model)
                             @returned_type = peer.dump(returned_type)
                             @arguments = peer.dump(arguments)
-                            @coordination_model = nil
                             @returned_task_type = nil
+                        end
+                    end
+
+                    module MethodActionDumper
+                        def droby_dump!(peer)
+                            super
+                            @action_interface_model = peer.dump(action_interface_model)
+                            @coordination_model = nil
                         end
                     end
 

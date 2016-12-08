@@ -99,6 +99,10 @@ module Roby
                     include DRoby::V5::Actions::Models::Action::ArgumentDumper
                 end
             end
+
+            class MethodAction
+                include DRoby::V5::Actions::Models::MethodActionDumper
+            end
         end
     end
 
