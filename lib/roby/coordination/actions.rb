@@ -3,6 +3,8 @@ module Roby
         # Common functionality of coordination models that manipulate actions
         # (ActionStateMachine, ActionScript)
         class Actions < Base
+            extend Models::Actions
+
             # @return [Coordination::Task] the currently active toplevel task
             attr_reader :current_task
 

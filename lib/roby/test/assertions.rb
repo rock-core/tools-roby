@@ -306,6 +306,28 @@ module Roby
 		assert_relative_error(expected.roll, found.roll, dt, msg)
 	    end
 
+            def droby_local_marshaller
+                @droby_local_marshaller ||= DRoby::Marshal.new
+            end
+
+            def droby_remote_marshaller
+                @droby_remote_marshaller ||= DRoby::Marshal.new
+            end
+
+            def droby_transfer(object, local_marshaller: self.droby_local_marshaller, remote_marshaller: self.droby_remote_marshaller)
+                droby = local_marshaller.dump(object)
+                dumped =
+                    begin Marshal.dump(droby)
+                    rescue Exception => e
+                        require 'roby/droby/logfile/writer'
+                        obj, exception = Roby::DRoby::Logfile::Writer.find_invalid_marshalling_object(droby)
+                        raise e, "#{obj} cannot be marshalled: #{exception.message}", exception.backtrace
+                    end
+                loaded = Marshal.load(dumped)
+                remote_marshaller.local_object(loaded)
+            end
+
+
             # Asserts that an object can marshalled an unmarshalled by the DRoby
             # protocol
             #
@@ -320,17 +342,9 @@ module Roby
             #   'object'
             # @return [Object] the 'remote' object created from the unmarshalled
             #   droby representation
-            def assert_droby_compatible(object, local_marshaller: DRoby::Marshal.new, remote_marshaller: DRoby::Marshal.new)
-                droby = local_marshaller.dump(object)
-                dumped =
-                    begin Marshal.dump(droby)
-                    rescue Exception => e
-                        require 'roby/droby/logfile/writer'
-                        obj, exception = Roby::DRoby::Logfile::Writer.find_invalid_marshalling_object(droby)
-                        raise e, "#{obj} cannot be marshalled: #{exception.message}", exception.backtrace
-                    end
-                loaded = Marshal.load(dumped)
-                remote_marshaller.local_object(loaded)
+            def assert_droby_compatible(object, local_marshaller: self.droby_local_marshaller, remote_marshaller: self.droby_remote_marshaller)
+                droby_transfer(object, local_marshaller: local_marshaller,
+                               remote_marshaller: remote_marshaller)
             end
 
             # @api private

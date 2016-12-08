@@ -77,7 +77,7 @@ module Roby
                 end
 
                 def proxy(peer)
-                    interface_model = action_interface_model.proxy(peer)
+                    interface_model = peer.local_object(action_interface_model)
                     if action = interface_model.find_action_by_name(name)
                         return action
                     else

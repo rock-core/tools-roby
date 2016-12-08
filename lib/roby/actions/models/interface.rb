@@ -201,8 +201,7 @@ module Roby
                 return action_model, coordination_model
             end
 
-            # Helper method for {#action_state_machine} and {#action_script}
-            def create_coordination_action(action_model, coordination_class, &block)
+            def create_coordination_model(action_model, coordination_class, &block)
                 root_m    = action_model.returned_type
                 coordination_model = coordination_class.
                     new_submodel(action_interface: self, root: root_m)
@@ -215,7 +214,12 @@ module Roby
                     end
                 end
                 coordination_model.parse(&block)
+                coordination_model
+            end
 
+            # Helper method for {#action_state_machine} and {#action_script}
+            def create_coordination_action(action_model, coordination_class, &block)
+                coordination_model = create_coordination_model(action_model, coordination_class, &block)
                 action_model = CoordinationAction.new(coordination_model, action_model)
                 return action_model, coordination_model
             end

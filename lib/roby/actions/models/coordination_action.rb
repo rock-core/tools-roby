@@ -50,12 +50,13 @@ module Roby
                 end
 
                 def proxy(peer)
-                    interface_model = action_interface_model.proxy(peer)
+                    interface_model = @action_interface_model.proxy(peer)
                     if action = interface_model.find_action_by_name(name)
                         return action
                     else
                         action = super
-                        action.action_interface_model = interface_model
+                        action.coordination_model =
+                            interface_model.create_coordination_model(action, Coordination::Actions) {}
                         action
                     end
                 end

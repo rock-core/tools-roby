@@ -103,6 +103,10 @@ module Roby
             class MethodAction
                 include DRoby::V5::Actions::Models::MethodActionDumper
             end
+
+            class CoordinationAction
+                include DRoby::V5::Actions::Models::CoordinationActionDumper
+            end
         end
     end
 
