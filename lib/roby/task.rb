@@ -89,7 +89,12 @@ module Roby
 	# The task arguments as symbol => value associative container
 	attr_reader :arguments
         
-        # The global history of this task
+        # The accumulated history of this task
+        #
+        # This is the list of events that this task ever emitted, sorted by
+        # emission time
+        #
+        # @return [Array<Event>]
         attr_reader :history
 
         # The list of coordination objects attached to this task
