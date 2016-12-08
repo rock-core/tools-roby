@@ -37,12 +37,12 @@ module Roby
 
                 def on_fault(exception_matcher, &block)
                     exception_matcher = exception_matcher.to_execution_exception_matcher
-                    @current_description = Action.new(self)
+                    action_model = Action.new(self)
                     each_argument do |_, arg|
-                        @current_description.required_arg(arg.name)
+                        action_model.required_arg(arg.name)
                     end
                     action_model, handler =
-                        action_coordination(nil, Coordination::FaultHandler, &block)
+                        create_coordination_action(action_model, Coordination::FaultHandler, &block)
                     handler.execution_exception_matcher(exception_matcher)
                     fault_handlers << handler
                     handler

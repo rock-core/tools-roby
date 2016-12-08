@@ -76,7 +76,7 @@ module Roby
                 if @current_description
                     Actions::Interface.warn "#{@current_description} started but never used. Did you forget to add a method to your action interface ?"
                 end
-                @current_description = Models::MethodAction.new(self, doc)
+                @current_description = Models::Action.new(doc)
             end
 
             # Registers a new action on this model
@@ -87,23 +87,32 @@ module Roby
             # a simple StartAllDevices task model.
             def register_action(name, action_model)
                 name = name.to_s
-                if action_model.returned_type == Roby::Task
-                    task_model_name = name.camelcase(:upper)
-                    if const_defined_here?(task_model_name)
-                        action_model.returns(const_get(task_model_name))
-                    else
-                        task_model = Roby::Task.new_submodel do
-                            terminates
-                        end
-                        const_set task_model_name, task_model
-                        task_model.permanent_model = self.permanent_model?
-                        action_model.returns(task_model)
-                    end
-                end
-
+                create_default_action_return_type(name, action_model)
                 action_model.name = name
                 actions[action_model.name] = action_model
             end
+
+            # @api private
+            #
+            # Create and register the default task model for a given action
+            # model if needed (i.e. if the action model does not have an
+            # explicit return type yet)
+            def create_default_action_return_type(name, action_model)
+                return if action_model.returned_type != Roby::Task
+
+                task_model_name = name.camelcase(:upper)
+                if const_defined_here?(task_model_name)
+                    action_model.returns(const_get(task_model_name))
+                else
+                    task_model = Roby::Task.new_submodel do
+                        terminates
+                    end
+                    const_set task_model_name, task_model
+                    task_model.permanent_model = self.permanent_model?
+                    action_model.returns(task_model)
+                end
+            end
+
 
             # Hook used to export methods for which there is a description
             def method_added(method_name)
@@ -111,6 +120,7 @@ module Roby
                 if @current_description
                     name = method_name.to_s
                     description, @current_description = @current_description, nil
+                    description = MethodAction.new(self, description)
 
                     if existing = find_action_by_name(name)
                         if description.returned_type == Roby::Task
@@ -160,22 +170,42 @@ module Roby
                 result
             end
 
-            # Helper method for {#action_state_machine} and {#action_script}
-            def action_coordination(name, model, &block)
-                if !@current_description
+            # @api private
+            #
+            # Verifies that #describe was called to describe an action that is
+            # now being defined, and returns it
+            #
+            # The current description is nil after this call
+            #
+            # @raise [ArgumentError] if describe was not called
+            def require_current_description
+                action_model, @current_description = @current_description, nil
+                if action_model
+                    action_model
+                else
                     raise ArgumentError, "you must describe the action with #describe before calling #action_coordination"
                 end
+            end
 
-                action_model, @current_description = @current_description, nil
-                if name
-                    # NOTE: this modifies #action_model to sane defaults
-                    #       using the action name
-                    register_action name, action_model
+            def create_and_register_coordination_action(name, coordination_class, action_model: require_current_description, &block)
+                name = name.to_s
+                create_default_action_return_type(name, action_model)
+                action_model, coordination_model =
+                    create_coordination_action(action_model, coordination_class, &block)
+                register_action(name, action_model)
+
+                define_method(name) do |*arguments|
+                    action_model.instanciate(plan)
                 end
 
-                root_m = action_model.returned_type
-                arguments = action_model.arguments.map(&:name)
-                coordination_model = model.new_submodel(action_interface: self, root: root_m)
+                return action_model, coordination_model
+            end
+
+            # Helper method for {#action_state_machine} and {#action_script}
+            def create_coordination_action(action_model, coordination_class, &block)
+                root_m    = action_model.returned_type
+                coordination_model = coordination_class.
+                    new_submodel(action_interface: self, root: root_m)
 
                 action_model.arguments.each do |arg|
                     if !arg.required
@@ -185,15 +215,8 @@ module Roby
                     end
                 end
                 coordination_model.parse(&block)
-                action_model.coordination_model = coordination_model
 
-                if name
-                    define_method(name) do |*arguments|
-                        plan.add(root = root_m.new)
-                        coordination_model.new(self.model, root, *arguments) 
-                        root
-                    end
-                end
+                action_model = CoordinationAction.new(coordination_model, action_model)
                 return action_model, coordination_model
             end
 
@@ -209,16 +232,14 @@ module Roby
             #
             # @example (see Coordination::Models::ActionStateMachine)
             def action_state_machine(name, &block)
-                if !@current_description
-                    raise ArgumentError, "you must describe the action with #describe before calling #action_state_machine"
-                end
+                action_model = require_current_description
 
-                #Define user-possible starting states, this will override the default starting state
-                if @current_description.has_arg?("start_state")
-                    raise ArgumentError, "A argument \"start_state\" has defined for the statemachine, but this keyword is reseved"
+                # Define user-possible starting states, this will override the default starting state
+                if action_model.has_arg?("start_state")
+                    raise ArgumentError, "A argument \"start_state\" has defined for the statemachine, but this keyword is reserved"
                 end
-                @current_description.optional_arg("start_state", default: nil)
-                action_coordination(name, Coordination::ActionStateMachine, &block)
+                action_model.optional_arg("start_state", default: nil)
+                create_and_register_coordination_action(name, Coordination::ActionStateMachine, action_model: action_model, &block)
             end
 
             # @deprecated use {#action_state_machine} instead
@@ -236,10 +257,7 @@ module Roby
             # The action script model can later be retrieved using
             # {Action#coordination_model}
             def action_script(name, options = Hash.new, &block)
-                if !@current_description
-                    raise ArgumentError, "you must describe the action with #describe before calling #action_script"
-                end
-                action_coordination(name, Coordination::ActionScript, &block)
+                create_and_register_coordination_action(name, Coordination::ActionScript, &block)
             end
 
             # Returns an action description if 'm' is the name of a known action

@@ -8,15 +8,6 @@ module Roby
             # @return [Roby::Actions::Action]
             attr_accessor :action
 
-            # Returns the coordination model that is used to define the
-            # underlying action
-            #
-            # @return (see Models::Action#to_coordination_model)
-            # @raise (see Models::Action#to_coordination_model)
-            def to_coordination_model
-                action.to_coordination_model
-            end
-
             def initialize(action)
                 @action = action
                 super(action.model.returned_type)
@@ -40,6 +31,15 @@ module Roby
                     end
                 end
                 action.as_plan(arguments)
+            end
+
+            # Returns the action's underlying coordination model if there is one
+            #
+            # @return [nil,Base]
+            def action_coordination_model
+                if action.model.respond_to?(:coordination_model)
+                    action.model.coordination_model
+                end
             end
 
             def to_s; "action(#{action})[#{model}]" end

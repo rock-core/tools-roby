@@ -6,10 +6,6 @@ module Roby
 
             provides Roby::Interface::Job
 
-            # Once the task has been started, this is the interface object that
-            # is being used / has been used to generate the action in the plan
-            # @return [Interface]
-            attr_reader :action_interface
             # Once the task has been started, this is the transaction object that
             # is being used / has been used to generate before committing in the
             # plan
@@ -83,8 +79,7 @@ module Roby
             end
 
             poll do
-                @action_interface = action_interface_model.new(transaction)
-                result_task = action_model.run(action_interface, action_arguments)
+                result_task = action_model.instanciate(transaction, action_arguments)
 
                 # Don't replace the planning task with ourselves if the
                 # transaction specifies another planning task

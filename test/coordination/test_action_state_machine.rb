@@ -262,7 +262,7 @@ describe Roby::Coordination::ActionStateMachine do
             transition task.success_event, next_task
         end
         plan.add(task = task_m.new)
-        state_machine = state_machine_m.new(action_m, task)
+        state_machine = state_machine_m.new(task)
 
         task.start!
         flexmock(state_machine).should_receive(:instanciate_state).never
@@ -280,7 +280,7 @@ describe Roby::Coordination::ActionStateMachine do
             forward task.success_event, success_event
         end
         plan.add(task = task_m.new)
-        state_machine = state_machine_m.new(action_m, task)
+        state_machine = state_machine_m.new(task)
 
         task.start!
         task.current_task_child.start!

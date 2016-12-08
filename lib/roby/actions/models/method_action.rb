@@ -6,17 +6,9 @@ module Roby
                 # The action interface on which this action is defined
                 attr_accessor :action_interface_model
 
-                # If this action is actually a coordination model, returns it
-                #
-                # @return [nil,Coordination::Models::Base]
-                attr_accessor :coordination_model
-
                 def initialize(action_interface_model, doc = nil)
                     super(doc)
-
                     @action_interface_model = action_interface_model
-                    @name = nil
-                    @coordination_model = nil
                 end
             
                 def ==(other)
@@ -27,11 +19,8 @@ module Roby
 
                 # Instanciate this action on the given plan
                 def instanciate(plan, arguments = Hash.new)
-                    run(action_interface_model.new(plan), arguments)
-                end
+                    action_interface = action_interface_model.new(plan)
 
-                # Executes the action on the given action interface
-                def run(action_interface, arguments = Hash.new)
                     if self.arguments.empty?
                         if !arguments.empty?
                             raise ArgumentError, "#{name} expects no arguments, but #{arguments.size} are given"
@@ -73,10 +62,6 @@ module Roby
                     rebound = dup
                     if action_interface_model <= self.action_interface_model
                         rebound.action_interface_model = action_interface_model
-                        if coordination_model
-                            rebound.coordination_model = coordination_model.
-                                rebind(action_interface_model)
-                        end
                     end
                     rebound
                 end
@@ -86,8 +71,7 @@ module Roby
                     job_id, arguments = Kernel.filter_options arguments, :job_id
 
                     planner = Roby::Actions::Task.new(
-                        Hash[action_interface_model: action_interface_model,
-                             action_model: self,
+                        Hash[action_model: self,
                              action_arguments: arguments].merge(job_id))
                     planner.planned_task
                 end
@@ -105,18 +89,6 @@ module Roby
 
                 def to_s
                     "#{action_interface_model.name}.#{name}"
-                end
-
-                # Returns the underlying coordination model
-                #
-                # @raise [ArgumentError] if this action is not defined by a
-                #   coordination model
-                # @return [Model<Coordination::Base>]
-                def to_coordination_model
-                    if coordination_model
-                        coordination_model
-                    else raise ArgumentError, "#{self} does not seem to be based on a coordination model"
-                    end
                 end
             end
         end

@@ -71,10 +71,19 @@ module Roby
             end
 
             def initialize(doc = nil)
-                @doc = doc
-                @arguments = []
-                @returned_type = Roby::Task
-                @advanced = nil
+                if doc.kind_of?(Action)
+                    @name = doc.name
+                    @doc = doc.doc
+                    @arguments = doc.arguments.map(&:dup)
+                    @returned_type = doc.returned_type
+                    @advanced = doc.advanced?
+                else
+                    @name = nil
+                    @doc = doc
+                    @arguments = []
+                    @returned_type = Roby::Task
+                    @advanced = false
+                end
             end
 
             def initialize_copy(old)

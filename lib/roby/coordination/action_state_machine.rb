@@ -13,8 +13,8 @@ module Roby
 
             StateInfo = Struct.new :required_tasks, :forwards, :transitions
 
-            def initialize(action_interface_model, root_task, arguments = Hash.new)
-                super(action_interface_model, root_task, arguments)
+            def initialize(root_task, arguments = Hash.new)
+                super(root_task, arguments)
                 @task_info = resolve_state_info
 
 

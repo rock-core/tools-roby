@@ -6,7 +6,7 @@ module Roby
             include Base
 
             # The action interface model this state machine model is defined on
-            # @return [Model<Interface>,Model<Library>]
+            # @return [Actions::Models::Interface,Actions::Models::Library]
             attr_accessor :action_interface
 
             # Create a new coordination model based on a different action

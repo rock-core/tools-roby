@@ -63,14 +63,6 @@ module Roby
                 Coordination::Models::TaskFromAction.new(self)
             end
 
-            # Returns the coordination model that defines the underlying action
-            # 
-            # @return (see Models::Action#to_coordination_model)
-            # @raise (see Models::Action#to_coordination_model)
-            def to_coordination_model
-                model.to_coordination_model
-            end
-
             def to_action
                 self
             end

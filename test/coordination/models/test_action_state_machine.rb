@@ -80,12 +80,15 @@ describe Roby::Coordination::Models::ActionStateMachine do
         assert_equal 'first_state', machine.tasks.first.name
     end
 
-    it "can resolve a state model by its child name" do
+    it "forwards #find_child to its root" do
         _, machine = state_machine 'test' do
             first = state(start_task(id: 10))
             start(first)
         end
-        assert_equal task_m, machine.find_child('first_state')
+        flexmock(task_m).should_receive(:find_child).explicitly.with('first_state').
+            and_return(obj = flexmock)
+        assert_equal Roby::Coordination::Models::Child.new(machine.root, 'first_state', obj),
+            machine.find_child('first_state')
     end
 
     describe "event forwarding" do
@@ -218,13 +221,13 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
         it "rebinds the root" do
             rebound = state_machine_action.rebind(new_action_m).
-                to_coordination_model
-            refute_same rebound.root, state_machine_action.to_coordination_model.root
+                coordination_model
+            refute_same rebound.root, state_machine_action.coordination_model.root
             assert_same rebound, rebound.root.coordination_model
         end
         it "rebinds action-states" do
             rebound = state_machine_action.rebind(new_action_m).
-                to_coordination_model
+                coordination_model
 
             assert_equal new_action_m.start_task,
                 rebound.find_state_by_name('start_task').action
@@ -233,14 +236,14 @@ describe Roby::Coordination::Models::ActionStateMachine do
         end
         it "rebinds the starting state" do
             rebound = state_machine_action.rebind(new_action_m).
-                to_coordination_model
+                coordination_model
 
             assert_equal new_action_m.start_task,
                 rebound.starting_state.action
         end
         it "rebinds the transitions" do
             rebound = state_machine_action.rebind(new_action_m).
-                to_coordination_model
+                coordination_model
 
             assert_equal 1, rebound.transitions.size
             from, event, to = rebound.transitions[0]
@@ -251,14 +254,14 @@ describe Roby::Coordination::Models::ActionStateMachine do
         end
         it "rebinds the machine's own dependencies" do
             rebound = state_machine_action.rebind(new_action_m).
-                to_coordination_model
+                coordination_model
 
             assert_equal [[new_action_m.monitoring_task, 'test']],
                 rebound.dependencies.map { |task, role| [task.action, role] }
         end
         it "rebinds the state-local dependencies" do
             rebound = state_machine_action.rebind(new_action_m).
-                to_coordination_model
+                coordination_model
 
             assert_equal [[new_action_m.monitoring_task, 'task_dependency']],
                 rebound.find_state_by_name('start_task').dependencies.
@@ -266,7 +269,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
         end
         it "rebinds the forwardings" do
             rebound = state_machine_action.rebind(new_action_m).
-                to_coordination_model
+                coordination_model
 
             assert_equal 1, rebound.forwards.size
             source_event, target_event = rebound.forwards.first

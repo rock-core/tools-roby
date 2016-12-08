@@ -19,16 +19,17 @@ module Roby
                     it "creates a description object with #describe" do
                         doc = 'this is an action'
                         flexmock(Actions::Models::Action).should_receive(:new).once.
-                            with(interface_m, doc).and_return(stub = Object.new)
+                            with(doc).and_return(stub = Object.new)
 
                         assert_same stub, interface_m.describe(doc)
                     end
 
-                    it "registers the description object when a method is created" do
-                        description = interface_m.describe('an action')
+                    it "promotes the description to MethodAction and registers it when a method is created" do
+                        interface_m.describe('an action')
                         interface_m.send(:define_method, :an_action) {}
+                        description = interface_m.find_action_by_name('an_action')
+                        assert_kind_of MethodAction, description
                         assert_equal 'an_action', description.name
-                        assert_same description, interface_m.find_action_by_name('an_action')
                     end
 
                     it "does not export a method that does not have a description" do
@@ -37,7 +38,7 @@ module Roby
                     end
 
                     it "does not use the same description for multiple methods" do
-                        description = interface_m.describe('an action')
+                        interface_m.describe('an action')
                         interface_m.send(:define_method, :an_action) {}
                         interface_m.send(:define_method, :another_action) {}
                         assert_nil interface_m.find_action_by_name('another_action')
@@ -144,14 +145,18 @@ module Roby
                 describe "#find_action_by_name" do
                     attr_reader :description
                     before do
-                        @description = interface_m.describe 'an_action'
+                        interface_m.describe 'an_action'
                         interface_m.send(:define_method, :an_action) {}
                     end
                     it "works with symbols" do
-                        assert_same description, interface_m.find_action_by_name(:an_action)
+                        description = interface_m.find_action_by_name(:an_action)
+                        assert_kind_of MethodAction, description
+                        assert_same interface_m, description.action_interface_model
+                        assert_equal 'an_action', description.name
                     end
                     it "works with strings" do
-                        assert_same description, interface_m.find_action_by_name('an_action')
+                        assert_same  interface_m.find_action_by_name(:an_action),
+                            interface_m.find_action_by_name('an_action')
                     end
                     it "returns nil for unknown actions" do
                         assert_nil interface_m.find_action_by_name('does_not_exist')
@@ -161,28 +166,31 @@ module Roby
                 describe "#find_all_actions_by_type" do
                     it "finds actions whose return type is the expected type" do
                         task_m = Roby::Task.new_submodel
-                        action_m = interface_m.describe('an action').returns(task_m)
+                        interface_m.describe('an action').returns(task_m)
                         interface_m.send(:define_method, 'action') {}
-                        assert_equal [action_m], interface_m.find_all_actions_by_type(task_m)
+                        assert_equal [interface_m.find_action_by_name('action')],
+                            interface_m.find_all_actions_by_type(task_m)
                     end
                     it "finds actions whose return type is a subclass of the expected type" do
                         task_m = Roby::Task.new_submodel
                         subtask_m = task_m.new_submodel
-                        action_m = interface_m.describe('an action').returns(task_m)
+                        interface_m.describe('an action').returns(task_m)
                         interface_m.send(:define_method, 'action') {}
-                        subclass_action_m = interface_m.describe('subclass action').returns(subtask_m)
+                        interface_m.describe('subclass action').returns(subtask_m)
                         interface_m.send(:define_method, 'subclass_action') {}
-                        assert_equal Set[action_m, subclass_action_m],
+                        assert_equal Set[interface_m.find_action_by_name('action'),
+                                         interface_m.find_action_by_name('subclass_action')],
                             interface_m.find_all_actions_by_type(task_m).to_set
                     end
                 end
 
                 describe "#method_missing" do
                     it "returns an action object with the given arguments" do
-                        action_m = interface_m.describe('an action').required_arg('test')
+                        interface_m.describe('an action').required_arg('test')
                         interface_m.send(:define_method, 'an_action') { |args| }
                         act = interface_m.an_action(test: 10)
-                        assert_same action_m, act.model
+                        assert_same interface_m.find_action_by_name('an_action'),
+                            act.model
                         assert_equal Hash[test: 10], act.arguments
                     end
                 end
@@ -214,7 +222,7 @@ module Roby
                             start state(Roby::Task)
                         end
                         assert_same machine_m, interface_m.find_action_by_name('test').
-                            to_coordination_model
+                            coordination_model
 
                         action = interface_m.new(plan)
                         root_task = action.test
@@ -240,7 +248,7 @@ module Roby
                         _, script_m = interface_m.action_script('test') do
                         end
                         assert_equal script_m, interface_m.find_action_by_name('test').
-                            to_coordination_model
+                            coordination_model
                         root_task = interface_m.new(plan).test
                         assert_kind_of script_m, root_task.each_coordination_object.first
                     end

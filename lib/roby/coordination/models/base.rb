@@ -35,22 +35,6 @@ module Roby
                 root.find_event(name)
             end
 
-            # Returns a model suitable for typing in {Task}
-            #
-            # More specifically, it either returns a coordination model if the
-            # child is based on one, and the child task model otherwise
-            #
-            # @return [Model<Coordination::Base>,Model<Roby::Task>]
-            def find_child(name)
-                subtask = each_task.find { |t| t.name == name }
-                if subtask
-                    begin return subtask.to_coordination_model
-                    rescue ArgumentError
-                        subtask.model
-                    end
-                end
-            end
-
             # Returns the task for the given name, if found, nil otherwise
             #
             # @return Roby::Coordination::Models::TaskFromAction
