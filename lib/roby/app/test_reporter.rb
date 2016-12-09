@@ -43,6 +43,12 @@ module Roby
                 server.test_start(pid)
             end
 
+            # This method is part of the minitest API
+            def prerecord(klass, method_name)
+                file, = klass.instance_method(method_name).source_location
+                server.test_method(pid, file, klass.name, method_name)
+            end
+
             # This method is part of the minitest API ... cannot change its name
             def record(result)
                 r = result
