@@ -563,7 +563,7 @@ module Roby
                 execution_engine = exception_assertion_guess_execution_engine(
                     execution_engine, failure_point, tasks)
 
-                tasks.each do |t|
+                kill_tasks.each do |t|
                     flexmock(execution_engine).should_receive(:log_pp).with(:warn, t).once
                 end
 

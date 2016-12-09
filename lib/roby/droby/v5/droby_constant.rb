@@ -47,7 +47,7 @@ module Roby
                             local_constant = constant(name)
                         rescue Exception => e
                             Roby.warn "could not resolve constant name for #{self}"
-                            Roby.log_pp(e, Roby, :warn)
+                            Roby.log_exception(e, Roby, :warn)
                             raise ConstantResolutionFailed, "cannot resolve constant name for #{self}"
                         end
 
