@@ -1306,6 +1306,55 @@ module Roby
                 end
             end
         end
+
+        describe "#handle_exception" do
+            attr_reader :task_m, :localized_error_m, :recorder
+            before do
+                @task_m = Roby::Task.new_submodel
+                @localized_error_m = Class.new(LocalizedError)
+            end
+
+            it "returns false if an exception handler calls #pass_exception" do
+                recorder = flexmock
+                task_m.on_exception(localized_error_m) do |exception|
+                    recorder.called
+                    pass_exception
+                end
+                plan.add(task  = task_m.new)
+                recorder.should_receive(:called).once
+                refute task.handle_exception(localized_error_m.new(task).to_execution_exception)
+            end
+
+            it "processes handlers in inverse declaration order if one calls pass_exception" do
+                recorder = flexmock
+                task_m.on_exception(localized_error_m) do |exception|
+                    recorder.called(1)
+                end
+                task_m.on_exception(localized_error_m) do |exception|
+                    recorder.called(0)
+                    pass_exception
+                end
+                plan.add(task  = task_m.new)
+                recorder.should_receive(:called).with(0).once.ordered
+                recorder.should_receive(:called).with(1).once.ordered
+                assert task.handle_exception(localized_error_m.new(task).to_execution_exception)
+            end
+
+            it "does not call a handler that do not match the exception object" do
+                recorder = flexmock
+                matcher = flexmock
+                matcher.should_receive(:===).
+                    with(localized_error_m.to_execution_exception_matcher).
+                    and_return(false)
+                matcher.should_receive(to_execution_exception_matcher: matcher)
+                task_m.on_exception(matcher) do |exception|
+                    recorder.called
+                end
+                recorder.should_receive(:called).never
+                plan.add(task = task_m.new)
+                refute task.handle_exception(localized_error_m.new(task).to_execution_exception)
+            end
+        end
     end
 end
 

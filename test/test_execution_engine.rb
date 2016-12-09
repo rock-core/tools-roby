@@ -1055,9 +1055,10 @@ class TC_ExecutionEngine < Minitest::Test
 
         (m1, m2, m3), (t1, t2, t3, t4, t5, p1) =
             prepare_plan missions: 3, add: 6, model: klass
-        dependency_chain m1, t1, t2
-        dependency_chain m2, t1
-        dependency_chain m3, t2
+        m1.depends_on t1
+        t1.depends_on t2
+        m2.depends_on t1
+        m3.depends_on t2
         m3.planned_by p1
         p1.depends_on t3
 	t4.depends_on t5
@@ -1213,22 +1214,6 @@ class TC_ExecutionEngine < Minitest::Test
 	assert(plan.tasks.empty?)
     end
 
-    def test_mission_failed
-	model = Tasks::Simple.new_submodel do
-	    event :specialized_failure, command: true
-	    forward specialized_failure: :failed
-	end
-
-	task = prepare_plan missions: 1, model: model
-	task.start!
-        
-        error = assert_raises(Roby::MissionFailedError) { task.specialized_failure! }
-	
-	assert_kind_of(Roby::MissionFailedError, error)
-	assert_equal(task.event(:specialized_failure).last, error.failure_point)
-        Roby.format_exception error
-    end
-
     def test_forward_signal_ordering
         100.times do
             stop_called = false
@@ -1270,251 +1255,214 @@ class TC_ExecutionEngine < Minitest::Test
         process_events
     end
 
-    def test_one_can_add_errors_during_garbage_collection
-        plan = flexmock(self.plan)
-        plan.add(task = Roby::Tasks::Simple.new)
-        task.stop_event.when_unreachable do
-            execution_engine.add_error LocalizedError.new(task)
-        end
-        process_events(raise_errors: false)
-    end
-
-    class SpecializedError < LocalizedError; end
-
-    def test_pass_exception_ignores_a_handler
-        mock = flexmock
-        klass = Task.new_submodel
-        klass.on_exception(SpecializedError) do |exception|
-            mock.called
-            pass_exception
+    describe "exception propagation" do
+        attr_reader :task_m, :localized_error_m
+        before do
+            @task_m = Roby::Task.new_submodel
+            @localized_error_m = Class.new(LocalizedError)
         end
 
-        plan.add(task  = klass.new)
-        error = ExecutionException.new(SpecializedError.new(task))
-        mock.should_receive(:called).once
-        assert(!task.handle_exception(error))
-    end
+        it "constrains the propagation to parents listed alongside the exception" do
+            root0, root1, child = prepare_plan add: 3, model: task_m
+            root0.depends_on(child)
+            root1.depends_on(child)
+            flexmock(root0).should_receive(:handle_exception).once.and_return(false)
+            flexmock(child).should_receive(:handle_exception).once.and_return(false)
+            flexmock(root1).should_receive(:handle_exception).never
 
-    def test_task_handlers_are_called_in_the_inverse_declaration_order
-	mock = flexmock
+            execution_engine.propagate_exceptions([[child.to_execution_exception, [root0]]])
+        end
 
-        received_handler2 = false
-        klass = Task.new_submodel do 
-            on_exception(SpecializedError) do |exception|
-                mock.handler1(exception, self)
+        it "inhibits exceptions that already caused a task to be terminated" do
+            task_m = Roby::Task.new_submodel do
+                event :intermediate
+                event(:stop) { |context| }
             end
-            on_exception(SpecializedError) do |exception|
-                mock.handler2(exception, self)
-                pass_exception
+            plan.add(root = task_m.new)
+            root.depends_on(parent = task_m.new)
+            parent.depends_on(child = task_m.new, failure: :intermediate)
+            root.start!
+            parent.start!
+            child.start!
+
+            assert_fatal_exception(ChildFailedError, failure_point: child.intermediate_event, tasks: [root, parent, child]) do
+                child.intermediate_event.emit
             end
+            # Should not raise
+            process_events
+
+            root.stop_event.emit
+            parent.stop_event.emit
+            child.stop_event.emit
         end
 
-        plan.add(task  = klass.new)
-        error = ExecutionException.new(SpecializedError.new(task))
-        mock.should_receive(:handler2).with(error, task).once.ordered
-        mock.should_receive(:handler1).with(error, task).once.ordered
-        assert task.handle_exception(error)
-    end
+        it "filters out specified parents that are actually not parents of the exception's origin" do
+            root0, root1, child = prepare_plan add: 3, model: task_m
+            root0.depends_on(child)
 
-    def make_task_with_handler(exception_matcher, mock)
-        Task.new_submodel do 
-            on_exception(exception_matcher) do |exception|
-                mock.handler(exception, self)
+            flexmock(root0).should_receive(:handle_exception).once.and_return(false)
+            flexmock(child).should_receive(:handle_exception).once.and_return(false)
+            flexmock(root1).should_receive(:handle_exception).never
+
+            error = child.to_execution_exception
+            messages = capture_log(execution_engine, :warn) do
+                result, _ = execution_engine.propagate_exceptions([[error, [root0, root1]]])
+                assert_equal error, result.first.first
+                assert_equal [root0, child].to_set, result.first.last.to_set
             end
-        end.new
-    end
-
-    def test_it_filters_handlers_on_the_exception_model
-        mock = flexmock
-
-        t1, t2 = prepare_plan add: 2
-        t0 = make_task_with_handler(SpecializedError, mock)
-        dependency_chain(t0, t1, t2)
-
-        error = ExecutionException.new(SpecializedError.new(t2))
-        mock.should_receive(:handler).once.
-            with(on { |e| e.trace == [t2, t1, t0] && e.origin == t2 }, t0)
-        assert_equal([[], Hash.new], execution_engine.propagate_exceptions([error]))
-    end
-
-    def test_it_ignores_handlers_that_do_not_match_the_filter
-        t1, t2 = prepare_plan add: 2
-        t0 = make_task_with_handler(CodeError, nil)
-        dependency_chain(t0, t1, t2)
-
-        error = ExecutionException.new(SpecializedError.new(t2))
-
-        remaining, _ = execution_engine.propagate_exceptions([error])
-        assert_equal 1, remaining.size
-        remaining_error, affected_tasks = remaining.first
-        assert_equal error, remaining_error
-        assert_equal error.trace.to_set, affected_tasks.to_set
-    end
-
-    def test_it_does_not_call_global_handlers_if_the_exception_is_handled_by_a_task
-        mock = flexmock
-
-        t1, t2 = prepare_plan add: 3
-        t0 = make_task_with_handler(SpecializedError, mock)
-        dependency_chain(t0, t1, t2)
-
-        error = ExecutionException.new(SpecializedError.new(t2))
-        plan.on_exception(SpecializedError) do |p, e|
-            mock.handler(e, p)
+            expected = ["some parents specified for Roby::LocalizedError(Roby::LocalizedError) are actually not parents of #{child}, they got filtered out", "  #{root1}"] * 2
+            assert_equal expected, messages
         end
-        mock.should_receive(:handler).with(error, t0).once
-        mock.should_receive(:handler).with(error, plan).never
-        assert_equal([[], Hash.new], execution_engine.propagate_exceptions([error]))
-    end
 
-    def test_it_notifies_about_exceptions_handled_by_a_task
-        mock = flexmock
-        task_model = Roby::Task.new_submodel do
-            on_exception(SpecializedError) { |e| }
-        end
-        plan.add(t0 = task_model.new)
-        plan.add(t1 = Tasks::Simple.new)
-        t0.depends_on(t1)
+        it "duplicates exceptions across forks" do
+            left_0, left_1, right_0, leaf = prepare_plan add: 4
+            left_0.depends_on(left_1)
+            left_1.depends_on(leaf)
+            right_0.depends_on(leaf)
 
-        error = ExecutionException.new(SpecializedError.new(t1))
-        execution_engine.on_exception do |kind, error, involved_objects|
-            mock.notified(kind, error.exception, involved_objects.to_set)
-        end
-        mock.should_receive(:notified).once.
-            with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error.exception, Set[t0])
-        assert_equal([[], Hash.new], execution_engine.propagate_exceptions([error]))
-    end
+            flexmock(left_0).should_receive(:handle_exception).and_return(true)
+            error = localized_error_m.new(leaf).to_execution_exception
+            assert_handled_exception(localized_error_m, failure_point: leaf, tasks: [left_0]) do
+                fatal, _ = execution_engine.propagate_exceptions([error])
 
-    def test_it_notifies_about_exceptions_handled_by_the_plan
-        mock = flexmock
-        t0, t1 = prepare_plan add: 3
-        t0.depends_on(t1)
-
-        error = ExecutionException.new(SpecializedError.new(t1))
-        plan.on_exception(SpecializedError) {}
-        execution_engine.on_exception do |kind, error, involved_objects|
-            mock.notified(kind, error.exception, involved_objects.to_set)
-        end
-        mock.should_receive(:notified).once.
-            with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error.exception, Set[plan])
-        assert_equal([[], Hash.new], execution_engine.propagate_exceptions([error]))
-    end
-
-    def test_it_uses_global_handlers_to_filter_exceptions_that_have_not_been_handled_by_a_task
-        mock = flexmock
-
-        t0, t1, t2 = prepare_plan add: 3
-        dependency_chain(t0, t1, t2)
-
-        error = ExecutionException.new(SpecializedError.new(t2))
-        plan.on_exception(SpecializedError) do |p, e|
-            mock.handler(e, p)
-        end
-        mock.should_receive(:handler).with(error, plan).once
-        assert_equal([[], Hash.new], execution_engine.propagate_exceptions([error]))
-    end
-
-    def dependency_chain(*tasks)
-        plan.add(tasks.first)
-        tasks.each_cons(2) do |from, to|
-            from.depends_on to
-        end
-    end
-
-    def test_propagate_exceptions_forked_propagation
-	# We build a 0 -> 1 -> 2 3 -> 2 task tree with
-	# 0 being able to handle the exception and 1, 3 not
-
-	recorder = flexmock
-
-        t1, t2, t3 = prepare_plan add: 3
-        t0 = Task.new_submodel do 
-            on_exception(Roby::CodeError) do |exception|
-                recorder.handler(exception, exception.trace, self)
-            end
-        end.new
-        execution_engine.on_exception do |kind, exception, tasks|
-            recorder.on_exception(kind, exception, tasks)
-        end
-        dependency_chain t0, t1, t2
-        dependency_chain t3, t2
-
-        recorder.should_receive(:handler).once.
-            with(ExecutionException, [t2, t1, t0], t0)
-        recorder.should_receive(:on_exception).once.
-            with(ExecutionEngine::EXCEPTION_HANDLED, on { |e| e.trace == [t2, t1, t0] }, Set[t0])
-
-        error = ExecutionException.new(CodeError.new(nil, t2))
-        fatal, _ = execution_engine.propagate_exceptions([error])
-        assert_equal 1, fatal.size
-
-        exception, affected_tasks = fatal.first
-        assert_equal [t2, t3], exception.trace
-        assert_equal [t3], affected_tasks
-    end
-
-    def test_propagate_exceptions_diamond_propagation
-        mock = flexmock
-
-        t11, t12, t2 = prepare_plan add: 3
-
-        t0 = Task.new_submodel do 
-            on_exception(Roby::LocalizedError) do |exception|
-                mock.handler(exception, self)
-            end
-        end.new
-        dependency_chain(t0, t11, t2)
-        dependency_chain(t0, t12, t2)
-
-        error = ExecutionException.new(LocalizedError.new(t2))
-        mock.should_receive(:handler).once.
-            with(on { |e| e.trace.flatten.to_set == [t0, t2, t12, t11].to_set && e.origin == t2 }, t0)
-        assert_equal([[], Hash.new], execution_engine.propagate_exceptions([error]))
-    end
-
-    # Tests exception handling mechanism during event propagation
-    def test_task_propagation_with_exception
-	Roby.app.abort_on_exception = true
-
-	task = Tasks::Simple.new_submodel do
-	    event :start do |context|
-		start_event.emit
-		raise RuntimeError, "failed"
-            end
-	end.new(id: 'child')
-
-	FlexMock.use do |mock|
-	    parent = Tasks::Simple.new_submodel do
-		on_exception ChildFailedError do |exception|
-		    mock.exception
-		    task.pass_exception
-		end
-	    end.new(id: 'parent')
-	    mock.should_receive(:exception).once
-
-	    parent.depends_on task
-	    plan.add_permanent_task(parent)
-            
-	    execution_engine.once { parent.start!; task.start! }
-
-	    mock.should_receive(:other_once_handler).once
-	    mock.should_receive(:other_event_processing).once
-	    execution_engine.once { mock.other_once_handler }
-	    execution_engine.add_propagation_handler(type: :external_events) { |plan| mock.other_event_processing }
-
-            assert_raises(Roby::ChildFailedError) do
-		process_events
-	    end
-	end
-	assert(task.event(:start).emitted?)
-    end
-
-    def test_exception_argument_count_validation
-        assert_raises(ArgumentError) do
-            Task.new_submodel.on_exception(RuntimeError) do |a, b|
+                assert_equal 1, fatal.size
+                exception, affected_tasks = fatal.first
+                assert_equal [leaf, right_0], exception.trace
+                assert_equal [right_0], affected_tasks
             end
         end
-        Task.new_submodel.on_exception(RuntimeError) do |_|
+
+        it "merges forked exceptions if the dependencies form a diamond shape" do
+            root, left, right, leaf = prepare_plan add: 4
+            root.depends_on(left)
+            root.depends_on(right)
+            left.depends_on(leaf)
+            right.depends_on(leaf)
+
+            flexmock(root).should_receive(:handle_exception).once.and_return(true).
+                with(proc do |exception|
+                    assert_equal leaf, exception.trace.first
+                    assert_equal [left, right].to_set, exception.trace[1, 2].to_set
+                    assert_equal root, exception.trace.last
+                end)
+
+            execution_engine.propagate_exceptions([leaf.to_execution_exception])
+        end
+    end
+
+    describe "exception handling" do
+        attr_reader :task_m, :localized_error_m, :task
+        before do
+            @task_m = Roby::Task.new_submodel
+            @localized_error_m = Class.new(LocalizedError)
+            plan.add(@task = task_m.new)
+        end
+
+        it "is possible for a task to add errors while being finalized in garbage collection" do
+            task.stop_event.when_unreachable do
+                execution_engine.add_error localized_error_m.new(task)
+            end
+            assert_fatal_exception(localized_error_m, tasks: [task], kill_tasks: []) do
+                process_events
+            end
+        end
+
+        it "falls back to global handlers if there is no matching handler on the tasks" do
+            flexmock(plan).should_receive(:handle_exception).once.and_return(true)
+            flexmock(task).should_receive(:handle_exception).once.and_return(false)
+            process_events do
+                plan.add_error(localized_error_m.new(task))
+            end
+        end
+
+        it "does not call global handlers if an exception is handled by a task" do
+            flexmock(plan).should_receive(:handle_exception).never
+            flexmock(task).should_receive(:handle_exception).once.and_return(true)
+            process_events do
+                plan.add_error(localized_error_m.new(task))
+            end
+        end
+
+        it "notifies about an exception handled by a task" do
+            flexmock(task).should_receive(:handle_exception).once.and_return(true)
+            task.depends_on(origin = task_m.new)
+
+            error = localized_error_m.new(origin).to_execution_exception
+
+            recorder = flexmock
+            execution_engine.on_exception do |kind, error, involved_objects|
+                recorder.notified(kind, error.exception, involved_objects.to_set)
+            end
+            recorder.should_receive(:notified).once.
+                with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error.exception, Set[task])
+            process_events { plan.add_error(error) }
+        end
+
+        it "notifies about an exception handled by the plan" do
+            task.depends_on(origin = task_m.new)
+
+            error = localized_error_m.new(origin).to_execution_exception
+            flexmock(plan).should_receive(:handle_exception).once.and_return(true)
+
+            recorder = flexmock
+            execution_engine.on_exception do |kind, error, involved_objects|
+                recorder.notified(kind, error.exception, involved_objects.to_set)
+            end
+            recorder.should_receive(:notified).once.
+                with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error.exception, Set[plan])
+            process_events { plan.add_error(error) }
+        end
+
+        describe PermanentTaskError do
+            it "adds a PermanentTaskError error if a mission task emits a failure event" do
+                task_m = Task.new_submodel do
+                    event :specialized_failure
+                    forward specialized_failure: :failed
+                end
+                plan.add_permanent_task(task = task_m.new)
+                task.start!
+                assert_nonfatal_exception(PermanentTaskError, failure_point: task.specialized_failure_event, tasks: [task]) do
+                    task.specialized_failure_event.emit
+                end
+            end
+
+            it "adds a PermanentTaskError if a permanent task is involved in an unhandled exception, and passes the exception" do
+                plan.add_permanent_task(root = task_m.new)
+                root.depends_on(origin = task_m.new)
+                error = localized_error_m.new(origin).to_execution_exception
+                error.trace << root
+                assert_nonfatal_exception(PermanentTaskError, failure_point: root, tasks: [root]) do
+                    process_events do
+                        refute plan.handle_exception(error)
+                    end
+                end
+            end
+        end
+
+        describe MissionFailedError do
+            it "adds a MissionFailed error if a mission task emits a failure event" do
+                task_m = Task.new_submodel do
+                    event :specialized_failure
+                    forward specialized_failure: :failed
+                end
+                plan.add_mission_task(task = task_m.new)
+                task.start!
+                assert_fatal_exception(MissionFailedError, failure_point: task.specialized_failure_event, tasks: [task]) do
+                    task.specialized_failure_event.emit
+                end
+            end
+
+            it "adds a MissionFailedError if a mission task is involved in a fatal exception, and passes the exception" do
+                plan.add_mission_task(root = task_m.new)
+                root.depends_on(origin = task_m.new)
+                error = localized_error_m.new(origin).to_execution_exception
+                error.trace << root
+                assert_fatal_exception(MissionFailedError, failure_point: root, tasks: [root]) do
+                    process_events do
+                        refute plan.handle_exception(error)
+                    end
+                end
+            end
         end
     end
 
@@ -1569,123 +1517,6 @@ class TC_ExecutionEngine < Minitest::Test
         child = task.failed_event.handle_with(model)
         assert_kind_of model, child
         assert_equal 10, child.arguments[:id]
-    end
-
-    def test_mission_exceptions
-	mission = prepare_plan missions: 1, model: Tasks::Simple
-	mission.start!
-        error = assert_raises(MissionFailedError) { mission.failed_event.emit }
-
-	assert_kind_of(Roby::MissionFailedError, error)
-    end
-
-    def test_command_failed_formatting
-        plan.add(task = Roby::Task.new)
-        Roby.format_exception(CommandFailed.new(RuntimeError.new("message"), task.start_event))
-    end
-
-    def test_emission_failed_formatting
-        plan.add(task = Roby::Task.new)
-        Roby.format_exception(EmissionFailed.new(RuntimeError.new("message"), task.start_event))
-    end
-
-    def test_event_handler_error_formatting
-        plan.add(task = Roby::Task.new)
-        Roby.format_exception(EventHandlerError.new(RuntimeError.new("message"), task.start_event))
-    end
-
-    def test_nonfatal_exception_handling
-        task_model = Tasks::Simple.new_submodel
-        plan.add_permanent_task(t = task_model.new)
-        t.start!
-
-        mock = flexmock
-        execution_engine.on_exception do |kind, error, involved_objects|
-            mock.notified(kind, error.exception, involved_objects.to_set)
-        end
-        mock.should_receive(:notified).once.
-            with(ExecutionEngine::EXCEPTION_NONFATAL, PermanentTaskError, [t].to_set)
-
-        messages = capture_log(execution_engine, :warn) do
-            assert_raises(PermanentTaskError) do
-                t.failed_event.emit
-            end
-        end
-        assert_equal ["1 unhandled non-fatal exceptions"], messages
-    end
-
-    def test_fatal_exception_handling
-        task_model = Tasks::Simple.new_submodel do
-            event :intermediate do |context|
-                intermediate_event.emit
-            end
-        end
-        
-        t1, t2, t3 = prepare_plan add: 3, model: task_model
-        t1.depends_on t2
-        t2.depends_on t3, failure: [:intermediate]
-
-        t1.start!
-        t2.start!
-        t3.start!
-
-        mock = flexmock
-        execution_engine.on_exception do |kind, error, involved_objects|
-            mock.notified(kind, error.exception, involved_objects.to_set)
-        end
-        mock.should_receive(:notified).once.
-            with(ExecutionEngine::EXCEPTION_FATAL, ChildFailedError, [t1, t2, t3].to_set)
-
-        assert_raises(ChildFailedError) do
-            t3.intermediate!
-        end
-    end
-
-    def test_permanent_task_errors_are_nonfatal
-        task = prepare_plan permanent: 1, model: Tasks::Simple
-
-        mock = flexmock
-        mock.should_receive(:called).once.with(false)
-
-        plan.on_exception(PermanentTaskError) do |plan, error|
-            plan.unmark_permanent_task(error.task)
-            mock.called(error.fatal?)
-        end
-
-        task.start!
-        task.stop!
-    end
-
-    def test_it_propagates_exceptions_only_through_the_listed_parents
-        mock = flexmock
-        task_model = Task.new_submodel do
-            on_exception LocalizedError do |error|
-                mock.called(self)
-                pass_exception
-            end
-        end
-        a0, a1 = prepare_plan add: 2, model: task_model
-        plan.add(b = Roby::Task.new)
-        a0.depends_on b
-        a1.depends_on b
-        mock.should_receive(:called).with(a0).once
-        mock.should_receive(:called).with(a1).never
-        execution_engine.propagate_exceptions([[b.to_execution_exception, [a0]]])
-    end
-
-    def test_the_propagation_is_robust_to_badly_specified_parents
-        plan.add(parent = Roby::Task.new)
-        child = parent.depends_on(Roby::Task.new)
-        plan.add(task = Roby::Task.new)
-
-        error = LocalizedError.new(child).to_execution_exception
-        messages = capture_log(execution_engine, :warn) do
-            result, _ = execution_engine.propagate_exceptions([[error, [task]]])
-            assert_equal error, result.first.first
-            assert_equal [parent, child].to_set, result.first.last.to_set
-        end
-        expected = ["some parents specified for Roby::LocalizedError(Roby::LocalizedError) are actually not parents of #{child}, they got filtered out", "  #{task}"] * 2
-        assert_equal expected, messages
     end
 
     def test_garbage_collection_calls_are_propagated_first_while_quitting

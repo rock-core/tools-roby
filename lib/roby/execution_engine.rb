@@ -1526,7 +1526,7 @@ module Roby
         # @return [ErrorPhaseResult] the set of errors that have been detected
         #   and propagated
         # @raise RecursivePropagationContext if called recursively
-        def process_events(garbage_collect_pass: true)
+        def process_events(garbage_collect_pass: true, &caller_block)
             if @application_exceptions
                 raise RecursivePropagationContext, "recursive call to process_events"
             end
@@ -1538,6 +1538,11 @@ module Roby
 	    events_errors = nil
             next_steps = gather_propagation do
 	        events_errors = gather_errors do
+                    if caller_block
+                        yield 
+                        caller_block = nil
+                    end
+
                     if !quitting? || !garbage_collect([])
                         process_waiting_work
                         log_timepoint 'workers'

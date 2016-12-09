@@ -237,13 +237,14 @@ module Roby
 	end
         
 	# Process pending events
-	def process_events(timeout: 2, enable_scheduler: nil, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true)
+	def process_events(timeout: 2, enable_scheduler: nil, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true, &caller_block)
             exceptions = Array.new
             registered_plans.each do |p|
                 engine = p.execution_engine
 
                 first_pass = true
                 while first_pass || (engine.has_waiting_work? && join_all_waiting_work)
+                    initial_events_block = caller_block if first_pass
                     first_pass = false
 
                     if join_all_waiting_work
@@ -256,7 +257,8 @@ module Roby
                             if !enable_scheduler.nil?
                                 engine.scheduler.enabled = enable_scheduler
                             end
-                            engine.process_events(garbage_collect_pass: garbage_collect_pass)
+
+                            engine.process_events(garbage_collect_pass: garbage_collect_pass, &initial_events_block)
                         ensure
                             engine.scheduler.enabled = current_scheduler_state
                         end
