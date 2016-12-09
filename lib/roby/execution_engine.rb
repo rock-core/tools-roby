@@ -872,7 +872,7 @@ module Roby
                 end
             end
 
-            if !kill_tasks.empty?
+            if !fatal_errors.empty?
                 warn "#{fatal_errors.size} unhandled fatal exceptions, involving #{kill_tasks.size} tasks that will be forcefully killed"
                 fatal_errors.each do |exception, tasks|
                     notify_exception(EXCEPTION_FATAL, exception, tasks)

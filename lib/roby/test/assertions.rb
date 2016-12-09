@@ -556,7 +556,7 @@ module Roby
             # @param (see create_exception_matcher)
             # @param [Enumerable<Task>] tasks forming the exception's trace
             # @return [LocalizedError] the exception
-            def assert_fatal_exception(matcher, failure_point: Task, original_exception: nil, tasks: [])
+            def assert_fatal_exception(matcher, failure_point: Task, original_exception: nil, tasks: [], kill_tasks: tasks)
                 matcher = create_exception_matcher(
                     matcher, original_exception: original_exception,
                     failure_point: failure_point)
@@ -578,7 +578,7 @@ module Roby
                         end
                     end
                 end
-                assert_equal "1 unhandled fatal exceptions, involving #{tasks.size} tasks that will be forcefully killed", messages[0]
+                assert_equal "1 unhandled fatal exceptions, involving #{kill_tasks.size} tasks that will be forcefully killed", messages[0]
                 error
             end
 
