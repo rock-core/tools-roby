@@ -47,6 +47,7 @@ module Roby
                         new('localhost', port: port)
                     @background_jobs = Array.new
                     @validation_mode = validation_mode
+                    @last_main_job_id = nil
                 end
 
                 # Start a Roby controller
@@ -208,13 +209,20 @@ module Roby
                     end
                 end
 
+                attr_reader :last_main_job_id
+
                 # Start a job in the background
                 #
                 # Its failure will make the next #run_job step fail. Unlike a
                 # job created by {#start_monitoring_job}, it will not be stopped
                 # when {#run_job} is called.
                 def start_job(description, m, arguments = Hash.new)
-                    __start_job(description, m, arguments, false)
+                    action = __start_job(description, m, arguments, false)
+                    if !validation_mode?
+                        roby_poll_interface_until { action.async }
+                        @last_main_job_id = action.job_id
+                    end
+                    action
                 end
 
                 # Start a background action whose failure will make the next
