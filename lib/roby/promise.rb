@@ -27,6 +27,10 @@ module Roby
         #
         # @return [Array<PipelineElement>]
         attr_reader :pipeline
+        # The pipeline that will be executed if an error happens in {#pipeline}
+        #
+        # @return [Array<PipelineElement>]
+        attr_reader :error_pipeline
 
         def initialize(execution_engine, executor: execution_engine.thread_pool, description: nil, &block)
             @execution_engine = execution_engine
@@ -34,6 +38,7 @@ module Roby
             @description = description
 
             @pipeline = Array.new
+            @error_pipeline = Array.new
             @promise = Concurrent::Promise.new(executor: executor, &method(:run_pipeline))
             if block
                 self.then(&block)
@@ -52,30 +57,28 @@ module Roby
         def run_pipeline(*state)
             Thread.current.name = "run_promises"
 
-            pipeline = self.pipeline.dup
-            on_error = @on_error
             begin
-                while !pipeline.empty?
-                    state = run_pipeline_elements(pipeline, state, false)
-                    if !pipeline.empty?
-                        execution_engine.execute(type: :propagation) do
-                            state = run_pipeline_elements(pipeline, state, true)
-                        end
-                    end
-                end
-                state
+                run_pipeline_elements(self.pipeline, state)
             rescue Exception => exception
-                if on_error
-                    if on_error.run_in_engine
-                        execution_engine.execute(type: :propagation) do
-                            on_error.callback.call(exception)
-                        end
-                    else
-                        on_error.callback.call(exception)
-                    end
-                end
+                run_pipeline_elements(self.error_pipeline, exception, propagate_state: false)
                 raise Failure.new(exception)
             end
+        end
+
+        # @api private
+        #
+        # Run one of {#pipeline} or {#error_pipeline}
+        def run_pipeline_elements(pipeline, state, propagate_state: true)
+            pipeline = pipeline.dup
+            while !pipeline.empty?
+                state = run_one_pipeline_segment(pipeline, state, false, propagate_state: propagate_state)
+                if !pipeline.empty?
+                    execution_engine.execute(type: :propagation) do
+                        state = run_one_pipeline_segment(pipeline, state, true, propagate_state: propagate_state)
+                    end
+                end
+            end
+            state
         end
 
         # @api private
@@ -98,13 +101,15 @@ module Roby
 
         # @api private
         #
-        # Helper method for {#run_pipeline}
-        def run_pipeline_elements(pipeline, state, in_engine)
+        # Helper method for {#run_pipeline_elements}, to run a sequence of
+        # elements in a pipeline that have the same run_in_engine? 
+        def run_one_pipeline_segment(pipeline, state, in_engine, propagate_state: true)
             while (element = pipeline.first) && !(in_engine ^ element.run_in_engine)
                 pipeline.shift
-                state = execution_engine.log_timepoint_group "#{element.description} in_engine=#{element.run_in_engine}" do
+                new_state = execution_engine.log_timepoint_group "#{element.description} in_engine=#{element.run_in_engine}" do
                     element.callback.call(state)
                 end
+                state = new_state if propagate_state
             end
             state
         end
@@ -127,11 +132,11 @@ module Roby
                     end
                 end
             end
-            if @on_error
+            error_pipeline.each do |element|
                 pp.nest(2) do
                     pp.text "."
                     pp.breakable
-                    pp.text "on_error(#{@on_error.description}, in_engine: #{@on_error.run_in_engine})"
+                    pp.text "on_error(#{element.description}, in_engine: #{element.run_in_engine})"
                 end
             end
         end
@@ -141,7 +146,7 @@ module Roby
         # Unlike {Concurrent::Promise}, {Roby::Promise} objects can only have
         # one error handler
         def has_error_handler?
-            !!@on_error
+            !error_pipeline.empty?
         end
 
         # Schedule execution of a block on the success of self
@@ -164,10 +169,7 @@ module Roby
         # @yieldparam [Object] reason the exception that caused the failure,
         #   usually an exception that was raised by one of the promise blocks.
         def on_error(description: "#{self.description}.on_error", in_engine: true, &block)
-            if has_error_handler?
-                raise AlreadyHasErrorHandler, "Roby::Promise can have only one error handler"
-            end
-            @on_error = PipelineElement.new(description, in_engine, block)
+            error_pipeline << PipelineElement.new(description, in_engine, block)
             self
         end
 

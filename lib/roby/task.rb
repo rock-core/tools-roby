@@ -391,7 +391,7 @@ module Roby
 	# True if this task is executable. A task is not executable if it is
         # abstract or partially instanciated.
         #
-        # See #abstract? and #partially_instanciated?
+        # @see abstract? partially_instanciated?
 	def executable?
             if @executable == true
                 true
@@ -401,7 +401,7 @@ module Roby
         end
 
 	# Returns true if this task's stop event is controlable
-	def interruptible?; event(:stop).controlable? end
+	def interruptible?; stop_event.controlable? end
 	# Set the executable flag. executable cannot be set to +false+ if the 
 	# task is running, and cannot be set to true on a finished task.
 	def executable=(flag)
@@ -477,7 +477,24 @@ module Roby
 
         # True if this task can be reused by some other parts in the plan
         def reusable?
-            plan && @reusable && !failed_to_start? && !finished? && !finishing?
+            plan && @reusable && !quarantined? && !garbage? && !failed_to_start? && !finished? && !finishing?
+        end
+
+        def garbage!
+            bound_events.each_value(&:garbage!)
+            super
+        end
+
+        # @!method quarantined?
+        #
+        # Whether this task has been quarantined
+        attr_predicate :quarantined?
+
+        # Mark the task as quarantined
+        #
+        # Once set it cannot be unset
+        def quarantined!
+            @quarantined = true
         end
 
         def failed_to_start?; !!@failed_to_start end
@@ -865,7 +882,7 @@ module Roby
         def event_model(model); self.model.event_model(model) end
 
         def to_s # :nodoc:
-	    s = "#{name}(#{arguments})"
+            s = "#{name}<id:#{droby_id.id}>(#{arguments})"
 	    id = owners.map do |owner|
                 next if plan && (owner == plan.local_owner)
 		sibling = remote_siblings[owner]
@@ -1451,11 +1468,11 @@ module Roby
                     # interface, as we can't emergency stop it. Quarantine it
                     # and inject it in the normal exception propagation
                     # mechanisms.
-                    Robot.fatal "putting #{self} in quarantine: #{self} failed to emit"
-                    Robot.fatal "the error is:"
-                    Roby.log_exception_with_backtrace(error, Robot, :fatal)
+                    execution_engine.fatal "putting #{self} in quarantine: #{self} failed to emit"
+                    execution_engine.fatal "the error is:"
+                    Roby.log_exception_with_backtrace(error, execution_engine, :fatal)
 
-                    plan.quarantine(self)
+                    plan.quarantine_task(self)
                     add_error(TaskEmergencyTermination.new(self, error, true))
                 end
             else

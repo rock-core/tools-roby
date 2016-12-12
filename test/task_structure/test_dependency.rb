@@ -442,7 +442,7 @@ class TC_Dependency < Minitest::Test
         parent.depends_on(child, role: 'child0')
 
         assert_equal child, parent.child_from_role('child0')
-        assert_equal nil, parent.find_child_from_role('nonexist')
+        assert_nil parent.find_child_from_role('nonexist')
         assert_raises(NoSuchChild) { parent.child_from_role('nonexist') }
     ensure
 	plan.add(parent) if parent
@@ -453,7 +453,7 @@ class TC_Dependency < Minitest::Test
         parent.depends_on(child, role: 'child0')
 
         assert_equal child, parent.child_from_role('child0')
-        assert_equal nil, parent.find_child_from_role('nonexist')
+        assert_nil parent.find_child_from_role('nonexist')
         assert_raises(NoSuchChild) { parent.child_from_role('nonexist') }
     end
 

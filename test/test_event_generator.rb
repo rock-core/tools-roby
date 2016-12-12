@@ -1593,6 +1593,14 @@ module Roby
                 end
             end
         end
+
+        describe "#garbage!" do
+            it "marks the event as unreachable" do
+                plan.add(event = EventGenerator.new)
+                event.garbage!
+                assert event.unreachable?
+            end
+        end
     end
 end
 

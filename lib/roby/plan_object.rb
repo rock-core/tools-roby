@@ -123,6 +123,7 @@ module Roby
 
             @removed_at = nil
             @executable = nil
+            @garbage = false
             @finalization_handlers = Array.new
             @model = self.class
         end
@@ -337,8 +338,28 @@ module Roby
 
 	# If this object is executable
 	def executable?
-	    @executable || (@executable.nil? && plan && plan.executable?)
+	    @executable || (@executable.nil? && !garbage? && plan && plan.executable?)
 	end
+
+        # @!method garbage?
+        #
+        # Whether this task has been marked as garbage by the garbage collection
+        # process
+        #
+        # @see garbage!
+        attr_predicate :garbage?
+
+        # Mark this task as garbage
+        #
+        # Garbage tasks cannot be involved in new relations, and cannot be
+        # executed
+        #
+        # Once set, this flag cannot be unset
+        #
+        # @see garbage?
+        def garbage!
+            @garbage = true
+        end
 
 	# True if we are explicitely subscribed to this object
 	def subscribed?

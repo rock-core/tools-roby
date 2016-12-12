@@ -203,7 +203,7 @@ module Roby
                 plan.add(@task = Roby::Tasks::Simple.new)
             end
             it "returns nil if no event has ever been emitted" do
-                assert_equal nil, task.last_event
+                assert_nil task.last_event
             end
             it "returns the last emitted event if some where emitted" do
                 task.start_event.emit
@@ -786,7 +786,7 @@ module Roby
         describe "#start_time" do
             subject { plan.add(t = Roby::Tasks::Simple.new); t }
             it "is nil on a pending task" do
-                assert_equal nil, subject.start_time
+                assert_nil subject.start_time
             end
             it "is the time of the start event" do
                 subject.start!
@@ -798,7 +798,7 @@ module Roby
             subject { plan.add(t = Roby::Tasks::Simple.new); t }
             it "is nil on a unfinished task" do
                 subject.start!
-                assert_equal nil, subject.end_time
+                assert_nil subject.end_time
             end
             it "is the time of the stop event" do
                 subject.start!
@@ -810,7 +810,7 @@ module Roby
         describe "#lifetime" do
             subject { plan.add(t = Roby::Tasks::Simple.new); t }
             it "is nil on a pending task" do
-                assert_equal nil, subject.lifetime
+                assert_nil subject.lifetime
             end
 
             it "is the time between the start event and now on a running task" do
@@ -1210,6 +1210,10 @@ module Roby
                 plan.remove_task(task)
                 refute task.reusable?
             end
+            it "is false if the task is garbage" do
+                task.garbage!
+                refute task.reusable?
+            end
             it "propagates a 'true' to a transaction proxy" do
                 plan.in_transaction do |trsc|
                     assert trsc[task].reusable?
@@ -1239,6 +1243,14 @@ module Roby
                     trsc[task].do_not_reuse
                 end
                 assert task.reusable?
+            end
+        end
+
+        describe "#garbage!" do
+            it "marks its bound events as garbage" do
+                plan.add(task = Tasks::Simple.new)
+                task.garbage!
+                assert task.start_event.garbage?
             end
         end
 
@@ -1309,7 +1321,7 @@ class TC_Task < Minitest::Test
 	plan.add(task = model.new(arg: 'B'))
 	assert_equal({arg: 'B'}, task.arguments)
         assert_equal('B', task.arg)
-        assert_equal(nil, task.to)
+        assert_nil task.to
     end
 
     def test_arguments_initialization_uses_assignation_operator
@@ -2471,7 +2483,7 @@ class TC_Task < Minitest::Test
 	plan.add(task)
 	assert task.executable?
 	task.start!
-	assert_equal nil, task.arguments[:value]
+	assert_nil task.arguments[:value]
     end
 
     def test_plain_default_argument
@@ -2505,16 +2517,16 @@ class TC_Task < Minitest::Test
         task = model.new
         assert !task.arguments.static?
 
-        assert_equal nil, task.value
+        assert_nil task.value
         assert !task.fully_instanciated?
         has_value = true
-        assert_equal nil, task.value
+        assert_nil task.value
         assert task.fully_instanciated?
 
         value = 10
         assert task.fully_instanciated?
         has_value = false
-        assert_equal nil, task.value
+        assert_nil task.value
         assert !task.fully_instanciated?
 
         has_value = true
@@ -2566,7 +2578,7 @@ class TC_Task < Minitest::Test
         assert !task.fully_instanciated?
         value_obj.value = 10
         assert task.fully_instanciated?
-        assert_equal nil, task.arg
+        assert_nil task.arg
         value_obj.value = 20
         task.start!
         assert_equal 20, task.arg

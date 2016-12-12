@@ -50,7 +50,7 @@ module Robot
 	end
 
 	options = args.first || {}
-	task, planner = Roby.app.prepare_action(name, **options)
+	task, planner = Roby.app.prepare_action(name, job_id: Roby::Interface::Job.allocate_job_id, **options)
         task.plan.add_mission_task(task)
 	return task, planner
     end

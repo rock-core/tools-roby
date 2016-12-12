@@ -104,6 +104,11 @@ module Roby
                 flexmock(plan_object.plan).should_receive(:executable?).and_return(true)
                 assert plan_object.executable?
             end
+
+            it "is false by default if the object is garbage" do
+                plan_object.garbage!
+                refute plan_object.executable?
+            end
         end
     end
 end

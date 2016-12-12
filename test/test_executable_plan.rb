@@ -15,6 +15,7 @@ module Roby
                         @relation_graphs = relation_graphs
                     end
                     def read_write?; true end
+                    def garbage?; false end
                 end
                 @chain = (1..10).map { vertex_m.new(graph => graph, graph_m => graph) }
                 chain.each_cons(2) { |a, b| graph.add_relation(a, b, nil) }
@@ -219,6 +220,109 @@ module Roby
             end
         end
 
+        describe "#quarantine_task" do
+            attr_reader :task
+            before do
+                plan.add(@task = Tasks::Simple.new)
+                flexmock(task)
+            end
+
+            it "emits the quarantined_task log event" do
+                assert_logs_event(:quarantined_task, plan.droby_id, task)
+                plan.quarantine_task(task)
+            end
+            it "marks the task as quarantined" do
+                plan.quarantine_task(task)
+                assert task.quarantined?
+            end
+            it "removes all non-strong task relations and all external event relations" do
+                task.should_receive(:clear_relations).with(remove_internal: false, remove_strong: false).once
+                plan.quarantine_task(task)
+            end
+        end
+
+        describe "handling of garbage objects" do
+            attr_reader :task, :garbage_task, :free_event, :garbage_free_event
+            before do
+                plan.add(@task = Tasks::Simple.new)
+                plan.add(@garbage_task = Tasks::Simple.new)
+                plan.add(@free_event = EventGenerator.new)
+                plan.add(@garbage_free_event = EventGenerator.new)
+                garbage_task.garbage!
+                garbage_free_event.garbage!
+            end
+            describe "direct manipulation" do
+                it "raises if adding a relation whose parent is a garbage task" do
+                    assert_raises(ReusingGarbage) { garbage_task.depends_on task }
+                end
+                it "raises if adding a relation whose child is a garbage task" do
+                    assert_raises(ReusingGarbage) { task.depends_on garbage_task }
+                end
+                it "raises if adding a relation whose parent is a garbage task event" do
+                    assert_raises(ReusingGarbage) { garbage_task.start_event.forward_to task.start_event }
+                end
+                it "raises if adding a relation whose child is a garbage task event" do
+                    assert_raises(ReusingGarbage) { task.start_event.forward_to garbage_task.start_event }
+                end
+                it "raises if adding a relation whose parent is a garbage free event" do
+                    assert_raises(ReusingGarbage) { garbage_free_event.forward_to free_event }
+                end
+                it "raises if adding a relation whose child is a garbage free event" do
+                    assert_raises(ReusingGarbage) { free_event.forward_to garbage_free_event }
+                end
+            end
+            describe "transaction commit" do
+                it "raises if adding a relation whose parent is a garbage task" do
+                    plan.in_transaction do |trsc|
+                        trsc[garbage_task].depends_on trsc[task]
+                        assert_raises(ReusingGarbage) do
+                            trsc.commit_transaction
+                        end
+                    end
+                end
+                it "raises if adding a relation whose child is a garbage task" do
+                    plan.in_transaction do |trsc|
+                        trsc[task].depends_on trsc[garbage_task]
+                        assert_raises(ReusingGarbage) do
+                            trsc.commit_transaction
+                        end
+                    end
+                end
+                it "raises if adding a relation whose parent is a garbage task event" do
+                    plan.in_transaction do |trsc|
+                        trsc[garbage_task].start_event.forward_to trsc[task].start_event
+                        assert_raises(ReusingGarbage) do
+                            trsc.commit_transaction
+                        end
+                    end
+                end
+                it "raises if adding a relation whose child is a garbage task event" do
+                    plan.in_transaction do |trsc|
+                        trsc[task].start_event.forward_to trsc[garbage_task].start_event
+                        assert_raises(ReusingGarbage) do
+                            trsc.commit_transaction
+                        end
+                    end
+                end
+                it "raises if adding a relation whose parent is a garbage free event" do
+                    assert_raises(ReusingGarbage) do
+                        plan.in_transaction do |trsc|
+                            trsc[garbage_free_event].forward_to trsc[free_event]
+                            trsc.commit_transaction
+                        end
+                    end
+                end
+                it "raises if adding a relation whose child is a garbage free event" do
+                    plan.in_transaction do |trsc|
+                        trsc[free_event].forward_to trsc[garbage_free_event]
+                        assert_raises(ReusingGarbage) do
+                            trsc.commit_transaction
+                        end
+                    end
+                end
+            end
+        end
+
         describe "#garbage_task" do
             attr_reader :task
             before do
@@ -227,12 +331,23 @@ module Roby
                 flexmock(task)
             end
 
+
             describe "task.can_finalize? => true" do
                 it "removes the task" do
                     plan.add_permanent_task(source = Tasks::Simple.new)
                     source.start_event.signals task.stop_event
                     plan.should_receive(:remove_task).once
                     process_events
+                end
+
+                it "does not mark the task as garbage" do
+                    process_events
+                    refute task.garbage?
+                end
+
+                it "does mark the task as finalized" do
+                    process_events
+                    assert task.finalized?
                 end
 
                 it "emits the garbage_task log event" do
@@ -243,11 +358,19 @@ module Roby
 
             describe "task.can_finalize? => false" do
                 before do
-                    task.should_receive(:can_finalize? => false)
+                    task.should_receive(can_finalize?: false)
                 end
                 it "emits the garbage_task log event" do
                     assert_logs_event(:garbage_task, plan.droby_id, task)
                     process_events
+                end
+                it "marks the task as garbage" do
+                    process_events
+                    assert task.garbage?
+                end
+                it "does not finalize the task" do
+                    process_events
+                    refute task.finalized?
                 end
                 it "removes all non-strong task relations and all external event relations" do
                     task.should_receive(:clear_relations).with(remove_internal: false, remove_strong: false).once
@@ -256,6 +379,10 @@ module Roby
                 it "does not remove the task from the plan" do
                     plan.should_receive(:remove_task).never
                     process_events
+                end
+                it "marks the task as non-reusable" do
+                    process_events
+                    refute task.reusable?
                 end
             end
         end

@@ -39,9 +39,9 @@ class TC_OpenStruct < Minitest::Test
 
     def test_get
 	s = OpenStruct.new
-        assert_equal nil, s.get(:x)
+        assert_nil s.get(:x)
         s.x
-        assert_equal nil, s.get(:x)
+        assert_nil s.get(:x)
         s.x = 20
         assert_equal 20, s.get(:x)
     end

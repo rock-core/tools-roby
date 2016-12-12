@@ -280,6 +280,75 @@ module Roby
                 end
             end
         end
+
+        describe "#garbage_collect" do
+            describe "handling of the quarantine" do
+                it "does not attempt to terminate a running quarantined task" do
+                    plan.add(task = Tasks::Simple.new)
+                    task.start!
+                    task.quarantined!
+                    warn_log = FlexMock.use(task) do |mock|
+                        mock.should_receive(:stop!).never
+                        capture_log(execution_engine, :warn) do
+                            execution_engine.garbage_collect
+                        end
+                    end
+                    assert_equal ["GC: #{task} is running but in quarantine"],
+                        warn_log
+                    task.stop!
+                end
+                it "finalizes a pending quarantined task" do
+                    plan.add(task = Tasks::Simple.new)
+                    task.quarantined!
+                    execution_engine.garbage_collect
+                    assert task.finalized?
+                end
+                it "finalizes a quarantined task that failed to start" do
+                    plan.add(task = Tasks::Simple.new)
+                    task.failed_to_start!(Exception.new)
+                    task.quarantined!
+                    execution_engine.garbage_collect
+                    assert task.finalized?
+                end
+                it "finalizes a finished quarantined task" do
+                    plan.add(task = Tasks::Simple.new)
+                    task.quarantined!
+                    task.start!
+                    task.stop!
+                    execution_engine.garbage_collect
+                    assert task.finalized?
+                end
+                it "quarantines a task that cannot be stopped" do
+                    plan.add(uninterruptible_task = Task.new_submodel.new)
+                    uninterruptible_task.start_event.emit
+                    log = capture_log(execution_engine, :warn) do
+                        execution_engine.garbage_collect
+                    end
+                    assert_equal ["GC: #{uninterruptible_task} cannot be stopped, putting in quarantine"],
+                        log
+                        assert uninterruptible_task.quarantined?
+                        uninterruptible_task.stop_event.emit
+                end
+
+                # This worked around a Heisenbug a long time ago ... need to make
+                # sure that it still happens
+                it "quarantines a task whose stop event is controllable but for which #stop! is not defined" do
+                    plan.add(task = Tasks::Simple.new)
+                    task.start_event.emit
+                    flexmock(task).should_receive(:respond_to?).with(:stop!).and_return(false)
+                    flexmock(task).should_receive(:respond_to?).pass_thru
+
+                    warn_log = capture_log(execution_engine, :warn) do
+                        execution_engine.garbage_collect
+                    end
+
+                    assert_equal ["something fishy: #{task}/stop is controlable but there is no #stop! method, putting in quarantine"],
+                        warn_log
+                        assert task.quarantined?
+                        task.stop_event.emit
+                end
+            end
+        end
     end
 end
 

@@ -158,21 +158,21 @@ module Roby
                         flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
                     app.search_path = []
-                    assert_equal nil, app.test_file_for(m)
+                    assert_nil app.test_file_for(m)
                 end
                 it "ignores entries whose first element is not 'models'" do
                     create_file 'compositions', 'file.rb'
                     m = flexmock(definition_location: [
                         flexmock(absolute_path: File.join(base_dir, 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
-                    assert_equal nil, app.test_file_for(m)
+                    assert_nil app.test_file_for(m)
                 end
                 it "returns nil if the expected test file does not exist" do
                     m = flexmock(definition_location: [
                         flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
                     FileUtils.rm_f File.join(base_dir, 'test', 'compositions', 'test_file.rb')
-                    assert_equal nil, app.test_file_for(m)
+                    assert_nil app.test_file_for(m)
                 end
             end
 
@@ -182,7 +182,7 @@ module Roby
                 end
 
                 it "returns nil if no entries in search_path matches" do
-                    assert_equal nil, app.find_base_path_for("/somewhere/else")
+                    assert_nil app.find_base_path_for("/somewhere/else")
                 end
                 it "returns the matching entry in search_path" do
                     assert_equal "/bla/blo", app.find_base_path_for("/bla/blo/models")

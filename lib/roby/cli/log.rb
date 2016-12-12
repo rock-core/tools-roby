@@ -1,8 +1,25 @@
 require 'roby'
 require 'thor'
+
+Roby.app.guess_app_dir
+
 module Roby
     module CLI
         class Log < Thor
+            no_commands do
+                def handle_file_argument(file)
+                    return file if File.file?(file)
+
+                    Roby.app.setup_robot_names_from_config_dir
+                    if !Roby.app.robot_name?(file)
+                        raise ArgumentError, "expected #{file} to either the path to a log file, or a robot name to get the last log file from this robot configuration"
+                    end
+
+                    Roby.app.robot(file)
+                    Roby.app.log_current_file
+                end
+            end
+
             desc 'upgrade-format', 'upgrades an older Roby log file to the newest version'
             def upgrade_format(file)
                 require 'roby/log/upgrade'
@@ -11,6 +28,7 @@ module Roby
 
             desc 'rebuild-index', 'rebuilds the index of an existing log file'
             def rebuild_index(file)
+                file = handle_file_argument(file)
                 require 'roby/droby/logfile/reader'
                 Roby::DRoby::Logfile::Reader.open(file).
                    rebuild_index
@@ -22,6 +40,8 @@ module Roby
             option :flamegraph, type: :string, desc: 'path to a HTML file that will display a flame graph'
             option :ctf, type: :boolean, desc: 'generate a CTF file suitable to be analyzed by e.g. Trace Compass'
             def timepoints(file)
+                file = handle_file_argument(file)
+
                 require 'roby/droby/logfile/reader'
                 require 'roby/droby/timepoints'
                 require 'roby/droby/timepoints_ctf'
@@ -91,6 +111,8 @@ module Roby
             desc 'stats', 'show general timing statistics'
             option :save, type: :string, desc: 'file to save the CSV data to'
             def stats(file)
+                file = handle_file_argument(file)
+
                 require 'roby/droby/logfile/reader'
                 stream = Roby::DRoby::Logfile::Reader.open(file)
                 index = stream.index
@@ -125,7 +147,7 @@ module Roby
                     io = File.open(options[:save], 'w')
                 end
 
-                header = %w{0_actual_start 1_cycle_index 2_log_queue_size 3_plan_task_count 4_plan_event_count 5_utime 6_stime 7_dump_time 8_duration 9_total_allocated_objects 10_minor 11_major 12_count 13_oob_removed 14_gc_total_time}
+                header = %w{0_actual_start 1_cycle_index 2_log_queue_size 3_plan_task_count 4_plan_event_count 5_utime 6_stime 7_dump_time 8_duration 9_total_allocated_objects 10_minor 11_major 12_live_object_count 13_oob_removed 14_gc_total_time}
                 formatting = %w{%i %i %i %i %.3f %.3f %.3f %.3f %i %i %i %i %i %.3f}
                 formatting = formatting.join(",")
 
@@ -154,6 +176,8 @@ module Roby
                 desc: "replay the log stream into a plan, add =debug to display more debugging information. Mainly useful to debug issues with the plan rebuilder",
                 default: 'normal'
             def decode(file)
+                file = handle_file_argument(file)
+
                 require 'roby/droby/logfile/reader'
                 require 'roby/droby/plan_rebuilder'
 
@@ -208,6 +232,20 @@ module Roby
                         break
                     end
                 end
+            end
+
+            desc 'current', 'full path to the current log file'
+            def current(robot_name)
+                Roby.app.setup_robot_names_from_config_dir
+                Roby.app.robot(robot_name)
+                puts Roby.app.log_current_file
+            end
+
+            desc 'display', "start roby-display to visualize the log file's contents"
+            def display(file)
+                file = handle_file_argument(file)
+                require 'roby/cli/display'
+                Display.new.file(file)
             end
         end
     end

@@ -525,9 +525,7 @@ module Roby
             parser.on('--debug', 'run in debug mode') do
                 Roby.app.public_logs = true
                 Roby.app.filter_backtraces = false
-            end
-            parser.on('--enable-profiling', 'enable the profiling subcommand on the Roby interface') do
-                require 'roby/app/profiling'
+                require 'roby/app/debug'
             end
             parser.on_tail('-h', '--help', 'this help message') do
                 STDERR.puts parser
@@ -1071,6 +1069,25 @@ module Roby
                 current_path = File.join(log_base_dir, "current")
                 self.class.read_current_dir(current_path)
             end
+        end
+
+        class NoCurrentLog < RuntimeError; end
+
+        # The path to the current log file
+        def log_current_file
+            log_current_dir = self.log_current_dir
+            metadata = log_read_metadata
+            if metadata.empty?
+                raise NoCurrentLog, "#{log_current_dir} is not a valid Roby log dir, it does not have an info.yml metadata file"
+            elsif !(robot_name = metadata.map { |h| h['robot_name'] }.compact.last)
+                raise NoCurrentLog, "#{log_current_dir}'s metadata does not specify the robot name"
+            end
+
+            full_path = File.join(log_current_dir, "#{robot_name}-events.log")
+            if !File.file?(full_path)
+                raise NoCurrentLog, "inferred log file #{full_path} for #{log_current_dir}, but that file does not exist"
+            end
+            full_path
         end
 
         # @api private

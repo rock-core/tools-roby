@@ -943,6 +943,15 @@ module Roby
             @unreachability_reason = reason
         end
 
+        # @api private
+        #
+        # Called if the event has been garbage-collected, but cannot be
+        # finalized yet (possibly because {#can_finalize?} returns false)
+        def garbage!
+            super
+            unreachable!
+        end
+
 	# Called internally when the event becomes unreachable
 	def unreachable!(reason = nil, plan = self.plan)
             engine = execution_engine
