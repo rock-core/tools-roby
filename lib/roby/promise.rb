@@ -185,6 +185,7 @@ module Roby
 
         def execute
             promise.execute
+            self
         end
 
         def unscheduled?
@@ -205,6 +206,10 @@ module Roby
 
         def rejected?
             promise.rejected?
+        end
+
+        def wait
+            promise.wait
         end
 
         def value(timeout = nil)

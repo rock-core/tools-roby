@@ -319,5 +319,17 @@ Roby::Promise(the promise description).
                 assert_equal result, p.value!
             end
         end
+
+        describe "#execute" do
+            it "schedules the promise" do
+                p = execution_engine.promise { }
+                p.execute
+                assert p.pending?
+            end
+            it "returns self" do
+                p = execution_engine.promise { }
+                assert_same p, p.execute
+            end
+        end
     end
 end
