@@ -187,8 +187,8 @@ module Roby
         # @param [String] description  a textual description of the promise's
         #   role (used for debugging and timing)
         # @return [Promise]
-        def promise(description: nil, executor: promise_executor, &block)
-            execution_engine.promise(description: "#{self}.promise(#{description})", executor: executor, &block)
+        def promise(description: "#{self}.promise", executor: promise_executor, &block)
+            execution_engine.promise(description: description, executor: executor, &block)
         end
 
         # Used in plan management as a way to extract a plan object from any

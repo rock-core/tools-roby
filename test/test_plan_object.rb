@@ -110,7 +110,17 @@ module Roby
                 refute plan_object.executable?
             end
         end
+
+        describe "#promise" do
+            it "creates a promise using the object's own executor" do
+                plan.add(object = Task.new)
+                flexmock(Promise).should_receive(:new).
+                    with(execution_engine,
+                         ->(h) { h[:executor].equal?(object.promise_executor) && h[:description] == 'promise description' },
+                         Proc).once.and_return(promise = flexmock)
+                assert_equal promise, object.promise(description: 'promise description') {}
+            end
+        end
     end
 end
-
 

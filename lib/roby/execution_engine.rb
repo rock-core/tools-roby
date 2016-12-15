@@ -2385,7 +2385,7 @@ module Roby
         # callbacks added with #on_success or #rescue will be executed in the
         # execution engine thread by default.
         def promise(description: nil, executor: thread_pool, &block)
-            Promise.new(self, executor: thread_pool, description: description, &block)
+            Promise.new(self, executor: executor, description: description, &block)
         end
     end
 
