@@ -44,12 +44,12 @@ module Roby
                                 end
                                 last_tasks = plan.tasks.dup
                             end
-                            if last_quarantine != quarantine
+                            if last_quarantine != plan_quarantine
                                 Roby.warn "Quarantined tasks:"
-                                quarantined_tasks.each do |t|
+                                plan_quarantine.each do |t|
                                     Roby.warn "  #{t}"
                                 end
-                                last_quarantine = quarantined_tasks.dup
+                                last_quarantine = plan_quarantine.dup
                             end
                             sleep 1
                         end
