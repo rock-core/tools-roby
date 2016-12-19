@@ -36,7 +36,7 @@ module Roby
                     plans = plans.map do |plan, engine, last_tasks, last_quarantine|
                         plan_quarantine = plan.quarantined_tasks
                         if counter > 100
-                            Roby.warn "more than #{counter} iterations while trying to shut down #{plan}, quarantine=#{plan_quarantine.size} tasks, tasks=#{plan.tasks.size} tasks"
+                            Roby.warn "more than #{counter} iterations while trying to shut down #{plan} after #{self.class.name}##{name}, quarantine=#{plan_quarantine.size} tasks, tasks=#{plan.tasks.size} tasks"
                             if last_tasks != plan.tasks
                                 Roby.warn "Known tasks:"
                                 plan.tasks.each do |t|
