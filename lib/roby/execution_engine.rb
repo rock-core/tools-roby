@@ -375,6 +375,9 @@ module Roby
                 waiting_work.each do |w|
                     pp.breakable
                     pp.nest(2) do
+                        if w.respond_to?(:state)
+                            pp.text "[state=#{w.state}] "
+                        end
                         w.pretty_print(pp)
                     end
                 end
