@@ -170,6 +170,12 @@ module Roby
             !error_pipeline.empty?
         end
 
+        # Queue a block at the beginning of the pipeline
+        def before(description: "#{self.description}.before", in_engine: true, &block)
+            pipeline.unshift PipelineElement.new(description, in_engine, block)
+            self
+        end
+
         # Schedule execution of a block on the success of self
         #
         # @param [String] description a textual description useful for debugging

@@ -130,6 +130,39 @@ Roby::Promise(the promise description).
             end
         end
 
+        describe "#before" do
+            attr_reader :promise
+            before do
+                @promise = execution_engine.promise
+            end
+            def execute_promise(promise)
+                promise.execute
+                execution_engine.join_all_waiting_work
+            end
+
+            it "adds a step in front of all existing steps" do
+                order = Array.new
+                promise.on_success { order << 1 }
+                promise.before { order << 0 }
+                execute_promise(promise)
+                assert_equal [0, 1], order
+            end
+            it "executes the step in the EE thread by default" do
+                thread = nil
+                promise = execution_engine.promise
+                promise.before { thread = Thread.current }
+                execute_promise(promise)
+                assert_equal Thread.current, thread
+            end
+            it "allows to execute the step within a separate thread with the in_engine option" do
+                thread = nil
+                promise = execution_engine.promise
+                promise.before(in_engine: false) { thread = Thread.current }
+                execute_promise(promise)
+                refute_equal Thread.current, thread
+            end
+        end
+
         describe "#on_success" do
             it "queues on_success handlers to be executed on the engine" do
                 order = Array.new
