@@ -1355,6 +1355,28 @@ module Roby
                 refute task.handle_exception(localized_error_m.new(task).to_execution_exception)
             end
         end
+
+        describe "#promise" do
+            attr_reader :task
+            before do
+                plan.add(@task = Roby::Tasks::Simple.new)
+            end
+            it "raises if the task has failed to start" do
+                task.start_event.emit_failed
+                assert_raises(PromiseInFinishedTask) { task.promise { } }
+            end
+            it "raises if the task has finished" do
+                task.start!
+                task.stop!
+                assert_raises(PromiseInFinishedTask) { task.promise { } }
+            end
+            it "creates a promise using the serialized task executor otherwise" do
+                flexmock(execution_engine).should_receive(:promise).once.
+                    with(->(h) { h[:executor].equal?(task.promise_executor) }, Proc).
+                    and_return(ret = flexmock)
+                assert_equal ret, task.promise {}
+            end
+        end
     end
 end
 

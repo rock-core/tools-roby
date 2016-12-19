@@ -311,6 +311,18 @@ module Roby
 	    @bound_events = bound_events
         end
 
+        # @see (PlanObject#promise)
+        # @raise PromiseInFinishedTask if attempting to create a promise on a
+        #   task that is either finished, or failed to start
+        def promise(description: "#{self}.promise", executor: promise_executor, &block)
+            if failed_to_start?
+                raise PromiseInFinishedTask, "attempting to create a promise on #{self} that has failed to start"
+            elsif finished?
+                raise PromiseInFinishedTask, "attempting to create a promise on #{self} that is finished"
+            end
+            super
+        end
+
 	# Returns for how many seconds this task is running.  Returns nil if
 	# the task is not running.
         def lifetime

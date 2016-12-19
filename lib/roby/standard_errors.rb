@@ -475,5 +475,9 @@ module Roby
             end
         end
     end
+
+    # Exception raised when a finished task has a promise attached, or when one
+    # attempts to create one on a finished task
+    class PromiseInFinishedTask < RuntimeError; end
 end
 
