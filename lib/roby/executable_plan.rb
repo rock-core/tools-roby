@@ -436,7 +436,7 @@ module Roby
         #   In practice, it will return false only if the task cannot be
         #   finalized *and* has external relations.
         def garbage_task(task)
-            log(:garbage_task, droby_id, task)
+            log(:garbage_task, droby_id, task, task.can_finalize?)
 
             if task.can_finalize?
                 remove_task(task)

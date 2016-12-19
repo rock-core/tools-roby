@@ -64,7 +64,7 @@ module Roby
             def has_received_event?(expected_m, *expected_args)
                 received_events.any? do |m, time, args|
                     if args.size == expected_args.size
-                        [m, *args].zip([expected_m, *args]).all? do |v, expected|
+                        [m, *args].zip([expected_m, *expected_args]).all? do |v, expected|
                             expected === v
                         end
                     end

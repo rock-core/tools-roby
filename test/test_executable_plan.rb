@@ -351,7 +351,7 @@ module Roby
                 end
 
                 it "emits the garbage_task log event" do
-                    assert_logs_event(:garbage_task, plan.droby_id, task)
+                    assert_logs_event(:garbage_task, plan.droby_id, task, true)
                     process_events
                 end
             end
@@ -361,7 +361,7 @@ module Roby
                     task.should_receive(can_finalize?: false)
                 end
                 it "emits the garbage_task log event" do
-                    assert_logs_event(:garbage_task, plan.droby_id, task)
+                    assert_logs_event(:garbage_task, plan.droby_id, task, false)
                     process_events
                 end
                 it "marks the task as garbage" do
