@@ -367,7 +367,7 @@ module Roby
         class JoinAllWaitingWorkTimeout < RuntimeError
             attr_reader :waiting_work
             def initialize(waiting_work)
-                @waiting_work = waiting_work
+                @waiting_work = waiting_work.dup
             end
 
             def pretty_print(pp)
