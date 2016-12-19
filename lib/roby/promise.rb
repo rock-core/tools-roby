@@ -32,7 +32,7 @@ module Roby
         # @return [Array<PipelineElement>]
         attr_reader :error_pipeline
 
-        def initialize(execution_engine, executor: execution_engine.thread_pool, description: nil, &block)
+        def initialize(execution_engine, executor: execution_engine.thread_pool, description: "promise", &block)
             @execution_engine = execution_engine
             execution_engine.waiting_work << self
             @description = description
@@ -40,9 +40,17 @@ module Roby
             @pipeline = Array.new
             @error_pipeline = Array.new
             @promise = Concurrent::Promise.new(executor: executor, &method(:run_pipeline))
+            @current_element = Concurrent::AtomicReference.new
             if block
                 self.then(&block)
             end
+        end
+
+        # The description element being currently executed
+        #
+        # @return [String,nil] 
+        def current_element
+            @current_element.get
         end
 
         # Representation of one element in the pipeline
@@ -57,12 +65,16 @@ module Roby
         def run_pipeline(*state)
             Thread.current.name = "run_promises"
 
-            begin
-                run_pipeline_elements(self.pipeline, state)
-            rescue Exception => exception
-                run_pipeline_elements(self.error_pipeline, exception, propagate_state: false)
-                raise Failure.new(exception)
+            execution_engine.log_timepoint_group "#{description}" do
+                begin
+                    run_pipeline_elements(self.pipeline, state)
+                rescue Exception => exception
+                    run_pipeline_elements(self.error_pipeline, exception, propagate_state: false)
+                    raise Failure.new(exception)
+                end
             end
+        ensure
+            @current_element.set(nil)
         end
 
         # @api private
@@ -73,8 +85,10 @@ module Roby
             while !pipeline.empty?
                 state = run_one_pipeline_segment(pipeline, state, false, propagate_state: propagate_state)
                 if !pipeline.empty?
-                    execution_engine.execute(type: :propagation) do
-                        state = run_one_pipeline_segment(pipeline, state, true, propagate_state: propagate_state)
+                    state = execution_engine.log_timepoint_group "#{description}:execute_in_engine" do
+                        execution_engine.execute(type: :propagation) do
+                            run_one_pipeline_segment(pipeline, state, true, propagate_state: propagate_state)
+                        end
                     end
                 end
             end
@@ -106,6 +120,7 @@ module Roby
         def run_one_pipeline_segment(pipeline, state, in_engine, propagate_state: true)
             while (element = pipeline.first) && !(in_engine ^ element.run_in_engine)
                 pipeline.shift
+                @current_element.set(element.description)
                 new_state = execution_engine.log_timepoint_group "#{element.description} in_engine=#{element.run_in_engine}" do
                     element.callback.call(state)
                 end
@@ -120,7 +135,13 @@ module Roby
 
         def pretty_print(pp)
             description = self.description
-            pp.text "Roby::Promise(#{description})"
+            pp.text "Roby::Promise(#{description}"
+            if current_element = self.current_element
+                pp.text ", currently: #{current_element})"
+            else
+                pp.text ")"
+            end
+
             pipeline.each do |element|
                 pp.nest(2) do
                     pp.text "."
@@ -235,6 +256,22 @@ module Roby
             if failure = promise.reason
                 failure.actual_exception
             end
+        end
+
+        # The promise's execution state
+        def state
+            promise.state
+        end
+
+        # Register a block that will be called on this promise's termination
+        #
+        # @yieldparam [Time] time the termination time
+        # @yieldparam [Object,nil] result the promise result if it finished
+        #   execution successfully, or nil if an exception was raised
+        # @yieldparam [Object,nil] reason the exception that terminated this
+        #   promise if it failed, or nil if it finished successfully
+        def add_observer(&block)
+            promise.add_observer(&block)
         end
     end
 end
