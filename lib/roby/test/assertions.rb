@@ -158,9 +158,10 @@ module Roby
                     yield
                 end
 
+                deadline = Time.now + timeout
                 ivar = Concurrent::IVar.new
                 while !ivar.complete?
-                    success, error = Assertions.event_watch_result(positive, negative, Time.now + timeout)
+                    success, error = Assertions.event_watch_result(positive, negative, deadline)
                     if success
                         ivar.set(success)
                     elsif error
