@@ -107,6 +107,10 @@ module Roby
             end
 
             describe ".try_numerical_with_unit" do
+                it "allows to skip a leading zero" do
+                    assert_equal [-0.2, 'unit'], CucumberHelpers.try_numerical_value_with_unit("-.2unit")
+                    assert_equal [0.2, 'unit'], CucumberHelpers.try_numerical_value_with_unit(".2unit")
+                end
                 it "extracts the unit and value from a negative float" do
                     assert_equal [-10.2, 'unit'], CucumberHelpers.try_numerical_value_with_unit("-10.2unit")
                 end

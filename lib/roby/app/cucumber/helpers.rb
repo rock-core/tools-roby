@@ -167,7 +167,7 @@ module Roby
             #
             # @return [(Numeric,String),nil]
             def self.try_numerical_value_with_unit(string)
-                if string =~ /^(-?\d+(?:\.\d+)?)([^\d]\w*)$/
+                if string =~ /^(-?\.\d+|-?\d+(?:\.\d+)?)([^\d]\w*)$/
                     return Float($1), $2
                 end
             end
