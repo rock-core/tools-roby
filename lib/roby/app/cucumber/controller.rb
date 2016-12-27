@@ -24,6 +24,14 @@ module Roby
                 # The set of jobs started by {#start_monitoring_job}
                 attr_reader :background_jobs
 
+                # Whether the process should abort when an error is detected, or
+                # keep running the actions as-is. The latter is useful for
+                # debugging
+                #
+                # Active the keep running mode by setting CUCUMBER_KEEP_RUNNING
+                # to 1
+                attr_predicate :keep_running?, true
+
                 # Whether we run the jobs, or only validate their existence and
                 # arguments
                 #
@@ -41,11 +49,14 @@ module Roby
                     roby_interface.connected?
                 end
 
-                def initialize(port: Roby::Interface::DEFAULT_PORT, validation_mode: (ENV['ROBY_VALIDATE_STEPS'] == '1'))
+                def initialize(port: Roby::Interface::DEFAULT_PORT,
+                               keep_running: (ENV['CUCUMBER_KEEP_RUNNING'] == '1'),
+                               validation_mode: (ENV['ROBY_VALIDATE_STEPS'] == '1'))
                     @roby_pid = nil
                     @roby_interface = Roby::Interface::Async::Interface.
                         new('localhost', port: port)
                     @background_jobs = Array.new
+                    @keep_running = keep_running
                     @validation_mode = validation_mode
                     @last_main_job_id = nil
                 end
@@ -309,9 +320,23 @@ module Roby
                     if action.success?
                         return
                     elsif failed_monitor
-                        raise FailedBackgroundJob, "monitoring job #{failed_monitor.description} failed"
+                        if keep_running?
+                            STDERR.puts
+                            STDERR.puts "FAILED: monitoring job #{failed_monitor.description} failed"
+                            STDERR.puts "In 'keep running' mode. Interrupt with CTRL+C"
+                            roby_poll_interface_until { false }
+                        else
+                            raise FailedBackgroundJob, "monitoring job #{failed_monitor.description} failed"
+                        end
                     else
-                        raise FailedAction, "action #{m} failed"
+                        if keep_running?
+                            STDERR.puts
+                            STDERR.puts "FAILED: action #{m} failed"
+                            STDERR.puts "In 'keep running' mode. Interrupt with CTRL+C"
+                            roby_poll_interface_until { false }
+                        else
+                            raise FailedAction, "action #{m} failed"
+                        end
                     end
 
                 ensure
