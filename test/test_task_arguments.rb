@@ -33,6 +33,15 @@ describe Roby::TaskArguments do
             task.arguments[:arg] = arg
             task.arguments[:arg] = 10
         end
+
+        it "raises NotMarshallable if attempting to set an argument that is marked with the DRoby::Unmarshallable module" do
+            object = Object.new
+            object.extend Roby::DRoby::Unmarshallable
+            e = assert_raises Roby::NotMarshallable do
+                task.arguments[:arg] = object
+            end
+            assert_equal "values used as task arguments must be marshallable, attempting to set arg to #{object}, which is not", e.message
+        end
     end
 
     describe "#set?" do
@@ -73,6 +82,15 @@ describe Roby::TaskArguments do
             args = Roby::TaskArguments.new(task_m.new)
             args.merge!(key: flexmock(evaluate_delayed_argument: 10))
             assert !args.static?
+        end
+        it "raises if attempting to set to a non-marshallable value" do
+            args = Roby::TaskArguments.new(task_m.new)
+            object = Object.new
+            object.extend Roby::DRoby::Unmarshallable
+            e = assert_raises Roby::NotMarshallable do
+                args.merge!(key: object)
+            end
+            assert_equal "values used as task arguments must be marshallable, attempting to set key to #{object}, which is not", e.message
         end
         it "does not raise if the hash updates a non-writable value with the same value" do
             args = task_m.new(arg: 20).arguments

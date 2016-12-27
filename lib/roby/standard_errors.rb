@@ -24,6 +24,11 @@ module Roby
     # itself
     class InternalError < RuntimeError; end
 
+    # Exception raised if an object is not droby-marshallable in a place where
+    # one is required
+    class NotMarshallable < ArgumentError
+    end
+
     # Module used to tag exceptions that "wrap" an original error from the user
     # code
     #

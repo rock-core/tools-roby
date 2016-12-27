@@ -43,6 +43,7 @@ require 'utilrb/unbound_method/call'
 require 'metaruby'
 
 require 'roby/version'
+require 'roby/droby/marshallable'
 require 'roby/droby/event_logging'
 
 require 'roby/support'

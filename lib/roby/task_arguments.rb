@@ -160,7 +160,9 @@ module Roby
 	def []=(key, value)
             key = key.to_sym if key.respond_to?(:to_str)
 	    if writable?(key, value)
-		if !task.read_write?
+                if !value.droby_marshallable?
+                    raise NotMarshallable, "values used as task arguments must be marshallable, attempting to set #{key} to #{value}, which is not"
+		elsif !task.read_write?
 		    raise OwnershipError, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
 		end
 
@@ -220,6 +222,12 @@ module Roby
         end
 
 	def merge!(hash)
+            hash.each do |key, value|
+                if !value.droby_marshallable?
+                    raise NotMarshallable, "values used as task arguments must be marshallable, attempting to set #{key} to #{value}, which is not"
+                end
+            end
+
 	    values.merge!(hash) do |key, old, new|
 		if old == new then old
 		elsif writable?(key, new)
