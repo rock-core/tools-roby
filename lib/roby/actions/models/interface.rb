@@ -41,7 +41,7 @@ module Roby
             def use_library(library)
                 if library <= Actions::Interface
                     library.each_registered_action do |name, action|
-                        actions[name] = action
+                        actions[name] ||= action
                     end
                     library.each_fault_response_table do |table|
                         use_fault_response_table table
