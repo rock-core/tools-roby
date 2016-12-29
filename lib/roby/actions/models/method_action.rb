@@ -10,6 +10,10 @@ module Roby
                     super(doc)
                     @action_interface_model = action_interface_model
                 end
+
+                def to_s
+                    "#{super} of #{action_interface_model}"
+                end
             
                 def ==(other)
                     other.kind_of?(self.class) &&
