@@ -114,6 +114,30 @@ module Roby
                 end
             end
 
+            # Register sub-hooks
+            def describe(*desc, &block)
+                behaviour = Module.new do
+                    extend Roby::Test::DSL
+                    class_eval(&block)
+                end
+
+                @__describe_blocks ||= Array.new
+                @__describe_blocks << [desc, behaviour]
+            end
+
+            def self.included(target)
+                super
+
+                @__describe_blocks ||= Array.new
+                if Class === target
+                    @__describe_blocks.each do |desc, behaviour|
+                        target.describe(desc) { include behaviour }
+                    end
+                else
+                    target.instance_variable_get(:@__describe_blocks).
+                        concat(@__describe_blocks)
+                end
+            end
         end
     end
 end
