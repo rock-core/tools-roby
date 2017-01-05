@@ -213,3 +213,23 @@ class TC_TransactionsProxy < Minitest::Test
     end
 end
 
+module Roby
+    class Transaction
+        describe Proxying do
+            describe ".proxying_module_for" do
+                it "builds the module by applying the proxy modules in the ancestry order" do
+                    root_task_m = Roby::Task.new_submodel
+                    root_proxy_m = Module.new { proxy_for root_task_m }
+                    parent_task_m = root_task_m.new_submodel
+                    parent_proxy_m = Module.new { proxy_for parent_task_m }
+                    task_m = parent_task_m.new_submodel
+                    proxy_m = Proxying.proxying_module_for(task_m)
+                    assert_equal [proxy_m, parent_proxy_m, root_proxy_m, Roby::Task::Proxying, Roby::PlanObject::Proxying, Roby::Transaction::Proxying],
+                        proxy_m.ancestors.find_all { |k| k.name !~ /GUI/ } # the whole test suite loads the GUI, which in turn includes modules in the base classes
+                end
+            end
+        end
+    end
+end
+
+
