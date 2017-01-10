@@ -116,13 +116,17 @@ module Roby
 
             # Register sub-hooks
             def describe(*desc, &block)
-                behaviour = Module.new do
-                    extend Roby::Test::DSL
-                    class_eval(&block)
-                end
+                if kind_of?(Class)
+                    super
+                else
+                    behaviour = Module.new do
+                        extend Roby::Test::DSL
+                        class_eval(&block)
+                    end
 
-                @__describe_blocks ||= Array.new
-                @__describe_blocks << [desc, behaviour]
+                    @__describe_blocks ||= Array.new
+                    @__describe_blocks << [desc, behaviour]
+                end
             end
 
             def self.included(target)
