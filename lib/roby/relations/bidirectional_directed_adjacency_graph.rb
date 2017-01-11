@@ -333,13 +333,23 @@ module Roby
 
             def verify_consistency
                 @forward_edges_with_info.each do |v, out_edges|
+                    if !@backward_edges.has_key?(v)
+                        raise Inconsistent, "#{v} has an entry in the forward-edge set, but not in the backward-edge"
+                    end
+
                     out_edges.each do |out_e, _info|
-                        if !@backward_edges[out_e].has_key?(v)
+                        if !@backward_edges.has_key?(out_e)
+                            raise Inconsistent, "#{out_e} is listed as an out-neighbour of #{v} but #{out_e} is not included in the graph"
+                        elsif !@backward_edges[out_e].has_key?(v)
                             raise Inconsistent, "#{out_e} is listed as an out-neighbour of #{v} but #{out_e} does not list it as in-neighbour"
                         end
                     end
                 end
                 @backward_edges.each do |v, in_edges|
+                    if !@forward_edges_with_info.has_key?(v)
+                        raise Inconsistent, "#{v} has an entry in the forward-edge set, but not in the backward-edge"
+                    end
+
                     in_edges.each do |in_e, _|
                         if !@forward_edges_with_info[in_e]
                             raise Inconsistent, "#{in_e} is listed as an in-neighbour of #{v} but is not included in the graph"

@@ -480,6 +480,61 @@ module Roby
                     assert_equal info, receiver.edge_info(2, 3)
                 end
             end
+
+            describe "#verify_consistency" do
+                it "passes for an empty graph" do
+                    create_graph.verify_consistency
+                end
+                it "passes for a valid graph" do
+                    create_graph(1, 2, 2, 3, 5, 6).verify_consistency
+                end
+                it "raises if a vertex is registered in the forward edges but not in the backward edges" do
+                    g = BidirectionalDirectedAdjacencyGraph.new
+                    g.add_vertex(10)
+                    g.backward_edges.delete(10)
+                    assert_raises(BidirectionalDirectedAdjacencyGraph::Inconsistent) do
+                        g.verify_consistency
+                    end
+                end
+                it "raises if a vertex is registered in the backward edges but not in the forward edges" do
+                    g = BidirectionalDirectedAdjacencyGraph.new
+                    g.add_vertex(10)
+                    g.forward_edges_with_info.delete(10)
+                    assert_raises(BidirectionalDirectedAdjacencyGraph::Inconsistent) do
+                        g.verify_consistency
+                    end
+                end
+                it "raises if a forward edge exists without the corresponding backward edge" do
+                    g = BidirectionalDirectedAdjacencyGraph[1, 2]
+                    g.backward_edges[2].clear
+                    assert_raises(BidirectionalDirectedAdjacencyGraph::Inconsistent) do
+                        g.verify_consistency
+                    end
+                end
+                it "raises if a forward edge exists and the edge's sink is not even in the graph" do
+                    g = BidirectionalDirectedAdjacencyGraph[1, 2]
+                    g.forward_edges_with_info.delete(2)
+                    g.backward_edges.delete(2)
+                    assert_raises(BidirectionalDirectedAdjacencyGraph::Inconsistent) do
+                        g.verify_consistency
+                    end
+                end
+                it "raises if a backward edge exists without the corresponding forward edge" do
+                    g = BidirectionalDirectedAdjacencyGraph[1, 2]
+                    g.forward_edges_with_info[1].clear
+                    assert_raises(BidirectionalDirectedAdjacencyGraph::Inconsistent) do
+                        g.verify_consistency
+                    end
+                end
+                it "raises if a backward edge exists and the edge's source is not even in the graph" do
+                    g = BidirectionalDirectedAdjacencyGraph[1, 2]
+                    g.forward_edges_with_info.delete(1)
+                    g.backward_edges.delete(1)
+                    assert_raises(BidirectionalDirectedAdjacencyGraph::Inconsistent) do
+                        g.verify_consistency
+                    end
+                end
+            end
         end
     end
 end
