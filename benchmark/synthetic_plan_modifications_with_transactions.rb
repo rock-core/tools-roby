@@ -34,7 +34,7 @@ def randomly_modify_plan(plan, num_tasks, num_relation_changes, num_mission_chan
         end
 
         # Unmark all missions
-        all_missions = plan.missions.to_a + trsc.missions.to_a
+        all_missions = plan.mission_tasks.to_a + trsc.mission_tasks.to_a
         all_missions.each do |t|
             trsc.unmark_mission_task(trsc[t])
         end
