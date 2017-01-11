@@ -9,18 +9,27 @@ module Roby
             def assert_is_consistent(graph)
                 graph.verify_consistency
             end
-            def graph_class; BidirectionalDirectedAdjacencyGraph end
+
+            def create_graph(*initial)
+                g = BidirectionalDirectedAdjacencyGraph[*initial]
+                @created_graphs << g
+                g
+            end
 
             def setup
-                @dg = graph_class.new
-                [[1, 2], [2, 3], [3, 2], [2, 4]].each do |(src, target)|
-                    @dg.add_edge(src, target)
-                end
+                @created_graphs = Array.new
                 super
             end
 
+            def teardown
+                super
+                @created_graphs.each do |g|
+                    assert_is_consistent g
+                end
+            end
+
             def test_empty_graph
-                dg = graph_class.new
+                dg = create_graph
                 assert dg.empty?
                 assert dg.directed?
                 assert(!dg.has_edge?(2, 1))
@@ -33,12 +42,12 @@ module Roby
                 assert_equal(0, dg.size)
                 assert_equal(0, dg.num_vertices)
                 assert_equal(0, dg.num_edges)
-                assert_equal(graph_class::DirectedEdge, dg.edge_class)
+                assert_equal(BidirectionalDirectedAdjacencyGraph::DirectedEdge, dg.edge_class)
                 assert([].eql?(dg.edges))
             end
 
             def test_add
-                dg = graph_class.new
+                dg = create_graph
                 dg.add_edge(1, 2)
                 assert(!dg.empty?)
                 assert(dg.has_edge?(1, 2))
@@ -47,7 +56,7 @@ module Roby
                 assert(!dg.has_vertex?(3))
 
                 assert_equal([1, 2], dg.vertices.sort)
-                assert([graph_class::DirectedEdge.new(1, 2)].eql?(dg.edges))
+                assert([BidirectionalDirectedAdjacencyGraph::DirectedEdge.new(1, 2)].eql?(dg.edges))
                 assert_equal("(1-2)", dg.edges.join)
 
                 assert_equal([2], dg.adjacent_vertices(1).to_a)
@@ -58,54 +67,70 @@ module Roby
             end
 
             def test_add_with_info
-                dg = graph_class.new
+                dg = create_graph
                 dg.add_edge(1, 2, 3)
                 assert_equal 3, dg.edge_info(1, 2)
             end
 
             def test_set_edge_info
-                dg = graph_class.new
+                dg = create_graph
                 dg.add_edge(1, 2, 3)
                 dg.set_edge_info(1, 2, 42)
                 assert_equal 42, dg.edge_info(1, 2)
             end
 
             def test_edges
-                assert_equal(4, @dg.edges.length)
-                assert_equal([1, 2, 2, 3], @dg.edges.map { |l| l.source }.sort)
-                assert_equal([2, 2, 3, 4], @dg.edges.map { |l| l.target }.sort)
-                assert_equal("(1-2)(2-3)(2-4)(3-2)", @dg.edges.map { |l| l.to_s }.sort.join)
-                #    assert_equal([0,1,2,3], @dg.edges.map {|l| l.info}.sort)
+                dg = create_graph
+                [[1, 2], [2, 3], [3, 2], [2, 4]].each do |(src, target)|
+                    dg.add_edge(src, target)
+                end
+                assert_equal(4, dg.edges.length)
+                assert_equal([1, 2, 2, 3], dg.edges.map { |l| l.source }.sort)
+                assert_equal([2, 2, 3, 4], dg.edges.map { |l| l.target }.sort)
+                assert_equal("(1-2)(2-3)(2-4)(3-2)", dg.edges.map { |l| l.to_s }.sort.join)
+                #    assert_equal([0,1,2,3], dg.edges.map {|l| l.info}.sort)
             end
 
             def test_vertices
-                assert_equal([1, 2, 3, 4], @dg.vertices.sort)
+                dg = create_graph
+                [[1, 2], [2, 3], [3, 2], [2, 4]].each do |(src, target)|
+                    dg.add_edge(src, target)
+                end
+                assert_equal([1, 2, 3, 4], dg.vertices.sort)
             end
 
             def test_edges_from_to?
-                assert @dg.has_edge?(1, 2)
-                assert @dg.has_edge?(2, 3)
-                assert @dg.has_edge?(3, 2)
-                assert @dg.has_edge?(2, 4)
-                assert !@dg.has_edge?(2, 1)
-                assert !@dg.has_edge?(3, 1)
-                assert !@dg.has_edge?(4, 1)
-                assert !@dg.has_edge?(4, 2)
+                dg = create_graph
+                [[1, 2], [2, 3], [3, 2], [2, 4]].each do |(src, target)|
+                    dg.add_edge(src, target)
+                end
+                assert dg.has_edge?(1, 2)
+                assert dg.has_edge?(2, 3)
+                assert dg.has_edge?(3, 2)
+                assert dg.has_edge?(2, 4)
+                assert !dg.has_edge?(2, 1)
+                assert !dg.has_edge?(3, 1)
+                assert !dg.has_edge?(4, 1)
+                assert !dg.has_edge?(4, 2)
             end
 
             def test_remove_edges
-                @dg.remove_edge 1, 2
-                assert !@dg.has_edge?(1, 2)
-                @dg.remove_edge 1, 2
-                assert !@dg.has_edge?(1, 2)
-                @dg.remove_vertex 3
-                assert !@dg.has_vertex?(3)
-                assert !@dg.has_edge?(2, 3)
-                assert_equal('(2-4)', @dg.edges.join)
+                dg = create_graph
+                [[1, 2], [2, 3], [3, 2], [2, 4]].each do |(src, target)|
+                    dg.add_edge(src, target)
+                end
+                dg.remove_edge 1, 2
+                assert !dg.has_edge?(1, 2)
+                dg.remove_edge 1, 2
+                assert !dg.has_edge?(1, 2)
+                dg.remove_vertex 3
+                assert !dg.has_vertex?(3)
+                assert !dg.has_edge?(2, 3)
+                assert_equal('(2-4)', dg.edges.join)
             end
 
             def test_add_vertices
-                dg = graph_class.new
+                dg = create_graph
                 dg.add_vertices 1, 3, 2, 4
                 assert_equal dg.vertices.sort, [1, 2, 3, 4]
 
@@ -114,17 +139,21 @@ module Roby
             end
 
             def test_creating_from_array
-                dg = graph_class[1, 2, 3, 4]
+                dg = BidirectionalDirectedAdjacencyGraph[1, 2, 3, 4]
                 assert_equal([1, 2, 3, 4], dg.vertices.sort)
                 assert_equal('(1-2)(3-4)', dg.edges.join)
             end
 
             def test_reverse
+                dg = create_graph
+                [[1, 2], [2, 3], [3, 2], [2, 4]].each do |(src, target)|
+                    dg.add_edge(src, target)
+                end
                 # Add isolated vertex
-                @dg.add_vertex(42)
-                reverted = @dg.reverse
+                dg.add_vertex(42)
+                reverted = dg.reverse
 
-                @dg.each_edge do |u, v|
+                dg.each_edge do |u, v|
                     assert(reverted.has_edge?(v, u))
                 end
 
@@ -133,7 +162,7 @@ module Roby
 
             def test_dup
                 edge_info = Struct.new :value
-                dg = graph_class.new
+                dg = create_graph
                 dg.add_edge(1, 2, edge_info.new(12))
                 dg.add_edge(2, 3, edge_info.new(23))
                 dg.add_edge(1, 3, edge_info.new(13))
@@ -145,7 +174,7 @@ module Roby
             end
 
             def test_move_edges
-                dg = graph_class.new
+                dg = create_graph
                 dg.add_edge(1, 2, 12)
                 dg.add_edge(2, 3, 23)
                 dg.add_edge(1, 3, 13)
@@ -164,54 +193,291 @@ module Roby
                 assert_equal expected_edges, dg.each_edge.to_set
             end
 
-            def test_difference
-                v_a = (1..3).map { Object.new }
-                v_b = (1..3).map { Object.new }
-                mapping = Hash.new
-                v_a.each_with_index do |v, i|
-                    mapping[v] = v_b[i]
+            describe "#difference" do
+                attr_reader :a, :b, :v_a, :v_b, :mapping
+                before do
+                    @v_a = (1..3).map { Object.new }
+                    @v_b = (1..3).map { Object.new }
+                    @mapping = Hash.new
+                    v_a.each_with_index do |v, i|
+                        mapping[v] = v_b[i]
+                    end
+                    @a = create_graph
+                    @b = create_graph
                 end
-                a = BidirectionalDirectedAdjacencyGraph.new
-                b = BidirectionalDirectedAdjacencyGraph.new
 
-                assert_equal([Set.new, Set.new, Set.new],
-                             a.difference(b, v_a, &mapping.method(:[])))
+                it "returns empty sets for empty graphs" do
+                    assert_equal([[], [], []],
+                                 a.difference(b, v_a, &mapping.method(:[])))
+                end
 
-                a.add_edge(v_a[0], v_a[1], nil)
-                assert_equal([[[v_a[0], v_a[1]]].to_set, Set.new, Set.new],
-                             a.difference(b, v_a, &mapping.method(:[])))
+                it "reports an edge in the receiver and not in the argument as new" do
+                    a.add_edge(v_a[0], v_a[1], nil)
+                    assert_equal([[[v_a[0], v_a[1]]], [], []],
+                                 a.difference(b, v_a, &mapping.method(:[])))
+                end
 
-                b.add_edge(v_b[0], v_b[1], nil)
-                assert_equal([Set.new, Set.new, Set.new],
-                             a.difference(b, v_a, &mapping.method(:[])))
+                it "does not report a common edge" do
+                    a.add_edge(v_a[0], v_a[1], nil)
+                    b.add_edge(v_b[0], v_b[1], nil)
+                    assert_equal([[], [], []],
+                                 a.difference(b, v_a, &mapping.method(:[])))
+                end
 
-                b.add_edge(v_b[0], v_b[2], nil)
-                b.add_edge(v_b[2], v_b[1], nil)
-                assert_equal([Set.new, [[v_b[0], v_b[2]], [v_b[2], v_b[1]]].to_set, Set.new],
-                             a.difference(b, v_a, &mapping.method(:[])))
+                it "reports edges in the argument not in the receiver as removed" do
+                    b.add_edge(v_b[0], v_b[2], nil)
+                    b.add_edge(v_b[2], v_b[1], nil)
+                    assert_equal([[], [[v_b[0], v_b[2]], [v_b[2], v_b[1]]], []],
+                                 a.difference(b, v_a, &mapping.method(:[])))
+                end
 
-                a.add_edge(v_a[2], v_a[1], [])
-                assert_equal([Set.new, [[v_b[0], v_b[2]]].to_set, [[v_a[2], v_a[1]]].to_set],
-                             a.difference(b, v_a, &mapping.method(:[])))
+                it "reports an edge whose info has changed as updated" do
+                    b.add_edge(v_b[2], v_b[1], nil)
+                    a.add_edge(v_a[2], v_a[1], [])
+                    assert_equal([[], [], [[v_a[2], v_a[1]]]],
+                                 a.difference(b, v_a, &mapping.method(:[])))
+                end
+            end
+
+            describe "#to_a" do
+                it "returns the list of vertices" do
+                    dg = create_graph(1, 2, 2, 3, 3, 2, 2, 4)
+                    assert_equal [1, 2, 3, 4], dg.to_a
+                end
+            end
+
+            describe "#out_degree" do
+                it "returns the number of out-edges of a vertex" do
+                    dg = create_graph(1, 2, 2, 3, 2, 4)
+                    assert_equal 1, dg.out_degree(1)
+                    assert_equal 2, dg.out_degree(2)
+                    assert_equal 0, dg.out_degree(3)
+                end
+                it "returns zero for a vertex not in the graph" do
+                    dg = create_graph
+                    assert_equal 0, dg.out_degree(2)
+                end
+            end
+
+            describe "#root?" do
+                it "returns true for vertices that have no out-edges" do
+                    dg = create_graph(1, 2)
+                    assert dg.root?(1)
+                end
+                it "returns false for vertices that have out-edges" do
+                    dg = create_graph(1, 2)
+                    refute dg.root?(2)
+                end
+            end
+
+            describe "#in_degree" do
+                it "returns the number of in-edges of a vertex" do
+                    dg = create_graph(1, 3, 2, 3, 3, 4)
+                    assert_equal 2, dg.in_degree(3)
+                    assert_equal 0, dg.in_degree(1)
+                    assert_equal 1, dg.in_degree(4)
+                end
+                it "returns zero for a vertex not in the graph" do
+                    dg = create_graph
+                    assert_equal 0, dg.in_degree(2)
+                end
+            end
+
+            describe "#leaf?" do
+                it "returns true for vertices that have no in-edges" do
+                    dg = create_graph(1, 2)
+                    assert dg.leaf?(2)
+                end
+                it "returns false for vertices that have in-edges" do
+                    dg = create_graph(1, 2)
+                    refute dg.leaf?(1)
+                end
+            end
+
+            describe "#replace" do
+                attr_reader :new, :old
+                before do
+                    @new = create_graph
+                    @old = create_graph(1, 2, 1, 3, 3, 4)
+                end
+                it "replaces the internal structure by the the one from its argument" do
+                    expected = old.dup
+                    new.replace(old)
+                    assert new.same_structure?(expected)
+                end
+                it "does not touch its argument" do
+                    new.replace(old)
+                    refute old.empty?
+                end
+            end
+
+            describe "#add_edge" do
+                attr_reader :graph, :parent, :child
+                before do
+                    @graph = create_graph
+                    @parent = Object.new
+                    @child  = Object.new
+                end
+                it "raises if trying to register a self-referencing edge" do
+                    e = assert_raises(ArgumentError) do
+                        graph.add_edge(parent, parent, nil)
+                    end
+                    assert_equal "cannot add self-referencing edges", e.message
+                end
+                it "registers the edge" do
+                    graph.add_edge(parent, child, nil)
+                    assert graph.has_edge?(parent, child)
+                end
+                it "registers the info object" do
+                    graph.add_edge(parent, child, info = Object.new)
+                    assert_same info, graph.edge_info(parent, child)
+                end
+                it "registers the out-edge" do
+                    graph.add_edge(parent, child, nil)
+                    assert graph.out_neighbours(parent).include?(child)
+                end
+                it "registers the in-edge" do
+                    graph.add_edge(parent, child, nil)
+                    assert graph.in_neighbours(child).include?(parent)
+                end
             end
 
             describe "#remove_vertex" do
                 attr_reader :graph, :obj
                 before do
-                    @graph = BidirectionalDirectedAdjacencyGraph.new
+                    @graph = create_graph
                     @obj   = Object.new
                 end
-                it "returns true if the vertex had out edges" do
-                    graph.add_edge(obj, Object.new, nil)
+                it "removes vertex out-edges and returns true" do
+                    graph.add_edge(obj, child = Object.new, nil)
                     assert graph.remove_vertex(obj)
+                    refute graph.has_edge?(obj, child)
                 end
-                it "returns true if the vertex had in edges" do
-                    graph.add_edge(Object.new, obj, nil)
+                it "removes vertex in-edges and returns true" do
+                    graph.add_edge(parent = Object.new, obj, nil)
                     assert graph.remove_vertex(obj)
+                    refute graph.has_edge?(parent, obj)
                 end
-                it "returns false if the vertex had no edges" do
+                it "returns false if the vertex was in the graph but had no edges" do
                     graph.add_vertex(obj)
                     refute graph.remove_vertex(obj)
+                end
+                it "ignores a vertex that is not in the graph" do
+                    refute graph.remove_vertex(obj)
+                end
+            end
+
+            describe "#num_vertices" do
+                it "returns zero for an empty graph" do
+                    assert_equal 0, create_graph.num_vertices
+                end
+                it "returns the total number of vertices in the graph" do
+                    dg = create_graph(1, 2, 3, 4)
+                    assert_equal 4, dg.num_vertices
+                end
+            end
+
+            describe "#num_edges" do
+                it "returns zero for an empty graph" do
+                    assert_equal 0, create_graph.num_edges
+                end
+                it "returns the total number of edges in the graph" do
+                    dg = create_graph(1, 2, 3, 4)
+                    assert_equal 2, dg.num_edges
+                end
+            end
+
+            describe "#edge_info" do
+                it "returns the info of an existing edge" do
+                    graph = create_graph
+                    graph.add_edge(10, 20, info = Object.new)
+                    assert_equal info, graph.edge_info(10, 20)
+                end
+                it "raises if the parent is not in the graph" do
+                    graph = create_graph(20, 30)
+                    e = assert_raises(ArgumentError) do
+                        graph.edge_info(10, 20)
+                    end
+                    assert_equal "no edge 10 => 20 in #{graph}", e.message
+                end
+                it "raises if the child is not in the graph" do
+                    graph = create_graph(10, 30)
+                    e = assert_raises(ArgumentError) do
+                        graph.edge_info(10, 20)
+                    end
+                    assert_equal "no edge 10 => 20 in #{graph}", e.message
+                end
+                it "raises if the edge does not exist" do
+                    graph = create_graph(10, 30, 20, 30)
+                    e = assert_raises(ArgumentError) do
+                        graph.edge_info(10, 20)
+                    end
+                    assert_equal "no edge 10 => 20 in #{graph}", e.message
+                end
+            end
+
+            describe "#set_edge_info" do
+                it "sets the info of an existing edge" do
+                    graph = create_graph(10, 20)
+                    graph.set_edge_info(10, 20, info = Object.new)
+                    assert_equal info, graph.edge_info(10, 20)
+                end
+                it "raises if the parent is not in the graph" do
+                    graph = create_graph(20, 30)
+                    e = assert_raises(ArgumentError) do
+                        graph.set_edge_info(10, 20, nil)
+                    end
+                    assert_equal "no edge 10 => 20 in #{graph}", e.message
+                end
+                it "raises if the child is not in the graph" do
+                    graph = create_graph(10, 30)
+                    e = assert_raises(ArgumentError) do
+                        graph.set_edge_info(10, 20, nil)
+                    end
+                    assert_equal "no edge 10 => 20 in #{graph}", e.message
+                end
+                it "raises if the edge does not exist" do
+                    graph = create_graph(10, 30, 20, 30)
+                    e = assert_raises(ArgumentError) do
+                        graph.set_edge_info(10, 20, nil)
+                    end
+                    assert_equal "no edge 10 => 20 in #{graph}", e.message
+                end
+            end
+
+            describe "#merge" do
+                attr_reader :receiver, :argument
+                before do
+                    @receiver = create_graph(1, 2, 2, 3, 2, 4)
+                    @argument = create_graph(0, 2, 2, 3, 2, 5, 6, 7)
+                end
+                it "adds all forward edges to the receiver" do
+                    receiver.merge(argument)
+                    assert_equal [[0, 2, nil], [1, 2, nil], [2, 3, nil], [2, 4, nil], [2, 5, nil], [6, 7, nil]].sort,
+                        receiver.each_edge.to_a.sort
+                end
+                it "does not modify the argument" do
+                    receiver.merge(argument)
+                    assert_equal [[0, 2, nil], [2, 3, nil], [2, 5, nil], [6, 7, nil]].sort,
+                        argument.each_edge.to_a.sort
+                end
+                it "ensures that the receiver and argument have separate out and in-edge sets" do
+                    receiver.merge(argument)
+                    argument.add_edge(2, 42)
+                    receiver.add_edge(84, 2)
+                    refute receiver.has_edge?(2, 42)
+                    refute argument.has_edge?(84, 2)
+                end
+                it "copies the edge info of new edges" do
+                    argument.set_edge_info(2, 5, info = Object.new)
+                    receiver.merge(argument)
+                    assert_equal info, receiver.edge_info(2, 5)
+                end
+                it "update the edge info of existing edges" do
+                    receiver.set_edge_info(2, 3, old_info = Object.new)
+                    argument.set_edge_info(2, 3, info = Object.new)
+                    receiver.merge(argument)
+                    assert_equal info, receiver.edge_info(2, 3)
                 end
             end
         end
