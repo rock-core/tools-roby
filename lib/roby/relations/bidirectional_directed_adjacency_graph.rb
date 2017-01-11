@@ -93,9 +93,15 @@ module Roby
 
                 target_out, target_in = (@vertices_dict[target] ||= [@edgelist_class.new, @edgelist_class.new])
                 source_out.each do |child|
+                    child_in = @vertices_dict[child][1]
+                    child_in.delete(source)
+                    child_in << target
                     edge_info_map[[target, child]] = edge_info_map.delete([source,child])
                 end
                 source_in.each do |parent|
+                    parent_out = @vertices_dict[parent][0]
+                    parent_out.delete(source)
+                    parent_out << target
                     edge_info_map[[parent,target]] = edge_info_map.delete([parent,source])
                 end
                 target_out.merge(source_out)

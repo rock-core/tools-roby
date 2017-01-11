@@ -6,6 +6,9 @@ module Roby
             include RGL
             include RGL::Edge
 
+            def assert_is_consistent(graph)
+                graph.verify_consistency
+            end
             def graph_class; BidirectionalDirectedAdjacencyGraph end
 
             def setup
@@ -150,6 +153,8 @@ module Roby
                 dg.add_edge(3, 5, 35)
 
                 dg.move_edges(3, 10)
+                assert_is_consistent dg
+
                 expected_edges =
                     Set[[1, 2, 12],
                         [2, 10, 23],
