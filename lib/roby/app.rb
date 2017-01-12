@@ -2420,7 +2420,7 @@ module Roby
         # Find an action with the given name on the action interfaces registered on
         # {#planners}
         #
-        # @return [Actions::Models::Action,nil]
+        # @return [(ActionInterface,Actions::Models::Action),nil]
         # @raise [ActionResolutionError] if more than one action interface provide an
         #   action with this name
         def find_action_from_name(name)

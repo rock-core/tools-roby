@@ -86,7 +86,7 @@ Roby.app.additional_model_files.concat(additional_model_files)
 error = Roby.display_exception do
     app.setup
     actions = actions.map do |act_name|
-        action = Roby.app.find_action_from_name(act_name)
+        _, action = Roby.app.find_action_from_name(act_name)
         if !action
             Robot.error "#{act_name}, given as an action on the command line, does not exist"
             exit 1
