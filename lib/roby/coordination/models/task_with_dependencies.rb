@@ -40,6 +40,7 @@ module Roby
                         raise ArgumentError, "expected a task, got #{action}. You probably forgot to convert it using #task or #state"
                     end
                     dependencies << [action, role]
+                    self
                 end
             end
         end
