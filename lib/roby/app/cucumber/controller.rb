@@ -83,6 +83,7 @@ module Roby
                     end
                     @roby_pid = spawn Gem.ruby, '-S', 'roby', 'run',
                         "--robot=#{robot_name},#{robot_type}",
+                        '--controller',
                         '--quiet',
                         *options,
                         *state.map { |k, v| "--set=#{k}=#{v}" },
