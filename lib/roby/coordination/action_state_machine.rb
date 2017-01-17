@@ -8,6 +8,10 @@ module Roby
         class ActionStateMachine < Actions
             extend Models::ActionStateMachine
 
+            include Hooks
+            include Hooks::InstanceHooks
+
+            define_hooks :on_transition
             # The current state
             attr_reader :current_state
 
@@ -72,6 +76,7 @@ module Roby
             def instanciate_state_transition(task, new_state)
                 remove_current_task
                 instanciate_state(new_state)
+                run_hook :on_transition, task, new_state
             end
         end
     end

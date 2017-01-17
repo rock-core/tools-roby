@@ -767,6 +767,26 @@ module Roby
                 return FlexmockExceptionMatcher.new(matcher.to_execution_exception_matcher),
                     FlexmockExceptionTasks.new(tasks)
             end
+            # Assert that a state machine transitions
+            def assert_state_machine_transition(state_machine_task, to_state: Regexp.new, timeout: 5)
+                state_machines = state_machine_task.coordination_objects.
+                    find_all { |obj| obj.kind_of?(Coordination::ActionStateMachine) }
+                if state_machines.empty?
+                    raise ArgumentError, "#{state_machine_task} has no state machines"
+                end
+
+                done = false
+                state_machines.each do |m|
+                    m.on_transition do |_, new_state|
+                        if to_state === new_state.name
+                            done = true
+                        end
+                    end
+                end
+                process_events_until(timeout: timeout) do
+                    done
+                end
+            end
         end
     end
 end
