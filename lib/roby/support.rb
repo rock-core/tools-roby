@@ -30,7 +30,18 @@ end
 
 class Object
     def inspect
-        to_s
+        guard = (Thread.current[:ROBY_SUPPORT_INSPECT_RECURSION_GUARD] ||= Hash.new)
+        guard.compare_by_identity
+        if guard.has_key?(self)
+            return "..."
+        else
+            begin
+                guard[self] = self
+                to_s
+            ensure
+                guard.delete(self)
+            end
+        end
     end
 end
 
