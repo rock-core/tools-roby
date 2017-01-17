@@ -148,7 +148,7 @@ module Roby
             end
 
             # Plan the given task
-            def roby_run_planner(task, recursive: true)
+            def roby_run_planner(task, recursive: true, **options)
                 if task.respond_to?(:as_plan)
                     task = task.as_plan
                     plan.add_permanent_task(task)
@@ -156,7 +156,7 @@ module Roby
 
                 while (planner = task.planning_task) && !planner.finished?
                     handler = Spec.planner_handler_for(task)
-                    task = instance_exec(task, &handler.block)
+                    task = instance_exec(task, **options, &handler.block)
                     break if !recursive
                 end
                 task
@@ -192,7 +192,7 @@ module Roby
                 @@roby_planner_handlers.unshift PlanningHandler.new(matcher, block)
             end
 
-            roby_plan_with Roby::Task.match.with_child(Roby::Actions::Task) do |task|
+            roby_plan_with Roby::Task.match.with_child(Roby::Actions::Task) do |task, **|
                 placeholder = task.as_service
                 assert_event_emission task.planning_task.success_event
                 placeholder.to_task
