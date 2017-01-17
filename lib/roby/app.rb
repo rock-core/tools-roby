@@ -717,6 +717,12 @@ module Roby
             clear_models_handlers << block
         end
 
+        # Declares that the following block should be called when
+        # {#clear_models} is called
+        def on_cleanup(&block)
+            cleanup_handlers << block
+        end
+
         # Looks into subdirectories of +dir+ for files called app.rb and
         # registers them as Roby plugins
         def load_plugins_from_prefix(dir)
