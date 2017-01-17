@@ -154,10 +154,15 @@ module Roby
                     plan.add_permanent_task(task)
                 end
 
-                while (planner = task.planning_task) && !planner.finished?
-                    handler = Spec.planner_handler_for(task)
-                    task = instance_exec(task, **options, &handler.block)
-                    break if !recursive
+                handler = Spec.planner_handler_for(task)
+                task = instance_exec(task, **options, &handler.block)
+
+                if recursive
+                    plan.task_relation_graph_for(Roby::TaskStructure::Dependency).depth_first_visit(task) do |t|
+                        if t.abstract? && t.planning_task
+                            roby_run_planner(t, **options)
+                        end
+                    end
                 end
                 task
             end
