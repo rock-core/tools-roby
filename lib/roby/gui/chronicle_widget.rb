@@ -319,10 +319,10 @@ module Roby
                 end
 
                 scheduler_state.non_scheduled_tasks.each do |task, messages|
-                    messages_per_task[task].concat(messages.map { |msg, *args| Schedulers::State.format_message_into_string(msg, *args) })
+                    messages_per_task[task].concat(messages.map { |msg, *args| Schedulers::State.format_message_into_string(msg, task, *args) })
                 end
                 scheduler_state.actions.each do |task, messages|
-                    messages_per_task[task].concat(messages.map { |msg, *args| Schedulers::State.format_message_into_string(msg, *args) })
+                    messages_per_task[task].concat(messages.map { |msg, *args| Schedulers::State.format_message_into_string(msg, task, *args) })
                 end
                 @scheduler_state = state
             end
