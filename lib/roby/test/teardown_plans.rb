@@ -54,8 +54,10 @@ module Roby
                             sleep 1
                         end
                         engine.killall
+
+                        quarantine_and_dependencies = plan.compute_useful_tasks(plan.quarantined_tasks)
                         
-                        if plan_quarantine.size != plan.tasks.size
+                        if quarantine_and_dependencies.size != plan.tasks.size
                             [plan, engine, last_tasks, last_quarantine]
                         end
                     end.compact
