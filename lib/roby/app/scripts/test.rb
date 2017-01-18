@@ -19,6 +19,7 @@ coverage_mode = false
 really_all = false
 testrb_args = []
 parser = OptionParser.new do |opt|
+    opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- [MINITEST_OPTIONS] [TEST_FILES]"
     opt.on('--really-all', 'auto-load models and run the corresponding tests found within the search path') do |val|
         app.auto_load_models = true
         really_all = true
@@ -43,28 +44,25 @@ parser = OptionParser.new do |opt|
     opt.on("-i", "--interactive", "allow user interaction during tests") do |val|
 	Roby.app.automatic_testing = false
     end
-    opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
-	testrb_args << "-n" << name
-    end
-    opt.on('-v', '--verbose', String, "run tests in verbose mode") do |verbose|
-        testrb_args << '-v'
-    end
     opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
         coverage_mode = true
     end
-    opt.on('--server PORT', Integer, 'the minitest server port') do |server_port|
-        testrb_args << "--server" << server_port.to_s
-    end
-    opt.on('--stackprof[=FILE]', String, 'run tests under stackprof (requires the minitest-stackprof gem)') do |path|
-        testrb_args << "--stackprof"
-        if path
-            testrb_args << path
-        end
+    opt.on '--help' do
+        pp opt
+        Minitest.run ['--help']
+        exit 0
     end
     Roby::Application.common_optparse_setup(opt)
 end
 
 test_files = parser.parse(ARGV)
+test_files.delete_if do |arg|
+    if arg.start_with?('-')
+        testrb_args << arg
+        true
+    end
+end
+
 if test_files.empty?
     MetaRuby.keep_definition_location = true
 end
