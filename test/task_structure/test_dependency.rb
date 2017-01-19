@@ -670,6 +670,34 @@ module Roby
                             child.start!
                         end
                     end
+
+                    context.it "removes a finalized event" do
+                        parent, child = create_parent_child do |parent, child|
+                            parent.depends_on child, success: :start
+                        end
+                        plan.add_mission_task(parent)
+                        execution_engine.process_events_synchronous do
+                            parent.start!
+                            plan.remove_task(child)
+                        end
+                        assert dependency_graph.interesting_events.empty?
+                    end
+
+                    context.it "removes a failing finalized task" do
+                        parent, child = create_parent_child do |parent, child|
+                            parent.depends_on child, failure: :stop
+                        end
+                        plan.add_mission_task(parent)
+                        parent.start!
+                        child.start!
+
+                        plan.on_exception ChildFailedError do
+                            plan.remove_task(child)
+                        end
+                        child.stop!
+
+                        assert dependency_graph.failing_tasks.empty?
+                    end
                 end
 
                 describe "when adding the dependency within the plan" do
