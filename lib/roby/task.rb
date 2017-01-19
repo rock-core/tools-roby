@@ -384,7 +384,7 @@ module Roby
             @relation_graphs =
                 if plan then plan.task_relation_graphs
                 end
-	    for _, ev in bound_events
+            for ev in bound_events.each_value
 		ev.plan = plan
 	    end
 	end
@@ -609,7 +609,7 @@ module Roby
         end
 
         def apply_terminal_flags(terminal_events, success_events, failure_events)
-	    for _, ev in bound_events
+            for ev in bound_events.each_value
 		ev.terminal_flag = nil
                 if terminal_events.include?(ev)
                     if success_events.include?(ev)
@@ -887,7 +887,7 @@ module Roby
                 return enum_for(:each_event, only_wrapped)
             end
 
-	    for _, ev in bound_events
+            for ev in bound_events.each_value
 		yield(ev)
 	    end
             self
@@ -898,7 +898,7 @@ module Roby
         # an event whose emission announces the end of the task. In most case,
         # it is an event which is forwarded directly on indirectly to +stop+.
 	def terminal_events
-	    bound_events.values.find_all { |ev| ev.terminal? }
+	    bound_events.each_value.find_all { |ev| ev.terminal? }
 	end
 
         # Get the event model for +event+

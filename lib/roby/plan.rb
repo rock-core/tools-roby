@@ -1336,13 +1336,13 @@ module Roby
 	    task.clear_relations(remove_internal: true)
             task.mission = false
 
-            for ev in task.bound_events
-                finalized_event(ev[1])
+            for ev in task.bound_events.each_value
+                finalized_event(ev)
             end
             finalized_task(task)
 
-            for ev in task.bound_events
-                ev[1].finalized!(timestamp)
+            for ev in task.bound_events.each_value
+                ev.finalized!(timestamp)
             end
             task.finalized!(timestamp)
         end
@@ -1374,8 +1374,8 @@ module Roby
             @permanent_tasks.delete(task)
             @task_index.remove(task)
 
-            for ev in task.bound_events
-                @task_events.delete(ev[1])
+            for ev in task.bound_events.each_value
+                @task_events.delete(ev)
             end
             finalize_task(task, timestamp)
 	    self
