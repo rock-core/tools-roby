@@ -46,7 +46,7 @@ module Roby
 	def writable?(key, value)
             if has_key?(key)
                 !task.model.arguments.include?(key) ||
-                    TaskArguments.delayed_argument?(values[key]) && !TaskArguments.delayed_argument?(value)
+                    TaskArguments.delayed_argument?(values[key])
             else
                 true
             end
