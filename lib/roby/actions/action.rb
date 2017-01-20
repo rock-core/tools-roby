@@ -32,6 +32,12 @@ module Roby
                 self
             end
 
+            def has_missing_required_arg?
+                model.arguments.any? do |arg|
+                    arg.required? && !arguments.has_key?(arg.name.to_sym)
+                end
+            end
+
             # The task model returned by this action
             def returned_type
                 model.returned_type

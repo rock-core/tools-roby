@@ -137,6 +137,11 @@ module Roby
                 self
             end
 
+            # Return true if this action has at least one required argument
+            def has_required_arg?
+                arguments.any?(&:required?)
+            end
+
             # Return true if a argument with the given name is specified
             def has_arg?(name)
                 !!find_arg(name)
