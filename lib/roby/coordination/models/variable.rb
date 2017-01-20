@@ -21,6 +21,10 @@ module Roby
                 def to_coordination_task(task_model = Roby::Task)
                     TaskFromVariable.new(name, task_model)
                 end
+
+                def evaluate_delayed_argument(task)
+                    throw :no_value
+                end
             end
         end
     end
