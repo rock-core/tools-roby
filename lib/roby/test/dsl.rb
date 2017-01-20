@@ -129,7 +129,7 @@ module Roby
                 end
             end
 
-            def self.included(target)
+            def included(target)
                 super
 
                 @__describe_blocks ||= Array.new
@@ -138,8 +138,9 @@ module Roby
                         target.describe(desc) { include behaviour }
                     end
                 else
-                    target.instance_variable_get(:@__describe_blocks).
+                    target_blocks = (target.instance_variable_get(:@__describe_blocks) || Array.new).
                         concat(@__describe_blocks)
+                    target.instance_variable_set(:@__describe_blocks, target_blocks)
                 end
             end
         end
