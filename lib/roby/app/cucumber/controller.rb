@@ -24,6 +24,13 @@ module Roby
                 # The set of jobs started by {#start_monitoring_job}
                 attr_reader :background_jobs
 
+                # The batch that gathers all the interface operations that will
+                # be executed at the next #run_job
+                attr_reader :current_batch
+
+                # Actions that would be started by {#current_batch}
+                attr_reader :pending_actions
+
                 # Whether the process should abort when an error is detected, or
                 # keep running the actions as-is. The latter is useful for
                 # debugging
@@ -59,6 +66,7 @@ module Roby
                     @keep_running = keep_running
                     @validation_mode = validation_mode
                     @last_main_job_id = nil
+                    @pending_actions = []
                 end
 
                 # Start a Roby controller
@@ -124,6 +132,7 @@ module Roby
                         end
                         roby_interface.wait
                     end
+                    @current_batch = @roby_interface.create_batch
                 end
 
                 # Disconnect the interface to the controller, but does not stop
@@ -229,12 +238,7 @@ module Roby
                 # job created by {#start_monitoring_job}, it will not be stopped
                 # when {#run_job} is called.
                 def start_job(description, m, arguments = Hash.new)
-                    action = __start_job(description, m, arguments, false)
-                    if !validation_mode?
-                        roby_poll_interface_until { action.async }
-                        @last_main_job_id = action.job_id
-                    end
-                    action
+                    __start_job(description, m, arguments, false)
                 end
 
                 # Start a background action whose failure will make the next
@@ -255,7 +259,8 @@ module Roby
                     end
 
                     action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
-                    action.restart
+                    action.restart(batch: current_batch)
+                    pending_actions << action
                     background_jobs << BackgroundJob.new(action, description, monitoring)
                     action
                 end
@@ -300,6 +305,20 @@ module Roby
                     result
                 end
 
+                def apply_current_batch(*actions, sync: true)
+                    return if current_batch.empty?
+
+                    current_batch.__process
+                    if sync
+                        roby_poll_interface_until do
+                            (pending_actions + actions).all? { |act| act.async }
+                        end
+                    end
+                ensure
+                    @current_batch = roby_interface.create_batch
+                    @pending_actions = Array.new
+                end
+
                 # Start an action
                 def run_job(m, arguments = Hash.new)
                     if validation_mode?
@@ -308,8 +327,9 @@ module Roby
                     end
 
                     action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
-                    action.restart
-                    roby_poll_interface_until { action.async }
+                    action.restart(batch: current_batch)
+                    apply_current_batch(action)
+
                     failed_monitor = roby_poll_interface_until do
                         if action.terminated?
                             break
@@ -383,13 +403,11 @@ module Roby
                 end
 
                 def drop_jobs(*jobs)
-                    batch = roby_interface.create_batch
                     jobs.each do |act|
                         if !act.terminated? && act.async
-                            act.drop(batch: batch)
+                            act.drop(batch: current_batch)
                         end
                     end
-                    batch.__process
                     @monitoring_jobs = Array.new
                     @main_jobs = Array.new
                 end

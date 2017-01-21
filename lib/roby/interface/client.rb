@@ -285,6 +285,10 @@ module Roby
                     @calls = ::Array.new
                 end
 
+                def empty?
+                    @calls.empty?
+                end
+
                 # The set of operations that have been gathered so far
                 def __calls
                     @calls

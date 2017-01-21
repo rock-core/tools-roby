@@ -218,41 +218,48 @@ module Roby
                             controller.roby_interface.poll
                             remaining_timeout = deadline - Time.now
                             if remaining_timeout < 0
-                                flunk("timed out waiting in poll_interface_until")
+                                raise "timed out waiting in poll_interface_until"
                             end
                         end
                     end
 
                     describe "#start_job" do
-                        it "runs the action on the remote controller" do
+                        it "queues the action on the remote controller until the next apply_current_batch" do
                             controller.start_job('cucumber test job', 'cucumber_monitoring')
+                            assert controller.roby_interface.client.each_job.to_a.empty?
+                            controller.apply_current_batch
+
                             jobs = controller.roby_interface.client.each_job.to_a
                             assert_equal "CucumberTestTask", jobs.first.placeholder_task.model.name
                             assert_equal 10, jobs.first.placeholder_task.arg
                         end
                         it "passes arguments to the action" do
                             controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 20)
+                            controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
                             assert_equal 20, jobs.first.placeholder_task.arg
                         end
                         it "registers the job as a main job" do
                             job = controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 20)
+                            controller.apply_current_batch
                             assert_equal [job], controller.each_main_job.to_a
                         end
                         describe "the validation mode" do
                             before do
                                 controller.validation_mode = true
                             end
-                            it "does not actually start the action" do
+                            it "does not actually queue the action" do
                                 flexmock(controller.roby_interface.client).
                                     should_receive(:process_batch).never
                                 flexmock(controller).should_receive(:validate_job)
                                 controller.start_job("", flexmock, flexmock)
+                                controller.apply_current_batch
                             end
                             it "validates the action" do
                                 flexmock(controller).should_receive(:validate_job).
                                     with(:action_name, action_arguments = flexmock)
                                 controller.start_job("", :action_name, action_arguments)
+                                controller.apply_current_batch
                             end
                         end
                     end
@@ -260,17 +267,21 @@ module Roby
                     describe "#start_monitoring_job" do
                         it "runs the action on the remote controller" do
                             controller.start_monitoring_job('cucumber test job', 'cucumber_monitoring')
+                            assert controller.roby_interface.client.each_job.to_a.empty?
+                            controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
                             assert_equal "CucumberTestTask", jobs.first.placeholder_task.model.name
                             assert_equal 10, jobs.first.placeholder_task.arg
                         end
                         it "passes arguments to the action" do
                             controller.start_monitoring_job('cucumber test job', 'cucumber_monitoring', arg: 20)
+                            controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
                             assert_equal Hash[arg: 20], jobs.first.task.action_arguments
                         end
                         it "registers the job as a monitoring job" do
                             job = controller.start_monitoring_job('cucumber test job', 'cucumber_monitoring', arg: 20)
+                            controller.apply_current_batch
                             assert_equal [job], controller.each_monitoring_job.to_a
                         end
                         describe "the validation mode" do
@@ -282,17 +293,20 @@ module Roby
                                     should_receive(:process_batch).never
                                 flexmock(controller).should_receive(:validate_job)
                                 controller.start_monitoring_job("", flexmock, flexmock)
+                                controller.apply_current_batch
                             end
                             it "validates the action" do
                                 flexmock(controller).should_receive(:validate_job).
                                     with(:action_name, action_arguments = flexmock)
                                 controller.start_monitoring_job("", :action_name, action_arguments)
+                                controller.apply_current_batch
                             end
                         end
                     end
 
                     describe "#run_job" do
-                        it "runs the action and waits for it to end" do
+                        it "runs the action in the current batch and waits for it to end" do
+                            flexmock(controller).should_receive(:apply_current_batch).once.pass_thru
                             controller.run_job('cucumber_action', task_success: true)
                             assert controller.roby_interface.client.each_job.to_a.empty?
                         end
@@ -304,6 +318,7 @@ module Roby
                         it "fails if an active monitor job failed" do
                             action = controller.start_monitoring_job(
                                 'cucumber test job', 'cucumber_monitoring', task_fail: true)
+                            controller.apply_current_batch
                             poll_interface_until { action.failed? }
                             assert_raises(Controller::FailedBackgroundJob) do
                                 controller.run_job('cucumber_action')
@@ -312,10 +327,12 @@ module Roby
                         it "drops the job if a monitor failed" do
                             action = controller.start_monitoring_job(
                                 'cucumber test job', 'cucumber_monitoring', task_fail: true)
+                            controller.apply_current_batch
                             poll_interface_until { action.failed? }
                             assert_raises(Controller::FailedBackgroundJob) do
                                 controller.run_job('cucumber_action')
                             end
+                            controller.apply_current_batch
                             poll_interface_until do
                                 controller.roby_interface.client.each_job.to_a.empty?
                             end
@@ -324,6 +341,7 @@ module Roby
                             action = controller.start_monitoring_job(
                                 'cucumber test job', 'cucumber_monitoring')
                             controller.run_job('cucumber_action', task_success: true)
+                            controller.apply_current_batch
                             assert controller.background_jobs.empty?
                             poll_interface_until do
                                 controller.roby_interface.client.each_job.to_a.empty?
@@ -335,6 +353,7 @@ module Roby
                             assert_raises(Controller::FailedAction) do
                                 controller.run_job('cucumber_action', task_fail: true)
                             end
+                            controller.apply_current_batch
                             assert controller.background_jobs.empty?
                             poll_interface_until do
                                 controller.roby_interface.client.each_job.to_a.empty?
@@ -343,6 +362,7 @@ module Roby
                         it "ignores monitoring actions that finished successfully" do
                             action = controller.start_monitoring_job(
                                 'cucumber test job', 'cucumber_monitoring', task_success: true)
+                            controller.apply_current_batch
                             poll_interface_until { action.success? }
                             controller.run_job('cucumber_action', task_success: true)
                         end
@@ -350,6 +370,7 @@ module Roby
                             action = controller.start_job(
                                 'cucumber test job', 'cucumber_monitoring')
                             controller.run_job('cucumber_action', task_success: true)
+                            controller.apply_current_batch
                             job = controller.roby_interface.client.each_job.first
                             assert_equal 1, job.job_id
                         end
