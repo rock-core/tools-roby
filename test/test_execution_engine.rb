@@ -505,14 +505,19 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_propagation_handlers_raises_on_error
-        FlexMock.use do |mock|
-            execution_engine.add_propagation_handler do |plan|
-                mock.called
-                raise SpecificException
-            end
-            mock.should_receive(:called).once
-            assert_raises(SpecificException) { process_events }
+        mock = flexmock
+
+        exception_m = Class.new(Exception)
+        execution_engine.add_propagation_handler do |plan|
+            mock.called
+            raise exception_m
         end
+        mock.should_receive(:called).once
+        msg = capture_log(execution_engine, :error) do
+            assert_logs_exception_with_backtrace(exception_m, execution_engine, :fatal)
+            assert_raises(exception_m) { process_events }
+        end
+        assert_match /Application error/, msg.first
     end
 
     def test_propagation_handlers_disabled_on_error

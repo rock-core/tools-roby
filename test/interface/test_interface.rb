@@ -252,7 +252,7 @@ describe Roby::Interface::Interface do
             exception_validator = lambda do |error|
                 error.origin == child_task && error.exception.class == Roby::ChildFailedError
             end
-            recorder.should_receive(:called).with(Roby::ExecutionEngine::EXCEPTION_FATAL, exception_validator, [child_task, parent_task])
+            recorder.should_receive(:called).with(Roby::ExecutionEngine::EXCEPTION_FATAL, exception_validator, Set[child_task, parent_task], Set.new).once
             assert_raises(Roby::ChildFailedError) do
                 child_task.stop!
             end
