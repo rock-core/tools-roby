@@ -161,7 +161,7 @@ module Roby
             key = key.to_sym if key.respond_to?(:to_str)
 	    if writable?(key, value)
                 if !value.droby_marshallable?
-                    raise NotMarshallable, "values used as task arguments must be marshallable, attempting to set #{key} to #{value}, which is not"
+                    raise NotMarshallable, "values used as task arguments must be marshallable, attempting to set #{key} to #{value} of class #{value.class}, which is not"
 		elsif !task.read_write?
 		    raise OwnershipError, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
 		end

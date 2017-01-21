@@ -31,7 +31,7 @@ describe Roby::TaskArguments do
             e = assert_raises Roby::NotMarshallable do
                 task.arguments[:arg] = object
             end
-            assert_equal "values used as task arguments must be marshallable, attempting to set arg to #{object}, which is not", e.message
+            assert_equal "values used as task arguments must be marshallable, attempting to set arg to #{object} of class Object, which is not", e.message
         end
     end
 
