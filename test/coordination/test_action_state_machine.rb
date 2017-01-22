@@ -175,6 +175,23 @@ describe Roby::Coordination::ActionStateMachine do
         assert task.next_is_done_event.emitted?
     end
 
+    it "setups forwards so that the context is passed along" do
+        state_m = Roby::Task.new_submodel do
+            terminates
+            poll { success_event.emit(10) }
+        end
+
+        action_m.action_state_machine 'test' do
+            start = state(state_m)
+            start(start)
+            start.success_event.forward_to success_event
+        end
+        task = start_machine('test')
+        task.start_state_child.start!
+        assert_event_emission task.success_event
+        assert_equal [10], task.success_event.last.context
+    end
+
     it "sets known transitions and only them as 'success' in the dependency" do
         state_machine 'test' do
             start(state(start_task))

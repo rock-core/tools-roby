@@ -72,7 +72,7 @@ module Roby
                 forwards.each do |source, target|
                     source.resolve.on do |event|
                         if target.resolve.task.running?
-                            target.resolve.emit
+                            target.resolve.emit(*event.context)
                         end
                     end
                 end
