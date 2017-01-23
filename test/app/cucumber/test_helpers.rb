@@ -171,6 +171,13 @@ module Roby
                             assert_equal "expected x=20 to be a length, but it got no unit",
                                 e.message
                         end
+                        it "raises InvalidUnit if the value is not numeric" do
+                            e = assert_raises(CucumberHelpers::InvalidUnit) do
+                                CucumberHelpers.parse_arguments_respectively([:x, :y], "not numeric", Hash[x: :length, y: :length], strict: false)
+                            end
+                            assert_equal "expected x=not numeric to be a length, but it is not even a number",
+                                e.message
+                        end
                     end
 
                     describe "name-based mode" do

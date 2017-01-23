@@ -155,8 +155,12 @@ module Roby
                     else
                         reference.each do |key|
                             is_numeric = Float(arg_value) rescue nil
-                            if is_numeric && (expectation = expected[key])
-                                raise InvalidUnit, "expected #{key}=#{arg_value} to be a #{expectation}, but it got no unit"
+                            if expectation = expected[key]
+                                if is_numeric
+                                    raise InvalidUnit, "expected #{key}=#{arg_value} to be a #{expectation}, but it got no unit"
+                                else
+                                    raise InvalidUnit, "expected #{key}=#{arg_value} to be a #{expectation}, but it is not even a number"
+                                end
                             end
                         end
                     end
