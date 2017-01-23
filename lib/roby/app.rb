@@ -2549,6 +2549,10 @@ module Roby
                 end
             end
 
+            find_files('test', 'actions', 'ROBOT', 'test_main.rb', order: :specific_first, all: true).each do |path|
+                models_per_file[path] = Set[main_action_interface]
+            end
+
             find_dirs('test', 'lib', order: :specific_first, all: true).each do |path|
                 Pathname.new(path).find do |p|
                     if p.basename.to_s =~ /^test_.*.rb$/ || p.basename.to_s =~ /_test\.rb$/
