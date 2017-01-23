@@ -100,6 +100,30 @@ class TC_Actions_Task < Minitest::Test
         assert_equal 10, tracker.task.planning_task.job_id
     end
 
+    def test_it_does_not_attempt_to_set_the_job_id_of_a_task_which_has_it_set_to_nil
+        task_m = Roby::Task.new_submodel
+        planning_m = Roby::Task.new_submodel
+        planning_m.terminates
+        planning_m.provides Roby::Interface::Job
+
+        iface_m = Actions::Interface.new_submodel do
+            describe("the test action").returns(task_m)
+            define_method(:test_action) do
+                t = task_m.new
+                t.planned_by(planning_m.new(job_id: nil))
+                t
+            end
+        end
+
+        plan.add(task = iface_m.test_action.as_plan)
+        tracker = task.as_service
+        task.planning_task.job_id = 10
+        assert_event_emission(task.planning_task.success_event) do
+            task.planning_task.start!
+        end
+        assert_nil tracker.task.planning_task.job_id
+    end
+
     def test_it_emits_the_start_event_after_having_created_the_transaction
         flexmock(Transaction).should_receive(:new).and_raise(RuntimeError)
         plan.unmark_mission_task(task.planned_task)
