@@ -149,6 +149,16 @@ module Roby
                 result
             end
 
+            # Helper to build delayed arguments
+            def from(object)
+                Roby::Task.from(object)
+            end
+
+            # Helper to build delayed arguments
+            def from_state(state_object = State)
+                Roby::Task.from_state(state_object)
+            end
+
             # Evaluates a state machine definition block
             def parse(&block)
                 class_eval(&block)
