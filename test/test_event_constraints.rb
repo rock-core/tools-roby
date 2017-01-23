@@ -74,6 +74,18 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         assert_explained_by(true, pred, task.start_event.last, pred.explain_true(task))
     end
 
+    def test_single_from_now
+        task_m = Task.new_submodel
+        task_m.event :intermediate
+        pred = :intermediate.emitted?.from_now
+        plan.add(task = task_m.new)
+        task.start!
+        refute pred.evaluate(task)
+        task.intermediate_event.emit
+        assert pred.evaluate(task)
+        refute :intermediate.emitted?.from_now.evaluate(task)
+    end
+
     def test_single_static_if_emitted
         pred = :start.emitted?
 
