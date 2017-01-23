@@ -1630,14 +1630,18 @@ module Roby
             raise SynchronousEventProcessingMultipleErrors.new(e.errors + clear_application_exceptions)
 
         rescue Exception => e
-            application_exceptions = clear_application_exceptions
-            if !application_exceptions.empty?
-                raise SynchronousEventProcessingMultipleErrors.new(application_exceptions.map(&:first) + [e])
-            else raise e
+            if passed_recursive_check
+                application_exceptions = clear_application_exceptions
+                if !application_exceptions.empty?
+                    raise SynchronousEventProcessingMultipleErrors.new(application_exceptions.map(&:first) + [e])
+                else raise e
+                end
+            else
+                raise e
             end
 
         ensure
-            if @application_exceptions
+            if passed_recursive_check && @application_exceptions
                 process_pending_application_exceptions
             end
             scheduler.enabled = current_scheduler_enabled
