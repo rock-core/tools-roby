@@ -787,9 +787,10 @@ module Roby
                         end
                     end
                 end
-                process_events_until(timeout: timeout) do
+                process_events_until(timeout: timeout, garbage_collect_pass: false) do
                     done
                 end
+                roby_run_planner(state_machine_task)
             end
         end
     end
