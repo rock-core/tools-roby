@@ -775,6 +775,10 @@ module Roby
                     raise ArgumentError, "#{state_machine_task} has no state machines"
                 end
 
+                if to_state.respond_to?(:to_str) && !to_state.end_with?('_state')
+                    to_state = "#{to_state}_state"
+                end
+
                 done = false
                 state_machines.each do |m|
                     m.on_transition do |_, new_state|
