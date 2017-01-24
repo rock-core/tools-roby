@@ -1331,7 +1331,9 @@ class TC_ExecutionEngine < Minitest::Test
     describe "exception propagation" do
         attr_reader :task_m, :localized_error_m
         before do
-            @task_m = Roby::Task.new_submodel
+            @task_m = Roby::Task.new_submodel do
+                argument :name, default: nil
+            end
             @localized_error_m = Class.new(LocalizedError)
         end
 
@@ -1505,8 +1507,10 @@ class TC_ExecutionEngine < Minitest::Test
                 error = localized_error_m.new(origin).to_execution_exception
                 error.trace << root
                 assert_nonfatal_exception(PermanentTaskError, failure_point: root, tasks: [root]) do
-                    process_events do
-                        refute plan.handle_exception(error)
+                    assert_fatal_exception(localized_error_m, failure_point: origin, tasks: [root, origin]) do
+                        process_events do
+                            execution_engine.once { execution_engine.add_error(error) }
+                        end
                     end
                 end
             end
@@ -1531,8 +1535,13 @@ class TC_ExecutionEngine < Minitest::Test
                 error = localized_error_m.new(origin).to_execution_exception
                 error.trace << root
                 assert_fatal_exception(MissionFailedError, failure_point: root, tasks: [root]) do
-                    process_events do
-                        refute plan.handle_exception(error)
+                    assert_fatal_exception(localized_error_m, failure_point: origin, tasks: [root, origin]) do
+                        process_events do
+                            execution_engine.once { execution_engine.add_error(error) }
+                        end
+                    end
+                end
+            end
                     end
                 end
             end

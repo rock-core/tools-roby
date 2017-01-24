@@ -112,19 +112,25 @@ module Roby
                 end
             end
 
-            error.each_involved_task.
-                find_all { |t| mission_task?(t) && t != error.origin }.
-                each do |m|
-                    add_error(MissionFailedError.new(m, error.exception))
-                end
-
-            error.each_involved_task.
-                find_all { |t| permanent_task?(t) && t != error.origin }.
-                each do |m|
-                    add_error(PermanentTaskError.new(m, error.exception))
-                end
-
             pass_exception
+        end
+
+        def generate_induced_errors(error_phase_results)
+            by_exception = Hash.new
+            error_phase_results.each_fatal_error do |execution_exception, tasks|
+                task_set = (by_exception[execution_exception] ||= Set.new).merge(tasks)
+                task_set.delete(execution_exception.origin)
+            end
+
+            by_exception.each do |exception, tasks|
+                tasks.each do |t|
+                    if mission_task?(t)
+                        add_error(MissionFailedError.new(t, exception))
+                    elsif permanent_task?(t)
+                        add_error(PermanentTaskError.new(t, exception))
+                    end
+                end
+            end
         end
 
         # Calls the given block in the execution thread of this plan's engine.
