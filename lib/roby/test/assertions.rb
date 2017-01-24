@@ -28,36 +28,40 @@ module Roby
             # @param [Symbol] level the name of the logging method (e.g. :warn)
             # @return [Array<String>]
             def capture_log(object, level)
+                FlexMock.use(object) do |mock|
+                    __capture_log(mock, level, &proc)
+                end
+            end
+
+            def __capture_log(mock, level)
                 Roby.disable_colors
 
-                capture = Array.new
-                if object.respond_to?(:logger)
-                    object_logger = object.logger
+                if mock.respond_to?(:logger)
+                    object_logger = mock.logger
                 else
-                    object_logger = object
+                    object_logger = mock
                 end
 
+                capture = Array.new
                 original_level = object_logger.level
                 level_value = Logger.const_get(level.upcase)
                 if original_level > level_value
                     object_logger.level = level_value
                 end
 
-                FlexMock.use(object) do |mock|
-                    mock.should_receive(level).
-                        and_return do |msg|
-                            if msg.respond_to?(:to_str)
-                                capture << msg
-                            else
-                                mock.invoke_original(level) do
-                                    capture << msg.call
-                                    break
-                                end
+                mock.should_receive(level).
+                    and_return do |msg|
+                        if msg.respond_to?(:to_str)
+                            capture << msg
+                        else
+                            mock.invoke_original(level) do
+                                capture << msg.call
+                                break
                             end
                         end
+                    end
 
-                    yield
-                end
+                yield
                 capture
             ensure
                 Roby.enable_colors_if_available
@@ -551,6 +555,41 @@ module Roby
                 end
             end
 
+            def __roby_exception_assertion_context(failure_point, tasks)
+                if !(engine_mock = @exception_assertion_engine_mock)
+                    execution_engine = exception_assertion_guess_execution_engine(
+                        execution_engine, failure_point, tasks)
+                    FlexMock.use(execution_engine) do |engine_mock|
+                        begin
+                            @exception_assertion_engine_mock = engine_mock
+                            yield(engine_mock)
+                        ensure
+                            @exception_assertion_engine_mock = nil
+                            @exception_assertion_compound_assertion = nil
+                        end
+                    end
+                else yield(engine_mock)
+                end
+            end
+
+            def __roby_execution_assertion_raises(notification_type, engine_mock, matcher, tasks)
+                engine_mock.should_receive(:notify_exception).at_least.once.
+                    with(notification_type,
+                         *roby_make_flexmock_exception_matcher(matcher, tasks))
+
+                __capture_log(engine_mock, :warn) do
+                    original_e, root_e = assert_raises(matcher, return_original_exception: true) do
+                        yield
+                        if @exception_assertion_compound_assertion
+                            raise @exception_assertion_compound_assertion
+                        end
+                    end
+                    @exception_assertion_compound_assertion =
+                        (@exception_assertion_compound_assertion = root_e if root_e != original_e)
+                    return original_e
+                end
+            end
+
             # Asserts that a fatal exception is raised
             #
             # @yield the code that should cause the exception to be raised
@@ -558,29 +597,17 @@ module Roby
             # @param [Enumerable<Task>] tasks forming the exception's trace
             # @return [LocalizedError] the exception
             def assert_fatal_exception(matcher, failure_point: Task, original_exception: nil, tasks: [], kill_tasks: tasks)
-                matcher = create_exception_matcher(
-                    matcher, original_exception: original_exception,
-                    failure_point: failure_point)
-                execution_engine = exception_assertion_guess_execution_engine(
-                    execution_engine, failure_point, tasks)
+                __roby_exception_assertion_context(failure_point, tasks) do |engine_mock|
+                    matcher = create_exception_matcher(
+                        matcher, original_exception: original_exception,
+                        failure_point: failure_point)
 
-                kill_tasks.each do |t|
-                    flexmock(execution_engine).should_receive(:log_pp).with(:warn, t).once
-                end
-
-                error = nil
-                messages = FlexMock.use(execution_engine) do |ee_mock|
-                    ee_mock.should_receive(:notify_exception).at_least.once.
-                        with(ExecutionEngine::EXCEPTION_FATAL,
-                             *roby_make_flexmock_exception_matcher(matcher, tasks))
-                    capture_log(plan.execution_engine, :warn) do
-                        error = assert_raises(matcher) do
-                            yield
-                        end
+                    kill_tasks.each do |t|
+                        engine_mock.should_receive(:log_pp).with(:warn, t)
                     end
+
+                    __roby_execution_assertion_raises(ExecutionEngine::EXCEPTION_FATAL, engine_mock, matcher, tasks, &proc)
                 end
-                assert_equal "1 unhandled fatal exceptions, involving #{kill_tasks.size} tasks that will be forcefully killed", messages[0]
-                error
             end
 
             # Asserts that an exception is raised and handled
@@ -591,23 +618,22 @@ module Roby
             # @param [Enumerable<Task>] tasks forming the exception's trace
             # @return [LocalizedError] the exception
             def assert_handled_exception(matcher, failure_point: Task, original_exception: nil, tasks: [], execution_engine: nil)
-                matcher = create_exception_matcher(
-                    matcher, original_exception: original_exception,
-                    failure_point: failure_point)
-                execution_engine = exception_assertion_guess_execution_engine(
-                    execution_engine, failure_point, tasks)
+                __roby_exception_assertion_context(failure_point, tasks) do |engine_mock|
+                    matcher = create_exception_matcher(
+                        matcher, original_exception: original_exception,
+                        failure_point: failure_point)
 
-                error = nil
-                FlexMock.use(execution_engine) do |ee_mock|
-                    ee_mock.should_receive(:notify_exception).at_least.once.
+                    error = nil
+                    engine_mock.should_receive(:notify_exception).at_least.once.
                         with(ExecutionEngine::EXCEPTION_HANDLED,
                              *roby_make_flexmock_exception_matcher(matcher, tasks)).
                         and_return do |_, execution_exception, _|
                             error = execution_exception.exception
                         end
+
                     yield
+                    error
                 end
-                error
             end
 
             # Asserts that a non-fatal exception is raised
@@ -617,25 +643,13 @@ module Roby
             # @param [Enumerable<Task>] tasks forming the exception's trace
             # @return [LocalizedError] the exception
             def assert_nonfatal_exception(matcher, failure_point: Task, original_exception: nil, tasks: [])
-                matcher = create_exception_matcher(
-                    matcher, original_exception: original_exception,
-                    failure_point: failure_point)
-                execution_engine = exception_assertion_guess_execution_engine(
-                    execution_engine, failure_point, tasks)
+                __roby_exception_assertion_context(failure_point, tasks) do |engine_mock|
+                    matcher = create_exception_matcher(
+                        matcher, original_exception: original_exception,
+                        failure_point: failure_point)
 
-                error = nil
-                messages = FlexMock.use(execution_engine) do |ee_mock|
-                    ee_mock.should_receive(:notify_exception).at_least.once.
-                        with(ExecutionEngine::EXCEPTION_NONFATAL,
-                             *roby_make_flexmock_exception_matcher(matcher, tasks))
-                    capture_log(plan.execution_engine, :warn) do
-                        error = assert_raises(matcher) do
-                            yield
-                        end
-                    end
+                    __roby_execution_assertion_raises(ExecutionEngine::EXCEPTION_NONFATAL, engine_mock, matcher, tasks, &proc)
                 end
-                assert_equal ["1 unhandled non-fatal exceptions"], messages
-                error
             end
 
             # Asserts that Roby logs an exception with its backtrace
@@ -731,17 +745,22 @@ module Roby
             # various exception assertions
             FlexmockExceptionMatcher = Struct.new :matcher do
                 def ===(exception)
-                    if !(matcher === exception)
-                        if description = matcher.describe_failed_match(exception)
-                            raise FlexMock::CheckFailedError, "expected exception to match #{matcher}, but #{description}"
-                        else
-                            return false
-                        end
+                    return true if matcher === exception
+                    if self.class.describe? && (description = matcher.describe_failed_match(exception))
+                        Roby.warn  "expected exception to match #{matcher}, but #{description}"
                     end
-                    true
+                    false
                 end
                 def inspect; to_s end
                 def to_s; matcher.to_s; end
+
+                @describe = false
+                def self.describe?
+                    @describe
+                end
+                def self.describe=(flag)
+                    @describe = flag
+                end
             end
 
             # @api private
@@ -750,13 +769,10 @@ module Roby
             # various exception assertions
             FlexmockExceptionTasks = Struct.new :tasks do
                 def ===(tasks)
-                    if self.tasks.to_set != tasks
-                        raise FlexMock::CheckFailedError, "involved tasks #{tasks.to_a} do not match expected #{self.tasks.to_a}"
-                    end
-                    true
+                    self.tasks.to_set == tasks
                 end
                 def inspect; to_s end
-                def to_s; "involved_tasks(#{tasks})" end
+                def to_s; "involved_tasks(#{tasks.to_a.map(&:to_s).join(", ")})" end
             end
 
             # @api private
@@ -765,7 +781,7 @@ module Roby
             # error messages, for the benefit of the exception assertions
             def roby_make_flexmock_exception_matcher(matcher, tasks)
                 return FlexmockExceptionMatcher.new(matcher.to_execution_exception_matcher),
-                    FlexmockExceptionTasks.new(tasks)
+                    FlexmockExceptionTasks.new(tasks.to_set)
             end
             # Assert that a state machine transitions
             def assert_state_machine_transition(state_machine_task, to_state: Regexp.new, timeout: 5)

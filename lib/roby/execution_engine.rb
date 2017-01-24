@@ -13,12 +13,7 @@ module Roby
         #
         # @return [Array<Exception>]
         def original_exceptions
-            errors.flat_map do |e|
-                if e.respond_to?(:original_exceptions)
-                    e.original_exceptions
-                else e
-                end
-            end
+            errors
         end
 
         def initialize(errors)
@@ -113,6 +108,8 @@ module Roby
             @worker_threads_mtx = Mutex.new
             @worker_threads = Array.new
             @once_blocks = Queue.new
+
+            @pending_exceptions = Hash.new
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -491,6 +488,11 @@ module Roby
         # Called by EventGenerator when an event became unreachable
         def unreachable_event(event)
             delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
+        end
+
+        # Called by #plan when a task has been finalized
+        def finalized_task(task)
+            @pending_exceptions.delete(task)
         end
 
         # Called by #plan when an event has been finalized
@@ -1305,7 +1307,7 @@ module Roby
         # @return [Array<ExecutionException>] the unhandled exceptions
         def remove_inhibited_exceptions(exceptions)
             unhandled, _ = propagate_exception_in_plan(exceptions) do |e, object|
-                if plan.force_gc.include?(object)
+                if @pending_exceptions[object] && @pending_exceptions[object].include?([e.exception.class, e.origin])
                     true
                 elsif object.respond_to?(:handles_error?)
                     object.handles_error?(e)
@@ -1675,6 +1677,7 @@ module Roby
                             error_handling_phase(events_errors)
                         end
 
+                    add_fatal_exceptions_for_inhibition(error_phase_results)
                     all_errors.merge(error_phase_results)
                     events_errors = gather_errors do
                         if garbage_collect_pass
@@ -1686,6 +1689,15 @@ module Roby
                 end
             end
             all_errors
+        end
+
+        def add_fatal_exceptions_for_inhibition(error_phase_results)
+            error_phase_results.each_fatal_error do |exception, tasks|
+                tasks.each do |t|
+                    (@pending_exceptions[t] ||= Set.new) <<
+                        [exception.exception.class, exception.origin]
+                end
+            end
         end
 
         def unmark_finished_missions_and_permanent_tasks

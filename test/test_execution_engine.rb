@@ -349,6 +349,74 @@ module Roby
                 end
             end
         end
+
+        describe "#compute_errors" do
+            attr_reader :task_m
+            before do
+                @task_m = Roby::Task.new_submodel
+                task_m.argument :name, default: nil
+            end
+
+            it "ends up with as many exceptions as there are roots in the propagation" do
+                plan.add_mission_task(root1 = task_m.new(name: 'root1'))
+                plan.add_mission_task(root2 = task_m.new(name: 'root2'))
+                plan.add_mission_task(middle = task_m.new(name: 'middle'))
+                plan.add(origin = task_m.new(name: 'origin'))
+
+                root1.depends_on middle
+                root2.depends_on middle
+                middle.depends_on origin
+                error_m = Class.new(LocalizedError)
+                errors = execution_engine.compute_errors([error_m.new(origin).to_execution_exception])
+                assert_equal 2, errors.fatal_errors.size
+                errors.each_fatal_error do |e, task|
+                    assert_equal origin, e.origin
+                    assert_kind_of error_m, e.exception
+                end
+            end
+        end
+
+        describe "the error propagation" do
+            attr_reader :task_m, :root, :error_m
+            before do
+                @task_m = Task.new_submodel
+                task_m.argument :name, default: nil
+                task_m.event(:stop) { |_| }
+                @error_m = Class.new(LocalizedError)
+
+                plan.add(@root = task_m.new)
+                root.start!
+            end
+            after do
+                plan.task_relation_graph_for(TaskStructure::Dependency).each_edge.
+                    to_a.each do |a, b|
+                        a.remove_child b
+                    end
+                plan.each_task { |t| t.stop_event.emit if t.stop_event.pending? }
+            end
+
+            describe "tasks that are being forcefully killed" do
+                it "inhibits errors that have the same class and origin than the one that caused the error" do
+                    root.depends_on(child = task_m.new)
+                    assert_fatal_exception(error_m, failure_point: child, tasks: [child, root]) do
+                        process_events { execution_engine.add_error(error_m.new(child)) }
+                    end
+                    process_events { execution_engine.add_error(error_m.new(child)) }
+                end
+                it "does report new errors while the task is being GCed but then inhibits them as well" do
+                    root.depends_on(child = task_m.new)
+                    assert_fatal_exception(error_m, failure_point: child, tasks: [child, root]) do
+                        process_events { execution_engine.add_error(error_m.new(child)) }
+                    end
+                    new_error_m = Class.new(LocalizedError)
+                    assert_fatal_exception(new_error_m, failure_point: child, tasks: [child, root]) do
+                        process_events { execution_engine.add_error(new_error_m.new(child)) }
+                    end
+                    process_events { execution_engine.add_error(error_m.new(child)) }
+                    process_events { execution_engine.add_error(new_error_m.new(child)) }
+                end
+            end
+        end
     end
 end
 

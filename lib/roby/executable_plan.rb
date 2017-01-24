@@ -137,6 +137,14 @@ module Roby
 
         # @api private
         #
+        # Hook called when a task is finalized
+        def finalized_task(task)
+            execution_engine.finalized_task(task)
+            super
+        end
+
+        # @api private
+        #
         # Hook called when an event is finalized
         def finalized_event(event)
             execution_engine.finalized_event(event)
