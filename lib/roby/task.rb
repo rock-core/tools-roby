@@ -479,9 +479,7 @@ module Roby
         # (has been called, but is not emitted yet)
 	def starting?; event(:start).pending? end
 	# True if this task can be started
-	def pending?; !failed_to_start? && !starting? && !started? &&
-            (!execution_engine || !execution_engine.has_error_from?(self))
-        end
+        def pending?; !failed_to_start? && !starting? && !started? end
         # True if this task is currently running (i.e. is has already started,
         # and is not finished)
         def running?; started? && !finished? end
