@@ -89,8 +89,18 @@ module Roby
 	# The task arguments as symbol => value associative container
 	attr_reader :arguments
         
-        # The global history of this task
+        # The accumulated history of this task
+        #
+        # This is the list of events that this task ever emitted, sorted by
+        # emission time
+        #
+        # @return [Array<Event>]
         attr_reader :history
+
+        # The list of coordination objects attached to this task
+        #
+        # @return [Array<Coordination::Base>]
+        attr_reader :coordination_objects
 
 	# The part of +arguments+ that is meaningful for this task model. I.e.
         # it returns the set of elements in the +arguments+ property that define
@@ -210,6 +220,7 @@ module Roby
             @success = nil
             @reusable = true
             @history = Array.new
+            @coordination_objects = Array.new
 
 	    @arguments = TaskArguments.new(self)
             assign_arguments(arguments)
@@ -300,6 +311,18 @@ module Roby
 	    @bound_events = bound_events
         end
 
+        # @see (PlanObject#promise)
+        # @raise PromiseInFinishedTask if attempting to create a promise on a
+        #   task that is either finished, or failed to start
+        def promise(description: "#{self}.promise", executor: promise_executor, &block)
+            if failed_to_start?
+                raise PromiseInFinishedTask, "attempting to create a promise on #{self} that has failed to start"
+            elsif finished?
+                raise PromiseInFinishedTask, "attempting to create a promise on #{self} that is finished"
+            end
+            super
+        end
+
 	# Returns for how many seconds this task is running.  Returns nil if
 	# the task is not running.
         def lifetime
@@ -361,7 +384,7 @@ module Roby
             @relation_graphs =
                 if plan then plan.task_relation_graphs
                 end
-	    for _, ev in bound_events
+            for ev in bound_events.each_value
 		ev.plan = plan
 	    end
 	end
@@ -391,7 +414,7 @@ module Roby
 	# True if this task is executable. A task is not executable if it is
         # abstract or partially instanciated.
         #
-        # See #abstract? and #partially_instanciated?
+        # @see abstract? partially_instanciated?
 	def executable?
             if @executable == true
                 true
@@ -401,7 +424,7 @@ module Roby
         end
 
 	# Returns true if this task's stop event is controlable
-	def interruptible?; event(:stop).controlable? end
+	def interruptible?; stop_event.controlable? end
 	# Set the executable flag. executable cannot be set to +false+ if the 
 	# task is running, and cannot be set to true on a finished task.
 	def executable=(flag)
@@ -477,12 +500,34 @@ module Roby
 
         # True if this task can be reused by some other parts in the plan
         def reusable?
-            @reusable && !finished? && !finishing?
+            plan && @reusable && !quarantined? && !garbage? && !failed_to_start? && !finished? && !finishing?
+        end
+
+        def garbage!
+            bound_events.each_value(&:garbage!)
+            super
+        end
+
+        # @!method quarantined?
+        #
+        # Whether this task has been quarantined
+        attr_predicate :quarantined?
+
+        # Mark the task as quarantined
+        #
+        # Once set it cannot be unset
+        def quarantined!
+            @quarantined = true
         end
 
         def failed_to_start?; !!@failed_to_start end
 
         def mark_failed_to_start(reason, time)
+            if failed_to_start?
+                return
+            elsif !pending? && !starting?
+                raise Roby::InternalError, "#{self} is neither pending nor starting, cannot mark as failed_to_start!"
+            end
             @failed_to_start = true
             @failed_to_start_time = time
             @failure_reason = reason
@@ -500,11 +545,52 @@ module Roby
         # True if the +failed+ event of this task has been fired
 	def failed?; failed_to_start? || (@success == false) end
 
+        # Clear relations events of this task have with events outside the task
+        def clear_events_external_relations(remove_strong: true)
+            removed = false
+            task_events = bound_events.values
+            each_event do |event|
+                for rel in event.sorted_relations
+                    graph = plan.event_relation_graph_for(rel)
+                    next if !remove_strong && graph.strong?
+
+                    to_remove = Array.new
+                    graph.each_in_neighbour(event) do |neighbour|
+                        if !task_events.include?(neighbour)
+                            to_remove << neighbour << event
+                        end
+                    end
+                    graph.each_out_neighbour(event) do |neighbour|
+                        if !task_events.include?(neighbour)
+                            to_remove << event << neighbour
+                        end
+                    end
+                    to_remove.each_slice(2) do |from, to|
+                        graph.remove_edge(from, to)
+                    end
+                    removed ||= !to_remove.empty?
+                end
+            end
+            removed
+        end
+
         # Remove all relations in which +self+ or its event are involved
-	def clear_relations
-            each_event { |ev| ev.clear_relations }
-	    super()
-            self
+        #
+        # @param [Boolean] remove_internal if true, remove in-task relations between
+        #   events
+        # @param [Boolean] remove_strong if true, remove strong relations as well
+	def clear_relations(remove_internal: false, remove_strong: true)
+            modified_plan = false
+            if remove_internal
+                each_event do |ev|
+                    if ev.clear_relations(remove_strong: remove_strong)
+                        modified_plan = true
+                    end
+                end
+            else
+                modified_plan = clear_events_external_relations(remove_strong: remove_strong)
+            end
+	    super(remove_strong: remove_strong) || modified_plan
 	end
 
         def invalidated_terminal_flag?; !!@terminal_flag_invalid end
@@ -523,7 +609,7 @@ module Roby
         end
 
         def apply_terminal_flags(terminal_events, success_events, failure_events)
-	    for _, ev in bound_events
+            for ev in bound_events.each_value
 		ev.terminal_flag = nil
                 if terminal_events.include?(ev)
                     if success_events.include?(ev)
@@ -565,20 +651,16 @@ module Roby
             
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
-        def emitting_event(event, context) # :nodoc:
-	    if !executable?
-		raise TaskNotExecutable.new(self), "trying to emit #{symbol} on #{self} but #{self} is not executable"
-	    end
-
+        def check_emission_validity(event) # :nodoc:
             if finished? && !event.terminal?
-                raise EmissionFailed.new(nil, event),
-                    "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{stop_event.last.sources}."
+                EmissionRejected.new(event).
+                    exception("#{self}.emit(#{event.symbol}) called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{stop_event.last.sources.to_a}.")
             elsif pending? && event.symbol != :start
-                raise EmissionFailed.new(nil, event),
-		    "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task has never been started"
+                EmissionRejected.new(event).
+                    exception("#{self}.emit(#{event.symbol}) called by #{execution_engine.propagation_sources.to_a} but the task has never been started")
             elsif running? && event.symbol == :start
-                raise EmissionFailed.new(nil, event),
-                    "#{self}.emit(#{event.symbol}, #{context}) called by #{execution_engine.propagation_sources.to_a} but the task is already running. Task has been started by #{start_event.last.sources}."
+                EmissionRejected.new(event).
+                    exception("#{self}.emit(#{event.symbol}) called by #{execution_engine.propagation_sources.to_a} but the task is already running. Task has been started by #{start_event.last.sources.to_a}.")
             end
         end
 
@@ -805,7 +887,7 @@ module Roby
                 return enum_for(:each_event, only_wrapped)
             end
 
-	    for _, ev in bound_events
+            for ev in bound_events.each_value
 		yield(ev)
 	    end
             self
@@ -816,14 +898,14 @@ module Roby
         # an event whose emission announces the end of the task. In most case,
         # it is an event which is forwarded directly on indirectly to +stop+.
 	def terminal_events
-	    bound_events.values.find_all { |ev| ev.terminal? }
+	    bound_events.each_value.find_all { |ev| ev.terminal? }
 	end
 
         # Get the event model for +event+
         def event_model(model); self.model.event_model(model) end
 
         def to_s # :nodoc:
-	    s = "#{name}(#{arguments})"
+            s = "#{name}<id:#{droby_id.id}>(#{arguments})"
 	    id = owners.map do |owner|
                 next if plan && (owner == plan.local_owner)
 		sibling = remote_siblings[owner]
@@ -1391,7 +1473,9 @@ module Roby
             if exception.originates_from?(self) && (gen = exception.generator)
                 error = exception.exception
                 if (gen == start_event) && !gen.emitted?
-                    failed_to_start!(error)
+                    if !failed_to_start?
+                        failed_to_start!(error)
+                    end
                 elsif pending?
                     pass_exception
                 elsif !gen.terminal? && !internal_error_event.emitted?
@@ -1407,11 +1491,11 @@ module Roby
                     # interface, as we can't emergency stop it. Quarantine it
                     # and inject it in the normal exception propagation
                     # mechanisms.
-                    Robot.fatal "putting #{self} in quarantine: #{self} failed to emit"
-                    Robot.fatal "the error is:"
-                    Roby.log_exception_with_backtrace(error, Robot, :fatal)
+                    execution_engine.fatal "putting #{self} in quarantine: #{self} failed to emit"
+                    execution_engine.fatal "the error is:"
+                    Roby.log_exception_with_backtrace(error, execution_engine, :fatal)
 
-                    plan.quarantine(self)
+                    plan.quarantine_task(self)
                     add_error(TaskEmergencyTermination.new(self, error, true))
                 end
             else
@@ -1481,6 +1565,35 @@ module Roby
 
         def create_transaction_proxy(transaction)
             transaction.create_and_register_proxy_task(self)
+        end
+
+        def match
+            self.class.match.with_instance(self)
+        end
+
+        # Enumerate the coordination objects currently attached to this task
+        #
+        # @yieldparam [Coordination::Base] object
+        def each_coordination_object(&block)
+            coordination_objects.each(&block)
+        end
+
+        # @api private
+        #
+        # Declare that a coordination object is attached to this task
+        #
+        # @param [Coordination::Base] object
+        def add_coordination_object(object)
+            coordination_objects.push(object)
+        end
+
+        # @api private
+        #
+        # Declare that a coordination object is no longer attached to this task
+        #
+        # @param [Coordination::Base] object
+        def remove_coordination_object(object)
+            coordination_objects.delete(object)
         end
     end
 

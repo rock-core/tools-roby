@@ -215,17 +215,14 @@ module Roby
                 #
                 # @param [Event] event the event to wait for
                 # @param [Hash] options
-                # @option options [Float] timeout a timeout (for backward
+                # @param [Float] timeout a timeout (for backward
                 #   compatibility, use timeout(seconds) do ... end instead)
-                def wait(event, options = Hash.new)
+                def wait(event, timeout: nil, **wait_options)
                     validate_event event
 
-                    # For backward compatibility only
-                    options, wait_options = Kernel.filter_options(options, timeout: nil)
-
-                    wait = Wait.new(event, wait_options)
-                    if options[:timeout]
-                        timeout(options[:timeout]) do
+                    wait = Wait.new(event, **wait_options)
+                    if timeout
+                        timeout(timeout) do
                             add wait
                         end
                     else

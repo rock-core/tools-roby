@@ -70,6 +70,16 @@ module Roby
             # @yieldparam [Integer] pid the client PID
             define_hooks :on_test_start
 
+            # @!method on_test_method
+            #
+            # Hook called when a test method starts its execution
+            #
+            # @yieldparam [Integer] pid the client PID
+            # @yieldparam [String] file the file containing the test
+            # @yieldparam [String] test_case_name the test case name
+            # @yieldparam [String] test_name the test name
+            define_hooks :on_test_method
+
             # @!method on_test_result
             #
             # Hook called when a test has been executed
@@ -129,6 +139,10 @@ module Roby
 
             def test_start(pid)
                 run_hook :on_test_start, pid
+            end
+
+            def test_method(pid, file, klass, method)
+                run_hook :on_test_method, pid, file, klass, method
             end
 
             def test_result(pid, file, klass, method, fails, assertions, time)

@@ -3,8 +3,8 @@ module Roby
         # Common functionality of coordination models that manipulate actions
         # (ActionStateMachine, ActionScript)
         class Actions < Base
-            # The action interface model that is supporting self
-            attr_reader :action_interface_model
+            extend Models::Actions
+
             # @return [Coordination::Task] the currently active toplevel task
             attr_reader :current_task
 
@@ -14,10 +14,13 @@ module Roby
             # forwards that are defined for it
             attr_reader :task_info
 
-            def initialize(action_interface_model, root_task, arguments = Hash.new)
+            def initialize(root_task, arguments = Hash.new)
                 super(root_task, arguments)
-                @action_interface_model = action_interface_model
                 @task_info = resolve_task_info
+            end
+
+            def action_interface_model
+                model.action_interface
             end
 
             def task_info_for(task)
@@ -69,7 +72,7 @@ module Roby
                 forwards.each do |source, target|
                     source.resolve.on do |event|
                         if target.resolve.task.running?
-                            target.resolve.emit
+                            target.resolve.emit(*event.context)
                         end
                     end
                 end

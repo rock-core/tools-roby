@@ -37,10 +37,11 @@ module Roby
                 server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0) 
                 @server    = Server.new(DRobyChannel.new(server_socket, false), interface)
                 @server_thread = Thread.new do
+                    plan.execution_engine.thread = Thread.current
                     begin
                         while true
                             server.poll
-                            sleep 0.1
+                            sleep 0.01
                         end
                     rescue ComError
                     end
@@ -76,18 +77,50 @@ module Roby
                 assert_equal 10, client.Test!(arg0: 10)
             end
 
-            it "gets notified of the new jobs on creation" do
-                action_m = Actions::Interface.new_submodel do
-                    describe 'test'
-                    def test; Roby::Task.new_submodel end
+            describe "job handling" do
+                before do
+                    action_m = Actions::Interface.new_submodel do
+                        describe 'test'
+                        def test; Roby::Task.new_submodel end
+                        describe 'other_test'
+                        def other_test; Roby::Task.new_submodel end
+                    end
+                    app.planners << action_m
                 end
-                app.planners << action_m
-                job_id = client.test!
-                interface_mock.push_pending_job_notifications
-                client.poll
-                assert client.has_job_progress?
-                assert_equal [:monitored, job_id], client.pop_job_progress[1][0, 2]
-                assert_equal [:planning_ready, job_id], client.pop_job_progress[1][0, 2]
+
+                describe "#each_job" do
+                    attr_reader :test_id, :other_test_id
+                    before do
+                        @test_id = client.test!
+                        @other_test_id = client.other_test!
+                    end
+
+                    it "enumerates the jobs" do
+                        jobs = client.each_job.to_a
+                        assert_equal 2, jobs.size
+                        assert_equal test_id, jobs[0].job_id
+                        assert_equal 'test', jobs[0].action_model.name
+                        assert_equal other_test_id, jobs[1].job_id
+                        assert_equal 'other_test', jobs[1].action_model.name
+                    end
+
+                    it "allows to filter them by action name" do
+                        jobs = client.find_all_jobs_by_action_name('test')
+                        assert_equal 1, jobs.size
+                        job = jobs.first
+                        assert_equal test_id, job.job_id
+                        assert_equal 'test', job.action_model.name
+                    end
+                end
+
+                it "gets notified of the new jobs on creation" do
+                    job_id = client.test!
+                    interface_mock.push_pending_job_notifications
+                    client.poll
+                    assert client.has_job_progress?
+                    assert_equal [:monitored, job_id], client.pop_job_progress[1][0, 2]
+                    assert_equal [:planning_ready, job_id], client.pop_job_progress[1][0, 2]
+                end
             end
 
             it "raises NoSuchAction on invalid actions without accessing the network" do
@@ -100,6 +133,13 @@ module Roby
                 e = assert_raises(Exception::DRoby) { client.does_not_exist(arg0: 10) }
                 assert_kind_of NoMethodError, e
                 assert(/does_not_exist/ === e.message)
+            end
+
+            it "appends the local client's backtrace to the remote's" do
+                e = assert_raises(Exception::DRoby) { client.does_not_exist(arg0: 10) }
+                assert(remote = e.backtrace.index { |l| l =~ /interface\/server.rb.*process_call/ })
+                assert(local  = e.backtrace.index { |l| l =~ /#{__FILE__}:#{__LINE__-2}/ })
+                assert(remote < local)
             end
 
             describe "#find_action_by_name" do
@@ -124,16 +164,91 @@ module Roby
             end
 
             describe "command batches" do
-                it "gathers commands and executes them all at once" do
-                    interface_mock.should_receive(actions:  [stub_action("Test")])
-                    batch = client.create_batch
-                    batch.Test!(arg: 10)
-                    batch.kill_job 1
-                    batch.Test!(arg: 20)
-                    interface_mock.should_receive(:start_job).with('Test', arg: 10).and_return(1).ordered.once
-                    interface_mock.should_receive(:kill_job).with(1).and_return(2).ordered.once
-                    interface_mock.should_receive(:start_job).with('Test', arg: 20).and_return(3).ordered.once
-                    assert_equal [1, 2, 3], client.process_batch(batch)
+                describe "nominal cases" do
+                    before do
+                        interface_mock.should_receive(actions:  [stub_action("Test")])
+                        interface_mock.should_receive(:start_job).with('Test', arg: 10).and_return(1).ordered.once
+                        interface_mock.should_receive(:kill_job).with(1).and_return(2).ordered.once
+                        interface_mock.should_receive(:start_job).with('Test', arg: 20).and_return(3).ordered.once
+                    end
+
+                    it "gathers commands and executes them all at once" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        client.process_batch(batch)
+                    end
+
+                    it "returns a Return object which contains the calls associated with their return values" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        assert_kind_of Client::BatchContext::Return, ret
+                        expected = [[[[], :start_job, 'Test', Hash[arg: 10]], 1],
+                                    [[[], :kill_job, 1], 2],
+                                    [[[], :start_job, 'Test', Hash[arg: 20]], 3]].
+                            map do |call, ret|
+                                Client::BatchContext::Return::Element.new(call, ret)
+                            end
+                        assert_equal expected, ret.each_element.to_a
+                    end
+
+                    it "the Return object behaves as an enumeration on the return values" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        assert_equal [1, 2, 3], ret.to_a
+                        assert_equal [1, 2, 3], ret.each.to_a
+                        assert_equal 2, ret[1]
+                    end
+
+                    it "the Return may filter on the call name" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        expected = [[[[], :start_job, 'Test', Hash[arg: 10]], 1],
+                                    [[[], :start_job, 'Test', Hash[arg: 20]], 3]].
+                            map do |call, ret|
+                                Client::BatchContext::Return::Element.new(call, ret)
+                            end
+                        assert_equal expected, ret.filter(call: :start_job).each_element.to_a
+                    end
+
+                    it "the Return provides a shortcut to return the started job IDs" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        assert_equal [1, 3], ret.started_jobs_id
+                    end
+
+                    it "the Return provides a shortcut to return the killed job IDs" do
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        ret = client.process_batch(batch)
+                        assert_equal [1], ret.killed_jobs_id
+                    end
+
+                    it "the Return provides a shortcut to return the dropped job IDs" do
+                        interface_mock.should_receive(:drop_job).with(2).and_return(4).ordered.once
+                        batch = client.create_batch
+                        batch.Test!(arg: 10)
+                        batch.kill_job 1
+                        batch.Test!(arg: 20)
+                        batch.drop_job 2
+                        ret = client.process_batch(batch)
+                        assert_equal [2], ret.dropped_jobs_id
+                    end
                 end
 
                 it "raises NoSuchAction if trying to queue an unknown action" do
@@ -160,10 +275,8 @@ module Roby
             it "queues exceptions and allows to retrieve the notifications in FIFO order" do
                 plan.add(t0 = Tasks::Simple.new(id: 1))
                 plan.add(t1 = Tasks::Simple.new(id: 2))
-                inhibit_fatal_messages do
-                    plan.execution_engine.notify_exception :fatal, Exception.new, [t0]
-                    plan.execution_engine.notify_exception :warn, Exception.new, [t1]
-                end
+                plan.execution_engine.notify_exception :fatal, Exception.new, [t0]
+                plan.execution_engine.notify_exception :warn, Exception.new, [t1]
                 client.poll
                 assert client.has_exceptions?
 
@@ -178,9 +291,7 @@ module Roby
                 task = Class.new(Tasks::Simple) do
                     provides Job
                 end.new(job_id: 1)
-                inhibit_fatal_messages do
-                    plan.execution_engine.notify_exception :fatal, Exception.new, [task]
-                end
+                plan.execution_engine.notify_exception :fatal, Exception.new, [task]
                 client.poll
                 *_, jobs = client.pop_exception.last
                 assert_equal [1], jobs.to_a

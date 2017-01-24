@@ -7,6 +7,8 @@ module Roby
 
         class IdentifiableObject
             include Identifiable
+            # To please flexmock strict mode
+            def droby_dump(peer); raise NotImplementedError end
         end
 
         describe Marshal do
@@ -183,7 +185,7 @@ module Roby
                     flexmock(subject).should_receive(:find_local_object).
                         and_return([false, nil])
                     marshalled.should_receive(name: 'Roby::Does::Not::Exist')
-                    assert_equal nil, subject.find_local_model(marshalled)
+                    assert_nil subject.find_local_model(marshalled)
                 end
             end
 

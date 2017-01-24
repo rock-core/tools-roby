@@ -255,28 +255,28 @@ class TC_Queries_Query < Minitest::Test
     end
 
     def test_it_does_not_match_if_a_plan_predicate_returns_false
-        flexmock(plan).should_receive(:mypred).and_return(false).once
+        flexmock(plan).should_receive(:mypred).explicitly.and_return(false).once
         query = plan.find_tasks
         query.plan_predicates << :mypred
         assert !(query === Tasks::Simple.new)
     end
 
     def test_it_does_match_if_a_plan_predicate_returns_true
-        flexmock(plan).should_receive(:mypred).and_return(true).once
+        flexmock(plan).should_receive(:mypred).explicitly.and_return(true).once
         query = plan.find_tasks
         query.plan_predicates << :mypred
         assert (query === Tasks::Simple.new)
     end
 
     def test_it_does_match_if_a_neg_plan_predicate_returns_false
-        flexmock(plan).should_receive(:mypred).and_return(false).once
+        flexmock(plan).should_receive(:mypred).explicitly.and_return(false).once
         query = plan.find_tasks
         query.neg_plan_predicates << :mypred
         assert (query === Tasks::Simple.new)
     end
 
     def test_it_does_not_match_if_neg_a_plan_predicate_returns_true
-        flexmock(plan).should_receive(:mypred).and_return(true).once
+        flexmock(plan).should_receive(:mypred).explicitly.and_return(true).once
         query = plan.find_tasks
         query.neg_plan_predicates << :mypred
         assert !(query === Tasks::Simple.new)

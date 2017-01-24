@@ -48,10 +48,10 @@ class TC_StateModel < Minitest::Test
 
     def test_resolve_goals
         obj = flexmock
-        position = flexmock(OpenStructModel::Variable.new)
+        position = flexmock(Roby::GoalVariableModel.new)
         position.should_receive(:call).with(obj).and_return(10)
         position.should_receive(:to_goal_variable_model).and_return(position)
-        value = flexmock(OpenStructModel::Variable.new)
+        value = flexmock(Roby::GoalVariableModel.new)
         value.should_receive(:call).with(obj).and_return(20)
         value.should_receive(:to_goal_variable_model).and_return(value)
 

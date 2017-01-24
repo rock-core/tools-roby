@@ -172,6 +172,14 @@ module Roby
                     visitor.selected
                 end
 
+                # @api private
+                #
+                # Activate this fault handler for the given exception and
+                # arguments. It creates the {FaultHandlingTask} and attaches the
+                # handler on it as an action script.
+                #
+                # @param [ExecutionException] exception
+                # @param [Hash] arguments
                 def activate(exception, arguments = Hash.new)
                     locations = find_response_locations(exception.origin)
                     if locations.empty?
@@ -184,7 +192,7 @@ module Roby
                     # Create the response task
                     plan.add(response_task = FaultHandlingTask.new)
                     response_task.fault_handler = self
-                    new(action_interface, response_task, arguments)
+                    new(response_task, arguments)
                     response_task.start!
                     locations.each do |task|
                         # Mark :stop as handled by the response task and kill

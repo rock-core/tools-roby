@@ -1,5 +1,6 @@
 require 'roby/test/self'
-require 'roby/log/gui/relations'
+require 'Qt'
+require 'roby/gui/relations_view'
 
 class TC_GUI < Minitest::Test 
     def test_index_handling

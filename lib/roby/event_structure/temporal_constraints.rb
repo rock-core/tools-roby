@@ -265,19 +265,46 @@ module Roby
             end
 
             def add_edge(from, to, info)
-                super
-
-                if from.respond_to?(:task) && to.respond_to?(:task)
-                    from_task, to_task = from.task, to.task
-                    if from_task != to_task && !task_graph.has_edge?(from_task, to_task)
-                        task_graph.add_edge(from_task, to_task, nil)
+                if super
+                    if from.respond_to?(:task) && to.respond_to?(:task)
+                        add_edge_in_task_graph(from.task, to.task)
                     end
+                end
+            end
+
+            def add_edge_in_task_graph(from_task, to_task)
+                return if from_task == to_task
+
+                if task_graph.has_edge?(from_task, to_task)
+                    count = task_graph.edge_info(from_task, to_task)
+                    task_graph.set_edge_info(from_task, to_task, count + 1)
+                else
+                    task_graph.add_edge(from_task, to_task, 1)
+                end
+            end
+
+            def remove_edge_in_task_graph(from_task, to_task)
+                return if from_task == to_task
+
+                count = task_graph.edge_info(from_task, to_task)
+                if count == 1
+                    task_graph.remove_edge(from_task, to_task)
+                else
+                    task_graph.set_edge_info(from_task, to_task, count - 1)
                 end
             end
 
             def merge(graph)
                 super
-                task_graph.merge(graph.task_graph)
+
+                # There's really no easy way to handle the merge nicely. Rebuild
+                # the task graph
+                task_graph.clear
+                each_edge do |from, to|
+                    if from.respond_to?(:task) && to.respond_to?(:task)
+                        add_edge_in_task_graph(from.task, to.task)
+                    end
+                end
             end
 
             def replace(graph)
@@ -286,16 +313,25 @@ module Roby
             end
 
             def remove_vertex(event)
-                super
                 if event.respond_to?(:task)
-                    task_graph.remove_vertex(event.task)
+                    each_in_neighbour(event) do |from|
+                        if from.respond_to?(:task)
+                            remove_edge_in_task_graph(from.task, event.task)
+                        end
+                    end
+                    each_out_neighbour(event) do |to|
+                        if to.respond_to?(:task)
+                            remove_edge_in_task_graph(event.task, to.task)
+                        end
+                    end
                 end
+                super
             end
 
             def remove_edge(from, to)
                 super
                 if from.respond_to?(:task) && to.respond_to?(:task)
-                    task_graph.remove_edge(from.task, to.task)
+                    remove_edge_in_task_graph(from.task, to.task)
                 end
             end
 
@@ -358,11 +394,11 @@ module Roby
                     # Verify that the event matches any running constraint
                     parent, intervals = find_failed_temporal_constraint(event.time)
                     if parent
-                        plan.engine.add_error TemporalConstraintViolation.new(event, parent, intervals.intervals)
+                        plan.execution_engine.add_error TemporalConstraintViolation.new(event, parent, intervals.intervals)
                     end
                     parent, count, allowed_interval, since = find_failed_occurence_constraint(false)
                     if parent
-                        plan.engine.add_error OccurenceConstraintViolation.new(event, parent, count, allowed_interval, since)
+                        plan.execution_engine.add_error OccurenceConstraintViolation.new(event, parent, count, allowed_interval, since)
                     end
 
                     deadlines = plan.emission_deadlines

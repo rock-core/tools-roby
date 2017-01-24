@@ -6,28 +6,19 @@ module Roby
         class TaskFromAction < TaskWithDependencies
             # The associated action
             # @return [Roby::Actions::Action]
-            attr_reader :action
-
-            # Returns the coordination model that is used to define the
-            # underlying action
-            #
-            # @return (see Models::Action#to_coordination_model)
-            # @raise (see Models::Action#to_coordination_model)
-            def to_coordination_model
-                action.to_coordination_model
-            end
+            attr_accessor :action
 
             def initialize(action)
                 @action = action
                 super(action.model.returned_type)
             end
 
-            def new(coordination_model)
-                if coordination_model.action_interface_model < action.model.action_interface_model
-                    TaskFromAction.new(action.rebind(coordination_model.action_interface_model)).new(coordination_model)
-                else
-                    return super
-                end
+            # Rebind this task to refer to a different action interface
+            def rebind(coordination_model)
+                result = super
+                result.action = action.rebind(coordination_model.action_interface)
+                result.model  = result.action.model.returned_type
+                result
             end
 
             # Generates a task for this state in the given plan and returns
@@ -40,6 +31,15 @@ module Roby
                     end
                 end
                 action.as_plan(arguments)
+            end
+
+            # Returns the action's underlying coordination model if there is one
+            #
+            # @return [nil,Base]
+            def action_coordination_model
+                if action.model.respond_to?(:coordination_model)
+                    action.model.coordination_model
+                end
             end
 
             def to_s; "action(#{action})[#{model}]" end

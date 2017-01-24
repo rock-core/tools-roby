@@ -1,11 +1,22 @@
 require 'find'
+require 'fileutils'
 module Roby
     class Installer
-	# The directory in which we are installing
+        # Create a fresh app on this application's #app_dir attribute
+        def self.install(app, quiet: false)
+            new(app, quiet: quiet).install
+        end
+
+	# The application we are installing
+        #
+        # @return [Application]
 	attr_reader :app
 
-	def initialize(app)
+        attr_predicate :quiet?, true
+
+	def initialize(app, quiet: false)
 	    @app = app
+            @quiet = quiet
             init = File.join(app.app_dir, "config", "init.rb")
             if File.file?(init)
                 require init
@@ -43,18 +54,18 @@ module Roby
 	# already existing files. +plugins+ is the list of plugins we should copy
 	# files from
 	def install_dir(plugin_dirs = [], &filter)
-	    Installer.copy_tree(File.join(Roby::ROBY_ROOT_DIR, 'app'), app.app_dir, &filter)
+	    Installer.copy_tree(File.join(Roby::ROBY_ROOT_DIR, 'app'), app.app_dir, quiet: quiet?, &filter)
 	    plugin_dirs.each do |dir|
 		plugin_app_dir = File.join(dir, 'app')
 		next unless File.directory?(plugin_app_dir)
-		Installer.copy_tree(plugin_app_dir, app.app_dir, &filter)
+		Installer.copy_tree(plugin_app_dir, app.app_dir, quiet: quiet, &filter)
 	    end
 	end
 
 	# Copy all files that are in +basedir+ into +destdir+. If a block is given,
 	# it is called with each file relative path. The block must then return the
 	# destination name, or nil if the file is to be skipped.
-	def self.copy_tree(basedir, destdir)
+	def self.copy_tree(basedir, destdir, quiet: false)
 	    basedir = File.expand_path(basedir)
 	    destdir = File.expand_path(destdir)
 
@@ -67,7 +78,9 @@ module Roby
 		destfile = File.join(destdir, relative)
 		if File.directory?(file)
 		    if !File.exists?(destfile)
-			puts "creating #{relative}/"
+                        if !quiet
+                            puts "creating #{relative}/"
+                        end
 			Dir.mkdir destfile
 		    elsif !File.directory?(destfile)
 			STDERR.puts "#{destfile} exists but it is not a directory"
@@ -76,7 +89,9 @@ module Roby
 		else
 		    if !File.exists?(destfile)
 			FileUtils.cp file, destfile, preserve: true
-			puts "creating #{relative}"
+                        if !quiet
+                            puts "creating #{relative}"
+                        end
 		    elsif !File.file?(destfile)
 			STDERR.puts "#{destfile} exists but it is not a file"
 			exit(1)

@@ -11,7 +11,7 @@ module Roby
             # The current instruction
             attr_reader :current_instruction
 
-            def initialize(action_interface_model, root_task, arguments = Hash.new)
+            def initialize(root_task, arguments = Hash.new)
                 super
                 prepare
 

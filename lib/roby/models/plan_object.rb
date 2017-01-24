@@ -71,6 +71,11 @@ module Roby
                 private :executable=
                 EOD
             end
+
+            # Create a {Queries::PlanObjectMatcher}
+            def match
+                Queries::PlanObjectMatcher.new.with_model(self)
+            end
         end
     end
 end

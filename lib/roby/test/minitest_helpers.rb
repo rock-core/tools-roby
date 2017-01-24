@@ -32,26 +32,35 @@ module Roby
 
                 msg = exp.pop if String === exp.last
 
+                matchers = exp.dup
+                exp = exp.map do |e|
+                    if e.kind_of?(Queries::LocalizedErrorMatcher)
+                        e.model
+                    else
+                        e
+                    end
+                end
+
                 # The caller expects a non-Roby exception. It is going to be
                 # wrapped in a LocalizedError, so make sure we properly
                 # process it
                 begin
                     yield
                 rescue *exp => e
-                    assert_exception_can_be_pretty_printed(e)
-                    return e
-                rescue Roby::UserExceptionWrapper => wrapper_e
-                    assert_exception_can_be_pretty_printed(wrapper_e)
-                    all = Roby.flatten_exception(wrapper_e)
-                    if actual_e = all.find { |e| exp.any? { |expected_e| e.kind_of?(expected_e) } }
+                    if matchers.any? { |m| m === e }
+                        assert_exception_can_be_pretty_printed(e)
+                        return e
+                    else
+                        flunk("#{matchers.map(&:to_s).join(", ")} exceptions expected, not #{e.class}")
+                    end
+                rescue Exception => root_e
+                    assert_exception_can_be_pretty_printed(root_e)
+                    all = Roby.flatten_exception(root_e)
+                    if actual_e = all.find { |e| matchers.any? { |expected_e| expected_e === e } }
                         return actual_e
                     end
                     actually_caught = roby_exception_to_string(*all)
-                    flunk("#{exp.map(&:to_s).join(", ")} exceptions expected, not #{wrapper_e.class} #{actually_caught}")
-                rescue Exception => e
-                    assert_exception_can_be_pretty_printed(e)
-                    actually_caught = roby_exception_to_string(e)
-                    flunk("#{exp.map(&:to_s).join(", ")} exceptions expected, not #{e.class} #{actually_caught}")
+                    flunk("#{exp.map(&:to_s).join(", ")} exceptions expected, not #{root_e.class} #{actually_caught}")
                 end
                 flunk("#{exp.map(&:to_s).join(", ")} exceptions expected but received nothing")
 
@@ -99,13 +108,14 @@ module Roby
                     begin
                         yield
                     rescue SynchronousEventProcessingMultipleErrors => aggregate_e
-                        exceptions = aggregate_e.errors.map do |execution_exception, _|
-                            execution_exception.exception
-                        end
+                        exceptions = aggregate_e.errors
 
                         # Try to be smart and to only keep the toplevel
                         # exceptions
                         filter_execution_exceptions(exceptions).each do |e|
+                            if !e.backtrace
+                                e.set_backtrace(aggregate_e.backtrace)
+                            end
                             case e
                             when Assertion
                                 self.failures << e

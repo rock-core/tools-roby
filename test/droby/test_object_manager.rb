@@ -83,14 +83,14 @@ module Roby
                 end
 
                 it "returns nil for an unknown object" do
-                    assert_equal nil, subject.find_by_id(flexmock, flexmock)
+                    assert_nil subject.find_by_id(flexmock, flexmock)
                 end
 
                 it "returns nil for a known peer but an unknwon DRobyID on that peer" do
                     droby_id, peer_id, sibling_id = flexmock, flexmock, flexmock
                     local_object = flexmock(droby_id: droby_id)
                     subject.register_object(local_object, peer_id => sibling_id)
-                    assert_equal nil, subject.find_by_id(peer_id, flexmock)
+                    assert_nil subject.find_by_id(peer_id, flexmock)
                 end
             end
 
@@ -114,7 +114,7 @@ module Roby
                     droby_id, peer_id, sibling_id = flexmock, flexmock, flexmock
                     local_object = flexmock(droby_id: droby_id)
                     subject.register_object(local_object, peer_id => sibling_id)
-                    assert_equal nil, subject.find_by_id(peer_id, flexmock)
+                    assert_nil subject.find_by_id(peer_id, flexmock)
                 end
             end
 

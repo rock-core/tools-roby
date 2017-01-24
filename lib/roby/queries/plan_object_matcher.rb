@@ -4,6 +4,13 @@ module Roby
     class PlanObjectMatcher < MatcherBase
         # @api private
         #
+        # The actual instance that should match
+        #
+        # @return [nil,Object]
+	attr_reader :instance
+
+        # @api private
+        #
         # A set of models that should be provided by the object
         #
         # @return [Array<Class>]
@@ -47,7 +54,8 @@ module Roby
         attr_reader :children
 
         # Initializes an empty TaskMatcher object
-	def initialize
+	def initialize(instance = nil)
+            @instance             = instance
             @model                = Array.new
 	    @predicates           = Set.new
 	    @neg_predicates       = Set.new
@@ -57,6 +65,12 @@ module Roby
             @parents              = Hash.new { |h, k| h[k] = Array.new }
             @children             = Hash.new { |h, k| h[k] = Array.new }
 	end
+
+        # Match an instance explicitely
+        def with_instance(instance)
+            @instance = instance
+            self
+        end
 
         # Filters on ownership
         #
@@ -223,9 +237,21 @@ module Roby
         # equivalent to calling #filter() using a Index. This is used to
         # avoid an explicit O(N) filtering step after filter() has been called
         def indexed_query?
-            @children.empty? && @parents.empty? &&
+            !@instance && @children.empty? && @parents.empty? &&
                 Index::PREDICATES.superset?(predicates) &&
                 Index::PREDICATES.superset?(neg_predicates)
+        end
+
+        def to_s
+            description = 
+                if instance
+                    instance.to_s
+                elsif model.size == 1
+                    model.first.to_s
+                else
+                    "(#{model.map(&:to_s).join(",")})"
+                end
+            ([description] + predicates.map(&:to_s) + neg_predicates.map { |p| "not_#{p}" }).join(".")
         end
 
 
@@ -234,6 +260,10 @@ module Roby
         # @param [PlanObject] object the object to match
         # @return [Boolean]
         def ===(object)
+            if instance
+                return false if object != instance
+            end
+
 	    if !model.empty?
 		return unless object.fullfills?(model)
 	    end

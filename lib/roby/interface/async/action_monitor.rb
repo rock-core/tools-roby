@@ -65,6 +65,17 @@ module Roby
                     end
                 end
 
+                # Drop this job
+                #
+                # @param [Client::BatchContext] batch if given, the restart
+                #   commands will be added to this batch. Otherwise, a new batch
+                #   is created and {Client::BatchContext#__process} is called.
+                def drop(batch: nil)
+                    handle_batch_argument(batch) do |b|
+                        b.drop_job(async.job_id)
+                    end
+                end
+
                 # Kill this job
                 #
                 # @param [Client::BatchContext] batch if given, the restart
@@ -87,7 +98,11 @@ module Roby
                 # @param [Client::BatchContext] batch if given, the restart
                 #   commands will be added to this batch. Otherwise, a new batch
                 #   is created and {Client::BatchContext#__process} is called.
-                def restart(arguments = self.action_arguments, batch: nil)
+                def restart(arguments = self.action_arguments, batch: nil, lazy: false)
+                    if lazy && running? && (arguments == async.action_arguments)
+                        return
+                    end
+
                     handle_batch_argument(batch) do |b|
                         if running?
                             kill(batch: b)
@@ -122,6 +137,22 @@ module Roby
 
                 def running?
                     async && async.running?
+                end
+
+                def success?
+                    async && async.success?
+                end
+
+                def failed?
+                    async && async.failed?
+                end
+
+                def finished?
+                    async && async.finished?
+                end
+
+                def terminated?
+                    async && async.terminated?
                 end
 
                 def state

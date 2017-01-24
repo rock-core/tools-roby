@@ -43,9 +43,11 @@ require 'utilrb/unbound_method/call'
 require 'metaruby'
 
 require 'roby/version'
+require 'roby/droby/marshallable'
 require 'roby/droby/event_logging'
 
 require 'roby/support'
+require 'roby/promise'
 require 'roby/hooks'
 require 'roby/distributed_object'
 require 'roby/standard_errors'
@@ -97,6 +99,11 @@ require 'roby/transactions'
 require 'roby/decision_control'
 require 'roby/schedulers/null'
 require 'roby/execution_engine'
+begin
+    require 'gctools/oobgc'
+    Roby::ExecutionEngine.use_oob_gc = true
+rescue LoadError
+end
 require 'roby/app'
 require 'roby/state'
 require 'roby/singletons'

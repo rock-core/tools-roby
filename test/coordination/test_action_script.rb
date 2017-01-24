@@ -24,7 +24,7 @@ describe Roby::Coordination::ActionScript do
         end
 
         it "waits for a new emission on an event" do
-            script = script_model.new(script_model.action_interface, root_task)
+            script = script_model.new(root_task)
             root_task.start!
             action_task.start!
             assert !script.finished?
@@ -34,7 +34,7 @@ describe Roby::Coordination::ActionScript do
 
         it "does wait even if the event was already emitted" do
             script_model.wait script_task.intermediate_event
-            script = script_model.new(script_model.action_interface, root_task)
+            script = script_model.new(root_task)
             root_task.start!
             action_task.start!
             assert !script.finished?
@@ -45,12 +45,10 @@ describe Roby::Coordination::ActionScript do
         end
 
         it "fails if asked to wait for an unreachable event" do
-            script = script_model.new(script_model.action_interface, root_task)
+            script = script_model.new(root_task)
             root_task.start!
             action_task.start!
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) { action_task.intermediate_event.unreachable! }
-            end
+            assert_raises(Roby::ChildFailedError) { action_task.intermediate_event.unreachable! }
         end
 
         it "fails if the event it is waiting for becomes unreachable" do
@@ -59,21 +57,19 @@ describe Roby::Coordination::ActionScript do
             script_task.should_receive(:instanciate).
                 and_return(action_task = task_model.new)
 
-            script = script_model.new(script_model.action_interface, root_task)
+            script = script_model.new(root_task)
             root_task.start!
             action_task.start!
             action_task.second_event.unreachable!
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) do
-                    action_task.intermediate_event.emit
-                end
+            assert_raises(Roby::ChildFailedError) do
+                action_task.intermediate_event.emit
             end
         end
 
         it "can wait for one of its own events" do
             script_model.instructions.clear
             script_model.wait script_model.intermediate_event
-            script = script_model.new(script_model.action_interface, root_task)
+            script = script_model.new(root_task)
             root_task.start!
             root_task.intermediate_event.emit
             assert script.finished?
@@ -95,10 +91,8 @@ describe Roby::Coordination::ActionScript do
                 new_child = Roby::Tasks::Simple.new)
             child.start!
             child.success_event.emit
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) do
-                    new_child.failed_to_start!(nil)
-                end
+            assert_raises(Roby::ChildFailedError) do
+                new_child.failed_to_start!(nil)
             end
         end
 
@@ -125,7 +119,7 @@ describe Roby::Coordination::ActionScript do
             script_task.should_receive(:instanciate).
                 and_return(action_task = task_model.new)
             script_model.start script_task
-            script = script_model.new(script_model.action_interface, root_task)
+            script = script_model.new(root_task)
             root_task.start!
             assert_equal action_task, root_task.current_task_child
             assert !script.finished?
@@ -140,7 +134,7 @@ describe Roby::Coordination::ActionScript do
                 and_return(action_task = task_model.new)
             script_model.forward script_task.intermediate_event, script_model.success_event
             script_model.start script_task
-            script = script_model.new(script_model.action_interface, root_task)
+            script = script_model.new(root_task)
             root_task.start!
             action_task.start!
             action_task.intermediate_event.emit

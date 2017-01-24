@@ -22,7 +22,8 @@ module Roby
                 end
 
                 def create_server
-                    server = Roby::Interface::TCPServer.new(Roby.app, default_server_port)
+                    server = Roby::Interface::TCPServer.new(
+                        Roby.app, port: default_server_port)
                     @interface_servers << server
                     server
                 end
@@ -35,12 +36,12 @@ module Roby
 
                 def connect(server = nil, **options, &block)
                     server ||= create_server
-                    client = create_client('localhost', port: server.port, **options)
+                    client = create_client('localhost', port: server.ip_port, **options)
                     yield(client) if block_given?
                     client
                 ensure
                     while !client.connection_future.complete?
-                        sleep 0.1
+                        sleep 0.01
                         server.process_pending_requests
                     end
                     client.poll

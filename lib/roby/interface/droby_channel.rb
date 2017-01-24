@@ -44,6 +44,16 @@ module Roby
                 io.flush
             end
 
+            # Wait until there is something to read on the channel
+            #
+            # @param [Numeric,nil] timeout a timeout after which the method
+            #   will return. Use nil for no timeout
+            # @return [Boolean] falsy if the timeout was reached, true
+            #   otherwise
+            def read_wait(timeout: nil)
+                !!IO.select([io], [], [], timeout)
+            end
+
             # Read one packet from {#io} and unmarshal it
             #
             # @return [Object,nil] returns the unmarshalled object, or nil if no

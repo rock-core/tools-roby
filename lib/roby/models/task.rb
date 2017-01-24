@@ -188,7 +188,6 @@ module Roby
                 if abstract?
                     raise Application::ActionResolutionError, "#{self} is abstract and no planning method exists that returns it"
                 else
-                    Robot.warn "no planning method for #{self}, and #{self} is not abstract. Returning new instance"
                     new(arguments)
                 end
             end
@@ -541,7 +540,7 @@ module Roby
             #
             # @param [Symbol] event_name the event name
             def define_command_method(event_name, block)
-                check_arity(block, 1)
+                check_arity(block, 1, strict: true)
                 define_method("event_command_#{event_name}", &block)
                 method = instance_method("event_command_#{event_name}")
                 lambda do |dst_task, *event_context| 
@@ -687,7 +686,7 @@ module Roby
                     raise ArgumentError, "#on called without a block"
                 end
 
-                check_arity(user_handler, 1)
+                check_arity(user_handler, 1, strict: true)
                 event_names.each do |from|
                     from = event_model(from).symbol
                     if user_handler 
@@ -755,7 +754,7 @@ module Roby
             #       do_handle
             #   end
             def on_exception(matcher, &handler)
-                check_arity(handler, 1)
+                check_arity(handler, 1, strict: true)
                 matcher = matcher.to_execution_exception_matcher
                 id = (@@exception_handler_id += 1)
                 define_method("exception_handler_#{id}", &handler)

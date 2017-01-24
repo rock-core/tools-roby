@@ -31,7 +31,7 @@ module Roby
 	end
 
         def to_s
-            result = model.map(&:to_s).join(",")
+            result = super
             if !arguments.empty?
                 result << ".with_arguments(#{arguments.map { |k, v| ":#{k} => #{v}" }.join(", ")})"
             end

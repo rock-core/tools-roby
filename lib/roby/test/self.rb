@@ -2,7 +2,6 @@
 # simplecov must be loaded FIRST. Only the files required after it gets loaded
 # will be profiled !!!
 if ENV['TEST_ENABLE_COVERAGE'] == '1'
-    ENV['TEST_ENABLE_COVERAGE'] = '0'
     begin
         require 'simplecov'
         SimpleCov.start do
@@ -21,6 +20,7 @@ require 'minitest/autorun'
 require 'flexmock/minitest'
 require 'roby'
 require 'roby/test/common'
+require 'roby/test/event_reporter'
 require 'roby/test/minitest_helpers'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
@@ -38,18 +38,19 @@ module Roby
         include Roby::Test::Assertions
 
         def setup
+            @temp_dirs = Array.new
+
             Roby.app.log['server'] = false
             Roby.app.auto_load_models = false
             Roby.app.plugins_enabled = false
             Roby.app.testing = true
+            Roby.app.log_base_dir = make_tmpdir
+            Roby.app.reset_log_dir
             Roby.app.setup
             Roby.app.prepare
 
-            @plan    = ExecutablePlan.new
+            @plan    = ExecutablePlan.new(event_logger: EventReporter.new(STDOUT))
             @control = DecisionControl.new
-            if !plan.execution_engine
-                ExecutionEngine.new(@plan, @control)
-            end
 
             Roby.app.public_logs = false
 
@@ -63,11 +64,20 @@ module Roby
 	    Roby.app.abort_on_application_exception = true
         end
 
+        def enable_event_reporting(*filters)
+            plan.event_logger.enabled = true
+            filters.each { |f| plan.event_logger.filter(f) }
+        end
+
         def teardown
+            @temp_dirs.each { |p| FileUtils.rm_rf(p) }
             begin
                 super
             rescue Exception => e
                 teardown_failure = e
+            end
+            if execution_engine
+                execution_engine.shutdown
             end
             Roby.app.cleanup
             State.clear
@@ -80,10 +90,18 @@ module Roby
                 raise teardown_failure
             end
         end
+
+        def make_tmpdir
+            @temp_dirs << (dir = Dir.mktmpdir)
+            dir
+        end
     end
     end
     SelfTest = Test::Self
 end
+
+FlexMock.partials_are_based = true
+FlexMock.partials_verify_signatures = true
 
 module Minitest
     class Test

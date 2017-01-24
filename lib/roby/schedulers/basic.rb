@@ -111,8 +111,11 @@ module Roby
                     true
                 elsif include_children && task.parents.any? { |t| t.running? }
                     true
-                else
+                elsif include_children
                     report_holdoff "not root, and has no running parent", task
+                    false
+                else
+                    report_holdoff "not root, and include_children is false", task
                     false
                 end
             end

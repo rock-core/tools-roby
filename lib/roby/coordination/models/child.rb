@@ -14,6 +14,13 @@ module Roby
                     @parent, @role, @model = parent, role, model
                 end
 
+                def ==(other)
+                    other.kind_of?(Child) &&
+                        other.parent == parent &&
+                        other.role == role &&
+                        other.model == model
+                end
+
                 # @return [Coordination::Child]
                 def new(execution_context)
                     Coordination::Child.new(execution_context, self)

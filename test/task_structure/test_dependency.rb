@@ -70,22 +70,6 @@ class TC_Dependency < Minitest::Test
         assert_equal expected, t1[t2, Dependency][:model]
     end
 
-    def test_exception_printing
-        parent, child = prepare_plan add: 2, model: Tasks::Simple
-        parent.depends_on child
-        parent.start!
-        child.start!
-        inhibit_fatal_messages do
-            assert_raises(ChildFailedError) { child.failed! }
-        end
-
-	error = plan.check_structure.find { true }[0].exception
-	assert_kind_of(ChildFailedError, error)
-        assert_formatting_succeeds(error)
-
-        parent.stop!
-    end
-
     # This method is a common method used in the various error/nominal tests
     # below. It creates two tasks:
     #  p1 which is an instance of Tasks::Simple
@@ -117,9 +101,7 @@ class TC_Dependency < Minitest::Test
     end
 
     def assert_child_fails(child, reason, plan)
-        error = inhibit_fatal_messages do
-            assert_raises(ChildFailedError) { yield }
-        end
+        error = assert_raises(ChildFailedError) { yield }
         assert_child_failed(child, error, reason.last, plan)
     end
 
@@ -152,53 +134,6 @@ class TC_Dependency < Minitest::Test
         assert(!parent.depends_on?(child))
     end
 
-    def test_success_preempts_explicit_failed
-        parent, child = create_pair success: [:first], 
-            failure: [:stop]
-
-	child.first!
-        child.stop!
-	assert_equal({}, plan.check_structure)
-    end
-
-    def test_success_preempts_failure_on_unreachable
-        parent, child = create_pair success: [:first]
-
-	child.first!
-        child.stop!
-	assert_equal({}, plan.check_structure)
-    end
-
-    def test_failure_explicit
-        parent, child = create_pair success: [:first], 
-            failure: [:stop]
-
-        assert_child_fails(child, child.failed_event, plan) { child.stop! }
-        # To avoid warning messages on teardown
-        plan.remove_task(child)
-    end
-
-    def test_failure_on_pending_relation
-        Roby::ExecutionEngine.logger.level = Logger::FATAL
-        FlexMock.use do |mock|
-            decision_control = Roby::DecisionControl.new
-            decision_control.singleton_class.class_eval do
-                define_method(:pending_dependency_failed) do |parent, child, reason|
-                    mock.decision_control_called
-                    true
-                end
-            end
-
-            plan.execution_engine.control = decision_control
-            parent, child = create_pair success: [], failure: [:stop], start: false
-            child.start!
-
-            mock.should_receive(:decision_control_called).at_least.once
-
-            assert_child_fails(child, child.failed_event, plan) { child.stop! }
-        end
-    end
-
     def test_decision_control_can_ignore_failure_on_pending_relation
         FlexMock.use do |mock|
             decision_control = Roby::DecisionControl.new
@@ -219,71 +154,6 @@ class TC_Dependency < Minitest::Test
             result = plan.check_structure
             assert(result.empty?)
         end
-    end
-
-    def test_failure_on_pending_child_failed_to_start
-        Roby::ExecutionEngine.logger.level = Logger::FATAL
-        _, child = create_pair success: [], failure: [:stop], start: false
-
-        mock = flexmock
-        decision_control = Roby::DecisionControl.new
-        decision_control.singleton_class.class_eval do
-            define_method(:pending_dependency_failed) do |_, _, _|
-                mock.decision_control_called
-                true
-            end
-        end
-
-        plan.execution_engine.control = decision_control
-        # Called once for the initial error handling and once for the
-        # post-recovery check
-        mock.should_receive(:decision_control_called).twice
-        error = assert_raises(ChildFailedError) { child.failed_to_start!(nil) }
-        assert_child_failed(child, error, child.start_event, plan) 
-    end
-
-    def test_failure_on_failed_start
-        plan.add(parent = Tasks::Simple.new)
-        model = Tasks::Simple.new_submodel do
-            event :start do |context|
-                raise ArgumentError
-            end
-        end
-        plan.add(child = model.new(id: 10))
-        parent.depends_on child
-        parent.start!
-
-        error = inhibit_fatal_messages do
-            assert_raises(ChildFailedError) { child.start! }
-        end
-	assert_child_failed(child, error, child.success_event, plan)
-    end
-
-    def test_ChildFailedError_points_to_the_original_exception
-        plan.add(parent = Tasks::Simple.new)
-        model = Tasks::Simple.new_submodel do
-            event :start do |context|
-                raise ArgumentError
-            end
-        end
-        parent.depends_on(child = model.new(id: 10))
-        parent.start!
-
-        inhibit_fatal_messages do
-            e = assert_raises(ChildFailedError) { child.start! }
-            assert_kind_of CommandFailed, e.original_exceptions[0]
-            assert_kind_of ArgumentError, e.original_exceptions[0].original_exceptions[0]
-        end
-        plan.remove_task(child)
-    end
-
-    def test_failure_on_unreachable
-        parent, child = create_pair success: [:first]
-
-	error = assert_child_fails(child, child.failed_event, plan) { child.stop! }
-        assert_equal(nil, error.explanation.value)
-        # To avoid warning messages on teardown
-        plan.remove_task(child)
     end
 
     def test_implicit_fullfilled_model_does_not_include_a_singleton_class_if_the_object_has_one
@@ -524,20 +394,6 @@ class TC_Dependency < Minitest::Test
         assert_equal info, parent[child, Dependency]
     end
 
-    def test_depending_on_already_running_task
-        Roby::ExecutionEngine.logger.level = Logger::FATAL
-        parent, child = prepare_plan add: 2, model: Tasks::Simple
-        plan.add_permanent_task(parent)
-        parent.start!
-        child.start!
-
-        parent.depends_on child, failure: :start
-	result = plan.check_structure
-        assert_equal 1, result.size
-        error = result.first[0].exception
-        assert_child_failed(child, error, child.start_event.last, plan)
-    end
-
     def test_role_paths
         t1, t2, t3, t4 = prepare_plan add: 4, model: Tasks::Simple
 
@@ -581,23 +437,12 @@ class TC_Dependency < Minitest::Test
         assert_equal 10, child.arguments[:id]
     end
 
-    def test_child_fails_before_parent_starts
-        parent, child = prepare_plan add: 2, model: Tasks::Simple
-        parent.depends_on(child, consider_in_pending: false)
-        child.start!
-        child.stop!
-        assert(plan.check_structure.empty?) # no failure yet
-        assert_child_fails(child, child.failed_event, plan) { parent.start! }
-        # To avoid warning messages on teardown
-        plan.remove_task(child)
-    end
-
     def test_child_from_role_in_planless_tasks
         parent, child = Roby::Task.new, Roby::Task.new
         parent.depends_on(child, role: 'child0')
 
         assert_equal child, parent.child_from_role('child0')
-        assert_equal nil, parent.find_child_from_role('nonexist')
+        assert_nil parent.find_child_from_role('nonexist')
         assert_raises(NoSuchChild) { parent.child_from_role('nonexist') }
     ensure
 	plan.add(parent) if parent
@@ -608,7 +453,7 @@ class TC_Dependency < Minitest::Test
         parent.depends_on(child, role: 'child0')
 
         assert_equal child, parent.child_from_role('child0')
-        assert_equal nil, parent.find_child_from_role('nonexist')
+        assert_nil parent.find_child_from_role('nonexist')
         assert_raises(NoSuchChild) { parent.child_from_role('nonexist') }
     end
 
@@ -662,52 +507,30 @@ class TC_Dependency < Minitest::Test
         assert !result.has_key?(:failure)
     end
 
-    def test_watches_are_updated_on_merges
-        parent, child = prepare_plan add: 2, model: Roby::Tasks::Simple
-        plan.add_permanent_task(parent)
-        parent.start!
-        child.start!
-        parent.depends_on child, success: :stop
-        process_events # we clear the initial triggers added by #depends_on
-        parent.depends_on child, success: :success
-        inhibit_fatal_messages do
-            assert_raises(Roby::ChildFailedError) do
-                child.success_event.unreachable!
-            end
-        end
-    end
-
     def test_direct_child_failure_due_to_grandchild_is_assigned_to_the_direct_child
         parent, child, grandchild = prepare_plan add: 3, model: Roby::Tasks::Simple
-        plan.add_permanent_task(parent)
-        plan.add_permanent_task(grandchild)
+        plan.add(parent)
+        plan.add(grandchild)
         parent.depends_on child, failure: :failed
         grandchild.stop_event.forward_to child.aborted_event
         parent.start!
         child.start!
         grandchild.start!
-        inhibit_fatal_messages do
-            e = assert_raises(Roby::ChildFailedError) do
-                grandchild.stop!
-            end
-            assert_equal(child, e.failed_task)
+        assert_fatal_exception(ChildFailedError, failure_point: child, tasks: [parent, child]) do
+            grandchild.stop!
         end
     end
 
     def test_unreachability_child_failure_due_to_grandchild_is_assigned_to_the_direct_child
         parent, child, grandchild = prepare_plan add: 3, model: Roby::Tasks::Simple
-        plan.add_permanent_task(parent)
-        plan.add_permanent_task(grandchild)
+        plan.add(parent)
+        plan.add(grandchild)
         parent.depends_on child, failure: :start.never
         grandchild.start!
         parent.start!
-        inhibit_fatal_messages do
-            begin
-                child.start_event.unreachable!(grandchild.start_event.last)
-                assert(false, 'expected ChildFailedError to be raised, but got not exceptions')
-            rescue Roby::ChildFailedError => e
-                assert_equal(child, e.failed_task)
-            end
+
+        assert_fatal_exception(ChildFailedError, failure_point: child.start_event, tasks: [parent, child]) do
+            child.start_event.unreachable!(grandchild.start_event.last)
         end
     end
 end
@@ -804,7 +627,10 @@ module Roby
                         parent, child = create_parent_child do |parent, child|
                             parent.depends_on child, success: :start
                         end
-                        flexmock(dependency_graph.interesting_events).should_receive(:<<).with(parent.start_event).once
+                        flexmock(dependency_graph.interesting_events).
+                            should_receive(:<<).with(parent.start_event).at_least.once
+                        flexmock(dependency_graph.interesting_events).
+                            should_receive(:<<)
                         parent.start!
                     end
 
@@ -812,7 +638,10 @@ module Roby
                         parent, child = create_parent_child do |parent, child|
                             parent.depends_on child, success: :start
                         end
-                        flexmock(dependency_graph.interesting_events).should_receive(:<<).with(child.start_event).once
+                        flexmock(dependency_graph.interesting_events).
+                            should_receive(:<<).with(child.start_event).at_least.once
+                        flexmock(dependency_graph.interesting_events).
+                            should_receive(:<<)
                         child.start!
                     end
 
@@ -821,8 +650,10 @@ module Roby
                             parent.depends_on child, success: :start
                         end
                         flexmock(dependency_graph.interesting_events).
-                            should_receive(:<<).with(child.start_event).once.pass_thru
-                        assert_raises(ChildFailedError) do
+                            should_receive(:<<).with(child.start_event).at_least.once.pass_thru
+                        flexmock(dependency_graph.interesting_events).
+                            should_receive(:<<)
+                        assert_fatal_exception(ChildFailedError, tasks: [parent, child], failure_point: child.start_event) do
                             child.failed_to_start!(nil)
                         end
                     end
@@ -832,10 +663,40 @@ module Roby
                             parent.depends_on child, failure: :start
                         end
                         flexmock(dependency_graph.interesting_events).
-                            should_receive(:<<).with(child.start_event).once.pass_thru
-                        assert_raises(ChildFailedError) do
+                            should_receive(:<<).with(child.start_event).at_least.once.pass_thru
+                        flexmock(dependency_graph.interesting_events).
+                            should_receive(:<<)
+                        assert_fatal_exception(ChildFailedError, tasks: [parent, child], failure_point: child.start_event) do
                             child.start!
                         end
+                    end
+
+                    context.it "removes a finalized event" do
+                        parent, child = create_parent_child do |parent, child|
+                            parent.depends_on child, success: :start
+                        end
+                        plan.add_mission_task(parent)
+                        execution_engine.process_events_synchronous do
+                            parent.start!
+                            plan.remove_task(child)
+                        end
+                        assert dependency_graph.interesting_events.empty?
+                    end
+
+                    context.it "removes a failing finalized task" do
+                        parent, child = create_parent_child do |parent, child|
+                            parent.depends_on child, failure: :stop
+                        end
+                        plan.add_mission_task(parent)
+                        parent.start!
+                        child.start!
+
+                        plan.on_exception ChildFailedError do
+                            plan.remove_task(child)
+                        end
+                        child.stop!
+
+                        assert dependency_graph.failing_tasks.empty?
                     end
                 end
 
@@ -879,6 +740,156 @@ module Roby
                     end
                     runs(self)
                 end
+                describe "when updating an existing dependency" do
+                    def create_parent_child
+                        parent, child = prepare_plan add: 2, model: Tasks::Simple
+                        parent.depends_on child, success: :stop
+                        yield(parent, child)
+                        return parent, child
+                    end
+                    runs(self)
+                end
+            end
+
+            describe "failure on pending relation" do
+                attr_reader :parent, :child, :decision_control
+                before do
+                    plan.add(@parent = Tasks::Simple.new)
+                    parent.depends_on(@child = Tasks::Simple.new, failure: :stop)
+                    @decision_control = flexmock
+                    plan.execution_engine.control = @decision_control
+                end
+
+                it "generates an error on failure events if the decision control object returns true" do
+                    decision_control.should_receive(pending_dependency_failed: true).at_least.once
+                    child.start!
+                    assert_fatal_exception(ChildFailedError, failure_point: child, tasks: [parent, child]) do
+                        child.stop!
+                    end
+                end
+
+                it "does not generate an error on failure events if the decision control object returns false" do
+                    decision_control.should_receive(pending_dependency_failed: false).at_least.once
+                    child.start!
+                    child.stop!
+                end
+
+                it "does not generate an error on failure events if the relation was created with consider_in_pending: false" do
+                    decision_control.should_receive(:pending_dependency_failed).never
+                    plan.add(parent = Tasks::Simple.new)
+                    parent.depends_on(child = Tasks::Simple.new, failure: :stop, consider_in_pending: false)
+                    child.start!
+                    child.stop!
+                end
+
+                it "fails on parent startup if the relation's failure was ignored by the decision control" do
+                    decision_control.should_receive(pending_dependency_failed: false).at_least.once
+                    plan.add(parent = Tasks::Simple.new)
+                    parent.depends_on(child = Tasks::Simple.new, failure: :stop)
+                    child.start!
+                    child.stop!
+                    assert_fatal_exception(ChildFailedError, failure_point: child.stop_event, tasks: [parent, child]) do
+                        parent.start!
+                    end
+                end
+                it "fails on parent startup if the relation's failure was ignored with 'consider_in_pending'" do
+                    plan.add(parent = Tasks::Simple.new)
+                    parent.depends_on(child = Tasks::Simple.new, failure: :stop, consider_in_pending: false)
+                    child.start!
+                    child.stop!
+                    assert_fatal_exception(ChildFailedError, failure_point: child.stop_event, tasks: [parent, child]) do
+                        parent.start!
+                    end
+                end
+            end
+
+            describe "structure check" do
+                attr_reader :parent, :child_m
+                before do
+                    plan.add(@parent = Tasks::Simple.new)
+                    @child_m = Roby::Tasks::Simple.new_submodel do
+                        event :intermediate
+                    end
+                    parent.start!
+                end
+                it "creates a ChildFailedError that points to the original exception if the failure is caused by one" do
+                    error = Class.new(RuntimeError)
+                    child_m.event(:start) { |context| raise error }
+                    parent.depends_on(child = child_m.new(id: 10))
+
+                    command_failed_matcher = CommandFailed.match.
+                        with_origin(child.start_event).
+                        with_ruby_exception(error)
+                    assert_handled_exception(command_failed_matcher, tasks: [child]) do
+                        assert_fatal_exception(ChildFailedError, tasks: [parent, child], failure_point: child, original_exception: command_failed_matcher) do
+                            child.start!
+                        end
+                    end
+                end
+
+                it "reports a ChildFailedError if a positive 'start' event becomes unreachable" do
+                    parent.depends_on(child = Roby::Tasks::Simple.new, success: :start)
+                    assert_fatal_exception(ChildFailedError, failure_point: child.start_event, tasks: [parent, child]) do
+                        child.start_event.unreachable!
+                    end
+                end
+                
+                it "reports a ChildFailedError if a positive intermediate event becomes unreachable" do
+                    parent.depends_on(child = child_m.new, success: :intermediate)
+                    child.start!
+                    assert_fatal_exception(ChildFailedError, failure_point: child.stop_event, tasks: [parent, child]) do
+                        child.stop_event.emit
+                    end
+                end
+
+                it "reports a ChildFailedError if an event listed in 'failure' is emitted" do
+                    parent.depends_on(child = child_m.new, failure: :intermediate)
+                    child.start!
+                    assert_fatal_exception(ChildFailedError, failure_point: child.intermediate_event, tasks: [parent, child]) do
+                        child.intermediate_event.emit
+                    end
+                end
+
+                it "reports a ChildFailedError if adding a new dependency while a failure event was already emitted" do
+                    plan.add(child = child_m.new)
+                    child.start!
+                    parent.depends_on(child, failure: :start)
+                    assert_fatal_exception(ChildFailedError, failure_point: child.start_event, tasks: [parent, child]) do
+                        process_events
+                    end
+                end
+
+                it "reports a ChildFailedError if adding a new dependency while the success event was already unreachable" do
+                    plan.add(child = child_m.new)
+                    child.start!
+                    child.intermediate_event.unreachable!
+                    parent.depends_on(child, success: :intermediate)
+                    assert_fatal_exception(ChildFailedError, failure_point: child.intermediate_event, tasks: [parent, child]) do
+                        process_events
+                    end
+                end
+
+                it "reports success if both a positive and negative events are emitted at the same time" do
+                    parent.depends_on(child = child_m.new,
+                                      success: :intermediate,
+                                      failure: :stop)
+                    child.start!
+                    execution_engine.process_events_synchronous do
+                        child.intermediate_event.emit
+                        child.stop_event.emit
+                    end
+                end
+
+                it "reports success if the positive event is emitted and becomes unreachable in the same cycle" do
+                    parent.depends_on(child = child_m.new,
+                                      success: :intermediate)
+                    child.start!
+                    execution_engine.process_events_synchronous do
+                        child.intermediate_event.emit
+                        child.stop_event.emit
+                    end
+                end
+
             end
         end
     end

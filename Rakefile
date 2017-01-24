@@ -3,10 +3,22 @@ require "rake/testtask"
 
 task :default
 
+has_gui = begin
+              require 'Qt'
+              true
+          rescue LoadError
+              false
+          end
+
 Rake::TestTask.new(:test) do |t|
     t.libs << "."
     t.libs << "lib"
-    t.test_files = FileList['test/suite_core.rb']
+    test_files = FileList['test/**/test_*.rb']
+    if !has_gui
+        test_files = test_files.exclude("test/test_gui.rb")
+    end
+    t.test_files = test_files
+    t.warning = false
 end
 
 begin

@@ -37,7 +37,7 @@ module Roby
                             include super_m
                         end
 
-                        flexmock(m).should_receive(:supermodel).
+                        flexmock(m).should_receive(:supermodel).explicitly.
                             and_return(super_m)
 
                         assert_equal [], DRobyModel.provided_models_of(m)
@@ -70,13 +70,13 @@ module Roby
                     end
 
                     it "applies the unmarshalled provided models" do
-                        flexmock(local).should_receive(:provides).with(provided_m).once
+                        flexmock(local).should_receive(:provides).explicitly.with(provided_m).once
                         droby_model.update(demarshaller, local)
                     end
 
                     it "does not apply the models already provided by the local object" do
                         local.include provided_m
-                        flexmock(local).should_receive(:provides).never
+                        flexmock(local).should_receive(:provides).explicitly.never
                         droby_model.update(demarshaller, local)
                     end
                 end

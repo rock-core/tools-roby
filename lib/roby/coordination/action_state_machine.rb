@@ -8,13 +8,17 @@ module Roby
         class ActionStateMachine < Actions
             extend Models::ActionStateMachine
 
+            include Hooks
+            include Hooks::InstanceHooks
+
+            define_hooks :on_transition
             # The current state
             attr_reader :current_state
 
             StateInfo = Struct.new :required_tasks, :forwards, :transitions
 
-            def initialize(action_interface_model, root_task, arguments = Hash.new)
-                super(action_interface_model, root_task, arguments)
+            def initialize(root_task, arguments = Hash.new)
+                super(root_task, arguments)
                 @task_info = resolve_state_info
 
 
@@ -49,7 +53,7 @@ module Roby
             def dependency_options_for(toplevel, task, roles)
                 options = super
                 options[:success] = task_info[toplevel].transitions.map do |source, _|
-                    source.symbol if source.task == task
+                    source.symbol.emitted?.from_now if source.task == task
                 end.compact
                 options
             end
@@ -58,12 +62,12 @@ module Roby
                 start_task(state)
                 state_info = task_info[state]
                 tasks, known_transitions = state_info.required_tasks, state_info.transitions
-                tasks.each do |task, roles|
-                    known_transitions.each do |source_event, new_state|
-                        source_event.resolve.on do |event|
-                            if root_task.running?
-                                instanciate_state_transition(event.task, new_state)
-                            end
+                transitioned = false
+                known_transitions.each do |source_event, new_state|
+                    source_event.resolve.once do |event|
+                        if !transitioned && root_task.running?
+                            transitioned = true
+                            instanciate_state_transition(event.task, new_state)
                         end
                     end
                 end
@@ -72,6 +76,7 @@ module Roby
             def instanciate_state_transition(task, new_state)
                 remove_current_task
                 instanciate_state(new_state)
+                run_hook :on_transition, task, new_state
             end
         end
     end

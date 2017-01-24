@@ -17,7 +17,23 @@ module Roby
                     Coordination::Event.new(execution_context, self)
                 end
 
-                def to_s; "#{task_model}.#{symbol}_event" end
+                def ==(other)
+                    other.kind_of?(self.class) &&
+                        other.symbol == symbol &&
+                        other.task == task
+                end
+
+                # When running in this event's state, forward this event to the
+                # given root task event
+                def forward_to(root_event)
+                    if !root_event.task.respond_to?(:coordination_model)
+                        raise NotRootEvent, "can only forward to a root event"
+                    end
+                    root_event.task.coordination_model.
+                        forward task, self, root_event
+                end
+
+                def to_s; "#{task}.#{symbol}_event" end
             end
         end
     end

@@ -32,6 +32,63 @@ module Roby
                     end
                 end
 
+                describe "#wait" do
+                    describe "while connecting" do
+                        it "waits for the pending connection attempt to finish and returns true" do
+                            interface = Interface.new { }
+                            assert interface.wait
+                            assert interface.connection_future.complete?
+                        end
+                        it "with a timeout, the method returns false if the attempt is not finished" do
+                            sync = Concurrent::Event.new
+                            interface = Interface.new { sync.wait }
+                            refute interface.wait(timeout: 0.1)
+                            sync.set
+                        end
+                        it "with a timeout, the method returns true if the attempt is finished" do
+                            interface = Interface.new { }
+                            assert interface.wait(timeout: 10)
+                        end
+                    end
+                    describe "when connected" do
+                        attr_reader :server, :interface
+                        before do
+                            @server = create_server
+                            @interface = connect(server)
+                        end
+                        it "does not consume the received data" do
+                            server.interface.notify_cycle_end
+                            assert interface.wait
+                            refute interface.client.cycle_index
+                            interface.poll
+                            assert_equal execution_engine.cycle_index, interface.client.cycle_index
+                        end
+                        it "times out if no data is received on the channel" do
+                            refute interface.wait(timeout: 0.1)
+                        end
+                        it "returns true if there is data on the channel without a timeout" do
+                            server.interface.notify_cycle_end
+                            assert interface.wait
+                        end
+                        it "returns true if there is data on the channel with a timeout" do
+                            server.interface.notify_cycle_end
+                            assert interface.wait(timeout: 0.1)
+                        end
+                        it "returns if the channel is closed" do
+                            server.close
+                            assert interface.wait
+                        end
+                        it "blocks if no data is on the channel and no timeout is given" do
+                            t = Thread.new { interface.wait }
+                            while t.status != "sleep"
+                                sleep 0.01
+                            end
+                            sleep 0.1
+                            assert(t.status == 'sleep')
+                        end
+                    end
+                end
+
                 describe "reachability hooks" do
                     it "calls on_unreachable once when there are no remote server" do
                         interface = create_client

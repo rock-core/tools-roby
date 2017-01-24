@@ -15,12 +15,29 @@ module Roby
         # It is always self.class
         def concrete_model; self.class end
 
+        # The underlying execution engine if {#plan} is executable
         attr_reader :execution_engine
+
+        # A thread pool that ensures that any work queued using {#promise} is
+        # serialized
+        attr_reader :promise_executor
 
         def connection_space
             if plan
                 plan.connection_space
             end
+        end
+
+        # Whether this task can be finalized
+        #
+        # Unlike plan-level structure, a task that is marked as keepalive *will*
+        # be processed by garbage collection (e.g. stopping it). However, it
+        # will not be finalized (removed from the plan). The garbage collection
+        # will clear its relations instead of finalizing it
+        #
+        # The default returns true
+        def can_finalize?
+            true
         end
 
         # Generic handling object for blocks that are stored on tasks (event
@@ -106,6 +123,7 @@ module Roby
 
             @removed_at = nil
             @executable = nil
+            @garbage = false
             @finalization_handlers = Array.new
             @model = self.class
         end
@@ -122,8 +140,11 @@ module Roby
 	# The plan this object belongs to
 	attr_reader :plan
 
-        # The engine which acts on +plan+ (if there is one)
-        def engine; plan.execution_engine if plan && plan.executable? end
+        # @deprecated use {#execution_engine} instead
+        def engine
+            Roby.warn_deprecated "PlanObject#engine is deprecated, use #execution_engine instead"
+            execution_engine
+        end
 
         # True if this object is a transaction proxy, false otherwise
         def transaction_proxy?; false end
@@ -150,11 +171,25 @@ module Roby
 	    end
             @addition_time = Time.now
 	    @plan = new_plan
-            @execution_engine =
-                if new_plan && new_plan.executable?
-                    new_plan.execution_engine
-                end
+            if new_plan && new_plan.executable?
+                @execution_engine = new_plan.execution_engine
+                @promise_executor = Concurrent::SerializedExecutionDelegator.
+                    new(@execution_engine.thread_pool)
+            else
+                @execution_engine = nil
+                @promise_executor = nil
+            end
 	end
+
+        # Create a promise that is serialized with all promises created for this
+        # object
+        #
+        # @param [String] description  a textual description of the promise's
+        #   role (used for debugging and timing)
+        # @return [Promise]
+        def promise(description: "#{self}.promise", executor: promise_executor, &block)
+            execution_engine.promise(description: description, executor: executor, &block)
+        end
 
         # Used in plan management as a way to extract a plan object from any
         # object
@@ -303,8 +338,28 @@ module Roby
 
 	# If this object is executable
 	def executable?
-	    @executable || (@executable.nil? && plan && plan.executable?)
+	    @executable || (@executable.nil? && !garbage? && plan && plan.executable?)
 	end
+
+        # @!method garbage?
+        #
+        # Whether this task has been marked as garbage by the garbage collection
+        # process
+        #
+        # @see garbage!
+        attr_predicate :garbage?
+
+        # Mark this task as garbage
+        #
+        # Garbage tasks cannot be involved in new relations, and cannot be
+        # executed
+        #
+        # Once set, this flag cannot be unset
+        #
+        # @see garbage?
+        def garbage!
+            @garbage = true
+        end
 
 	# True if we are explicitely subscribed to this object
 	def subscribed?
@@ -347,6 +402,11 @@ module Roby
         # It raises RuntimeError if both objects are already included in a
         # plan, but their plan mismatches.
 	def synchronize_plan(other) # :nodoc:
+            if !plan
+                raise RuntimeError, "cannot add a relation with #{self}, which has already been finalized"
+            elsif !other.plan
+                raise RuntimeError, "cannot add a relation with #{other}, which has already been finalized"
+            end
 	    return if plan == other.plan
 
             if other.plan.template?

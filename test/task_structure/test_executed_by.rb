@@ -3,6 +3,9 @@ require 'roby/test/self'
 module Roby
     module TaskStructure
         describe ExecutionAgent do
+            class BaseExecutionAgent < Tasks::Simple
+                event :ready
+            end
             class ExecutionAgentModel < Tasks::Simple
                 event :ready
                 forward start: :ready
@@ -155,9 +158,9 @@ module Roby
                 task_model = Tasks::Simple.new_submodel
                 task_model.executed_by ExecutionAgentModel, id: 2
                 plan.add(task = task_model.new)
-                e = assert_raises(TaskStructure::MissingRequiredExecutionAgent) { task.start! }
-                assert task.failed_to_start?
-                assert_kind_of TaskStructure::MissingRequiredExecutionAgent, task.failure_reason
+                assert_task_fails_to_start(task, TaskStructure::MissingRequiredExecutionAgent, direct: true) do
+                    task.start!
+                end
             end
 
             def test_as_plan
@@ -186,10 +189,38 @@ module Roby
                 plan.add(task = Tasks::Simple.new)
                 plan.add(agent = ExecutionAgentModel.new)
                 task.executed_by agent
-                e = assert_raises(TaskStructure::ExecutionAgentNotReady) do
+                assert_task_fails_to_start(task, TaskStructure::ExecutionAgentNotReady) do
                     task.start!
                 end
-                assert task.failed_to_start?
+            end
+
+            it "marks the executed tasks as failed_to_start if the agent's ready_event becomes unreachable" do
+                plan.add(task = Tasks::Simple.new)
+                task.executed_by(agent = BaseExecutionAgent.new)
+                agent.start!
+                assert_task_fails_to_start(task, Roby::LocalizedError, failure_point: nil, direct: true) do
+                    agent.ready_event.unreachable!(LocalizedError.new(task))
+                end
+            end
+
+            it "does not mark the executed task as failed_to_start because the ready_event becomes unreachable once it has been emitted" do
+                plan.add(task = Tasks::Simple.new)
+                task.executed_by(agent = BaseExecutionAgent.new)
+                agent.start!
+                agent.ready_event.emit
+                agent.ready_event.unreachable!
+                refute task.failed_to_start?
+                task.start!
+            end
+            it "does not mark the executed task as failed_to_start when the ready_event becomes unreachable if the relation was established after the event's emission" do
+                plan.add(task = Tasks::Simple.new)
+                plan.add(agent = BaseExecutionAgent.new)
+                agent.start!
+                agent.ready_event.emit
+                task.executed_by(agent)
+                agent.ready_event.unreachable!
+                refute task.failed_to_start?
+                task.start!
             end
         end
     end

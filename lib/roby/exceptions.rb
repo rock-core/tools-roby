@@ -126,6 +126,10 @@ module Roby
             self
         end
 
+        def to_s
+            PP.pp(self, '')
+        end
+
         def pretty_print(pp)
             pp.text "from #{origin} with trace "
             pp.nest(2) do
@@ -282,7 +286,7 @@ module Roby
         end
     end
 
-    def self.format_exception(exception)
+    def self.format_one_exception(exception)
         message = begin
                       PP.pp(exception, "")
                   rescue Exception => formatting_error
@@ -300,30 +304,68 @@ module Roby
         message.split("\n")
     end
 
-    def self.log_pp(obj, logger, level)
-        if logger.respond_to?(:logger)
-            logger = logger.logger
-        end
-
-        logger.send(level) do
-            first_line = true
-            format_exception(obj).each do |line|
-                if first_line
-                    line = color(line, :bold, :red)
-                    first_line = false
-                end
-                logger.send(level, line)
+    def self.format_exception(exception, with_original_exceptions: true)
+        message = format_one_exception(exception)
+        if with_original_exceptions && exception.respond_to?(:original_exceptions)
+            exception.original_exceptions.each do |original_e|
+                message.concat(format_exception(original_e, with_original_exceptions: true))
             end
-            break
+        end
+        message
+    end
+
+    LOG_SYMBOLIC_TO_NUMERIC = Array[
+        :debug,
+        :info,
+        :warn,
+        :error,
+        :fatal,
+        :unknown]
+
+    def self.log_level_enabled?(logger, level)
+        logger_level = if logger.respond_to?(:log_level)
+                           logger.log_level
+                       else logger.level
+                       end
+
+        if numeric_level = LOG_SYMBOLIC_TO_NUMERIC.index(level.to_sym)
+            logger_level <= numeric_level
+        else
+            raise ArgumentError, "#{level} is not a valid log level, log levels are #{LOG_SYMBOLIC_TO_NUMERIC.map(&:inspect).join(", ")}"
+        end
+    end
+
+    def self.log_pp(obj, logger, level)
+        return if !log_level_enabled?(logger, level)
+
+        message = begin
+                      PP.pp(obj, "")
+                  rescue Exception => formatting_error
+                      begin
+                          "error formatting object\n" +
+                              obj + "\nplease report the formatting error: \n" + 
+                              formatting_error.full_message
+                      rescue Exception => formatting_error
+                          "\nerror formatting object\n" +
+                              formatting_error.full_message
+                      end
+                  end
+
+        message.split("\n").each do |line|
+            logger.send(level, line)
         end
     end
 
     def self.log_exception(e, logger, level, with_original_exceptions: true)
-        log_pp(e, logger, level)
-        if with_original_exceptions && e.respond_to?(:original_exceptions)
-            e.original_exceptions.each do |original_e|
-                log_exception(original_e, logger, level, with_original_exceptions: true)
+        return if !log_level_enabled?(logger, level)
+
+        first_line = true
+        format_exception(e, with_original_exceptions: with_original_exceptions).each do |line|
+            if first_line
+                line = color(line, :bold, :red)
+                first_line = false
             end
+            logger.send(level, line)
         end
     end
 

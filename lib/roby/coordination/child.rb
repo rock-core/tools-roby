@@ -5,6 +5,10 @@ module Roby
                 # @return [Coordination::Task] this child's parent
                 attr_reader :parent
 
+                def root_task
+                    parent
+                end
+
                 def initialize(execution_context, model)
                     super
                     @parent = execution_context.instance_for(model.parent)

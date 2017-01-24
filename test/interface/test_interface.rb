@@ -44,12 +44,12 @@ describe Roby::Interface::Interface do
             plan.add(job_task = job_task_m.new(job_id: nil))
             plan.add(planned_task = Roby::Task.new)
             planned_task.planned_by job_task
-            assert_equal nil, interface.job_id_of_task(job_task)
-            assert_equal nil, interface.job_id_of_task(planned_task)
+            assert_nil interface.job_id_of_task(job_task)
+            assert_nil interface.job_id_of_task(planned_task)
         end
         it "should return nil for plain tasks" do
             plan.add(plain = Roby::Task.new)
-            assert_equal nil, interface.job_id_of_task(plain)
+            assert_nil interface.job_id_of_task(plain)
         end
     end
 
@@ -76,7 +76,7 @@ describe Roby::Interface::Interface do
             assert_equal job_task, interface.find_job_by_id(10)
         end
         it "should return nil if no job with the given ID exists" do
-            assert_equal nil, interface.find_job_by_id(10)
+            assert_nil interface.find_job_by_id(10)
         end
     end
 
@@ -137,9 +137,7 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).with(Roby::Interface::JOB_FINALIZED, 10, "the job").once.ordered
             interface.monitor_job(task.planning_task, task)
             job_task.start!
-            inhibit_fatal_messages do
-                assert_raises(Roby::PlanningFailedError) { job_task.failed_event.emit }
-            end
+            assert_raises(Roby::PlanningFailedError) { job_task.failed_event.emit }
             interface.push_pending_job_notifications
         end
 
@@ -254,21 +252,17 @@ describe Roby::Interface::Interface do
             exception_validator = lambda do |error|
                 error.origin == child_task && error.exception.class == Roby::ChildFailedError
             end
-            recorder.should_receive(:called).with(Roby::ExecutionEngine::EXCEPTION_FATAL, exception_validator, [child_task, parent_task])
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) do
-                    child_task.stop!
-                end
+            recorder.should_receive(:called).with(Roby::ExecutionEngine::EXCEPTION_FATAL, exception_validator, Set[child_task, parent_task], Set.new).once
+            assert_raises(Roby::ChildFailedError) do
+                child_task.stop!
             end
         end
 
         it "allows to remove a listener" do
             recorder.should_receive(:called).never
             interface.remove_exception_listener(exception_listener)
-            inhibit_fatal_messages do
-                assert_raises(Roby::ChildFailedError) do
-                    child_task.stop!
-                end
+            assert_raises(Roby::ChildFailedError) do
+                child_task.stop!
             end
         end
     end
@@ -393,6 +387,25 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).never
             interface.remove_cycle_end(listener_id)
             app.plan.execution_engine.cycle_end(Hash.new)
+        end
+    end
+
+    describe "#enable_backtrace_filtering" do
+        it "disables backtrace filtering on the app" do
+            interface.enable_backtrace_filtering(enable: false)
+            refute interface.app.filter_backtraces?
+        end
+        it "reenables backtrace filtering on the app" do
+            interface.enable_backtrace_filtering(enable: false)
+            interface.enable_backtrace_filtering(enable: true)
+            assert interface.app.filter_backtraces?
+        end
+    end
+
+    describe "#log_dir" do
+        it "returns the app's log dir" do
+            flexmock(interface.app).should_receive(:log_dir).and_return(result = flexmock)
+            assert_equal result, interface.log_dir
         end
     end
 end

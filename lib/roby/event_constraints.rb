@@ -774,7 +774,11 @@ end
 
             # Code generation to create the overall evaluated predicate
             def code
-                "!!task_#{event_name}"
+                if @deadline
+                    return "task_#{event_name} && (task_#{event_name}.time.to_f > #{@deadline.to_f})"
+                else
+                    "!!task_#{event_name}"
+                end
             end
 
             # Returns an Explanation object that explains why +self+ is true.
@@ -802,11 +806,16 @@ end
             end
             def static?(task)
                 event = task.event(event_name)
-                event.emitted? || event.unreachable?
+                evaluate(task) || event.unreachable?
             end
 
             def never
                 Never.new(self)
+            end
+
+            def from_now
+                @deadline = Time.now
+                self
             end
 
             def not_followed_by(event)

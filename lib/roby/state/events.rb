@@ -147,8 +147,11 @@ module Roby
         # Emit only if the event is armed
         def emit(*context) # :nodoc:
             if armed?
-                @armed = false
-                super
+                begin
+                    super
+                ensure
+                    @armed = false
+                end
             end
         end
     end

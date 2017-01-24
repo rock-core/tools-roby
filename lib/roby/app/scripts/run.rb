@@ -6,6 +6,8 @@ app.require_app_dir
 app.public_shell_interface = true
 app.public_logs = true
 
+MetaRuby.keep_definition_location = false
+
 run_controller = false
 options = OptionParser.new do |opt|
     opt.banner = <<-EOD
@@ -17,6 +19,17 @@ scripts/controllers/ and/or some explicitly given actions
 
     Roby::Application.common_optparse_setup(opt)
 
+    opt.on '--quiet' do
+        Roby.logger.level = Logger::WARN
+        Robot.logger.level = Logger::WARN
+    end
+    opt.on '--log-dir=DIR', String, "explicitely set the log dir (must exist)" do |dir|
+        app.log_dir = dir
+        app.log_create_current = false
+    end
+    opt.on '--port=PORT', Integer, 'the interface port' do |port|
+        app.shell_interface_port = port
+    end
     opt.on '--single', "run without connecting to external server. Support for this is plugin-dependent."  do
         app.single
     end
@@ -26,27 +39,67 @@ scripts/controllers/ and/or some explicitly given actions
     opt.on '-c', "--controller", "run the controller files and blocks"  do
         run_controller = true
     end
+    opt.on '-p', '--plugin=PLUGIN', String, 'load this plugin' do |plugin|
+        Roby.app.using plugin
+    end
 end
+
+has_double_dash = false
+extra_args = Array.new
+ARGV.delete_if do |arg|
+    if arg == '--'
+        has_double_dash = true
+    elsif has_double_dash
+        extra_args << arg
+        true
+    else false
+    end
+end
+
 remaining_arguments = options.parse(ARGV)
-
-direct_files, actions = remaining_arguments.partition do |arg|
-    File.file?(arg)
+additional_controller_files = Array.new
+if !extra_args.empty?
+    additional_controller_files << extra_args.shift
+    ARGV.replace(extra_args)
 end
-Roby.app.additional_model_files.concat(direct_files)
 
-Roby.display_exception do
+additional_controller_files.each do |file|
+    if !File.file?(file)
+        Roby.error "#{file}, given as a controller script on the command line, does not exist"
+        exit 1
+    end
+end
+
+additional_model_files = Array.new
+actions = Array.new
+remaining_arguments.each do |arg|
+    if File.file?(arg)
+        additional_model_files << File.expand_path(arg)
+    elsif File.extname(arg) == '.rb'
+        Roby.error "#{arg}, given as a model script on the command line, does not exist"
+        exit 1
+    else actions << arg
+    end
+end
+Roby.app.additional_model_files.concat(additional_model_files)
+
+error = Roby.display_exception do
     app.setup
+    actions = actions.map do |act_name|
+        _, action = Roby.app.find_action_from_name(act_name)
+        if !action
+            Robot.error "#{act_name}, given as an action on the command line, does not exist"
+            exit 1
+        end
+        action
+    end
+
     Roby.plan.execution_engine.once(description: 'roby run bootup') do
         Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
 
         # Start the requested actions
         actions.each do |act|
-            begin
-                eval "Robot.#{act}"
-            rescue Exception => e
-                Robot.warn "cannot start action #{act} specified on the command line"
-                Roby.log_exception_with_backtrace(e, Robot, :warn)
-            end
+            Roby.plan.add_mission_task(act.plan_pattern)
         end
 
         if run_controller
@@ -66,8 +119,18 @@ Roby.display_exception do
                 Robot.info "no controller block registered, and found no controller file to load for #{Roby.app.robot_name}:#{Roby.app.robot_type}"
             end
         end
+
+        if additional_controller_files
+            additional_controller_files.each do |c|
+                Robot.info "loading #{c}"
+                load c
+            end
+        end
+
         Robot.info "done initialization"
     end
-    app.run
+    app.run(thread_priority: -1)
 end
-
+if error
+    exit 1
+end

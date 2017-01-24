@@ -9,7 +9,8 @@ module Roby
             noinfo: true,
             distribute: false,
             single_child: true,
-            copy_on_replace: true
+            copy_on_replace: true,
+            strong: true
 
         class ExecutedTaskAlreadyRunning < RuntimeError; end
 
@@ -162,8 +163,10 @@ module Roby
 
                     end
                     if !child.used_as_execution_agent?
-                        child.ready_event.when_unreachable(
-                            true, &ExecutionAgent.method(:execution_agent_failed_to_start))
+                        if !child.ready_event.emitted?
+                            child.ready_event.when_unreachable(
+                                true, &ExecutionAgent.method(:execution_agent_failed_to_start))
+                        end
                         child.stop_event.on(
                             &ExecutionAgent.method(:pending_execution_agent_failed))
                         child.used_as_execution_agent = true

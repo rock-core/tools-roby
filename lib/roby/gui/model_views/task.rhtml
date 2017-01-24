@@ -8,7 +8,7 @@ ancestry.shift
 <p><b>Superclasses</b>: <%= ancestry.map { |m| page.link_to(m) }.join(", ") %></p>
 
 <%
-events = task_model.each_event.map { |ev| ev.last }.sort_by { |ev| ev.symbol.to_s }
+events = task_model.each_event.map { |_, ev| ev }.sort_by { |ev| ev.symbol.to_s }
 events = events.map do |ev|
     flags = []
     if ev.controlable?

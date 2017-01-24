@@ -4,34 +4,45 @@ module Roby
     module DRoby
         module Timepoints
             class Analysis
-                attr_reader :root
-                attr_reader :current_group
+                attr_reader :roots
+                attr_reader :thread_names
+                attr_reader :current_groups
 
                 def initialize
-                    @root = @current_group = Root.new
+                    @thread_names = Hash.new
+                    @roots = roots = Hash.new
+                    @current_groups = Hash.new do |h, thread_id|
+                        roots[thread_id] = h[thread_id] = Root.new(thread_id)
+                    end
                 end
 
-                def add(time, name)
-                    current_group.add(time, name)
+                def add(time, thread_id, thread_name, name)
+                    thread_names[thread_id] ||= thread_name
+                    current_groups[thread_id].add(time, name)
                 end
 
-                def group_start(time, name)
-                    @current_group = current_group.group_start(time, name)
+                def group_start(time, thread_id, thread_name, name)
+                    thread_names[thread_id] ||= thread_name
+                    @current_groups[thread_id] = current_groups[thread_id].group_start(time, name)
                 end
 
-                def group_end(time, name)
-                    if current_group == root
+                def group_end(time, thread_id, thread_name, name)
+                    thread_names[thread_id] ||= thread_name
+                    current_g = current_groups[thread_id]
+                    if current_g == roots[thread_id]
                         raise ArgumentError, "called #group_end on the root group"
-                    elsif name != current_group.name
+                    elsif name != current_g.name
                         raise ArgumentError, "mismatching name in #group_end"
                     end
 
-                    @current_group = current_group.group
-                    current_group.group_end(time)
+                    current_g = @current_groups[thread_id] = current_g.group
+                    current_g.group_end(time)
                 end
 
                 def flamegraph
-                    raw = root.flamegraph
+                    raw = roots.each_value.map do |root|
+                        root.flamegraph
+                    end
                     folded = Hash.new(0)
                     raw.each_slice(2) do |path, value|
                         folded[path] += value
@@ -39,9 +50,11 @@ module Roby
                     folded.to_a.sort
                 end
 
-                def format(indent: 0, base_time: root.start_time, absolute_times: true)
-                    root.format(indent: indent, base_time: base_time, absolute_times: absolute_times).
-                        join("\n")
+                def format(indent: 0, base_time: roots.each_value.map(&:start_time).min, absolute_times: true)
+                    roots.each_value.map do |root|
+                        root.format(indent: indent, base_time: base_time, absolute_times: absolute_times).
+                            join("\n")
+                    end.join("\n")
                 end
             end
 
@@ -147,10 +160,10 @@ module Roby
                 attr_reader :name
                 attr_reader :level
 
-                def initialize
-                    super
+                def initialize(name = 'root')
+                    super()
 
-                    @name = 'root'
+                    @name = name
                     @level = 0
                 end
             end

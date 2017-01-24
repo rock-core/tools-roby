@@ -8,14 +8,20 @@ module Roby
             attr_reader :server
             # @return [Array<Client>] set of currently active clients
             attr_reader :clients
+            # @return [String] the address this interface is bound to
+            def ip_address; server.local_address.ip_address end
+            # @return [Integer] the port on which this interface runs
+            def ip_port; server.local_address.ip_port end
+            # Whether the server handler should warn about disconnections
+            attr_predicate :warn_about_disconnection?, true
 
             # Creates a new interface server on the given port
             #
             # @param [Integer] port
-            def initialize(app, port = Interface::DEFAULT_PORT)
+            def initialize(app, host: nil, port: Interface::DEFAULT_PORT)
                 @interface = Interface.new(app)
                 @server =
-                    begin ::TCPServer.new(port)
+                    begin ::TCPServer.new(host, port)
                     rescue TypeError
                         raise Errno::EADDRINUSE, "#{port} already in use"
                     end
@@ -23,13 +29,15 @@ module Roby
                 @propagation_handler_id = interface.execution_engine.add_propagation_handler(description: 'TCPServer#process_pending_requests', on_error: :ignore) do
                     process_pending_requests
                 end
+                @warn_about_disconnection = false
             end
 
             # Returns the port this server is bound to
             #
             # @return [Integer]
             def port
-                server.addr(false)[1]
+                Roby.warn_deprecated "Interface::TCPServer#port is deprecated in favor of #ip_port to match ruby's Addrinfo API"
+                ip_port
             end
 
             # Creates a server object that will manage the replies on a
@@ -56,7 +64,9 @@ module Roby
                         begin
                             client.poll
                         rescue ComError => e
-                            Roby::Interface.warn "disconnecting from #{client.client_id}: #{e}"
+                            if warn_about_disconnection?
+                                Roby::Interface.warn "disconnecting from #{client.client_id}: #{e}"
+                            end
                             client.close
                             clients.delete(client)
                         end
@@ -82,7 +92,8 @@ module Roby
         # Connect to a Roby controller interface at this host and port
         #
         # @return [Client] the client object that gives access
-        def self.connect_with_tcp_to(host, port, marshaller: DRoby::Marshal.new(auto_create_plans: true))
+        def self.connect_with_tcp_to(host, port = DEFAULT_PORT, marshaller: DRoby::Marshal.new(auto_create_plans: true))
+            require 'socket'
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
             Client.new(DRobyChannel.new(socket, true, marshaller: DRoby::Marshal.new(auto_create_plans: true)),

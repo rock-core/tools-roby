@@ -50,9 +50,19 @@ module Robot
 	end
 
 	options = args.first || {}
-	task, planner = Roby.app.prepare_action(name, **options)
+	task, planner = Roby.app.prepare_action(name, job_id: Roby::Interface::Job.allocate_job_id, **options)
         task.plan.add_mission_task(task)
 	return task, planner
+    end
+
+    # Declare the robot type of the robot configuration being loaded
+    #
+    # Place this on top of the robot file in config/robots/
+    def self.robot_type(robot_type)
+        # Declare it first
+        Roby.app.robots.declare_robot_type(Roby.app.robot_name, robot_type)
+        # And then set it up
+        Roby.app.robot(Roby.app.robot_name, robot_type)
     end
 
     def self.init(&block)

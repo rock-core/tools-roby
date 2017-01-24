@@ -9,29 +9,60 @@ describe Roby::TaskArguments do
     end
 
     describe "#[]=" do
-        it "should allow assignation to unset arguments" do
-            plan.add(task = task_m.new)
+        it "sets the argument if writable? returns true" do
+            flexmock(task.arguments).should_receive(:writable?).
+                with(:arg, 'A').once.and_return(true)
             task.arguments[:arg] = 'A'
             assert_equal('A', task.arg)
             assert_equal({ arg: 'A' }, task.arguments)
         end
 
-        it "should not allow overriding already set arguments" do
-            plan.add(task = task_m.new(arg: 'B'))
-            assert_raises(ArgumentError) { task.arg = 10 }
+        it "raises if writable? returns false" do
+            flexmock(task.arguments).should_receive(:writable?).
+                with(:arg, 'A').once.and_return(false)
+            assert_raises(ArgumentError) do
+                task.arguments[:arg] = 'A'
+            end
         end
 
-        it "should allow overriding already set arguments that are not meaningful" do
+        it "raises NotMarshallable if attempting to set an argument that is marked with the DRoby::Unmarshallable module" do
+            object = Object.new
+            object.extend Roby::DRoby::Unmarshallable
+            e = assert_raises Roby::NotMarshallable do
+                task.arguments[:arg] = object
+            end
+            assert_equal "values used as task arguments must be marshallable, attempting to set arg to #{object} of class Object, which is not", e.message
+        end
+    end
+
+    describe "#writable?" do
+        it "returns true for unset arguments" do
+            task = task_m.new
+            assert task.arguments.writable?(:arg, 'A')
+        end
+
+        it "returns false for arguments set with non-delayed argument objects" do
+            plan.add(task = task_m.new(arg: 'B'))
+            refute task.arguments.writable?(:arg, 10)
+        end
+
+        it "returns true for arguments that are set but not meaningful" do
             plan.add(task = task_m.new(arg: 'B', useless: 'bla'))
             task.arguments[:bar] = 42
-            task.arguments[:bar] = 43
+            task.arguments.writable?(:bar, 43)
         end
 
-        it "should allow overriding delayed arguments" do
+        it "returns true if the current argument is a delayed arg object and the new argument is not" do
             arg = flexmock(evaluate_delayed_argument: nil)
-            plan.add(task = task_m.new)
-            task.arguments[:arg] = arg
-            task.arguments[:arg] = 10
+            task = task_m.new(arg: arg)
+            assert task.arguments.writable?(:arg, 10)
+        end
+
+        it "returns true if the current and new arguments are both delayed arg objects" do
+            arg = flexmock(evaluate_delayed_argument: nil)
+            new_arg = flexmock(evaluate_delayed_argument: nil)
+            task = task_m.new(arg: arg)
+            assert task.arguments.writable?(:arg, new_arg)
         end
     end
 
@@ -73,6 +104,15 @@ describe Roby::TaskArguments do
             args = Roby::TaskArguments.new(task_m.new)
             args.merge!(key: flexmock(evaluate_delayed_argument: 10))
             assert !args.static?
+        end
+        it "raises if attempting to set to a non-marshallable value" do
+            args = Roby::TaskArguments.new(task_m.new)
+            object = Object.new
+            object.extend Roby::DRoby::Unmarshallable
+            e = assert_raises Roby::NotMarshallable do
+                args.merge!(key: object)
+            end
+            assert_equal "values used as task arguments must be marshallable, attempting to set key to #{object}, which is not", e.message
         end
         it "does not raise if the hash updates a non-writable value with the same value" do
             args = task_m.new(arg: 20).arguments

@@ -17,6 +17,12 @@ module Roby
                 model.name
             end
 
+            def ==(other)
+                other.kind_of?(Action) &&
+                    model == other.model &&
+                    arguments == other.arguments
+            end
+
             # Update this object with new arguments and returns it
             #
             # @param [Hash] arguments new arguments
@@ -24,6 +30,12 @@ module Roby
             def with_arguments(arguments)
                 @arguments.merge!(arguments)
                 self
+            end
+
+            def has_missing_required_arg?
+                model.arguments.any? do |arg|
+                    arg.required? && !arguments.has_key?(arg.name.to_sym)
+                end
             end
 
             # The task model returned by this action
@@ -55,14 +67,6 @@ module Roby
 
             def to_coordination_task(task_model = Roby::Task)
                 Coordination::Models::TaskFromAction.new(self)
-            end
-
-            # Returns the coordination model that defines the underlying action
-            # 
-            # @return (see Models::Action#to_coordination_model)
-            # @raise (see Models::Action#to_coordination_model)
-            def to_coordination_model
-                model.to_coordination_model
             end
 
             def to_action

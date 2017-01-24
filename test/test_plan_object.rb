@@ -72,3 +72,55 @@ class TC_PlanObject < Minitest::Test
     end
 end
 
+module Roby
+    describe PlanObject do
+        describe "#executable?" do
+            attr_reader :plan_object
+            before do
+                @plan_object = PlanObject.new
+            end
+
+            it "matches the plan's executable flag by default" do
+                refute plan_object.executable?
+                flexmock(plan_object.plan).should_receive(:executable?).and_return(true)
+                assert plan_object.executable?
+            end
+
+            it "can be overriden to true" do
+                plan_object.executable = true
+                assert plan_object.executable?
+            end
+
+            it "can be overriden to false" do
+                flexmock(plan_object.plan).should_receive(:executable?).and_return(true)
+                plan_object.executable = false
+                refute plan_object.executable?
+            end
+
+            it "reverts to the default behaviour if #executable is set to nil" do
+                plan_object.executable = true
+                plan_object.executable = nil
+                refute plan_object.executable?
+                flexmock(plan_object.plan).should_receive(:executable?).and_return(true)
+                assert plan_object.executable?
+            end
+
+            it "is false by default if the object is garbage" do
+                plan_object.garbage!
+                refute plan_object.executable?
+            end
+        end
+
+        describe "#promise" do
+            it "creates a promise using the object's own executor" do
+                plan.add(object = Task.new)
+                flexmock(Promise).should_receive(:new).
+                    with(execution_engine,
+                         ->(h) { h[:executor].equal?(object.promise_executor) && h[:description] == 'promise description' },
+                         Proc).once.and_return(promise = flexmock)
+                assert_equal promise, object.promise(description: 'promise description') {}
+            end
+        end
+    end
+end
+

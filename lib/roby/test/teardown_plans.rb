@@ -12,14 +12,10 @@ module Roby
 
             def clear_registered_plans
                 registered_plans.each do |p|
-                    engine = p.execution_engine
-                    while engine && engine.running?
-                        engine.quit
-                        engine.join rescue nil
-                    end
+                    p.execution_engine.killall
+                    p.execution_engine.reset
                     p.clear
                 end
-
                 registered_plans.clear
             end
 
@@ -31,34 +27,37 @@ module Roby
 
                 plans = self.registered_plans.map do |p|
                     if p.executable?
-                        [p, p.execution_engine, p.tasks.to_set, p.gc_quarantine.to_set]
+                        [p, p.execution_engine, Set.new, Set.new]
                     end
                 end.compact
 
                 counter = 0
                 while !plans.empty?
                     plans = plans.map do |plan, engine, last_tasks, last_quarantine|
+                        plan_quarantine = plan.quarantined_tasks
                         if counter > 100
-                            Roby.warn "more than #{counter} iterations while trying to shut down #{plan}, quarantine=#{plan.gc_quarantine.size} tasks, tasks=#{plan.tasks.size} tasks"
+                            Roby.warn "more than #{counter} iterations while trying to shut down #{plan} after #{self.class.name}##{name}, quarantine=#{plan_quarantine.size} tasks, tasks=#{plan.tasks.size} tasks"
                             if last_tasks != plan.tasks
                                 Roby.warn "Known tasks:"
                                 plan.tasks.each do |t|
-                                    Roby.warn "  #{t}"
+                                    Roby.warn "  #{t} running=#{t.running?} finishing=#{t.finishing?}"
                                 end
                                 last_tasks = plan.tasks.dup
                             end
-                            if last_quarantine != plan.gc_quarantine
+                            if last_quarantine != plan_quarantine
                                 Roby.warn "Quarantined tasks:"
-                                plan.gc_quarantine.each do |t|
+                                plan_quarantine.each do |t|
                                     Roby.warn "  #{t}"
                                 end
-                                last_quarantine = plan.gc_quarantine.dup
+                                last_quarantine = plan_quarantine.dup
                             end
                             sleep 1
                         end
                         engine.killall
+
+                        quarantine_and_dependencies = plan.compute_useful_tasks(plan.quarantined_tasks)
                         
-                        if plan.gc_quarantine.size != plan.tasks.size
+                        if quarantine_and_dependencies.size != plan.tasks.size
                             [plan, engine, last_tasks, last_quarantine]
                         end
                     end.compact
@@ -70,7 +69,7 @@ module Roby
                         if plan.tasks.all? { |t| t.pending? }
                             plan.clear
                         else
-                            Roby.warn "failed to teardown: #{plan} has #{plan.tasks.size} tasks and #{plan.free_events.size} events, #{plan.gc_quarantine.size} of which are in quarantine"
+                            Roby.warn "failed to teardown: #{plan} has #{plan.tasks.size} tasks and #{plan.free_events.size} events, #{plan.quarantined_tasks.size} of which are in quarantine"
                             if !plan.execution_engine
                                 Roby.warn "this is most likely because this plan does not have an execution engine. Either add one or clear the plan in the tests"
                             end

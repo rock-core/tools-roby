@@ -35,8 +35,7 @@ module Roby
             nil
         end
 
-        # Returns the proxying module for +object+. Raises ArgumentError if
-        # +object+ is not an object which should be wrapped
+        # Returns the proxying module for +object+
 	def self.proxying_module_for(klass)
 	    proxying_module = @@proxying_modules[klass]
             if !proxying_module
@@ -46,13 +45,14 @@ module Roby
 
             if !proxying_module[1]
                 result = proxying_module[0]
-                result.include Transaction::Proxying
-                klass.ancestors.each do |ancestor|
-                    if ancestor != klass
-                        if mod_proxy = @@proxying_modules[ancestor]
-                            result.include mod_proxy[0]
-                        end
+                modules = klass.ancestors.map do |ancestor|
+                    if (ancestor != klass) && (mod_proxy = @@proxying_modules[ancestor])
+                        mod_proxy[0]
                     end
+                end.compact
+                modules << Transaction::Proxying
+                modules.reverse.each do |mod|
+                    result.include mod
                 end
                 proxying_module[1] = true
             end
@@ -64,14 +64,12 @@ module Roby
             result = Module.new do
                 attr_accessor :__getobj__
                 def transaction_proxy?; true end
-                for name in mod.instance_methods(false)
+                mod.instance_methods(false).each do |name|
                     next if name =~ /^__.*__$/
                     next if name == :object_id
-                    class_eval <<-EOD, __FILE__, __LINE__+1
-                    def #{name}(*args, &block)
-                        __getobj__.send("#{name}", *args, &block)
+                    define_method(name) do |*args, &block|
+                        __getobj__.send(name, *args, &block)
                     end
-                    EOD
                 end 
             end
 

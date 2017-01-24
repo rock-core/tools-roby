@@ -153,31 +153,32 @@ module Roby
                 # with {#on_reachable}
                 def poll_connection_attempt
                     return if client
+                    return if !connection_future.complete?
 
-                    if connection_future.complete?
-                        case e = connection_future.reason
-                        when ConnectionError, ComError, ProtocolError
-                            Interface.info "failed connection attempt: #{e}"
-                            attempt_connection
-                            if @first_connection_attempt
-                                @first_connection_attempt = false
-                                run_hook :on_unreachable
-                            end
-                            nil
-                        when NilClass
-                            Interface.info "successfully connected"
-                            @client, jobs = connection_future.value
-                            jobs = jobs.map do |job_id, (job_state, placeholder_task, job_task)|
-                                JobMonitor.new(self, job_id, state: job_state, placeholder_task: placeholder_task, task: job_task)
-                            end
-                            run_hook :on_reachable, jobs
-                            new_job_listeners.each do |listener|
-                                listener.reset
-                                run_initial_new_job_hooks_events(listener, jobs)
-                            end
-                        else
-                            raise connection_future.reason
+                    case e = connection_future.reason
+                    when ConnectionError, ComError, ProtocolError
+                        Interface.info "failed connection attempt: #{e}"
+                        attempt_connection
+                        if @first_connection_attempt
+                            @first_connection_attempt = false
+                            run_hook :on_unreachable
                         end
+                        nil
+                    when NilClass
+                        Interface.info "successfully connected"
+                        @client, jobs = connection_future.value
+                        @connection_future = nil
+                        jobs = jobs.map do |job_id, (job_state, placeholder_task, job_task)|
+                            JobMonitor.new(self, job_id, state: job_state, placeholder_task: placeholder_task, task: job_task)
+                        end
+                        run_hook :on_reachable, jobs
+                        new_job_listeners.each do |listener|
+                            listener.reset
+                            run_initial_new_job_hooks_events(listener, jobs)
+                        end
+                    else
+                        future, @connection_future = @connection_future, nil
+                        raise future.reason
                     end
                 end
 
@@ -237,6 +238,10 @@ module Roby
                     client.exception_queue.clear
                 end
 
+                def connecting?
+                    connection_future
+                end
+
                 def connected?
                     !!client
                 end
@@ -269,6 +274,32 @@ module Roby
                     false
                 end
 
+                # Blocking call that waits until calling #poll would do something
+                #
+                # @param [Numeric,nil] timeout a timeout after which the method
+                #   will return. Use nil for no timeout
+                # @return [Boolean] falsy if the timeout was reached, true
+                #   otherwise
+                def wait(timeout: nil)
+                    if connected?
+                        client.wait(timeout: timeout)
+                    else
+                        wait_connection_attempt_result(timeout: timeout)
+                    end
+                end
+
+                # Wait for the current connection attempt to finish
+                #
+                # @param [Numeric,nil] timeout a timeout after which the method
+                #   will return. Use nil for no timeout
+                # @return [Boolean] falsy if the timeout was reached, true
+                #   otherwise
+                def wait_connection_attempt_result(timeout: nil)
+                    connection_future.wait(timeout)
+                    connection_future.complete?
+                end
+
+
                 # Active part of the async. This has to be called regularly within
                 # the system's main event loop (e.g. Roby's, Vizkit's or Qt's)
                 #
@@ -278,7 +309,7 @@ module Roby
                     if connected?
                         poll_messages
                         true
-                    else
+                    elsif connecting?
                         poll_connection_attempt
                         !!client
                     end
@@ -299,8 +330,16 @@ module Roby
                     end
                 end
 
-                def close
+                # Close the connection to the Roby interface
+                #
+                # @param [Boolean] reconnect if true, attempt to reconnect right
+                #   away. If false, the caller will be responsible to call
+                #   {#attempt_connection} before any future call to {#poll}
+                def close(reconnect: false)
                     unreachable!
+                    if reconnect
+                        attempt_connection
+                    end
                 end
 
                 # True if we are connected to a client
@@ -339,7 +378,7 @@ module Roby
                 #
                 # @param [String] action_name the action name
                 # @return [Array<JobMonitor>] the matching jobs
-                def find_all_jobs(action_name, jobs: jobs)
+                def find_all_jobs(action_name, jobs: self.jobs)
                     jobs.find_all do |job|
                         job.task.action_model.name == action_name
                     end

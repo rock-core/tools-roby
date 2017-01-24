@@ -6,10 +6,6 @@ module Roby
 
             provides Roby::Interface::Job
 
-            # Once the task has been started, this is the interface object that
-            # is being used / has been used to generate the action in the plan
-            # @return [Interface]
-            attr_reader :action_interface
             # Once the task has been started, this is the transaction object that
             # is being used / has been used to generate before committing in the
             # plan
@@ -71,8 +67,6 @@ module Roby
 
             # Starts planning
             event :start do |context|
-                start_event.emit
-
                 if owners.size > 1
                     @transaction = Distributed::Transaction.new(plan)
                     owners.each do |peer|
@@ -81,16 +75,18 @@ module Roby
                 else
                     @transaction = Transaction.new(plan)
                 end
+                start_event.emit
             end
 
             poll do
-                @action_interface = action_interface_model.new(transaction)
-                result_task = action_model.run(action_interface, action_arguments)
+                result_task = action_model.instanciate(transaction, action_arguments)
 
                 # Don't replace the planning task with ourselves if the
                 # transaction specifies another planning task
                 if new_planning_task = result_task.planning_task
-                    new_planning_task.job_id ||= job_id
+                    if !new_planning_task.arguments.set?(:job_id)
+                        new_planning_task.job_id = job_id
+                    end
                 else
                     result_task.planned_by transaction[self]
                 end

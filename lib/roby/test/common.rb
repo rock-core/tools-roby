@@ -31,6 +31,8 @@ require 'roby/test/assertion'
 require 'roby/test/error'
 require 'roby/test/teardown_plans'
 
+FlexMock.partials_are_based = true
+
 module Roby
     # This module is defining common support for tests that need the Roby
     # infrastructure
@@ -46,7 +48,7 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
 
-	BASE_PORT     = 1245
+	BASE_PORT     = 21000
 	DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
 	REMOTE_PORT    = BASE_PORT + 1
 	LOCAL_PORT     = BASE_PORT + 2
@@ -77,6 +79,7 @@ module Roby
 
         def deprecated_feature
             Roby.enable_deprecation_warnings = false
+            flexmock(Roby).should_receive(:warn_deprecated).at_least.once
             yield
         ensure
             Roby.enable_deprecation_warnings = true
@@ -129,34 +132,33 @@ module Roby
 	    Thread.abort_on_exception = false
 	    @remote_processes = []
 
-            Roby.app.log_setup 'robot', 'DEBUG:robot.txt'
             Roby.app.log_server = false
 
             plan.execution_engine.gc_warning = false
 
+            @watched_events = nil
             @handler_ids = Array.new
             @handler_ids << execution_engine.add_propagation_handler(description: 'Test.verify_watched_events', type: :external_events) do |plan|
-                Test.verify_watched_events
+                verify_watched_events
             end
 	end
 
         def assert_adds_roby_localized_error(matcher)
-            matcher = matcher.match
+            matcher = matcher.match.to_execution_exception_matcher
             errors = plan.execution_engine.gather_errors do
                 yield
             end
 
-            errors = errors.map(&:exception)
             assert !errors.empty?, "expected to have added a LocalizedError, but got none"
             errors.each do |e|
-                assert_exception_can_be_pretty_printed(e)
+                assert_exception_can_be_pretty_printed(e.exception)
             end
             if matched_e = errors.find { |e| matcher === e }
-                return matched_e
+                return matched_e.exception
             elsif errors.empty?
                 flunk "block was expected to add an error matching #{matcher}, but did not"
             else
-                raise SynchronousEventProcessingMultipleErrors.new(errors)
+                raise SynchronousEventProcessingMultipleErrors.new(errors.map(&:exception))
             end
         end
 
@@ -211,7 +213,7 @@ module Roby
                     execution_engine.remove_propagation_handler(handler_id)
                 end
             end
-            Test.verify_watched_events
+            verify_watched_events
 
             # Plan teardown would have disconnected the peers already
 	    stop_remote_processes
@@ -220,7 +222,7 @@ module Roby
 
 	    if defined? Roby::Application
 		Roby.app.abort_on_exception = false
-		Roby.app.abort_on_application_exception = false
+		Roby.app.abort_on_application_exception = true
 	    end
 
             super
@@ -235,28 +237,62 @@ module Roby
 	end
         
 	# Process pending events
-	def process_events
+	def process_events(timeout: 2, enable_scheduler: nil, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true, &caller_block)
+            exceptions = Array.new
             registered_plans.each do |p|
                 engine = p.execution_engine
-                if engine.running?
-                    raise NotImplementedError, "using running engines in tests is not supported anymore"
-                end
 
-                engine.join_all_worker_threads
-                engine.start_new_cycle
-                engine.process_events
-                engine.cycle_end(Hash.new)
+                first_pass = true
+                while first_pass || (engine.has_waiting_work? && join_all_waiting_work)
+                    initial_events_block = caller_block if first_pass
+                    first_pass = false
+
+                    if join_all_waiting_work
+                        engine.join_all_waiting_work(timeout: timeout)
+                    end
+                    engine.start_new_cycle
+                    errors =
+                        begin
+                            current_scheduler_state = engine.scheduler.enabled?
+                            if !enable_scheduler.nil?
+                                engine.scheduler.enabled = enable_scheduler
+                            end
+
+                            engine.process_events(garbage_collect_pass: garbage_collect_pass, &initial_events_block)
+                        ensure
+                            engine.scheduler.enabled = current_scheduler_state
+                        end
+
+                    exceptions.concat(errors.exceptions)
+                    engine.cycle_end(Hash.new)
+                end
+            end
+
+            if raise_errors && !exceptions.empty?
+                if exceptions.size == 1
+                    e = exceptions.first
+                    raise e.exception
+                else
+                    raise SynchronousEventProcessingMultipleErrors.new(exceptions.map(&:exception))
+                end
             end
 	end
 
-        def process_events_until(timeout = 5)
+        # Repeatedly process events until a condition is met
+        #
+        # @yieldreturn [Boolean] true if the condition is met, false otherwise
+        #
+        # @param (see #process_events)
+        def process_events_until(timeout: 5, join_all_waiting_work: false, **options)
             start = Time.now
             while !yield
-                process_events
-                Thread.pass
-                if Time.now - start > timeout
-                    flunk("failed to reach expected condition")
+                now = Time.now
+                remaining = timeout - (now - start)
+                if remaining < 0
+                    flunk("failed to reach condition #{proc} within #{timeout} seconds")
                 end
+                process_events(timeout: remaining, join_all_waiting_work: join_all_waiting_work, **options)
+                sleep 0.01
             end
         end
 
@@ -400,52 +436,6 @@ module Roby
 
 	    result
 	end
-
-	@watched_events = []
-	@waiting_threads  = []
-
-	EVENT_WATCH_TLS = :test_watched_events
-
-        class << self
-            # A [thread, cv, positive, negative] list of event assertions
-            attr_reader :watched_events
-        end
-
-        # Tests for events in +positive+ and +negative+ and returns
-        # the set of failing events if the assertion has finished.
-        # If the set is empty, it means that the assertion finished
-        # successfully
-        def self.event_watch_result(positive, negative, deadline = nil)
-            if deadline && deadline < Time.now
-                return true, "timed out waiting for #{positive.map(&:to_s).join(", ")} to happen"
-            end
-
-            if positive_ev = positive.find { |ev| ev.emitted? }
-                return false, "#{positive_ev} happened"
-            end
-            failure = negative.find_all { |ev| ev.emitted? }
-            unless failure.empty?
-                return true, "#{failure} happened"
-            end
-
-            if positive.all? { |ev| ev.unreachable? }
-                return true, "all positive events are unreachable"
-            end
-
-            nil
-        end
-
-        # This method is inserted in the control thread to implement
-        # Assertions#assert_events
-        def self.verify_watched_events
-            watched_events.delete_if do |result_queue, positive, negative, deadline|
-                error, result = Test.event_watch_result(positive, negative, deadline)
-                if !error.nil?
-                    result_queue.push([error, result])
-                    true
-                end
-            end
-        end
 
         def develop_planning_method(method_name, args = Hash.new)
             options, args = Kernel.filter_options args,

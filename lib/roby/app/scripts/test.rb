@@ -12,12 +12,21 @@ app.simulation = true
 app.testing = true
 app.auto_load_models = false
 
+MetaRuby.keep_definition_location = false
+
 list_tests = false
 coverage_mode = false
+really_all = false
 testrb_args = []
 parser = OptionParser.new do |opt|
-    opt.on('--all', 'auto-load all models and the corresponding tests') do |val|
+    opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- [MINITEST_OPTIONS] [TEST_FILES]"
+    opt.on('--really-all', 'auto-load models and run the corresponding tests found within the search path') do |val|
         app.auto_load_models = true
+        really_all = true
+    end
+    opt.on('--all', 'auto-load models and run the corresponding tests found within this app dir') do |val|
+        app.auto_load_models = true
+        really_all = false
     end
 
     opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
@@ -35,35 +44,35 @@ parser = OptionParser.new do |opt|
     opt.on("-i", "--interactive", "allow user interaction during tests") do |val|
 	Roby.app.automatic_testing = false
     end
-    opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
-	testrb_args << "-n" << name
-    end
-    opt.on('-v', '--verbose', String, "run tests in verbose mode") do |verbose|
-        testrb_args << '-v'
-    end
     opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
         coverage_mode = true
     end
-    opt.on('--server PORT', Integer, 'the minitest server port') do |server_port|
-        testrb_args << "--server" << server_port.to_s
-    end
-    opt.on('--stackprof[=FILE]', String, 'run tests under stackprof (requires the minitest-stackprof gem)') do |path|
-        testrb_args << "--stackprof"
-        if path
-            testrb_args << path
-        end
+    opt.on '--help' do
+        pp opt
+        Minitest.run ['--help']
+        exit 0
     end
     Roby::Application.common_optparse_setup(opt)
 end
 
 test_files = parser.parse(ARGV)
+test_files.delete_if do |arg|
+    if arg.start_with?('-')
+        testrb_args << arg
+        true
+    end
+end
+
+if test_files.empty?
+    MetaRuby.keep_definition_location = true
+end
 
 if coverage_mode
     require 'simplecov'
     SimpleCov.start
 end
 
-Roby.display_exception do
+exception = Roby.display_exception do
     Roby.app.setup
     if Roby.app.public_logs?
         STDOUT.puts "Test logs are saved in #{Roby.app.log_dir}"
@@ -73,6 +82,9 @@ Roby.display_exception do
         # tests.options.banner.sub!(/\[options\]/, '\& tests...')
         if test_files.empty?
             test_files = app.each_test_file.map(&:first)
+            if !really_all
+                test_files = test_files.find_all { |path| app.self_file?(path) }
+            end
         end
 
         if list_tests
@@ -90,4 +102,4 @@ Roby.display_exception do
         Roby.app.cleanup
     end
 end
-
+exit(exception ? 1 : 0)

@@ -2,27 +2,6 @@ module Roby
     module Coordination
         module Models
 
-            # Exception raised in state machine definitions when a state is used
-            # in a transition, that cannot be reached in the first place
-            class UnreachableStateUsed < RuntimeError
-                # The set of unreachable states
-                attr_reader :states
-
-                def initialize(states)
-                    @states = states
-                end
-
-                def pretty_print(pp)
-                    pp.text "#{states.size} states are unreachable but used in transitions anyways"
-                    pp.nest(2) do
-                        pp.seplist(states) do |s|
-                            pp.breakable
-                            s.pretty_print(pp)
-                        end
-                    end
-                end
-            end
-
         # Definition of model-level functionality for action state machines
         #
         # In an action state machine, each state is represented by a single Roby
@@ -83,6 +62,24 @@ module Roby
             #
             # @return [Array<(Task,Event,Task)>]
             inherited_attribute(:transition, :transitions) { Array.new }
+
+            # (see Actions#toplevel_state?)
+            def toplevel_state?(state)
+                starting_state == state ||
+                    transitions.any? { |from_state, _, to_state| from_state == state || to_state == state }
+            end
+
+            # @see (Base#map_task)
+            def map_tasks(mapping)
+                super
+
+                @starting_state = mapping[starting_state]
+                @transitions = transitions.map do |state, event, new_state|
+                    [mapping[state],
+                     mapping[event.task].find_event(event.symbol),
+                     mapping[new_state]]
+                end
+            end
 
             # Declares the starting state
             def start(state)
@@ -164,12 +161,17 @@ module Roby
 
                 if spec.size == 2
                     state_event, new_state = *spec
-                    transition(state_event.task, state_event, validate_task(new_state))
+                    transition(state_event.task, state_event, new_state)
                 elsif spec.size != 3
                     raise ArgumentError, "expected 2 or 3 arguments, got #{spec.size}"
                 else
                     state, state_event, new_state = *spec
-                    transitions << [state, state_event, validate_task(new_state)]
+                    validate_task(state)
+                    validate_task(new_state)
+                    if !event_active_in_state?(state_event, state)
+                        raise EventNotActiveInState, "cannot transition on #{state_event} while in state #{state} as the event is not active in this state"
+                    end
+                    transitions << [state, state_event, new_state]
                 end
             end
         end

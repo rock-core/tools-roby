@@ -94,6 +94,14 @@ module Roby
             def match
                 self
             end
+
+            # Describe a failed match in a human-readable way
+            #
+            # It is meant to help debugging in tests
+            #
+            # @return [nil,String]
+            def describe_failed_match(exception)
+            end
         end
     end
 end

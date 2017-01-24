@@ -208,13 +208,13 @@ module Roby
                 each_in_neighbour(from) do |parent|
                     if parent != to
                         add_edge(parent, to, edge_info(parent, from))
-                        edges << [parent, to]
+                        edges << [parent, from]
                     end
                 end
                 each_out_neighbour(from) do |child|
                     if to != child
                         add_edge(to, child, edge_info(from, child))
-                        edges << [to, child]
+                        edges << [from, child]
                     end
                 end
 
@@ -268,9 +268,12 @@ module Roby
             # Unlike {BidirectionalDirectedAdjacencyGraph#add_edge}, it will
             # update the edge info (using {#merge_info}) if the edge already
             # exists.
+            #
+            # @return true if a new edge was created
             def add_edge(a, b, info)
                 if !try_updating_existing_edge_info(a, b, info)
                     super
+                    true
                 end
             end
 
@@ -371,6 +374,7 @@ module Roby
                 removed_relations.each_slice(2) do |parent, child|
                     observer.removed_edge(parent, child, relations_ids)
                 end
+                !removed_relations.empty?
             end
 
             # Remove the relation between +from+ and +to+, in this graph and in its
@@ -457,20 +461,20 @@ module Roby
             # One single graph can be the superset of multiple subgraphs (these are
             # stored in the {#subsets} attribute), but one graph can have only one
             # parent {#parent}.
+            #
+            # This operation can be called only if the new subset is empty (no
+            # edges and no vertices)
+            #
+            # @param [Graph] relation the relation that should be added as a
+            #   subset of self
+            # @raise [ArgumentError] if 'relation' is not empty
             def superset_of(relation)
-                relation.each_edge do |source, target, info|
-                    if has_edge_in_hierarchy?(source, target)
-                        raise ArgumentError, "relation and self already share an edge"
-                    end
+                if !relation.empty?
+                    raise ArgumentError, "cannot pass a non-empty graph to #superset_of"
                 end
 
                 relation.parent = self
                 subsets << relation
-
-                # Copy the relations of the child into this graph
-                relation.each_edge do |source, target, info|
-                    source.add_child_object(target, self, info)
-                end
             end
 
             def remove(vertex)

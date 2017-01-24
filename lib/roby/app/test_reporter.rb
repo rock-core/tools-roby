@@ -43,13 +43,19 @@ module Roby
                 server.test_start(pid)
             end
 
+            # This method is part of the minitest API
+            def prerecord(klass, method_name)
+                file, = klass.instance_method(method_name).source_location
+                server.test_method(pid, file, klass.name, method_name)
+            end
+
             # This method is part of the minitest API ... cannot change its name
             def record(result)
                 r = result
                 c = r.class
                 file, = c.instance_method(r.name).source_location
                 failures = manager.dump(r.failures)
-                @has_failures ||= failures.any? { |e| !e.kind_of?(Minitest::Skip) }
+                @has_failures ||= r.failures.any? { |e| !e.kind_of?(Minitest::Skip) }
                 server.test_result(pid, file, c.name, r.name, failures, r.assertions, r.time)
             end
 

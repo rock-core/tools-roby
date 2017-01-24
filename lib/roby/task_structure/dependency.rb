@@ -192,6 +192,7 @@ module Roby
                     if ev.plan == plan
                         events << ev
                         true
+                    else !ev.plan
                     end
                 end
                 tasks = Set.new
@@ -199,6 +200,7 @@ module Roby
                     if task.plan == plan
                         tasks << task
                         true
+                    else !task.plan
                     end
                 end
                 return Array.new if events.empty? && tasks.empty?
@@ -207,8 +209,7 @@ module Roby
 
                 # Get the set of tasks for which a possible failure has been
                 # registered The tasks that are failing the hierarchy requirements
-                # are registered in Hierarchy.failing_tasks. The interesting_events
-                # set is cleared when the events are finalized
+                # are registered in Hierarchy.failing_tasks.
                 events.each do |event|
                     task = event.task
                     tasks << task
@@ -768,11 +769,6 @@ module Roby
                             return child_from_role($1)
                         end
                     end
-                    super
-                end
-
-                def finalized!(timestamp = nil)
-                    relation_graphs[Dependency].failing_tasks.delete(self)
                     super
                 end
             end

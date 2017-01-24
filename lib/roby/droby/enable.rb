@@ -6,6 +6,7 @@ Exception.include Roby::DRoby::V5::Builtins::ExceptionDumper
 Array.include     Roby::DRoby::V5::Builtins::ArrayDumper
 Hash.include      Roby::DRoby::V5::Builtins::HashDumper
 Set.include       Roby::DRoby::V5::Builtins::SetDumper
+Thread.include    Roby::DRoby::Identifiable
 
 class Module
     def droby_dump(dest)
@@ -97,6 +98,14 @@ module Roby
                 class Argument
                     include DRoby::V5::Actions::Models::Action::ArgumentDumper
                 end
+            end
+
+            class MethodAction
+                include DRoby::V5::Actions::Models::MethodActionDumper
+            end
+
+            class CoordinationAction
+                include DRoby::V5::Actions::Models::CoordinationActionDumper
             end
         end
     end

@@ -117,7 +117,9 @@ module Roby
                 @current_time = time
 
                 begin
-                    send(m, time, *args)
+                    if respond_to?(m)
+                        send(m, time, *args)
+                    end
                 rescue Interrupt
                     raise
                 rescue Exception => e
@@ -239,7 +241,7 @@ module Roby
                 end
             end
 
-            def garbage_task(time, plan, object)
+            def garbage_task(time, plan, object, can_finalize)
                 plan = local_object(plan)
                 object = local_object(object)
                 plan.garbaged_tasks << object

@@ -24,6 +24,11 @@ module Roby
     # itself
     class InternalError < RuntimeError; end
 
+    # Exception raised if an object is not droby-marshallable in a place where
+    # one is required
+    class NotMarshallable < ArgumentError
+    end
+
     # Module used to tag exceptions that "wrap" an original error from the user
     # code
     #
@@ -136,6 +141,9 @@ module Roby
     end
 
 
+    # Exception raises when attempting to add relations to a
+    # garbaged-but-not-finalized task
+    class ReusingGarbage < RuntimeError; end
     # Exception class used when trying to perform an operation on a finalized
     # object and the operation requires a plan
     class FinalizedPlanObject < RuntimeError; end
@@ -178,9 +186,6 @@ module Roby
             end
         end
     end
-    # Raised during event propagation if an event is called, while this event
-    # is not controlable.
-    class EventNotControlable < LocalizedError; end
     # Raised when an error occurs on a task while we were terminating it
     class TaskEmergencyTermination < LocalizedError
         attr_reader :reason
@@ -264,13 +269,25 @@ module Roby
         end
     end
 
+    # Raised when a command is being processed, but it cannot be (e.g. because
+    # of task state)
+    class CommandRejected < LocalizedError; end
+
+    # Raised when an event's emission has being requested, but it cannot be
+    # (e.g. because of task state)
+    class EmissionRejected < LocalizedError; end
+
     # Raised if a command block has raised an exception
     class CommandFailed < CodeError
         def pretty_print(pp)
             pp.text "uncaught exception in the command of the "
             failed_generator.pretty_print(pp)
+            pp.text " (#{self.class})"
         end
     end
+    # Raised during event propagation if an event is called, while this event
+    # is not controlable.
+    class EventNotControlable < LocalizedError; end
     # Raised when the call of an event has been canceled.
     # See EventGenerator#cancel.
     class EventCanceled < LocalizedError; end
@@ -290,6 +307,7 @@ module Roby
 	def pretty_print(pp) # :nodoc:
             pp.text "failed emission of the "
             failed_generator.pretty_print(pp)
+            pp.text " (#{self.class})"
 	end
     end
     # Raised when an event handler has raised.
@@ -297,6 +315,7 @@ module Roby
         def pretty_print(pp)
             pp.text "uncaught exception in an event handler of the "
             failed_generator.pretty_print(pp)
+            pp.text " (#{self.class})"
             pp.breakable
             pp.text "called during the propagation of "
             failed_event.pretty_print(pp)
@@ -411,6 +430,7 @@ module Roby
         def pretty_print(pp)
             pp.text "mission failed: "
             failed_task.pretty_print(pp)
+            pp.breakable
             super(pp)
         end
     end
@@ -421,6 +441,7 @@ module Roby
         def pretty_print(pp)
             pp.text "permanent task failed: "
             failed_task.pretty_print(pp)
+            pp.breakable
             super(pp)
         end
     end
@@ -459,5 +480,9 @@ module Roby
             end
         end
     end
+
+    # Exception raised when a finished task has a promise attached, or when one
+    # attempts to create one on a finished task
+    class PromiseInFinishedTask < RuntimeError; end
 end
 

@@ -30,10 +30,15 @@ module Roby
         # under the same job
         JOB_REPLACED         = :replaced
 
+        # Whether the given state indicates that the job's planning is finished
+        def self.planning_finished_state?(state)
+            ![JOB_PLANNING_READY, JOB_PLANNING, JOB_FINALIZED].include?(state)
+        end
+
         # Tests if the given state (one of the JOB_ constants) is terminal, e.g.
         # means that the job is finished
         def self.terminal_state?(state)
-            [JOB_PLANNING_FAILED, JOB_FAILED, JOB_FINISHED, JOB_FINALIZED].include?(state)
+            [JOB_PLANNING_FAILED, JOB_FAILED, JOB_SUCCESS, JOB_FINISHED, JOB_FINALIZED].include?(state)
         end
 
         # Tests if the given state (one of the JOB_ constants) means that the
@@ -109,7 +114,7 @@ module Roby
                 super(app)
                 app.plan.add_trigger Roby::Interface::Job do |task|
                     if task.job_id && (planned_task = task.planned_task)
-                        monitor_job(task, planned_task)
+                        monitor_job(task, planned_task, new_task: true)
                     end
                 end
                 execution_engine.at_cycle_end do
@@ -129,7 +134,7 @@ module Roby
             def log_server_port
                 app.log_server_port
             end
-            command :log_port, 'returns the port of the log server',
+            command :log_server_port, 'returns the port of the log server',
                 advanced: true
 
             # The set of actions available on {#app}
@@ -318,7 +323,7 @@ module Roby
             # Monitor the given task as a job
             #
             # It must be called within the Roby execution thread
-            def monitor_job(planning_task, task)
+            def monitor_job(planning_task, task, new_task: false)
                 # NOTE: this method MUST queue job notifications
                 # UNCONDITIONALLY. Job tracking is done on a per-cycle basis (in
                 # at_cycle_end) by {#push_pending_job_notifications}
@@ -327,7 +332,7 @@ module Roby
                 job_name = planning_task.job_name
 
                 service = PlanService.new(task)
-                service.on_plan_status_change do |status|
+                service.on_plan_status_change(initial: !new_task) do |status|
                     if status == :mission
                         job_notify(JOB_MONITORED, job_id, job_name, service.task, service.task.planning_task)
                         job_notify(job_state(service.task), job_id, job_name)
@@ -551,6 +556,21 @@ module Roby
             # This is implemented on Server directly
             command 'enable_notifications', 'enables the forwarding of notifications'
             command 'disable_notifications', 'disables the forwarding of notifications'
+
+            # Enable or disable backtrace filtering
+            def enable_backtrace_filtering(enable: true)
+                app.filter_backtraces = enable
+            end
+            command :enable_backtrace_filtering, 'enable or disable backtrace filtering',
+                enable: 'true to enable, false to disable',
+                advanced: true
+
+            # Returns the app's log directory
+            def log_dir
+                app.log_dir
+            end
+            command :log_dir, "the app's log directory",
+                advanced: true
         end
     end
 end

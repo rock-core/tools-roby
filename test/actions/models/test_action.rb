@@ -110,5 +110,25 @@ describe Roby::Actions::Models::Action do
             end
         end
     end
+
+    describe "#has_arg?" do
+        attr_reader :action_m
+        before do
+            interface_m = Roby::Actions::Interface.new_submodel
+            @action_m   = Roby::Actions::Models::Action.new(interface_m)
+        end
+        it "matches string and symbol names" do
+            action_m.optional_arg('string_name')
+            action_m.optional_arg('symbol_name')
+            assert action_m.has_arg?('string_name')
+            assert action_m.has_arg?(:string_name)
+            assert action_m.has_arg?('symbol_name')
+            assert action_m.has_arg?(:symbol_name)
+        end
+        it "returns false on a non-existent argument" do
+            refute action_m.has_arg?('does_not_exist')
+            refute action_m.has_arg?(:does_not_exist)
+        end
+    end
 end
 

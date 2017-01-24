@@ -69,16 +69,18 @@ module Roby
         # status changes
         #
         # @yieldparam [Symbol] status one of :mission, :permanent or :normal
-        def on_plan_status_change(&block)
+        def on_plan_status_change(initial: true, &block)
             plan_status_handlers << block
-            current_status =
-                if task.plan.mission_task?(task)
-                    :mission
-                elsif task.plan.permanent_task?(task)
-                    :permanent
-                else :normal
-                end
-            block.call(current_status)
+            if initial
+                current_status =
+                    if task.plan.mission_task?(task)
+                        :mission
+                    elsif task.plan.permanent_task?(task)
+                        :permanent
+                    else :normal
+                    end
+                block.call(current_status)
+            end
         end
 
         # Called to notify about a plan status change for the underlying task

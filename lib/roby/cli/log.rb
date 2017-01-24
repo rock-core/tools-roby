@@ -1,8 +1,25 @@
 require 'roby'
 require 'thor'
+
+Roby.app.guess_app_dir
+
 module Roby
     module CLI
         class Log < Thor
+            no_commands do
+                def handle_file_argument(file)
+                    return file if File.file?(file)
+
+                    Roby.app.setup_robot_names_from_config_dir
+                    if !Roby.app.robot_name?(file)
+                        raise ArgumentError, "expected #{file} to either the path to a log file, or a robot name to get the last log file from this robot configuration"
+                    end
+
+                    Roby.app.robot(file)
+                    Roby.app.log_current_file
+                end
+            end
+
             desc 'upgrade-format', 'upgrades an older Roby log file to the newest version'
             def upgrade_format(file)
                 require 'roby/log/upgrade'
@@ -11,33 +28,73 @@ module Roby
 
             desc 'rebuild-index', 'rebuilds the index of an existing log file'
             def rebuild_index(file)
+                file = handle_file_argument(file)
                 require 'roby/droby/logfile/reader'
                 Roby::DRoby::Logfile::Reader.open(file).
                    rebuild_index
             end
 
             desc 'timepoints', 'extract timepoint information from the log file'
+            option :raw, desc: 'display the timpoints as they appear instead of formatting them per-thread and per-group',
+                type: :boolean, default: false
             option :flamegraph, type: :string, desc: 'path to a HTML file that will display a flame graph'
+            option :ctf, type: :boolean, desc: 'generate a CTF file suitable to be analyzed by e.g. Trace Compass'
             def timepoints(file)
+                file = handle_file_argument(file)
+
                 require 'roby/droby/logfile/reader'
                 require 'roby/droby/timepoints'
+                require 'roby/droby/timepoints_ctf'
                 require 'roby/cli/log/flamegraph_renderer'
 
                 stream = Roby::DRoby::Logfile::Reader.open(file)
+
+                if options[:raw]
+                    current_context = Hash.new { |h, k| h[k] = [k.to_s] }
+                    while data = stream.load_one_cycle
+                        data.each_slice(4) do |m, sec, usec, args|
+                            thread_id, name = *args
+                            path = current_context[thread_id]
+
+                            if m == :timepoint
+                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{name}"
+                            elsif m == :timepoint_group_start
+                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{name} {"
+                                path.push name
+                            elsif m == :timepoint_group_end
+                                path.pop
+                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{name} }"
+                            end
+                        end
+                    end
+                    return
+                end
+
+
                 analyzer = Roby::DRoby::Timepoints::Analysis.new
+                if options[:ctf]
+                    analyzer = Roby::DRoby::Timepoints::CTF.new
+                else
+                    analyzer = Roby::DRoby::Timepoints::Analysis.new
+                end
                 while data = stream.load_one_cycle
                     data.each_slice(4) do |m, sec, usec, args|
                         if m == :timepoint
-                            analyzer.add Time.at(sec, usec), args.first
+                            analyzer.add Time.at(sec, usec), *args
                         elsif m == :timepoint_group_start
-                            analyzer.group_start Time.at(sec, usec), args.first
+                            analyzer.group_start Time.at(sec, usec), *args
                         elsif m == :timepoint_group_end
-                            analyzer.group_end Time.at(sec, usec), args.first
+                            analyzer.group_end Time.at(sec, usec), *args
                         end
                     end
                 end
 
-                if options[:flamegraph]
+                if options[:ctf]
+                    path = Pathname.new(file).expand_path.sub_ext('.ctf')
+                    path.mkpath
+                    puts "saving in #{path}"
+                    analyzer.save(path)
+                elsif options[:flamegraph]
                     graph = analyzer.flamegraph
                     graph = graph.map do |name, duration|
                         [name, (duration * 1000).round]
@@ -54,6 +111,8 @@ module Roby
             desc 'stats', 'show general timing statistics'
             option :save, type: :string, desc: 'file to save the CSV data to'
             def stats(file)
+                file = handle_file_argument(file)
+
                 require 'roby/droby/logfile/reader'
                 stream = Roby::DRoby::Logfile::Reader.open(file)
                 index = stream.index
@@ -88,12 +147,27 @@ module Roby
                     io = File.open(options[:save], 'w')
                 end
 
-                io.puts "1_cycle_index,2_log_queue_size,3_plan_task_count,4_plan_event_count,5_utime,6_stime,7_dump_time,8_duration,9_min_gc,10_maj_gc,11_allocated"
+                header = %w{0_actual_start 1_cycle_index 2_log_queue_size 3_plan_task_count 4_plan_event_count 5_utime 6_stime 7_dump_time 8_duration 9_total_allocated_objects 10_minor 11_major 12_live_object_count 13_oob_removed 14_gc_total_time}
+                formatting = %w{%i %i %i %i %.3f %.3f %.3f %.3f %i %i %i %i %i %.3f}
+                formatting = formatting.join(",")
+
+                puts header.join(",")
                 index.each do |info|
-                    io.puts "%i,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%i,%i,%i" % [
+                    gc = info[:gc]
+                    oob_gc = info[:pre_oob_gc] || gc
+                    start_sec, start_usec = info[:start]
+                    start = Time.at(start_sec, start_usec)
+
+                    io.puts (start + info[:actual_start]).strftime("%H:%M:%S.%3N") + " " + formatting % [
                         *info.values_at(:cycle_index, :log_queue_size, :plan_task_count, :plan_event_count, :utime, :stime, :dump_time, :end),
-                        *info[:gc].values_at(:minor_gc_count, :major_gc_count, :total_allocated_object)]
+                        gc[:total_allocated_objects],
+                        gc[:minor_gc_count],
+                        gc[:major_gc_count],
+                        gc[:total_allocated_objects] - gc[:total_freed_objects],
+                        gc[:total_freed_objects] - oob_gc[:total_freed_objects],
+                        info[:gc_total_time] || 0]
                 end
+
                 exit(0)
             end
 
@@ -102,6 +176,8 @@ module Roby
                 desc: "replay the log stream into a plan, add =debug to display more debugging information. Mainly useful to debug issues with the plan rebuilder",
                 default: 'normal'
             def decode(file)
+                file = handle_file_argument(file)
+
                 require 'roby/droby/logfile/reader'
                 require 'roby/droby/plan_rebuilder'
 
@@ -156,6 +232,20 @@ module Roby
                         break
                     end
                 end
+            end
+
+            desc 'current', 'full path to the current log file'
+            def current(robot_name)
+                Roby.app.setup_robot_names_from_config_dir
+                Roby.app.robot(robot_name)
+                puts Roby.app.log_current_file
+            end
+
+            desc 'display', "start roby-display to visualize the log file's contents"
+            def display(file)
+                file = handle_file_argument(file)
+                require 'roby/cli/display'
+                Display.new.file(file)
             end
         end
     end

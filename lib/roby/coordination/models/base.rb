@@ -12,10 +12,10 @@ module Roby
             #   task this execution context is going to be run on
             def root(*new_root)
                 if !new_root.empty?
-                    @root = Root.new(new_root.first)
+                    @root = Root.new(new_root.first, self)
                 elsif @root then @root
                 elsif superclass.respond_to?(:root)
-                    superclass.root
+                    @root = superclass.root.rebind(self)
                 end
             end
 
@@ -33,22 +33,6 @@ module Roby
             # an action state machine
             def find_event(name)
                 root.find_event(name)
-            end
-
-            # Returns a model suitable for typing in {Task}
-            #
-            # More specifically, it either returns a coordination model if the
-            # child is based on one, and the child task model otherwise
-            #
-            # @return [Model<Coordination::Base>,Model<Roby::Task>]
-            def find_child(name)
-                subtask = each_task.find { |t| t.name == name }
-                if subtask
-                    begin return subtask.to_coordination_model
-                    rescue ArgumentError
-                        subtask.model
-                    end
-                end
             end
 
             # Returns the task for the given name, if found, nil otherwise
@@ -92,6 +76,21 @@ module Roby
                     tasks << task
                     task
                 else raise ArgumentError, "cannot create a task from #{object}"
+                end
+            end
+
+            # @api private
+            #
+            # Transform the model by exchanging tasks
+            #
+            # @param [#[]] mapping a mapping that replaces an existing task by a
+            #   new one. All tasks must be mapped
+            def map_tasks(mapping)
+                @root  = mapping.fetch(root)
+                @tasks = tasks.map do |t|
+                    new_task = mapping.fetch(t)
+                    new_task.map_tasks(mapping)
+                    new_task
                 end
             end
 

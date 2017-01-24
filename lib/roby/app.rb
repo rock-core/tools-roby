@@ -2,6 +2,7 @@ require 'facets/string/camelcase'
 require 'roby/support'
 require 'roby/robot'
 require 'roby/app/robot_names'
+require 'roby/interface'
 require 'singleton'
 require 'utilrb/hash'
 require 'utilrb/module/attr_predicate'
@@ -234,7 +235,7 @@ module Roby
             if @app_name
                 @app_name
             elsif app_dir
-                File.basename(app_dir)
+                @app_name = File.basename(app_dir).gsub(/[^\w]/, '_')
             else 'default'
             end
         end
@@ -274,6 +275,26 @@ module Roby
             end
         end
 
+        # The PID of the server that gives access to the log file
+        #
+        # Its port is allocated automatically, and must be discovered through
+        # the Roby interface
+        #
+        # @return [Integer,nil]
+        attr_reader :log_server_pid
+
+        # The port on which the log server is started
+        #
+        # It is by default started on an ephemeral port, that needs to be
+        # discovered by clients through the Roby interface's
+        # {Interface#log_server_port}
+        #
+        # @return [Integer,nil]
+        attr_reader :log_server_port
+
+        # The TCP server that gives access to the {Interface}
+        attr_reader :shell_interface
+
         # Tests if the given directory looks like the root of a Roby app
         #
         # @param [String] test_dir the path to test
@@ -284,11 +305,20 @@ module Roby
                 File.directory?(File.join(test_dir, 'config', 'robots'))
         end
 
+        class InvalidRobyAppDirEnv < ArgumentError; end
+
         # Guess the app directory based on the current directory
         #
         # @return [String,nil] the base of the app, or nil if the current
         #   directory is not within an app
         def self.guess_app_dir
+            if test_dir = ENV['ROBY_APP_DIR']
+                if !Application.is_app_dir?(test_dir)
+                    raise InvalidRobyAppDirEnv, "the ROBY_APP_DIR envvar is set to #{test_dir}, but this is not a valid Roby application path"
+                end
+                return test_dir
+            end
+
             path = Pathname.new(Dir.pwd).find_matching_parent do |test_dir|
                 Application.is_app_dir?(test_dir.to_s)
             end
@@ -385,12 +415,6 @@ module Roby
 	# The discovery options in multi-robot mode
 	attr_config :discovery
 
-	# The robot's dRoby options
-	# period:: the period of neighbour discovery
-	# max_errors:: disconnect from a peer if there is more than +max_errors+ consecutive errors
-	#              detected
-	attr_config :droby
-	
         # @!method abort_on_exception?
         # @!method abort_on_exception=(flag)
         #
@@ -481,6 +505,12 @@ module Roby
         # scripts
         def self.common_optparse_setup(parser)
             Roby.app.load_config_yaml
+            parser.on("--set=KEY=VALUE", String, "set a value on the Conf object") do |value|
+                key, value = value.split('=')
+                path = key.split('.')
+                base_conf = path[0..-2].inject(Conf) { |c, name| c.send(name) }
+                base_conf.send("#{path[-1]}=", YAML.load(value))
+            end
             parser.on("--log=SPEC", String, "configuration specification for text loggers. SPEC is of the form path/to/a/module:LEVEL[:FILE][,path/to/another]") do |log_spec|
                 log_spec.split(',').each do |spec|
                     mod, level, file = spec.split(':')
@@ -495,6 +525,7 @@ module Roby
             parser.on('--debug', 'run in debug mode') do
                 Roby.app.public_logs = true
                 Roby.app.filter_backtraces = false
+                require 'roby/app/debug'
             end
             parser.on_tail('-h', '--help', 'this help message') do
                 STDERR.puts parser
@@ -570,9 +601,20 @@ module Roby
         DEFAULT_OPTIONS = {
 	    'log' => Hash['events' => true, 'server' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
 	    'discovery' => Hash.new,
-	    'droby' => Hash['period' => 0.5, 'max_errors' => 1],
             'engine' => Hash.new
         }
+
+        # The host to which the shell interface server should bind
+        #
+        # @return [String]
+        attr_accessor :shell_interface_host
+        # The port on which the shell interface server should be
+        #
+        # @return [Integer]
+        attr_accessor :shell_interface_port
+        # The {Interface} bound to this app
+        # @return [Interface]
+        attr_reader :shell_interface
 
 	def initialize
             @plan = ExecutablePlan.new
@@ -588,10 +630,17 @@ module Roby
             @plugins_enabled = true
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
+
+            @public_logs = false
+            @log_create_current = true
             @created_log_dirs = []
             @created_log_base_dirs = []
             @additional_model_files = []
             @restarting = false
+
+            @shell_interface = nil
+            @shell_interface_host = nil
+            @shell_interface_port = Interface::DEFAULT_PORT
 
 	    @automatic_testing = true
             @registered_exceptions = []
@@ -668,6 +717,12 @@ module Roby
             clear_models_handlers << block
         end
 
+        # Declares that the following block should be called when
+        # {#clear_models} is called
+        def on_cleanup(&block)
+            cleanup_handlers << block
+        end
+
         # Looks into subdirectories of +dir+ for files called app.rb and
         # registers them as Roby plugins
         def load_plugins_from_prefix(dir)
@@ -741,25 +796,6 @@ module Roby
 	    each_responding_plugin(method) do |config_extension|
 		config_extension.send(method, *args)
 	    end
-	end
-
-	# Load configuration from the given option hash
-	def load_yaml(options)
-	    options = options.dup
-
-	    if robot_name && (robot_config = options['robots'])
-		if robot_config = robot_config[robot_name]
-		    robot_config.delete_if do |section, values|
-			if section != "robots" && options[section]
-			    options[section].merge! values
-			end
-		    end
-		end
-	    end
-            options = options.map_value do |k, val|
-                val || Hash.new
-            end
-            @options = @options.recursive_merge(options)
 	end
 
         def register_plugins(force: false)
@@ -937,6 +973,22 @@ module Roby
             @log_dir
 	end
 
+        # Reset the current log dir so that {#setup} picks a new one
+        def reset_log_dir
+            @log_dir = nil
+        end
+
+        # Explicitely set the log directory
+        #
+        # It is usually automatically created under {#log_base_dir} during
+        # {#base_setup}
+        def log_dir=(dir)
+            if !File.directory?(dir)
+                raise ArgumentError, "log directory #{dir} does not exist"
+            end
+            @log_dir = dir
+        end
+
         # The time tag. It is a time formatted as YYYYMMDD-HHMM used to mark log
         # directories
 	def time_tag
@@ -1000,8 +1052,8 @@ module Roby
                   rescue ArgumentError
                   end
 
-            if dir && File.exists?(File.join(log_dir, 'info.yml'))
-                YAML.load(File.read(File.join(log_dir, 'info.yml')))
+            if dir && File.exists?(File.join(dir, 'info.yml'))
+                YAML.load(File.read(File.join(dir, 'info.yml')))
             else
                 Array.new
             end
@@ -1013,12 +1065,54 @@ module Roby
         end
 
         # The path to the current log directory
+        #
+        # If {#log_dir} is set, it is used. Otherwise, the current log directory
+        # is inferred by the directory pointed to the 'current' symlink
         def log_current_dir
-            basedir = self.log_base_dir
-            if !File.symlink?(File.join(basedir, "current"))
-                raise ArgumentError, "no data/current symlink found, cannot guess the current log directory"
+            if @log_dir
+                @log_dir
+            else
+                current_path = File.join(log_base_dir, "current")
+                self.class.read_current_dir(current_path)
             end
-            File.readlink(File.join(basedir, "current"))
+        end
+
+        class NoCurrentLog < RuntimeError; end
+
+        # The path to the current log file
+        def log_current_file
+            log_current_dir = self.log_current_dir
+            metadata = log_read_metadata
+            if metadata.empty?
+                raise NoCurrentLog, "#{log_current_dir} is not a valid Roby log dir, it does not have an info.yml metadata file"
+            elsif !(robot_name = metadata.map { |h| h['robot_name'] }.compact.last)
+                raise NoCurrentLog, "#{log_current_dir}'s metadata does not specify the robot name"
+            end
+
+            full_path = File.join(log_current_dir, "#{robot_name}-events.log")
+            if !File.file?(full_path)
+                raise NoCurrentLog, "inferred log file #{full_path} for #{log_current_dir}, but that file does not exist"
+            end
+            full_path
+        end
+
+        # @api private
+        #
+        # Read and validate the 'current' dir by means of the 'current' symlink
+        # that Roby maintains in its log base directory
+        #
+        # @param [String] current_path the path to the 'current' symlink
+        def self.read_current_dir(current_path)
+            if !File.symlink?(current_path)
+                raise ArgumentError, "#{current_path} does not exist or is not a symbolic link"
+            end
+            resolved_path = File.readlink(current_path)
+            if !File.exist?(resolved_path)
+                raise ArgumentError, "#{current_path} points to #{resolved_path}, which does not exist"
+            elsif !File.directory?(resolved_path)
+                raise ArgumentError, "#{current_path} points to #{resolved_path}, which is not a directory"
+            end
+            resolved_path
         end
 
 	# A path => File hash, to re-use the same file object for different
@@ -1093,6 +1187,10 @@ module Roby
 	    end
 	end
 
+        # Register a server port that can be discovered later
+        def register_server(name, port)
+        end
+
         # Transforms +path+ into a path relative to an entry in +search_path+
         # (usually the application root directory)
         def make_path_relative(path)
@@ -1141,18 +1239,6 @@ module Roby
 
         # Loads the models, based on the given robot name and robot type
 	def require_models
-	    # Require all common task models and the task models specific to
-	    # this robot
-            if auto_load_models?
-                search_path = self.auto_load_search_path
-                all_files =
-                    find_files_in_dirs('models', 'tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/) +
-                    find_files_in_dirs('tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/)
-                all_files.each do |p|
-                    require(p)
-                end
-            end
-
 	    # Set up the loaded plugins
 	    call_plugins(:require_models, self)
             require_handlers.each do |handler|
@@ -1161,15 +1247,77 @@ module Roby
                 end
             end
 
-            require_planners
+            define_actions_module
+            if auto_load_models?
+                auto_require_planners
+            end
+            define_main_planner_if_needed
+
+            action_handlers.each do |act|
+                isolate_load_errors("error in #{act}") do
+                    app_module::Actions::Main.class_eval(&act)
+                end
+            end
+
 
             additional_model_files.each do |path|
-                require path
+                require File.expand_path(path)
+            end
+
+            if auto_load_models?
+                auto_require_models
             end
 
 	    # Set up the loaded plugins
 	    call_plugins(:finalize_model_loading, self)
 	end
+
+        def load_all_model_files_in(prefix_name, ignored_exceptions: Array.new)
+            search_path = auto_load_search_path
+            files = find_files_in_dirs(
+                "models", prefix_name, "ROBOT",
+                path: search_path,
+                all: true,
+                order: :specific_last,
+                pattern: /\.rb$/)
+
+            files.each do |path|
+                suffix = File.basename(File.dirname(path))
+                basename = File.basename(path, '.rb')
+                begin
+                    if suffix == prefix_name
+                        # Toplevel directory, do not load the
+                        # <robot_name>.rb
+                        if !robot_name?(basename) || [robot_name, robot_type].include?(basename)
+                            require(path)
+                        end
+                    elsif [prefix_name, robot_name, robot_type].include?(suffix)
+                        require(path)
+                    else
+                        Roby.info "not loading #{path}: not matching robot name"
+                    end
+                rescue *ignored_exceptions => e
+                    ::Robot.warn "ignored file #{path}: #{e.message}"
+                end
+            end
+        end
+        
+        def auto_require_models
+	    # Require all common task models and the task models specific to
+	    # this robot
+            if auto_load_models?
+                load_all_model_files_in('tasks')
+                
+                if backward_compatible_naming?
+                    search_path = self.auto_load_search_path
+                    all_files = find_files_in_dirs('tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/)
+                    all_files.each do |p|
+                        require(p)
+                    end
+                end
+                call_plugins(:auto_require_models, self)
+            end
+        end
 
         # Test if the given name is a valid robot name
         def robot_name?(name)
@@ -1197,7 +1345,8 @@ module Roby
         # definition
         def definition_file_for(model)
             return if !model.respond_to?(:definition_location) || !model.definition_location 
-            model.definition_location.each do |file, *|
+            model.definition_location.each do |location|
+                file = location.absolute_path
                 next if !(base_path = find_base_path_for(file))
                 relative = Pathname.new(file).relative_path_from(Pathname.new(base_path))
                 split = relative.each_filename.to_a
@@ -1211,7 +1360,8 @@ module Roby
         # that is meant to verify this model
         def test_file_for(model)
             return if !model.respond_to?(:definition_location) || !model.definition_location 
-            model.definition_location.each do |file, *|
+            model.definition_location.each do |location|
+                file = location.absolute_path
                 next if !(base_path = find_base_path_for(file))
                 relative = Pathname.new(file).relative_path_from(Pathname.new(base_path))
                 split = relative.each_filename.to_a
@@ -1227,25 +1377,13 @@ module Roby
             nil
         end
 
-        # Loads the planner models
-        #
-        # This method is called at the end of {#require_models}, before the
-        # plugins' require_models hook is called
-        def require_planners
-            search_path = self.auto_load_search_path
-            if auto_load_models?
-                main_files =
-                    find_files('models', 'actions', 'ROBOT', 'main.rb', path: search_path, all: true, order: :specific_first) +
-                    find_files('models', 'planners', 'ROBOT', 'main.rb', path: search_path, all: true, order: :specific_first) +
-                    find_files('planners', 'ROBOT', 'main.rb', all: true, order: :specific_first)
-                main_files.each do |path|
-                    require path
-                end
-            end
-
+        def define_actions_module
             if !app_module.const_defined_here?(:Actions)
                 app_module.const_set(:Actions, Module.new)
             end
+        end
+
+        def define_main_planner_if_needed
             if !app_module::Actions.const_defined_here?(:Main)
                 app_module::Actions.const_set(:Main, Class.new(Roby::Actions::Interface))
             end
@@ -1254,34 +1392,88 @@ module Roby
                     Object.const_set(:Main, app_module::Actions::Main)
                 end
             end
+        end
 
-            action_handlers.each do |act|
-                isolate_load_errors("error in #{act}") do
-                    app_module::Actions::Main.class_eval(&act)
-                end
+        # Loads the planner models
+        #
+        # This method is called at the end of {#require_models}, before the
+        # plugins' require_models hook is called
+        def require_planners
+            Roby.warn_deprecated "Application#require_planners is deprecated and has been renamed into #auto_require_planners"
+            auto_require_planners
+        end
+
+        def auto_require_planners
+            search_path = self.auto_load_search_path
+
+            prefixes = ['actions']
+            if backward_compatible_naming?
+                prefixes << 'planners'
+            end
+            prefixes.each do |prefix|
+                load_all_model_files_in(prefix)
             end
 
-            if auto_load_models?
-                all_files =
-                    find_files_in_dirs('models', 'actions', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/) +
-                    find_files_in_dirs('models', 'planners', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/) +
-                    find_files_in_dirs('planners', 'ROBOT', path: search_path, all: true, order: :specific_first, pattern: /\.rb$/)
-                all_files.each do |p|
-                    if robot_name?(File.basename(p, '.rb'))
-                        require(p)
-                    end
+            if backward_compatible_naming?
+                main_files = find_files('planners', 'ROBOT', 'main.rb', all: true, order: :specific_first)
+                main_files.each do |path|
+                    require path
+                end
+                planner_files = find_files_in_dirs('planners', 'ROBOT', all: true, order: :specific_first, pattern: /\.rb$/)
+                planner_files.each do |path|
+                    require path
                 end
             end
-
 	    call_plugins(:require_planners, self)
         end
 
         def load_config_yaml
-            if file = find_file('config', 'app.yml', order: :specific_first)
-                Application.info "loading config file #{file}"
-                file = YAML.load(File.open(file)) || Hash.new
-                load_yaml(file)
+            file = find_file('config', 'app.yml', order: :specific_first)
+            return if !file
+
+            Application.info "loading config file #{file}"
+            options = YAML.load(File.open(file)) || Hash.new
+
+            if robot_name && (robot_config = options.delete('robots'))
+                options = options.recursive_merge(robot_config[robot_name] || Hash.new)
             end
+            options = options.map_value do |k, val|
+                val || Hash.new
+            end
+            options = @options.recursive_merge(options)
+            apply_config(options)
+            @options = options
+        end
+
+        # @api private
+        #
+        # Sets relevant configuration values from a configuration hash
+        def apply_config(config)
+            if host_port = config['interface']
+                apply_config_interface(host_port)
+            elsif host_port = config.fetch('droby', Hash.new)['host']
+                Roby.warn_deprecated 'the droby.host configuration parameter in config/app.yml is deprecated, use "interface" at the toplevel instead'
+                apply_config_interface(host_port)
+            end
+        end
+
+        # @api private
+        #
+        # Parses and applies the 'interface' value from a configuration hash
+        #
+        # It is a helper for {#apply_config}
+        def apply_config_interface(host_port)
+            if host_port !~ /:\d+$/
+                host_port += ":#{Interface::DEFAULT_PORT}"
+            end
+
+            match = /(.*):(\d+)$/.match(host_port)
+            host = match[1]
+            @shell_interface_host =
+                if !host.empty?
+                    host
+                end
+            @shell_interface_port = Integer(match[2])
         end
 
         # Loads the base configuration
@@ -1337,7 +1529,9 @@ module Roby
 
             setup_robot_names_from_config_dir
 	    load_base_config
-            find_and_create_log_dir
+            if !@log_dir
+                find_and_create_log_dir
+            end
 	    setup_loggers
             init_handlers.each(&:call)
 
@@ -1431,51 +1625,53 @@ module Roby
             if public_shell_interface?
                 setup_shell_interface
             end
+            plan.refresh_relations
 
         rescue Exception
             begin cleanup
-            rescue Exception
+            rescue Exception => e
+                Roby.warn "failed to cleanup after #setup raised"
+                Roby.log_exception_with_backtrace(e, Roby, :warn)
             end
             raise
 	end
 
         # Publishes a shell interface
         #
-        # This method publishes a Roby::Interface object. The port on which this
-        # object is published can be configured through the droby/host
-        # configuration variable, i.e.:
+        # This method publishes a Roby::Interface object using
+        # {Interface::TCPServer}. It is published on {Interface::DEFAULT_PORT}
+        # by default. This default can be overriden by setting
+        # {#shell_interface_port} either in config/init.rb, or in a
+        # {Robot.setup} block in the robot configuration file.
         #
-        #   droby:
-        #       host: ":7873"
+        # The shell interface is started in #setup and stopped in #cleanup
         #
-        # As this variable is also used by the Roby shell to automatically
-        # access a remote shell, one can provide a host part. This part will
-        # simply be ignored in #setup_shell_interface
-        #
-        # The shell interface is started in #setup and teared down in #cleanup
-        #
-        # The default port is defined in Roby::Interface::DEFAULT_PORT
+        # @see stop_shell_interface
         def setup_shell_interface
-	    # Set up dRoby, setting an Interface object as front server, for shell access
-	    host = droby['host'] || ""
-            if host =~ /:(\d+)$/
-                port = Integer($1)
+            if @shell_interface
+                raise RuntimeError, "there is already a shell interface started, call #stop_shell_interface first"
+            end
+            @shell_interface = Interface::TCPServer.new(self, host: shell_interface_host, port: shell_interface_port)
+            if shell_interface_port != Interface::DEFAULT_PORT
+                Robot.info "shell interface started on port #{shell_interface_port}"
             else
-		port = Interface::DEFAULT_PORT
-	    end
-
-            @shell_server = Interface::TCPServer.new(self, port)
+                Robot.debug "shell interface started on port #{shell_interface_port}"
+            end
         end
 
+        # Stops a running shell interface
+        #
+        # This is a no-op if no shell interface is currently running
         def stop_shell_interface
-            if @shell_server
-                @shell_server.close
+            if @shell_interface
+                @shell_interface.close
+                @shell_interface = nil
             end
         end
 
         # Prepares the environment to actually run
         def prepare
-            if public_logs?
+            if public_logs? && log_create_current?
                 FileUtils.rm_f File.join(log_base_dir, "current")
                 FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
             end
@@ -1494,37 +1690,65 @@ module Roby
 
                 # Start a log server if needed, and poll the log directory for new
                 # data sources
-                if log_server = (log.has_key?('server') ? log['server'] : true)
+                if log_server_options = (log.has_key?('server') ? log['server'] : Hash.new)
+                    if !log_server_options.kind_of?(Hash)
+                        log_server_options = Hash.new
+                    end
                     plan.event_logger.sync = true
-
-                    start_log_server(logfile_path)
-                    Robot.info "log server running on port #{log_server_port}"
+                    start_log_server(logfile_path, log_server_options)
+                    Roby.info "log server started"
                 else
                     plan.event_logger.sync = false
-                    Robot.info "log server disabled"
+                    Roby.warn "log server disabled"
                 end
 	    end
 
             call_plugins(:prepare, self)
         end
 
-	def run(&block)
+	def run(thread_priority: 0, &block)
             prepare
 
 	    engine_config = self.engine
 	    engine = self.plan.execution_engine
-	    options = { cycle: engine_config['cycle'] || 0.1 }
-	    
-	    engine.run options
-	    plugins = self.plugins.map { |_, mod| mod if (mod.respond_to?(:start) || mod.respond_to?(:run)) }.compact
-	    run_plugins(plugins, &block)
+            plugins = self.plugins.map { |_, mod| mod if (mod.respond_to?(:start) || mod.respond_to?(:run)) }.compact
+            engine.once do
+                run_plugins(plugins, &block)
+            end
+            @thread = Thread.new do
+                Thread.current.priority = thread_priority
+                engine.run cycle: engine_config['cycle'] || 0.1
+            end
+            join
 
         ensure
             cleanup
+            @thread = nil
             if restarting?
                 Kernel.exec *@restart_cmdline
             end
 	end
+
+        def join
+            @thread.join
+
+	rescue Exception => e
+	    if execution_engine.running?
+                if execution_engine.forced_exit?
+                    raise
+                else
+                    execution_engine.quit
+                    retry
+                end
+	    else
+		raise
+	    end
+        end
+
+        # Whether we're inside {#run}
+        def running?
+            !!@thread
+        end
 
         # Whether {#run} should exec a new process on quit or not
         def restarting?
@@ -1568,7 +1792,6 @@ module Roby
 		yield if block_given?
 
                 Robot.info "ready"
-		engine.join
 	    else
 		mod = mods.shift
                 if mod.respond_to?(:start)
@@ -1579,15 +1802,6 @@ module Roby
                         run_plugins(mods, &block)
                     end
                 end
-	    end
-
-	rescue Exception => e
-	    if engine.running?
-		engine.quit
-		engine.join
-		raise e, e.message, e.backtrace
-	    else
-		raise
 	    end
 	end
 
@@ -1622,36 +1836,33 @@ module Roby
 
 	def stop; call_plugins(:stop, self) end
 
-	attr_reader :log_server
-        attr_reader :log_server_port
-
-        def start_log_server(logfile)
+        def start_log_server(logfile, options = Hash.new)
             require 'roby/droby/logfile/server'
 
-            port = DRoby::Logfile::Server::DEFAULT_PORT
+            # Allocate a TCP server to get an ephemeral port, and pass it to
+            # roby-display
             sampling_period = DRoby::Logfile::Server::DEFAULT_SAMPLING_PERIOD
-            if log_server.kind_of?(Hash)
-                port = Integer(log_server['port'] || port)
-                sampling_period = Float(log_server['sampling_period'] || sampling_period)
-                debug = log_server['debug']
-            end
+            sampling_period = Float(options['sampling_period'] || sampling_period)
 
-            server_flags = ["--server=#{port}", "--sampling=#{sampling_period}", logfile]
-            if debug
+            tcp_server = TCPServer.new(Integer(options['port'] || 0))
+            server_flags = ["--fd=#{tcp_server.fileno}", "--sampling=#{sampling_period}", logfile]
+            redirect_flags = Hash[tcp_server => tcp_server]
+            if options['debug']
                 server_flags << "--debug"
+            elsif options['silent']
+                redirect_flags[:out] = redirect_flags[:err] = :close
             end
 
-            @log_server = fork do
-                exec("roby-display", *server_flags)
-            end
-            @log_server_port = port
+            @log_server_port = tcp_server.local_address.ip_port
+            @log_server_pid = Kernel.spawn("roby-display", 'server', *server_flags, redirect_flags)
+        ensure
+            tcp_server.close if tcp_server
         end
 
         def stop_log_server
-            if @log_server
-                Process.kill('INT', @log_server)
-                @log_server = nil
-                @log_server_port = nil
+            if @log_server_pid
+                Process.kill('INT', @log_server_pid)
+                @log_server_pid = nil
             end
         end
 
@@ -1694,6 +1905,11 @@ module Roby
                 options = dir_path.pop
             end
             options = Kernel.validate_options(options || Hash.new, :all, :order, :path)
+
+            if dir_path.empty?
+                raise ArgumentError, "no path given"
+            end
+
             search_path = options[:path] || self.search_path
             if !options.has_key?(:all)
                 raise ArgumentError, "no :all argument given"
@@ -1846,6 +2062,10 @@ module Roby
             end
             options = Kernel.validate_options(options || Hash.new, :all, :order, :path)
 
+            if file_path.empty?
+                raise ArgumentError, "no path given"
+            end
+
             # Remove the filename from the complete path
             filename = file_path.pop
             filename = filename.split('/')
@@ -1932,6 +2152,18 @@ module Roby
         # Only the run modes have public logs by default
         attr_predicate :public_logs?, true
 
+        # @!method log_create_current?
+        # @!method log_create_current=(flag)
+        #
+        # If set to true, this Roby application will create a 'current' entry in
+        # {#log_base_dir} that points to the latest log directory. Otherwise, it
+        # will not. It is false when 'roby run' is started with an explicit log
+        # directory (the --log-dir option)
+        #
+        # This symlink will never be created if {#public_logs?} is false,
+        # regardless of this setting.
+        attr_predicate :log_create_current?, true
+
 	attr_predicate :simulation?, true
 	def simulation; self.simulation = true end
 
@@ -2013,6 +2245,11 @@ module Roby
             candidates.max_by(&:size)
         end
 
+        # Returns true if the given path points to a file under {#app_dir}
+        def self_file?(path)
+            find_base_path_for(path) == app_dir
+        end
+
         # Returns true if the given path points to a file in the Roby app
         #
         # @param [String] path
@@ -2061,9 +2298,9 @@ module Roby
 
         # Tests whether a model class has been defined in this app's code
         def model_defined_in_app?(model)
-            model.definition_location.each do |file, _, method|
-                return if method == :require
-                return true if app_file?(file)
+            model.definition_location.each do |location|
+                return if location.label == 'require'
+                return true if app_file?(location.absolute_path)
             end
             false
         end
@@ -2189,7 +2426,7 @@ module Roby
         # Find an action with the given name on the action interfaces registered on
         # {#planners}
         #
-        # @return [Actions::Models::Action,nil]
+        # @return [(ActionInterface,Actions::Models::Action),nil]
         # @raise [ActionResolutionError] if more than one action interface provide an
         #   action with this name
         def find_action_from_name(name)
@@ -2308,15 +2545,16 @@ module Roby
                 next if !m.name
 
                 if path = test_file_for(m)
-                    suffix = File.basename(File.dirname(path))
-                    if !robot_name?(suffix) || (suffix == robot_type)
-                        models_per_file[path] << m
-                    end
+                    models_per_file[path] << m
                 end
             end
 
-            find_dirs('test', 'suite_lib.rb', order: :specific_first, all: true).each do |path|
-                models_per_file[path] = Set.new
+            find_dirs('test', 'lib', order: :specific_first, all: true).each do |path|
+                Pathname.new(path).find do |p|
+                    if p.basename.to_s =~ /^test_.*.rb$/ || p.basename.to_s =~ /_test\.rb$/
+                        models_per_file[p.to_s] = Set.new
+                    end
+                end
             end
 
             models_per_file.each(&block)

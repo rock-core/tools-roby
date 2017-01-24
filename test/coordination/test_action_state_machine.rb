@@ -154,6 +154,101 @@ describe Roby::Coordination::ActionStateMachine do
             task.monitor_child.start!
             assert_equal Hash[id: :start], task.current_task_child.arguments
         end
+
+        # It makes no sense ... that's a regression test
+        it "sets up the transition only once regardless of the number of dependencies in the task" do
+            state_machine 'test' do
+                monitor = state monitoring_task
+                start_state = state start_task
+                start_state.depends_on(monitor, role: 'monitor')
+                next_state  = state next_task
+                start(start_state)
+                transition(start_state, monitor.success_event, next_state)
+            end
+            task = start_machine('test')
+            flexmock(task.coordination_objects.first).should_receive(:instanciate_state_transition).
+                once.pass_thru
+            task.monitor_child.start!
+            task.monitor_child.success_event.emit
+        end
+
+        it "does not fire a unused transition after it has quit the state by another transition" do
+            state_task_m = Roby::Task.new_submodel do
+                terminates
+                event :left
+                event :right
+            end
+
+            plan.add_permanent_task(state_task = state_task_m.new)
+            state_task.start!
+            action_m = Roby::Actions::Interface.new_submodel do
+                describe('always the same state task').
+                    returns(state_task_m)
+                define_method(:state_action) { plan[state_task] }
+
+                describe 'the state machine'
+                action_state_machine 'test' do
+                    start   = state(state_action)
+                    follow  = state(state_action)
+
+                    start(start)
+                    transition start.left_event, follow
+                    transition start.right_event, follow
+                end
+            end
+
+            task = action_m.find_action_by_name('test').instanciate(plan)
+            plan.add_permanent_task(task)
+            task.start!
+
+            state_machine = task.coordination_objects.first
+            task.current_task_child.planning_task.start!
+            assert_event_emission task.current_task_child.planning_task.success_event
+
+            flexmock(state_machine).should_receive(:instanciate_state_transition).once.pass_thru
+            state_task.left_event.emit
+            state_task.right_event.emit
+        end
+
+        it "does not fire a transition multiple time even if the transition event is reused across states" do
+            state_task_m = Roby::Task.new_submodel do
+                terminates
+                event :transition
+            end
+
+            plan.add_permanent_task(state_task = state_task_m.new)
+            state_task.start!
+            action_m = Roby::Actions::Interface.new_submodel do
+                describe('always the same state task').
+                    returns(state_task_m)
+                define_method(:state_action) { plan[state_task] }
+
+                describe 'the state machine'
+                action_state_machine 'test' do
+                    start   = state(state_action)
+                    follow  = state(state_action)
+                    finally = state(state_action)
+
+                    start(start)
+                    transition start.transition_event, follow
+                    transition follow.transition_event, finally
+                end
+            end
+
+            task = action_m.find_action_by_name('test').instanciate(plan)
+            plan.add_permanent_task(task)
+            task.start!
+
+            state_machine = task.coordination_objects.first
+            2.times do |i|
+                task.current_task_child.planning_task.start!
+                assert_event_emission task.current_task_child.planning_task.success_event
+                FlexMock.use(state_machine) do |machine|
+                    machine.should_receive(:instanciate_state_transition).once.pass_thru
+                    task.current_task_child.transition_event.emit
+                end
+            end
+        end
     end
 
     it "applies the declared forwardings" do
@@ -175,6 +270,23 @@ describe Roby::Coordination::ActionStateMachine do
         assert task.next_is_done_event.emitted?
     end
 
+    it "setups forwards so that the context is passed along" do
+        state_m = Roby::Task.new_submodel do
+            terminates
+            poll { success_event.emit(10) }
+        end
+
+        action_m.action_state_machine 'test' do
+            start = state(state_m)
+            start(start)
+            start.success_event.forward_to success_event
+        end
+        task = start_machine('test')
+        task.start_state_child.start!
+        assert_event_emission task.success_event
+        assert_equal [10], task.success_event.last.context
+    end
+
     it "sets known transitions and only them as 'success' in the dependency" do
         state_machine 'test' do
             start(state(start_task))
@@ -182,9 +294,7 @@ describe Roby::Coordination::ActionStateMachine do
 
         task = start_machine('test')
         task.current_task_child.start!
-        inhibit_fatal_messages do
-            assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
-        end
+        assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
         plan.remove_task(task.children.first)
     end
 
@@ -264,7 +374,7 @@ describe Roby::Coordination::ActionStateMachine do
             transition task.success_event, next_task
         end
         plan.add(task = task_m.new)
-        state_machine = state_machine_m.new(action_m, task)
+        state_machine = state_machine_m.new(task)
 
         task.start!
         flexmock(state_machine).should_receive(:instanciate_state).never
@@ -282,14 +392,12 @@ describe Roby::Coordination::ActionStateMachine do
             forward task.success_event, success_event
         end
         plan.add(task = task_m.new)
-        state_machine = state_machine_m.new(action_m, task)
+        state_machine = state_machine_m.new(task)
 
         task.start!
         task.current_task_child.start!
         task.stop!
         task.current_task_child.success_event.emit
-    end
-    it "adds state-local dependencies as children of the state task" do
     end
 end
 

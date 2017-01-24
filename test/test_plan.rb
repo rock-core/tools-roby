@@ -8,7 +8,7 @@ module TC_PlanStatic
             assert(!plan.permanent_task?(task), "task was meant to be removed, but Plan#permanent_task? still returns true")
             assert(!plan.mission_task?(task), "task was meant to be removed, but Plan#mission_task? returns true")
             assert(!task.mission?, "task was meant to be removed, but Task#mission? returns true")
-            assert_equal(nil, task.plan, "task was meant to be removed, but PlanObject#plan returns a non-nil value")
+            assert_nil task.plan, "task was meant to be removed, but PlanObject#plan returns a non-nil value"
         else
             assert_equal(plan, task.plan, "task was meant to be included in a plan but PlanObject#plan returns nil")
             assert(plan.has_task?(task), "task was meant to be included in a plan but Plan#has_task? returned false")
@@ -34,7 +34,7 @@ module TC_PlanStatic
         if state == :removed
             assert(!plan.has_free_event?(event), "event was meant to be removed, but Plan#has_free_event? still returns true")
             assert(!plan.permanent_event?(event), "event was meant to be removed, but Plan#permanent_event? still returns true")
-            assert_equal(nil, event.plan, "event was meant to be removed, but PlanObject#plan returns a non-nil value")
+            assert_nil event.plan, "event was meant to be removed, but PlanObject#plan returns a non-nil value"
         else
             assert_equal(plan, event.plan, "event was meant to be included in a plan but PlanObject#plan returns nil")
             assert(plan.has_free_event?(event), "event was meant to be included in a plan but Plan#has_free_event? returned false")
@@ -180,7 +180,7 @@ module TC_PlanStatic
     def test_replace_task_raises_ArgumentError_if_one_argument_is_finalized
         plan.add(task = Roby::Task.new)
         plan.add(finalized = Roby::Task.new)
-        plan.remove_object(finalized)
+        plan.remove_task(finalized)
         assert_raises(ArgumentError) { plan.replace_task(task, finalized) }
         assert_raises(ArgumentError) { plan.replace_task(finalized, task) }
     end
@@ -188,7 +188,7 @@ module TC_PlanStatic
     def test_replace_raises_ArgumentError_if_one_argument_is_nil
         plan.add(task = Roby::Task.new)
         plan.add(finalized = Roby::Task.new)
-        plan.remove_object(finalized)
+        plan.remove_task(finalized)
         assert_raises(ArgumentError) { plan.replace(task, finalized) }
         assert_raises(ArgumentError) { plan.replace(finalized, task) }
     end
@@ -249,18 +249,21 @@ module TC_PlanStatic
             event :ready, controlable: true
         end
 
+        TaskStructure.relation :CopyOnReplace, copy_on_replace: true
+        plan.refresh_relations
+
         t0, t1, t3 = prepare_plan add: 3, model: Roby::Tasks::Simple
         plan.add(t2 = agent_t.new)
 
         t0.depends_on t1, model: Roby::Tasks::Simple
-        t1.executed_by t2
+        t1.add_copy_on_replace t2
 
         # The error handling relation is marked as copy_on_replace, so the t1 =>
         # t2 relation should not be removed, but only copied
         plan.replace_task(t1, t3)
 
-        assert t1.child_object?(t2, TaskStructure::ExecutionAgent)
-        assert t3.child_object?(t2, TaskStructure::ExecutionAgent)
+        assert t1.child_object?(t2, TaskStructure::CopyOnReplace)
+        assert t3.child_object?(t2, TaskStructure::CopyOnReplace)
     end
 
     def test_replace_can_replace_a_task_with_unset_delayed_arguments
@@ -373,28 +376,6 @@ class TC_Plan < Minitest::Test
         assert_equal [plan], plan.transaction_stack
     end
 
-
-    def test_quarantine
-        t1, t2, t3, p = prepare_plan add: 4
-        t1.depends_on t2
-        t2.depends_on t3
-        t2.planned_by p
-
-        t1.start_event.signals p.start_event
-        t2.success_event.signals p.start_event
-
-        plan.add(t2)
-        with_log_level(Roby, Logger::FATAL) do
-            plan.quarantine(t2)
-        end
-        assert_equal([t2], plan.gc_quarantine.to_a)
-        assert(t2.leaf?)
-        assert(t2.success_event.leaf?)
-
-        plan.remove_task(t2)
-        assert(plan.gc_quarantine.empty?)
-    end
-    
     def test_failed_mission
         t1, t2, t3, t4 = prepare_plan add: 4, model: Tasks::Simple
         t1.depends_on t2
@@ -406,16 +387,23 @@ class TC_Plan < Minitest::Test
         t2.start!
         t3.start!
         t4.start!
-        error = assert_raises(SynchronousEventProcessingMultipleErrors) { t4.stop! }
+        error = assert_raises(SynchronousEventProcessingMultipleErrors) do
+            messages = capture_log(execution_engine, :warn) do
+                t4.stop!
+            end
+            assert_equal "2 unhandled fatal exceptions, involving 4 tasks that will be forcefully killed", messages[0]
+            pp_tasks = [t1, t2, t3, t4].map { |t| PP.pp(t, "") }.to_set
+            assert_equal pp_tasks, messages[1..-1].to_set
+        end
         errors = error.errors
         assert_equal 2, errors.size
-        child_failed   = errors.find { |e, _| e.exception.kind_of?(ChildFailedError) }
-        mission_failed = errors.find { |e, _| e.exception.kind_of?(MissionFailedError) }
+        child_failed   = errors.find { |e| e.kind_of?(ChildFailedError) }
+        mission_failed = errors.find { |e| e.kind_of?(MissionFailedError) }
 
         assert child_failed
-        assert_equal t4, child_failed.first.origin
+        assert_equal t4, child_failed.failed_task
         assert mission_failed
-        assert_equal t2, mission_failed.first.origin
+        assert_equal t2, mission_failed.failed_task
     end
 end
 
@@ -445,7 +433,7 @@ module Roby
             end
             it "configures #task_relation_graphs to return nil if nil is being resolved" do
                 plan = Roby::Plan.new
-                assert_equal nil, plan.task_relation_graphs[nil]
+                assert_nil plan.task_relation_graphs[nil]
             end
 
             it "instanciates graphs for all the relation graphs registered on Roby::EventGenerator" do
@@ -463,7 +451,7 @@ module Roby
             end
             it "configures #task_relation_graphs to return nil if nil is being resolved" do
                 plan = Roby::Plan.new
-                assert_equal nil, plan.event_relation_graphs[nil]
+                assert_nil plan.event_relation_graphs[nil]
             end
         end
         describe "#locally_useful_tasks" do
@@ -582,6 +570,94 @@ module Roby
                 plan.remove_trigger trigger
                 recorder.should_receive(:called).never
                 plan.add task
+            end
+        end
+
+        describe "#compute_subplan_replacement" do
+            attr_reader :graph
+            before do
+                @graph = Roby::Relations::Graph.new
+            end
+            it "moves relations for which the source is not a key in the task mapping" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(source = Roby::Task.new)
+                plan.add(target = Roby::Task.new)
+                graph.add_edge(parent, source, info = flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[source => target], [graph])
+                assert_equal [[graph, parent, target, info]], new
+                assert_equal [[graph, parent, source]], removed
+            end
+            it "moves relations for which the target is not a key in the task mapping" do
+                plan.add(source = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(target = Roby::Task.new)
+                graph.add_edge(source, child, info = flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[source => target], [graph])
+                assert_equal [[graph, target, child, info]], new
+                assert_equal [[graph, source, child]], removed
+            end
+            it "ignores relations if both objects are within the mapping" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(parent_target = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(child_target = Roby::Task.new)
+                graph.add_edge(parent, child, flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[parent => parent_target, child => child_target], [graph])
+                assert_equal [], new
+                assert_equal [], removed
+            end
+            it "ignores relations involving parents that are not mapped" do
+                plan.add(root = Roby::Task.new)
+                plan.add(parent = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(child_target = Roby::Task.new)
+                graph.add_edge(root, parent, flexmock)
+                graph.add_edge(parent, child, flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[parent => nil, child => child_target], [graph])
+                assert_equal [], new
+                assert_equal [], removed
+            end
+            it "accept a resolver object" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(child_target = Roby::Task.new)
+                graph.add_edge(parent, child, info = flexmock)
+                mapping = Hash[child => child_target]
+                resolver = ->(t) { mapping[t] }
+                new, removed = plan.compute_subplan_replacement(
+                    Hash[child => [nil, resolver]], [graph])
+                assert_equal [[graph, parent, child_target, info]], new
+                assert_equal [[graph, parent, child]], removed
+            end
+            it "ignores child objects if child_objects is false" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(child = Roby::Task.new)
+                plan.add(parent_target = Roby::Task.new)
+                graph.add_edge(parent, child, flexmock)
+                new, removed = plan.compute_subplan_replacement(
+                    Hash[parent => parent_target], [graph], child_objects: false)
+                assert_equal [], new
+                assert_equal [], removed
+            end
+            it "ignores strong relations" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(source = Roby::Task.new)
+                plan.add(target = Roby::Task.new)
+                graph = Roby::Relations::Graph.new(strong: true)
+                graph.add_edge(parent, source, info = flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[source => target], [graph])
+                assert_equal [], new
+                assert_equal [], removed
+            end
+            it "copies relations instead of moving them if the graph is copy_on_replace" do
+                plan.add(parent = Roby::Task.new)
+                plan.add(source = Roby::Task.new)
+                plan.add(target = Roby::Task.new)
+                graph = Roby::Relations::Graph.new(copy_on_replace: true)
+                graph.add_edge(parent, source, info = flexmock)
+                new, removed = plan.compute_subplan_replacement(Hash[source => target], [graph])
+                assert_equal [[graph, parent, target, info]], new
+                assert_equal [], removed
             end
         end
 

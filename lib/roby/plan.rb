@@ -17,11 +17,11 @@ module Roby
 	attr_reader :tasks
 	# The set of events that are defined by #tasks
 	attr_reader :task_events
-        # The list of the robot's missions. Do not change that set directly, use
-        # #add_mission_task and #remove_mission instead.
+        # The set of the robot's missions
+        # @see add_mission_task unmark_mission_task
 	attr_reader :mission_tasks
-	# The list of tasks that are kept outside GC. Do not change that set
-        # directly, use #permanent and #auto instead.
+	# The set of tasks that are kept around "just in case"
+        # @see add_permanent_task unmark_permanent_task
 	attr_reader :permanent_tasks
 	# The list of events that are not included in a task
 	attr_reader :free_events
@@ -663,12 +663,12 @@ module Roby
         end
 
         def handle_force_replace(from, to)
-            if from.plan != self
-                raise ArgumentError, "trying to replace #{from} but its plan is #{from.plan}, expected #{self}"
-            elsif !from.plan
+            if !from.plan
                 raise ArgumentError, "#{from} has been removed from plan, cannot use as source in a replacement"
             elsif !to.plan
                 raise ArgumentError, "#{to} has been removed from plan, cannot use as target in a replacement"
+            elsif from.plan != self
+                raise ArgumentError, "trying to replace #{from} but its plan is #{from.plan}, expected #{self}"
             elsif to.plan.template?
                 add(to)
             elsif to.plan != self
@@ -782,7 +782,19 @@ module Roby
             end
         end
 
-        # Replace a subplan
+        # Replace subgraphs by another in the plan
+        #
+        # It copies relations that are not within the keys in task_mappings and
+        # event_mappings to the corresponding task/events. The targets might be
+        # nil, in which case the relations involving the source will be simply
+        # ignored.
+        #
+        # If needed, instead of providing an object as target, one can provide a
+        # resolver object which will be called with #call and the source, The
+        # resolver should be given as a second element of a pair, e.g.
+        #
+        #    source => [nil, #call]
+        #
         def replace_subplan(task_mappings, event_mappings, task_children: true, event_children: true)
             new_relations, removed_relations =
                 compute_subplan_replacement(task_mappings, each_task_relation_graph,
@@ -922,21 +934,39 @@ module Roby
             end
 	end
 
+        # @api private
+        #
+        # A trigger created by {Plan#add_trigger}
         class Trigger
-            attr_reader :query, :block
+            # The query that is being watched
+            attr_reader :query
+            # The block that will be called if {#query} matches
+            attr_reader :block
+
             def initialize(query, block)
                 @query = query.query
                 @block = block
             end
 
+            # Whether self would be triggering on task
+            #
+            # @param [Roby::Task] task
+            # @return [Boolean]
             def ===(task)
                 query === task
             end
+
+            # Lists the tasks that match the query
+            #
+            # @param [Plan] plan
+            # @yieldparam [Roby::Task] task tasks that match {#query}
             def each(plan, &block)
                 query.plan = plan
                 query.reset
                 query.each(&block)
             end
+
+            # Call the trigger's observer for the given task
             def call(task)
                 block.call(task)
             end
@@ -1040,12 +1070,14 @@ module Roby
             result
 	end
 
-        def locally_useful_roots
+        def locally_useful_roots(with_transactions: true)
 	    # Create the set of tasks which must be kept as-is
 	    seeds = @mission_tasks | @permanent_tasks
-	    for trsc in transactions
-		seeds.merge trsc.proxy_tasks.keys.to_set
-	    end
+            if with_transactions
+                for trsc in transactions
+                    seeds.merge trsc.proxy_tasks.keys.to_set
+                end
+            end
             seeds
         end
 
@@ -1053,8 +1085,8 @@ module Roby
 	    compute_useful_tasks(locally_useful_roots)
 	end
 
-        def useful_tasks
-            compute_useful_tasks(locally_useful_roots)
+        def useful_tasks(with_transactions: true)
+            compute_useful_tasks(locally_useful_roots(with_transactions: with_transactions))
         end
 
 	def unneeded_tasks
@@ -1064,6 +1096,10 @@ module Roby
 	def local_tasks
 	    task_index.self_owned
 	end
+
+        def quarantined_tasks
+            tasks.find_all(&:quarantined?)
+        end
 
 	def remote_tasks
 	    if local_tasks = task_index.self_owned
@@ -1297,16 +1333,16 @@ module Roby
 	    # Remove relations first. This is needed by transaction since
 	    # removing relations may need wrapping some new task, and in
 	    # that case these new task will be discovered as well
-	    task.clear_relations
+	    task.clear_relations(remove_internal: true)
             task.mission = false
 
-            for ev in task.bound_events
-                finalized_event(ev[1])
+            for ev in task.bound_events.each_value
+                finalized_event(ev)
             end
             finalized_task(task)
 
-            for ev in task.bound_events
-                ev[1].finalized!(timestamp)
+            for ev in task.bound_events.each_value
+                ev.finalized!(timestamp)
             end
             task.finalized!(timestamp)
         end
@@ -1329,13 +1365,17 @@ module Roby
             if !@tasks.delete?(task)
                 raise ArgumentError, "#{task} is not a task of #{self}"
             end
+            remove_task!(task, timestamp)
+        end
 
+        def remove_task!(task, timestamp = Time.now)
+            @tasks.delete(task)
             @mission_tasks.delete(task)
             @permanent_tasks.delete(task)
             @task_index.remove(task)
 
-            for ev in task.bound_events
-                @task_events.delete(ev[1])
+            for ev in task.bound_events.each_value
+                @task_events.delete(ev)
             end
             finalize_task(task, timestamp)
 	    self
@@ -1345,6 +1385,11 @@ module Roby
 	    if !@free_events.delete?(event)
                 raise ArgumentError, "#{event} is not a free event of #{self}"
             end
+            remove_free_event!(event, timestamp)
+        end
+
+        def remove_free_event!(event, timestamp = Time.now)
+	    @free_events.delete(event)
             @permanent_events.delete(event)
             finalize_event(event, timestamp)
 	    self
