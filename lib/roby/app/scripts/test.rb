@@ -16,10 +16,13 @@ MetaRuby.keep_definition_location = false
 
 list_tests = false
 coverage_mode = false
-really_all = false
+really_all = true
 testrb_args = []
 parser = OptionParser.new do |opt|
     opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- [MINITEST_OPTIONS] [TEST_FILES]"
+    opt.on('--self', 'only run tests that are present in this bundle') do |val|
+        really_all = false
+    end
     opt.on('--really-all', 'auto-load models and run the corresponding tests found within the search path') do |val|
         app.auto_load_models = true
         really_all = true
