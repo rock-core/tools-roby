@@ -85,6 +85,8 @@ exception = Roby.display_exception do
 
         if test_files.empty?
             test_files = app.discover_test_files(all: all, only_self: only_self).map(&:first)
+            self_files, dependent_files = test_files.partition { |f| app.self_file?(f) }
+            test_files = self_files.sort + dependent_files.sort
             if list_tests
                 puts "Would load #{test_files.size} test files"
                 test_files.each do |path|
