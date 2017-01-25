@@ -295,6 +295,7 @@ describe Roby::Coordination::ActionStateMachine do
         task = start_machine('test')
         task.current_task_child.start!
         assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
+        plan.unmark_permanent_task(task)
         plan.remove_task(task.children.first)
     end
 

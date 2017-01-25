@@ -22,7 +22,7 @@ module Roby
                 nil
             end
 
-            def assert_raises(*exp, &block)
+            def assert_raises(*exp, return_original_exception: false, &block)
                 if plan.executable?
                     # Avoid having it displayed by the execution engine. We're going
                     # to display any unexpected exception anyways
@@ -53,11 +53,15 @@ module Roby
                     else
                         flunk("#{matchers.map(&:to_s).join(", ")} exceptions expected, not #{e.class}")
                     end
-                rescue Exception => root_e
+                rescue ::Exception => root_e
                     assert_exception_can_be_pretty_printed(root_e)
                     all = Roby.flatten_exception(root_e)
                     if actual_e = all.find { |e| matchers.any? { |expected_e| expected_e === e } }
-                        return actual_e
+                        if return_original_exception
+                            return actual_e, root_e
+                        else
+                            return actual_e
+                        end
                     end
                     actually_caught = roby_exception_to_string(*all)
                     flunk("#{exp.map(&:to_s).join(", ")} exceptions expected, not #{root_e.class} #{actually_caught}")

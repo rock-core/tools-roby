@@ -71,6 +71,13 @@ module Roby
         # If true, such an exception causes the execution engine to stop tasks
         # in the hierarchy. Otherwise, it only causes notification(s).
         def fatal?; true end
+        # If true, such an exception will be propagated in the plan dependency
+        # structure. Otherwise, it's directly reported to the plan itself (which
+        # can choose to handle it).
+        #
+        # This is usually set to false for exceptions that report global
+        # information about the plan, such as e.g. MissionFailedError
+        def propagated?; true end
         # The object describing the point of failure
 	attr_reader :failure_point
         
@@ -405,6 +412,8 @@ module Roby
         include UserExceptionWrapper
 
         attr_reader :reason
+
+        def propagated?; false end
 
         # Create a new MissionFailedError for the given mission
         def initialize(task, reason = nil)

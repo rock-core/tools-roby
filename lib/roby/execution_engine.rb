@@ -13,12 +13,7 @@ module Roby
         #
         # @return [Array<Exception>]
         def original_exceptions
-            errors.flat_map do |e|
-                if e.respond_to?(:original_exceptions)
-                    e.original_exceptions
-                else e
-                end
-            end
+            errors
         end
 
         def initialize(errors)
@@ -107,12 +102,13 @@ module Roby
             @waiting_work = Concurrent::Array.new
             @emitted_events  = Array.new
             @disabled_handlers = Set.new
-            @additional_errors = nil
             @exception_listeners = Array.new
 
             @worker_threads_mtx = Mutex.new
             @worker_threads = Array.new
             @once_blocks = Queue.new
+
+            @pending_exceptions = Hash.new
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -493,6 +489,11 @@ module Roby
             delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
         end
 
+        # Called by #plan when a task has been finalized
+        def finalized_task(task)
+            @pending_exceptions.delete(task)
+        end
+
         # Called by #plan when an event has been finalized
         def finalized_event(event)
             if @propagation
@@ -563,11 +564,7 @@ module Roby
         #   {#gather_error}
         def add_error(e)
             plan_exception = e.to_execution_exception
-            if @additional_errors
-                # We are currently propagating exceptions. Gather new ones in
-                # @additional_errors
-                @additional_errors << e
-            elsif @propagation_exceptions
+            if @propagation_exceptions
                 @propagation_exceptions << plan_exception
             else
                 Roby.log_exception_with_backtrace(e, self, :fatal)
@@ -1167,7 +1164,10 @@ module Roby
                     end
                     parents = filtered_parents
                 end
-                if !parents || parents.empty?
+
+                if !exception.exception.propagated?
+                    parents = []
+                elsif !parents || parents.empty?
                     parents = propagation_graph.out_neighbours(origin)
                 end
 
@@ -1305,7 +1305,7 @@ module Roby
         # @return [Array<ExecutionException>] the unhandled exceptions
         def remove_inhibited_exceptions(exceptions)
             unhandled, _ = propagate_exception_in_plan(exceptions) do |e, object|
-                if plan.force_gc.include?(object)
+                if @pending_exceptions[object] && @pending_exceptions[object].include?([e.exception.class, e.origin])
                     true
                 elsif object.respond_to?(:handles_error?)
                     object.handles_error?(e)
@@ -1384,11 +1384,6 @@ module Roby
             structure_errors = plan.check_structure
             log_timepoint 'structure_check'
 
-            if @additional_errors
-                raise InternalError, "recursive call to #compute_errors"
-            end
-            @additional_errors = Array.new
-
             # Propagate the errors. Note that the plan repairs are taken into
             # account in ExecutionEngine.propagate_exceptions directly.  We keep
             # event and structure errors separate since in the first case there
@@ -1398,31 +1393,13 @@ module Roby
             # handlers
             events_errors, free_events_errors = propagate_exceptions(events_errors)
             propagate_exceptions(structure_errors)
-
-            unhandled_additional_errors = Array.new
-            10.times do
-                break if additional_errors.empty?
-                errors, @additional_errors = additional_errors, Array.new
-                unhandled, new_free_events_errors =
-                    propagate_exceptions(plan.format_exception_set(Hash.new, errors))
-                unhandled_additional_errors.concat(unhandled.to_a)
-                free_events_errors.merge!(new_free_events_errors) do |_, a, b|
-                    a.merge(b)
-                end
-            end
-            @additional_errors = nil
-
             log_timepoint 'exception_propagation'
 
             # Get the remaining problems in the plan structure, and act on it
             errors = remove_inhibited_exceptions(plan.check_structure)
-            # Add events_errors and unhandled_additional_errors to fatal_errors.
-            # Note that all the objects in fatal_errors now have a proper trace
+            # Add the events errors and partition them by fatal/nonfatal
             errors.concat(events_errors.to_a)
-            errors.concat(unhandled_additional_errors.to_a)
 
-            # Partition between fatal and non-fatal errors. Simply log & notify
-            # for the nonfatal ones
             fatal_errors, nonfatal_errors = Hash.new, Hash.new
             errors.each do |e, tasks|
                 if e.fatal?
@@ -1436,8 +1413,6 @@ module Roby
             debug "#{fatal_errors.size} fatal errors found and #{free_events_errors.size} errors involving free events"
             debug "the fatal errors involve #{kill_tasks} non-finalized tasks"
             return ErrorPhaseResult.new(kill_tasks, fatal_errors, nonfatal_errors, free_events_errors)
-        ensure
-            @additional_errors = nil
         end
 
         def garbage_collect_synchronous
@@ -1509,6 +1484,30 @@ module Roby
             # Return the exception objects registered in this result object
             def exceptions
                 fatal_errors.keys + nonfatal_errors.keys + free_events_errors.keys
+            end
+
+            def each_fatal_error(&block)
+                fatal_errors.each(&block)
+            end
+
+            def has_fatal_errors?
+                !fatal_errors.empty?
+            end
+
+            def each_nonfatal_error(&block)
+                nonfatal_errors.each(&block)
+            end
+
+            def has_nonfatal_errors?
+                !nonfatal_errors.empty?
+            end
+
+            def each_free_events_errors(&block)
+                free_events_errors.each(&block)
+            end
+
+            def has_free_events_errors?
+                !free_events_errors.empty?
             end
         end
 
@@ -1670,22 +1669,36 @@ module Roby
                 end
 
                 next_steps = gather_propagation do
-                    error_phase_results =
-                        log_timepoint_group 'error_handling_phase' do
-                            error_handling_phase(events_errors)
+                    exception_propagation_errors, error_phase_results = nil
+                    log_timepoint_group 'error_handling_phase' do
+                        exception_propagation_errors = gather_errors do
+                            error_phase_results = error_handling_phase(events_errors)
                         end
+                    end
 
+                    add_fatal_exceptions_for_inhibition(error_phase_results)
                     all_errors.merge(error_phase_results)
-                    events_errors = gather_errors do
+                    garbage_collection_errors = gather_errors do
+                        plan.generate_induced_errors(error_phase_results)
                         if garbage_collect_pass
                             garbage_collect(error_phase_results.kill_tasks)
                         else []
                         end
                     end
+                    events_errors = (exception_propagation_errors + garbage_collection_errors)
                     log_timepoint 'garbage_collect'
                 end
             end
             all_errors
+        end
+
+        def add_fatal_exceptions_for_inhibition(error_phase_results)
+            error_phase_results.each_fatal_error do |exception, tasks|
+                tasks.each do |t|
+                    (@pending_exceptions[t] ||= Set.new) <<
+                        [exception.exception.class, exception.origin]
+                end
+            end
         end
 
         def unmark_finished_missions_and_permanent_tasks
