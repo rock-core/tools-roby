@@ -1164,7 +1164,10 @@ module Roby
                     end
                     parents = filtered_parents
                 end
-                if !parents || parents.empty?
+
+                if !exception.exception.propagated?
+                    parents = []
+                elsif !parents || parents.empty?
                     parents = propagation_graph.out_neighbours(origin)
                 end
 

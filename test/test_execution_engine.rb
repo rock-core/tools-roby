@@ -1488,6 +1488,50 @@ class TC_ExecutionEngine < Minitest::Test
             process_events { plan.add_error(error) }
         end
 
+        it "does not propagate errors for which #propagated? returns false" do
+            manual_termination_task_m = Roby::Task.new_submodel do
+                event(:stop) { |context| }
+            end
+            plan.add(root = manual_termination_task_m.new)
+            root.depends_on(middle = task_m.new)
+
+            error = localized_error_m.new(middle).to_execution_exception
+            flexmock(error.exception, propagated?: false)
+            begin
+                root.start!
+                assert_fatal_exception(localized_error_m, failure_point: middle, tasks: [middle]) do
+                    process_events do
+                        execution_engine.once { execution_engine.add_error(error) }
+                    end
+                end
+            ensure
+                root.stop_event.emit
+            end
+        end
+
+        it "does handle at the error's origin the errors for which #propagated? returns false" do
+            manual_termination_task_m = Roby::Task.new_submodel do
+                event(:stop) { |context| }
+            end
+            plan.add(root = manual_termination_task_m.new)
+            root.depends_on(middle = task_m.new)
+
+            error = localized_error_m.new(middle).to_execution_exception
+            flexmock(error.exception, propagated?: false)
+            recorder = flexmock
+            task_m.on_exception(localized_error_m) { |*| recorder.called }
+
+            begin
+                root.start!
+                recorder.should_receive(:called).once
+                process_events do
+                    execution_engine.once { execution_engine.add_error(error) }
+                end
+            ensure
+                root.stop_event.emit
+            end
+        end
+
         describe PermanentTaskError do
             it "adds a PermanentTaskError error if a mission task emits a failure event" do
                 task_m = Task.new_submodel do
@@ -1542,8 +1586,29 @@ class TC_ExecutionEngine < Minitest::Test
                     end
                 end
             end
+
+            it "does not propagate MissionFailedError through the network" do
+                manual_termination_task_m = Roby::Task.new_submodel do
+                    event(:stop) { |context| }
+                end
+
+                plan.add_mission_task(root = manual_termination_task_m.new)
+                plan.add_mission_task(middle = task_m.new)
+                root.depends_on(middle)
+                middle.depends_on(origin = task_m.new)
+                root.start!
+
+                error = localized_error_m.new(origin).to_execution_exception
+                assert_fatal_exception(MissionFailedError, failure_point: root, tasks: [root]) do
+                    assert_fatal_exception(MissionFailedError, failure_point: middle, tasks: [middle]) do
+                        assert_fatal_exception(localized_error_m, failure_point: origin, tasks: [root, middle, origin]) do
+                            process_events do
+                                execution_engine.once { execution_engine.add_error(error) }
+                            end
+                        end
                     end
                 end
+                root.stop_event.emit
             end
         end
     end
