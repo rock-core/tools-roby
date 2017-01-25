@@ -265,6 +265,43 @@ module Roby
                             root_task.each_coordination_object.first
                     end
                 end
+
+                describe "#use_library" do
+                    it "imports the actions of an interface" do
+                        library = Actions::Interface.new_submodel do
+                            describe 'test'
+                            def action_test
+                            end
+                        end
+                        target = Actions::Interface.new_submodel
+                        target.use_library library
+                        assert target.find_action_by_name('action_test')
+                    end
+
+                    it "imports the actions of a library" do
+                        library = Actions::Library.new_submodel do
+                            describe 'test'
+                            def action_test
+                            end
+                        end
+                        target = Actions::Interface.new_submodel
+                        target.use_library library
+                        assert target.find_action_by_name('action_test')
+                    end
+
+                    it "does not register actions from its parent class to the child class on the intermediate libraries" do
+                        parent = Actions::Interface.new_submodel do
+                            describe 'test'
+                            def action_test; end
+                        end
+                        child = parent.new_submodel
+                        library = Actions::Library.new_submodel
+                        child.use_library library
+                        child.find_action_by_name('action_test')
+                        refute Actions::Library.actions['action_test']
+                        refute library.actions['action_test']
+                    end
+                end
             end
         end
     end
