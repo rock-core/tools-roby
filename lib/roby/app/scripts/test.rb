@@ -16,20 +16,20 @@ MetaRuby.keep_definition_location = false
 
 list_tests = false
 coverage_mode = false
-really_all = true
+only_self = false
+all = true
 testrb_args = []
 parser = OptionParser.new do |opt|
     opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- [MINITEST_OPTIONS] [TEST_FILES]"
     opt.on('--self', 'only run tests that are present in this bundle') do |val|
-        really_all = false
+        only_self = true
     end
-    opt.on('--really-all', 'auto-load models and run the corresponding tests found within the search path') do |val|
-        app.auto_load_models = true
-        really_all = true
+    opt.on('--not-all', 'run all the tests found in the bundle, regardless of whether they are loaded by the robot configuration') do |val|
+        all = false
     end
-    opt.on('--all', 'auto-load models and run the corresponding tests found within this app dir') do |val|
+    opt.on('--really-all', 'load all models, and run all the tests found in the bundle') do |val|
         app.auto_load_models = true
-        really_all = false
+        all = true
     end
 
     opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
@@ -82,25 +82,33 @@ exception = Roby.display_exception do
     end
     begin
         Roby.app.prepare
-        # tests.options.banner.sub!(/\[options\]/, '\& tests...')
+
         if test_files.empty?
-            test_files = app.each_test_file.map(&:first)
-            if !really_all
-                test_files = test_files.find_all { |path| app.self_file?(path) }
+            test_files = app.discover_test_files(all: all, only_self: only_self).map(&:first)
+            if list_tests
+                puts "Would load #{test_files.size} test files"
+                test_files.each do |path|
+                    puts "  #{path}"
+                end
+
+                all_existing_tests = app.find_dirs('test', order: :specific_first, all: !only_self).inject(Set.new) do |all, dir|
+                    all.merge(Find.enum_for(:find, dir).find_all { |f| f =~ /\/test_.*\.rb$/ && File.file?(f) }.to_set)
+                end
+                not_run = (all_existing_tests - test_files.to_set)
+                if !not_run.empty?
+                    puts "\nWould NOT load #{not_run.size} tests"
+                    not_run.to_a.sort.each do |not_loaded|
+                        puts "  #{not_loaded}"
+                    end
+                end
+                exit 0
             end
         end
 
-        if list_tests
-            puts "Would load #{test_files.size} test files"
-            test_files.sort.each do |path|
-                puts "  #{path}"
-            end
-        else
-            test_files.each do |arg|
-                require arg
-            end
-            Minitest.run testrb_args
+        test_files.each do |arg|
+            require arg
         end
+        Minitest.run testrb_args
     ensure
         Roby.app.cleanup
     end

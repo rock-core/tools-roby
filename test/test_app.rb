@@ -131,7 +131,7 @@ module Roby
                 end
             end
 
-            describe "#test_file_for" do
+            describe "#test_files_for" do
                 attr_reader :base_dir
 
                 before do
@@ -150,29 +150,39 @@ module Roby
                     m = flexmock(definition_location: [
                         flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
-                    assert_equal File.join(base_dir, 'test', 'compositions', 'test_file.rb'),
-                        app.test_file_for(m)
+                    assert_equal [File.join(base_dir, 'test', 'compositions', 'test_file.rb')],
+                        app.test_files_for(m)
                 end
                 it "ignores entries not in the search path" do
                     m = flexmock(definition_location: [
                         flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
                     app.search_path = []
-                    assert_nil app.test_file_for(m)
+                    assert_equal [], app.test_files_for(m)
                 end
                 it "ignores entries whose first element is not 'models'" do
                     create_file 'compositions', 'file.rb'
                     m = flexmock(definition_location: [
                         flexmock(absolute_path: File.join(base_dir, 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
-                    assert_nil app.test_file_for(m)
+                    assert_equal [], app.test_files_for(m)
                 end
-                it "returns nil if the expected test file does not exist" do
+                it "ignores files that do not exist" do
                     m = flexmock(definition_location: [
                         flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
                     ])
                     FileUtils.rm_f File.join(base_dir, 'test', 'compositions', 'test_file.rb')
-                    assert_nil app.test_file_for(m)
+                    assert_equal [], app.test_files_for(m)
+                end
+                it "returns all matching entries" do
+                    create_file('models', 'compositions', 'other.rb')
+                    create_file('test', 'compositions', 'test_other.rb')
+                    m = flexmock(definition_location: [
+                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm'),
+                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'other.rb'), lineno: 120, label: 'm')
+                    ])
+                    assert_equal [File.join(base_dir, 'test', 'compositions', 'test_file.rb'), File.join(base_dir, 'test', 'compositions', 'test_other.rb')],
+                        app.test_files_for(m)
                 end
             end
 
@@ -451,99 +461,6 @@ module Roby
             end
         end
 
-        describe "#each_test_file" do
-            attr_reader :app
-            before do
-                @app = Roby::Application.new
-                app.app_dir = make_tmpdir
-                installer = Roby::Installer.new(app, quiet: true)
-                installer.install
-            end
-
-            describe "included models" do
-                attr_reader :task_m, :path
-
-                before do
-                    @task_m = Roby::Task.new_submodel(name: 'Test')
-                    flexmock(app).should_receive(:test_file_for).
-                        with(task_m).once.
-                        and_return(@path = flexmock)
-                    flexmock(app).should_receive(:test_file_for)
-                end
-
-                it "registers models using #test_file_for" do
-                    assert_equal [[path, Set[task_m].to_set]], app.each_test_file.to_a
-                end
-                it "registers models that private_specializations? defined but are not specialized" do
-                    flexmock(task_m).should_receive(:private_specialization?).explicitly.
-                        and_return(false)
-                    assert_equal [[path, Set[task_m].to_set]], app.each_test_file.to_a
-                end
-            end
-
-            describe "ignored models" do
-                attr_reader :task_m
-
-                before do
-                    @task_m = Roby::Task.new_submodel(name: 'Test')
-                    flexmock(app).should_receive(:test_file_for).
-                        with(task_m).never
-                    flexmock(app).should_receive(:test_file_for)
-                end
-
-                it "ignores models that have no names" do
-                    flexmock(task_m).should_receive(:name)
-                    assert_equal [], app.each_test_file.to_a
-                end
-
-                it "ignores event models" do
-                    flexmock(task_m).should_receive(:has_ancestor?).
-                        with(Roby::Event).and_return(true)
-                    assert_equal [], app.each_test_file.to_a
-                end
-
-                it "ignores private specializations" do
-                    flexmock(task_m).should_receive(:private_specialization?).
-                        explicitly.and_return(true)
-                    assert_equal [], app.each_test_file.to_a
-                end
-            end
-
-            describe "lib tests" do
-                before do
-                    flexmock(app).should_receive(:test_file_for)
-                end
-
-                def touch_test_files(*paths)
-                    paths.map do |p|
-                        full_p = File.join(app.app_dir, 'test', 'lib', *p)
-                        FileUtils.mkdir_p File.dirname(full_p)
-                        FileUtils.touch full_p
-                        [full_p, Set.new]
-                    end
-                end
-
-                it "enumerates test_*.rb files in test/lib" do
-                    expected = touch_test_files \
-                        ['test_root.rb'],
-                        ['subdir', 'test_subdir.rb']
-                    assert_equal expected.to_set, app.each_test_file.to_set
-                end
-                it "enumerates *_test.rb files in test/lib" do
-                    expected = touch_test_files \
-                        ['root_test.rb'],
-                        ['subdir', 'subdir_test.rb']
-                    assert_equal expected.to_set, app.each_test_file.to_set
-                end
-                it "ignores files not matching the test pattern" do
-                    touch_test_files \
-                        ['root_test_root.rb'],
-                        ['subdir', 'subdir.rb']
-                    assert_equal [], app.each_test_file.to_a
-                end
-            end
-        end
-
         describe "#self_file?" do
             it "returns true if the file's base path is the app dir" do
                 assert app.self_file?(File.join(app_dir, "test", "file"))
@@ -553,7 +470,7 @@ module Roby
             end
         end
 
-        describe "#each_test_file" do
+        describe "#each_test_file_for_loaded_models" do
             attr_reader :app
             before do
                 @app = Roby::Application.new
@@ -567,19 +484,20 @@ module Roby
 
                 before do
                     @task_m = Roby::Task.new_submodel(name: 'Test')
-                    flexmock(app).should_receive(:test_file_for).
+                    flexmock(app).should_receive(:test_files_for).
                         with(task_m).once.
-                        and_return(@path = flexmock)
-                    flexmock(app).should_receive(:test_file_for)
+                        and_return([@path = flexmock])
+                    flexmock(app).should_receive(:test_files_for).
+                        and_return([])
                 end
 
-                it "registers models using #test_file_for" do
-                    assert_equal [[path, Set[task_m].to_set]], app.each_test_file.to_a
+                it "registers models using #test_files_for" do
+                    assert_equal [[path, Set[task_m].to_set]], app.each_test_file_for_loaded_models.to_a
                 end
                 it "registers models that private_specializations? defined but are not specialized" do
                     flexmock(task_m).should_receive(:private_specialization?).explicitly.
                         and_return(false)
-                    assert_equal [[path, Set[task_m].to_set]], app.each_test_file.to_a
+                    assert_equal [[path, Set[task_m].to_set]], app.each_test_file_for_loaded_models.to_a
                 end
             end
 
@@ -588,32 +506,33 @@ module Roby
 
                 before do
                     @task_m = Roby::Task.new_submodel(name: 'Test')
-                    flexmock(app).should_receive(:test_file_for).
+                    flexmock(app).should_receive(:test_files_for).
                         with(task_m).never
-                    flexmock(app).should_receive(:test_file_for)
+                    flexmock(app).should_receive(:test_files_for).
+                        and_return([])
                 end
 
                 it "ignores models that have no names" do
                     flexmock(task_m).should_receive(:name)
-                    assert_equal [], app.each_test_file.to_a
+                    assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
 
                 it "ignores event models" do
                     flexmock(task_m).should_receive(:has_ancestor?).
                         with(Roby::Event).and_return(true)
-                    assert_equal [], app.each_test_file.to_a
+                    assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
 
                 it "ignores private specializations" do
                     flexmock(task_m).should_receive(:private_specialization?).
                         explicitly.and_return(true)
-                    assert_equal [], app.each_test_file.to_a
+                    assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
             end
 
             describe "lib tests" do
                 before do
-                    flexmock(app).should_receive(:test_file_for)
+                    flexmock(app).should_receive(:test_files_for).and_return([])
                 end
 
                 def touch_test_files(*paths)
@@ -629,19 +548,19 @@ module Roby
                     expected = touch_test_files \
                         ['test_root.rb'],
                         ['subdir', 'test_subdir.rb']
-                    assert_equal expected.to_set, app.each_test_file.to_set
+                    assert_equal expected.to_set, app.each_test_file_for_loaded_models.to_set
                 end
                 it "enumerates *_test.rb files in test/lib" do
                     expected = touch_test_files \
                         ['root_test.rb'],
                         ['subdir', 'subdir_test.rb']
-                    assert_equal expected.to_set, app.each_test_file.to_set
+                    assert_equal expected.to_set, app.each_test_file_for_loaded_models.to_set
                 end
                 it "ignores files not matching the test pattern" do
                     touch_test_files \
                         ['root_test_root.rb'],
                         ['subdir', 'subdir.rb']
-                    assert_equal [], app.each_test_file.to_a
+                    assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
             end
         end

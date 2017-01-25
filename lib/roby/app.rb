@@ -1274,30 +1274,35 @@ module Roby
 
         def load_all_model_files_in(prefix_name, ignored_exceptions: Array.new)
             search_path = auto_load_search_path
-            files = find_files_in_dirs(
-                "models", prefix_name, "ROBOT",
+            dirs = find_dirs(
+                "models", prefix_name,
                 path: search_path,
                 all: true,
-                order: :specific_last,
-                pattern: /\.rb$/)
+                order: :specific_last)
 
-            files.each do |path|
-                suffix = File.basename(File.dirname(path))
-                basename = File.basename(path, '.rb')
-                begin
-                    if suffix == prefix_name
-                        # Toplevel directory, do not load the
-                        # <robot_name>.rb
-                        if !robot_name?(basename) || [robot_name, robot_type].include?(basename)
-                            require(path)
+            dirs.each do |dir|
+                all_files = Set.new
+                Find.find(dir) do |path|
+                    # Skip the robot-specific bits that don't apply on the
+                    # selected robot
+                    if File.directory?(path)
+                        suffix = File.basename(File.dirname(path))
+                        if robots.has_robot?(suffix) && ![robot_name, robot_type].include?(suffix)
+                            Find.prune
                         end
-                    elsif [prefix_name, robot_name, robot_type].include?(suffix)
-                        require(path)
-                    else
-                        Roby.info "not loading #{path}: not matching robot name"
                     end
-                rescue *ignored_exceptions => e
-                    ::Robot.warn "ignored file #{path}: #{e.message}"
+
+                    if File.file?(path) && path =~ /\.rb$/
+                        all_files << path
+                    end
+                end
+
+                all_files.each do |path|
+                    begin
+                        require(path)
+                    rescue *ignored_exceptions => e
+                        ::Robot.warn "ignored file #{path}: #{e.message}"
+                    end
                 end
             end
         end
@@ -1358,8 +1363,10 @@ module Roby
 
         # Given a model class, returns the full path of an existing test file
         # that is meant to verify this model
-        def test_file_for(model)
-            return if !model.respond_to?(:definition_location) || !model.definition_location 
+        def test_files_for(model)
+            return [] if !model.respond_to?(:definition_location) || !model.definition_location 
+
+            test_files = Array.new
             model.definition_location.each do |location|
                 file = location.absolute_path
                 next if !(base_path = find_base_path_for(file))
@@ -1370,11 +1377,10 @@ module Roby
                 split[-1] = "test_#{split[-1]}"
                 canonical_testpath = [base_path, *split].join(File::SEPARATOR)
                 if File.exist?(canonical_testpath)
-                    return canonical_testpath.to_s
-                else break
+                    test_files << canonical_testpath
                 end
             end
-            nil
+            test_files
         end
 
         def define_actions_module
@@ -2530,6 +2536,68 @@ module Roby
             notification_listeners.delete(listener)
         end
 
+        # Discover which tests should be run, and require them
+        #
+        # @param [Boolean] all if set, list all files in {#app_dir}/test.
+        #   Otherwise, list only the tests that are related to the loaded
+        #   models.
+        # @param [Boolean] self if set, list only test files from within
+        #   {#app_dir}. Otherwise, consider test files from all over {#search_path}
+        # @return [Array<String>]
+        def discover_test_files(all: true, only_self: false)
+            puts "all: #{all}, only_self: #{only_self}"
+            if all
+                test_files = each_test_file_in_app.inject(Hash.new) do |h, k|
+                    h[k] = Array.new
+                    h
+                end
+                if !only_self
+                    test_files.merge!(Hash[each_test_file_for_loaded_models.to_a])
+                end
+            else
+                test_files = Hash[each_test_file_for_loaded_models.to_a]
+                if only_self
+                    test_files = test_files.find_all { |f, _| self_file?(f) }
+                end
+            end
+            test_files
+        end
+
+        # Hook for the plugins to filter out some paths that should not be
+        # auto-loaded by {#each_test_file_in_app}. It does not affect
+        # {#each_test_file_for_loaded_models}.
+        #
+        # @return [Boolean]
+        def autodiscover_tests_in?(path)
+            suffix = File.basename(path)
+            if robots.has_robot?(suffix) && ![robot_name, robot_type].include?(suffix)
+                false
+            elsif defined? super
+                super
+            else
+                true
+            end
+        end
+
+        # Enumerate all the test files in this app and for this robot
+        # configuration
+        def each_test_file_in_app
+            return enum_for(__method__) if !block_given?
+
+            dir = File.join(app_dir, 'test')
+            Find.find(dir) do |path|
+                # Skip the robot-specific bits that don't apply on the
+                # selected robot
+                if File.directory?(path)
+                    Find.prune if !autodiscover_tests_in?(path)
+                end
+
+                if File.file?(path) && path =~ /test_.*\.rb$/
+                    yield(path)
+                end
+            end
+        end
+
         # Enumerate the test files that should be run to test the current app
         # configuration
         #
@@ -2537,15 +2605,15 @@ module Roby
         # @yieldparam [Array<Class<Roby::Task>>] models the models that are
         #   meant to be tested by 'path'. It can be empty for tests that involve
         #   lib/
-        def each_test_file(&block)
+        def each_test_file_for_loaded_models(&block)
             models_per_file = Hash.new { |h, k| h[k] = Set.new }
             each_model do |m|
                 next if m.respond_to?(:has_ancestor?) && m.has_ancestor?(Roby::Event)
                 next if m.respond_to?(:private_specialization?) && m.private_specialization?
                 next if !m.name
 
-                if path = test_file_for(m)
-                    models_per_file[path] << m
+                test_files_for(m).each do |test_path|
+                    models_per_file[test_path] << m
                 end
             end
 

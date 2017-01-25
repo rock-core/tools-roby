@@ -104,7 +104,7 @@ module Roby
                         failures = Array.new
                         keep_going = args.fetch(:keep_going, '1') == '1'
                         each_robot do |robot_name, robot_type|
-                            if !run_roby('test', '-r', "#{robot_name},#{robot_type}")
+                            if !run_roby('test', '-r', "#{robot_name},#{robot_type}", '--all')
                                 if keep_going
                                     failures << [robot_name, robot_type]
                                 else
@@ -119,7 +119,7 @@ module Roby
 
                     desc "run all tests"
                     task "#{task_name}:all" do
-                        if !run_roby('test', '-all')
+                        if !run_roby('test', '--all')
                             raise Failed.new("failed to run tests")
                         end
                     end
