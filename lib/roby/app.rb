@@ -537,18 +537,24 @@ module Roby
         #
         # When added, a :host entry will be added to the provided options hash
         def self.host_options(parser, options)
+            options[:host] ||= Roby.app.shell_interface_host || 'localhost'
+            options[:port] ||= Roby.app.shell_interface_port || Interface::DEFAULT_PORT
+
             parser.on('--host URL', String, "sets the host to connect to as hostname[:PORT]") do |url|
-                options[:host] = url
+                if url =~ /(.*):(\d+)$/
+                    options[:host] = $1
+                    options[:port] = Integer($2)
+                else
+                    options[:host] = url
+                end
             end
             parser.on('--vagrant NAME[:PORT]', String, "connect to a vagrant VM") do |vagrant_name|
                 require 'roby/app/vagrant'
-                vagrant_name, port = vagrant_name.split(':')
-                host = Roby::App::Vagrant.resolve_ip(vagrant_name)
-                if port
-                    options[:host] = "#{host}:#{port}"
-                else
-                    options[:host] = host
+                if vagrant_name =~ /(.*):(\d+)$/
+                    vagrant_name, port = $1, Integer($2)
                 end
+                options[:host] = Roby::App::Vagrant.resolve_ip(vagrant_name)
+                options[:port] = port
             end
         end
 

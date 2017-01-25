@@ -18,13 +18,14 @@ module Roby
                 attr_reader :app
                 attr_reader :host
 
-                def initialize(app = Roby.app)
+                def initialize(app = Roby.app,
+                               default_host: app.shell_interface_host || 'localhost',
+                               default_port: app.shell_interface_port || Interface::DEFAULT_PORT)
                     @app = app
-                    @host_options = Hash.new
+                    @host_options = Hash[host: default_host, port: default_port]
                 end
 
                 def setup_option_parser(parser)
-                    @host_options = Hash.new
                     Roby::Application.host_options(parser, @host_options)
                 end
 
@@ -41,17 +42,7 @@ module Roby
                 end
 
                 def host
-                    remote_url = @host_options[:host] || app.shell_interface_host || 'localhost'
-                    if remote_url !~ /:\d+$/
-                        remote_url += ":#{app.shell_interface_port.to_s}"
-                    end
-
-                    match = /(.*):(\d+)$/.match(remote_url)
-                    if !match
-                        raise ArgumentError, "malformed URL #{remote_url}"
-                    end
-
-                    return match[1], Integer(match[2])
+                    return *@host_options.values_at(:host, :port)
                 end
 
                 def run(*args, banner: "",
