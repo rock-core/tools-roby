@@ -99,8 +99,10 @@ module Roby
             Client.new(DRobyChannel.new(socket, true, marshaller: DRoby::Marshal.new(auto_create_plans: true)),
                        "#{addr[2]}:#{addr[1]}")
 
-        rescue Errno::ECONNREFUSED
-            raise ConnectionError, "failed to connect to #{host}:#{port}"
+        rescue Errno::ECONNREFUSED => e
+            raise ConnectionError, "failed to connect to #{host}:#{port}: #{e.message}", e.backtrace
+        rescue SocketError => e
+            raise e, "cannot connect to host '#{host}' port '#{port}': #{e.message}", e.backtrace
         rescue ::Exception
             if socket && !socket.closed?
                 socket.close
