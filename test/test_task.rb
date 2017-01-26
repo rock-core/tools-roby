@@ -5,7 +5,7 @@ module Roby
     describe Task do
         describe "the failure of the start command" do
             it "sets failed_to_start if the start command fails before the start event was emitted" do
-                error = Class.new(ArgumentError)
+                error = Class.new(ArgumentError).new
                 task_m = Roby::Tasks::Simple.new_submodel do
                     event :start do |context|
                         raise error
@@ -13,11 +13,10 @@ module Roby
                     end
                 end
                 plan.add(task = task_m.new)
-                actual_exception = assert_handled_exception(Roby::CommandFailed, original_exception: error, tasks: [task], failure_point: task.start_event) do
-                    task.start!
-                end
+                task.start!
                 assert task.failed_to_start?, "#{task} is not marked as failed to start but should be"
-                assert_equal actual_exception, task.failure_reason
+                assert_kind_of Roby::CommandFailed, task.failure_reason
+                assert_equal error, task.failure_reason.error
                 assert task.failed?
             end
 
@@ -30,9 +29,7 @@ module Roby
                     end
                 end
                 plan.add(task = task_m.new)
-                actual_exception = assert_handled_exception(Roby::CommandFailed, original_exception: error, tasks: [task], failure_point: task.start_event) do
-                    task.start!
-                end
+                task.start!
                 refute task.failed_to_start?, "#{task} is marked as failed to start but should not be"
                 refute task.running?
                 assert task.internal_error?
@@ -965,12 +962,10 @@ module Roby
 
                 master.start!
                 assert master.start_event.pending?
-                assert_handled_exception(EmissionFailed,
-                                       tasks: [master],
-                                       failure_point: master.start_event,
-                                       original_exception: UnreachableEvent) do
-                    plan.remove_task(slave)
-                end
+                plan.remove_task(slave)
+                assert master.failed_to_start?
+                assert_kind_of UnreachableEvent, master.failure_reason.error
+                assert_equal slave.start_event, master.failure_reason.error.failed_generator
             end
         end
 
@@ -2905,20 +2900,16 @@ class TC_Task < Minitest::Test
 
     def test_emit_failed_on_start_event_causes_the_task_to_be_marked_as_failed_to_start
         plan.add(task = Roby::Tasks::Simple.new)
-        e = assert_handled_exception(EmissionFailed, failure_point: task.start_event, tasks: [task]) do
-            task.start_event.emit_failed("test")
-        end
+        task.start_event.emit_failed("test")
         assert task.failed_to_start?
-        assert_equal e, task.failure_reason
+        assert_kind_of Roby::EmissionFailed, task.failure_reason
     end
 
     def test_raising_an_EmissionFailed_error_in_calling_causes_the_task_to_be_marked_as_failed_to_start
         plan.add(task = Tasks::Simple.new)
         e = EmissionFailed.new(nil, task.start_event)
         flexmock(task.start_event).should_receive(:calling).and_raise(e)
-        assert_handled_exception(EmissionFailed, tasks: [task], failure_point: task.start_event) do
-            task.start!
-        end
+        task.start!
         assert task.failed_to_start?
     end
 
@@ -2926,9 +2917,7 @@ class TC_Task < Minitest::Test
         plan.add(task = Tasks::Simple.new)
         e = CommandFailed.new(nil, task.start_event)
         flexmock(task.start_event).should_receive(:calling).and_raise(e)
-        assert_handled_exception(CommandFailed, tasks: [task], failure_point: task.start_event) do
-            task.start!
-        end
+        task.start!
         assert task.failed_to_start?
     end
     def test_model_terminal_event_forces_terminal

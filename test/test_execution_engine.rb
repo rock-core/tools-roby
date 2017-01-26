@@ -350,266 +350,629 @@ module Roby
             end
         end
 
-        describe "#compute_errors" do
-            attr_reader :task_m
+        describe "#add_error" do
+            attr_reader :task_m, :root, :child, :localized_error_m, :recorder, :other_root, :child, :child_e
             before do
-                @task_m = Roby::Task.new_submodel
-                task_m.argument :name, default: nil
+                @task_m = Roby::Task.new_submodel { argument :name, default: nil }
+                plan.add(@root = @task_m.new(name: 'root'))
+                root.depends_on(@child = @task_m.new(name: 'child'))
+                @localized_error_m = Class.new(LocalizedError)
+                @recorder = flexmock
+
+                root.depends_on(@child = task_m.new(name: 'child'))
+                plan.add(@other_root = task_m.new(name: 'other_root'))
+                other_root.depends_on(child)
+                @child_e = localized_error_m.new(child).to_execution_exception
             end
 
-            it "ends up with as many exceptions as there are roots in the propagation" do
-                plan.add_mission_task(root1 = task_m.new(name: 'root1'))
-                plan.add_mission_task(root2 = task_m.new(name: 'root2'))
-                plan.add_mission_task(middle = task_m.new(name: 'middle'))
-                plan.add(origin = task_m.new(name: 'origin'))
+            it "adds the error with no parents by default" do
+                assert_fatal_exception(localized_error_m, failure_point: child, tasks: [other_root, root, child]) do
+                    process_events do
+                        execution_engine.add_error(child_e)
+                    end
+                end
+            end
 
-                root1.depends_on middle
-                root2.depends_on middle
-                middle.depends_on origin
-                error_m = Class.new(LocalizedError)
-                errors = execution_engine.compute_errors([error_m.new(origin).to_execution_exception])
-                assert_equal 2, errors.fatal_errors.size
-                errors.each_fatal_error do |e, task|
-                    assert_equal origin, e.origin
-                    assert_kind_of error_m, e.exception
+            it "allows providing specific parents" do
+                assert_fatal_exception(localized_error_m, failure_point: child, tasks: [root, child]) do
+                    process_events do
+                        execution_engine.add_error(child_e, propagate_through: [root])
+                    end
+                end
+            end
+
+            it "does not propagate the exception if an empty parent set is given" do
+                assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child]) do
+                    process_events do
+                        execution_engine.add_error(child_e, propagate_through: [])
+                    end
                 end
             end
         end
 
-        describe "the error propagation" do
-            attr_reader :task_m, :root, :error_m
+        describe "#propagate_exception_in_plan" do
+            attr_reader :task_m, :root, :child, :localized_error_m, :recorder
             before do
-                @task_m = Task.new_submodel
+                @task_m = Roby::Task.new_submodel { argument :name, default: nil }
+                plan.add(@root = @task_m.new(name: 'root'))
+                root.depends_on(@child = @task_m.new(name: 'child'))
+                @localized_error_m = Class.new(LocalizedError)
+                @recorder = flexmock
+            end
+
+            def match_exception(*edges, handled: nil)
+                matcher = localized_error_m.to_execution_exception_matcher.
+                    with_trace(*edges).
+                    handled(handled)
+                matcher
+            end
+
+            it "propagates a given exception up in the dependency graph and yields the exception and the task at each step, finishing by the plan" do
+                child.depends_on(grandchild = task_m.new)
+
+                exception = localized_error_m.new(grandchild).to_execution_exception
+                recorder.should_receive(:call).once.with(exception, grandchild).ordered
+                recorder.should_receive(:call).once.with(exception, child).ordered
+                recorder.should_receive(:call).once.with(exception, root).ordered
+                recorder.should_receive(:call).once.with(exception, plan).ordered
+                result = execution_engine.propagate_exception_in_plan(
+                    [exception]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                                          handled: [],
+                                          unhandled: [exception, Set[grandchild, child, root]])
+            end
+
+            it "forks and merges at the forks and merges of the dependency graph" do
+                child.depends_on(grandchild1 = task_m.new(name: 'grandchild1'))
+                child.depends_on(grandchild2 = task_m.new(name: 'grandchild2'))
+                grandchild1.depends_on(leaf = task_m.new(name: 'leaf'))
+                grandchild2.depends_on(leaf)
+
+                exception = localized_error_m.new(leaf).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), leaf).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(leaf, grandchild1), grandchild1).ordered(:parallel)
+                recorder.should_receive(:call).once.
+                    with(match_exception(leaf, grandchild2), grandchild2).ordered(:parallel)
+                recorder.should_receive(:call).once.
+                    with(match_exception(grandchild1, child,
+                                         grandchild2, child,
+                                         leaf, grandchild1,
+                                         leaf, grandchild2), child).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace = match_exception(child, root,
+                                         grandchild1, child,
+                                         grandchild2, child,
+                                         leaf, grandchild1,
+                                         leaf, grandchild2), root).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace, plan).ordered
+
+                result = execution_engine.propagate_exception_in_plan(
+                    [exception]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                    unhandled: [full_trace, Set[root, child, grandchild1, grandchild2, leaf]],
+                    handled: [])
+            end
+
+            it "merges the forked exceptions as propagated to the roots and yields that with the plan" do
+                plan.add(other_root = task_m.new(name: 'other_root'))
+                other_root.depends_on(child)
+
+                exception = localized_error_m.new(child).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), child).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(child, root), root).ordered(:parallel)
+                recorder.should_receive(:call).once.
+                    with(match_exception(child, other_root), other_root).ordered(:parallel)
+                recorder.should_receive(:call).once.
+                    with(full_trace = match_exception(child, root,
+                                         child, other_root), plan).ordered
+
+                result = execution_engine.propagate_exception_in_plan(
+                    [exception]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                                          handled: [],
+                                          unhandled: [full_trace, Set[root, other_root, child]])
+            end
+
+            it "only propagates through specific parents if some are given" do
+                child.depends_on(grandchild1 = task_m.new(name: 'grandchild1'))
+                child.depends_on(grandchild2 = task_m.new(name: 'grandchild2'))
+                grandchild1.depends_on(leaf = task_m.new(name: 'leaf'))
+                grandchild2.depends_on(leaf)
+
+                exception = localized_error_m.new(leaf).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(exception, leaf).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(leaf, grandchild1), grandchild1).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(leaf, grandchild1,
+                                         grandchild1, child), child).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace = match_exception(leaf, grandchild1,
+                                         grandchild1, child,
+                                         child, root), root).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace, plan).ordered
+
+                result = execution_engine.propagate_exception_in_plan(
+                    [[exception, [grandchild1]]]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                    unhandled: [full_trace, Set[root, child, grandchild1, leaf]],
+                    handled: [])
+            end
+
+            it "does go through excluded parents if other paths go through it" do
+                child.depends_on(grandchild1 = task_m.new(name: 'grandchild1'))
+                grandchild1.depends_on(leaf = task_m.new(name: 'leaf'))
+                child.depends_on(leaf)
+
+                exception = localized_error_m.new(leaf).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), leaf).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(leaf, grandchild1), grandchild1).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(leaf, grandchild1,
+                                         grandchild1, child), child).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace = match_exception(leaf, grandchild1,
+                                         grandchild1, child,
+                                         child, root), root).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace, plan).ordered
+
+                result = execution_engine.propagate_exception_in_plan(
+                    [[exception, [grandchild1]]]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                    unhandled: [full_trace, Set[root, child, grandchild1, leaf]],
+                    handled: [])
+            end
+
+            it "filters out non-existing parents and warns about them" do
+                plan.add(task = task_m.new(name: 'task'))
+
+                exception = localized_error_m.new(child).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), child).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace = match_exception(child, root), root).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace, plan).ordered
+
+                messages = capture_log(execution_engine, :warn) do
+                    result = execution_engine.propagate_exception_in_plan(
+                        [[exception, [root, task]]]) { |*args| recorder.call(*args) }
+                    assert_exception_propagation_result(result,
+                        unhandled: [full_trace, Set[root, child]],
+                        handled: [])
+                end
+                assert_match /some parents specified for.*are actually not parents of #{Regexp.quote(child.to_s)}, they got filtered out/, messages[0]
+                assert_equal "  #{task}", messages[1]
+            end
+
+            it "will propagate through all parents if filtering out non-existing parents results in an empty set" do
+                plan.add(task = task_m.new(name: 'task'))
+
+                exception = localized_error_m.new(child).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), child).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace = match_exception(child, root), root).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace, plan).ordered
+
+                messages = capture_log(execution_engine, :warn) do
+                    result = execution_engine.propagate_exception_in_plan(
+                        [[exception, [task]]]) { |*args| recorder.call(*args) }
+                    assert_exception_propagation_result(result,
+                        unhandled: [full_trace, Set[root, child]],
+                        handled: [])
+                end
+                assert_match /some parents specified for.*are actually not parents of #{Regexp.quote(child.to_s)}, they got filtered out/, messages[0]
+                assert_equal "  #{task}", messages[1]
+            end
+
+            it "only yields the exception origin if the parent set is empty" do
+                exception = localized_error_m.new(child).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), child).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(), plan).ordered
+
+                result = execution_engine.propagate_exception_in_plan(
+                    [[exception, []]]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                    unhandled: [match_exception(), Set[child]],
+                    handled: [])
+            end
+
+            it "stops an exception propagation if the block returns true" do
+                child.depends_on(grandchild = task_m.new)
+
+                exception = localized_error_m.new(grandchild).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), grandchild).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace = match_exception(grandchild, child), child).ordered.
+                    and_return(true)
+                result = execution_engine.propagate_exception_in_plan(
+                    [exception]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                                          handled: [full_trace, Set[child]],
+                                          unhandled: [])
+            end
+
+            it "propagates through other branches if the exception is handled in a branch" do
+                child.depends_on(grandchild1 = task_m.new(name: 'grandchild1'))
+                child.depends_on(grandchild2 = task_m.new(name: 'grandchild2'))
+                grandchild1.depends_on(leaf = task_m.new(name: 'leaf'))
+                grandchild2.depends_on(leaf)
+
+                exception = localized_error_m.new(leaf).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), leaf).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(leaf, grandchild1), grandchild1).ordered(:parallel)
+                recorder.should_receive(:call).once.
+                    with(match_exception(leaf, grandchild2), grandchild2).ordered(:parallel).
+                    returns(true)
+                recorder.should_receive(:call).once.
+                    with(match_exception(grandchild1, child,
+                                         leaf, grandchild1), child).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace = match_exception(child, root,
+                                         grandchild1, child,
+                                         leaf, grandchild1), root).ordered
+                recorder.should_receive(:call).once.
+                    with(full_trace, plan).ordered
+
+                result = execution_engine.propagate_exception_in_plan(
+                    [exception]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                    unhandled: [full_trace, Set[root, child, grandchild1]],
+                    handled: [match_exception(leaf, grandchild2), Set[grandchild2]])
+            end
+
+            it "reports exception handled by the plan as such" do
+                exception = localized_error_m.new(child).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), child).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(child, root), root).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(child, root), plan).ordered.
+                    and_return(true)
+
+                result = execution_engine.propagate_exception_in_plan(
+                    [exception]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                    unhandled: [],
+                    handled: [match_exception(child, root, handled: true), Set[plan]])
+            end
+
+            it "the plan is reported in addition to the handling tasks if multiple branches are involved" do
+                plan.add(other_root = task_m.new(name: 'other_root'))
+                other_root.depends_on(child)
+
+                exception = localized_error_m.new(child).to_execution_exception
+                recorder.should_receive(:call).once.
+                    with(match_exception(), child).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(child, root), root).ordered.
+                    and_return(true)
+                recorder.should_receive(:call).once.
+                    with(match_exception(child, other_root), other_root).ordered
+                recorder.should_receive(:call).once.
+                    with(match_exception(child, other_root), plan).ordered.
+                    and_return(true)
+
+                result = execution_engine.propagate_exception_in_plan(
+                    [exception]) { |*args| recorder.call(*args) }
+                assert_exception_propagation_result(result,
+                    unhandled: [],
+                    handled: [match_exception(child, root, child, other_root, handled: true), Set[root, plan]])
+            end
+        end
+
+        describe "#remove_inhibited_exceptions" do
+            attr_reader :task_m, :root, :child, :localized_error_m, :recorder
+            before do
+                @task_m = Roby::Task.new_submodel { argument :name, default: nil }
+                plan.add(@root = @task_m.new(name: 'root'))
+                root.depends_on(@child = @task_m.new(name: 'child'))
+                @localized_error_m = Class.new(LocalizedError)
+                @recorder = flexmock
+            end
+
+            def match_exception(*edges, handled: nil)
+                localized_error_m.to_execution_exception_matcher.
+                    with_trace(*edges).
+                    handled(handled)
+            end
+
+            it "does not inhibit unhandled exceptions" do
+                e = localized_error_m.new(child).to_execution_exception
+                result = execution_engine.remove_inhibited_exceptions([e])
+                assert_exception_propagation_result(
+                    result,
+                    handled: [],
+                    unhandled: [match_exception(child, root), Set[root, child]])
+            end
+
+            it "inhibits exceptions for which an object reports the ability to handle the error" do
+                e = localized_error_m.new(child).to_execution_exception
+                flexmock(root).should_receive(:handles_error?).with(e).and_return(true)
+                result = execution_engine.remove_inhibited_exceptions([e])
+                assert_exception_propagation_result(
+                    result,
+                    handled: [match_exception(child, root), Set[root]],
+                    unhandled: [])
+            end
+
+            it "inhibits exceptions that have been registered with #add_fatal_exceptions_for_inhibition" do
+                e = localized_error_m.new(child).to_execution_exception
+                execution_engine.add_exceptions_for_inhibition([[e, [root]]])
+                result = execution_engine.remove_inhibited_exceptions([e])
+                assert_exception_propagation_result(
+                    result,
+                    handled: [match_exception(child, root), Set[root]],
+                    unhandled: [])
+            end
+        end
+
+        describe "#propagate_exceptions" do
+            attr_reader :task_m, :root, :child, :localized_error_m, :recorder
+            before do
+                @task_m = Roby::Task.new_submodel { argument :name, default: nil }
+                plan.add(@root = @task_m.new(name: 'root'))
+                root.depends_on(@child = @task_m.new(name: 'child'))
+                @localized_error_m = Class.new(LocalizedError)
+                @recorder = flexmock
+            end
+
+            def match_exception(*edges, handled: nil)
+                localized_error_m.to_execution_exception_matcher.
+                    with_trace(*edges).
+                    handled(handled)
+            end
+
+            it "partitions task and free event exceptions" do
+                plan.add(ev = EventGenerator.new)
+                event_e = localized_error_m.new(ev).to_execution_exception
+                task_e  = localized_error_m.new(root).to_execution_exception
+                unhandled, free_events_exceptions, handled =
+                    execution_engine.propagate_exceptions([event_e, task_e])
+                assert_exception_propagation_result(
+                    [unhandled, handled],
+                    handled: [],
+                    unhandled: [match_exception(), Set[root]])
+                assert_equal [[event_e, Set[ev]]], free_events_exceptions
+            end
+
+            it "removes inhibited task exceptions and do not report them as handled" do
+                task_e  = localized_error_m.new(root).to_execution_exception
+                flexmock(execution_engine).should_receive(:remove_inhibited_exceptions).
+                    with([task_e]).and_return([[], flexmock])
+
+                unhandled, free_events_exceptions, handled =
+                    execution_engine.propagate_exceptions([task_e])
+                assert_exception_propagation_result(
+                    [unhandled, handled],
+                    handled: [],
+                    unhandled: [])
+                assert_equal [], free_events_exceptions
+            end
+
+            it "passes the propagate-through information throuh the inhibition" do
+                root.depends_on(child = task_m.new)
+                task_e  = localized_error_m.new(child).to_execution_exception
+                flexmock(execution_engine).should_receive(:remove_inhibited_exceptions).
+                    with([[task_e, []]]).and_return([[ [task_e, flexmock] ], []])
+                flexmock(execution_engine).should_receive(:propagate_exception_in_plan).
+                    with([[task_e, []]], Proc).once.pass_thru
+                flexmock(execution_engine).should_receive(:propagate_exception_in_plan).
+                    pass_thru
+
+                unhandled, free_events_exceptions, handled =
+                    execution_engine.propagate_exceptions([[task_e, []]])
+                assert_exception_propagation_result(
+                    [unhandled, handled],
+                    handled: [],
+                    unhandled: [task_e, Set[child]])
+                assert_equal [], free_events_exceptions
+            end
+
+            it "propagates non-inhibited task exceptions and reports the propagation result" do
+                task_e  = localized_error_m.new(root).to_execution_exception
+                flexmock(execution_engine).should_receive(:remove_inhibited_exceptions).
+                    with([task_e]).pass_thru
+                flexmock(execution_engine).should_receive(:propagate_exception_in_plan).
+                    with([[task_e, nil]], Proc).once.pass_thru
+                flexmock(execution_engine).should_receive(:propagate_exception_in_plan).
+                    pass_thru
+
+                unhandled, free_events_exceptions, handled =
+                    execution_engine.propagate_exceptions([task_e])
+                assert_exception_propagation_result(
+                    [unhandled, handled],
+                    handled: [],
+                    unhandled: [task_e, Set[root]])
+                assert_equal [], free_events_exceptions
+            end
+
+            it "lets tasks handle the exception" do
+                task_e  = localized_error_m.new(root).to_execution_exception
+                flexmock(root).should_receive(:handle_exception).with(task_e).
+                    and_return(true)
+
+                unhandled, free_events_exceptions, handled =
+                    execution_engine.propagate_exceptions([task_e])
+                assert_exception_propagation_result(
+                    [unhandled, handled],
+                    handled: [task_e, Set[root]],
+                    unhandled: [])
+                assert_equal [], free_events_exceptions
+            end
+
+            it "lets plan-level handlers handle the exception" do
+                task_e  = localized_error_m.new(root).to_execution_exception
+                flexmock(plan).should_receive(:handle_exception).with(task_e).
+                    and_return(true)
+
+                unhandled, free_events_exceptions, handled =
+                    execution_engine.propagate_exceptions([task_e])
+                assert_exception_propagation_result(
+                    [unhandled, handled],
+                    handled: [task_e, Set[plan]],
+                    unhandled: [])
+                assert_equal [], free_events_exceptions
+            end
+        end
+
+        describe "the error propagation" do
+            attr_reader :task_m, :root, :localized_error_m
+            before do
+                @task_m = Task.new_submodel do
+                    attr_accessor :hold_stop
+                    event(:stop) do |_|
+                        if !hold_stop
+                            stop_event.emit
+                        end
+                    end
+                end
                 task_m.argument :name, default: nil
-                task_m.event(:stop) { |_| }
-                @error_m = Class.new(LocalizedError)
+                @localized_error_m = Class.new(LocalizedError)
 
                 plan.add(@root = task_m.new)
                 root.start!
             end
             after do
-                plan.task_relation_graph_for(TaskStructure::Dependency).each_edge.
-                    to_a.each do |a, b|
+                plan.task_relation_graph_for(TaskStructure::Dependency).each_edge.to_a.each do |a, b|
                     a.remove_child b
                 end
                 plan.each_task { |t| t.stop_event.emit if t.stop_event.pending? }
             end
 
+            def match_exception(*edges, handled: nil)
+                matcher = localized_error_m.to_execution_exception_matcher.
+                    with_trace(*edges).
+                    handled(handled)
+                matcher
+            end
+
+            it "raises a non-repaired structure exception even if a handler claims having handled it" do
+                root_e = localized_error_m.new(root).to_execution_exception
+                flexmock(plan).should_receive(:check_structure).
+                    and_return([[root_e, []]])
+                flexmock(root).should_receive(:handle_exception).and_return(true)
+
+                assert_exception_and_object_set_matches(
+                    [match_exception(), Set[root]],
+                    execution_engine.compute_errors([]).each_fatal_error)
+            end
+
+            it "partitions the exceptions between fatal and non-fatal ones" do
+                fatal_e = localized_error_m.new(root).to_execution_exception
+                nonfatal_e = localized_error_m.new(root).to_execution_exception
+                flexmock(nonfatal_e).should_receive(:fatal?).and_return(false)
+
+                results = execution_engine.compute_errors([fatal_e, nonfatal_e])
+                assert_exception_and_object_set_matches(
+                    [fatal_e, Set[root]],
+                    results.each_fatal_error)
+                assert_exception_and_object_set_matches(
+                    [nonfatal_e, Set[root]],
+                    results.each_nonfatal_error)
+            end
+
+            it "reports the handled exceptions" do
+                root_e = localized_error_m.new(root).to_execution_exception
+                flexmock(root).should_receive(:handle_exception).and_return(true)
+
+                assert_exception_and_object_set_matches(
+                    [match_exception(), Set[root]],
+                    execution_engine.compute_errors([root_e]).each_handled_error)
+            end
+
             describe "tasks that are being forcefully killed" do
                 it "inhibits errors that have the same class and origin than the one that caused the error" do
                     root.depends_on(child = task_m.new)
-                    assert_fatal_exception(error_m, failure_point: child, tasks: [child, root]) do
-                        process_events { execution_engine.add_error(error_m.new(child)) }
+                    assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child, root]) do
+                        process_events(garbage_collect_pass: false) { execution_engine.add_error(localized_error_m.new(child)) }
                     end
-                    process_events { execution_engine.add_error(error_m.new(child)) }
+                    process_events { execution_engine.add_error(localized_error_m.new(child)) }
                 end
                 it "does report new errors while the task is being GCed but then inhibits them as well" do
+                    root.hold_stop = true
                     root.depends_on(child = task_m.new)
-                    assert_fatal_exception(error_m, failure_point: child, tasks: [child, root]) do
-                        process_events { execution_engine.add_error(error_m.new(child)) }
+                    assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child, root]) do
+                        process_events { execution_engine.add_error(localized_error_m.new(child)) }
                     end
-                    new_error_m = Class.new(LocalizedError)
-                    assert_fatal_exception(new_error_m, failure_point: child, tasks: [child, root]) do
-                        process_events { execution_engine.add_error(new_error_m.new(child)) }
+                    new_localized_error_m = Class.new(LocalizedError)
+                    assert_fatal_exception(new_localized_error_m, failure_point: child, tasks: [child, root]) do
+                        process_events { execution_engine.add_error(new_localized_error_m.new(child)) }
                     end
-                    process_events { execution_engine.add_error(error_m.new(child)) }
-                    process_events { execution_engine.add_error(new_error_m.new(child)) }
+                    process_events { execution_engine.add_error(localized_error_m.new(child)) }
+                    process_events { execution_engine.add_error(new_localized_error_m.new(child)) }
                 end
             end
 
-
-            it "constrains the propagation to parents listed alongside the exception" do
-                root0, root1, child = prepare_plan add: 3, model: task_m
-                root0.depends_on(child)
-                root1.depends_on(child)
-                flexmock(root0).should_receive(:handle_exception).once.and_return(false)
-                flexmock(child).should_receive(:handle_exception).once.and_return(false)
-                flexmock(root1).should_receive(:handle_exception).never
-
-                execution_engine.propagate_exceptions([[child.to_execution_exception, [root0]]])
-            end
-
-            it "inhibits exceptions that already caused a task to be terminated" do
-                task_m = Roby::Task.new_submodel do
-                    event :intermediate
-                    event(:stop) { |context| }
+            it "processes errors added during the error handling itself" do
+                root.stop_event.when_unreachable do
+                    execution_engine.add_error localized_error_m.new(root)
                 end
-                plan.add(root = task_m.new)
-                root.depends_on(parent = task_m.new)
-                parent.depends_on(child = task_m.new, failure: :intermediate)
-                root.start!
-                parent.start!
-                child.start!
-
-                assert_fatal_exception(ChildFailedError, failure_point: child.intermediate_event, tasks: [root, parent, child]) do
-                    child.intermediate_event.emit
-                end
-                # Should not raise
-                process_events
-
-                root.stop_event.emit
-                parent.stop_event.emit
-                child.stop_event.emit
-            end
-
-            it "filters out specified parents that are actually not parents of the exception's origin" do
-                root0, root1, child = prepare_plan add: 3, model: task_m
-                root0.depends_on(child)
-
-                flexmock(root0).should_receive(:handle_exception).once.and_return(false)
-                flexmock(child).should_receive(:handle_exception).once.and_return(false)
-                flexmock(root1).should_receive(:handle_exception).never
-
-                error = child.to_execution_exception
-                messages = capture_log(execution_engine, :warn) do
-                    result, _ = execution_engine.propagate_exceptions([[error, [root0, root1]]])
-                    assert_equal error, result.first.first
-                    assert_equal [root0, child].to_set, result.first.last.to_set
-                end
-                expected = ["some parents specified for Roby::LocalizedError(Roby::LocalizedError) are actually not parents of #{child}, they got filtered out", "  #{root1}"] * 2
-                assert_equal expected, messages
-            end
-
-            it "duplicates exceptions across forks" do
-                left_0, left_1, right_0, leaf = prepare_plan add: 4
-                left_0.depends_on(left_1)
-                left_1.depends_on(leaf)
-                right_0.depends_on(leaf)
-
-                flexmock(left_0).should_receive(:handle_exception).and_return(true)
-                error = error_m.new(leaf).to_execution_exception
-                assert_handled_exception(error_m, failure_point: leaf, tasks: [left_0]) do
-                    fatal, _ = execution_engine.propagate_exceptions([error])
-
-                    assert_equal 1, fatal.size
-                    exception, affected_tasks = fatal.first
-                    assert_equal [leaf, right_0], exception.trace
-                    assert_equal [right_0], affected_tasks
-                end
-            end
-
-            it "merges forked exceptions if the dependencies form a diamond shape" do
-                root, left, right, leaf = prepare_plan add: 4
-                root.depends_on(left)
-                root.depends_on(right)
-                left.depends_on(leaf)
-                right.depends_on(leaf)
-
-                flexmock(root).should_receive(:handle_exception).once.and_return(true).
-                    with(proc do |exception|
-                    assert_equal leaf, exception.trace.first
-                    assert_equal [left, right].to_set, exception.trace[1, 2].to_set
-                    assert_equal root, exception.trace.last
-                end)
-
-                execution_engine.propagate_exceptions([leaf.to_execution_exception])
-            end
-        end
-
-        describe "exception handling" do
-            attr_reader :task_m, :localized_error_m, :task
-            before do
-                @task_m = Roby::Task.new_submodel
-                @localized_error_m = Class.new(LocalizedError)
-                plan.add(@task = task_m.new)
-            end
-
-            it "is possible for a task to add errors while being finalized in garbage collection" do
-                task.stop_event.when_unreachable do
-                    execution_engine.add_error localized_error_m.new(task)
-                end
-                assert_fatal_exception(localized_error_m, tasks: [task], kill_tasks: []) do
+                assert_fatal_exception(localized_error_m, tasks: [root], kill_tasks: []) do
                     process_events
                 end
             end
 
-            it "falls back to global handlers if there is no matching handler on the tasks" do
-                flexmock(plan).should_receive(:handle_exception).once.and_return(true)
-                flexmock(task).should_receive(:handle_exception).once.and_return(false)
-                process_events do
-                    plan.add_error(localized_error_m.new(task))
-                end
-            end
+            describe "exception notification" do
+                attr_reader :results, :recorder
 
-            it "does not call global handlers if an exception is handled by a task" do
-                flexmock(plan).should_receive(:handle_exception).never
-                flexmock(task).should_receive(:handle_exception).once.and_return(true)
-                process_events do
-                    plan.add_error(localized_error_m.new(task))
-                end
-            end
-
-            it "notifies about an exception handled by a task" do
-                flexmock(task).should_receive(:handle_exception).once.and_return(true)
-                task.depends_on(origin = task_m.new)
-
-                error = localized_error_m.new(origin).to_execution_exception
-
-                recorder = flexmock
-                execution_engine.on_exception do |kind, error, involved_objects|
-                    recorder.notified(kind, error.exception, involved_objects.to_set)
-                end
-                recorder.should_receive(:notified).once.
-                    with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error.exception, Set[task])
-                process_events { plan.add_error(error) }
-            end
-
-            it "notifies about an exception handled by the plan" do
-                task.depends_on(origin = task_m.new)
-
-                error = localized_error_m.new(origin).to_execution_exception
-                flexmock(plan).should_receive(:handle_exception).once.and_return(true)
-
-                recorder = flexmock
-                execution_engine.on_exception do |kind, error, involved_objects|
-                    recorder.notified(kind, error.exception, involved_objects.to_set)
-                end
-                recorder.should_receive(:notified).once.
-                    with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error.exception, Set[plan])
-                process_events { plan.add_error(error) }
-            end
-
-            it "does not propagate errors for which #propagated? returns false" do
-                manual_termination_task_m = Roby::Task.new_submodel do
-                    event(:stop) { |context| }
-                end
-                plan.add(root = manual_termination_task_m.new)
-                root.depends_on(middle = task_m.new)
-
-                error = localized_error_m.new(middle).to_execution_exception
-                flexmock(error.exception, propagated?: false)
-                begin
-                    root.start!
-                    assert_fatal_exception(localized_error_m, failure_point: middle, tasks: [middle]) do
-                        process_events do
-                            execution_engine.once { execution_engine.add_error(error) }
-                        end
+                before do
+                    @recorder = flexmock
+                    execution_engine.on_exception do |kind, notified_error, notified_objects|
+                        recorder.notified(kind, notified_error, notified_objects)
                     end
-                ensure
-                    root.stop_event.emit
+                    flexmock(execution_engine)
                 end
-            end
 
-            it "does handle at the error's origin the errors for which #propagated? returns false" do
-                manual_termination_task_m = Roby::Task.new_submodel do
-                    event(:stop) { |context| }
+                def mock_compute_errors(result_set)
+                    results = ExecutionEngine::ErrorPhaseResult.new
+                    results.send(result_set) << [@error = flexmock, @involved_objects = flexmock]
+                    execution_engine.should_receive(:compute_errors).
+                        and_return(results, ExecutionEngine::ErrorPhaseResult.new)
                 end
-                plan.add(root = manual_termination_task_m.new)
-                root.depends_on(middle = task_m.new)
 
-                error = localized_error_m.new(middle).to_execution_exception
-                flexmock(error.exception, propagated?: false)
-                recorder = flexmock
-                task_m.on_exception(localized_error_m) { |*| recorder.called }
+                def assert_receives_notification(notification_type)
+                    recorder.should_receive(:notified).once.
+                        with(notification_type, @error, @involved_objects)
+                end
 
-                begin
-                    root.start!
-                    recorder.should_receive(:called).once
-                    process_events do
-                        execution_engine.once { execution_engine.add_error(error) }
+
+                it "notifies handled exceptions" do
+                    mock_compute_errors :handled_errors
+                    assert_receives_notification ExecutionEngine::EXCEPTION_HANDLED
+                    messages = capture_log(execution_engine, :warn) do
+                        process_events
                     end
-                ensure
-                    root.stop_event.emit
+                    assert_equal ["1 handled errors"], messages
+                end
+
+                it "notifies fatal exceptions" do
+                    execution_engine.should_receive(:add_exceptions_for_inhibition)
+                    flexmock(plan).should_receive(:generate_induced_errors)
+                    mock_compute_errors :fatal_errors
+                    assert_receives_notification ExecutionEngine::EXCEPTION_FATAL
+                    messages = capture_log(execution_engine, :warn) do
+                        process_events(raise_errors: false)
+                    end
+                    assert_equal "1 unhandled fatal exceptions, involving 0 tasks that will be forcefully killed", messages.first
                 end
             end
 
@@ -630,7 +993,7 @@ module Roby
                     plan.add_permanent_task(root = task_m.new)
                     root.depends_on(origin = task_m.new)
                     error = localized_error_m.new(origin).to_execution_exception
-                    error.trace << root
+                    error.propagate(origin, root)
                     assert_nonfatal_exception(PermanentTaskError, failure_point: root, tasks: [root]) do
                         assert_fatal_exception(localized_error_m, failure_point: origin, tasks: [root, origin]) do
                             process_events do
@@ -658,7 +1021,7 @@ module Roby
                     plan.add_mission_task(root = task_m.new)
                     root.depends_on(origin = task_m.new)
                     error = localized_error_m.new(origin).to_execution_exception
-                    error.trace << root
+                    error.propagate(origin, root)
                     assert_fatal_exception(MissionFailedError, failure_point: root, tasks: [root]) do
                         assert_fatal_exception(localized_error_m, failure_point: origin, tasks: [root, origin]) do
                             process_events do
@@ -669,11 +1032,7 @@ module Roby
                 end
 
                 it "does not propagate MissionFailedError through the network" do
-                    manual_termination_task_m = Roby::Task.new_submodel do
-                        event(:stop) { |context| }
-                    end
-
-                    plan.add_mission_task(root = manual_termination_task_m.new)
+                    plan.add_mission_task(root = task_m.new)
                     plan.add_mission_task(middle = task_m.new)
                     root.depends_on(middle)
                     middle.depends_on(origin = task_m.new)
@@ -683,7 +1042,7 @@ module Roby
                     assert_fatal_exception(MissionFailedError, failure_point: root, tasks: [root]) do
                         assert_fatal_exception(MissionFailedError, failure_point: middle, tasks: [middle]) do
                             assert_fatal_exception(localized_error_m, failure_point: origin, tasks: [root, middle, origin]) do
-                                process_events do
+                                process_events(garbage_collect_pass: false) do
                                     execution_engine.once { execution_engine.add_error(error) }
                                 end
                             end
@@ -691,6 +1050,89 @@ module Roby
                     end
                     root.stop_event.emit
                 end
+            end
+
+            describe "the error handling relation" do
+                attr_reader :task_m, :localized_error_m, :repair_task, :root, :root_e
+                before do
+                    @task_m = Task.new_submodel
+                    task_m.terminates
+                    task_m.argument :name, default: nil
+                    @localized_error_m = Class.new(LocalizedError)
+                    plan.add(@root = task_m.new)
+                    plan.add(@repair_task = task_m.new)
+                    @root_e = localized_error_m.new(root.failed_event).to_execution_exception
+                end
+
+                it "inhibits exceptions for which an error handling task is running" do
+                    flexmock(root).should_receive(:handles_error?).
+                        at_least.once.with(root_e).and_return(true)
+
+                    result = execution_engine.remove_inhibited_exceptions([root_e])
+                    assert_exception_propagation_result(
+                        result,
+                        handled: [match_exception(), Set[root]],
+                        unhandled: [])
+                end
+
+                it "does not inhibit an exception for which there is no active repair task" do
+                    flexmock(root).should_receive(:handles_error?).
+                        at_least.once.with(root_e).and_return(false)
+
+                    result = execution_engine.remove_inhibited_exceptions([root_e])
+                    assert_exception_propagation_result(
+                        result,
+                        handled: [],
+                        unhandled: [match_exception(), Set[root]])
+                end
+
+                it "auto-starts a matching repair task" do
+                    flexmock(root).should_receive(:find_all_matching_repair_tasks).
+                        at_least.once.with(root_e).and_return([repair_task])
+
+                    assert_handled_exception(localized_error_m, failure_point: root.failed_event, tasks: [root]) do
+                        process_events(garbage_collect_pass: false) do
+                            execution_engine.add_error(root_e)
+                        end
+                    end
+                    assert repair_task.running?
+                end
+            end
+        end
+
+        def assert_exception_and_object_set_matches(expected, actual, message = "failed to match propagation result exception and/or involved objects")
+            actual.each do |e, affected_tasks|
+                found_match_e = expected.each_slice(2).find_all { |match_e, _| match_e === e }
+                found_tasks   = expected.each_slice(2).find_all { |_, tasks_e| tasks_e == affected_tasks }
+                if (found_match_e & found_tasks).empty?
+                    messages = [message]
+                    if found_match_e.empty?
+                        messages << "exception #{e} does not match expected"
+                        expected.each_slice(2) do |match_e, _|
+                            messages << "  #{match_e}"
+                        end
+                    end
+                    if found_tasks.empty?
+                        messages << "tasks #{affected_tasks.to_a} do not match expected"
+                        expected.each_slice(2) do |_, tasks_e|
+                            messages << "  #{tasks_e.to_a}"
+                        end
+                    end
+                    flunk(messages.join("\n  "))
+                end
+            end
+        end
+
+        def assert_exception_propagation_result(result, handled: nil, unhandled: nil)
+            assert_kind_of Array, result[0]
+            assert_kind_of Array, result[1]
+            if unhandled
+                assert_exception_and_object_set_matches(
+                    unhandled, result[0], "unhandled set mismatches")
+            end
+            if handled
+                assert_exception_and_object_set_matches(
+                    handled, result[1], "unhandled set mismatches")
             end
         end
     end
@@ -1183,29 +1625,6 @@ class TC_ExecutionEngine < Minitest::Test
 	Plan.structure_checks.clear
     end
 
-    def test_check_structure_handlers_are_propagated_twice
-        # First time, we don't do anything. Second time, we return some filtered
-        # fatal errors and verify that they are handled
-	Plan.structure_checks.clear
-        t0, t1, t2 = prepare_plan add: 3
-        t1.depends_on t0
-        errors = Hash[LocalizedError.new(t0).to_execution_exception => [t1]]
-        plan.structure_checks.clear
-        handler = proc { errors }
-	Plan.structure_checks << handler
-
-        execution_engine = flexmock(self.execution_engine)
-        execution_engine.should_receive(:propagate_exceptions).with([]).and_return([[], Hash.new])
-        execution_engine.should_receive(:propagate_exceptions).with(errors).and_return([[], Hash.new]).once
-        execution_engine.should_receive(:remove_inhibited_exceptions).with(errors).
-            and_return([[e = LocalizedError.new(t0), Set[t2]]])
-        errors = execution_engine.compute_errors([])
-        assert_equal Hash[e, Set[t2]], errors.fatal_errors
-            
-    ensure
-        Plan.structure_checks.delete(handler) if handler
-    end
-
     def test_at_cycle_end
         Roby.app.abort_on_application_exception = false
 
@@ -1604,58 +2023,6 @@ class TC_ExecutionEngine < Minitest::Test
         process_events
     end
 
-    def test_error_handling_relation(error_event = :failed)
-	task_model = Tasks::Simple.new_submodel do
-	    event :blocked
-	    forward blocked: :failed
-	end
-
-	parent, (child, *repair_tasks) = prepare_plan permanent: 1, add: 3, model: task_model
-	parent.depends_on child
-	child.event(:failed).handle_with repair_tasks[0]
-
-	parent.start!
-	child.start!
-        child.event(error_event).emit
-
-	exceptions = plan.check_structure
-        assert execution_engine.remove_inhibited_exceptions(exceptions).empty?
-        assert_equal([[], Hash.new], execution_engine.propagate_exceptions(exceptions))
-
-        repairs = child.find_all_matching_repair_tasks(child.terminal_event)
-        assert_equal 1, repairs.size
-        repair_task = repairs.first
-
-	Roby.app.abort_on_exception = false
-        # Verify that both the repair and root tasks are not garbage collected
-	process_events
-	assert(repair_task.running?)
-
-	# Make the "repair task" finish, but do not repair the plan.
-	# propagate_exceptions must not add a new repair
-        assert_raises(ChildFailedError) do
-            repair_task.success!
-        end
-
-    ensure
-	parent.remove_child child if child
-    end
-
-    def test_error_handling_relation_generalization
-	test_error_handling_relation(:blocked)
-    end
-
-    def test_error_handling_relation_with_as_plan
-        model = Tasks::Simple.new_submodel do
-            def self.as_plan
-                new(id: 10)
-            end
-        end
-        task = prepare_plan add: 1, model: Tasks::Simple
-        child = task.failed_event.handle_with(model)
-        assert_kind_of model, child
-        assert_equal 10, child.arguments[:id]
-    end
 
     def test_garbage_collection_calls_are_propagated_first_while_quitting
         obj = Class.new do

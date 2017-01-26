@@ -47,6 +47,19 @@ module Roby
                     demarshaller.local_object(droby_unmarshalled)
                 end
 
+                describe BidirectionalGraphDumper do
+                    it "dumps and reloads objects, edges and information" do
+                        graph = Relations::BidirectionalDirectedAdjacencyGraph.new
+                        task_a, remote_a = create_task_pair
+                        task_b, remote_b = create_task_pair
+                        graph.add_edge(task_a, task_b, Hash[v: 10])
+                        graph.add_edge(task_a.start_event, task_b.stop_event, Hash[v: 42])
+                        remote_g = transfer(graph)
+                        assert_equal Hash[v: 10], remote_g.edge_info(remote_a, remote_b)
+                        assert_equal Hash[v: 42], remote_g.edge_info(remote_a.start_event, remote_b.stop_event)
+                    end
+                end
+
                 describe Models::TaskDumper do
                     before do
                         demarshaller.register_model(Roby::Task)
@@ -366,14 +379,13 @@ module Roby
                     it "is droby-marshallable" do
                         task, r_task= create_task_pair
                         parent_task, r_parent_task = create_task_pair
-                        e = LocalizedError.new(task.start_event)
-                        ee = ExecutionException.new(e)
-                        ee.trace << parent_task
+                        ee = LocalizedError.new(task.start_event).to_execution_exception
+                        ee.propagate(task, parent_task)
                         ee.handled = true
 
                         ee = transfer(ee)
                         assert_equal r_task.start_event, ee.exception.failure_point
-                        assert_equal [r_task, r_parent_task], ee.trace
+                        assert_equal [[r_task, r_parent_task, nil]], ee.trace.each_edge.to_a
                         assert ee.handled?
                     end
                 end

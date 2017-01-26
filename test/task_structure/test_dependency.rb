@@ -820,7 +820,7 @@ module Roby
                     command_failed_matcher = CommandFailed.match.
                         with_origin(child.start_event).
                         with_ruby_exception(error)
-                    assert_handled_exception(command_failed_matcher, tasks: [child]) do
+                    assert_task_fails_to_start(child, command_failed_matcher, failure_point: child.start_event) do
                         assert_fatal_exception(ChildFailedError, tasks: [parent, child], failure_point: child, original_exception: command_failed_matcher) do
                             child.start!
                         end

@@ -60,14 +60,6 @@ module Roby
                     planner = task.planned_by(Roby::Test::Tasks::Simple.new)
                     planner.start!
 
-                    spy = flexmock(plan.execution_engine) do |s|
-                        s.should_receive(:propagate_exceptions).
-                            with(->(e) { e.empty? }).
-                            and_return([[], Hash.new])
-                        s.should_receive(:propagate_exceptions).
-                            with(->(e) { e.first.first.exception.kind_of?(Exception) && e.first.last == [] }).once.
-                            and_return([[], Hash.new])
-                    end
                     assert_fatal_exception(PlanningFailedError, failure_point: task, tasks: [task, root]) do
                         planner.failed!
                     end

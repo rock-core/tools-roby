@@ -13,6 +13,17 @@ module Roby
             def initialize
                 @exception_matcher = LocalizedErrorMatcher.new
                 @involved_tasks_matchers = Array.new
+                @expected_edges = nil
+                @handled = nil
+            end
+
+            def handled(flag = true)
+                @handled = flag
+                self
+            end
+
+            def not_handled
+                handled(false)
             end
 
             # Sets the exception matcher object
@@ -39,6 +50,11 @@ module Roby
                 self
             end
 
+            def with_trace(*edges)
+                @expected_edges = edges.each_slice(2).map { |a, b| [a, b, nil] }.to_set
+                self
+            end
+
             # Matched exceptions must have a task in their trace that matches
             # the given task matcher
             #
@@ -49,14 +65,53 @@ module Roby
             end
 
             def to_s
-                "ExecutionException(#{exception_matcher}).involving(#{involved_tasks_matchers.map(&:to_s).join(", ")})"
+                PP.pp(self, "")
+            end
+
+            def pretty_print(pp)
+                pp.text "ExecutionException("
+                exception_matcher.pretty_print(pp)
+                pp.text ")"
+                if !involved_tasks_matchers.empty?
+                    pp.text ".involving("
+                    pp.nest(2) do
+                        involved_tasks_matchers.each do |m|
+                            pp.breakable
+                            m.pretty_print(pp)
+                        end
+                    end
+                    pp.text ")"
+                end
+                if @expected_edges
+                    pp.text ".with_trace("
+                    pp.nest(2) do
+                        @expected_edges.each do |a, b, _|
+                            pp.breakable
+                            pp.text "#{a} => #{b}"
+                        end
+                    end
+                    pp.text ")"
+                end
+                if !@handled.nil?
+                    if @handled
+                        pp.text ".handled"
+                    else
+                        pp.text ".not_handled"
+                    end
+                end
             end
 
             # @return [Boolean] true if the given execution exception object
             #   matches self, false otherwise
             def ===(exception)
+                if !exception.respond_to?(:to_execution_exception)
+                    return false
+                end
+                exception = exception.to_execution_exception
                 exception_matcher === exception.exception &&
-                    involved_tasks_matchers.all? { |m| exception.trace.any? { |t| m === t } }
+                    involved_tasks_matchers.all? { |m| exception.trace.any? { |t| m === t } } &&
+                    (!@expected_edges || (@expected_edges == exception.trace.each_edge.to_set)) &&
+                    (@handled.nil? || !(@handled ^ exception.handled?))
             end
 
             def describe_failed_match(exception)
