@@ -5,6 +5,19 @@ require 'timecop'
 
 module Roby
     describe ExecutionEngine do
+        describe "#scheduler=" do
+            it "refuses to be set to nil" do
+                e = assert_raises(ArgumentError) do
+                    execution_engine.scheduler = nil
+                end
+                assert_equal "cannot set the scheduler to nil. You can disable the current scheduler with .enabled = false instead, or set it to Schedulers::Null.new",
+                    e.message
+            end
+            it "does set it if not nil" do
+                execution_engine.scheduler = Schedulers::Null.new(plan)
+            end
+        end
+
         describe "event_ordering" do
             it "is not cleared if events without precedence relations are added to the plan" do
                 flexmock(execution_engine.event_ordering).should_receive(:clear).never
@@ -385,6 +398,132 @@ module Roby
                 assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child]) do
                     process_events do
                         execution_engine.add_error(child_e, propagate_through: [])
+                    end
+                end
+            end
+
+            it "raises and logs the exception if not called within a exception gathering context" do
+                assert_logs_exception_with_backtrace(localized_error_m.to_execution_exception_matcher, execution_engine, :fatal)
+                assert_raises(ExecutionEngine::NotPropagationContext) do
+                    execution_engine.add_error(child_e)
+                end
+            end
+        end
+
+        describe "#gather_framework_errors" do
+            attr_reader :error_m
+            before do
+                @error_m = Class.new(Exception)
+            end
+
+            it "raises the exceptions registerd by #add_framework_error by default" do
+                flexmock(execution_engine).should_receive(:fatal).with("Application error in test").once
+                assert_raises(error_m) do
+                    assert_logs_exception_with_backtrace(error_m, execution_engine, :fatal)
+                    execution_engine.gather_framework_errors 'test' do
+                        execution_engine.add_framework_error(error_m.exception, 'test')
+                    end
+                end
+            end
+            it "raises on the downmost call if called recursively" do
+                flexmock(execution_engine).should_receive(:fatal).with("Application error in inside").once
+                recorder = flexmock
+                recorder.should_receive(:called).once
+                assert_raises(error_m) do
+                    assert_logs_exception_with_backtrace(error_m, execution_engine, :fatal)
+
+                    execution_engine.gather_framework_errors 'test' do
+                        execution_engine.gather_framework_errors 'inside' do
+                            execution_engine.add_framework_error(error_m.exception, 'inside')
+                        end
+                        recorder.called
+                    end
+                end
+            end
+            it "registers the exceptions it catches itself" do
+                recorder = flexmock
+                recorder.should_receive(:called).once
+                log_message = capture_log(execution_engine, :fatal) do
+                    assert_raises(error_m) do
+                        assert_logs_exception_with_backtrace(error_m, execution_engine, :fatal)
+                        execution_engine.gather_framework_errors 'test' do
+                            FlexMock.use(execution_engine) do |mock|
+                                mock.should_receive(:add_framework_error).with(error_m, 'inside').once.pass_thru
+                                execution_engine.gather_framework_errors 'inside' do
+                                    raise error_m
+                                end
+                            end
+                            recorder.called
+                        end
+                    end
+                end
+                assert_equal ["Application error in inside"], log_message
+            end
+
+            describe "raise_caught_exceptions: false" do
+                it "returns the exceptions instead of raising them" do
+                    error = error_m.exception
+                    caught_errors = execution_engine.gather_framework_errors 'test', raise_caught_exceptions: false do
+                        raise error
+                    end
+                    assert_equal [[error, 'test']], caught_errors
+                end
+                it "returns them on the downmost call only if called recursively" do
+                    error = error_m.exception
+                    caught_errors = execution_engine.gather_framework_errors 'test', raise_caught_exceptions: false do
+                        execution_engine.gather_framework_errors 'inside' do
+                            execution_engine.add_framework_error(error, 'inside')
+                        end
+                    end
+                    assert_equal [[error, 'inside']], caught_errors
+                end
+                it "registers the exceptions it catches itself" do
+                    error = error_m.exception
+                    caught_errors = execution_engine.gather_framework_errors 'test', raise_caught_exceptions: false do
+                        execution_engine.gather_framework_errors 'inside' do
+                            raise error
+                        end
+                    end
+                    assert_equal [[error, 'inside']], caught_errors
+                end
+            end
+        end
+
+        describe "#gather_errors" do
+            attr_reader :error
+            before do
+                plan.add(task = Task.new)
+                @error = Class.new(LocalizedError).new(task).to_execution_exception
+            end
+            it "converts the exception into an ExecutionException" do
+                flexmock(error.exception).should_receive(:to_execution_exception).
+                    once.and_return(ee = flexmock)
+                errors = execution_engine.gather_errors do
+                    plan.add_error(error.exception)
+                end
+                assert_equal [[ee, nil]], errors
+            end
+            it "returns all exceptions registered with #add_errors" do
+                errors = execution_engine.gather_errors do
+                    plan.add_error(error)
+                end
+                assert_equal [[error, nil]], errors
+            end
+            it "returns the propagate_through set if given" do
+                through = flexmock
+                errors = execution_engine.gather_errors do
+                    plan.add_error(error, propagate_through: through)
+                end
+                assert_equal [[error, through]], errors
+            end
+            it "resets the set of errors so that the next call to #add_errors returns false" do
+                execution_engine.gather_errors { plan.add_error(error) }
+                assert_equal Array.new, execution_engine.gather_errors { }
+            end
+            it "raises if called recursively" do
+                execution_engine.gather_errors do
+                    assert_raises(InternalError) do
+                        execution_engine.gather_errors { }
                     end
                 end
             end
@@ -926,7 +1065,7 @@ module Roby
                 root.stop_event.when_unreachable do
                     execution_engine.add_error localized_error_m.new(root)
                 end
-                assert_fatal_exception(localized_error_m, tasks: [root], kill_tasks: []) do
+                assert_fatal_exception(localized_error_m, tasks: [root], kill_tasks: [root]) do
                     process_events
                 end
             end
@@ -940,6 +1079,9 @@ module Roby
                         recorder.notified(kind, notified_error, notified_objects)
                     end
                     flexmock(execution_engine)
+                end
+                after do
+                    execution_engine.display_exceptions = true
                 end
 
                 def mock_compute_errors(result_set)
@@ -965,9 +1107,11 @@ module Roby
                 end
 
                 it "notifies fatal exceptions" do
+                    execution_engine.display_exceptions = false
                     execution_engine.should_receive(:add_exceptions_for_inhibition)
                     flexmock(plan).should_receive(:generate_induced_errors)
                     mock_compute_errors :fatal_errors
+                    Roby.app.filter_backtraces = false
                     assert_receives_notification ExecutionEngine::EXCEPTION_FATAL
                     messages = capture_log(execution_engine, :warn) do
                         process_events(raise_errors: false)
@@ -1098,6 +1242,47 @@ module Roby
                     assert repair_task.running?
                 end
             end
+
+            describe "free events errors" do
+                attr_reader :event, :localized_error_m
+                before do
+                    plan.add(@event = EventGenerator.new)
+                    @localized_error_m = Class.new(LocalizedError)
+                end
+
+                it "marks the involved free events as unreachable" do
+                    assert_free_event_exception(localized_error_m, failure_point: event) do
+                        process_events(garbage_collect_pass: false) do
+                            execution_engine.add_error(localized_error_m.new(event))
+                        end
+                    end
+                    assert event.unreachable?
+                end
+            end
+        end
+
+        describe "#once" do
+            it "queues execution for the next event loop by default" do
+                recorder = flexmock
+                recorder.should_receive(:barrier).once.ordered
+                recorder.should_receive(:called).once.ordered
+                process_events do
+                    execution_engine.once do
+                        execution_engine.once { recorder.called }
+                    end
+                end
+                recorder.barrier
+                process_events
+            end
+            it "queues execution within the same loop with type is :propagation" do
+                recorder = flexmock
+                recorder.should_receive(:called).once.ordered
+                process_events do
+                    execution_engine.once do
+                        execution_engine.once(type: :propagation) { recorder.called }
+                    end
+                end
+            end
         end
 
         def assert_exception_and_object_set_matches(expected, actual, message = "failed to match propagation result exception and/or involved objects")
@@ -1133,6 +1318,139 @@ module Roby
             if handled
                 assert_exception_and_object_set_matches(
                     handled, result[1], "unhandled set mismatches")
+            end
+        end
+    end
+
+
+    describe "#wait_until" do
+        # Helper that provides a context in which the tests can call #wait_until
+        def wait_until_in_thread(generator)
+            t = Thread.new do
+                execution_engine.wait_until(generator) do
+                    yield if block_given?
+                end
+            end
+            while !t.stop?; sleep(0.01) end
+            @thread = t
+        end
+
+        attr_reader :task
+        before do
+            plan.add_permanent_task(@task = Roby::Tasks::Simple.new)
+            @thread.value if @thread
+        end
+
+        it "blocks the caller until the event is emitted" do
+            thread = wait_until_in_thread task.start_event
+            process_events { task.start! }
+            thread.value
+        end
+
+        it "processes the block in the event thread" do
+            thread = wait_until_in_thread task.start_event do
+                assert_equal Thread.main, Thread.current
+            end
+            process_events { task.start! }
+            thread.value
+        end
+
+        it "returns the block's own return value" do
+            ret = flexmock
+            thread = wait_until_in_thread task.start_event do
+                ret
+            end
+            process_events { task.start! }
+            assert_equal ret, thread.value
+        end
+
+        it "passes an exception raised within the block to the thread" do
+            error = Class.new(RuntimeError)
+            thread = wait_until_in_thread task.start_event do
+                raise error
+            end
+            process_events { task.start! }
+            assert_raises(error) { thread.value }
+        end
+
+        it "raises in the thread if the event is already unreachable" do
+            task.start_event.unreachable!
+            thread = wait_until_in_thread task.start_event
+            process_events
+            assert_raises(UnreachableEvent) { thread.value }
+        end
+
+        it "raises in the thread if the event becomes unreachable" do
+            thread = wait_until_in_thread task.start_event do
+                task.start_event.unreachable!
+            end
+            process_events
+            assert_raises(UnreachableEvent) { thread.value }
+        end
+    end
+
+    describe "#add_framework_error" do
+        it "raises NotPropagationContext if called outside of a gathering context" do
+            error_m = Class.new(RuntimeError)
+            assert_raises(Roby::ExecutionEngine::NotPropagationContext) do
+                assert_logs_exception_with_backtrace(error_m, execution_engine, :fatal)
+                execution_engine.add_framework_error(error_m.exception("test"), :exceptions)
+            end
+        end
+
+        it "registers the exception in the application exceptions set" do
+            expected_error = Class.new(RuntimeError).exception("test error message")
+            errors = execution_engine.gather_framework_errors("test", raise_caught_exceptions: false) do
+                execution_engine.add_framework_error(expected_error, :exceptions) 
+            end
+            assert_equal 1, errors.size
+            error, context = errors.first
+            assert_equal :exceptions, context
+            assert_kind_of expected_error.class, error
+            assert_equal "test error message", error.message
+        end
+    end
+
+    describe "#once" do
+        it "registers a framework exception on error by default" do
+            error_m = Class.new(RuntimeError)
+            spy = flexmock
+            spy.should_receive(:called).once
+            execution_engine.once { spy.called; raise error_m }
+
+            assert_adds_framework_error(error_m) do
+                process_events
+            end
+        end
+    end
+
+    describe "#at_cycle_end" do
+        attr_reader :error_m
+        before do
+            @error_m = Class.new(RuntimeError)
+        end
+
+        it "registers a framework error for any exception raised" do
+            spy = flexmock { |s| s.should_receive(:before_error).once }
+            execution_engine.at_cycle_end do
+                spy.before_error
+                raise error_m
+            end
+            assert_adds_framework_error(error_m) do
+                process_events
+            end
+        end
+
+        it "calls the other handlers regardless of an exception" do
+            spy = flexmock { |s| s.should_receive(:called).at_least.once }
+            execution_engine.at_cycle_end do
+                raise error_m
+            end
+            execution_engine.at_cycle_end do
+                spy.called
+            end
+            assert_adds_framework_error(error_m) do
+                process_events
             end
         end
     end
@@ -1299,7 +1617,7 @@ class TC_ExecutionEngine < Minitest::Test
             raise exception_m
         end
         mock.should_receive(:called).once
-        msg = capture_log(execution_engine, :error) do
+        msg = capture_log(execution_engine, :fatal) do
             assert_logs_exception_with_backtrace(exception_m, execution_engine, :fatal)
             assert_raises(exception_m) { process_events }
         end
@@ -1307,26 +1625,34 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_propagation_handlers_disabled_on_error
-        FlexMock.use do |mock|
-            execution_engine.add_propagation_handler on_error: :disable do |plan|
-                mock.called
-                raise
-            end
-            mock.should_receive(:called).once
-            process_events
+        spy = flexmock { |s| s.should_receive(:called).once }
+        error_m = Class.new(RuntimeError)
+        assert_logs_exception_with_backtrace(error_m, execution_engine, :warn)
+        execution_engine.add_propagation_handler description: 'test', on_error: :disable do |plan|
+            spy.called
+            raise error_m
+        end
+        messages = capture_log(execution_engine, :warn) do
             process_events
         end
+        assert_equal ["propagation handler test disabled because of the following error"], messages
     end
 
     def test_propagation_handlers_ignore_on_error
         spy = flexmock { |s| s.should_receive(:called).twice }
+        error_m = Class.new(RuntimeError)
+        flexmock(Roby).should_receive(:log_exception_with_backtrace).
+            with(error_m, execution_engine, :warn).twice
 
-        handler = execution_engine.add_propagation_handler on_error: :ignore do |plan|
+        handler = execution_engine.add_propagation_handler description: 'test', on_error: :ignore do |plan|
             spy.called
-            raise
+            raise error_m
         end
-        process_events
-        process_events
+        messages = capture_log(execution_engine, :warn) do
+            process_events
+            process_events
+        end
+        assert_equal ['ignored error from propagation handler test'] * 2, messages
     ensure
         execution_engine.remove_propagation_handler(handler) if handler
     end
@@ -1524,26 +1850,6 @@ class TC_ExecutionEngine < Minitest::Test
 	end
     end
 
-    describe "#add_framework_error" do
-        it "raises NotPropagationContext if called outside of a gathering context" do
-            assert_raises(Roby::ExecutionEngine::NotPropagationContext) do
-                execution_engine.add_framework_error(RuntimeError.exception("test"), :exceptions)
-            end
-        end
-
-        it "registers the exception in the application exceptions set" do
-            expected_error = Class.new(RuntimeError).exception("test error message")
-            errors = execution_engine.gather_framework_errors("test", raise_caught_exceptions: false) do
-                execution_engine.add_framework_error(expected_error, :exceptions) 
-            end
-            assert_equal 1, errors.size
-            error, context = errors.first
-            assert_equal :exceptions, context
-            assert_kind_of expected_error.class, error
-            assert_equal "test error message", error.message
-        end
-    end
-
     def test_event_loop
         plan.add_mission_task(start_node = EmptyTask.new)
         next_event = [ start_node, :start ]
@@ -1605,15 +1911,6 @@ class TC_ExecutionEngine < Minitest::Test
 	end
     end
 
-    def test_failing_once
-        spy = flexmock
-        spy.should_receive(:called).once
-        execution_engine.once { spy.called; raise }
-
-        assert_raises(RuntimeError) do
-            process_events
-        end
-    end
 
     class SpecificException < RuntimeError; end
 
@@ -1623,34 +1920,6 @@ class TC_ExecutionEngine < Minitest::Test
 	process_events
     ensure
 	Plan.structure_checks.clear
-    end
-
-    def test_at_cycle_end
-        Roby.app.abort_on_application_exception = false
-
-        mock = flexmock
-        mock.should_receive(:before_error).at_least.once
-        mock.should_receive(:after_error).never
-        mock.should_receive(:called).at_least.once
-
-        handler0 = execution_engine.at_cycle_end do
-            mock.before_error
-            raise
-            mock.after_error
-        end
-
-        handler1 = execution_engine.at_cycle_end do
-            mock.called
-            unless execution_engine.quitting?
-                execution_engine.quit
-            end
-        end
-
-        process_events
-        process_events
-    ensure
-        execution_engine.remove_at_cycle_end(handler0)
-        execution_engine.remove_at_cycle_end(handler1)
     end
 
     def test_inside_outside_control
@@ -1720,47 +1989,6 @@ class TC_ExecutionEngine < Minitest::Test
 
 	assert_kind_of(ArgumentError, returned_value)
 	assert(!execution_engine.quitting?)
-    end
-    
-    def test_wait_until
-	plan.add_permanent_task(task = Tasks::Simple.new)
-	t = Thread.new do
-	    execution_engine.wait_until(task.start_event) do
-		task.start!
-	    end
-	end
-
-	while !t.stop?; sleep(0.01) end
-        # We use execution_engine.process_events as we are making the execution_engine
-        # believe that it is running while it is not
-	execution_engine.process_events
-	t.value
-    end
- 
-    def test_wait_until_unreachable
-	plan.add_permanent_task(task = Tasks::Simple.new)
-	t = Thread.new do
-	    begin
-		execution_engine.wait_until(task.event(:success)) do
-		    task.start!
-                    task.stop!
-		end
-	    rescue Exception => e
-		e
-	    end
-	end
-
-        # Wait for #wait_until, in the thread, to wait for the main thread
-	while !t.stop?; sleep(0.01) end
-        # And process the events
-        #
-        # We use execution_engine.process_events as we are making the execution_engine
-        # believe that it is running while it is not
-        execution_engine.process_events
-
-	result = t.value
-	assert_kind_of(UnreachableEvent, result)
-	assert_equal(task.event(:success), result.failed_generator)
     end
     
     def test_stats

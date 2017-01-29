@@ -234,12 +234,12 @@ module Roby
                     engine.add_framework_error(e, description)
                     return false
                 elsif on_error == :disable
-                    ExecutionEngine.warn "propagation handler #{description} disabled because of the following error"
-                    Roby.log_exception_with_backtrace(e, ExecutionEngine, :warn)
+                    engine.warn "propagation handler #{description} disabled because of the following error"
+                    Roby.log_exception_with_backtrace(e, engine, :warn)
                     return false
                 elsif on_error == :ignore
-                    ExecutionEngine.warn "ignored error from propagation handler #{description}"
-                    Roby.log_exception_with_backtrace(e, ExecutionEngine, :warn)
+                    engine.warn "ignored error from propagation handler #{description}"
+                    Roby.log_exception_with_backtrace(e, engine, :warn)
                     return true
                 end
             end
@@ -382,12 +382,13 @@ module Roby
 
         # Waits for all obligations in {#waiting_work} to finish
         def join_all_waiting_work(timeout: nil)
+            return [] if waiting_work.empty?
             deadline = if timeout
                            Time.now + timeout
                        end
 
             finished = Array.new
-            while waiting_work.any? { |w| !w.unscheduled? }
+            begin
                 process_events_synchronous do
                     finished.concat(process_waiting_work)
                     blocks = Array.new
@@ -400,7 +401,7 @@ module Roby
                 if deadline && (Time.now > deadline)
                     raise JoinAllWaitingWorkTimeout.new(waiting_work)
                 end
-            end
+            end while waiting_work.any? { |w| !w.unscheduled? }
             finished
         end
 
@@ -597,7 +598,7 @@ module Roby
             # We don't aggregate exceptions, so report them all and raise one
             application_errors.each do |error, source|
                 if !error.kind_of?(Interrupt)
-                    error "Application error in #{source}"
+                    fatal "Application error in #{source}"
                     Roby.log_exception_with_backtrace(error, self, :fatal)
                 end
             end
@@ -643,18 +644,6 @@ module Roby
 
         def has_propagation_for?(target)
             @propagation && @propagation.has_key?(target)
-        end
-
-        def merge_propagation_steps(steps1, steps2)
-            steps1.merge(steps2) do |target, sets1, sets2|
-                result = [nil, nil]
-                if sets1[0] || sets2[0]
-                    result[0] = (sets1[0] || []).concat(sets2[0] || [])
-                end
-                if sets1[1] || sets2[1]
-                    result[1] = (sets1[1] || []).concat(sets2[1] || [])
-                end
-            end
         end
 
         # Queue a signal to be propagated
@@ -770,7 +759,6 @@ module Roby
             end
         end
 
-        # Whether we're in a #gather_errors context
         def gathering_errors?
             !!@propagation_exceptions
         end
@@ -1347,19 +1335,6 @@ module Roby
             result
         end
         
-        # Abort the control loop because of +exceptions+
-        def reraise(exceptions)
-            if exceptions.size == 1
-                e = exceptions.first
-                if e.kind_of?(Roby::ExecutionException)
-                    e = e.exception
-                end
-                raise e, e.message, e.backtrace
-            else
-                raise Aborting.new(exceptions.map(&:exception))
-            end
-        end
-
         # Used during exception propagation to inject new errors in the process
         #
         # It shall not be accessed directly. Instead, Plan#add_error should be
@@ -1405,20 +1380,6 @@ module Roby
             debug "#{fatal_errors.size} fatal errors found and #{free_events_errors.size} errors involving free events"
             debug "the fatal errors involve #{kill_tasks.size} non-finalized tasks"
             return ErrorPhaseResult.new(kill_tasks, fatal_errors, nonfatal_errors, free_events_errors, handled_errors)
-        end
-
-        def garbage_collect_synchronous
-            tasks_size = nil
-            while plan.tasks.size != tasks_size
-                if !tasks_size
-                    tasks_size = true
-                else
-                    tasks_size = plan.tasks.size
-                end
-                process_events_synchronous do
-                    garbage_collect([])
-                end
-            end
         end
 
         # Whether this EE has asynchronous waiting work waiting to be processed
@@ -1554,7 +1515,7 @@ module Roby
 
             all_errors = propagate_events_and_errors(next_steps, events_errors, garbage_collect_pass: garbage_collect_pass)
             if Roby.app.abort_on_exception? && !all_errors.fatal_errors.empty?
-                reraise(all_errors.fatal_errors.keys)
+                raise Aborting.new(all_errors.fatal_errors.keys.map(&:exception))
             end
             all_errors
 
@@ -2282,14 +2243,23 @@ module Roby
             end
 
             ivar = Concurrent::IVar.new
+            result = nil
             once(sync: ivar) do
-                ev.if_unreachable(cancel_at_emission: true) do |reason, event|
-                    ivar.fail(UnreachableEvent.new(event, reason))
+                if ev.unreachable?
+                    ivar.fail(UnreachableEvent.new(ev, ev.unreachability_reason))
+                else
+                    ev.if_unreachable(cancel_at_emission: true) do |reason, event|
+                        ivar.fail(UnreachableEvent.new(event, reason)) if !ivar.complete?
+                    end
+                    ev.once do |ev|
+                        ivar.set(result) if !ivar.complete?
+                    end
+                    begin
+                        result = yield if block_given?
+                    rescue Exception => e
+                        ivar.fail(e)
+                    end
                 end
-                ev.on do |ev|
-                    ivar.set(true)
-                end
-                yield if block_given?
             end
             ivar.value!
         end

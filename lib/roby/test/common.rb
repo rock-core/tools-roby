@@ -242,14 +242,7 @@ module Roby
             registered_plans.each do |p|
                 engine = p.execution_engine
 
-                first_pass = true
-                while first_pass || (engine.has_waiting_work? && join_all_waiting_work)
-                    initial_events_block = caller_block if first_pass
-                    first_pass = false
-
-                    if join_all_waiting_work
-                        engine.join_all_waiting_work(timeout: timeout)
-                    end
+                begin
                     engine.start_new_cycle
                     errors =
                         begin
@@ -258,14 +251,19 @@ module Roby
                                 engine.scheduler.enabled = enable_scheduler
                             end
 
-                            engine.process_events(garbage_collect_pass: garbage_collect_pass, &initial_events_block)
+                            engine.process_events(garbage_collect_pass: garbage_collect_pass, &caller_block)
                         ensure
                             engine.scheduler.enabled = current_scheduler_state
                         end
 
+                    if join_all_waiting_work
+                        engine.join_all_waiting_work(timeout: timeout)
+                    end
+
                     exceptions.concat(errors.exceptions)
                     engine.cycle_end(Hash.new)
-                end
+                    caller_block = nil
+                end while engine.has_waiting_work? && join_all_waiting_work
             end
 
             if raise_errors && !exceptions.empty?
