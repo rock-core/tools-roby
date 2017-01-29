@@ -545,15 +545,6 @@ module Roby
             end
         end
 
-        # Returns true if there is an error queued that originates from +origin+
-        def has_error_from?(origin)
-            if @propagation_exceptions
-                @propagation_exceptions.any? do |error, _|
-                    error.originates_from?(origin)
-                end
-            end
-        end
-
         # Register a LocalizedError for future propagation
         #
         # This method must be called in a error-gathering context (i.e.

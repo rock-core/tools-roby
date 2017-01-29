@@ -5,17 +5,6 @@ require 'roby/schedulers/basic'
 module Roby
     module Schedulers
         describe Basic do
-            it "does not schedule a task that is pending but has an error queued" do
-                plan.add(task = Tasks::Simple.new)
-                scheduler = Roby::Schedulers::Basic.new(false, plan)
-                error_m = Class.new(LocalizedError)
-                assert_fatal_exception(error_m, failure_point: task, tasks: [task]) do
-                    process_events do
-                        execution_engine.add_error(error_m.new(task))
-                        refute scheduler.can_schedule?(task)
-                    end
-                end
-            end
         end
     end
 end

@@ -93,9 +93,7 @@ module Roby
             end
 
             def can_schedule?(task, time = Time.now, stack = [])
-                if plan.execution_engine.has_error_from?(task)
-                    return false
-                elsif !can_start?(task)
+                if !can_start?(task)
                     report_holdoff "cannot be started", task
                     return false
                 end
