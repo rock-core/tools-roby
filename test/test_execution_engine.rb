@@ -1004,6 +1004,31 @@ module Roby
                 matcher
             end
 
+            it "reports handled structure exceptions" do
+                child = root.depends_on(task_m)
+                plan.on_exception(ChildFailedError) { root.remove_child(child) }
+                child.start_event.emit
+                all_errors = execution_engine.process_events do
+                    child.stop_event.emit
+                end
+                assert_exception_and_object_set_matches(
+                    [ChildFailedError, Set[child]],
+                    all_errors.each_handled_error.to_a)
+            end
+
+            it "reports inhibited structure exceptions" do
+                child = root.depends_on(task_m)
+                plan.on_exception(ChildFailedError) { root.remove_child(child) }
+                child.start_event.emit
+                flexmock(child).should_receive(:handles_error?).and_return(true)
+                all_errors = execution_engine.process_events do
+                    child.stop_event.emit
+                end
+                assert_exception_and_object_set_matches(
+                    [ChildFailedError, Set[child]],
+                    all_errors.each_inhibited_error.to_a)
+            end
+
             it "raises a non-repaired structure exception even if a handler claims having handled it" do
                 root_e = localized_error_m.new(root).to_execution_exception
                 flexmock(plan).should_receive(:check_structure).
@@ -1286,6 +1311,13 @@ module Roby
         end
 
         def assert_exception_and_object_set_matches(expected, actual, message = "failed to match propagation result exception and/or involved objects")
+            expected = expected.each_slice(2).flat_map do |match_e, tasks_e|
+                if match_e.respond_to?(:to_execution_exception_matcher)
+                    match_e = match_e.to_execution_exception_matcher
+                end
+                [match_e, tasks_e.to_set]
+            end
+
             actual.each do |e, affected_tasks|
                 found_match_e = expected.each_slice(2).find_all { |match_e, _| match_e === e }
                 found_tasks   = expected.each_slice(2).find_all { |_, tasks_e| tasks_e == affected_tasks }

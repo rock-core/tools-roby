@@ -4,7 +4,7 @@ module Roby
     # 
     # See ExecutionEngine#process_events_synchronous for more information
     class SynchronousEventProcessingMultipleErrors < RuntimeError
-        # Exceptions as gathered during propagation with {ExecutionEngine#on_exception}
+        # Exceptions as gathered during propagation with {ExecutionEngine#task_m}
         #
         # @return [Array<ExecutionEngine::ErrorPhaseResult>]
         attr_reader :errors
@@ -1359,11 +1359,11 @@ module Roby
             # again to errors that are remaining after the call to the exception
             # handlers
             events_errors, free_events_errors, events_handled = propagate_exceptions(events_errors)
-            propagate_exceptions(structure_errors)
+            _, structure_handled = propagate_exceptions(structure_errors)
             log_timepoint 'exception_propagation'
 
             # Get the remaining problems in the plan structure, and act on it
-            structure_errors, structure_handled = remove_inhibited_exceptions(plan.check_structure)
+            structure_errors, structure_inhibited = remove_inhibited_exceptions(plan.check_structure)
 
             # Partition them by fatal/nonfatal
             fatal_errors, nonfatal_errors = Array.new, Array.new
@@ -1379,7 +1379,7 @@ module Roby
 
             debug "#{fatal_errors.size} fatal errors found and #{free_events_errors.size} errors involving free events"
             debug "the fatal errors involve #{kill_tasks.size} non-finalized tasks"
-            return ErrorPhaseResult.new(kill_tasks, fatal_errors, nonfatal_errors, free_events_errors, handled_errors)
+            return ErrorPhaseResult.new(kill_tasks, fatal_errors, nonfatal_errors, free_events_errors, handled_errors, structure_inhibited)
         end
 
         # Whether this EE has asynchronous waiting work waiting to be processed
@@ -1409,18 +1409,20 @@ module Roby
 
         # Gathering of all the errors that happened during an event processing
         # loop and were not handled
-        ErrorPhaseResult = Struct.new :kill_tasks, :fatal_errors, :nonfatal_errors, :free_events_errors, :handled_errors do
+        ErrorPhaseResult = Struct.new :kill_tasks, :fatal_errors, :nonfatal_errors, :free_events_errors, :handled_errors, :inhibited_errors do
             def initialize(kill_tasks = Set.new,
                            fatal_errors = Array.new,
                            nonfatal_errors = Array.new,
                            free_events_errors = Array.new,
-                           handled_errors = Array.new)
+                           handled_errors = Array.new,
+                           inhibited_errors = Array.new)
 
                 self.kill_tasks         = kill_tasks.to_set
                 self.fatal_errors       = fatal_errors
                 self.nonfatal_errors    = nonfatal_errors
                 self.free_events_errors = free_events_errors
                 self.handled_errors     = handled_errors
+                self.inhibited_errors   = inhibited_errors
             end
 
             def merge(results)
@@ -1429,6 +1431,7 @@ module Roby
                 self.nonfatal_errors.concat(results.nonfatal_errors)
                 self.free_events_errors.concat(results.free_events_errors)
                 self.handled_errors.concat(results.handled_errors)
+                self.inhibited_errors.concat(results.inhibited_errors)
             end
 
             # Return the exception objects registered in this result object
@@ -1459,12 +1462,21 @@ module Roby
             def has_free_events_errors?
                 !free_events_errors.empty?
             end
+
             def each_handled_error(&block)
                 handled_errors.each(&block)
             end
 
             def has_handled_errors?
                 !handled_errors.empty?
+            end
+
+            def each_inhibited_error(&block)
+                inhibited_errors.each(&block)
+            end
+
+            def has_inhibited_errors?
+                !inhibited_errors.empty?
             end
         end
 
