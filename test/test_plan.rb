@@ -375,36 +375,6 @@ class TC_Plan < Minitest::Test
     def test_transaction_stack
         assert_equal [plan], plan.transaction_stack
     end
-
-    def test_failed_mission
-        t1, t2, t3, t4 = prepare_plan add: 4, model: Tasks::Simple
-        t1.depends_on t2
-        t2.depends_on t3
-        t3.depends_on t4
-
-        plan.add_mission_task(t2)
-        t1.start!
-        t2.start!
-        t3.start!
-        t4.start!
-        error = assert_raises(SynchronousEventProcessingMultipleErrors) do
-            messages = capture_log(execution_engine, :warn) do
-                t4.stop!
-            end
-            assert_equal "2 unhandled fatal exceptions, involving 4 tasks that will be forcefully killed", messages[0]
-            pp_tasks = [t1, t2, t3, t4].map { |t| PP.pp(t, "") }.to_set
-            assert_equal pp_tasks, messages[1..-1].to_set
-        end
-        errors = error.errors
-        assert_equal 2, errors.size
-        child_failed   = errors.find { |e| e.kind_of?(ChildFailedError) }
-        mission_failed = errors.find { |e| e.kind_of?(MissionFailedError) }
-
-        assert child_failed
-        assert_equal t4, child_failed.failed_task
-        assert mission_failed
-        assert_equal t2, mission_failed.failed_task
-    end
 end
 
 module Roby

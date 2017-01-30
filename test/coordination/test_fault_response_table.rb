@@ -122,6 +122,10 @@ describe Roby::Coordination::FaultResponseTable do
 
         it "registers a fault response task and starts it" do
             root_task.start!
+            flexmock(execution_engine).should_receive(:warn).with("1 handled errors")
+            flexmock(execution_engine).should_receive(:notify_exception).once.
+                with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error_m.to_execution_exception_matcher, any)
+
             execution_engine.process_events_synchronous do
                 execution_engine.add_error(error_m.new(root_task))
             end
@@ -133,6 +137,10 @@ describe Roby::Coordination::FaultResponseTable do
 
         it "inhibits the localized error that caused it to trigger" do
             root_task.start!
+            flexmock(execution_engine).should_receive(:warn).with("1 handled errors")
+            flexmock(execution_engine).should_receive(:notify_exception).once.
+                with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error_m.to_execution_exception_matcher, any)
+            
             execution_engine.process_events_synchronous do
                 execution_engine.add_error(error_m.new(root_task))
             end

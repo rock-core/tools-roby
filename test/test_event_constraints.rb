@@ -79,7 +79,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
     end
 
     def test_single_from_now
-        task_m = Task.new_submodel
+        task_m = Task.new_submodel { terminates }
         task_m.event :intermediate
         pred = :intermediate.emitted?.from_now
         plan.add(task = task_m.new)

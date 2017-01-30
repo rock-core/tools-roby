@@ -1086,7 +1086,7 @@ module Roby
 
                 def mock_compute_errors(result_set)
                     results = ExecutionEngine::ErrorPhaseResult.new
-                    results.send(result_set) << [@error = flexmock, @involved_objects = flexmock]
+                    results.send(result_set) << [@error = flexmock(exception: RuntimeError.new), @involved_objects = flexmock(each: [Object.new])]
                     execution_engine.should_receive(:compute_errors).
                         and_return(results, ExecutionEngine::ErrorPhaseResult.new)
                 end

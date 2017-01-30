@@ -54,6 +54,7 @@ module Roby
             end
 
             after do
+                plan.execution_engine.display_exceptions = true
                 InterfaceClientTestInterface.clear_model
                 client.close if !client.closed?
                 server.close if !server.closed?
@@ -273,6 +274,7 @@ module Roby
             end
 
             it "queues exceptions and allows to retrieve the notifications in FIFO order" do
+                plan.execution_engine.display_exceptions = false
                 plan.add(t0 = Tasks::Simple.new(id: 1))
                 plan.add(t1 = Tasks::Simple.new(id: 2))
                 plan.execution_engine.notify_exception :fatal, Exception.new, [t0]
@@ -288,6 +290,7 @@ module Roby
             end
 
             it "computes and queues the IDs of the jobs that are involved in the exception" do
+                plan.execution_engine.display_exceptions = false
                 task = Class.new(Tasks::Simple) do
                     provides Job
                 end.new(job_id: 1)

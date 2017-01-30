@@ -301,6 +301,7 @@ module Roby
             end
             it "starts the shell interface on the port specified by #shell_interface_port" do
                 flexmock(::TCPServer).should_receive(:new).with(nil, 0).pass_thru
+                flexmock(Robot).should_receive(:info).with("shell interface started on port 0").once
                 app.shell_interface_port = 0
                 app.setup_shell_interface
                 roby_app_call_interface(port: app.shell_interface.ip_port)

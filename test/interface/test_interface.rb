@@ -137,7 +137,11 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).with(Roby::Interface::JOB_FINALIZED, 10, "the job").once.ordered
             interface.monitor_job(task.planning_task, task)
             job_task.start!
-            assert_raises(Roby::PlanningFailedError) { job_task.failed_event.emit }
+            assert_fatal_exception(Roby::MissionFailedError, failure_point: task, tasks: [task]) do
+                assert_fatal_exception(Roby::PlanningFailedError, failure_point: task, tasks: [task]) do
+                    job_task.failed_event.emit
+                end
+            end
             interface.push_pending_job_notifications
         end
 
@@ -239,31 +243,31 @@ describe Roby::Interface::Interface do
         before do
             plan.add(@parent_task = Roby::Tasks::Simple.new)
             plan.add(@child_task = Roby::Tasks::Simple.new)
-            parent_task.depends_on child_task
-            parent_task.start!
-            child_task.start!
             @recorder = flexmock
             @exception_listener = interface.on_exception do |*args|
                 recorder.called(*args)
             end
+            execution_engine.display_exceptions = false
         end
 
-        it "should call the handlers with the generated exception" do
-            exception_validator = lambda do |error|
-                error.origin == child_task && error.exception.class == Roby::ChildFailedError
-            end
-            recorder.should_receive(:called).with(Roby::ExecutionEngine::EXCEPTION_FATAL, exception_validator, Set[child_task, parent_task], Set.new).once
-            assert_raises(Roby::ChildFailedError) do
-                child_task.stop!
-            end
+        after do
+            execution_engine.display_exceptions = true
+        end
+
+        it "calls the notification handlers when the engine notifies about an exception" do
+            localized_error_m = Class.new(Roby::LocalizedError)
+            exception = localized_error_m.new(child_task).to_execution_exception
+            recorder.should_receive(:called).once.
+                with(Roby::ExecutionEngine::EXCEPTION_FATAL, exception, Set[child_task, parent_task], Set.new)
+            execution_engine.notify_exception(Roby::ExecutionEngine::EXCEPTION_FATAL, exception, Set[parent_task, child_task])
         end
 
         it "allows to remove a listener" do
-            recorder.should_receive(:called).never
+            localized_error_m = Class.new(Roby::LocalizedError)
+            exception = localized_error_m.new(child_task).to_execution_exception
             interface.remove_exception_listener(exception_listener)
-            assert_raises(Roby::ChildFailedError) do
-                child_task.stop!
-            end
+            recorder.should_receive(:called).never
+            execution_engine.notify_exception(Roby::ExecutionEngine::EXCEPTION_FATAL, exception, Set[parent_task, child_task])
         end
     end
 

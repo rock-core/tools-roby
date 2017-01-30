@@ -2524,8 +2524,12 @@ class TC_Task < Minitest::Test
 	plan.add(task = model.new)
         task.start!
 
-        capture_log(Roby, :warn) do
-            capture_log(Robot, :fatal) do
+        execution_engine.display_exceptions = false
+        assert_logs_exception_with_backtrace(Roby::CommandFailed, execution_engine, :fatal)
+        flexmock(execution_engine).should_receive(:log_pp).with(:debug, any)
+        flexmock(execution_engine).should_receive(:log_pp).with(:warn, task).once
+        capture_log(execution_engine, :warn) do
+            capture_log(execution_engine, :fatal) do
                 assert_raises(Roby::TaskEmergencyTermination) do
                     task.stop!
                 end
@@ -2533,6 +2537,7 @@ class TC_Task < Minitest::Test
         end
 
     ensure
+        execution_engine.display_exceptions = true
         if task
             task.forcefully_terminate
             plan.remove_task(task)

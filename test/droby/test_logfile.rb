@@ -80,11 +80,14 @@ module Roby
                     path = File.join(tmpdir, 'test-events.log')
                     r = Logfile::Reader.open(path)
                     flexmock(Logfile::Index).should_receive(:rebuild).once.pass_thru
-                    index = r.index(rebuild: true)
-                    assert index.valid_for?(path)
-                    assert_equal [start, stop + 1], index.range
-                    assert_equal 2, index.cycle_count
-                    assert !index.empty?
+                    messages = capture_log(Logfile, :warn) do
+                        index = r.index(rebuild: true)
+                        assert index.valid_for?(path)
+                        assert_equal [start, stop + 1], index.range
+                        assert_equal 2, index.cycle_count
+                        assert !index.empty?
+                    end
+                    assert_equal ["rebuilding index file for #{path}"], messages
                 end
 
                 it "regenerates an invalid index" do
@@ -93,10 +96,13 @@ module Roby
 
                     path = File.join(tmpdir, 'test-events.log')
                     r = Logfile::Reader.open(path)
-                    r.rebuild_index
+                    capture_log(Logfile, :warn) { r.rebuild_index }
                     flexmock(Logfile::Index).should_receive(:rebuild).once.pass_thru
                     flexmock(Logfile::Index).new_instances.should_receive(:valid_for?).and_return(false, true)
-                    index = r.index(rebuild: true)
+                    messages = capture_log(Logfile, :warn) do
+                        r.index(rebuild: true)
+                    end
+                    assert_equal ["rebuilding index file for #{path}"], messages
                 end
 
                 it "does not influence the logfile's IO status by rebuilding the index" do
@@ -112,9 +118,12 @@ module Roby
 
                     r = Logfile::Reader.open(path)
                     original_position = r.tell # Not zero as we read the prologue
-                    r.rebuild_index
-                    assert !r.eof?
-                    assert_equal original_position, r.tell
+                    messages = capture_log(Logfile, :warn) do
+                        r.rebuild_index
+                        assert !r.eof?
+                        assert_equal original_position, r.tell
+                    end
+                    assert_equal ["rebuilding index file for #{path}"], messages
                 end
 
                 it "raises if the index is invalid and rebuild is false" do
@@ -123,7 +132,7 @@ module Roby
 
                     path = File.join(tmpdir, 'test-events.log')
                     r = Logfile::Reader.open(path)
-                    r.rebuild_index
+                    capture_log(Logfile, :warn) { r.rebuild_index }
                     flexmock(Logfile::Index).should_receive(:rebuild).never
                     flexmock(Logfile::Index).new_instances.should_receive(:valid_for?).and_return(false, true)
                     assert_raises(Logfile::IndexInvalid) do

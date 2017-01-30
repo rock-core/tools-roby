@@ -320,9 +320,11 @@ describe Roby::Coordination::ActionStateMachine do
         end
 
         task = start_machine(action_m.test)
-        task.current_task_child.start!
-        assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
         plan.unmark_permanent_task(task)
+        task.current_task_child.start!
+        assert_fatal_exception(Roby::ChildFailedError, failure_point: task.current_task_child.success_event, tasks: [task, task.current_task_child]) do
+            task.current_task_child.success_event.emit
+        end
         plan.remove_task(task.children.first)
     end
 

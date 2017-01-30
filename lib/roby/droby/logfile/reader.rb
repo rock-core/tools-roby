@@ -80,7 +80,7 @@ module Roby
                 end
 
                 def rebuild_index(path = index_path)
-                    Logfile.warn "rebuilding index file for #{path}"
+                    Logfile.warn "rebuilding index file for #{event_io.path}"
                     File.open(path, 'w') do |index_io|
                         event_io = self.event_io.dup
                         Index.rebuild(File.open(event_io.path), index_io)

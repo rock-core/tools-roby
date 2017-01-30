@@ -632,6 +632,9 @@ module Roby
                         matcher, original_exception: original_exception,
                         failure_point: failure_point)
 
+                    engine_mock.should_receive(:log_pp).with(:debug, any)
+                    engine_mock.should_receive(:log_pp).with(:warn, /handled errors/)
+
                     error = nil
                     engine_mock.should_receive(:notify_exception).at_least.once.
                         with(ExecutionEngine::EXCEPTION_HANDLED,
