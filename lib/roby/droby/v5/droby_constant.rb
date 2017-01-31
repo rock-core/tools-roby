@@ -43,6 +43,8 @@ module Roby
                             raise ConstantResolutionFailed, "#{self}#name returned nil"
                         end
 
+                        name = "::#{self.name}"
+
                         begin
                             local_constant = constant(name)
                         rescue Exception => e
