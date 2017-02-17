@@ -15,7 +15,6 @@ module Roby
         #     end
         class Interface
             extend Models::Interface
-            extend MetaRuby::ModelAsClass
             extend Logger::Hierarchy
 
             # The plan to which this action interface adds tasks
