@@ -654,6 +654,30 @@ module Roby
                 assert_equal Hash['test' => true], app.log_read_metadata
             end
         end
+
+        describe ".host_options" do
+            before do
+                @opt = OptionParser.new
+            end
+            it "sets the host/port pair if both are given" do
+                Application.host_options(@opt, options = Hash[host: 'test', port: 666])
+                @opt.parse(['--host=bla:90'])
+                assert_equal 'bla', options[:host]
+                assert_equal 90, options[:port]
+            end
+            it "sets only the host and leaves the port if no port is given" do
+                Application.host_options(@opt, options = Hash[host: 'test', port: 666])
+                @opt.parse(['--host=bla'])
+                assert_equal 'bla', options[:host]
+                assert_equal 666, options[:port]
+            end
+            it "does not modify the options if no --host argument is given" do
+                Application.host_options(@opt, options = Hash[host: 'test', port: 666])
+                @opt.parse([])
+                assert_equal 'test', options[:host]
+                assert_equal 666, options[:port]
+            end
+        end
     end
 end
 
