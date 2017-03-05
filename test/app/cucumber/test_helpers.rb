@@ -87,6 +87,14 @@ module Roby
                     assert_equal Hash[x: Hash[y: 20]],
                         CucumberHelpers.parse_arguments("x={y=20m}", strict: false)
                 end
+                it "converts a floating-point value into a float" do
+                    assert_equal Hash[x: 0.1],
+                        CucumberHelpers.parse_arguments("x=0.1", strict: false)
+                end
+                it "converts an integer value into an integer" do
+                    assert_equal Hash[x: 2],
+                        CucumberHelpers.parse_arguments("x=2", strict: false)
+                end
 
                 describe "unit validation" do
                     it "raises UnexpectedArgument if strict is set and the argument does not have a quantity" do
@@ -246,8 +254,11 @@ module Roby
                 it "returns nil from an invalid value" do
                     assert_nil CucumberHelpers.try_numerical_value_with_unit("a10.2unit")
                 end
-                it "returns nil from a numerical value without unit" do
+                it "returns nil from an integer without unit" do
                     assert_nil CucumberHelpers.try_numerical_value_with_unit("10")
+                end
+                it "returns nil from a float value without unit" do
+                    assert_nil CucumberHelpers.try_numerical_value_with_unit("10.1")
                 end
             end
 

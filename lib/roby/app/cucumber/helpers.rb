@@ -52,7 +52,16 @@ module Roby
                         apply_unit(*value_with_unit)
                     elsif expected_quantity
                         raise InvalidUnit, "expected #{key}=#{value} to be a #{expected_quantity}, but it got no unit"
-                    else value
+                    else
+                        begin
+                            Integer(value)
+                        rescue ArgumentError
+                            begin
+                                Float(value)
+                            rescue ArgumentError
+                                value
+                            end
+                        end
                     end
                 end
             end
@@ -236,7 +245,7 @@ module Roby
             #
             # @return [(Numeric,String),nil]
             def self.try_numerical_value_with_unit(string)
-                if string =~ /^(-?\.\d+|-?\d+(?:\.\d+)?)([^\d]\w*)$/
+                if string =~ /^(-?\.\d+|-?\d+(?:\.\d+)?)([^\d\.]\w*)$/
                     return Float($1), $2
                 end
             end
