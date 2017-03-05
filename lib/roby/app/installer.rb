@@ -58,7 +58,7 @@ module Roby
 	    plugin_dirs.each do |dir|
 		plugin_app_dir = File.join(dir, 'app')
 		next unless File.directory?(plugin_app_dir)
-		Installer.copy_tree(plugin_app_dir, app.app_dir, quiet: quiet, &filter)
+		Installer.copy_tree(plugin_app_dir, app.app_dir, quiet: quiet?, &filter)
 	    end
 	end
 
