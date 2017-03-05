@@ -2591,6 +2591,8 @@ module Roby
             return enum_for(__method__) if !block_given?
 
             dir = File.join(app_dir, 'test')
+            return if !File.directory?(dir)
+
             Find.find(dir) do |path|
                 # Skip the robot-specific bits that don't apply on the
                 # selected robot
