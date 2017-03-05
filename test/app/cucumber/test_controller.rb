@@ -233,6 +233,23 @@ module Roby
                             assert_equal "CucumberTestTask", jobs.first.placeholder_task.model.name
                             assert_equal 10, jobs.first.placeholder_task.arg
                         end
+                        it "drops all main jobs after a run_job" do
+                            action = controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 1)
+                            controller.run_job('cucumber_action', task_success: true)
+                            new_action = controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 2)
+                            controller.apply_current_batch
+                            jobs = controller.roby_interface.client.each_job.to_a
+                            assert_equal [2], jobs.map { |t| t.placeholder_task.arg }
+                        end
+                        it "does allow to queue new jobs again after a run_job" do
+                            action = controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 1)
+                            controller.run_job('cucumber_action', task_success: true)
+                            new0 = controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 2)
+                            new1 = controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 3)
+                            controller.apply_current_batch
+                            jobs = controller.roby_interface.client.each_job.to_a
+                            assert_equal [2, 3], jobs.map { |t| t.placeholder_task.arg }.sort
+                        end
                         it "passes arguments to the action" do
                             controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 20)
                             controller.apply_current_batch

@@ -238,6 +238,10 @@ module Roby
                 # job created by {#start_monitoring_job}, it will not be stopped
                 # when {#run_job} is called.
                 def start_job(description, m, arguments = Hash.new)
+                    if @has_run_job
+                        drop_all_jobs if !validation_mode?
+                        @has_run_job = false
+                    end
                     __start_job(description, m, arguments, false)
                 end
 
@@ -330,6 +334,7 @@ module Roby
                     action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
                     action.restart(batch: current_batch)
                     apply_current_batch(action)
+                    @has_run_job = true
 
                     failed_monitor = roby_poll_interface_until do
                         if action.terminated?
