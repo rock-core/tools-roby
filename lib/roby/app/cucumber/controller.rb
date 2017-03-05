@@ -308,12 +308,13 @@ module Roby
                 def apply_current_batch(*actions, sync: true)
                     return if current_batch.empty?
 
-                    current_batch.__process
+                    batch_result = current_batch.__process
                     if sync
                         roby_poll_interface_until do
                             (pending_actions + actions).all? { |act| act.async }
                         end
                     end
+                    batch_result
                 ensure
                     @current_batch = roby_interface.create_batch
                     @pending_actions = Array.new
