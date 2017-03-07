@@ -803,6 +803,7 @@ module Roby
                         end
                     end
                 end
+                yield if block_given?
                 process_events_until(timeout: timeout, garbage_collect_pass: false) do
                     done
                 end
