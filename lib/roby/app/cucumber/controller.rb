@@ -408,8 +408,6 @@ module Roby
                             act.drop(batch: current_batch)
                         end
                     end
-                    @monitoring_jobs = Array.new
-                    @main_jobs = Array.new
                 end
             end
         end
