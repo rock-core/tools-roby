@@ -65,7 +65,6 @@ module Roby
                     @background_jobs = Array.new
                     @keep_running = keep_running
                     @validation_mode = validation_mode
-                    @last_main_job_id = nil
                     @pending_actions = []
                 end
 
@@ -230,7 +229,16 @@ module Roby
                     end
                 end
 
-                attr_reader :last_main_job_id
+                # The job ID of the last started 
+                #
+                # @return [nil,Integer] nil if the job has not yet been started,
+                #   and the ID otherwise. It's the caller responsibility to call
+                #   {#apply_current_batch}
+                def last_main_job_id
+                    if job = each_main_job.to_a.last
+                        job.job_id
+                    end
+                end
 
                 # Start a job in the background
                 #
