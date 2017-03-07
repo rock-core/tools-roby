@@ -1,6 +1,193 @@
 require 'roby/test/self'
 require 'roby/tasks/simple'
 require 'roby/schedulers/temporal'
+require 'timecop'
+
+module Roby
+    module Coordination
+        describe TaskScript do
+            describe "#wait" do
+                attr_reader :root, :task_m, :event_source_task
+                before do
+                    @task_m = Tasks::Simple.new_submodel do
+                        event :test
+                    end
+                    plan.add(@root = task_m.new)
+                end
+
+                # Common behaviour description for all the possible waiting
+                # options
+                def self.common_behaviour(context)
+                    context.it "does not pass if the event was already emitted" do
+                        event_source_task = self.event_source_task
+                        root.script do
+                            wait event_source_task.start_event
+                            emit success_event
+                        end
+                        root.start!
+                        refute root.finished?
+                    end
+                    context.it "passes after a new emission" do
+                        event_source_task = self.event_source_task
+                        root.script do
+                            wait event_source_task.test_event
+                            emit success_event
+                        end
+                        root.start!
+                        event_source_task.start! if !event_source_task.running?
+                        event_source_task.test_event.emit
+                        assert root.finished?
+                    end
+                    context.it "does not pass if the event is emitted before an explicit deadline" do
+                        event_source_task = self.event_source_task
+                        Timecop.freeze(t = Time.now)
+                        root.script do
+                            wait event_source_task.test_event, after: t + 10
+                            emit success_event
+                        end
+                        root.start!
+                        event_source_task.start! if !event_source_task.running?
+                        event_source_task.test_event.emit
+                        refute root.finished?
+                    end
+                    context.it "passes if the event is emitted after an explicit deadline" do
+                        event_source_task = self.event_source_task
+                        Timecop.freeze(t = Time.now)
+                        root.script do
+                            wait event_source_task.test_event, after: t + 10
+                            emit success_event
+                        end
+                        root.start!
+                        event_source_task.start! if !event_source_task.running?
+                        Timecop.travel(t + 11)
+                        event_source_task.test_event.emit
+                        assert root.finished?
+                    end
+                    context.it "fails if the event becomes unreachable" do
+                        event_source_task = self.event_source_task
+                        root.script do
+                            wait event_source_task.test_event
+                            emit success_event
+                        end
+                        root.start!
+                        event_source_task.start! if !event_source_task.running?
+                        assert_fatal_exception(Models::Script::DeadInstruction, failure_point: root, tasks: [root]) do
+                            event_source_task.test_event.unreachable!
+                        end
+                    end
+                end
+
+                def self.event_source_as_child_behaviour(context)
+                    common_behaviour(context)
+                    context.it "fails right away if the event is unreachable" do
+                        event_source_task = self.event_source_task
+                        root.script do
+                            wait event_source_task.test_event
+                            emit success_event
+                        end
+                        event_source_task.start!; event_source_task.stop!
+
+                        assert_fatal_exception(Models::Script::DeadInstruction, failure_point: root, tasks: [root]) do
+                            root.start!
+                        end
+                    end
+                end
+
+                describe "waiting for a root event" do
+                    before do
+                        @event_source_task = root
+                    end
+                    common_behaviour(self)
+                end
+
+                describe "waiting for another task's event" do
+                    before do
+                        plan.add(@event_source_task = task_m.new)
+                    end
+
+                    event_source_as_child_behaviour(self)
+
+                    it "adds the child as a dependency" do
+                        event_source_task = self.event_source_task
+                        recorder = flexmock
+                        root.script do
+                            wait event_source_task.start_event
+                        end
+                        root.start!
+                        assert root.depends_on?(event_source_task)
+                    end
+                    it "removes the dependency after the wait" do
+                        event_source_task = self.event_source_task
+                        recorder = flexmock
+                        root.script do
+                            wait event_source_task.start_event
+                            execute { recorder.is_child?(depends_on?(event_source_task)) }
+                        end
+                        recorder.should_receive(:is_child?).with(false).once
+                        root.start!; event_source_task.start!
+                    end
+                end
+                describe "waiting for a child task's event" do
+                    before do
+                        root.depends_on(@event_source_task = task_m.new, role: 'test', success: nil)
+                    end
+
+                    event_source_as_child_behaviour(self)
+
+                    it "does not remove the child when the event is emitted" do
+                        recorder = flexmock
+                        event_source_task = self.event_source_task
+                        root.script do
+                            wait test_child.test_event
+                            execute { recorder.is_child?(depends_on?(event_source_task)) }
+                        end
+                        recorder.should_receive(:is_child?).with(true).once
+                        root.start!
+                        event_source_task.start!
+                        event_source_task.test_event.emit
+                    end
+                    it "does not remove the child when the event is emitted even if it has no explicit role" do
+                        recorder = flexmock
+                        event_source_task = self.event_source_task
+                        root.remove_child(event_source_task)
+                        root.depends_on(event_source_task)
+                        root.script do
+                            wait event_source_task.start_event
+                            execute { recorder.is_child?(depends_on?(event_source_task)) }
+                        end
+                        recorder.should_receive(:is_child?).with(true).once
+                        root.start!; event_source_task.start!
+                    end
+                end
+
+                it "can resolve an event of a child-of-a-child even if the grandchild does not exist at model time" do
+                    root.depends_on(child = task_m.new, role: 'test')
+
+                    recorder = flexmock
+                    recorder.should_receive(:first_execute).once.ordered
+                    recorder.should_receive(:second_execute).once.ordered
+                    task_m = self.task_m
+                    root.script do
+                        wait test_event
+                        execute do
+                            recorder.first_execute
+                            child.depends_on(task_m.new, role: 'subtask')
+                        end
+                        wait test_child.subtask_child.test_event
+                        execute do
+                            recorder.second_execute
+                        end
+                    end
+                    root.start!
+                    root.test_event.emit
+                    child.subtask_child.start!
+                    child.subtask_child.test_event.emit
+                end
+            end
+        end
+    end
+end
+
 
 class TC_Coordination_TaskScript < Minitest::Test
     def setup
@@ -100,25 +287,6 @@ class TC_Coordination_TaskScript < Minitest::Test
         task.poll_transition_event.emit
     end
 
-    def test_wait_for_event
-        model = Roby::Tasks::Simple.new_submodel do
-            event :intermediate
-        end
-        task = prepare_plan missions: 1, model: model
-        counter = 0
-        task.script do
-            wait :intermediate
-            execute { counter += 1 }
-        end
-        task.start!
-
-        3.times { process_events }
-        assert_equal 0, counter
-        task.intermediate_event.emit
-        3.times { process_events }
-        assert_equal 1, counter
-    end
-
     def test_child_of_real_task_is_modelled_using_the_actual_tasks_model
         model = Roby::Tasks::Simple.new_submodel do
             event :intermediate
@@ -128,60 +296,6 @@ class TC_Coordination_TaskScript < Minitest::Test
 
         script_child = parent.script.subtask_child
         assert_equal model, script_child.model.model
-    end
-
-    def test_wait_for_child_event
-        model = Roby::Tasks::Simple.new_submodel do
-            event :intermediate
-        end
-        parent, child = prepare_plan missions: 1, add: 1, model: model
-        parent.depends_on(child, role: 'subtask')
-
-        counter = 0
-        parent.script do
-            wait intermediate_event
-            execute { counter += 1 }
-            wait subtask_child.intermediate_event
-            execute { counter += 1 }
-        end
-        parent.start!
-
-        3.times { process_events }
-        assert_equal 0, counter
-        parent.intermediate_event.emit
-        3.times { process_events }
-        assert_equal 1, counter
-        child.intermediate_event.emit
-        3.times { process_events }
-        assert_equal 2, counter
-    end
-
-    def test_wait_for_child_of_child_event_with_child_being_deployed_later
-        model = Roby::Tasks::Simple.new_submodel do
-            event :intermediate
-        end
-        parent, (child, planning_task) = prepare_plan missions: 1, add: 2, model: model
-        parent.depends_on(child, role: 'subtask')
-
-        recorder = flexmock
-        recorder.should_receive(:first_execute).once.ordered
-        recorder.should_receive(:second_execute).once.ordered
-        parent.script do
-            wait intermediate_event
-            execute do
-                recorder.first_execute
-                child.depends_on(model.new, role: 'subsubtask')
-            end
-            wait subtask_child.subsubtask_child.intermediate_event
-            execute do
-                recorder.second_execute
-            end
-        end
-        parent.start!
-
-        parent.intermediate_event.emit
-        process_events
-        child.subsubtask_child.intermediate_event.emit
     end
 
     def test_sleep
@@ -205,46 +319,6 @@ class TC_Coordination_TaskScript < Minitest::Test
             process_events
             assert task.finished?
         end
-    end
-
-    def test_wait_after
-        task = prepare_plan missions: 1, model: Roby::Tasks::Simple
-        time = Time.now
-        task.start!
-        task.script do
-            wait start_event, after: time
-            emit success_event
-        end
-        process_events
-        assert task.success?
-    end
-
-    def test_wait_barrier
-        model = Roby::Tasks::Simple.new_submodel do
-            3.times do |i|
-                event "event#{i + 1}"
-                event "found_event#{i + 1}"
-            end
-        end
-        task = prepare_plan missions: 1, model: model
-
-        task.script do
-            wait_any event1_event
-            emit found_event1_event
-            wait event2_event
-            emit found_event2_event
-            wait event3_event
-            emit found_event3_event
-        end
-
-        task.start!
-        task.event1_event.emit
-        task.event2_event.emit
-        task.event3_event.emit
-        process_events
-        assert task.found_event1?
-        assert task.found_event2?
-        assert task.found_event3?
     end
 
     def test_timeout_pass
