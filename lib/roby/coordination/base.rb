@@ -17,6 +17,11 @@ module Roby
                 instance_for(model.root).task
             end
 
+            # The plan this coordination object is part of
+            def plan
+                root_task.plan
+            end
+
             # The set of arguments given to this execution context
             # @return [Hash]
             attr_reader :arguments
