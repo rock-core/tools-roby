@@ -43,22 +43,6 @@ module Roby
                 super(arguments)
             end
 
-            class << self
-                # The set of running ExternalProcess instances. It is a mapping
-                # from the PID value to the instances.
-                attr_reader :processes
-            end
-            @processes = Hash.new
-
-            # Called by the SIGCHLD handler to announce that a particular process
-            # has finished. It calls #dead!(result) in the context of the execution
-            # thread, on the corresponding task
-            def self.dead!(pid, result) # :nodoc:
-                if task = processes[pid]
-                    task.execution_engine.once { task.dead!(result) }
-                end
-            end
-
             # Called to announce that this task has been killed. +result+ is the
             # corresponding Process::Status object.
             def dead!(result)
@@ -170,8 +154,6 @@ module Roby
                     end
                 end
 
-                ExternalProcess.processes[pid] = self
-
                 w.close
                 begin
                     read, _ = select([r], nil, nil, 5)
@@ -190,24 +172,6 @@ module Roby
                         raise "could not start #{command_line.first}: exec() call failed"
                     end
                 end
-
-                # This block is needed as there is a race condition between the fork
-                # and the assignation to ExternalProcess.processes (which is
-                # required for the SIGCHLD handler to work).
-                begin
-                    if Process.waitpid(pid, ::Process::WNOHANG)
-                        if exit_status = $?
-                            exit_status = exit_status.dup
-                        end
-                        execution_engine.once { dead!(pid, exit_status) }
-                        return
-                    end
-                rescue Errno::ECHILD
-                end
-
-            rescue Exception => e
-                ExternalProcess.processes.delete(pid)
-                raise e
             end
 
             ##
@@ -231,27 +195,13 @@ module Roby
                 Process.kill(signo, pid)
             end
 
-            on :stop do |event|
-                ExternalProcess.processes.delete(pid)
-            end
-
-            def self.handle_terminated_children(plan)
-                begin
-                    while pid = ::Process.wait(-1, ::Process::WNOHANG)
-                        if exit_status = $?
-                            exit_status = exit_status.dup
-                        end
-                        Roby.debug { "external process #{pid} terminated" }
-                        Tasks::ExternalProcess.dead! pid, exit_status
-                    end
-                rescue Errno::ECHILD
+            poll do
+                pid, exit_status = ::Process.waitpid2(self.pid, ::Process::WNOHANG)
+                if pid
+                    dead!(exit_status)
                 end
             end
         end
-
-        Roby::ExecutionEngine.add_propagation_handler(
-            description: 'ExternalProcess.handle_terminated_children',
-            &ExternalProcess.method(:handle_terminated_children))
     end
 end
 
