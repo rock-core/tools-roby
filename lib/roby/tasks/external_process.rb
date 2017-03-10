@@ -97,97 +97,51 @@ module Roby
             # running
             attr_reader :pid
 
-            # Error codes between the child and the parent. Note that the error
-            # codes must not be greater than 9
-            # :stopdoc:
-            KO_REDIRECTION  = 1
-            KO_NO_SUCH_FILE = 2
-            KO_EXEC         = 3
-            # :startdoc:
-
-            # Returns the file name based on the redirection pattern and the current
-            # PID values. This is called in the child process before exec().
-            def redirection_path(pattern) # :nodoc:
-                pattern.gsub '%p', Process.pid.to_s
-            end
-
-            class ProgramNotFound < RuntimeError; end
-
-            # Starts the child process
-            def start_process # :nodoc:
-                # Open a pipe to monitor the child startup
-                r, w = IO.pipe
-
-                @pid = fork do
-                    # Open the redirection outputs
-                    stdout, stderr = nil
-                    begin
-                        if redirection.respond_to?(:to_str)
-                            stdout = stderr = File.open(redirection_path(redirection), "w")
-                        elsif redirection
-                            if stdout_file = redirection[:stdout]
-                                stdout = File.open(redirection_path(stdout_file), "w")
-                            end
-                            if stderr_file = redirection[:stderr]
-                                stderr = File.open(redirection_path(stderr_file), "w")
-                            end
-                        end
-                    rescue Exception => e
-                        Roby.log_exception_with_backtrace(e, Roby, :error)
-                        w.write("#{KO_REDIRECTION}")
-                        return
-                    end
-
-                    STDOUT.reopen(stdout) if stdout
-                    STDERR.reopen(stderr) if stderr
-
-                    r.close
-                    w.fcntl(Fcntl::F_SETFD, 1) # set close on exit
-                    ::Process.setpgrp
-                    begin
-                        exec(*command_line)
-                    rescue Errno::ENOENT
-                        w.write("#{KO_NO_SUCH_FILE}")
-                    rescue Exception => e
-                        Roby.log_exception_with_backtrace(e, Roby, :error)
-                        w.write("#{KO_EXEC}")
-                    end
-                end
-
-                w.close
-                begin
-                    read, _ = select([r], nil, nil, 5)
-                rescue IOError
-                    Process.kill("SIGKILL", pid)
-                    retry
-                end
-
-                if read && (control = r.read(1))
-                    case Integer(control)
-                    when KO_REDIRECTION
-                        raise "could not start #{command_line.first}: cannot establish output redirections"
-                    when KO_NO_SUCH_FILE
-                        raise ProgramNotFound, "could not start #{command_line.first}: provided command does not exist"
-                    when KO_EXEC
-                        raise "could not start #{command_line.first}: exec() call failed"
-                    end
-                end
-            end
-
             ##
             # :method: start!
             #
             # Starts the child process. Emits +start+ when the process is actually
             # started.
             event :start do |context|
-                if working_directory
-                    Dir.chdir(working_directory) do
-                        start_process
+                working_directory = (self.working_directory || Dir.pwd)
+                options = Hash[pgroup: 0, chdir: working_directory]
+
+                opened_ios = Array.new
+                if redirection.respond_to?(:to_str)
+                    io = open_redirection(working_directory)
+                    options[:out] = options[:err] = io
+                    opened_ios << [redirection, io]
+                elsif redirection
+                    if redirection[:stdout]
+                        io = open_redirection(working_directory) 
+                        options[:out] = io
+                        opened_ios << [redirection[:stdout], io]
                     end
-                else
-                    start_process
+                    if redirection[:stderr]
+                        io = open_redirection(working_directory) 
+                        options[:err] = io
+                        opened_ios << [redirection[:stderr], io]
+                    end
                 end
+
+                @pid = Process.spawn *command_line, **options
+                opened_ios.each do |pattern, io|
+                    FileUtils.mv io.path, File.join(working_directory, redirection_path(pattern, @pid))
+                end
+
                 start_event.emit
+            end
+
+            # Returns the file name based on the redirection pattern and the current
+            # PID values. This is called in the child process before exec().
+            def redirection_path(pattern, pid) # :nodoc:
+                pattern.gsub '%p', pid.to_s
+            end
+
+            def open_redirection(dir)
+                Dir::Tmpname.create 'roby-external-process', dir do |path, _|
+                    return File.open(path, 'w+')
+                end
             end
 
             # Kills the child process

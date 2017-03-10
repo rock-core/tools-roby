@@ -41,7 +41,7 @@ class TC_Tasks_ExternalProcess < Minitest::Test
 
     def test_inexistent_program
         plan.add(task = Tasks::ExternalProcess.new(command_line: ['does_not_exist', "--error"]))
-        assert_task_fails_to_start(task, CommandFailed, original_exception: Tasks::ExternalProcess::ProgramNotFound) do
+        assert_task_fails_to_start(task, CommandFailed, original_exception: Errno::ENOENT) do
             task.start!
         end
     end
