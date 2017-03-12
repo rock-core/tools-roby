@@ -2551,7 +2551,6 @@ module Roby
         #   {#app_dir}. Otherwise, consider test files from all over {#search_path}
         # @return [Array<String>]
         def discover_test_files(all: true, only_self: false)
-            puts "all: #{all}, only_self: #{only_self}"
             if all
                 test_files = each_test_file_in_app.inject(Hash.new) do |h, k|
                     h[k] = Array.new
