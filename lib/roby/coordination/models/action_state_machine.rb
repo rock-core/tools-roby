@@ -91,15 +91,41 @@ module Roby
                 task(object, task_model)
             end
 
+            # Capture the value of an event context
+            #
+            # The value returned by #capture is meant to be used as arguments to
+            # other states. This is a mechanism to pass information from one
+            # state to the next.
+            #
+            # @example determine the current heading and servo on it
+            #   measure_heading = state(self.measure_heading)
+            #   start(measure_heading)
+            #   current_heading = capture(measure_heading.success_event)
+            #   transition measure_heading.success_event, keep_heading(heading: current_heading)
+            #
+            def capture(state, event = nil, &block)
+                if !event
+                    state, event = state.task, state
+                end
+
+                if !toplevel_state?(state)
+                    raise ArgumentError, "#{task} is not a toplevel state, a capture's state must be toplevel"
+                elsif !event_active_in_state?(event, state)
+                    raise ArgumentError, "#{event} is not an event that is active in state #{state}"
+                end
+
+                capture = Capture.new
+                captures[capture] = [state, event]
+                capture
+            end
+
             # Returns the state for the given name, if found, nil otherwise
             #
             # @return Roby::Coordination::Models::TaskFromAction
-            def find_state_by_name(name)
-                find_task_by_name("#{name}_state")
-            end
+            def find_state_by_name(name) find_task_by_name("#{name}_state") end
 
-            def validate_task(object)
-                if !object.kind_of?(Coordination::Models::Task)
+            def validate_task(object) if
+                !object.kind_of?(Coordination::Models::Task)
                     raise ArgumentError, "expected a state object, got #{object}. States need to be created from e.g. actions by calling #state before they can be used in the state machine"
                 end
                 object

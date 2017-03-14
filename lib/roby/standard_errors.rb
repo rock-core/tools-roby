@@ -493,5 +493,42 @@ module Roby
     # Exception raised when a finished task has a promise attached, or when one
     # attempts to create one on a finished task
     class PromiseInFinishedTask < RuntimeError; end
+
+    # Exception used when a state transition fails within an action state
+    # machine
+    class ActionStateTransitionFailed < LocalizedError
+        # The state that we're transitioning out of
+        # @return [Coordination::Task]
+        attr_reader :from_state
+        # The event that caused the transition
+        # @return [Event]
+        attr_reader :event
+        # The state that we were transitioning into
+        # @return [Coordination::Task]
+        attr_reader :to_state
+
+        def initialize(root_task, from_state, event, to_state, original_exception)
+            super(root_task)
+            @from_state = from_state
+            @event    = event
+            @to_state = to_state
+            report_exceptions_from(original_exception)
+        end
+
+        def pretty_print(pp)
+            pp.text "#{failed_task} failed a state transition"
+            pp.nest(2) do
+                pp.breakable
+                pp.text "from state "
+                pp.nest(2) { from_state.pretty_print(pp) }
+                pp.breakable
+                pp.text "to state "
+                pp.nest(2) { to_state.pretty_print(pp) }
+                pp.breakable
+                pp.text "caused by event "
+                pp.nest(2) { event.pretty_print(pp) }
+            end
+        end
+    end
 end
 
