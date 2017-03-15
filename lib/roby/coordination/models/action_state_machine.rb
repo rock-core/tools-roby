@@ -114,7 +114,14 @@ module Roby
                     raise ArgumentError, "#{event} is not an event that is active in state #{state}"
                 end
 
-                capture = Capture.new
+                filter =
+                    if block
+                        lambda { |event| block.call(event) }
+                    else
+                        lambda { |event| event.context.first }
+                    end
+
+                capture = Capture.new(filter)
                 captures[capture] = [state, event]
                 capture
             end

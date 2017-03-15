@@ -377,6 +377,24 @@ describe Roby::Coordination::ActionStateMachine do
                 action_arguments[:arg]
         end
 
+        it "allows to filter the context with a block" do
+            action_m = state_machine do
+                start_state = state(first)
+                start(start_state)
+                arg = capture(start_state.stop_event) do |event|
+                    event.context.first / 2
+                end
+                followup_state = state(self.followup(arg: arg))
+                transition start_state.stop_event, followup_state
+            end
+
+            test_task = start_machine(action_m.test)
+            start_machine_child(test_task)
+            test_task.current_task_child.stop!
+            assert_equal 21, test_task.current_task_child.planning_task.
+                action_arguments[:arg]
+        end
+
         it "raises Unbound on transitions using an unbound capture" do
             action_m = state_machine do
                 start_state = state(first)

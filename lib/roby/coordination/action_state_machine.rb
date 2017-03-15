@@ -76,7 +76,7 @@ module Roby
                 captures.each do |capture, captured_event|
                     captured_event.resolve.once do |event|
                         if !transitioned && root_task.running?
-                            resolved_captures[capture] = event.context.first
+                            resolved_captures[capture] = capture.filter(event)
                         end
                     end
                 end
