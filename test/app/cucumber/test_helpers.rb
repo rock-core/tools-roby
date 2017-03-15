@@ -157,6 +157,13 @@ module Roby
                     assert_equal "missing 1 argument(s) (for y)",
                         exception.message
                 end
+                it "raises if given too many implicit arguments" do
+                    exception = assert_raises(CucumberHelpers::UnexpectedArgument) do
+                        CucumberHelpers.parse_arguments_respectively([:x, :y], "10m, 20m and 0deg", strict: false)
+                    end
+                    assert_equal "too many implicit values given, expected 2 (x, y)",
+                        exception.message
+                end
 
                 describe "unit validation" do
                     describe "fully implicit mode" do

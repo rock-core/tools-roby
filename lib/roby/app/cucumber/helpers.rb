@@ -192,6 +192,9 @@ module Roby
                             raise MixingOrderAndNames, "cannot mix order-based syntax and explicit names"
                         end
                         arg_name, arg_value = reference[arg_i], arg_name
+                        if !arg_name
+                            raise UnexpectedArgument, "too many implicit values given, expected #{reference.size} (#{reference.join(", ")})"
+                        end
                         has_implicit = true
                     end
 
