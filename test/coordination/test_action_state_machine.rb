@@ -349,12 +349,16 @@ describe Roby::Coordination::ActionStateMachine do
                 terminates
                 argument :arg
             end
+            test_m = Roby::Task.new_submodel(name: 'Test') do
+                terminates
+                event :intermediate
+            end
             action_m = Roby::Actions::Interface.new_submodel do
                 describe('start').returns(start_task_m)
                 define_method(:first) { start_task_m.new }
                 describe('followup').required_arg(:arg, 'arg').returns(followup_task_m)
                 define_method(:followup) { |arg: nil| followup_task_m.new(arg: arg) }
-                describe 'test'
+                describe('test').returns(test_m)
                 action_state_machine 'test' do
                     instance_eval(&block)
                 end
@@ -372,6 +376,24 @@ describe Roby::Coordination::ActionStateMachine do
 
             test_task = start_machine(action_m.test)
             start_machine_child(test_task)
+            test_task.current_task_child.stop!
+            assert_equal 42, test_task.current_task_child.planning_task.
+                action_arguments[:arg]
+        end
+
+        it "can capture a root event's context" do
+            action_m = state_machine do
+                start_state = state(first)
+                start(start_state)
+                start_state.intermediate_event.forward_to intermediate_event
+                arg = capture(intermediate_event)
+                followup_state = state(self.followup(arg: arg))
+                transition start_state.stop_event, followup_state
+            end
+
+            test_task = start_machine(action_m.test)
+            start_machine_child(test_task)
+            test_task.current_task_child.intermediate_event.emit(42)
             test_task.current_task_child.stop!
             assert_equal 42, test_task.current_task_child.planning_task.
                 action_arguments[:arg]

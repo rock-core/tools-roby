@@ -65,7 +65,8 @@ module Roby
 
             # (see Actions#toplevel_state?)
             def toplevel_state?(state)
-                starting_state == state ||
+                root == state ||
+                    starting_state == state ||
                     transitions.any? { |from_state, _, to_state| from_state == state || to_state == state }
             end
 
@@ -109,7 +110,7 @@ module Roby
                 end
 
                 if !toplevel_state?(state)
-                    raise ArgumentError, "#{task} is not a toplevel state, a capture's state must be toplevel"
+                    raise ArgumentError, "#{state} is not a toplevel state, a capture's state must be toplevel"
                 elsif !event_active_in_state?(event, state)
                     raise ArgumentError, "#{event} is not an event that is active in state #{state}"
                 end

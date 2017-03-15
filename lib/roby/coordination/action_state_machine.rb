@@ -30,6 +30,17 @@ module Roby
                     end
                 end
 
+                model.each_capture do |capture, (in_state, captured_event)|
+                    if in_state == model.root
+                        captured_event = instance_for(model.root).find_event(captured_event.symbol)
+                        captured_event.resolve.once do |event|
+                            if root_task.running?
+                                resolved_captures[capture] = capture.filter(event)
+                            end
+                        end
+                    end
+                end
+
                 root_task.execute do
                     if start_state
                         instanciate_state(instance_for(start_state))

@@ -114,7 +114,8 @@ module Roby
             #
             # Raise if an event is not "active" while in a particular state
             def event_active_in_state?(event, state)
-                required_tasks_for(state).has_key?(event.task)
+                event.task == root ||
+                    required_tasks_for(state).has_key?(event.task)
             end
 
             # @api private
