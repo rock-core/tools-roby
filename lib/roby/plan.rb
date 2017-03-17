@@ -123,6 +123,19 @@ module Roby
             return task_relation_graphs, event_relation_graphs
         end
 
+        def dedupe(source)
+            @task_relation_graphs.each do |relation, graph|
+                if relation != graph
+                    graph.dedupe(source.task_relation_graph_for(relation))
+                end
+            end
+            @event_relation_graphs.each do |relation, graph|
+                if relation != graph
+                    graph.dedupe(source.event_relation_graph_for(relation))
+                end
+            end
+        end
+
         # The graphs that make task relations, formatted as required by
         # {Relations::DirectedRelationSupport#relation_graphs}
         #
