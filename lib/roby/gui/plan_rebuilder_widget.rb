@@ -127,6 +127,10 @@ module Roby
                 snapshot = Snapshot.new plan_rebuilder.stats.dup,
                     DRoby::RebuiltPlan.new
                 snapshot.plan.merge(plan_rebuilder.plan)
+                if @last_snapshot
+                    snapshot.plan.dedupe(@last_snapshot.plan)
+                end
+                @last_snapshot = snapshot
 
                 cycle = snapshot.stats[:cycle_index]
                 time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:actual_start]
@@ -210,6 +214,7 @@ module Roby
                 start_time, end_time = logfile.index.range
 
                 start = Time.now
+                puts "log file is #{(end_time - start_time).ceil}s long"
                 dialog = Qt::ProgressDialog.new("Analyzing log file", "Quit", 0, (end_time - start_time))
                 dialog.setWindowModality(Qt::WindowModal)
                 dialog.show

@@ -36,6 +36,11 @@ module Roby
                 end
             end
 
+            # This singleton is used in {#dedupe} to have only one single empty
+            # hash
+            @@identity_hash_singleton = IdentityHash.new
+            @@identity_hash_singleton.freeze
+
             # Returns a new empty DirectedAdjacencyGraph which has as its edgelist
             # class the given class. The default edgelist class is Set, to ensure
             # set semantics for edges and vertices.
@@ -67,6 +72,40 @@ module Roby
                     IdentityHash.new, @backward_edges
                 backward_edges.each do |v, in_edges|
                     @backward_edges[v] = in_edges.dup
+                end
+            end
+
+            # Make sure that self and source share identical hashes when
+            # possible
+            def dedupe(source)
+                all_identical = (@forward_edges_with_info.size == source.forward_edges_with_info.size)
+                @forward_edges_with_info.keys.each do |v|
+                    self_out_edges   = @forward_edges_with_info[v]
+                    source_out_edges = source.forward_edges_with_info[v]
+                    if self_out_edges.empty?
+                        all_indentical &&= source_out_edges.empty?
+                        @forward_edges_with_info[v] = @@identity_hash_singleton
+                    elsif self_out_edges == source_out_edges
+                        @forward_edges_with_info[v] = source_out_edges.freeze
+                    else
+                        all_identical = false
+                    end
+                end
+
+                if all_identical
+                    @forward_edges_with_info = source.forward_edges_with_info.freeze
+                    @backward_edges = source.backward_edges.freeze
+                    return
+                end
+
+                @backward_edges.keys.each do |v|
+                    self_in_edges   = @backward_edges[v]
+                    source_in_edges = source.backward_edges[v]
+                    if self_in_edges.empty?
+                        @backward_edges[v] = @@identity_hash_singleton
+                    elsif self_in_edges == source_in_edges
+                        @backward_edges[v] = source_in_edges.freeze
+                    end
                 end
             end
 
