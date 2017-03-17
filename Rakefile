@@ -14,6 +14,9 @@ Rake::TestTask.new(:test) do |t|
     t.libs << "."
     t.libs << "lib"
     test_files = FileList['test/**/test_*.rb']
+    if RUBY_ENGINE != 'ruby'
+        test_files = test_files.exclude("test/app/test_debug.rb")
+    end
     if !has_gui
         test_files = test_files.exclude("test/test_gui.rb")
     end

@@ -5,6 +5,8 @@ module Roby
         module Actions
             include Base
 
+            attribute(:captures) { Hash.new }
+
             # The action interface model this state machine model is defined on
             # @return [Actions::Models::Interface,Actions::Models::Library]
             attr_accessor :action_interface
@@ -38,6 +40,10 @@ module Roby
                 @dependencies = dependencies.map do |task, role|
                     [mapping[task], role]
                 end
+
+                @captures = captures.map_value do |capture, (state, event)|
+                    [mapping[state], mapping[event.task].find_event(event.symbol)]
+                end
             end
 
             # The set of defined forwards
@@ -49,6 +55,9 @@ module Roby
             #
             # @return [Set<Task>]
             inherited_attribute(:dependency, :dependencies) { Set.new }
+
+            # A list of variables that allow to capture event contexts
+            inherited_attribute(:capture, :captures) { Hash.new }
 
             # Creates a new state machine model as a submodel of self
             #
@@ -105,7 +114,8 @@ module Roby
             #
             # Raise if an event is not "active" while in a particular state
             def event_active_in_state?(event, state)
-                required_tasks_for(state).has_key?(event.task)
+                event.task == root ||
+                    required_tasks_for(state).has_key?(event.task)
             end
 
             # @api private

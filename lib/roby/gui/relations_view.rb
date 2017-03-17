@@ -91,7 +91,7 @@ class Ui::RelationsView
                 end
             end
 
-            @object_info ||= ObjectInfoView.new
+            @object_info ||= Roby::GUI::ObjectInfoView.new
             if @object_info.display(obj)
                 @object_info.activate
             end

@@ -19,12 +19,22 @@ describe Roby::Coordination::ActionStateMachine do
         @description = description
     end
 
-    def start_machine(action_name, *args)
-        task = action_m.find_action_by_name(action_name).instanciate(plan, *args)
+    def start_machine(action, *args)
+        task = action.instanciate(plan, *args)
         plan.add_permanent_task(task)
         task.start!
         task
     end
+
+    def start_machine_child(machine_task)
+        assert_event_emission(machine_task.current_task_child.planning_task.success_event) do
+            machine_task.current_task_child.planning_task.start!
+        end
+        assert_event_emission(machine_task.current_task_child.start_event) do
+            machine_task.current_task_child.start!
+        end
+    end
+
 
     def state_machine(name, &block)
         action_m.state_machine(name) do
@@ -46,7 +56,7 @@ describe Roby::Coordination::ActionStateMachine do
                 start(state(start_task(id: task_id)))
             end
 
-            task = start_machine('test', task_id: 10)
+            task = start_machine(action_m.test, task_id: 10)
             assert_equal 10, task.current_task_child.arguments[:id]
         end
     end
@@ -57,7 +67,7 @@ describe Roby::Coordination::ActionStateMachine do
             start(start)
         end
 
-        task = start_machine('test')
+        task = start_machine(action_m.test)
         start = task.current_task_child
         assert_kind_of task_m, start
         assert_equal Hash[id: :start], start.arguments
@@ -70,7 +80,7 @@ describe Roby::Coordination::ActionStateMachine do
             start(start)
         end
 
-        task = start_machine('test', start_state: "second")
+        task = start_machine(action_m.test, start_state: "second")
         start = task.current_task_child
         assert_kind_of task_m, start
         assert_equal Hash[id: :next], start.arguments
@@ -96,7 +106,7 @@ describe Roby::Coordination::ActionStateMachine do
                 transition(start_state, monitor.success_event, next_state)
             end
 
-            task = start_machine('test')
+            task = start_machine(action_m.test)
             monitor = plan.find_tasks.with_arguments(id: 'monitoring').first
             monitor.start!
             monitor.success_event.emit
@@ -112,7 +122,7 @@ describe Roby::Coordination::ActionStateMachine do
                 transition(start_state, monitor.success_event, next_state)
             end
 
-            task = start_machine('test')
+            task = start_machine(action_m.test)
             monitor = plan.find_tasks.with_arguments(id: 'monitoring').first
             monitor.start!
             monitor.success_event.emit
@@ -128,7 +138,7 @@ describe Roby::Coordination::ActionStateMachine do
                 start(start_state)
                 transition(start_state, monitor.start_event, next_state)
             end
-            task = start_machine('test')
+            task = start_machine(action_m.test)
             assert_equal Hash[id: :start], task.current_task_child.arguments
             assert_equal 2, task.children.to_a.size
             assert_equal([task.current_task_child, task.monitor_child].to_set, task.children.to_set)
@@ -145,7 +155,7 @@ describe Roby::Coordination::ActionStateMachine do
                 transition(start_state, monitor.success_event, next_state)
             end
 
-            task = start_machine('test')
+            task = start_machine(action_m.test)
             assert_equal Hash[id: :start], task.current_task_child.arguments
             task.monitor_child.start!
             assert_equal Hash[id: :start], task.current_task_child.arguments
@@ -165,7 +175,7 @@ describe Roby::Coordination::ActionStateMachine do
                 start(start_state)
                 transition(start_state, monitor.success_event, next_state)
             end
-            task = start_machine('test')
+            task = start_machine(action_m.test)
             flexmock(task.coordination_objects.first).should_receive(:instanciate_state_transition).
                 once.pass_thru
             task.monitor_child.start!
@@ -249,6 +259,23 @@ describe Roby::Coordination::ActionStateMachine do
                 end
             end
         end
+
+        it "reports an ActionStateTransitionFailed with the original exception if the transition fails" do
+            state_machine 'test' do
+                start(start = state(start_task))
+                transition start.stop_event, state(next_task)
+            end
+            task = start_machine(action_m.test)
+            state_machine = task.coordination_objects.first
+            flexmock(state_machine).should_receive(:instanciate_state_transition).
+                and_raise(error_m = Class.new(Exception))
+
+            task.current_task_child.start!
+            plan.unmark_permanent_task(task)
+            assert_fatal_exception(Roby::ActionStateTransitionFailed, failure_point: task, original_exception: error_m, tasks: [task]) do
+                task.current_task_child.stop_event.emit
+            end
+        end
     end
 
     it "applies the declared forwardings" do
@@ -262,7 +289,7 @@ describe Roby::Coordination::ActionStateMachine do
             forward next_state.stop_event, success_event
         end
 
-        task = start_machine('test')
+        task = start_machine(action_m.test)
         task.children.first.start!
         task.children.first.success_event.emit
         task.children.first.start!
@@ -281,7 +308,7 @@ describe Roby::Coordination::ActionStateMachine do
             start(start)
             start.success_event.forward_to success_event
         end
-        task = start_machine('test')
+        task = start_machine(action_m.test)
         task.start_state_child.start!
         assert_event_emission task.success_event
         assert_equal [10], task.success_event.last.context
@@ -292,7 +319,7 @@ describe Roby::Coordination::ActionStateMachine do
             start(state(start_task))
         end
 
-        task = start_machine('test')
+        task = start_machine(action_m.test)
         task.current_task_child.start!
         assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
         plan.unmark_permanent_task(task)
@@ -308,8 +335,107 @@ describe Roby::Coordination::ActionStateMachine do
             start(first_state)
         end
 
-        task = start_machine('test', first_task: action_m.start_task)
+        task = start_machine(action_m.test, first_task: action_m.start_task)
         assert_equal :start, task.current_task_child.arguments[:id]
+    end
+
+    describe "the capture functionality" do
+        def state_machine(&block)
+            start_task_m = Roby::Task.new_submodel(name: 'Start') do
+                event :intermediate
+                event(:stop) { |context| stop_event.emit(42) }
+            end
+            followup_task_m = Roby::Task.new_submodel(name: 'Followup') do
+                terminates
+                argument :arg
+            end
+            test_m = Roby::Task.new_submodel(name: 'Test') do
+                terminates
+                event :intermediate
+            end
+            action_m = Roby::Actions::Interface.new_submodel do
+                describe('start').returns(start_task_m)
+                define_method(:first) { start_task_m.new }
+                describe('followup').required_arg(:arg, 'arg').returns(followup_task_m)
+                define_method(:followup) { |arg: nil| followup_task_m.new(arg: arg) }
+                describe('test').returns(test_m)
+                action_state_machine 'test' do
+                    instance_eval(&block)
+                end
+            end
+        end
+
+        it "passes captured event contexts as arguments to followup states" do
+            action_m = state_machine do
+                start_state = state(first)
+                start(start_state)
+                arg = capture(start_state.stop_event)
+                followup_state = state(self.followup(arg: arg))
+                transition start_state.stop_event, followup_state
+            end
+
+            test_task = start_machine(action_m.test)
+            start_machine_child(test_task)
+            test_task.current_task_child.stop!
+            assert_equal 42, test_task.current_task_child.planning_task.
+                action_arguments[:arg]
+        end
+
+        it "can capture a root event's context" do
+            action_m = state_machine do
+                start_state = state(first)
+                start(start_state)
+                start_state.intermediate_event.forward_to intermediate_event
+                arg = capture(intermediate_event)
+                followup_state = state(self.followup(arg: arg))
+                transition start_state.stop_event, followup_state
+            end
+
+            test_task = start_machine(action_m.test)
+            start_machine_child(test_task)
+            test_task.current_task_child.intermediate_event.emit(42)
+            test_task.current_task_child.stop!
+            assert_equal 42, test_task.current_task_child.planning_task.
+                action_arguments[:arg]
+        end
+
+        it "allows to filter the context with a block" do
+            action_m = state_machine do
+                start_state = state(first)
+                start(start_state)
+                arg = capture(start_state.stop_event) do |event|
+                    event.context.first / 2
+                end
+                followup_state = state(self.followup(arg: arg))
+                transition start_state.stop_event, followup_state
+            end
+
+            test_task = start_machine(action_m.test)
+            start_machine_child(test_task)
+            test_task.current_task_child.stop!
+            assert_equal 21, test_task.current_task_child.planning_task.
+                action_arguments[:arg]
+        end
+
+        it "raises Unbound on transitions using an unbound capture" do
+            action_m = state_machine do
+                start_state = state(first)
+                other_state = state(first)
+                start(start_state)
+                transition start_state.intermediate_event, other_state
+                arg = capture(other_state.stop_event)
+
+                followup_state = state(self.followup(arg: arg))
+                transition start_state.stop_event, followup_state
+            end
+
+            test_task = start_machine(action_m.test)
+            start_machine_child(test_task)
+            plan.unmark_permanent_task(test_task)
+            assert_fatal_exception(Roby::ActionStateTransitionFailed, failure_point: test_task, original_exception: Roby::Coordination::Models::Capture::Unbound, tasks: [test_task]) do
+                test_task.current_task_child.stop!
+            end
+        end
     end
 
     it "rebinds the action states to the actual interface model" do

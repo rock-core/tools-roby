@@ -1411,7 +1411,7 @@ module Roby
             kill_tasks = compute_kill_tasks_for_unhandled_fatal_errors(fatal_errors).to_set
 
             debug "#{fatal_errors.size} fatal errors found and #{free_events_errors.size} errors involving free events"
-            debug "the fatal errors involve #{kill_tasks} non-finalized tasks"
+            debug "the fatal errors involve #{kill_tasks.size} non-finalized tasks"
             return ErrorPhaseResult.new(kill_tasks, fatal_errors, nonfatal_errors, free_events_errors)
         end
 

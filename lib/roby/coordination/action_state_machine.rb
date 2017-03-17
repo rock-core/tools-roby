@@ -12,21 +12,32 @@ module Roby
             include Hooks::InstanceHooks
 
             define_hooks :on_transition
+
             # The current state
             attr_reader :current_state
 
-            StateInfo = Struct.new :required_tasks, :forwards, :transitions
+            StateInfo = Struct.new :required_tasks, :forwards, :transitions, :captures
 
             def initialize(root_task, arguments = Hash.new)
                 super(root_task, arguments)
                 @task_info = resolve_state_info
-
 
                 start_state = model.starting_state
                 if arguments[:start_state]
                     start_state = model.find_state_by_name(arguments[:start_state])
                     if !start_state
                         raise ArgumentError, "The starting state #{arguments[:start_state]} is unkown, make sure its definied in the statemachine #{self}"
+                    end
+                end
+
+                model.each_capture do |capture, (in_state, captured_event)|
+                    if in_state == model.root
+                        captured_event = instance_for(model.root).find_event(captured_event.symbol)
+                        captured_event.resolve.once do |event|
+                            if root_task.running?
+                                resolved_captures[capture] = capture.filter(event)
+                            end
+                        end
                     end
                 end
 
@@ -39,11 +50,17 @@ module Roby
 
             def resolve_state_info
                 task_info.map_value do |task, task_info|
-                    task_info = StateInfo.new(task_info.required_tasks, task_info.forwards, Set.new)
+                    task_info = StateInfo.new(task_info.required_tasks, task_info.forwards, Set.new, Hash.new)
                     model.each_transition do |in_state, event, new_state|
                         in_state = instance_for(in_state)
                         if in_state == task
                             task_info.transitions << [instance_for(event), instance_for(new_state)]
+                        end
+                    end
+                    model.each_capture do |capture, (in_state, event)|
+                        in_state = instance_for(in_state)
+                        if in_state == task
+                            task_info.captures[capture] = instance_for(event)
                         end
                     end
                     task_info
@@ -61,13 +78,30 @@ module Roby
             def instanciate_state(state)
                 start_task(state)
                 state_info = task_info[state]
-                tasks, known_transitions = state_info.required_tasks, state_info.transitions
+                tasks, known_transitions, captures =
+                    state_info.required_tasks,
+                    state_info.transitions,
+                    state_info.captures
+
                 transitioned = false
+                captures.each do |capture, captured_event|
+                    captured_event.resolve.once do |event|
+                        if !transitioned && root_task.running?
+                            resolved_captures[capture] = capture.filter(event)
+                        end
+                    end
+                end
                 known_transitions.each do |source_event, new_state|
                     source_event.resolve.once do |event|
                         if !transitioned && root_task.running?
                             transitioned = true
-                            instanciate_state_transition(event.task, new_state)
+                            begin
+                                instanciate_state_transition(event.task, new_state)
+                            rescue Exception => e
+                                event.task.plan.add_error(
+                                    ActionStateTransitionFailed.new(root_task, state, event, new_state, e)
+                                )
+                            end
                         end
                     end
                 end

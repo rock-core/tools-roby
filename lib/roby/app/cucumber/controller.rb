@@ -65,7 +65,6 @@ module Roby
                     @background_jobs = Array.new
                     @keep_running = keep_running
                     @validation_mode = validation_mode
-                    @last_main_job_id = nil
                     @pending_actions = []
                 end
 
@@ -230,7 +229,16 @@ module Roby
                     end
                 end
 
-                attr_reader :last_main_job_id
+                # The job ID of the last started 
+                #
+                # @return [nil,Integer] nil if the job has not yet been started,
+                #   and the ID otherwise. It's the caller responsibility to call
+                #   {#apply_current_batch}
+                def last_main_job_id
+                    if job = each_main_job.to_a.last
+                        job.job_id
+                    end
+                end
 
                 # Start a job in the background
                 #
@@ -238,6 +246,10 @@ module Roby
                 # job created by {#start_monitoring_job}, it will not be stopped
                 # when {#run_job} is called.
                 def start_job(description, m, arguments = Hash.new)
+                    if @has_run_job
+                        drop_all_jobs if !validation_mode?
+                        @has_run_job = false
+                    end
                     __start_job(description, m, arguments, false)
                 end
 
@@ -308,12 +320,13 @@ module Roby
                 def apply_current_batch(*actions, sync: true)
                     return if current_batch.empty?
 
-                    current_batch.__process
+                    batch_result = current_batch.__process
                     if sync
                         roby_poll_interface_until do
                             (pending_actions + actions).all? { |act| act.async }
                         end
                     end
+                    batch_result
                 ensure
                     @current_batch = roby_interface.create_batch
                     @pending_actions = Array.new
@@ -329,6 +342,7 @@ module Roby
                     action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
                     action.restart(batch: current_batch)
                     apply_current_batch(action)
+                    @has_run_job = true
 
                     failed_monitor = roby_poll_interface_until do
                         if action.terminated?
@@ -408,8 +422,6 @@ module Roby
                             act.drop(batch: current_batch)
                         end
                     end
-                    @monitoring_jobs = Array.new
-                    @main_jobs = Array.new
                 end
             end
         end

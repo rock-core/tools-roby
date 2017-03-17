@@ -14,9 +14,17 @@ module Roby
             # forwards that are defined for it
             attr_reader :task_info
 
+            # Resolved captures
+            #
+            # This is currently only used by the {ActionStateMachine}
+            #
+            # @return [Hash<Models::Capture, Object>]
+            attr_reader :resolved_captures
+
             def initialize(root_task, arguments = Hash.new)
                 super(root_task, arguments)
                 @task_info = resolve_task_info
+                @resolved_captures = Hash.new
             end
 
             def action_interface_model
@@ -60,11 +68,13 @@ module Roby
             def start_task(toplevel)
                 task_info = self.task_info[toplevel]
                 tasks, forwards = task_info.required_tasks, task_info.forwards
+                variables = arguments.merge(resolved_captures)
+
                 instanciated_tasks = tasks.map do |task, roles|
-                    action_task = task.model.instanciate(root_task.plan, arguments)
+                    action_task = task.model.instanciate(root_task.plan, variables)
                     root_task.depends_on(action_task, dependency_options_for(toplevel, task, roles))
                     bind_coordination_task_to_instance(task, action_task, on_replace: :copy)
-                    task.model.setup_instanciated_task(self, action_task, arguments)
+                    task.model.setup_instanciated_task(self, action_task, variables)
                     action_task
                 end
 
