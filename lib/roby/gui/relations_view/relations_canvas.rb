@@ -1009,9 +1009,13 @@ module Roby
 		layouts = plans.find_all { |p| p.root_plan? }.
 		    map do |p| 
 			dot = PlanDotLayout.new
-			dot.layout(self, p, layout_options)
-			dot
-		    end
+                        begin
+                            dot.layout(self, p, layout_options)
+                            dot
+                        rescue Exception => e
+                            puts "Failed to lay out the plan: #{e}"
+                        end
+                    end.compact
 		layouts.each { |dot| dot.apply }
 
 		# Display the signals
