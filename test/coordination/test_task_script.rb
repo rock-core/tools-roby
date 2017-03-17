@@ -1,7 +1,6 @@
 require 'roby/test/self'
 require 'roby/tasks/simple'
 require 'roby/schedulers/temporal'
-require 'timecop'
 
 module Roby
     module Coordination

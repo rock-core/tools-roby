@@ -1,6 +1,7 @@
 require 'minitest/spec'
 require 'roby/test/assertions'
 require 'flexmock/minitest'
+require 'timecop'
 
 # simplecov must be loaded FIRST. Only the files required after it gets loaded
 # will be profiled !!!
@@ -201,6 +202,8 @@ module Roby
         end
 
 	def teardown
+            Timecop.return
+
             @transactions.each do |trsc|
                 if !trsc.finalized?
                     trsc.discard_transaction

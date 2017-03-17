@@ -1,7 +1,6 @@
 require 'roby/test/self'
 require './test/mockups/tasks'
 require 'utilrb/hash/slice'
-require 'timecop'
 
 module Roby
     describe ExecutionEngine do
