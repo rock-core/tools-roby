@@ -77,6 +77,14 @@ module Roby
 
                 teardown_registered_plans
 
+            ensure
+                clear_registered_plans
+                if teardown_failure
+                    raise teardown_failure
+                end
+            end
+
+            def clear_newly_defined_models
                 app.root_models.each do |root_model|
                     ([root_model] + root_model.each_submodel.to_a).each do |m|
                         if !models_present_in_setup.include?(m)
@@ -84,12 +92,6 @@ module Roby
                             m.clear_model
                         end
                     end
-                end
-
-            ensure
-                clear_registered_plans
-                if teardown_failure
-                    raise teardown_failure
                 end
             end
 
