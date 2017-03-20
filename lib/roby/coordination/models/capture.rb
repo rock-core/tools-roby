@@ -34,6 +34,10 @@ module Roby
                     end
                 end
 
+                def evaluate_delayed_argument(task)
+                    throw :no_value
+                end
+
                 # Evaluate the capture
                 #
                 # @param [Hash] variables the underlying coordination object's

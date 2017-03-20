@@ -34,7 +34,11 @@ module Roby
 
             def has_missing_required_arg?
                 model.arguments.any? do |arg|
-                    arg.required? && !arguments.has_key?(arg.name.to_sym)
+                    if arg.required?
+                        arg_sym = arg.name.to_sym
+                        !arguments.has_key?(arg_sym) ||
+                            TaskArguments.delayed_argument?(arguments.fetch(arg_sym))
+                    end
                 end
             end
 
