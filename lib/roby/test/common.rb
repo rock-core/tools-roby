@@ -149,6 +149,7 @@ module Roby
             errors = plan.execution_engine.gather_errors do
                 yield
             end
+            errors = errors.map(&:first)
 
             assert !errors.empty?, "expected to have added a LocalizedError, but got none"
             errors.each do |e|
