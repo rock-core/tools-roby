@@ -235,10 +235,15 @@ module Roby
             end
 
             desc 'current', 'full path to the current log file'
+            option :dir, aliases: 'd', type: :boolean
             def current(robot_name)
                 Roby.app.setup_robot_names_from_config_dir
                 Roby.app.robot(robot_name)
-                puts Roby.app.log_current_file
+                if options[:dir]
+                    puts Roby.app.log_current_dir
+                else
+                    puts Roby.app.log_current_file
+                end
             end
 
             desc 'display', "start roby-display to visualize the log file's contents"
