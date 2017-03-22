@@ -2380,6 +2380,7 @@ module Roby
                         m.permanent_model = false
                         m.clear_model
                         Roby::Transaction::Proxying.proxying_modules.delete(m)
+                        Roby::Transaction::Proxying.forwarder_modules.delete(m)
                     end
                 end
             end
