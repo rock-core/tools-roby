@@ -21,8 +21,14 @@ module Roby
     #
     # The Proxy module define base functionalities for these proxy objects
     module Transaction::Proxying
+        @@proxy_for  = Hash.new
         @@proxying_modules  = Hash.new
         @@forwarder_modules = Hash.new
+
+        def self.clear_module_caches
+            @@proxying_modules.clear
+            @@forwarder_modules.clear
+        end
 
 	def to_s; "tProxy(#{__getobj__.to_s})" end
 
@@ -30,34 +36,28 @@ module Roby
             @@proxying_modules
         end
 
+        def self.forwarder_modules
+            @@forwarder_modules
+        end
+
         def self.define_proxying_module(proxying_module, mod)
-            @@proxying_modules[mod] = [proxying_module, false]
+            @@proxy_for[mod] = proxying_module
             nil
         end
 
         # Returns the proxying module for +object+
 	def self.proxying_module_for(klass)
-	    proxying_module = @@proxying_modules[klass]
-            if !proxying_module
-                proxying_module = [Module.new, false]
-                @@proxying_modules[klass] = proxying_module
-            end
-
-            if !proxying_module[1]
-                result = proxying_module[0]
-                modules = klass.ancestors.map do |ancestor|
-                    if (ancestor != klass) && (mod_proxy = @@proxying_modules[ancestor])
-                        mod_proxy[0]
-                    end
-                end.compact
-                modules << Transaction::Proxying
-                modules.reverse.each do |mod|
-                    result.include mod
+	    proxying_module = @@proxying_modules[klass] || Module.new
+            modules = klass.ancestors.map do |ancestor|
+                if (ancestor != klass) && (mod_proxy = @@proxy_for[ancestor])
+                    mod_proxy
                 end
-                proxying_module[1] = true
+            end.compact
+            modules << Transaction::Proxying
+            modules.reverse.each do |mod|
+                proxying_module.include mod
             end
-
-	    proxying_module[0]
+            @@proxying_modules[klass] = proxying_module
 	end
 
         def self.create_forwarder_module(mod)
