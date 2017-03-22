@@ -3,6 +3,7 @@ module Roby
         module PlanObject
             include MetaRuby::ModelAsClass
             extend MetaRuby::Attributes
+            include Transaction::Proxying::Cache
 
             # @return [Array<UnboundMethod>] set of finalization handlers
             #   defined at the model level

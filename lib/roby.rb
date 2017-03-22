@@ -58,6 +58,9 @@ require 'roby/plan'
 require 'roby/executable_plan'
 require 'roby/template_plan'
 
+require 'roby/transaction'
+require 'roby/transaction/proxying'
+
 require 'roby/models/plan_object'
 require 'roby/plan_object'
 require 'roby/event_generator'
@@ -87,14 +90,19 @@ require "roby/task_structure/dependency"
 require "roby/task_structure/error_handling"
 require "roby/task_structure/executed_by"
 require "roby/task_structure/planned_by"
-require 'roby/plan_service'
+
 require 'roby/tasks/aggregator'
 require 'roby/tasks/parallel'
 require 'roby/tasks/sequence'
 require 'roby/event_constraints'
 
-require 'roby/transactions/proxy'
-require 'roby/transactions'
+require 'roby/transaction/plan_object_proxy'
+require 'roby/transaction/event_generator_proxy'
+require 'roby/transaction/task_event_generator_proxy'
+require 'roby/transaction/task_proxy'
+
+require 'roby/plan_service'
+require 'roby/transaction/plan_service_proxy'
 
 require 'roby/decision_control'
 require 'roby/schedulers/null'

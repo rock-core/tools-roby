@@ -315,7 +315,7 @@ module Roby
         Roby::EventGenerator.include RelationsCanvasEventGenerator
         Roby::TaskEventGenerator.include RelationsCanvasTaskEventGenerator
         Roby::Task.include RelationsCanvasTask
-        Roby::Task::Proxying.include RelationsCanvasTaskProxy
+        Roby::Transaction::TaskProxy.include RelationsCanvasTaskProxy
         Roby::Plan.include RelationsCanvasPlan
 
 	class Qt::GraphicsScene

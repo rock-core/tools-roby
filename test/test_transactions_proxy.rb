@@ -34,7 +34,7 @@ class TC_TransactionsProxy < Minitest::Test
         end
 
 	wrapped_start = transaction[t.event(:start)]
-	assert_kind_of(Roby::TaskEventGenerator::Proxying, wrapped_start)
+	assert_kind_of(Roby::Transaction::TaskEventGeneratorProxy, wrapped_start)
         assert_equal(wrapped_start, p.event(:start))
 
 	assert_equal(p, wrapped_start.root_object)
@@ -48,7 +48,7 @@ class TC_TransactionsProxy < Minitest::Test
     def test_event_proxy
 	plan.add(ev = EventGenerator.new)
 	wrapped = transaction[ev]
-	assert_kind_of(EventGenerator::Proxying, wrapped)
+	assert_kind_of(Roby::Transaction::EventGeneratorProxy, wrapped)
 	assert_equal(plan, ev.plan)
 	assert_equal(transaction, wrapped.plan)
 	assert(wrapped.root_object?)
@@ -224,7 +224,7 @@ module Roby
                     parent_proxy_m = Module.new { proxy_for parent_task_m }
                     task_m = parent_task_m.new_submodel
                     proxy_m = Proxying.proxying_module_for(task_m)
-                    assert_equal [proxy_m, parent_proxy_m, root_proxy_m, Roby::Task::Proxying, Roby::PlanObject::Proxying, Roby::Transaction::Proxying],
+                    assert_equal [proxy_m, parent_proxy_m, root_proxy_m, Roby::Transaction::TaskProxy, Roby::Transaction::PlanObjectProxy, Roby::Transaction::Proxying],
                         proxy_m.ancestors.find_all { |k| k.name !~ /GUI/ } # the whole test suite loads the GUI, which in turn includes modules in the base classes
                 end
             end

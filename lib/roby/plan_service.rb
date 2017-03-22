@@ -6,6 +6,8 @@ module Roby
     #
     # It forwards method calls to the underlying task
     class PlanService
+        extend Transaction::Proxying::Cache
+
         # The underlying task
         #
         # @return [Roby::Task]
