@@ -602,6 +602,17 @@ module Roby
                             # This is a cached value, invalidate it
                             @returned_task_type = nil
                         end
+
+                        def proxy(peer)
+                            result = self.dup
+                            result.proxy!(peer)
+                            result
+                        end
+
+                        def proxy!(peer)
+                            @returned_type = peer.local_object(returned_type)
+                            @arguments = peer.local_object(arguments)
+                        end
                     end
 
                     module MethodActionDumper

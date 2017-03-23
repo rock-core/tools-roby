@@ -208,17 +208,6 @@ module Roby
                 end
             end
 
-            def proxy(peer)
-                result = self.dup
-                result.proxy!(peer, arguments)
-                result
-            end
-
-            def proxy!(peer, arguments)
-                @returned_type = returned_type.proxy(peer)
-                @arguments = arguments.proxy(peer)
-            end
-
             def to_action_model
                 self
             end
