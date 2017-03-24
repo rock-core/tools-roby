@@ -7,10 +7,21 @@ module Roby
                 extend DRobyConstant::Dump
             end
 
+            class DRobyConstantAbsoluteResolutionTest
+                extend DRobyConstant::Dump
+                module Roby
+                    module DRoby
+                        module V5
+                            DRobyConstantAbsoluteResolutionTest = 'invalid'
+                        end
+                    end
+                end
+            end
+
             describe DRobyConstant do
                 it "dumps and resolves a class by name" do
                     marshalled = DRobyConstantTestObject.droby_dump(flexmock)
-                    assert_equal "Roby::DRoby::V5::DRobyConstantTestObject", marshalled.name
+                    assert_equal "::Roby::DRoby::V5::DRobyConstantTestObject", marshalled.name
                     assert_same DRobyConstantTestObject, marshalled.proxy(flexmock)
                 end
 
@@ -26,7 +37,13 @@ module Roby
                     e = assert_raises(DRobyConstant::Dump::MismatchingLocalConstant) do
                         obj.droby_dump(flexmock)
                     end
-                    assert_equal "got DRobyConstant whose name 'Roby::DRoby' resolves to Roby::DRoby(Module), not itself (#{obj})", e.message
+                    assert_equal "got DRobyConstant whose name '::Roby::DRoby' resolves to Roby::DRoby(Module), not itself (#{obj})", e.message
+                end
+
+                it "resolves the constant name as an absolute name" do
+                    marshalled = DRobyConstantAbsoluteResolutionTest.droby_dump(flexmock)
+                    assert_equal "::Roby::DRoby::V5::DRobyConstantAbsoluteResolutionTest", marshalled.name
+                    assert_same DRobyConstantAbsoluteResolutionTest, marshalled.proxy(flexmock)
                 end
 
                 it "raises on dump if the object's name cannot be resolved" do
@@ -39,7 +56,7 @@ module Roby
                         assert_equal "cannot resolve constant name for #{obj}", e.message
                     end
                     assert_equal ["could not resolve constant name for #{obj}",
-                                  "uninitialized constant FlexMock::Does (NameError)"], messages
+                                  "uninitialized constant Does (NameError)"], messages
                 end
 
                 it "raises on dump if the object's name is not a valid constant name" do

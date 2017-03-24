@@ -45,7 +45,7 @@ module Roby::TaskStructure
                 next if !planned_task.self_owned?
 
                 if (planned_task.pending? && !planned_task.executable?) || !options[:optional]
-                    result << [Roby::PlanningFailedError.new(planned_task, planning_task), []]
+                    result << [Roby::PlanningFailedError.new(planned_task, planning_task), nil]
                 end
             end
 

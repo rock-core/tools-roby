@@ -438,6 +438,13 @@ module Roby
                     end
                 end
 
+                # Returns true if there is a constraint that specifies that self
+                # and generator are ordered in time
+                def should_emit_after?(generator)
+                    graph = plan.event_relation_graph_for(TemporalConstraints)
+                    graph.has_edge?(generator, self)
+                end
+
                 # True if this event is constrained by the TemporalConstraints
                 # relation in any way
                 def has_temporal_constraints?

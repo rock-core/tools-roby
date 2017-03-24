@@ -397,6 +397,27 @@ module Roby
                     refute constraints.related_tasks?(task_a, task_b)
                 end
             end
+
+            describe "TemporalConstraints" do
+                describe "#should_emit_after?" do
+                    attr_reader :receiver, :argument
+                    before do
+                        plan.add(@receiver = EventGenerator.new)
+                        plan.add(@argument = EventGenerator.new)
+                    end
+                    it "returns false for two unrelated events" do
+                        refute receiver.should_emit_after?(argument)
+                    end
+                    it "returns false if the argument should emit after the receiver" do
+                        argument.should_emit_after receiver
+                        refute receiver.should_emit_after?(argument)
+                    end
+                    it "returns true if the receiver should emit after the argument" do
+                        receiver.should_emit_after argument
+                        assert receiver.should_emit_after?(argument)
+                    end
+                end
+            end
         end
     end
 end

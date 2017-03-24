@@ -116,18 +116,19 @@ module Roby
         end
 
         def generate_induced_errors(error_phase_results)
-            by_exception = Hash.new
             error_phase_results.each_fatal_error do |execution_exception, tasks|
-                task_set = (by_exception[execution_exception] ||= Set.new).merge(tasks)
-                task_set.delete(execution_exception.origin)
-            end
+                # MissionFailedError and PermanentTaskError are not propagated,
+                # so tasks == [origin] and we should not re-add an error
+                if execution_exception.exception.kind_of?(MissionFailedError) ||
+                        execution_exception.exception.kind_of?(PermanentTaskError)
+                    next
+                end
 
-            by_exception.each do |exception, tasks|
                 tasks.each do |t|
                     if mission_task?(t)
-                        add_error(MissionFailedError.new(t, exception))
+                        add_error(MissionFailedError.new(t, execution_exception.exception), propagate_through: [])
                     elsif permanent_task?(t)
-                        add_error(PermanentTaskError.new(t, exception))
+                        add_error(PermanentTaskError.new(t, execution_exception.exception), propagate_through: [])
                     end
                 end
             end

@@ -76,7 +76,12 @@ module Roby
             end
 
             def instanciate_state(state)
-                start_task(state)
+                begin
+                    start_task(state)
+                rescue Models::Capture::Unbound => e
+                    raise e, "in the action state machine #{model} running on #{root_task} while starting #{state.name}, #{e.message}", e.backtrace
+                end
+
                 state_info = task_info[state]
                 tasks, known_transitions, captures =
                     state_info.required_tasks,
@@ -109,7 +114,9 @@ module Roby
 
             def instanciate_state_transition(task, new_state)
                 remove_current_task
-                instanciate_state(new_state)
+                begin
+                    instanciate_state(new_state)
+                end
                 run_hook :on_transition, task, new_state
             end
         end

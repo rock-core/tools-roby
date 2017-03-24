@@ -273,7 +273,11 @@ module TC_TransactionBehaviour
             transaction_commit(plan, t) do |trsc, p|
                 p.executable = value
             end
-            assert_equal(value, t.instance_variable_get(:@executable))
+            if value.nil?
+                assert_nil(t.instance_variable_get(:@executable))
+            else
+                assert_equal(value, t.instance_variable_get(:@executable))
+            end
         end
     end
 

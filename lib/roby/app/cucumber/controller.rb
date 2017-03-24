@@ -79,7 +79,7 @@ module Roby
                 # @param [Hash] state initial values for the state
                 #
                 # @raise InvalidState if a controller is already running
-                def roby_start(robot_name, robot_type, connect: true, controller: true, app_dir: Dir.pwd, log_dir: nil, state: Hash.new)
+                def roby_start(robot_name, robot_type, connect: true, controller: true, app_dir: Dir.pwd, log_dir: nil, state: Hash.new, **spawn_options)
                     if roby_running?
                         raise InvalidState, "a Roby controller is already running, call #roby_stop and #roby_join first"
                     end
@@ -95,7 +95,8 @@ module Roby
                         *options,
                         *state.map { |k, v| "--set=#{k}=#{v}" },
                         chdir: app_dir,
-                        pgroup: 0
+                        pgroup: 0,
+                        **spawn_options
                     if connect
                         roby_connect
                     end

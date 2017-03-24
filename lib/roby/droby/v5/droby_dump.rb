@@ -1,6 +1,42 @@
 module Roby
     module DRoby
         module V5
+            module BidirectionalGraphDumper
+                class DRoby
+                    attr_reader :vertices
+                    attr_reader :edges
+
+                    def initialize(vertices, edges)
+                        @vertices = vertices
+                        @edges    = edges
+                    end
+
+                    def proxy(peer)
+                        graph = Relations::BidirectionalDirectedAdjacencyGraph.new
+                        peer.load_groups(vertices) do |vertices|
+                            vertices.each { |v| graph.add_vertex(v) }
+                            edges.each_slice(3) do |u, v, info|
+                                graph.add_edge(
+                                    peer.local_object(u),
+                                    peer.local_object(v),
+                                    peer.local_object(info))
+                            end
+                        end
+                        graph
+                    end
+                end
+
+                def droby_dump(peer)
+                    peer.dump_groups(self.vertices) do |vertices|
+                        edges = Array.new
+                        each_edge.each do |u, v, info|
+                            edges << peer.dump(u) << peer.dump(v) << peer.dump(info)
+                        end
+                        DRoby.new(vertices, edges)
+                    end
+                end
+            end
+
             module ModelDumper
                 def droby_dump(peer)
                     DRobyModel.new(
@@ -147,8 +183,7 @@ module Roby
                         trace     = peer.local_object(self.trace)
                         exception = peer.local_object(self.exception)
                         result = ExecutionException.new(exception)
-                        result.trace.clear
-                        result.trace.concat(trace)
+                        result.trace.replace(trace)
                         result.handled = self.handled
                         result
                     end

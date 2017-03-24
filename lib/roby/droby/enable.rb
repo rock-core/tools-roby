@@ -38,6 +38,9 @@ module Roby
         include DRoby::V5::ExecutionExceptionDumper
     end
     module Relations
+        class BidirectionalDirectedAdjacencyGraph
+            include DRoby::V5::BidirectionalGraphDumper
+        end
         class Graph
             extend DRoby::Identifiable
             extend DRoby::V5::DRobyConstant::Dump

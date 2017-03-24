@@ -19,6 +19,14 @@ module Roby
                 super
             end
 
+            def assert_sets_equal(expected, actual)
+                if !(diff = (expected - actual)).empty?
+                    flunk("expects two sets to be equal, but #{expected} is missing #{diff.size} expected elements:\n  #{diff.to_a.map(&:to_s).join(", ")}")
+                elsif !(diff = (actual - expected)).empty?
+                    flunk("expects two sets to be equal, but #{actual} has #{diff.size} more elements than expected:\n  #{diff.to_a.map(&:to_s).join(", ")}")
+                end
+            end
+
             # Capture log output from one logger and returns it
             #
             # Note that it currently does not "de-shares" loggers
@@ -546,7 +554,7 @@ module Roby
                     end
                     task.failure_reason
                 else
-                    exception = assert_handled_exception(matcher, failure_point: failure_point, original_exception: original_exception, tasks: tasks + [task], execution_engine: task.execution_engine) do
+                    exception = assert_handled_exception(matcher, failure_point: failure_point, original_exception: original_exception, tasks: tasks + [task]) do
                         yield
                     end
                     assert task.failed_to_start?, "task is not marked as failed to start"
@@ -602,6 +610,7 @@ module Roby
                         matcher, original_exception: original_exception,
                         failure_point: failure_point)
 
+                    engine_mock.should_receive(:log_pp).with(:debug, any)
                     kill_tasks.each do |t|
                         engine_mock.should_receive(:log_pp).with(:warn, t)
                     end
@@ -617,11 +626,14 @@ module Roby
             # @param (see create_exception_matcher)
             # @param [Enumerable<Task>] tasks forming the exception's trace
             # @return [LocalizedError] the exception
-            def assert_handled_exception(matcher, failure_point: Task, original_exception: nil, tasks: [], execution_engine: nil)
+            def assert_handled_exception(matcher, failure_point: Task, original_exception: nil, tasks: [])
                 __roby_exception_assertion_context(failure_point, tasks) do |engine_mock|
                     matcher = create_exception_matcher(
                         matcher, original_exception: original_exception,
                         failure_point: failure_point)
+
+                    engine_mock.should_receive(:log_pp).with(:debug, any)
+                    engine_mock.should_receive(:log_pp).with(:warn, /handled errors/)
 
                     error = nil
                     engine_mock.should_receive(:notify_exception).at_least.once.
@@ -631,7 +643,9 @@ module Roby
                             error = execution_exception.exception
                         end
 
-                    yield
+                    capture_log(execution_engine, :warn) do
+                        yield
+                    end
                     error
                 end
             end

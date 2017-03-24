@@ -85,7 +85,7 @@ module Roby
                 updates = Array.new
                 local_objects = groups.map do |collection|
                     collection.each_slice(2).map do |obj_id, marshalled_obj|
-                        proxy = marshalled_obj.proxy(self)
+                        proxy = local_object(marshalled_obj)
                         context_objects[obj_id] = proxy
 
                         if marshalled_obj.respond_to?(:remote_siblings)

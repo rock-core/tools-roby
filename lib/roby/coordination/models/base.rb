@@ -6,6 +6,13 @@ module Roby
             include MetaRuby::ModelAsClass
             include Arguments
 
+            # Name of this coordination object
+            #
+            # For debugging purposes. It is usually set by the enclosing context
+            #
+            # @return [String,nil]
+            attr_accessor :name
+
             # Gets or sets the root task model
             #
             # @return [Root] the root task model, i.e. a representation of the
@@ -101,7 +108,7 @@ module Roby
             # parsing
             #
             # @param [String] suffix that should be added to all the names
-            def parse_task_names(suffix)
+            def parse_names(suffixes)
                 definition_context = binding.callers.find { |b| b.frame_type == :block }
                 return if !definition_context
 
@@ -109,8 +116,10 @@ module Roby
                 vars = definition_context.eval "local_variables"
                 values = definition_context.eval "[#{vars.map { |n| "#{n}" }.join(", ")}]"
                 vars.zip(values).each do |name, object|
-                    if object.kind_of?(Task)
-                        object.name = "#{name}#{suffix}"
+                    suffixes.each do |klass, suffix|
+                        if object.kind_of?(klass)
+                            object.name = "#{name}#{suffix}"
+                        end
                     end
                 end
             end

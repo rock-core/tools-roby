@@ -82,9 +82,13 @@ module Roby
                 end
             end
 
+            def parse_names
+                super(Task => '_state', Capture => "")
+            end
+
             # Declares the starting state
             def start(state)
-                parse_task_names '_state'
+                parse_names
                 @starting_state = validate_task(state)
             end
 
@@ -191,7 +195,7 @@ module Roby
             #   if the given event is emitted
             #
             def transition(*spec)
-                parse_task_names '_state'
+                parse_names
 
                 if spec.size == 2
                     state_event, new_state = *spec
@@ -207,6 +211,10 @@ module Roby
                     end
                     transitions << [state, state_event, new_state]
                 end
+            end
+
+            def to_s
+                "#{action_interface}.#{name}"
             end
         end
         end

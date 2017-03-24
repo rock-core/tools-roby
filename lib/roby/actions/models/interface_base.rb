@@ -192,6 +192,7 @@ module Roby
                 action_model, coordination_model =
                     create_coordination_action(action_model, coordination_class, &block)
                 register_action(name, action_model)
+                coordination_model.name = name
 
                 define_method(name) do |*arguments|
                     action_model.instanciate(plan)

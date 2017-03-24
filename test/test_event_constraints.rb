@@ -45,7 +45,11 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
 
     def assert_explained_by(value, predicate, event, explanation)
         assert(explanation, "no explanation given")
-        assert_equal(value, explanation.value)
+        if value.nil? # MT 5.10 started warning that MT6 would require this. Thanks guys.
+            assert_nil explanation.value
+        else
+            assert_equal(value, explanation.value)
+        end
         assert_equal(predicate, explanation.predicate)
 
         elements = explanation.elements.dup
@@ -75,7 +79,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
     end
 
     def test_single_from_now
-        task_m = Task.new_submodel
+        task_m = Task.new_submodel { terminates }
         task_m.event :intermediate
         pred = :intermediate.emitted?.from_now
         plan.add(task = task_m.new)

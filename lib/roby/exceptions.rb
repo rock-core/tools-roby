@@ -36,19 +36,16 @@ module Roby
     # different children, then they are merged with #merge to from one single
     # ExecutionException object.
     class ExecutionException
-	# The propagation trace. Because of forks and merges, this should be a
-	# graph.  We don't use graph properties (at least not yet), so consider
-	# this as the list of objects which did not handle the exeption. Only
-	# trace.last and trace.first have a definite meaning: the former
-	# is the last object(s) that handled the propagation and the latter
-	# is the object from which the exception originated. They can be 
-	# accessed through #task and #origin.
+        # The trace of how this exception has been propagated in the plan so far
+        #
+        # @return [Relations::BidirectionalDirectedAdjacencyGraph]
 	attr_reader :trace
+
 	# The last object(s) that handled the exception. This is either a
 	# single object or an array
-	def task; trace.last end
+        def propagation_leafs; trace.each_vertex.find_all { |v| trace.leaf?(v) } end
 	# The object from which the exception originates
-	def origin; trace.first end
+        def origin; @origin end
         # If true, the underlying exception is a fatal error, i.e. should cause
         # parent tasks to be stopped if unhandled.
         def fatal?; exception.fatal? end
@@ -66,21 +63,20 @@ module Roby
 	end
         # Enumerates all tasks that are involved in this exception (either
         # origin or in the trace)
-        def each_involved_task
-            return enum_for(:each_involved_task) if !block_given?
-            trace.each do |tr|
-                yield(tr)
-            end
+        def each_involved_task(&block)
+            return enum_for(__method__) if !block_given?
+            trace.each_vertex(&block)
         end
 
         # Resets the trace to [origin]
         def reset_trace
-            @trace = [origin]
+            @trace = Relations::BidirectionalDirectedAdjacencyGraph.new
+            @trace.add_vertex(@origin)
         end
 
         # True if this exception originates from the given task or generator
         def originates_from?(object)
-            generator == object || task == object
+            generator == object || origin == object
         end
 
 	# Creates a new execution exception object with the specified source
@@ -89,10 +85,11 @@ module Roby
 	# call #generator.task
 	def initialize(exception)
 	    @exception = exception
-	    @trace = Array.new
+            @trace = Relations::BidirectionalDirectedAdjacencyGraph.new
 
 	    if task = exception.failed_task
-		@trace << exception.failed_task
+                @origin = task
+                @trace.add_vertex(task)
 	    end
 	    if generator = exception.failed_generator
 		@generator = exception.failed_generator
@@ -108,12 +105,18 @@ module Roby
 	    dup
 	end
 
+        def propagate(from, to)
+            trace.add_edge(from, to)
+        end
+
 	# Merges +sibling+ into this object
+        #
+        # @param [Roby::Task] edge_source the source of the edge in sibling that
+        #   led to this merge
+        # @param [Roby::Task] edge_target the target of the edge in sibling that
+        #   led to this merge
 	def merge(sibling)
-            new_trace = sibling.trace.find_all do |t|
-                !trace.include?(t)
-            end
-            @trace = self.trace + new_trace
+            @trace.merge(sibling.trace)
             self
 	end
 
@@ -134,9 +137,9 @@ module Roby
             pp.text "from #{origin} with trace "
             pp.nest(2) do
                 pp.nest(2) do
-                    trace.each do |t|
+                    trace.each_edge do |a, b, _|
                         pp.breakable
-                        pp.text t.to_s
+                        pp.text "#{a} => #{b}"
                     end
                 end
                 pp.breakable
@@ -166,8 +169,8 @@ module Roby
 	    throw :next_exception_handler
 	end
 
-        def add_error(error)
-            execution_engine.add_error(error)
+        def add_error(error, propagate_through: nil)
+            execution_engine.add_error(error, propagate_through: propagate_through)
         end
 
 	# Calls the exception handlers defined in this task for +exception_object.exception+

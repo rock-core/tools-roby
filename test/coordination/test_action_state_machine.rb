@@ -320,9 +320,11 @@ describe Roby::Coordination::ActionStateMachine do
         end
 
         task = start_machine(action_m.test)
-        task.current_task_child.start!
-        assert_raises(Roby::ChildFailedError) { task.current_task_child.success_event.emit }
         plan.unmark_permanent_task(task)
+        task.current_task_child.start!
+        assert_fatal_exception(Roby::ChildFailedError, failure_point: task.current_task_child.success_event, tasks: [task, task.current_task_child]) do
+            task.current_task_child.success_event.emit
+        end
         plan.remove_task(task.children.first)
     end
 
@@ -419,22 +421,23 @@ describe Roby::Coordination::ActionStateMachine do
 
         it "raises Unbound on transitions using an unbound capture" do
             action_m = state_machine do
-                start_state = state(first)
-                other_state = state(first)
-                start(start_state)
-                transition start_state.intermediate_event, other_state
-                arg = capture(other_state.stop_event)
+                start = state(first)
+                other = state(first)
+                start(start)
+                transition start.intermediate_event, other
+                arg = capture(other.stop_event)
 
-                followup_state = state(self.followup(arg: arg))
-                transition start_state.stop_event, followup_state
+                followup = state(self.followup(arg: arg))
+                transition start.stop_event, followup
             end
 
             test_task = start_machine(action_m.test)
             start_machine_child(test_task)
             plan.unmark_permanent_task(test_task)
-            assert_fatal_exception(Roby::ActionStateTransitionFailed, failure_point: test_task, original_exception: Roby::Coordination::Models::Capture::Unbound, tasks: [test_task]) do
+            e = assert_fatal_exception(Roby::ActionStateTransitionFailed, failure_point: test_task, original_exception: Roby::Coordination::Models::Capture::Unbound, tasks: [test_task]) do
                 test_task.current_task_child.stop!
             end
+            assert_equal "in the action state machine #{action_m}.test running on #{test_task} while starting followup_state, capture:arg is not bound yet", e.original_exceptions.first.message
         end
     end
 
