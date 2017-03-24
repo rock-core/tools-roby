@@ -567,6 +567,9 @@ module Roby
                 if !(engine_mock = @exception_assertion_engine_mock)
                     execution_engine = exception_assertion_guess_execution_engine(
                         execution_engine, failure_point, tasks)
+                    if !execution_engine
+                        raise ArgumentError, "could not guess the execution engine of #{failure_point}"
+                    end
                     FlexMock.use(execution_engine) do |engine_mock|
                         begin
                             @exception_assertion_engine_mock = engine_mock
