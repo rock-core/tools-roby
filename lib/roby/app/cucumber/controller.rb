@@ -298,9 +298,9 @@ module Roby
                 end
 
                 # Find one monitoring job that failed
-                def find_failed_background_job
-                    background_jobs.find do |a|
-                        a.action_monitor.terminated? && !a.action_monitor.success?
+                def find_failed_monitoring_job
+                    each_monitoring_job.find do |job|
+                        job.action_monitor.terminated? && !job.action_monitor.success?
                     end
                 end
 
@@ -349,7 +349,7 @@ module Roby
                         if action.terminated?
                             break
                         else
-                            find_failed_background_job
+                            find_failed_monitoring_job
                         end
                     end
 
