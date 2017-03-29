@@ -4,6 +4,7 @@ require 'roby/test/common'
 require 'roby/test/dsl'
 require 'roby/test/teardown_plans'
 require 'roby/test/minitest_helpers'
+require 'timecop'
 
 FlexMock.partials_are_based = true
 FlexMock.partials_verify_signatures = true
@@ -66,6 +67,8 @@ module Roby
             end
 
             def teardown
+                Timecop.return
+
                 begin
                     super
                 rescue ::Exception => e
