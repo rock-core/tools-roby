@@ -28,7 +28,7 @@ module Roby
 
             # @return [Array<String>] the list of arguments required by this task model
             def arguments
-                return(@argument_enumerator ||= enum_for(:each_argument_set))
+                return enum_for(:each_argument_set)
             end
 
             # @overload argument(argument_name, options)
