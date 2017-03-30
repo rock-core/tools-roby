@@ -2287,6 +2287,11 @@ module Roby
             thread_pool.shutdown
         end
 
+        def reset_thread_pool
+            thread_pool.shutdown
+            @thread_pool = Concurrent::CachedThreadPool.new
+        end
+
         # Kill all tasks that are currently running in the plan
         def killall
             scheduler_enabled = scheduler.enabled?
