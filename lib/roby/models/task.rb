@@ -27,6 +27,10 @@ module Roby
                 end
             end
 
+            def invalidate_template
+                @template = nil
+            end
+
             # The plan that is used to instantiate this task model
             def template
                 return @template if @template
