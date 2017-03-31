@@ -45,6 +45,9 @@ module Roby
             # disabled
             attr_predicate :sync?, true
 
+            LocalPeerID = PeerID.new(DRobyID::LOCAL_PEER_ID)
+            EventLogID  = PeerID.new(DRobyID::EVENT_LOG_ID)
+
             # @param [#dump] marshal the object that transforms the arguments
             #   into droby-compatible objects
             # @param [Integer] queue_size if non-zero, the access to I/O will
@@ -54,9 +57,10 @@ module Roby
             def initialize(logfile, queue_size: 50)
                 @stats_mode = false
                 @logfile = logfile
-                @object_manager = ObjectManager.new(nil)
-                @marshal = Marshal.new(object_manager, nil)
+                @object_manager = ObjectManager.new(LocalPeerID)
+                @marshal = Marshal.new(object_manager, EventLogID)
                 @current_cycle = Array.new
+                @finalized_objects = Array.new
                 @sync = true
                 @dump_time = 0
                 @mutex = Mutex.new
@@ -110,24 +114,24 @@ module Roby
                     if m == :merged_plan
                         plan_id, merged_plan = *args
 
+                        args = [plan_id, merged_plan.droby_dump(marshal)]
                         merged_plan.tasks.each do |t|
-                            object_manager.register_object(t)
+                            object_manager.register_object(t, EventLogID => t.droby_id)
                         end
                         merged_plan.free_events.each do |e|
-                            object_manager.register_object(e)
+                            object_manager.register_object(e, EventLogID => e.droby_id)
                         end
                         merged_plan.task_events.each do |e|
-                            object_manager.register_object(e)
+                            object_manager.register_object(e, EventLogID => e.droby_id)
                         end
-                        args = [plan_id, merged_plan.droby_dump(marshal)]
                     elsif m == :finalized_task
                         task = args[1]
                         args = marshal.dump(args)
-                        object_manager.deregister_object(task)
+                        @finalized_objects << task
                     elsif m == :finalized_event
                         event = args[1]
                         args = marshal.dump(args)
-                        object_manager.deregister_object(event)
+                        @finalized_objects << event
                     else
                         args = marshal.dump(args)
                     end
@@ -143,6 +147,10 @@ module Roby
                     append_message(m, time, args)
 
                     if m == :cycle_end
+                        @finalized_objects.each do |obj|
+                            object_manager.deregister_object(obj)
+                        end
+                        @finalized_objects.clear
                         if threaded?
                             if !@dump_thread.alive?
                                 @dump_thread.value

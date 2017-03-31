@@ -1,3 +1,4 @@
+require 'roby/droby/event_logger'
 require 'roby/droby/rebuilt_plan'
 
 module Roby
@@ -39,8 +40,10 @@ module Roby
 
             def initialize(plan: RebuiltPlan.new)
                 @plan = plan
-                @object_manager = ObjectManager.new(DRobyID.allocate)
-                @marshal = Marshal.new(object_manager, nil)
+                @local_id = DRobyID.allocate
+                @object_manager = ObjectManager.new(@local_id)
+                @marshal = Marshal.new(object_manager, EventLogger::EventLogID)
+                @finalized_objects = Array.new
 
                 @scheduler_state = Schedulers::State.new
                 clear_changes
@@ -179,7 +182,7 @@ module Roby
 
             def register_executable_plan(time, plan_id)
                 @plan = RebuiltPlan.new
-                object_manager.register_object(plan, nil => plan_id)
+                object_manager.register_object(plan, EventLogger::EventLogID => plan_id)
             end
 
             def merged_plan(time, plan_id, merged_plan)
@@ -188,9 +191,14 @@ module Roby
                     merged_plan.free_events.to_a +
                     merged_plan.task_events.to_a
 
-                local_object(plan).merge(merged_plan)
+                plan = local_object(plan_id)
+                plan.merge(merged_plan)
                 tasks_and_events.each do |obj|
                     obj.addition_time = time
+                    droby_id = marshal.object_manager.
+                        known_sibling_on(obj, EventLogger::LocalPeerID)
+                    marshal.object_manager.
+                        register_object(obj, EventLogger::EventLogID => droby_id)
                 end
             end
 
@@ -262,7 +270,7 @@ module Roby
                     plan.remove_free_event(event)
                     announce_structure_update
                 end
-                object_manager.deregister_object(event)
+                @finalized_objects << event
             end
             def finalized_task(time, plan_id, task)
                 plan = local_object(plan_id)
@@ -273,7 +281,7 @@ module Roby
                     plan.remove_task(task)
                     announce_structure_update
                 end
-                object_manager.deregister_object(task)
+                @finalized_objects << task
             end
 
             def task_arguments_updated(time, task, key, value)
@@ -349,6 +357,10 @@ module Roby
                 @stats = timings
                 @start_time ||= self.cycle_start_time
                 announce_state_update
+                @finalized_objects.each do |obj|
+                    object_manager.deregister_object(obj)
+                end
+                @finalized_objects.clear
             end
 
             def timepoint_group_start(time, *name)

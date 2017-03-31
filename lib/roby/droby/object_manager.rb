@@ -47,8 +47,9 @@ module Roby
             end
 
             def known_siblings_for(object)
-                if object.respond_to?(:droby_id) && (siblings = siblings_by_local_object_id.fetch(object.droby_id, nil))
-                    siblings
+                if object.respond_to?(:droby_id)
+                    Hash[local_id => object.droby_id].merge(
+                         siblings_by_local_object_id.fetch(object.droby_id, Hash.new))
                 else Hash.new
                 end
             end
@@ -102,6 +103,10 @@ module Roby
             # Deregisters an object from this manager
             def deregister_object(local_object)
                 siblings = siblings_by_local_object_id.delete(local_object.droby_id)
+                if !siblings
+                    raise ArgumentError, "#{local_object} not registered on #{self}"
+                end
+
                 siblings.each do |peer_id, droby_id|
                     siblings_by_peer[peer_id].delete(droby_id)
                 end

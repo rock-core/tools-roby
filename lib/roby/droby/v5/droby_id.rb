@@ -9,6 +9,7 @@ module Roby
 
                 def initialize(id)
                     @id = id
+                    @marshal_id = [id].pack("Q<")
                     @hash = id.hash
                 end
 
@@ -29,13 +30,27 @@ module Roby
                     pp.text to_s
                 end
 
-                def self.droby_id_allocator
-                    @droby_id_allocator
+                def marshal_dump
+                    @marshal_id
                 end
-                @droby_id_allocator = Concurrent::AtomicFixnum.new
+
+                def marshal_load(packed)
+                    @id = packed.unpack("Q<").first
+                    @hash = id.hash
+                end
+
+                def self.droby_id_allocator
+                    @@droby_id_allocator
+                end
+
+                # Reserve the first 100 IDs for special use
+                LOCAL_PEER_ID = 0
+                EVENT_LOG_ID  = 1
+
+                @@droby_id_allocator = Concurrent::AtomicFixnum.new(1000)
 
                 def self.allocate
-                    DRobyID.new(droby_id_allocator.increment)
+                    DRobyID.new(@@droby_id_allocator.increment)
                 end
             end
         end

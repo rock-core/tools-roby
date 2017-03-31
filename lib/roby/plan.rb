@@ -68,7 +68,7 @@ module Roby
         attr_reader :graph_observer
 
         def initialize(graph_observer: nil, event_logger: DRoby::NullEventLogger.new)
-            @local_owner = DRoby::PeerID.new('local')
+            @local_owner = DRoby::PeerID.allocate
 
 	    @mission_tasks    = Set.new
 	    @permanent_tasks  = Set.new

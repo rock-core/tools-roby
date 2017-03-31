@@ -20,10 +20,23 @@ module Roby
                 attr_reader :hash
 
                 def initialize(peer_id, droby_id)
-                    @peer_id = peer_id
+                    @peer_id  = peer_id
                     @droby_id = droby_id
 
-                    @hash = [@peer_id, @droby_id].hash
+                    @ids = [@peer_id.id, @droby_id.id].pack("Q<Q<")
+                    @hash = @ids.hash
+                end
+
+                def marshal_dump
+                    @ids
+                end
+
+                def marshal_load(ids)
+                    peer_id, droby_id = ids.unpack("Q<Q<")
+                    @peer_id  = PeerID.new(peer_id)
+                    @droby_id = DRobyID.new(droby_id)
+                    @ids = [@peer_id.id, @droby_id.id].pack("Q<Q<")
+                    @hash = @ids.hash
                 end
 
                 def eql?(obj)
@@ -33,7 +46,7 @@ module Roby
                 def ==(obj); eql?(obj) end
 
                 def to_s
-                    "#<RemoteDRobyID #{peer_id}@#{droby_id}>"
+                    "#<RemoteDRobyID #{droby_id}@#{peer_id}>"
                 end
             end
         end

@@ -26,7 +26,7 @@ module Roby
             # plan structure itself
             attr_predicate :auto_create_plans?
 
-            def initialize(object_manager = ObjectManager.new(nil), peer_id = nil, auto_create_plans: false)
+            def initialize(object_manager, peer_id, auto_create_plans: false)
                 @object_manager = object_manager
                 @peer_id = peer_id
                 @context_objects = Hash.new
@@ -65,7 +65,8 @@ module Roby
 
                 marshalled = mappings.map do |collection|
                     collection.flat_map do |obj_id, obj|
-                        [obj_id, obj.droby_dump(self)]
+                        obj = dump(obj, with_context: false)
+                        [obj_id, obj]
                     end
                 end
 
@@ -82,24 +83,12 @@ module Roby
             def load_groups(*groups)
                 current_context = context_objects.dup
 
-                updates = Array.new
                 local_objects = groups.map do |collection|
                     collection.each_slice(2).map do |obj_id, marshalled_obj|
                         proxy = local_object(marshalled_obj)
                         context_objects[obj_id] = proxy
-
-                        if marshalled_obj.respond_to?(:remote_siblings)
-                            object_manager.register_object(proxy, marshalled_obj.remote_siblings)
-                        end
-                        if marshalled_obj.respond_to?(:update)
-                            updates << [marshalled_obj, proxy]
-                        end
                         proxy
                     end
-                end
-
-                updates.each do |marshalled, local|
-                    marshalled.update(self, local, fresh_proxy: true)
                 end
 
                 if block_given?
@@ -111,8 +100,8 @@ module Roby
             end
 
             # Dump an object for transmition to the peer
-            def dump(object)
-                if droby_id = context_objects[object]
+            def dump(object, with_context: true)
+                if with_context && (droby_id = context_objects[object])
                     droby_id
                 elsif object.respond_to?(:droby_dump)
                     if sibling = object_manager.known_sibling_on(object, peer_id)
@@ -142,9 +131,8 @@ module Roby
                         if local_object = object_manager.find_by_id(peer_id, droby_id)
                             # In case the remote siblings got updated since
                             # last time
-                            object_manager.register_siblings(local_object, marshalled.remote_siblings)
                             if marshalled.respond_to?(:update)
-                                marshalled.update(self, local_object)
+                                marshalled.update(self, local_object, fresh_proxy: false)
                             end
                             return true, local_object
                         end
