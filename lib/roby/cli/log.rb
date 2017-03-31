@@ -50,20 +50,20 @@ module Roby
                 stream = Roby::DRoby::Logfile::Reader.open(file)
 
                 if options[:raw]
-                    current_context = Hash.new { |h, k| h[k] = [k.to_s] }
+                    current_context = Hash.new
                     while data = stream.load_one_cycle
                         data.each_slice(4) do |m, sec, usec, args|
-                            thread_id, name = *args
-                            path = current_context[thread_id]
+                            thread_id, thread_name, timepoint_name = *args
+                            path = (current_context[thread_id] ||= [thread_name])
 
                             if m == :timepoint
-                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{name}"
+                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{timepoint_name}"
                             elsif m == :timepoint_group_start
-                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{name} {"
-                                path.push name
+                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{timepoint_name} {"
+                                path.push timepoint_name
                             elsif m == :timepoint_group_end
                                 path.pop
-                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{name} }"
+                                puts "#{Roby.format_time(Time.at(sec, usec))} #{path.join("/")}/#{timepoint_name} }"
                             end
                         end
                     end
