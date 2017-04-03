@@ -17,9 +17,9 @@ module Roby
 
                 @incoming =
                     if client?
-                        WebSocket::Frame::Incoming::Client.new
+                        WebSocket::Frame::Incoming::Client.new(type: :binary)
                     else
-                        WebSocket::Frame::Incoming::Server.new
+                        WebSocket::Frame::Incoming::Server.new(type: :binary)
                     end
                 @marshaller = marshaller
             end
@@ -59,7 +59,7 @@ module Roby
             # @return [Object,nil] returns the unmarshalled object, or nil if no
             #   full object can be found in the data received so far
             def read_packet(timeout = 0)
-                start = Time.now
+                deadline = Time.now + timeout if timeout
 
                 begin
                     if data = io.read_nonblock(1024 ** 2)
@@ -69,8 +69,8 @@ module Roby
                 end
 
                 while !(packet = @incoming.next)
-                    if timeout
-                        remaining_time = timeout - (Time.now - start)
+                    if deadline
+                        remaining_time = deadline - Time.now
                         return if remaining_time < 0
                     end
 
@@ -110,8 +110,10 @@ module Roby
                         WebSocket::Frame::Outgoing::Server.new(data: marshalled, type: :binary)
                     end
 
-                io.write(packet.to_s)
+                io.write_nonblock(packet.to_s)
                 nil
+            rescue IO::WaitWritable
+                raise ComError, "writing would have blocked, cannot sustain a connection"
             rescue Errno::EPIPE, IOError, Errno::ECONNRESET
                 raise ComError, "broken communication channel"
             rescue RuntimeError => e
