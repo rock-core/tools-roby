@@ -299,8 +299,8 @@ module Roby
 
                 # Find one monitoring job that failed
                 def find_failed_monitoring_job
-                    each_monitoring_job.find do |job|
-                        job.action_monitor.terminated? && !job.action_monitor.success?
+                    each_monitoring_job.find do |action_monitor|
+                        action_monitor.terminated? && !action_monitor.success?
                     end
                 end
 
