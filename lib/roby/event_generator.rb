@@ -750,21 +750,38 @@ module Roby
         # @param [Proc,nil] block a block from which the method will create a
         #   promise. This promise is *not* returned as it would give a false
         #   sense of security. 
+        # @param [Symbol] on_failure controls what happens if the promise fails.
+        #   With the default of :fail, the event generator's emit_failed is 
+        #   called. If it is :emit, it gets emitted. If it is :nothing,
+        #   nothing's done
         #
         # @return [Promise] the promise. Do NOT chain work on this promise, as
         #   that work won't be automatically error-checked by Roby's mechanisms
-        def achieve_asynchronously(promise = nil, description: "#{self}#achieve_asynchronously", emit_on_success: true, &block)
+        def achieve_asynchronously(promise = nil, description: "#{self}#achieve_asynchronously", emit_on_success: true, on_failure: :fail, &block)
             if promise && block
                 raise ArgumentError, "cannot give both a promise and a block"
+            elsif ![:fail, :emit, :nothing].include?(on_failure)
+                raise ArgumentError, "expected on_failure to either be :fail or :emit"
             elsif block
                 promise = execution_engine.promise(description: description, &block)
             end
 
-            if emit_on_success
-                promise = promise.on_success(description: "#{self}.emit") { emit }
+            if promise.null?
+                emit if emit_on_success
+                return
             end
-            promise.on_error(description: "#{self}#emit_failed") do |reason|
-                emit_failed(reason)
+
+            if emit_on_success
+                promise.on_success(description: "#{self}.emit") { emit }
+            end
+            if on_failure != :nothing
+                promise.on_error(description: "#{self}#emit_failed") do |reason|
+                    if on_failure == :fail
+                        emit_failed(reason)
+                    elsif on_failure == :emit
+                        emit
+                    end
+                end
             end
             promise.execute
             promise

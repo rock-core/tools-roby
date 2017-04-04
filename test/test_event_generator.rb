@@ -787,6 +787,37 @@ module Roby
                 ev.achieve_asynchronously(promise)
                 process_events
             end
+
+            it "emits if the callback raises and on_failure is :emit" do
+                promise = execution_engine.promise { }.
+                    on_success { raise ArgumentError }
+                ev.achieve_asynchronously(promise, on_failure: :emit)
+                assert_event_emission ev do
+                    process_events
+                end
+            end
+
+            it "does nothing if on_failure is :nothing" do
+                promise = execution_engine.promise { }.
+                    on_success { raise ArgumentError }
+                ev.achieve_asynchronously(promise, on_failure: :nothing)
+                recorder = flexmock
+                recorder.should_receive(:called).once
+                promise.on_error { recorder.called }
+                process_events
+            end
+
+            describe "null promises" do
+                it "emits right away" do
+                    assert_event_emission ev do
+                        ev.achieve_asynchronously(Roby::Promise.null)
+                    end
+                end
+                it "does nothing if emit_on_success if false" do
+                    ev.achieve_asynchronously(Roby::Promise.null, emit_on_success: false)
+                    assert !ev.emitted?
+                end
+            end
         end
 
         describe "#check_call_validity" do
