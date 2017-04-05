@@ -10,8 +10,11 @@ module Roby
             # @return [DRoby::Marshal] an object used to marshal or unmarshal
             #   objects to/from the connection
             attr_reader :marshaller
+            # The maximum byte count that the channel can hold on the write side
+            # until it bails out
+            attr_reader :max_write_buffer_size
 
-            def initialize(io, client, marshaller: DRoby::Marshal.new(auto_create_plans: true))
+            def initialize(io, client, marshaller: DRoby::Marshal.new(auto_create_plans: true), max_write_buffer_size: 25*1024**2)
                 @io = io
                 @client = client
 
@@ -22,6 +25,12 @@ module Roby
                         WebSocket::Frame::Incoming::Server.new(type: :binary)
                     end
                 @marshaller = marshaller
+                @max_write_buffer_size = max_write_buffer_size
+                @write_buffer = String.new
+            end
+
+            def write_buffer_size
+                @write_buffer.size
             end
 
             def to_io
@@ -110,10 +119,18 @@ module Roby
                         WebSocket::Frame::Outgoing::Server.new(data: marshalled, type: :binary)
                     end
 
-                io.write_nonblock(packet.to_s)
-                nil
+                push_write_data(packet.to_s)
+            end
+
+            def push_write_data(new_bytes = nil)
+                @write_buffer.concat(new_bytes) if new_bytes
+                written_bytes = io.write_nonblock(@write_buffer)
+                @write_buffer = @write_buffer[written_bytes..-1]
+                !@write_buffer.empty?
             rescue IO::WaitWritable
-                raise ComError, "writing would have blocked, cannot sustain a connection"
+                if @write_buffer.size > max_write_buffer_size
+                    raise ComError, "droby_channel reached an internal buffer size of #{@write_buffer.size}, which is bigger than the limit of #{max_write_buffer_size}, bailing out"
+                end
             rescue Errno::EPIPE, IOError, Errno::ECONNRESET
                 raise ComError, "broken communication channel"
             rescue RuntimeError => e

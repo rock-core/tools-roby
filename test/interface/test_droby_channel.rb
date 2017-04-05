@@ -4,7 +4,7 @@ module Roby
     module Interface
         describe DRobyChannel do
             before do
-                @io_r, @io_w = IO.pipe
+                @io_r, @io_w = Socket.pair(:UNIX, :STREAM, 0)
             end
             after do
                 @io_r.close if !@io_r.closed?
@@ -30,13 +30,33 @@ module Roby
                 assert_equal Hash.new, read_thread.value
             end
             it "does not block on write" do
-                # Fill the pipe
-                begin loop { @io_w.write_nonblock(" " * 1024) }
-                rescue IO::WaitWritable
-                end
+                io_w_buffer_size = @io_w.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int
+                @io_w.write("0" * io_w_buffer_size) 
+                # Just make sure ...
+                assert_raises(IO::WaitWritable) { @io_w.write_nonblock(" ") }
+
                 channel = DRobyChannel.new(@io_w, false)
+                channel.write_packet(Hash.new)
+            end
+            it "handles partial packets on write" do
+                channel = DRobyChannel.new(@io_w, false)
+                io_w_buffer_size = @io_w.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int
+                @io_w.write("0" * (io_w_buffer_size/2))
+                channel.push_write_data("1" * io_w_buffer_size)
+                assert channel.write_buffer_size < io_w_buffer_size
+
+                assert_equal "0" * (io_w_buffer_size/2), @io_r.read(io_w_buffer_size/2)
+                channel.push_write_data
+                assert_equal("1" * io_w_buffer_size, @io_r.read(io_w_buffer_size))
+            end
+            it "raises ComError if the internal write buffer reaches its maximum size" do
+                channel = DRobyChannel.new(@io_w, false, max_write_buffer_size: 1024)
+                io_w_buffer_size = @io_w.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int
+                @io_w.write("1" * io_w_buffer_size)
+                channel.push_write_data("1" * 1024)
+
                 assert_raises(ComError) do
-                    channel.write_packet(Hash.new)
+                    channel.push_write_data "2"
                 end
             end
 
