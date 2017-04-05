@@ -638,6 +638,7 @@ module Roby
 
             execution_engine.log(:generator_emit_failed, self, error)
             execution_engine.add_error(error)
+            error
 	ensure
 	    @pending = false
 	end
