@@ -491,7 +491,7 @@ module Roby
                 execution_engine.execute do
                     execution_engine.on_exception do |kind, exception, tasks|
                         involved_job_ids = tasks.map do |t|
-                            job_id_of_task(t)
+                            job_id_of_task(t) if t.plan
                         end.compact.to_set
                         block.call(kind, exception, tasks, involved_job_ids)
                     end
