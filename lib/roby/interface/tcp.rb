@@ -26,10 +26,20 @@ module Roby
                         raise Errno::EADDRINUSE, "#{port} already in use"
                     end
                 @clients = Array.new
+                @accept_executor = Concurrent::CachedThreadPool.new
+                @accept_future = queue_accept_future
                 @propagation_handler_id = interface.execution_engine.add_propagation_handler(description: 'TCPServer#process_pending_requests', on_error: :ignore) do
                     process_pending_requests
                 end
                 @warn_about_disconnection = false
+            end
+
+            def queue_accept_future
+                Concurrent::Future.execute(executor: @accept_executor) do
+                    socket = @server.accept
+                    socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, true)
+                    socket
+                end
             end
 
             # Returns the port this server is bound to
@@ -52,24 +62,22 @@ module Roby
             #
             # The new clients are added into the Roby event loop
             def process_pending_requests
-                while pending = select([server] + clients, [], [], 0)
-                    pending = pending[0]
-                    if pending.delete(server)
-                        socket = server.accept
-                        socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, true)
-                        server = create_server(socket)
-                        clients << server
-                    end
-                    pending.delete_if do |client|
-                        begin
-                            client.poll
-                        rescue ComError => e
-                            if warn_about_disconnection?
-                                Roby::Interface.warn "disconnecting from #{client.client_id}: #{e}"
-                            end
-                            client.close
-                            clients.delete(client)
+                if @accept_future.rejected?
+                    raise @accept_future.reason
+                elsif @accept_future.fulfilled?
+                    clients << create_server(@accept_future.value)
+                    @accept_future = queue_accept_future
+                end
+
+                clients.each do |client|
+                    begin
+                        client.poll
+                    rescue ComError => e
+                        if warn_about_disconnection?
+                            Roby::Interface.warn "disconnecting from #{client.client_id}: #{e}"
                         end
+                        client.close
+                        clients.delete(client)
                     end
                 end
             end
@@ -85,6 +93,7 @@ module Roby
                 if server && !server.closed?
                     server.close
                 end
+                @accept_executor.shutdown
                 interface.execution_engine.remove_propagation_handler(@propagation_handler_id)
             end
         end
