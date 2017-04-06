@@ -222,16 +222,31 @@ module Roby
             def repair(file)
                 require 'roby/droby/logfile/reader'
                 logfile = Roby::DRoby::Logfile::Reader.open(file)
+                last_cycle = nil
                 while !logfile.eof?
                     current_pos = logfile.tell
-                    begin logfile.load_one_cycle
+                    begin
+                        last_cycle = logfile.load_one_cycle
                     rescue Roby::DRoby::Logfile::TruncatedFileError
-                        puts "last chunk(s) in the file seem to have only been partially written, truncating at #{current_pos}"
-                        FileUtils.cp filename.first, "#{filename}.broken"
-                        event_io.truncate(current_pos)
+                        stat = File.stat(file)
+                        puts "last chunk(s) in the file seem to have only been partially written."
+                        puts "truncating at #{current_pos} out of #{stat.size} (removing #{stat.size - current_pos} bytes)"
+                        if last_cycle
+                            info  = last_cycle.last.last
+                            end_time = Time.at(*info[:start]) + info[:end]
+                            puts "the repaired file ends at #{end_time}"
+                        else
+                            puts "there are no valid cycles in the truncated file"
+                        end
+                        FileUtils.cp file, "#{file}.broken"
+                        puts "the original has been saved as '#{file}.broken'"
+                        File.open(file, 'a+') do |io|
+                            io.truncate(current_pos)
+                        end
                         break
                     end
                 end
+            ensure logfile.close
             end
 
             desc 'current', 'full path to the current log file'
