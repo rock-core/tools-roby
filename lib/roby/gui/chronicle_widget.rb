@@ -566,6 +566,7 @@ module Roby
             end
             slots 'setCurrentTime(QDateTime)'
 
+            SCALES = [1, 2, 5, 10, 20, 30, 60, 90, 120, 300, 600, 1200, 1800, 3600]
             def paint_timeline(painter, fm)
                 text_height = fm.height
                 window_size = viewport.size
@@ -589,9 +590,10 @@ module Roby
                 # First, decide on the scale. We compute a "normal" text width
                 # for the time labels, and check what would be a round time-step
                 min_step_size = pixel_to_time * 1.5 * central_label_width
-                step_size = [1, 2, 5, 10, 20, 30, 60, 90, 120, 300, 600, 1200, 1800, 3600].find do |scale|
+                step_size = SCALES.find do |scale|
                     scale > min_step_size
                 end
+                step_size ||= SCALES.last
                 # Now display the timeline itself. If a normal ruler collides
                 # with the current time, just ignore it
                 start_time, end_time = displayed_time_range
