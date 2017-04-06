@@ -140,6 +140,8 @@ module Roby
             end
 
             def connect_display(history_widget, view)
+                view.update_time_range(history_widget.start_time, history_widget.current_time)
+                view.update_display_time(history_widget.display_time)
                 Qt::Object.connect(history_widget, SIGNAL('appliedSnapshot(QDateTime)'),
                                    view, SLOT('setDisplayTime(QDateTime)'))
                 Qt::Object.connect(history_widget, SIGNAL('liveUpdate(QDateTime)'),

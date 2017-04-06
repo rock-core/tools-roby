@@ -54,6 +54,13 @@ module Roby
             end
             slots 'setDisplayTime(QDateTime)'
 
+            def update_time_range(start_time, current_time)
+            end
+            def update_display_time(time)
+                scheduler_view.display(history_widget.current_plan.consolidated_scheduler_state)
+                view.update(time)
+            end
+
             def save_options
                 view.save_options
             end

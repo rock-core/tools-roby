@@ -151,10 +151,10 @@ module Roby
             end
 
             def apply(snapshot)
-                @current_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
+                @display_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
                 @current_plan.clear
                 @current_plan.merge(snapshot.plan)
-                emit appliedSnapshot(Qt::DateTime.new(@current_time))
+                emit appliedSnapshot(Qt::DateTime.new(@display_time))
             end
 
             def seek(time)
@@ -336,12 +336,19 @@ module Roby
                 plan_rebuilder.cycle_start_time
             end
 
+            # The start time of the first received cycle
+            def start_time
+                plan_rebuilder.start_time
+            end
+
+            # The end time of the last received cycle
             def current_time
                 plan_rebuilder.current_time
             end
 
-            def start_time
-                plan_rebuilder.start_time
+            # The time of the currently selected snapshot
+            def display_time
+                @display_time || start_time
             end
         end
     end

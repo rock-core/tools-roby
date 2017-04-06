@@ -364,6 +364,14 @@ module Roby
             end
 
             # @api private
+            #
+            # Updates the start and current time
+            def update_time_range(start_time, current_time)
+                update_base_time(start_time)
+                update_current_time(current_time)
+            end
+
+            # @api private
             # Update the time at the start of the chronicle
             def update_base_time(time)
                 @base_time = time

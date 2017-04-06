@@ -168,6 +168,14 @@ module Roby
             end
             slots 'updateWindowTitle()'
 
+            def update_time_range(start_time, current_time)
+                chronicle.update_time_range(start_time, current_time)
+            end
+
+            def update_display_time(display_time)
+                chronicle.update_display_time(display_time)
+            end
+
             def setDisplayTime(time)
                 if !chronicle.base_time
                     chronicle.update_base_time(history_widget.start_time)
