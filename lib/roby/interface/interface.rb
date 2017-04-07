@@ -489,7 +489,7 @@ module Roby
             # @see ExecutionEngine#on_exception
             def on_exception(&block)
                 execution_engine.execute do
-                    execution_engine.on_exception do |kind, exception, tasks|
+                    execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
                         involved_job_ids = tasks.map do |t|
                             job_id_of_task(t) if t.plan
                         end.compact.to_set

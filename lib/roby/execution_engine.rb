@@ -201,6 +201,11 @@ module Roby
         # 
         # Internal structure used to store a poll block definition provided to
         # #every or #add_propagation_handler
+        #
+        # @!macro poll_options
+        #   @option [Symbol] on_error if :raise (the default), pass exceptions
+        #     to the caller. If :ignore, do nothing. If :disable, remove the
+        #     poll block
         class PollBlockDefinition
             ON_ERROR = [:raise, :ignore, :disable]
 
@@ -2333,8 +2338,8 @@ module Roby
         # @yieldparam [Array<Roby::Task>] tasks the tasks that are involved in this exception
         #
         # @return [Object] an ID that can be used as argument to {#remove_exception_listener}
-	def on_exception(description: 'exception listener', &block)
-            handler = PollBlockDefinition.new(description, block, on_error: :disable)
+	def on_exception(description: 'exception listener', on_error: :disable, &block)
+            handler = PollBlockDefinition.new(description, block, on_error: on_error)
 	    exception_listeners << handler
 	    handler
 	end

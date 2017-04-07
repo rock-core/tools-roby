@@ -93,6 +93,20 @@ module Roby
                     io_w.close
                     assert_raises(ComError) { channel.read_packet }
                 end
+                it "raises ComError if writing the socket raises SystemCallError a.k.a. any of the Errno constants" do
+                    io_r, io_w = Socket.pair(:UNIX, :STREAM, 0)
+                    flexmock(io_w).should_receive(:write_nonblock).and_raise(SystemCallError.new("test", 0))
+                    channel = DRobyChannel.new(io_w, true)
+                    io_r.close
+                    assert_raises(ComError) { channel.write_packet([]) }
+                end
+                it "raises ComError if reading the socket raises SystemCallError a.k.a. any of the Errno constants" do
+                    io_r, io_w = Socket.pair(:UNIX, :STREAM, 0)
+                    flexmock(io_r).should_receive(:read_nonblock).and_raise(SystemCallError.new("test", 0))
+                    channel = DRobyChannel.new(io_r, true)
+                    io_w.close
+                    assert_raises(ComError) { channel.read_packet }
+                end
             end
 
             describe "packet transmission" do

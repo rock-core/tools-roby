@@ -9,6 +9,14 @@ module Roby
             attr_reader :interface
             # @return [String] a string that allows the user to identify the client
             attr_reader :client_id
+            # Controls whether non-communication-related errors should cause the
+            # whole Roby engine to terminate
+            #
+            # This is true by default, as for most systems the Roby interface is
+            # the only mean of communication. Turn this off only if you have
+            # other ways to control your system, or if having it running without
+            # human control is safer than shutting it down.
+            attr_predicate :abort_on_exception?, true
             # @return [Boolean] whether the messages should be
             #   forwarded to our clients
             attr_predicate :notifications_enabled?, true
@@ -18,41 +26,26 @@ module Roby
             #   access to
             def initialize(io, interface)
                 @notifications_enabled = true
+                @abort_on_exception = true
                 @io, @interface = io, interface
 
                 interface.on_cycle_end do
-                    begin
-                        io.write_packet([:cycle_end, interface.execution_engine.cycle_index, interface.execution_engine.cycle_start])
-                    rescue ComError
-                        # The disconnection is going to be handled by the caller
-                        # of #poll
-                    end
+                    write_packet([
+                        :cycle_end,
+                        interface.execution_engine.cycle_index,
+                        interface.execution_engine.cycle_start],
+                        defer_exceptions: true)
                 end
                 interface.on_notification do |*args|
                     if notifications_enabled?
-                        begin
-                            io.write_packet([:notification, *args])
-                        rescue ComError
-                            # The disconnection is going to be handled by the caller
-                            # of #poll
-                        end
+                        write_packet([:notification, *args], defer_exceptions: true)
                     end
                 end
                 interface.on_job_notification do |*args|
-                    begin
-                        io.write_packet([:job_progress, *args])
-                    rescue ComError
-                        # The disconnection is going to be handled by the caller
-                        # of #poll
-                    end
+                    write_packet([:job_progress, *args], defer_exceptions: true)
                 end
                 interface.on_exception do |*args|
-                    begin
-                        io.write_packet([:exception, *args])
-                    rescue ComError
-                        # The disconnection is going to be handled by the caller
-                        # of #poll
-                    end
+                    write_packet([:exception, *args], defer_exceptions: true)
                 end
             end
 
@@ -93,24 +86,58 @@ module Roby
                 end
             end
 
+            def has_deferred_exception?
+                !!@deferred_exception
+            end
+
+            def write_packet(call, defer_exceptions: false)
+                return if has_deferred_exception?
+
+                io.write_packet(call)
+            rescue Exception => e
+                if defer_exceptions
+                    @deferred_exception = e
+                else raise
+                end
+            end
+
             # Process one command from the client, and send the reply
             def poll
+                if has_deferred_exception?
+                    raise @deferred_exception
+                end
+
                 path, m, *args = io.read_packet
                 return if !m
 
                 if m == :process_batch
-                    reply = Array.new
-                    args.first.each do |p, m, *a|
-                        reply << process_call(path + p, m, *a)
+                    begin
+                        reply = Array.new
+                        args.first.each do |p, m, *a|
+                            reply << process_call(path + p, m, *a)
+                        end
+                    rescue Exception => e
+                        write_packet([:bad_call, e])
+                        return
                     end
+                    write_packet([:reply, reply])
                 else
-                    reply = process_call(path, m, *args)
+                    begin
+                        reply = process_call(path, m, *args)
+                    rescue Exception => e
+                        write_packet([:bad_call, e])
+                        return
+                    end
+                    write_packet([:reply, reply])
                 end
-                io.write_packet([:reply, reply])
+
             rescue ComError
                 raise
             rescue Exception => e
-                io.write_packet([:bad_call, e])
+                if abort_on_exception?
+                    raise
+                else raise ComError, "error while doing I/O processing: #{e.message}"
+                end
             end
         end
     end
