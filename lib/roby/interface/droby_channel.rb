@@ -99,10 +99,8 @@ module Roby
                                end
                 marshaller.local_object(unmarshalled)
 
-            rescue Errno::ECONNRESET, EOFError, IOError
+            rescue SystemCallError, EOFError, IOError
                 raise ComError, "closed communication"
-            rescue Errno::EPIPE
-                raise ComError, "broken communication channel"
             end
 
             # Write one ruby object (usually an array) as a marshalled packet and
@@ -131,7 +129,7 @@ module Roby
                 if @write_buffer.size > max_write_buffer_size
                     raise ComError, "droby_channel reached an internal buffer size of #{@write_buffer.size}, which is bigger than the limit of #{max_write_buffer_size}, bailing out"
                 end
-            rescue Errno::EPIPE, IOError, Errno::ECONNRESET
+            rescue SystemCallError, IOError, EOFError
                 raise ComError, "broken communication channel"
             rescue RuntimeError => e
                 # Workaround what seems to be a Ruby bug ...

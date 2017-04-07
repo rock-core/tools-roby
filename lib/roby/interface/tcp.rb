@@ -14,6 +14,9 @@ module Roby
             def ip_port; server.local_address.ip_port end
             # Whether the server handler should warn about disconnections
             attr_predicate :warn_about_disconnection?, true
+            # Whether a non-comm-related failure will cause the whole Roby app
+            # to quit
+            attr_predicate :abort_on_exception?, true
 
             # Creates a new interface server on the given port
             #
@@ -26,6 +29,7 @@ module Roby
                         raise Errno::EADDRINUSE, "#{port} already in use"
                     end
                 @clients = Array.new
+                @abort_on_exception = true
                 @accept_executor = Concurrent::CachedThreadPool.new
                 @accept_future = queue_accept_future
                 @propagation_handler_id = interface.execution_engine.add_propagation_handler(description: 'TCPServer#process_pending_requests', on_error: :ignore) do
@@ -55,7 +59,9 @@ module Roby
             #
             # @return [Server]
             def create_server(socket)
-                Server.new(DRobyChannel.new(socket, false), interface)
+                server = Server.new(DRobyChannel.new(socket, false), interface)
+                server.abort_on_exception = abort_on_exception?
+                server
             end
 
             # Process all incoming connection requests
