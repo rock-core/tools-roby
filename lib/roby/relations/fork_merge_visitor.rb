@@ -77,6 +77,7 @@ module Roby
             def compute_in_out_degrees(origin, origin_neighbours)
                 visitor = SubgraphDegreeCounter.new(graph)
                 origin_neighbours.each do |v|
+                    next if visitor.color_map[v] != :WHITE
                     graph.depth_first_visit(v, visitor) { }
                 end
                 in_degree, out_degree = visitor.in_degree, visitor.out_degree
