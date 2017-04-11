@@ -618,6 +618,11 @@ module Roby
         #
         # @return [Integer]
         attr_accessor :shell_interface_port
+        # Whether an unexpected (non-comm-related) failure in the shell should
+        # cause an abort
+        #
+        # The default is yes
+        attr_predicate :shell_abort_on_exception?, true
         # The {Interface} bound to this app
         # @return [Interface]
         attr_reader :shell_interface
@@ -647,6 +652,7 @@ module Roby
             @shell_interface = nil
             @shell_interface_host = nil
             @shell_interface_port = Interface::DEFAULT_PORT
+            @shell_abort_on_exception = true
 
 	    @automatic_testing = true
             @registered_exceptions = []
@@ -1663,7 +1669,9 @@ module Roby
             if @shell_interface
                 raise RuntimeError, "there is already a shell interface started, call #stop_shell_interface first"
             end
-            @shell_interface = Interface::TCPServer.new(self, host: shell_interface_host, port: shell_interface_port)
+            @shell_interface = Interface::TCPServer.new(
+                self, host: shell_interface_host, port: shell_interface_port)
+            shell_interface.abort_on_exception = shell_abort_on_exception?
             if shell_interface_port != Interface::DEFAULT_PORT
                 Robot.info "shell interface started on port #{shell_interface_port}"
             else
