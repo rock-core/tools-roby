@@ -33,6 +33,16 @@ module Roby
                         out_degree
                 end
 
+                it "does not count neighbours twice if they are children of each other" do
+                    visitor = ForkMergeVisitor.new(graph, mock_value, 1)
+                    graph.add_edge 21, 22, nil
+                    in_degree, out_degree = visitor.compute_in_out_degrees(1, [21, 22])
+                    assert_equal Hash[1 => 0, 21 => 1, 22 => 2, 3 => 2, 4 => 1, 5 => 2],
+                        in_degree
+                    assert_equal Hash[1 => 2, 21 => 2, 22 => 2, 3 => 1, 4 => 1],
+                        out_degree
+                end
+
                 it "restricts itself to the subgraph defined by the origin argument" do
                     visitor = ForkMergeVisitor.new(graph, mock_value, 1)
                     in_degree, out_degree = visitor.compute_in_out_degrees(22, [3, 5])
@@ -58,6 +68,20 @@ module Roby
                     m.should_receive(:handle_examine_vertex).with(1).once.ordered
                     m.should_receive(:handle_examine_vertex).with(21).once.ordered(:parallel_edges)
                     m.should_receive(:handle_examine_vertex).with(22).once.ordered(:parallel_edges)
+                    m.should_receive(:handle_examine_vertex).with(3).once.ordered
+                    m.should_receive(:handle_examine_vertex).with(4).once.ordered
+                    m.should_receive(:handle_examine_vertex).with(5).once.ordered
+                end
+                visitor.visit
+            end
+
+            it "properly handles initial neighbours that are related to each other" do
+                graph.add_edge 21, 22, nil
+                visitor = ForkMergeVisitor.new(graph, mock_value, 1, [21, 22])
+                flexmock(visitor) do |m|
+                    m.should_receive(:handle_examine_vertex).with(1).once.ordered
+                    m.should_receive(:handle_examine_vertex).with(22).once.ordered(:parallel_edges)
+                    m.should_receive(:handle_examine_vertex).with(21).once.ordered(:parallel_edges)
                     m.should_receive(:handle_examine_vertex).with(3).once.ordered
                     m.should_receive(:handle_examine_vertex).with(4).once.ordered
                     m.should_receive(:handle_examine_vertex).with(5).once.ordered

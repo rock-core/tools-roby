@@ -801,7 +801,7 @@ module Roby
                     FlexmockExceptionTasks.new(tasks.to_set)
             end
             # Assert that a state machine transitions
-            def assert_state_machine_transition(state_machine_task, to_state: Regexp.new, timeout: 5)
+            def assert_state_machine_transition(state_machine_task, to_state: Regexp.new, timeout: 5, start: false)
                 state_machines = state_machine_task.coordination_objects.
                     find_all { |obj| obj.kind_of?(Coordination::ActionStateMachine) }
                 if state_machines.empty?
@@ -825,6 +825,10 @@ module Roby
                     done
                 end
                 roby_run_planner(state_machine_task)
+                if start
+                    assert_event_emission state_machine_task.current_task_child.start_event
+                end
+                state_machine_task.current_task_child
             end
         end
     end

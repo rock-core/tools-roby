@@ -93,7 +93,7 @@ module Roby
                 end
             end
 
-            def process_events(timeout: 10, **options)
+            def process_events(timeout: 10, **options, &caller_block)
                 exceptions = Array.new
                 first_pass = true
                 while first_pass || execution_engine.has_waiting_work?
@@ -101,7 +101,7 @@ module Roby
 
                     execution_engine.join_all_waiting_work(timeout: timeout)
                     execution_engine.start_new_cycle
-                    errors = execution_engine.process_events(**options)
+                    errors = execution_engine.process_events(**options, &caller_block)
                     exceptions.concat(errors.exceptions)
                     execution_engine.cycle_end(Hash.new)
                 end
@@ -178,10 +178,15 @@ module Roby
                         handler.start(tasks)
                     end
                 end
-                process_events_until(timeout: 20) do
-                    by_handler.all? do |handler, tasks|
-                        handler.finished?
+
+                finished = false
+                while !finished
+                    process_events do
+                        finished = by_handler.all? do |handler, tasks|
+                            handler.finished?
+                        end
                     end
+                    sleep 0.01
                 end
 
                 if placeholder = placeholder_tasks[root_task]

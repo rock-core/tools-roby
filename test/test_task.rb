@@ -1,5 +1,6 @@
 require 'roby/test/self'
 require 'roby/tasks/group'
+require 'roby/schedulers/basic'
 
 module Roby
     describe Task do
@@ -18,6 +19,25 @@ module Roby
                 assert_kind_of Roby::CommandFailed, task.failure_reason
                 assert_equal error, task.failure_reason.error
                 assert task.failed?
+            end
+
+            it "marks failed_to_start so that schedulers don't reconsider the task" do
+                scheduler = Schedulers::Basic.new(false, plan)
+                error = Class.new(ArgumentError).new
+                task_m = Roby::Tasks::Simple.new_submodel do
+                    event :start do |context|
+                        raise error
+                        start_event.emit
+                    end
+                end
+                plan.add(task = task_m.new)
+                begin
+                    old_scheduler = execution_engine.scheduler
+                    execution_engine.scheduler = scheduler
+                    process_events
+                ensure
+                    execution_engine.scheduler = old_scheduler
+                end
             end
 
             it "emits the internal error if it fails after it emitted the event" do

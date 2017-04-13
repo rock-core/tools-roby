@@ -128,10 +128,8 @@ module Roby
                 return if !data_size
 
                 data_size = data_size.unpack("L<").first
-                buffer = io.read(data_size)
-                if !buffer
-                    return
-                elsif buffer.size < data_size
+                buffer = io.read(data_size) || ''
+                if buffer.size < data_size
                     raise TruncatedFileError, "expected a chunk of size #{data_size} at #{io.tell}, but got only #{buffer ? buffer.size : '0'} bytes"
                 end
 

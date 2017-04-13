@@ -46,6 +46,16 @@ module Roby
             end
         end
 
+        # Whether this is a null promise
+        def null?
+            false
+        end
+
+        # Whether this promise does have elements
+        def empty?
+            @pipeline.empty?
+        end
+
         # The description element being currently executed
         #
         # @return [String,nil] 
@@ -278,6 +288,44 @@ module Roby
         #   promise if it failed, or nil if it finished successfully
         def add_observer(&block)
             promise.add_observer(&block)
+        end
+
+        def self.null(value = nil)
+            Null.new(value)
+        end
+
+        # A null object for {Promise}
+        class Null
+            def initialize(value = nil)
+                @creation_time = Time.now
+                @value = value
+            end
+
+            def null?; true end
+            def empty?; true end
+
+            def before(*); raise NullPromise, "attempting to add a step on a null promise" end
+            def on_success(*); raise NullPromise, "attempting to add a step on a null promise" end
+            def on_error(*); raise NullPromise, "attempting to add a step on a null promise" end
+            def then(*); raise NullPromise, "attempting to add a step on a null promise" end
+
+            def fail(*); raise NullPromise, "a null promise cannot fail" end
+            def execute; self end
+            def unscheduled?; false end
+            def pending?; false end
+            def complete?; true end
+            def fulfilled?; true end
+            def rejected?; false end
+            def wait; end
+
+            def value(*); @value end
+            def value!(*); @value end
+            def reason; end
+            def state; :fulfilled end
+
+            def add_observer(&block)
+                block.call(@creation_time, value, nil)
+            end
         end
     end
 end

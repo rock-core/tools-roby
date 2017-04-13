@@ -198,6 +198,15 @@ module Roby
 	    end
 	end
 
+        def emit_failed(error = nil, message = nil)
+            exception = super
+            if symbol == :start
+                if !task.failed_to_start?
+                    task.failed_to_start!(exception)
+                end
+            end
+        end
+
 	# Checks that the event can be called. Raises various exception
 	# when it is not the case.
 	def check_call_validity # :nodoc:
