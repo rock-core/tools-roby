@@ -342,7 +342,7 @@ describe Roby::Coordination::ActionStateMachine do
     end
 
     describe "the capture functionality" do
-        def state_machine(&block)
+        def action_interface
             start_task_m = Roby::Task.new_submodel(name: 'Start') do
                 event :intermediate
                 event(:stop) { |context| stop_event.emit(42) }
@@ -351,20 +351,44 @@ describe Roby::Coordination::ActionStateMachine do
                 terminates
                 argument :arg
             end
-            test_m = Roby::Task.new_submodel(name: 'Test') do
-                terminates
-                event :intermediate
-            end
-            action_m = Roby::Actions::Interface.new_submodel do
+            Roby::Actions::Interface.new_submodel do
                 describe('start').returns(start_task_m)
                 define_method(:first) { start_task_m.new }
                 describe('followup').required_arg(:arg, 'arg').returns(followup_task_m)
                 define_method(:followup) { |arg: nil| followup_task_m.new(arg: arg) }
-                describe('test').returns(test_m)
-                action_state_machine 'test' do
-                    instance_eval(&block)
-                end
             end
+        end
+        def state_machine(&block)
+            test_m = Roby::Task.new_submodel(name: 'Test') do
+                terminates
+                event :intermediate
+            end
+            action_m = action_interface
+            action_m.describe('test').returns(test_m)
+            action_m.action_state_machine 'test' do
+                instance_eval(&block)
+            end
+            action_m
+        end
+
+        it "gives access to the state machine's arguments by value" do
+            value = nil
+
+            action_m = action_interface
+            action_m.describe('test').required_arg(:test_arg, '')
+            action_m.action_state_machine 'test' do
+                start_state = state(first)
+                start(start_state)
+                capture(start_state.stop_event) do |event|
+                    value = test_arg
+                end
+                start_state.stop_event.forward_to success_event
+            end
+
+            test_task = start_machine(action_m.test(test_arg: 10))
+            start_machine_child(test_task)
+            test_task.current_task_child.stop!
+            assert_same 10, value
         end
 
         it "passes captured event contexts as arguments to followup states" do

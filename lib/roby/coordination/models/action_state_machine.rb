@@ -121,7 +121,7 @@ module Roby
 
                 filter =
                     if block
-                        lambda { |event| block.call(event) }
+                        lambda(&block)
                     else
                         lambda { |event| event.context.first }
                     end

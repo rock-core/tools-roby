@@ -21,8 +21,26 @@ module Roby
 
                 # Filter the context through the filter object passed to
                 # {#initialize}
-                def filter(event)
-                    @filter.call(event)
+                def filter(state_machine, event)
+                    CaptureEvaluationContext.new(state_machine).
+                        instance_exec(event, &@filter)
+                end
+
+                class CaptureEvaluationContext < Object
+                    def initialize(state_machine)
+                        @state_machine = state_machine
+                    end
+
+                    def method_missing(m, *args, &block)
+                        if args.empty? 
+                            if @state_machine.arguments.has_key?(m)
+                                return @state_machine.arguments[m]
+                            elsif @state_machine.model.has_argument?(m)
+                                raise ArgumentError, "#{m} is not set"
+                            end
+                        end
+                        super
+                    end
                 end
 
                 # Exception raised when trying to evaluate a capture whose

@@ -35,7 +35,7 @@ module Roby
                         captured_event = instance_for(model.root).find_event(captured_event.symbol)
                         captured_event.resolve.once do |event|
                             if root_task.running?
-                                resolved_captures[capture] = capture.filter(event)
+                                resolved_captures[capture] = capture.filter(self, event)
                             end
                         end
                     end
@@ -92,7 +92,7 @@ module Roby
                 captures.each do |capture, captured_event|
                     captured_event.resolve.once do |event|
                         if !transitioned && root_task.running?
-                            resolved_captures[capture] = capture.filter(event)
+                            resolved_captures[capture] = capture.filter(self, event)
                         end
                     end
                 end
