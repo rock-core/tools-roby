@@ -114,7 +114,7 @@ module Roby
                     if value.kind_of?(OpenStruct)
                         value.attach_to(result, name)
                     else
-                        result.__set(name, value)
+                        result.set(name, value)
                     end
                 rescue Exception
                     Roby::DRoby.warn "cannot load #{name} #{marshalled_field}: #{$!.message}"
@@ -486,7 +486,7 @@ module Roby
             self.class.new(model, self, name)
         end
 
-        def __set(name, *args)
+        def set(name, *args)
             name = name.to_s
             name = @aliases[name] || name
 
@@ -547,7 +547,7 @@ module Roby
             end
 
             if name =~ /^(\w+)=$/
-                ret = __set($1, *args)
+                ret = set($1, *args)
                 return ret
 
 	    elsif name =~ /^(\w+)\?$/
