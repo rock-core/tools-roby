@@ -225,6 +225,15 @@ module Roby
                 class FailedAction < RuntimeError; end
 
                 BackgroundJob = Struct.new :action_monitor, :description, :monitoring do
+                    def job_id
+                        action_monitor.job_id
+                    end
+                    def success?
+                        action_monitor.success?
+                    end
+                    def terminated?
+                        action_monitor.terminated?
+                    end
                     def monitoring?
                         monitoring
                     end
@@ -282,7 +291,7 @@ module Roby
                 def each_monitoring_job
                     return enum_for(__method__) if !block_given?
                     background_jobs.each do |job|
-                        yield(job.action_monitor) if job.monitoring
+                        yield(job) if job.monitoring?
                     end
                 end
 
@@ -293,14 +302,14 @@ module Roby
                 def each_main_job
                     return enum_for(__method__) if !block_given?
                     background_jobs.each do |job|
-                        yield(job.action_monitor) if !job.monitoring
+                        yield(job) if !job.monitoring?
                     end
                 end
 
                 # Find one monitoring job that failed
                 def find_failed_monitoring_job
-                    each_monitoring_job.find do |action_monitor|
-                        action_monitor.terminated? && !action_monitor.success?
+                    each_monitoring_job.find do |background_job|
+                        background_job.terminated? && !background_job.success?
                     end
                 end
 
