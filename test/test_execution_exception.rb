@@ -97,6 +97,25 @@ module Roby
                 assert_sets_equal expected, e.trace.each_edge.to_set
             end
         end
+
+        describe "#involved_task?" do
+            it "returns true for the origina task before we start propagating" do
+                task = prepare_plan add: 1
+                e = create_exception_from(task)
+                assert e.involved_task?(task)
+            end
+            it "returns true for a task that is part of the trace" do
+                task, t1 = prepare_plan add: 2
+                e = create_exception_from(task)
+                e.propagate(task, t1)
+                assert e.involved_task?(t1)
+            end
+            it "returns false for a task that is not part of the trace" do
+                task, t1 = prepare_plan add: 2
+                e = create_exception_from(task)
+                refute e.involved_task?(t1)
+            end
+        end
     end
 end
 

@@ -68,6 +68,10 @@ module Roby
             trace.each_vertex(&block)
         end
 
+        def involved_task?(task)
+            trace.has_vertex?(task)
+        end
+
         # Resets the trace to [origin]
         def reset_trace
             @trace = Relations::BidirectionalDirectedAdjacencyGraph.new
