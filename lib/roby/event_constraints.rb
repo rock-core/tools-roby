@@ -300,6 +300,8 @@ end
             def report_exceptions_on(e)
                 elements.each do |el|
                     case el
+                    when Explanation
+                        el.report_exceptions_on(e)
                     when Exception
                         e.report_exceptions_from(el)
                     when Event
