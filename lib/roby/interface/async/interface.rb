@@ -213,11 +213,15 @@ module Roby
                         end
 
                         if monitors = job_monitors[job_id]
-                            monitors.each do |m|
+                            monitors.delete_if do |m|
                                 m.update_state(job_state)
                                 if job_state == JOB_REPLACED
                                     m.replaced(args.first)
                                 end
+                                m.finalized?
+                            end
+                            if monitors.empty?
+                                job_monitors.delete(job_id)
                             end
                         end
                         run_hook :on_job_progress, job_state, job_id, job_name, args
