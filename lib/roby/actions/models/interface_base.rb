@@ -194,8 +194,8 @@ module Roby
                 register_action(name, action_model)
                 coordination_model.name = name
 
-                define_method(name) do |*arguments|
-                    action_model.instanciate(plan)
+                define_method(name) do |**arguments|
+                    action_model.instanciate(plan, **arguments)
                 end
 
                 return action_model, coordination_model

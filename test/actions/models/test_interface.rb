@@ -229,6 +229,25 @@ module Roby
                         assert_kind_of machine_m, root_task.each_coordination_object.first
                     end
 
+                    it "allows passing arguments to the coordination model through the created instance method" do
+                        task_m = Roby::Task.new_submodel { argument :test_arg }
+                        interface_m.class_eval do
+                            describe('the substate').required_arg(:test_arg, 'test').returns(task_m)
+                            define_method :substate do |test_arg: |
+                                task_m.new(test_arg: test_arg)
+                            end
+                        end
+                        interface_m.describe('a state machine').required_arg(:test_arg, 'test')
+                        _, machine_m = interface_m.action_state_machine('test') do
+                            start state(substate(test_arg: test_arg))
+                        end
+
+                        action = interface_m.new(plan)
+                        root_task = action.test(test_arg: 20)
+                        root_task.start!
+                        assert_equal Hash[test_arg: 20], root_task.current_task_child.planning_task.action_arguments
+                    end
+
                     it "creates an action state machine at the action level" do
                         interface_m.describe 'a state machine'
                         coordination_object = nil
