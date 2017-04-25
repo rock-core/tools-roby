@@ -367,8 +367,12 @@ module Roby
             #
             # Updates the start and current time
             def update_time_range(start_time, current_time)
-                update_base_time(start_time)
-                update_current_time(current_time)
+                if start_time
+                    update_base_time(start_time)
+                end
+                if current_time
+                    update_current_time(current_time)
+                end
             end
 
             # @api private
@@ -496,8 +500,7 @@ module Roby
                     end
                 else
                     current_tasks =
-                        started_tasks.sort_by { |t| t.start_time }.
-                        concat(pending_tasks.sort_by { |t| t.addition_time })
+                        (started_tasks + pending_tasks).sort_by { |t| t.start_time || t.addition_time }
                 end
 
                 start_time, end_time = displayed_time_range
