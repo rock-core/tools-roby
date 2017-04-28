@@ -53,6 +53,10 @@ module Roby
                 end
             end
 
+            def dump_timepoint(event, time, args)
+                dump(event, time, *args)
+            end
+
             # This is the API used by Roby to actually log events
             def dump(m, time, *args)
                 received_events << [m, time, *args]

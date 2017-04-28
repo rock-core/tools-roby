@@ -136,30 +136,37 @@ module Roby
                 end
             end
 
+            def dump_timepoint(event, time, args)
+                synchronize do
+                    current_cycle << event << time.tv_sec << time.tv_usec << args
+                end
+            end
+
             # Dump one log message
             def dump(m, time, args)
                 start = Time.now
                 synchronize do
                     append_message(m, time, args)
-
-                    if m == :cycle_end
-                        if threaded?
-                            if !@dump_thread.alive?
-                                @dump_thread.value
-                            end
-
-                            @dump_queue << current_cycle
-                            @current_cycle = Array.new
-                        else
-                            logfile.dump(current_cycle)
-                            if sync?
-                                logfile.flush
-                            end
-                            current_cycle.clear
-                        end
-                    end
                 end
+            ensure @dump_time += (Time.now - start)
+            end
 
+            def flush_cycle
+                start = Time.now
+                if threaded?
+                    if !@dump_thread.alive?
+                        @dump_thread.value
+                    end
+
+                    @dump_queue << current_cycle
+                    @current_cycle = Array.new
+                else
+                    logfile.dump(current_cycle)
+                    if sync?
+                        logfile.flush
+                    end
+                    current_cycle.clear
+                end
             ensure @dump_time += (Time.now - start)
             end
 

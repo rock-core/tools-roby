@@ -4,6 +4,9 @@ module Roby
             def dump(m, time, *args)
             end
 
+            def dump_timepoint(m, time, *args)
+            end
+
             def close
             end
 

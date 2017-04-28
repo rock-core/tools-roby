@@ -13,7 +13,7 @@ module Roby
             # Log a timepoint on the underlying logger
             def log_timepoint(name)
                 current_thread = Thread.current
-                event_logger.dump(:timepoint, Time.now, [current_thread.droby_id, current_thread.name, name])
+                event_logger.dump_timepoint(:timepoint, Time.now, [current_thread.droby_id, current_thread.name, name])
             end
 
             # Run a block within a timepoint group
@@ -30,7 +30,7 @@ module Roby
             # pairing at logging time. This is done at replay time
             def log_timepoint_group_start(name)
                 current_thread = Thread.current
-                event_logger.dump(:timepoint_group_start, Time.now, [current_thread.droby_id, current_thread.name, name])
+                event_logger.dump_timepoint(:timepoint_group_start, Time.now, [current_thread.droby_id, current_thread.name, name])
             end
 
             # End a timepoint group
@@ -39,12 +39,16 @@ module Roby
             # pairing at logging time. This is done at replay time
             def log_timepoint_group_end(name)
                 current_thread = Thread.current
-                event_logger.dump(:timepoint_group_end, Time.now, [current_thread.droby_id, current_thread.name, name])
+                event_logger.dump_timepoint(:timepoint_group_end, Time.now, [current_thread.droby_id, current_thread.name, name])
             end
 
             # The amount of cycles pending in the {#event_logger}'s dump queue
             def log_queue_size
                 event_logger.log_queue_size
+            end
+
+            def log_flush_cycle
+                event_logger.flush_cycle
             end
         end
     end
