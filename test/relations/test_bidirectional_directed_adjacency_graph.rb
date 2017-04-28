@@ -147,7 +147,7 @@ module Roby
             def test_reverse
                 dg = create_graph
                 [[1, 2], [2, 3], [3, 2], [2, 4]].each do |(src, target)|
-                    dg.add_edge(src, target)
+                    dg.add_edge(src, target, [src])
                 end
                 # Add isolated vertex
                 dg.add_vertex(42)
@@ -155,6 +155,7 @@ module Roby
 
                 dg.each_edge do |u, v|
                     assert(reverted.has_edge?(v, u))
+                    assert_equal [u], reverted.edge_info(v, u)
                 end
 
                 assert(reverted.has_vertex?(42), 'Reverted graph should contain isolated Vertex 42')

@@ -359,7 +359,7 @@ module Roby
 
             def reverse!
                 @forward_edges_with_info.each do |u, out_edges|
-                    out_edges.keys.each do |v, info|
+                    out_edges.each do |v, info|
                         @backward_edges[v][u] = info
                         out_edges[v] = nil
                     end
