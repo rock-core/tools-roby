@@ -64,7 +64,7 @@ module Roby
                 if value.respond_to?(:resolve_goals)
                     value.resolve_goals(obj, space.get(name))
                 else
-                    space.__set(name, value.call(obj))
+                    space.set(name, value.call(obj))
                 end
             end
         end

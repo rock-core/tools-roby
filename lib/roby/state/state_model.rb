@@ -59,7 +59,7 @@ module Roby
         def resolve_data_sources(object, state)
             each_member do |name, field|
                 if field.respond_to?(:data_source)
-                    state.data_sources.__set(name, field.data_source.resolve(object))
+                    state.data_sources.set(name, field.data_source.resolve(object))
                 else
                     field.resolve_data_sources(object, state.__get(name, true))
                 end
@@ -206,9 +206,9 @@ module Roby
         def read
             data_sources.each_member do |field_name, field_source|
                 new_value = field_source.read
-                __set(field_name, new_value)
+                set(field_name, new_value)
                 if new_value
-                    last_known.__set(field_name, new_value)
+                    last_known.set(field_name, new_value)
                 end
             end
         end

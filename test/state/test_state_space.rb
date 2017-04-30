@@ -14,7 +14,7 @@ class TC_StateSpace < Minitest::Test
                 leaf.send(f)
             end
             parent.attach
-            parent.__set(leaf_name, StateVariableModel.new(parent, leaf_name))
+            parent.set(leaf_name, StateVariableModel.new(parent, leaf_name))
         end
         StateSpace.new(model)
     end
@@ -22,7 +22,7 @@ class TC_StateSpace < Minitest::Test
     def test_state_space_creates_structure
         m = StateModel.new
         pose = m.send('pose')
-        pose.__set(:position, StateVariableModel.new(nil, nil))
+        pose.set(:position, StateVariableModel.new(nil, nil))
         m.val = Class.new
 
         s = StateSpace.new(m)
@@ -58,7 +58,7 @@ class TC_StateSpace < Minitest::Test
         position_field = m.pose.position
         empty_field = m.empty_field
 
-        flexmock(m).should_receive(:__set).never
+        flexmock(m).should_receive(:set).never
         flexmock(m).should_receive(:attach_child).and_raise(ArgumentError)
 
         s = StateSpace.new(m)
@@ -152,11 +152,11 @@ class TC_StateSpace < Minitest::Test
         source = Object.new
 
         s = create_state_space('pose.position')
-        s.last_known.pose.__set(:position, source)
+        s.last_known.pose.set(:position, source)
         assert_same s.pose.last_known.position, s.last_known.pose.position
 
         s = create_state_space('pose.position')
-        s.pose.last_known.__set(:position, source)
+        s.pose.last_known.set(:position, source)
         assert_same s.pose.last_known.position, s.last_known.pose.position
     end
 
