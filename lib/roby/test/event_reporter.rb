@@ -53,7 +53,7 @@ module Roby
                 end
             end
 
-            def dump_timepoint(event, time, args)
+            def dump_timepoint(event, time, *args)
                 dump(event, time, *args)
             end
 
@@ -73,6 +73,9 @@ module Roby
                         end
                     end
                 end
+            end
+
+            def flush_cycle
             end
         end
     end

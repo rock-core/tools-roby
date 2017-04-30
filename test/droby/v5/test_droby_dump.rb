@@ -439,7 +439,7 @@ module Roby
                             marshaller.register_model(task_m)
                             demarshaller.register_model(interface_m)
 
-                            action = interface_m.an_action('test' => task_m)
+                            action = interface_m.an_action(test: task_m)
                             loaded = transfer(action)
                             assert_same action.model, loaded.model
                             assert_equal task_m.droby_id, demarshaller_object_manager.known_sibling_on(

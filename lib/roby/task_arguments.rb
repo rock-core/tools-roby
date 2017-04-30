@@ -22,6 +22,14 @@ module Roby
             @static
         end
 
+        def warn_deprecated_non_symbol_key(key)
+            if !key.kind_of?(Symbol)
+                Roby.warn_deprecated "accessing arguments using anything else than a symbol is deprecated", 2
+                key.to_sym
+            else key
+            end
+        end
+
         # Return the value stored for the given key as-is
         def raw_get(key)
             values[key]
@@ -158,7 +166,7 @@ module Roby
         # @raise OwnershipError if we don't own the task
         # @raise ArgumentError if the argument is already set
 	def []=(key, value)
-            key = key.to_sym if key.respond_to?(:to_str)
+            key = warn_deprecated_non_symbol_key(key)
 	    if writable?(key, value)
                 if !value.droby_marshallable?
                     raise NotMarshallable, "values used as task arguments must be marshallable, attempting to set #{key} to #{value} of class #{value.class}, which is not"
@@ -185,7 +193,7 @@ module Roby
 	end
 
         def [](key)
-            key = key.to_sym if key.respond_to?(:to_str)
+            key = warn_deprecated_non_symbol_key(key)
             value = values[key]
             if !TaskArguments.delayed_argument?(value)
                 value
@@ -221,7 +229,7 @@ module Roby
             @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
         end
 
-	def merge!(hash)
+	def merge!(**hash)
             hash.each do |key, value|
                 if !value.droby_marshallable?
                     raise NotMarshallable, "values used as task arguments must be marshallable, attempting to set #{key} to #{value}, which is not"

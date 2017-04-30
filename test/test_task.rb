@@ -193,7 +193,7 @@ module Roby
                 it "does parallel-assignment of arguments given to it at initialization" do
                     task_m = Class.new(self.task_m) do
                         attr_reader :parallel_assignment
-                        def assign_arguments(args)
+                        def assign_arguments(**args)
                             @parallel_assignment = args
                             super
                         end
@@ -2587,7 +2587,7 @@ class TC_Task < Minitest::Test
 	plan.add(task)
 	assert task.executable?
 	task.start!
-	assert_equal 10, task.arguments['value']
+	assert_equal 10, task.arguments[:value]
     end
 
     def test_delayed_default_argument

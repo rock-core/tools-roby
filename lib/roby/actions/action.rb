@@ -9,7 +9,7 @@ module Roby
             # @return [Hash]
             attr_reader :arguments
 
-            def initialize(model, arguments = Hash.new)
+            def initialize(model, **arguments)
                 @model, @arguments = model, arguments
             end
 
@@ -27,7 +27,7 @@ module Roby
             #
             # @param [Hash] arguments new arguments
             # @return [self]
-            def with_arguments(arguments)
+            def with_arguments(**arguments)
                 @arguments.merge!(arguments)
                 self
             end
@@ -51,8 +51,8 @@ module Roby
             # Returns a plan pattern that would deploy this action in the plan
             # @return [Roby::Task] the task, with a planning task of type
             #   {Actions::Task}
-            def as_plan(arguments = Hash.new)
-                model.plan_pattern(self.arguments.merge(arguments))
+            def as_plan(**arguments)
+                model.plan_pattern(**self.arguments.merge(arguments))
             end
 
             def rebind(action_interface_model)
@@ -60,7 +60,7 @@ module Roby
             end
 
             # Deploys this action on the given plan
-            def instanciate(plan, arguments = Hash.new)
+            def instanciate(plan, **arguments)
                 model.instanciate(plan, self.arguments.merge(arguments))
             end
 

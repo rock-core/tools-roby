@@ -275,6 +275,13 @@ module Roby
                         super(remote_siblings, owners)
                         @model, @plan_id = model, plan_id
                     end
+
+                    def local_plan(peer)
+                        if plan_id
+                            peer.local_plan(plan_id)
+                        else TemplatePlan.new
+                        end
+                    end
                 end
             end
 
@@ -308,7 +315,7 @@ module Roby
                     # Create a new proxy which maps the object of +peer+ represented by
                     # this communication intermediate.
                     def proxy(peer)
-                        local_object = peer.local_object(model).new(plan: peer.local_plan(plan_id))
+                        local_object = peer.local_object(model).new(plan: local_plan(peer))
                         if controlable
                             local_object.command = lambda { } 
                         end
@@ -485,7 +492,7 @@ module Roby
                     # this communication intermediate.
                     def proxy(peer)
                         arguments = peer.local_object(self.arguments)
-                        peer.local_object(model).new(arguments.merge(plan: peer.local_plan(plan_id)))
+                        peer.local_object(model).new(plan: local_plan(peer), **arguments)
                     end
 
                     # Updates an already existing proxy using the information contained

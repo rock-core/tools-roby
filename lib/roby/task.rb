@@ -121,7 +121,7 @@ module Roby
                         end
                     end
                 end
-                assign_arguments(result)
+                assign_arguments(**result)
             end
         end
 
@@ -161,7 +161,7 @@ module Roby
         #   fail in assign_arguments since arguments are single-assignation
         #
         # - assignation is all-or-nothing
-        def assign_arguments(arguments)
+        def assign_arguments(**arguments)
             initial_arguments = @arguments
             initial_set_arguments = initial_arguments.assigned_arguments
             current_arguments = initial_set_arguments.dup
@@ -205,8 +205,7 @@ module Roby
         #
         # The task is initially added to a {TemplatePlan} object in which all of
         # the model's event relations are already instantiated.
-        def initialize(arguments = Hash.new)
-            plan = arguments.delete(:plan) || TemplatePlan.new
+        def initialize(plan: TemplatePlan.new, **arguments)
             @bound_events = Hash.new
             super(plan: plan)
 
@@ -223,7 +222,7 @@ module Roby
             @coordination_objects = Array.new
 
 	    @arguments = TaskArguments.new(self)
-            assign_arguments(arguments)
+            assign_arguments(**arguments)
             # Now assign default values for the arguments that have not yet been
             # set
             model.arguments.each do |argname|

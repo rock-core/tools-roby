@@ -29,14 +29,11 @@ module Roby
             end
 
             def flush_cycle_events
-                add_cycle_end
+                event_logger.flush_cycle
                 event_logger.flush
                 logfile.cycles.first
             end
 
-            def add_cycle_end
-                event_logger.dump(:cycle_end, Time.now, [Hash.new])
-            end
             def process_logged_events
                 flush_cycle_events
                 logfile.cycles.each do |c|

@@ -42,7 +42,7 @@ module Roby
 
             # @return [Action] an action using this action model and the given
             #   arguments
-            def new(arguments = Hash.new)
+            def new(**arguments)
                 Actions::Action.new(self, normalize_arguments(arguments))
             end
 
@@ -184,8 +184,8 @@ module Roby
                 Kernel.validate_options arguments, self.arguments.map(&:name)
             end
 
-            def as_plan(arguments = Hash.new)
-                plan_pattern(arguments)
+            def as_plan(**arguments)
+                plan_pattern(**arguments)
             end
 
             def pretty_print(pp)
