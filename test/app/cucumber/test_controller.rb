@@ -264,7 +264,7 @@ module Roby
                         it "registers the job as a main job" do
                             job = controller.start_job('cucumber test job', 'cucumber_monitoring', arg: 20)
                             controller.apply_current_batch
-                            assert_equal [job], controller.each_main_job.to_a
+                            assert_equal [job], controller.each_main_job.map(&:action_monitor)
                         end
                         describe "the validation mode" do
                             before do
@@ -304,7 +304,7 @@ module Roby
                         it "registers the job as a monitoring job" do
                             job = controller.start_monitoring_job('cucumber test job', 'cucumber_monitoring', arg: 20)
                             controller.apply_current_batch
-                            assert_equal [job], controller.each_monitoring_job.to_a
+                            assert_equal [job], controller.each_monitoring_job.map(&:action_monitor)
                         end
                         describe "the validation mode" do
                             before do
