@@ -56,9 +56,7 @@ module Roby
             end
 
             def rebind(action_interface_model)
-                result = dup
-                result.model = result.model.rebind(action_interface_model)
-                result
+                model.rebind(action_interface_model).new(**arguments)
             end
 
             # Deploys this action on the given plan
