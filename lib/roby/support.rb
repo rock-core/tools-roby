@@ -29,6 +29,9 @@ class IO
 end
 
 class Object
+    def find_through_method_missing(m, args, call: true)
+    end
+
     def inspect
         guard = (Thread.current[:ROBY_SUPPORT_INSPECT_RECURSION_GUARD] ||= Hash.new)
         guard.compare_by_identity

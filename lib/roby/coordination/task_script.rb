@@ -224,6 +224,13 @@ module Roby
                 root_task.start_event.remove_causal_link(task.resolve.start_event)
             end
 
+            def respond_to_missing?(m, include_private)
+                if m =~ /(.*)_(event|child)$/
+                    instance_for(model.root).respond_to?(m)
+                else super
+                end
+            end
+
             def method_missing(m, *args, &block)
                 case m.to_s
                 when /(.*)_(event|child)$/

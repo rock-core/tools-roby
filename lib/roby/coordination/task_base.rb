@@ -44,24 +44,20 @@ module Roby
                     end
                 end
 
+                def find_through_method_missing(m, args, call: true)
+                    MetaRuby::DSLs.find_through_method_missing(
+                        self, m, args,
+                        'child' => :find_child,
+                        'port' => :find_port,
+                        'event' => :find_event, call: call) || super
+                end
+
+                def respond_to_missing?(m, include_private)
+                    !!find_through_method_missing(m, []) || super
+                end
+
                 def method_missing(m, *args, &block)
-                    case m.to_s
-                    when /(.*)_child$/
-                        if !args.empty?
-                            raise ArgumentError, "expected zero arguments, got #{args.size}"
-                        elsif child = find_child($1)
-                            child
-                        else raise NoMethodError.new("#{self} has no child named #{$1}", m)
-                        end
-                    when /(.*)_event$/
-                        if !args.empty?
-                            raise ArgumentError, "expected zero arguments, got #{args.size}"
-                        elsif event = find_event($1)
-                            event
-                        else raise NoMethodError.new("#{self} has no event named #{$1}", m)
-                        end
-                    else super
-                    end
+                    find_through_method_missing(m, args) || super
                 end
 
                 def to_coordination_task(task_model); model.to_coordination_task(task_model) end

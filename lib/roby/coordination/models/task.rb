@@ -147,11 +147,22 @@ module Roby
                     end
                 end
 
+                def find_through_method_missing(m, args, call: true)
+                    MetaRuby::DSLs.find_through_method_missing(
+                        self, m, args,
+                        'event' => :find_event,
+                        'child' => :find_child, call: call) ||
+                        super
+                end
+
+                def respond_to_missing?(m, include_private)
+                    !!find_through_method_missing(m, [], call: false) || super
+                end
+
                 # Allows to access events and children using the _child and
                 # _event suffixes
                 def method_missing(m, *args, &block)
-                    MetaRuby::DSLs.find_through_method_missing(self, m, args, 'event', 'child') ||
-                        super
+                    find_through_method_missing(m, args) || super
                 end
 
                 def to_coordination_task(task_model = Roby::Task)
