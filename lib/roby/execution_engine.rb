@@ -851,33 +851,43 @@ module Roby
                 errors.kill_tasks, errors.fatal_errors, errors.nonfatal_errors, errors.free_events_errors, errors.handled_errors
 
             if !nonfatal_errors.empty?
-                warn "#{nonfatal_errors.size} unhandled non-fatal exceptions"
+                if display_exceptions?
+                    warn "#{nonfatal_errors.size} unhandled non-fatal exceptions"
+                end
                 nonfatal_errors.each do |exception, tasks|
                     notify_exception(EXCEPTION_NONFATAL, exception, tasks)
                 end
             end
 
             if !handled_errors.empty?
-                warn "#{handled_errors.size} handled errors"
+                if display_exceptions?
+                    warn "#{handled_errors.size} handled errors"
+                end
                 handled_errors.each do |exception, tasks|
                     notify_exception(EXCEPTION_HANDLED, exception, tasks)
                 end
             end
 
             if !free_events_errors.empty?
-                warn "#{free_events_errors.size} free event exceptions"
+                if display_exceptions?
+                    warn "#{free_events_errors.size} free event exceptions"
+                end
                 free_events_errors.each do |exception, events|
                     notify_exception(EXCEPTION_FREE_EVENT, exception, events)
                 end
             end
 
             if !fatal_errors.empty?
-                warn "#{fatal_errors.size} unhandled fatal exceptions, involving #{kill_tasks.size} tasks that will be forcefully killed"
+                if display_exceptions?
+                    warn "#{fatal_errors.size} unhandled fatal exceptions, involving #{kill_tasks.size} tasks that will be forcefully killed"
+                end
                 fatal_errors.each do |exception, tasks|
                     notify_exception(EXCEPTION_FATAL, exception, tasks)
                 end
-                kill_tasks.each do |task|
-                    log_pp :warn, task
+                if display_exceptions?
+                    kill_tasks.each do |task|
+                        log_pp :warn, task
+                    end
                 end
             end
         end
