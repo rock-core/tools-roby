@@ -5,6 +5,19 @@ module Roby
         # They mainly "tune" the default minitest behaviour to match some of the
         # Roby idioms as e.g. using pretty-print to format exception messages
         module MinitestHelpers
+            ExpectExecution = Struct.new :test, :plan, :block do
+                def to(&expectation_block)
+                    expectations = ExecutionExpectations.parse(test, plan, &expectation_block)
+                    expectations.verify(&block)
+                rescue Minitest::Assertion => e
+                    raise e, e.message, caller(2)
+                end
+            end
+
+            def expect_execution(&block)
+                ExpectExecution.new(self, plan, block)
+            end
+
             def roby_find_matching_exception(expected, exception)
                 queue = [exception]
                 seen  = Set.new

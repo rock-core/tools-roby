@@ -830,6 +830,10 @@ module Roby
                 end
                 state_machine_task.current_task_child
             end
+
+            def validate_state_machine(task_or_action, &block)
+                ValidateStateMachine.new(self, task_or_action).evaluate(&block)
+            end
         end
     end
 end

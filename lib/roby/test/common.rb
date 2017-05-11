@@ -30,6 +30,9 @@ require 'roby'
 
 require 'roby/test/assertion'
 require 'roby/test/error'
+require 'roby/test/minitest_helpers'
+require 'roby/test/execution_expectations'
+require 'roby/test/validate_state_machine'
 require 'roby/test/teardown_plans'
 
 FlexMock.partials_are_based = true
