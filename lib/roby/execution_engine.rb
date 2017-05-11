@@ -425,8 +425,16 @@ module Roby
             @scheduler = scheduler
         end
 
-        # True if we are currently in the propagation stage
-        def gathering?; !!@propagation end
+        def gathering?
+            Roby.warn_deprecated "#gathering? is deprecated, use #in_propagation_context? instead"
+            in_propagation_context?
+        end
+
+        # True if we are within a propagation context (i.e. within event
+        # processing)
+        def in_propagation_context?
+            !!@propagation
+        end
 
         attr_predicate :allow_propagation
 
@@ -522,11 +530,11 @@ module Roby
         # where the two +_sources+ are arrays of the form 
         #   [[source, context], ...]
         #
-        # The method returns the resulting hash. Use #gathering? to know if the
+        # The method returns the resulting hash. Use #in_propagation_context? to know if the
         # current engine is in a propagation context, and #add_event_propagation
         # to add a new entry to this set.
         def gather_propagation(initial_set = Hash.new)
-            raise InternalError, "nested call to #gather_propagation" if gathering?
+            raise InternalError, "nested call to #gather_propagation" if in_propagation_context?
 
             old_allow_propagation, @allow_propagation = @allow_propagation, true
 
@@ -639,7 +647,7 @@ module Roby
         # to +source+. +source+ is the +from+ argument of #add_event_propagation
         def propagation_context(sources)
             current_sources = @propagation_sources
-            raise InternalError, "not in a gathering context in #propagation_context" unless gathering?
+            raise InternalError, "not in a gathering context in #propagation_context" unless in_propagation_context?
 
             @propagation_sources = sources
             yield

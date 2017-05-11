@@ -260,7 +260,7 @@ module Roby
 	# be checked using #controlable?
 	def call(*context)
             engine = execution_engine
-	    if engine && !engine.gathering?
+	    if engine && !engine.in_propagation_context?
                 engine.process_events_synchronous { call(*context) }
                 return
             end
@@ -605,7 +605,7 @@ module Roby
 	# called won't be emitted (ever)
 	def emit_failed(error = nil, message = nil)
             engine = execution_engine
-	    if engine && !engine.gathering?
+	    if engine && !engine.in_propagation_context?
                 engine.process_events_synchronous { emit_failed(error, message) }
                 return
             end
@@ -672,7 +672,7 @@ module Roby
 	# Emit the event with +context+ as the event context
 	def emit(*context)
             engine = execution_engine
-	    if engine && !engine.gathering?
+	    if engine && !engine.in_propagation_context?
                 engine.process_events_synchronous { emit(*context) }
                 return
             end
@@ -973,7 +973,7 @@ module Roby
 	# Called internally when the event becomes unreachable
 	def unreachable!(reason = nil, plan = self.plan)
             engine = execution_engine
-            if engine && !engine.gathering?
+            if engine && !engine.in_propagation_context?
                 execution_engine.process_events_synchronous do
                     unreachable!(reason, plan)
                 end
