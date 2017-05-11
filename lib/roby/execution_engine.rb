@@ -6,7 +6,7 @@ module Roby
     class SynchronousEventProcessingMultipleErrors < RuntimeError
         # Exceptions as gathered during propagation with {ExecutionEngine#task_m}
         #
-        # @return [Array<ExecutionEngine::ErrorPhaseResult>]
+        # @return [Array<ExecutionEngine::PropagationInfo>]
         attr_reader :errors
 
         # The set of underlying "real" (i.e. non-Roby) exceptions
@@ -387,7 +387,7 @@ module Roby
 
         # Waits for all obligations in {#waiting_work} to finish
         def join_all_waiting_work(timeout: nil)
-            return [] if waiting_work.empty?
+            return [], PropagationInfo.new if waiting_work.empty?
             deadline = if timeout
                            Time.now + timeout
                        end
@@ -805,14 +805,14 @@ module Roby
         # events we should consider as already emitted in the following propagation.
         # +seeds+ si a list of procs which should be called to initiate the propagation
         # (i.e. build an initial set of events)
-        def event_propagation_phase(initial_events)
+        def event_propagation_phase(initial_events, propagation_info)
             @propagation_id += 1
 
 	    gather_errors do
                 next_steps = initial_events
                 while !next_steps.empty?
                     while !next_steps.empty?
-                        next_steps = event_propagation_step(next_steps)
+                        next_steps = event_propagation_step(next_steps, propagation_info)
                     end        
                     next_steps = gather_propagation { call_propagation_handlers }
                 end
@@ -1022,7 +1022,7 @@ module Roby
         # The method returns the next set of pending emissions and calls, adding
         # the forwardings and signals that the propagation of the considered event
         # have added.
-        def event_propagation_step(current_step)
+        def event_propagation_step(current_step, propagation_info)
             signalled, step_id, forward_info, call_info = next_event(current_step)
 
             next_step = nil
@@ -1036,6 +1036,7 @@ module Roby
                         next_step = gather_propagation(current_step) do
                             propagation_context(source_events | source_generators) do
                                 begin
+                                    propagation_info.add_generator_call(signalled)
                                     signalled.call_without_propagation(context) 
                                 rescue Roby::LocalizedError => e
                                     if signalled.command_emitted?
@@ -1074,6 +1075,7 @@ module Roby
                             propagation_context(source_events | source_generators) do
                                 begin
                                     if event = signalled.emit_without_propagation(context)
+                                        propagation_info.add_event_emission(event)
                                         emitted_events << event
                                     end
                                 rescue Roby::LocalizedError => e
@@ -1358,7 +1360,7 @@ module Roby
         #
         # @param [Array] events_errors the set of errors gathered during event
         #   propagation
-        # @return [ErrorPhaseResult]
+        # @return [PropagationInfo]
         def compute_errors(events_errors)
             # Generate exceptions from task structure
             structure_errors = plan.check_structure
@@ -1392,7 +1394,7 @@ module Roby
 
             debug "#{fatal_errors.size} fatal errors found and #{free_events_errors.size} errors involving free events"
             debug "the fatal errors involve #{kill_tasks.size} non-finalized tasks"
-            return ErrorPhaseResult.new(kill_tasks, fatal_errors, nonfatal_errors, free_events_errors, handled_errors, structure_inhibited)
+            return PropagationInfo.new(Set.new, Set.new, kill_tasks, fatal_errors, nonfatal_errors, free_events_errors, handled_errors, structure_inhibited)
         end
 
         # Whether this EE has asynchronous waiting work waiting to be processed
@@ -1422,14 +1424,18 @@ module Roby
 
         # Gathering of all the errors that happened during an event processing
         # loop and were not handled
-        ErrorPhaseResult = Struct.new :kill_tasks, :fatal_errors, :nonfatal_errors, :free_events_errors, :handled_errors, :inhibited_errors do
-            def initialize(kill_tasks = Set.new,
+        PropagationInfo = Struct.new :called_generators, :emitted_events, :kill_tasks, :fatal_errors, :nonfatal_errors, :free_events_errors, :handled_errors, :inhibited_errors do
+            def initialize(called_generators = Set.new,
+                           emitted_events = Set.new,
+                           kill_tasks = Set.new,
                            fatal_errors = Array.new,
                            nonfatal_errors = Array.new,
                            free_events_errors = Array.new,
                            handled_errors = Array.new,
                            inhibited_errors = Array.new)
 
+                self.called_generators  = called_generators .to_set
+                self.emitted_events     = emitted_events.to_set
                 self.kill_tasks         = kill_tasks.to_set
                 self.fatal_errors       = fatal_errors
                 self.nonfatal_errors    = nonfatal_errors
@@ -1439,12 +1445,38 @@ module Roby
             end
 
             def merge(results)
+                self.called_generators.merge(results.called_generators)
+                self.emitted_events.merge(results.emitted_events)
                 self.kill_tasks.merge(results.kill_tasks)
                 self.fatal_errors.concat(results.fatal_errors)
                 self.nonfatal_errors.concat(results.nonfatal_errors)
                 self.free_events_errors.concat(results.free_events_errors)
                 self.handled_errors.concat(results.handled_errors)
                 self.inhibited_errors.concat(results.inhibited_errors)
+            end
+
+            def add_generator_call(generator)
+                called_generators << generator
+            end
+
+            def add_event_emission(event)
+                emitted_events << event
+            end
+
+            def each_called_generator(&block)
+                called_generators.each(&block)
+            end
+
+            def has_called_generators?
+                !called_generators.empty?
+            end
+
+            def each_emitted_event(&block)
+                emitted_events.each(&block)
+            end
+
+            def has_emitted_events?
+                !emitted_events.empty?
             end
 
             # Return the exception objects registered in this result object
@@ -1507,8 +1539,7 @@ module Roby
         #
         # It gathers initial events and errors and propagate them
         #
-        # @return [ErrorPhaseResult] the set of errors that have been detected
-        #   and propagated
+        # @return [PropagationInfo] what happened during the propagation
         # @raise RecursivePropagationContext if called recursively
         def process_events(garbage_collect_pass: true, &caller_block)
             if @application_exceptions
@@ -1538,11 +1569,11 @@ module Roby
 	        end
             end
 
-            all_errors = propagate_events_and_errors(next_steps, events_errors, garbage_collect_pass: garbage_collect_pass)
+            propagation_info = propagate_events_and_errors(next_steps, events_errors, garbage_collect_pass: garbage_collect_pass)
             if Roby.app.abort_on_exception? && !all_errors.fatal_errors.empty?
-                raise Aborting.new(all_errors.fatal_errors.keys.map(&:exception))
+                raise Aborting.new(propagation_info.each_fatal_error.map(&:exception))
             end
-            all_errors
+            propagation_info
 
         ensure
             if passed_recursive_check
@@ -1584,27 +1615,27 @@ module Roby
 
             scheduler.enabled = enable_scheduler
 
-            all_errors = propagate_events_and_errors(seeds, initial_errors, garbage_collect_pass: false)
-            if !all_errors.kill_tasks.empty?
+            propagation_info = propagate_events_and_errors(seeds, initial_errors, garbage_collect_pass: false)
+            if !propagation_info.kill_tasks.empty?
                 gc_initial_errors = nil
                 gc_seeds = gather_propagation do
                     gc_initial_errors = gather_errors do
-                        garbage_collect(all_errors.kill_tasks)
+                        garbage_collect(propagation_info.kill_tasks)
                     end
                 end
                 gc_errors = propagate_events_and_errors(gc_seeds, gc_initial_errors, garbage_collect_pass: false)
-                all_errors.merge(gc_errors)
+                propagation_info.merge(gc_errors)
             end
 
             if raise_errors
-                all_errors = all_errors.exceptions
-                if all_errors.size == 1
-                    raise all_errors.first
-                elsif !all_errors.empty?
-                    raise SynchronousEventProcessingMultipleErrors.new(all_errors.map(&:exception))
+                propagation_info = propagation_info.exceptions
+                if propagation_info.size == 1
+                    raise propagation_info.first
+                elsif !propagation_info.empty?
+                    raise SynchronousEventProcessingMultipleErrors.new(propagation_info.map(&:exception))
                 end
             else
-                all_errors
+                propagation_info
             end
 
         rescue SynchronousEventProcessingMultipleErrors => e
@@ -1638,14 +1669,14 @@ module Roby
         # @param [Boolean] garbage_collect_pass whether the garbage collection
         #   pass should be performed or not. It is used in the tests' codepath
         #   for {EventGenerator#call} and {EventGenerator#emit}.
-        # @return [ErrorPhaseResult] the set of errors that have been detected
+        # @return [PropagationInfo] what happened during the propagation
         #   and propagated
         def propagate_events_and_errors(next_steps, initial_errors, garbage_collect_pass: true)
-            all_errors = ErrorPhaseResult.new
+            propagation_info = PropagationInfo.new
             events_errors = initial_errors.dup
             begin
                 log_timepoint_group 'event_propagation_phase' do
-                    events_errors.concat(event_propagation_phase(next_steps))
+                    events_errors.concat(event_propagation_phase(next_steps, propagation_info))
                 end
 
                 next_steps = gather_propagation do
@@ -1657,7 +1688,7 @@ module Roby
                     end
 
                     add_exceptions_for_inhibition(error_phase_results.each_fatal_error)
-                    all_errors.merge(error_phase_results)
+                    propagation_info.merge(error_phase_results)
                     garbage_collection_errors = gather_errors do
                         plan.generate_induced_errors(error_phase_results)
                         if garbage_collect_pass
@@ -1669,7 +1700,7 @@ module Roby
                     log_timepoint 'garbage_collect'
                 end
             end while !next_steps.empty? || !events_errors.empty?
-            all_errors
+            propagation_info
         end
 
         # Tests whether there is an exception registered by

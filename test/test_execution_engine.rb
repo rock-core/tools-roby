@@ -97,7 +97,8 @@ module Roby
                 p = execution_engine.promise { }
                 p.on_error { }
                 p.execute
-                assert_equal [p], execution_engine.join_all_waiting_work
+                promises, _ = execution_engine.join_all_waiting_work
+                assert_equal [p], promises
                 refute execution_engine.waiting_work.include?(p)
             end
 
@@ -125,7 +126,8 @@ module Roby
                 p.on_error { }
                 p.execute
                 flexmock(execution_engine).should_receive(:add_framework_error).never
-                assert execution_engine.join_all_waiting_work.include?(p)
+                promises, _ = execution_engine.join_all_waiting_work
+                assert promises.include?(p)
                 refute execution_engine.waiting_work.include?(p)
             end
         end
@@ -1109,10 +1111,10 @@ module Roby
                 end
 
                 def mock_compute_errors(result_set)
-                    results = ExecutionEngine::ErrorPhaseResult.new
+                    results = ExecutionEngine::PropagationInfo.new
                     results.send(result_set) << [@error = flexmock(exception: RuntimeError.new), @involved_objects = flexmock(each: [Object.new])]
                     execution_engine.should_receive(:compute_errors).
-                        and_return(results, ExecutionEngine::ErrorPhaseResult.new)
+                        and_return(results, ExecutionEngine::PropagationInfo.new)
                 end
 
                 def assert_receives_notification(notification_type)
@@ -1877,7 +1879,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    end
 	    mock.should_receive(:command_called).with([42]).once.ordered
 	    mock.should_receive(:handler_called).with([42, 24]).once.ordered
-	    execution_engine.event_propagation_phase(seeds)
+            execution_engine.event_propagation_phase(seeds, ExecutionEngine::PropagationInfo.new)
 	end
     end
 
