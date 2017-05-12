@@ -28,6 +28,8 @@ module Roby
                 result = nil
                 expect_execution { result = yield }.with_setup { garbage_collect(garbage_collect) }.to { }
                 result
+            rescue Minitest::Assertion => e
+                raise e, e.message, caller(2)
             end
 
             def roby_find_matching_exception(expected, exception)
