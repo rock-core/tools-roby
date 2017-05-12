@@ -6,9 +6,12 @@ module Roby
             #
             # @return [Expectation]
             def self.parse(test, plan, &block)
-                expectations = new(test, plan)
-                expectations.instance_eval(&block)
-                expectations
+                new(test, plan).parse(&block)
+            end
+
+            def parse(&block)
+                @return_objects = instance_eval(&block)
+                self
             end
 
             def initialize(test, plan)
@@ -126,29 +129,47 @@ module Roby
             # Add a new expectation to be run during {#verify}
             def add_expectation(expectation)
                 @expectations << expectation
+                expectation
             end
 
             # Expect that an event should be emitted
             def not_emit(generator, backtrace: caller(1))
                 add_expectation(NotEmit.new(generator, backtrace))
+                nil
             end
 
             def emit(generator, backtrace: caller(1))
                 add_expectation(Emit.new(generator, backtrace))
             end
 
+            def quarantine(task, backtrace: caller(1))
+                add_expectation(Quarantine.new(task, backtrace))
+                nil
+            end
+
+            def fail_to_start(task, backtrace: caller(1))
+                add_expectation(FailsToStart.new(task, backtrace))
+                nil
+            end
+
             def finish(task, backtrace: caller(1))
                 emit task.start_event, backtrace: backtrace if !task.running?
                 emit task.stop_event, backtrace: backtrace
+                nil
             end
 
             def keep_running(task, backtrace: caller(1))
                 emit task.start_event, backtrace: backtrace if !task.running?
                 not_emit task.stop_event, backtrace: backtrace
+                nil
             end
 
-            def has_error_matching(matcher, backtrace: caller(1))
-                add_expectation(HasErrorMatching.new(matcher, backtrace))
+            def have_error_matching(matcher, backtrace: caller(1))
+                add_expectation(HaveErrorMatching.new(matcher, backtrace))
+            end
+
+            def have_handled_error_matching(matcher, backtrace: caller(1))
+                add_expectation(HaveHandledErrorMatching.new(matcher, backtrace))
             end
 
             # Verify that executing the given block in event propagation context
@@ -194,7 +215,8 @@ module Roby
                     end
 
                     if engine.has_waiting_work? && @join_all_waiting_work
-                        engine.join_all_waiting_work(timeout: remaining_timeout)
+                        _, propagation_info = engine.join_all_waiting_work(timeout: remaining_timeout)
+                        all_propagation_info.merge(propagation_info)
                     elsif unmet.empty?
                         break
                     end
@@ -210,6 +232,23 @@ module Roby
 
                 if @validate_unexpected_errors
                     validate_has_no_unexpected_error(all_propagation_info)
+                end
+
+                if @return_objects.respond_to?(:to_ary)
+                    @return_objects.map do |obj|
+                        if obj.respond_to?(:return_object)
+                            obj.return_object(all_propagation_info)
+                        else
+                            obj
+                        end
+                    end
+                else
+                    obj = @return_objects
+                    if obj.respond_to?(:return_object)
+                        obj.return_object(all_propagation_info)
+                    else
+                        obj
+                    end
                 end
             end
 
@@ -311,8 +350,12 @@ module Roby
                 end
 
                 def unmet?(propagation_info)
+                    !return_object(propagation_info)
+                end
+
+                def return_object(propagation_info)
                     propagation_info.emitted_events.
-                        none? { |ev| ev.generator == @generator }
+                        find { |ev| ev.generator == @generator }
                 end
 
                 def unachievable?(propagation_info)
@@ -328,7 +371,31 @@ module Roby
                 end
             end
 
-            class HasErrorMatching < Expectation
+            class HaveErrorMatching < Expectation
+                def initialize(matcher, backtrace)
+                    super(backtrace)
+                    @matcher = matcher.to_execution_exception_matcher
+                end
+
+                def relates_to_error?(error)
+                    @matcher === error
+                end
+
+                def unmet?(propagation_info)
+                    !return_object(propagation_info)
+                end
+
+                def return_object(propagation_info)
+                    propagation_info.exceptions.
+                        find { |error| @matcher === error }
+                end
+
+                def to_s
+                    "has error matching #{@matcher}"
+                end
+            end
+
+            class HaveHandledErrorMatching < Expectation
                 def initialize(matcher, backtrace)
                     super(backtrace)
                     @matcher = matcher
@@ -339,12 +406,61 @@ module Roby
                 end
 
                 def unmet?(propagation_info)
-                    propagation_info.exceptions.
+                    !return_object(propagation_info)
+                end
+
+                def return_object(propagation_info)
+                    propagation_info.handled_errors.
                         none? { |error| @matcher === error }
                 end
 
                 def to_s
                     "has error matching #{@matcher}"
+                end
+            end
+
+            class Quarantine < Expectation
+                def initialize(task, backtrace)
+                    super(backtrace)
+                    @task = task
+                end
+
+                def unmet?(propagation_info)
+                    !@task.quarantined?
+                end
+
+                def to_s
+                    "#{@task} is quarantined"
+                end
+            end
+
+            class MakeUnreachable < Expectation
+                def initialize(generator, backtrace)
+                    super(backtrace)
+                    @generator = generator
+                end
+
+                def unmet?(propagation_info)
+                    !@generator.unreachable?
+                end
+
+                def to_s
+                    "#{@generator} is unreachable"
+                end
+            end
+
+            class FailsToStart < Expectation
+                def initialize(task, backtrace)
+                    super(backtrace)
+                    @task = task
+                end
+
+                def unmet?(propagation_info)
+                    !@task.failed_to_start?
+                end
+
+                def to_s
+                    "#{@generator} has failed to start"
                 end
             end
         end

@@ -393,8 +393,9 @@ module Roby
                        end
 
             finished = Array.new
+            propagation_info = PropagationInfo.new
             begin
-                process_events_synchronous do
+                this_propagation = process_events do
                     finished.concat(process_waiting_work)
                     blocks = Array.new
                     while !once_blocks.empty?
@@ -402,12 +403,13 @@ module Roby
                     end
                     call_poll_blocks(blocks)
                 end
+                propagation_info.merge(this_propagation)
                 Thread.pass
                 if deadline && (Time.now > deadline)
                     raise JoinAllWaitingWorkTimeout.new(waiting_work)
                 end
             end while waiting_work.any? { |w| !w.unscheduled? }
-            finished
+            return finished, propagation_info
         end
 
         # The scheduler is the object which handles non-generic parts of the

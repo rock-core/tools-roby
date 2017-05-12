@@ -215,8 +215,9 @@ describe Roby::Coordination::ActionStateMachine do
             task.start!
 
             state_machine = task.coordination_objects.first
-            task.current_task_child.planning_task.start!
-            assert_event_emission task.current_task_child.planning_task.success_event
+            assert_event_emission task.current_task_child.planning_task.success_event do
+                task.current_task_child.planning_task.start!
+            end
 
             flexmock(state_machine).should_receive(:instanciate_state_transition).once.pass_thru
             state_task.left_event.emit
@@ -254,8 +255,9 @@ describe Roby::Coordination::ActionStateMachine do
 
             state_machine = task.coordination_objects.first
             2.times do |i|
-                task.current_task_child.planning_task.start!
-                assert_event_emission task.current_task_child.planning_task.success_event
+                assert_event_emission task.current_task_child.planning_task.success_event do
+                    task.current_task_child.planning_task.start!
+                end
                 FlexMock.use(state_machine) do |machine|
                     machine.should_receive(:instanciate_state_transition).once.pass_thru
                     task.current_task_child.transition_event.emit
@@ -312,8 +314,9 @@ describe Roby::Coordination::ActionStateMachine do
             start.success_event.forward_to success_event
         end
         task = start_machine(action_m.test)
-        task.start_state_child.start!
-        assert_event_emission task.success_event
+        assert_event_emission task.success_event do
+            task.start_state_child.start!
+        end
         assert_equal [10], task.success_event.last.context
     end
 

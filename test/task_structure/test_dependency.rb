@@ -653,7 +653,7 @@ module Roby
                             should_receive(:<<).with(child.start_event).at_least.once.pass_thru
                         flexmock(dependency_graph.interesting_events).
                             should_receive(:<<)
-                        assert_fatal_exception(ChildFailedError, tasks: [parent, child], failure_point: child.start_event) do
+                        assert_fatal_exception(ChildFailedError, tasks: [parent, child], failure_point: child) do
                             child.failed_to_start!(nil)
                         end
                     end
@@ -812,6 +812,7 @@ module Roby
                     end
                     parent.start!
                 end
+
                 it "creates a ChildFailedError that points to the original exception if the failure is caused by one" do
                     error = Class.new(RuntimeError)
                     child_m.event(:start) { |context| raise error }
@@ -820,11 +821,12 @@ module Roby
                     command_failed_matcher = CommandFailed.match.
                         with_origin(child.start_event).
                         with_ruby_exception(error)
-                    assert_task_fails_to_start(child, command_failed_matcher, failure_point: child.start_event) do
-                        assert_fatal_exception(ChildFailedError, tasks: [parent, child], failure_point: child, original_exception: command_failed_matcher) do
-                            child.start!
+
+                    expect_execution { child.start! }.
+                        to do
+                            fail_to_start child, reason: command_failed_matcher
+                            have_error_matching ChildFailedError.match.with_origin(child).with_original_exception(command_failed_matcher)
                         end
-                    end
                 end
 
                 it "reports a ChildFailedError if a positive 'start' event becomes unreachable" do
@@ -854,9 +856,7 @@ module Roby
                     plan.add(child = child_m.new)
                     child.start!
                     parent.depends_on(child, failure: :start)
-                    assert_fatal_exception(ChildFailedError, failure_point: child.start_event, tasks: [parent, child]) do
-                        process_events
-                    end
+                    assert_fatal_exception(ChildFailedError, failure_point: child.start_event, tasks: [parent, child])
                 end
 
                 it "reports a ChildFailedError if adding a new dependency while the success event was already unreachable" do
@@ -864,9 +864,7 @@ module Roby
                     child.start!
                     child.intermediate_event.unreachable!
                     parent.depends_on(child, success: :intermediate)
-                    assert_fatal_exception(ChildFailedError, failure_point: child.intermediate_event, tasks: [parent, child]) do
-                        process_events
-                    end
+                    assert_fatal_exception(ChildFailedError, failure_point: child.intermediate_event, tasks: [parent, child])
                 end
 
                 it "reports success if both a positive and negative events are emitted at the same time" do

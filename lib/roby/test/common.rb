@@ -142,9 +142,6 @@ module Roby
 
             @watched_events = nil
             @handler_ids = Array.new
-            @handler_ids << execution_engine.add_propagation_handler(description: 'Test.verify_watched_events', type: :external_events) do |plan|
-                verify_watched_events
-            end
 	end
 
         def assert_adds_roby_localized_error(matcher)
@@ -220,7 +217,6 @@ module Roby
                     execution_engine.remove_propagation_handler(handler_id)
                 end
             end
-            verify_watched_events
 
             # Plan teardown would have disconnected the peers already
 	    stop_remote_processes

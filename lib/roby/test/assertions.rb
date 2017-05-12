@@ -113,28 +113,17 @@ module Roby
             #
             # @yieldparam yields to a block that should perform the action that
             #   should cause the emission
-            def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, enable_scheduler: nil, garbage_collect_pass: true, &block)
-                old_scheduler = plan.execution_engine.scheduler.enabled?
-                if !enable_scheduler.nil?
-                    plan.execution_engine.scheduler.enabled = enable_scheduler
+            def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, enable_scheduler: nil, garbage_collect_pass: true)
+                expect_execution do
+                    yield if block_given?
+                end.with_setup do
+                    self.timeout timeout
+                    self.scheduler enable_scheduler
+                    self.garbage_collect garbage_collect_pass
+                end.to do
+                    Array(positive).each { |g| emit g }
+                    Array(negative).each { |g| not_emit g }
                 end
-
-                ivar, unreachability_reason = watch_events(positive, negative, timeout, garbage_collect_pass: garbage_collect_pass, &block)
-
-                if !ivar.fulfilled?
-                    if !unreachability_reason.empty?
-                        msg = format_unreachability_message(unreachability_reason)
-                        flunk("all positive events are unreachable for the following reason:\n  #{msg}")
-                    elsif msg
-                        flunk("#{msg} failed: #{ivar.reason}")
-                    else
-                        flunk(ivar.reason)
-                    end
-                end
-                ivar.value
-
-            ensure
-                plan.execution_engine.scheduler.enabled = old_scheduler
             end
 
             # @api private
@@ -212,25 +201,8 @@ module Roby
 
             # Asserts that the given task is added to the quarantine
             def assert_task_quarantined(task, timeout: 5)
-                yield
-                while !task.quarantined?
-                    process_events
-                    if (Time.now - start) > timeout
-                        flunk("timed out while waiting for #{task} to be added to quarantine")
-                    end
-                end
-            end
-
-            # @deprecated use #assert_event_emission instead
-	    def assert_any_event(positive = [], negative = [], msg = nil, timeout = 5, &block)
-                Roby.warn_deprecated "#assert_any_event is deprecated, use #assert_event_emission instead"
-                assert_event_emission(positive, negative, msg, timeout, &block)
-	    end
-
-            # @deprecated use #assert_event_becomes_unreachable instead
-            def assert_becomes_unreachable(*args, &block)
-                Roby.warn_deprecated "#assert_becomes_unreachable is deprecated, use #assert_event_becomes_unreachable instead"
-                assert_event_becomes_unreachable(*args, &block)
+                expect_execution { yield }.with_config { timeout(timeout) }.
+                    to { quarantine task }
             end
 
             # Verifies that the provided event becomes unreachable within a
@@ -240,21 +212,10 @@ module Roby
             # @param [Float] timeout in seconds
             # @yield a block of code that performs the action that should turn
             #   the event into unreachable
-            def assert_event_becomes_unreachable(event, timeout = 5, &block)
-                ivar, unreachability_reason = watch_events(event, [], timeout, &block)
-                if reason = unreachability_reason.find { |ev, _| ev == event }
-                    return reason.last
-                end
-                if ivar.fulfilled?
-                    flunk("event has been emitted")
-                else
-                    msg = if !unreachability_reason.empty?
-                              format_unreachability_message(unreachability_reason)
-                          else
-                              ivar.reason
-                          end
-                    flunk("the following error happened before #{event} became unreachable:\n #{msg}")
-                end
+            def assert_event_becomes_unreachable(generator, timeout: 5, &block)
+                expect_execution { yield }.with_config { timeout(timeout) }.
+                    to { make_unreachable(generator) }
+                generator.unreachability_reason
             end
 
             # Verifies that a given event is unreachable, optionally checking
@@ -368,48 +329,6 @@ module Roby
 
             # @api private
             #
-            # Tests for events in +positive+ and +negative+ and returns
-            # the set of failing events if the assertion has finished.
-            # If the set is empty, it means that the assertion finished
-            # successfully
-            def self.event_watch_result(positive, negative, deadline = nil)
-                if deadline && deadline < Time.now
-                    return nil, "timed out waiting for #{positive.map(&:to_s).join(", ")} to happen"
-                end
-                if positive_ev = positive.find { |ev| ev.emitted? }
-                    return positive_ev.last, nil
-                end
-                failure = negative.find_all { |ev| ev.emitted? }
-                if !failure.empty?
-                    return nil, "#{failure} happened"
-                end
-                if positive.all? { |ev| ev.unreachable? }
-                    return nil, "all positive events are unreachable"
-                end
-
-                nil
-            end
-
-            # @api private
-            #
-            # Inserted as a propagation handler to verify {#watched_events} for
-            # the benefit of the various event assertion methods
-            def verify_watched_events
-                return if !watched_events
-
-                ivar, *assertion = *watched_events
-                success, error = Assertions.event_watch_result(*assertion)
-                if success
-                    ivar.set(success)
-                    @watched_events = nil
-                elsif error
-                    ivar.fail(error)
-                    @watched_events = nil
-                end
-            end
-
-            # @api private
-            #
             # Helper method that creates a matching object for localized errors
             #
             # @param [LocalizedError] localized_error_type the error model to
@@ -443,95 +362,63 @@ module Roby
             #
             # @yield the block that should cause the exception
             # @param (see create_exception_matcher)
-            def assert_free_event_emission_failed(
-                exception = EmissionFailed, original_exception: nil, failure_point: EventGenerator, direct: false, &block)
-                assert_notifies_free_event_exception(exception, failure_point: failure_point)
-                assert_free_event_exception_warning do
-                    assert_event_emission_failed(
-                        exception, original_exception: original_exception, failure_point: failure_point, direct: direct, &block)
-                end
+            def assert_free_event_emission_failed(exception = EmissionFailed, original_exception: nil, failure_point: EventGenerator, &block)
+                assert_event_emission_failed(exception, original_exception: original_exception, failure_point: failure_point, &block)
             end
 
             # Asserts that an event's emission failed
             #
             # @yield the block that should cause the exception
             # @param (see create_exception_matcher)
-            def assert_event_emission_failed(
-                exception = EmissionFailed, original_exception: nil, failure_point: EventGenerator, direct: false)
-                assert_event_exception(exception, original_exception: original_exception, failure_point: failure_point, direct: direct) do
-                    yield
-                end
+            def assert_event_emission_failed(exception = EmissionFailed, original_exception: nil, failure_point: EventGenerator, execution_engine: nil, &block)
+                assert_event_exception(
+                    exception, original_exception: original_exception,
+                    failure_point: failure_point,
+                    execution_engine: execution_engine, &block)
             end
 
             # Asserts that a free event's command failed
             #
             # @yield the block that should cause the exception
             # @param (see create_exception_matcher)
-            def assert_free_event_command_failed(
-                exception = CommandFailed, original_exception: nil, failure_point: EventGenerator, direct: false, &block)
-                assert_notifies_free_event_exception(exception, failure_point: failure_point)
-                assert_free_event_exception_warning do
-                    assert_event_command_failed(
-                        exception, original_exception: original_exception, failure_point: failure_point, direct: direct, &block)
-                end
+            def assert_free_event_command_failed(exception = CommandFailed, original_exception: nil, failure_point: EventGenerator, execution_engine: nil, &block)
+                assert_event_exception(
+                    exception, original_exception: original_exception,
+                    failure_point: failure_point,
+                    execution_engine: execution_engine, &block)
             end
 
             # Asserts that an event's command failed
             #
             # @yield the block that should cause the exception
             # @param (see create_exception_matcher)
-            def assert_event_command_failed(
-                exception = CommandFailed, original_exception: nil, failure_point: EventGenerator, direct: false)
-                assert_event_exception(exception, original_exception: original_exception, failure_point: failure_point, direct: direct) do
-                    yield
-                end
+            def assert_event_command_failed(exception = CommandFailed, original_exception: nil, failure_point: EventGenerator, execution_engine: nil, &block)
+                assert_event_exception(
+                    exception, original_exception: original_exception,
+                    failure_point: failure_point,
+                    execution_engine: execution_engine, &block)
             end
 
             # Asserts that an exception involving a free event is raised
-            def assert_free_event_exception(matcher, original_exception: nil, failure_point: EventGenerator, direct: false, execution_engine: nil, event_generators: [], &block)
-                matcher = create_exception_matcher(
+            def assert_free_event_exception(matcher, original_exception: nil, failure_point: EventGenerator, execution_engine: nil, &block)
+                assert_event_exception(
                     matcher, original_exception: original_exception,
-                    failure_point: failure_point)
-                if event_generators.empty? && failure_point.kind_of?(EventGenerator)
-                    event_generators << failure_point
-                end
-                execution_engine = exception_assertion_guess_execution_engine(
-                    execution_engine, failure_point, event_generators)
-                flexmock(execution_engine).should_receive(:notify_exception).
-                    with(ExecutionEngine::EXCEPTION_FREE_EVENT,
-                         *roby_make_flexmock_exception_matcher(matcher, event_generators)).
-                    once
-
-                error = nil
-                messages = capture_log(execution_engine, :warn) do
-                    error = assert_event_exception(
-                        matcher, original_exception: original_exception,
-                        failure_point: failure_point, direct: direct,
-                        execution_engine: execution_engine, &block)
-                end
-                assert_equal ["1 free event exceptions"], messages
-                error
+                    failure_point: failure_point,
+                    execution_engine: execution_engine, &block)
             end
 
             # Asserts that an exception involving an event is raised
             #
             # @yield the block that should cause the exception
             # @param (see create_exception_matcher)
-            def assert_event_exception(matcher, original_exception: nil, failure_point: EventGenerator, direct: false, execution_engine: nil)
-                matcher = create_exception_matcher(
-                    matcher, original_exception: original_exception,
-                    failure_point: failure_point)
+            def assert_event_exception(matcher, original_exception: nil, failure_point: EventGenerator, execution_engine: nil)
                 execution_engine = exception_assertion_guess_execution_engine(
                     execution_engine, failure_point, [])
 
-                if !direct
-                    flexmock(execution_engine).should_receive(:add_error).
-                        with(matcher).once.pass_thru
-                end
-
-                assert_raises(matcher) do
-                    yield
-                end
+                matcher = create_exception_matcher(
+                    matcher, original_exception: original_exception,
+                    failure_point: failure_point)
+                expect_execution { yield }.to { have_error_matching matcher }
             end
 
             # Asserts that a task fails to start
@@ -542,63 +429,12 @@ module Roby
             #   (i.e. the code-under-test will call #emit_failed directly) or is
             #   transformed from an event exception involving the task's start
             #   event by Roby's default exception handling mechanisms.
-            def assert_task_fails_to_start(task, matcher, failure_point: task.start_event, original_exception: nil, tasks: [], direct: false)
-                if direct
-                    matcher = create_exception_matcher(
-                        matcher, original_exception: original_exception,
-                        failure_point: failure_point)
-                    yield
-                    assert task.failed_to_start?, "task is not marked as failed to start"
-                    if !(matcher === task.failure_reason)
-                        flunk("the failure reason does not match the expected #{matcher} (#{matcher.describe_failed_match(task.failure_reason)})")
-                    end
-                    task.failure_reason
-                else
-                    exception = assert_handled_exception(matcher, failure_point: failure_point, original_exception: original_exception, tasks: tasks + [task]) do
-                        yield
-                    end
-                    assert task.failed_to_start?, "task is not marked as failed to start"
-                    assert_equal exception, task.failure_reason, "the expected failure reason is not the caught exception"
-                    exception
-                end
-            end
-
-            def __roby_exception_assertion_context(failure_point, tasks)
-                if !(engine_mock = @exception_assertion_engine_mock)
-                    execution_engine = exception_assertion_guess_execution_engine(
-                        execution_engine, failure_point, tasks)
-                    if !execution_engine
-                        raise ArgumentError, "could not guess the execution engine of #{failure_point}"
-                    end
-                    FlexMock.use(execution_engine) do |engine_mock|
-                        begin
-                            @exception_assertion_engine_mock = engine_mock
-                            yield(engine_mock)
-                        ensure
-                            @exception_assertion_engine_mock = nil
-                            @exception_assertion_compound_assertion = nil
-                        end
-                    end
-                else yield(engine_mock)
-                end
-            end
-
-            def __roby_execution_assertion_raises(notification_type, engine_mock, matcher, tasks)
-                engine_mock.should_receive(:notify_exception).at_least.once.
-                    with(notification_type,
-                         *roby_make_flexmock_exception_matcher(matcher, tasks))
-
-                __capture_log(engine_mock, :warn) do
-                    original_e, root_e = assert_raises(matcher, return_original_exception: true) do
-                        yield
-                        if @exception_assertion_compound_assertion
-                            raise @exception_assertion_compound_assertion
-                        end
-                    end
-                    @exception_assertion_compound_assertion =
-                        (@exception_assertion_compound_assertion = root_e if root_e != original_e)
-                    return original_e
-                end
+            def assert_task_fails_to_start(task, matcher, failure_point: task.start_event, original_exception: nil, tasks: [])
+                matcher = create_exception_matcher(
+                    matcher, original_exception: original_exception,
+                    failure_point: failure_point)
+                expect_execution { yield }.to { fail_to_start task }
+                task.failure_reason
             end
 
             # Asserts that a fatal exception is raised
@@ -608,18 +444,10 @@ module Roby
             # @param [Enumerable<Task>] tasks forming the exception's trace
             # @return [LocalizedError] the exception
             def assert_fatal_exception(matcher, failure_point: Task, original_exception: nil, tasks: [], kill_tasks: tasks)
-                __roby_exception_assertion_context(failure_point, tasks) do |engine_mock|
-                    matcher = create_exception_matcher(
-                        matcher, original_exception: original_exception,
-                        failure_point: failure_point)
-
-                    engine_mock.should_receive(:log_pp).with(:debug, any)
-                    kill_tasks.each do |t|
-                        engine_mock.should_receive(:log_pp).with(:warn, t)
-                    end
-
-                    __roby_execution_assertion_raises(ExecutionEngine::EXCEPTION_FATAL, engine_mock, matcher, tasks, &proc)
-                end
+                matcher = create_exception_matcher(
+                    matcher, original_exception: original_exception,
+                    failure_point: failure_point)
+                expect_execution { yield }.to { have_error_matching matcher }.exception
             end
 
             # Asserts that an exception is raised and handled
@@ -630,27 +458,10 @@ module Roby
             # @param [Enumerable<Task>] tasks forming the exception's trace
             # @return [LocalizedError] the exception
             def assert_handled_exception(matcher, failure_point: Task, original_exception: nil, tasks: [])
-                __roby_exception_assertion_context(failure_point, tasks) do |engine_mock|
-                    matcher = create_exception_matcher(
-                        matcher, original_exception: original_exception,
-                        failure_point: failure_point)
-
-                    engine_mock.should_receive(:log_pp).with(:debug, any)
-                    engine_mock.should_receive(:log_pp).with(:warn, /handled errors/)
-
-                    error = nil
-                    engine_mock.should_receive(:notify_exception).at_least.once.
-                        with(ExecutionEngine::EXCEPTION_HANDLED,
-                             *roby_make_flexmock_exception_matcher(matcher, tasks)).
-                        and_return do |_, execution_exception, _|
-                            error = execution_exception.exception
-                        end
-
-                    capture_log(execution_engine, :warn) do
-                        yield
-                    end
-                    error
-                end
+                matcher = create_exception_matcher(
+                    matcher, original_exception: original_exception,
+                    failure_point: failure_point)
+                expect_execution { yield }.to { have_handled_error_matching matcher }
             end
 
             # Asserts that a non-fatal exception is raised
@@ -660,13 +471,10 @@ module Roby
             # @param [Enumerable<Task>] tasks forming the exception's trace
             # @return [LocalizedError] the exception
             def assert_nonfatal_exception(matcher, failure_point: Task, original_exception: nil, tasks: [])
-                __roby_exception_assertion_context(failure_point, tasks) do |engine_mock|
-                    matcher = create_exception_matcher(
-                        matcher, original_exception: original_exception,
-                        failure_point: failure_point)
-
-                    __roby_execution_assertion_raises(ExecutionEngine::EXCEPTION_NONFATAL, engine_mock, matcher, tasks, &proc)
-                end
+                matcher = create_exception_matcher(
+                    matcher, original_exception: original_exception,
+                    failure_point: failure_point)
+                expect_execution { yield }.to { have_error_matching matcher }
             end
 
             # Asserts that Roby logs an exception with its backtrace
@@ -801,7 +609,7 @@ module Roby
                     FlexmockExceptionTasks.new(tasks.to_set)
             end
             # Assert that a state machine transitions
-            def assert_state_machine_transition(state_machine_task, to_state: Regexp.new, timeout: 5, start: false)
+            def assert_state_machine_transition(state_machine_task, to_state: Regexp.new, timeout: 5, start: true)
                 state_machines = state_machine_task.coordination_objects.
                     find_all { |obj| obj.kind_of?(Coordination::ActionStateMachine) }
                 if state_machines.empty?
