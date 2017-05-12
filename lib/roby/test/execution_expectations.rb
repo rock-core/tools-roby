@@ -257,6 +257,17 @@ module Roby
                     unexpected_error?(e)
                 end
 
+                # Look for internal_error_event, which is how the tasks report
+                # on their internal errors
+                internal_errors = propagation_info.emitted_events.find_all do |ev|
+                    if ev.generator.respond_to?(:symbol) && ev.generator.symbol == :internal_error
+                        @expectations.none? do |exp|
+                            exp.kind_of?(Emit) && exp.generator == ev.generator
+                        end
+                    end
+                end
+
+                unexpected_errors += internal_errors.flat_map { |ev| ev.context }
                 if !unexpected_errors.empty?
                     raise UnexpectedErrors.new(unexpected_errors)
                 end
@@ -337,6 +348,8 @@ module Roby
             end
 
             class Emit < Expectation
+                attr_reader :generator
+
                 def initialize(generator, backtrace)
                     super(backtrace)
                     @generator = generator
