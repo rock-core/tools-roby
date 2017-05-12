@@ -1107,10 +1107,14 @@ module Roby
                     poll_block.block.call(self)
                 end
             rescue LocalizedError => e
-                Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
+                if execution_engine.display_exceptions?
+                    Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
+                end
                 internal_error_event.emit e
             rescue Exception => e
-                Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
+                if execution_engine.display_exceptions?
+                    Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
+                end
                 internal_error_event.emit CodeError.new(e, self)
             end
         end
