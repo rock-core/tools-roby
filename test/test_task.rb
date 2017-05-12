@@ -14,7 +14,7 @@ module Roby
                     end
                 end
                 plan.add(task = task_m.new)
-                task.start!
+                execute { task.start! }
                 assert task.failed_to_start?, "#{task} is not marked as failed to start but should be"
                 assert_kind_of Roby::CommandFailed, task.failure_reason
                 assert_equal error, task.failure_reason.error
@@ -34,7 +34,7 @@ module Roby
                 begin
                     old_scheduler = execution_engine.scheduler
                     execution_engine.scheduler = scheduler
-                    process_events
+                    expect_execution { }.to { have_handled_error_matching error.class }
                 ensure
                     execution_engine.scheduler = old_scheduler
                 end
@@ -49,7 +49,8 @@ module Roby
                     end
                 end
                 plan.add(task = task_m.new)
-                task.start!
+                expect_execution { task.start! }.
+                    to { emit task.internal_error_event }
                 refute task.failed_to_start?, "#{task} is marked as failed to start but should not be"
                 refute task.running?
                 assert task.internal_error?
@@ -71,37 +72,49 @@ module Roby
 
             describe "a pending task" do
                 it "raises if calling an intermediate event" do
-                    assert_raises(CommandRejected.match.with_origin(task.inter_event)) do
-                        task.inter!
+                    execute do
+                        assert_raises(CommandRejected.match.with_origin(task.inter_event)) do
+                            task.inter!
+                        end
                     end
                     assert !task.inter_event.pending?
                 end
                 it "raises if emitting an intermediate event" do
-                    assert_raises(EmissionRejected.match.with_origin(task.inter_event)) do
-                        task.inter_event.emit
+                    execute do
+                        assert_raises(EmissionRejected.match.with_origin(task.inter_event)) do
+                            task.inter_event.emit
+                        end
                     end
                 end
             end
 
             describe "a running task" do
                 before do
-                    task.start!
+                    execute { task.start! }
                 end
                 it "raises if calling the start event" do
-                    assert_raises(CommandRejected) { task.start! }
+                    execute do
+                        assert_raises(CommandRejected) { task.start! }
+                    end
                 end
             end
             describe "a finished task" do
                 before do
-                    task.start!
-                    task.inter!
-                    task.stop!
+                    execute do
+                        task.start!
+                        task.inter!
+                        task.stop!
+                    end
                 end
                 it "raises if calling an intermediate event" do
-                    assert_raises(CommandRejected) { task.inter! }
+                    execute do
+                        assert_raises(CommandRejected) { task.inter! }
+                    end
                 end
                 it "raises if emitting an intermediate event" do
-                    assert_raises(TaskEventNotExecutable) { task.inter_event.emit }
+                    execute do
+                        assert_raises(TaskEventNotExecutable) { task.inter_event.emit }
+                    end
                 end
             end
 
@@ -117,7 +130,7 @@ module Roby
                     end
                 end
                 plan.add(task = model.new)
-                task.start!
+                execute { task.start! }
                 assert task.inter_event.emitted?
             end
         end
@@ -133,7 +146,7 @@ module Roby
                 task_m.on(:start) { |_| mock.start_called }
                 plan.add(task = task_m.new)
                 mock.should_receive(:start_called).once
-                task.start!
+                execute { task.start! }
             end
 
             it "evaluates the block in the instance's context" do
@@ -141,7 +154,7 @@ module Roby
                 task_m.on(:start) { |_| mock.start_called(self) }
                 plan.add(task = task_m.new)
                 mock.should_receive(:start_called).with(task)
-                task.start!
+                execute { task.start! }
             end
 
             it "does not add the handlers on its parent model" do
@@ -149,7 +162,7 @@ module Roby
                 task_m.on(:start) { |_| mock.start_called }
                 plan.add(task = Tasks::Simple.new)
                 mock.should_receive(:start_called).never
-                task.start!
+                execute { task.start! }
             end
         end
 
@@ -223,9 +236,9 @@ module Roby
                 assert_nil task.last_event
             end
             it "returns the last emitted event if some where emitted" do
-                task.start_event.emit
+                execute { task.start_event.emit }
                 assert_equal task.start_event.last, task.last_event
-                task.stop_event.emit
+                execute { task.stop_event.emit }
                 assert_equal task.stop_event.last, task.last_event
             end
         end
@@ -380,12 +393,12 @@ module Roby
                     recorder.execute_called(t)
                 end
                 recorder.should_receive(:execute_called).with(task).once
-                task.start!
+                execute { task.start! }
             end
 
             it "yields in the next cycle on running tasks" do
                 plan.add(task = Roby::Tasks::Simple.new)
-                task.start!
+                execute { task.start! }
                 task.execute do |t|
                     recorder.execute_called(t)
                 end
@@ -405,8 +418,8 @@ module Roby
                 it "copies the handler on a replacement done in the plan" do
                     plan.add(replacement)
                     plan.replace_task(task, replacement)
-                    replacement.start!
-                    task.start!
+                    execute { replacement.start! }
+                    execute { task.start! }
                 end
                 it "copies the handlers on a replacement added and done in a transaction" do
                     PlanObject.debug_finalization_place = true
@@ -415,8 +428,8 @@ module Roby
                         trsc.replace_task(trsc[task], replacement)
                         trsc.commit_transaction
                     end
-                    replacement.start!
-                    task.start!
+                    execute { replacement.start! }
+                    execute { task.start! }
                 end
                 it "copies the handlers on a replacement added in the plan and done in a transaction" do
                     plan.add(replacement)
@@ -424,8 +437,8 @@ module Roby
                         trsc.replace_task(trsc[task], trsc[replacement])
                         trsc.commit_transaction
                     end
-                    replacement.start!
-                    task.start!
+                    execute { replacement.start! }
+                    execute { task.start! }
                 end
             end
         end
@@ -806,7 +819,7 @@ module Roby
                 assert_nil subject.start_time
             end
             it "is the time of the start event" do
-                subject.start!
+                execute { subject.start! }
                 assert_equal subject.start_event.last.time, subject.start_time
             end
         end
@@ -814,12 +827,12 @@ module Roby
         describe "#end_time" do
             subject { plan.add(t = Roby::Tasks::Simple.new); t }
             it "is nil on a unfinished task" do
-                subject.start!
+                execute { subject.start! }
                 assert_nil subject.end_time
             end
             it "is the time of the stop event" do
-                subject.start!
-                subject.stop!
+                execute { subject.start! }
+                execute { subject.stop! }
                 assert_equal subject.stop_event.last.time, subject.end_time
             end
         end
@@ -831,15 +844,15 @@ module Roby
             end
 
             it "is the time between the start event and now on a running task" do
-                subject.start!
+                execute { subject.start! }
                 t = Time.now
                 flexmock(Time).should_receive(:now).and_return(t)
                 assert_equal t - subject.start_event.last.time, subject.lifetime
             end
 
             it "is the time between the stop and start events on a finished task" do
-                subject.start!
-                subject.stop!
+                execute { subject.start! }
+                execute { subject.stop! }
                 assert_equal subject.end_time - subject.start_time, subject.lifetime
             end
         end
@@ -856,7 +869,7 @@ module Roby
 
                 plan.add_permanent_task(task = task_m.new)
                 task.poll { |task| poll_cycles << task.plan.execution_engine.propagation_id }
-                task.start!
+                execute { task.start! }
                 expected = task.start_event.history.first.propagation_id
                 assert_equal [expected, expected], poll_cycles
             end
@@ -872,7 +885,7 @@ module Roby
                 task.poll { |_| mock.poll_handler }
                 mock.should_receive(:start_handler).twice.globally.ordered
                 mock.should_receive(:poll_handler).at_least.twice.globally.ordered
-                task.start!
+                execute { task.start! }
                 process_events
             end
 
@@ -895,7 +908,7 @@ module Roby
                 task.poll { |_| mock.poll_handler }
 
                 mock.should_receive(:poll_handler).by_default
-                task.start!
+                execute { task.start! }
                 assert_event_emission(task.stop_event) { task.stop! }
                 mock.should_receive(:poll_handler).never
                 process_events
@@ -912,13 +925,9 @@ module Roby
 
                 plan.add_permanent_task(task = task_m.new)
 
-                # polling errors are reported directly
-                assert_logs_exception_with_backtrace(error_m, Roby.logger, :warn)
                 mock.should_receive(:polled).once
                 assert_event_emission(task.internal_error_event) do
-                    assert_nonfatal_exception(PermanentTaskError, tasks: [task]) do
-                        task.start!
-                    end
+                    task.start!
                 end
                 assert task.stop?
             end
@@ -935,17 +944,14 @@ module Roby
 
                 plan.add_permanent_task(task = task_m.new)
                 mock.should_receive(:polled).once
-                assert_logs_exception_with_backtrace(error_m, Roby.logger, :warn)
-                assert_event_emission(task.internal_error_event) do
-                    assert_nonfatal_exception(PermanentTaskError, tasks: [task]) do
-                        task.start!
-                    end
+                assert_event_emission task.internal_error_event do
+                    task.start!
                 end
                 assert(task.failed?)
                 assert(task.running?)
                 assert(task.finishing?)
                 plan.unmark_permanent_task(task)
-                task.stop_event.emit
+                execute { task.stop_event.emit }
                 assert(task.failed?)
                 assert(!task.running?)
                 assert(task.finished?)
@@ -963,11 +969,11 @@ module Roby
                 end.new
                 plan.add(master)
 
-                master.start!
+                execute { master.start! }
                 assert(master.starting?)
                 assert(master.depends_on?(slave))
-                slave.start!
-                slave.success!
+                execute { slave.start! }
+                execute { slave.success! }
                 assert(master.started?)
             end
 
@@ -980,9 +986,9 @@ module Roby
                 end.new
                 plan.add(master)
 
-                master.start!
+                execute { master.start! }
                 assert master.start_event.pending?
-                plan.remove_task(slave)
+                execute { plan.remove_task(slave) }
                 assert master.failed_to_start?
                 assert_kind_of UnreachableEvent, master.failure_reason.error
                 assert_equal slave.start_event, master.failure_reason.error.failed_generator
@@ -1004,17 +1010,21 @@ module Roby
 
             def self.validity_checks_fail_at_toplevel(context, exception = TaskEventNotExecutable, *_)
                 context.it "fails in #call" do
-                    error = assert_event_exception(
-                        exception,
-                        direct: true, failure_point: task.start_event) do
+                    error = execute do
+                        assert_raises(exception) do
                             task.start_event.call
                         end
+                    end
+                    assert_equal task.start_event, error.failure_point
                     assert_equal yield(true, task), error.message
                 end
                 context.it "fails in #emit" do
-                    error = assert_event_exception(
-                        exception,
-                        direct: true, failure_point: task.start_event) { task.start_event.emit }
+                    error = execute do
+                        assert_raises(exception) do
+                            task.start_event.emit
+                        end
+                    end
+                    assert_equal task.start_event, error.failure_point
                     assert_equal yield(false, task), error.message
                 end
             end
@@ -1022,15 +1032,15 @@ module Roby
             def self.validity_checks_fail_during_propagation(context, exception = TaskEventNotExecutable, *_)
                 context.it "fails in #call_without_propagation" do
                     error = assert_fatal_exception(
-                        exception,
-                        tasks: [task], failure_point: task.start_event) { task.start_event.call }
+                        exception, tasks: [task], failure_point: task.start_event) { task.start_event.call }
                     assert_equal yield(true, task), error.message
                 end
 
                 context.it "fails in #emit" do
-                    error = assert_event_exception(
-                        exception,
-                        direct: true, failure_point: task.start_event) { task.start_event.emit }
+                    error = execute do
+                        assert_raises(exception) { task.start_event.emit }
+                    end
+                    assert_equal task.start_event, error.failure_point
                     assert_match yield(false, task), error.message
                 end
             end
@@ -1038,7 +1048,7 @@ module Roby
             describe "reporting of a finalized task" do
                 before do
                     plan.add(@task = task_m.new)
-                    plan.remove_task(task)
+                    execute { plan.remove_task(task) }
                 end
                 validity_checks_fail_at_toplevel(self, TaskEventNotExecutable) do |is_call, task|
                     "start_event.#{is_call ? "call" : "emit"} on #{task} but the task has been removed from its plan"
@@ -1087,7 +1097,7 @@ module Roby
             describe "reporting a task whose start event is unreachable" do
                 before do
                     plan.add(@task = task_m.new)
-                    task.start_event.unreachable!
+                    execute { task.start_event.unreachable! }
                 end
                 validity_checks_fail_at_toplevel(self, UnreachableEvent) do |is_call, task|
                     "#{is_call ? "#call" : "#emit"} called on #{task.start_event} which has been made unreachable"
@@ -1194,7 +1204,7 @@ module Roby
                 plan.add(@task = task_m.new)
             end
             after do
-                task.stop_event.emit if task.running?
+                execute { task.stop_event.emit } if task.running?
             end
             it "is true on new tasks" do
                 assert task.reusable?
@@ -1204,29 +1214,33 @@ module Roby
                 assert !task.reusable?
             end
             it "is true on running tasks" do
-                task.start!
+                execute { task.start! }
                 assert task.reusable?
             end
             it "is false on finishing tasks" do
-                task.start!
-                task.stop!
+                execute do
+                    task.start!
+                    task.stop!
+                end
                 refute task.reusable?
             end
             it "is false on finished tasks "do
-                task.start!
-                task.stop_event.emit
+                execute do
+                    task.start!
+                    task.stop_event.emit
+                end
                 refute task.reusable?
             end
             it "is false on finalized pending tasks" do
-                task.failed_to_start! "bla"
+                execute { task.failed_to_start! "bla" }
                 refute task.reusable?
             end
             it "is false on failed-to-start tasks" do
-                plan.remove_task(task)
+                execute { plan.remove_task(task) }
                 refute task.reusable?
             end
             it "is false if the task is garbage" do
-                task.garbage!
+                execute { task.garbage! }
                 refute task.reusable?
             end
             it "propagates a 'true' to a transaction proxy" do
@@ -1264,7 +1278,7 @@ module Roby
         describe "#garbage!" do
             it "marks its bound events as garbage" do
                 plan.add(task = Tasks::Simple.new)
-                task.garbage!
+                execute { task.garbage! }
                 assert task.start_event.garbage?
             end
         end
@@ -1305,7 +1319,7 @@ module Roby
                         event(:start) { |_| }
                     end
                     plan.add(@task = task_m.new)
-                    task.start!
+                    execute { task.start! }
                 end
                 nominal_behaviour(self)
             end
@@ -1313,7 +1327,7 @@ module Roby
             describe "running tasks" do
                 it "raises InternalError and does not mark the task" do
                     plan.add(task = Tasks::Simple.new)
-                    task.start!
+                    execute { task.start! }
                     assert_raises(InternalError) do
                         task.mark_failed_to_start(flexmock, Time.now)
                     end
@@ -1377,12 +1391,12 @@ module Roby
                 plan.add(@task = Roby::Tasks::Simple.new)
             end
             it "raises if the task has failed to start" do
-                task.start_event.emit_failed
+                execute { task.start_event.emit_failed }
                 assert_raises(PromiseInFinishedTask) { task.promise { } }
             end
             it "raises if the task has finished" do
-                task.start!
-                task.stop!
+                execute { task.start! }
+                execute { task.stop! }
                 assert_raises(PromiseInFinishedTask) { task.promise { } }
             end
             it "creates a promise using the serialized task executor otherwise" do
@@ -1459,7 +1473,7 @@ class TC_Task < Minitest::Test
 	    end
 	    plan.add_mission_task(task = model.new)
 	    mock.should_receive(:start).once.with(task, [42])
-	    task.start!(42)
+	    execute { task.start!(42) }
 	end
     end
 
@@ -1482,7 +1496,7 @@ class TC_Task < Minitest::Test
             plan.add_mission_task(task = child_m.new)
             mock.should_receive(:parent_started).once.with(task, 21)
             mock.should_receive(:child_started).once.with(task, 42)
-            task.start!(42)
+            execute { task.start!(42) }
         end
     end
 
@@ -1566,7 +1580,7 @@ class TC_Task < Minitest::Test
 	    mock.should_receive(:started).once.with([42]).ordered
 	    mock.should_receive(:success).once.with([42]).ordered
 	    mock.should_receive(:stopped).once.with([42]).ordered
-	    task.start!(42)
+	    execute { task.start!(42) }
 	end
         assert(task.finished?)
 	event_history = task.history.map { |ev| ev.generator }
@@ -1580,7 +1594,7 @@ class TC_Task < Minitest::Test
 
             t2.start_event.on { |ev| mock.start }
             mock.should_receive(:start).once
-	    t1.start!
+	    execute { t1.start! }
 	end
     end
 
@@ -1588,7 +1602,7 @@ class TC_Task < Minitest::Test
 	t = prepare_plan missions: 1, model: Tasks::Simple
 	e = EventGenerator.new(true)
         t.start_event.signals e
-	t.start!
+	execute { t.start! }
 	assert(e.emitted?)
     end
 
@@ -1604,11 +1618,11 @@ class TC_Task < Minitest::Test
 	assert_equal([:stop].to_set,          model.enum_for(:each_forwarding, :failed).to_set)
 
         plan.add(task = model.new)
-        task.start!
+        execute { task.start! }
 
 	# Make sure the model-level relation is not applied to parent models
 	plan.add(task = Tasks::Simple.new)
-	task.start!
+	execute { task.start! }
 	assert(!task.failed?)
     end
 
@@ -1619,7 +1633,7 @@ class TC_Task < Minitest::Test
             t2.start_event.on { |context| mock.start }
 
 	    mock.should_receive(:start).once
-	    t1.start!
+	    execute { t1.start! }
 	end
     end
 
@@ -1635,7 +1649,7 @@ class TC_Task < Minitest::Test
 
 	    mock.should_receive(:called).never
 	    mock.should_receive(:emitted).once
-	    t1.start!
+	    execute { t1.start! }
 	end
     end
 
@@ -1891,7 +1905,7 @@ class TC_Task < Minitest::Test
 	assert(!task.finishing?)
 	assert(!task.finished?)
 
-	task.start!
+	execute { task.start! }
 	assert(!task.pending?)
 	assert(task.starting?)
 	assert(!task.running?)
@@ -1900,7 +1914,7 @@ class TC_Task < Minitest::Test
 	assert(!task.finishing?)
 	assert(!task.finished?)
 
-	task.start_event.emit
+	execute { task.start_event.emit }
 	assert(!task.pending?)
 	assert(!task.starting?)
 	assert(task.running?)
@@ -1909,7 +1923,7 @@ class TC_Task < Minitest::Test
 	assert(!task.finishing?)
 	assert(!task.finished?)
 
-	task.stop!
+	execute { task.stop! }
 	assert(!task.pending?)
 	assert(!task.starting?)
 	assert(task.running?)
@@ -1918,7 +1932,7 @@ class TC_Task < Minitest::Test
 	assert(task.finishing?)
 	assert(!task.finished?)
 
-	task.failed_event.emit
+	execute { task.failed_event.emit }
 	assert(!task.pending?)
 	assert(!task.starting?)
 	assert(!task.running?)
@@ -1985,8 +1999,8 @@ class TC_Task < Minitest::Test
         end
 
         assert(task.pending?)
-        task.start!
-        task.stop!
+        execute { task.start! }
+        execute { task.stop! }
     end
 
     def test_context_propagation
@@ -2014,9 +2028,11 @@ class TC_Task < Minitest::Test
 	    mock.should_receive(:started).with([42]).once
 	    mock.should_receive(:pass_through).with([10]).once
 	    mock.should_receive(:stopped).with([21]).once
-	    task.start!(42)
-	    task.pass_through!(10)
-            task.stop_event.emit(21)
+            execute do
+                task.start!(42)
+                task.pass_through!(10)
+                task.stop_event.emit(21)
+            end
 	    assert(task.finished?)
 	end
     end
@@ -2069,24 +2085,24 @@ class TC_Task < Minitest::Test
 	end
 
 	plan.add(task = model.new)
-	task.start!
-	task.stop_event.emit
+	execute { task.start! }
+	execute { task.stop_event.emit }
 	assert(!task.success?)
 	assert(!task.failed?)
 	assert(task.finished?)
 	assert_equal(task.stop_event.last, task.terminal_event)
 
 	plan.add(task = model.new)
-	task.start!
-	task.success_event.emit
+	execute { task.start! }
+	execute { task.success_event.emit }
 	assert(task.success?)
 	assert(!task.failed?)
 	assert(task.finished?)
 	assert_equal(task.success_event.last, task.terminal_event)
 
 	plan.add(task = model.new)
-	task.start!
-	task.failed_event.emit
+	execute { task.start! }
+	execute { task.failed_event.emit }
 	assert(!task.success?)
 	assert(task.failed?)
 	assert(task.finished?)
@@ -2160,7 +2176,7 @@ class TC_Task < Minitest::Test
 
 	# Cannot change the flag if the task is running
         task.executable = nil
-        task.start!
+        execute { task.start! }
 	assert_raises(ModelViolation) { task.executable = false }
     end
 	
@@ -2173,7 +2189,7 @@ class TC_Task < Minitest::Test
                 t.event(name).on { |event| mock.send(name) }
 		mock.should_receive(name).once.ordered
 	    end
-	    t.start!
+	    execute { t.start! }
 	end
     end
 
@@ -2184,7 +2200,7 @@ class TC_Task < Minitest::Test
                 a.event(name).on { |ev| mock.send(name) }
 		mock.should_receive(name).once.ordered
 	    end
-	    a.start!
+	    execute { a.start! }
 	    assert( tasks.all? { |t| t.finished? })
 	end
     end
@@ -2240,11 +2256,11 @@ class TC_Task < Minitest::Test
 
 	plan.add_mission_task(task)
 
-	task.start!
+	execute { task.start! }
 	assert(t1.running?)
-	t1.success!
+	execute { t1.success! }
 	assert(t2.running?)
-	t2.success!
+	execute { t2.success! }
 	assert(task.success?)
     end
 
@@ -2252,13 +2268,17 @@ class TC_Task < Minitest::Test
 	t1, t2 = prepare_plan add: 2, model: Tasks::Simple
 
 	assert(t1.compatible_state?(t2))
-	t1.start!; assert(! t1.compatible_state?(t2) && !t2.compatible_state?(t1))
-	t1.stop!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
+	execute { t1.start! }
+        assert(! t1.compatible_state?(t2) && !t2.compatible_state?(t1))
+	execute { t1.stop! }
+        assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 
 	plan.add(t1 = Tasks::Simple.new)
-	t1.start!
-	t2.start!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
-	t1.stop!; assert(t1.compatible_state?(t2) && !t2.compatible_state?(t1))
+	execute { t1.start! }
+	execute { t2.start! }
+        assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
+	execute { t1.stop! }
+        assert(t1.compatible_state?(t2) && !t2.compatible_state?(t1))
     end
 
     def test_fullfills
@@ -2346,10 +2366,12 @@ class TC_Task < Minitest::Test
 	    mock.should_receive(:ready_called).once
 	    mock.should_receive(:ready_cancel_called).once
 
-	    task.start!
-	    task.success!
+            execute do
+                task.start!
+                task.success!
+            end
 	end
-	execution_engine.garbage_collect
+	execute { execution_engine.garbage_collect }
 
 	# Test that it works on pending tasks too
 	FlexMock.use do |mock|
@@ -2366,7 +2388,7 @@ class TC_Task < Minitest::Test
 	    mock.should_receive(:ready_called).once
 	    mock.should_receive(:ready_cancel_called).once
 
-	    execution_engine.garbage_collect
+	    execute { execution_engine.garbage_collect }
 	end
 
     end
@@ -2380,8 +2402,8 @@ class TC_Task < Minitest::Test
 
             mock.should_receive(:stop_called).once
             mock.should_receive(:stop_cancel_called).never
-            task.start!
-            task.stop!
+            execute { task.start! }
+            execute { task.stop! }
         end
     end
 
@@ -2389,13 +2411,13 @@ class TC_Task < Minitest::Test
 	t1, t2 = Tasks::Simple.new, Tasks::Simple.new
 	plan.add(g = Tasks::Group.new(t1, t2))
 
-	g.start!
+	execute { g.start! }
 	assert(t1.running?)
 	assert(t2.running?)
 
-	t1.success!
+	execute { t1.success! }
 	assert(g.running?)
-	t2.success!
+	execute { t2.success! }
 	assert(g.success?)
     end
 
@@ -2428,12 +2450,12 @@ class TC_Task < Minitest::Test
 	end.new
 	plan.add(task)
 
-	task.start!
+	execute { task.start! }
 	assert_equal([], task.start_event.last.task_sources.to_a)
 
 	ev = EventGenerator.new(true)
 	ev.forward_to task.specialized_failure_event
-	ev.call
+	execute { ev.call }
 	assert_equal([task.failed_event.last], task.stop_event.last.task_sources.to_a)
 	assert_equal([task.specialized_failure_event.last, task.failed_event.last].to_set, task.stop_event.last.all_task_sources.to_set)
     end
@@ -2443,8 +2465,8 @@ class TC_Task < Minitest::Test
             event :intermediate
         end
 	plan.add(task = model.new)
-	task.start!
-        task.intermediate_event.emit
+	execute { task.start! }
+        execute { task.intermediate_event.emit }
 
 	new = task.dup
         assert !new.find_event(:stop)
@@ -2460,7 +2482,7 @@ class TC_Task < Minitest::Test
 
     def test_failed_to_start
 	plan.add(task = Roby::Test::Tasks::Simple.new)
-        task.failed_to_start!("test")
+        execute { task.failed_to_start!("test") }
         assert task.failed_to_start?
         assert_equal "test", task.failure_reason
         assert task.failed?
@@ -2473,31 +2495,35 @@ class TC_Task < Minitest::Test
 
     def test_cannot_call_event_on_task_that_failed_to_start
 	plan.add(task = Roby::Test::Tasks::Simple.new)
-        task.failed_to_start!("test")
+        execute { task.failed_to_start!("test") }
         assert task.plan
         assert task.failed_to_start?
-        assert_raises(Roby::CommandRejected) { task.stop! }
+        execute do
+            assert_raises(Roby::CommandRejected) { task.stop! }
+        end
     end
 
     def test_cannot_call_event_on_task_that_finished
 	plan.add(task = Roby::Test::Tasks::Simple.new)
-        task.start_event.emit
-        task.stop_event.emit
-        assert_raises(Roby::CommandRejected) { task.stop! }
+        execute { task.start_event.emit }
+        execute { task.stop_event.emit }
+        execute do
+            assert_raises(Roby::CommandRejected) { task.stop! }
+        end
     end
 
     def test_intermediate_emit_failed
-        model = Tasks::Simple.new_submodel do
-            event :intermediate
-        end
-	plan.add(task = model.new)
-        task.start!
+        model = Tasks::Simple.new_submodel { event :intermediate }
 
-        task.intermediate_event.emit_failed
-        assert(task.internal_error?)
-        assert(task.failed?)
+        plan.add(task = model.new)
+        expect_execution do
+            task.start!
+            task.intermediate_event.emit_failed
+        end.to { emit task.internal_error_event }
+        assert task.internal_error?
+        assert task.failed?
         assert_kind_of EmissionFailed, task.failure_reason
-        assert_equal(task.intermediate_event, task.failure_reason.failed_generator)
+        assert_equal task.intermediate_event, task.failure_reason.failed_generator
     end
 
     def test_emergency_termination_fails
@@ -2507,19 +2533,22 @@ class TC_Task < Minitest::Test
             end
             event :emission_fails
         end
-	plan.add(task = model.new)
-        task.start!
+        plan.add(task = model.new)
+        expect_execution do
+            task.start!
+            task.command_fails!
+        end.to { emit task.internal_error_event }
 
-        task.command_fails!
         assert(task.internal_error?)
         assert(task.failed?)
         assert_kind_of CommandFailed, task.failure_reason
         assert_equal(task.command_fails_event, task.failure_reason.failed_generator)
 
         plan.add(task = model.new)
-        task.start!
-        task.emission_fails_event.emit_failed
-        assert(task.internal_error?)
+        expect_execution do
+            task.start!
+            task.emission_fails_event.emit_failed
+        end.to { emit task.internal_error_event }
         assert(task.failed?)
         assert_kind_of EmissionFailed, task.failure_reason
     end
@@ -2542,25 +2571,20 @@ class TC_Task < Minitest::Test
             end
         end
 	plan.add(task = model.new)
-        task.start!
-
-        execution_engine.display_exceptions = false
-        assert_logs_exception_with_backtrace(Roby::CommandFailed, execution_engine, :fatal)
-        flexmock(execution_engine).should_receive(:log_pp).with(:debug, any)
-        flexmock(execution_engine).should_receive(:log_pp).with(:warn, task).once
-        capture_log(execution_engine, :warn) do
-            capture_log(execution_engine, :fatal) do
-                assert_raises(Roby::TaskEmergencyTermination) do
-                    task.stop!
-                end
+        capture_log(execution_engine, :fatal) do
+            expect_execution do
+                task.start!
+                task.stop!
+            end.to do
+                have_error_matching Roby::TaskEmergencyTermination
+                quarantine task
             end
         end
 
     ensure
-        execution_engine.display_exceptions = true
         if task
             task.forcefully_terminate
-            plan.remove_task(task)
+            execute { plan.remove_task(task) }
         end
     end
 
@@ -2573,7 +2597,7 @@ class TC_Task < Minitest::Test
         assert !task.arguments.static?
 	plan.add(task)
 	assert task.executable?
-	task.start!
+	execute { task.start! }
 	assert_nil task.arguments[:value]
     end
 
@@ -2586,7 +2610,7 @@ class TC_Task < Minitest::Test
         assert !task.arguments.static?
 	plan.add(task)
 	assert task.executable?
-	task.start!
+	execute { task.start! }
 	assert_equal 10, task.arguments[:value]
     end
 
@@ -2622,7 +2646,7 @@ class TC_Task < Minitest::Test
 
         has_value = true
         plan.add(task)
-        task.start!
+        execute { task.start! }
         assert_equal 10, task.arguments[:value]
         assert_equal 10, task.value
     end
@@ -2649,7 +2673,7 @@ class TC_Task < Minitest::Test
         plan.force_replace_task(planned_task, (planned_task = klass.new))
         planned_task.arg = 10
         assert planning_task.fully_instanciated?
-        planning_task.start!
+        execute { planning_task.start! }
         assert_equal 10, planning_task.arg
     end
 
@@ -2671,7 +2695,7 @@ class TC_Task < Minitest::Test
         assert task.fully_instanciated?
         assert_nil task.arg
         value_obj.value = 20
-        task.start!
+        execute { task.start! }
         assert_equal 20, task.arg
     end
 
@@ -2730,8 +2754,8 @@ class TC_Task < Minitest::Test
             mock.should_receive(:should_not_be_passed_on).with(old).once
             mock.should_receive(:should_be_passed_on).with(old).once
             mock.should_receive(:should_be_passed_on).with(new).once
-            old.start!
-            new.start!
+            execute { old.start! }
+            execute { new.start! }
 
             process_events
         end
@@ -2755,8 +2779,10 @@ class TC_Task < Minitest::Test
             assert_equal(1, new.poll_handlers.size)
             assert_equal(new.poll_handlers[0].block, old.poll_handlers[1].block)
 
-            old.start!
-            new.start!
+            execute do
+                old.start!
+                new.start!
+            end
         end
     end
 
@@ -2770,7 +2796,7 @@ class TC_Task < Minitest::Test
             end
         end
         plan.add(task = model.new)
-        task.start!
+        execute { task.start! }
     end
 
     def test_event_handlers_with_replacing
@@ -2792,8 +2818,8 @@ class TC_Task < Minitest::Test
             assert_equal(1, new.start_event.handlers.size)
             assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[1].block)
 
-            old.start!
-            new.start!
+            execute { old.start! }
+            execute { new.start! }
         end
     end
 
@@ -2815,7 +2841,7 @@ class TC_Task < Minitest::Test
             old.poll(on_replace: :drop) { |task| mock.should_not_be_passed_on(task) }
 
             plan.replace(old, new)
-            new.start!
+            execute { new.start! }
 
             assert_equal(1, new.poll_handlers.size, new.poll_handlers.map(&:block))
             assert_equal(new.poll_handlers[0].block, old.poll_handlers[0].block)
@@ -2844,7 +2870,7 @@ class TC_Task < Minitest::Test
 
             mock.should_receive(:should_not_be_passed_on).never
             mock.should_receive(:should_be_passed_on).with(new).once
-            new.start!
+            execute { new.start! }
         end
     end
 
@@ -2866,8 +2892,10 @@ class TC_Task < Minitest::Test
             assert_equal(1, new.finalization_handlers.size)
             assert_equal(new.finalization_handlers[0].block, old.finalization_handlers[1].block)
 
-            plan.remove_task(old)
-            plan.remove_task(new)
+            execute do
+                plan.remove_task(old)
+                plan.remove_task(new)
+            end
         end
     end
 
@@ -2890,8 +2918,10 @@ class TC_Task < Minitest::Test
             assert_equal(1, new.finalization_handlers.size)
             assert_equal(new.finalization_handlers[0].block, old.finalization_handlers[1].block)
 
-            plan.remove_task(old)
-            plan.remove_task(new)
+            execute do
+                plan.remove_task(old)
+                plan.remove_task(new)
+            end
         end
     end
 
@@ -2899,9 +2929,9 @@ class TC_Task < Minitest::Test
         source, target = prepare_plan add: 2, model: Roby::Tasks::Simple
         source.stop_event.forward_to target.aborted_event
 
-        source.start!
-        target.start!
-        source.stop!
+        execute { source.start! }
+        execute { target.start! }
+        execute { source.stop! }
         event = target.stop_event.last
 
         assert_equal [target.failed_event].map(&:last).to_set, event.sources.to_set
@@ -2925,7 +2955,7 @@ class TC_Task < Minitest::Test
 
     def test_emit_failed_on_start_event_causes_the_task_to_be_marked_as_failed_to_start
         plan.add(task = Roby::Tasks::Simple.new)
-        task.start_event.emit_failed("test")
+        execute { task.start_event.emit_failed("test") }
         assert task.failed_to_start?
         assert_kind_of Roby::EmissionFailed, task.failure_reason
     end
@@ -2934,7 +2964,7 @@ class TC_Task < Minitest::Test
         plan.add(task = Tasks::Simple.new)
         e = EmissionFailed.new(nil, task.start_event)
         flexmock(task.start_event).should_receive(:calling).and_raise(e)
-        task.start!
+        execute { task.start! }
         assert task.failed_to_start?
     end
 
@@ -2942,7 +2972,7 @@ class TC_Task < Minitest::Test
         plan.add(task = Tasks::Simple.new)
         e = CommandFailed.new(nil, task.start_event)
         flexmock(task.start_event).should_receive(:calling).and_raise(e)
-        task.start!
+        execute { task.start! }
         assert task.failed_to_start?
     end
     def test_model_terminal_event_forces_terminal
@@ -2968,8 +2998,10 @@ class TC_Task < Minitest::Test
         end
         recorder.should_receive(:on_stop).once.ordered
         recorder.should_receive(:when_unreachable).once.ordered
-        task.start!
-        task.stop!
+        execute do
+            task.start!
+            task.stop!
+        end
     end
 
     def test_event_to_execution_exception_matcher_matches_the_event_specifically

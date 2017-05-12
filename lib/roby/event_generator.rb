@@ -261,6 +261,7 @@ module Roby
 	def call(*context)
             engine = execution_engine
 	    if engine && !engine.in_propagation_context?
+                Roby.warn_deprecated "calling EventGenerator#call outside of propagation context is deprecated. In tests, use execute { } or expect_execution { }.to { }"
                 engine.process_events_synchronous { call(*context) }
                 return
             end
@@ -606,6 +607,7 @@ module Roby
 	def emit_failed(error = nil, message = nil)
             engine = execution_engine
 	    if engine && !engine.in_propagation_context?
+                Roby.warn_deprecated "calling EventGenerator#emit_failed outside of propagation context is deprecated. In tests, use execute { } or expect_execution { }.to { }"
                 engine.process_events_synchronous { emit_failed(error, message) }
                 return
             end
@@ -673,6 +675,7 @@ module Roby
 	def emit(*context)
             engine = execution_engine
 	    if engine && !engine.in_propagation_context?
+                Roby.warn_deprecated "calling EventGenerator#emit outside of propagation context is deprecated. In tests, use execute { } or expect_execution { }.to { }"
                 engine.process_events_synchronous { emit(*context) }
                 return
             end
@@ -974,6 +977,7 @@ module Roby
 	def unreachable!(reason = nil, plan = self.plan)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
+                Roby.warn_deprecated "calling EventGenerator#unreachable! outside of propagation context is deprecated. In tests, use execute { } or expect_execution { }.to { }"
                 execution_engine.process_events_synchronous do
                     unreachable!(reason, plan)
                 end
