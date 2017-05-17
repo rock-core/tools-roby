@@ -40,9 +40,24 @@ module Roby
                 end
             end
 
+            def self.format_propagation_info(propagation_info)
+                result = []
+                if !propagation_info.emitted_events.empty?
+                    result << "received #{propagation_info.emitted_events} events:\n  " +
+                        propagation_info.emitted_events.map { |ev| ev.to_s }.join("\n  ")
+                end
+                exceptions = propagation_info.exceptions
+                if !exceptions.empty?
+                    result << "#{exceptions.size} exceptions:\n  " +
+                        exceptions.map { |e| PP.pp(e, "").split("\n").join("\n    ") }.join("\n  ")
+                end
+                result.join("\n")
+            end
+
             class Unmet < Minitest::Assertion
-                def initialize(expectations_with_explanations)
+                def initialize(expectations_with_explanations, propagation_info)
                     @expectations = expectations_with_explanations
+                    @propagation_info = propagation_info
                 end
 
                 def to_s
@@ -53,13 +68,14 @@ module Roby
                             exp += " because of " + PP.pp(explanation, "").chomp
                         end
                         exp
-                    end.join("\n")
+                    end.join("\n") + "\n" + ExecutionExpectations.format_propagation_info(@propagation_info)
                 end
             end
 
             class Timeout < Minitest::Assertion
-                def initialize(expectations_with_explanations)
+                def initialize(expectations_with_explanations, propagation_info)
                     @expectations = expectations_with_explanations
+                    @propagation_info = propagation_info
                 end
 
                 def to_s
@@ -70,7 +86,7 @@ module Roby
                             exp += " because of " + PP.pp(explanation, "").chomp
                         end
                         exp
-                    end.join("\n")
+                    end.join("\n") + "\n" + ExecutionExpectations.format_propagation_info(@propagation_info)
                 end
             end
 
@@ -206,12 +222,12 @@ module Roby
                         unachievable = unachievable.map do |expectation|
                             [expectation, expectation.explain_unachievable(all_propagation_info)]
                         end
-                        raise Unmet.new(unachievable)
+                        raise Unmet.new(unachievable, all_propagation_info)
                     end
 
                     remaining_timeout = timeout_deadline - Time.now
                     if remaining_timeout < 0
-                        raise Timeout.new(unmet)
+                        raise Timeout.new(unmet, all_propagation_info)
                     end
 
                     if engine.has_waiting_work? && @join_all_waiting_work
@@ -227,7 +243,7 @@ module Roby
 
                 unmet = find_all_unmet_expectations(all_propagation_info)
                 if !unmet.empty?
-                    raise Unmet.new(unmet)
+                    raise Unmet.new(unmet, all_propagation_info)
                 end
 
                 if @validate_unexpected_errors
