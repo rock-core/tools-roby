@@ -61,6 +61,10 @@ module Roby
                 end
 
                 def to_s
+                    propagation_info = ExecutionExpectations.format_propagation_info(@propagation_info)
+                    if !propagation_info.empty?
+                        propagation_info = "\n" + propagation_info
+                    end
                     "#{@expectations.size} unmet expectations\n" +
                     @expectations.map do |exp, explanation|
                         exp = PP.pp(exp, "").chomp
@@ -68,6 +72,7 @@ module Roby
                             exp += " because of " + PP.pp(explanation, "").chomp
                         end
                         exp
+                    end.join("\n") + propagation_info
                     end.join("\n") + "\n" + ExecutionExpectations.format_propagation_info(@propagation_info)
                 end
             end
