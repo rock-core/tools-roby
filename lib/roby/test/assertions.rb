@@ -418,7 +418,7 @@ module Roby
                 matcher = create_exception_matcher(
                     matcher, original_exception: original_exception,
                     failure_point: failure_point)
-                expect_execution { yield }.to { have_error_matching matcher }
+                expect_execution { yield if block_given? }.to { have_error_matching matcher }
             end
 
             # Asserts that a task fails to start
@@ -433,7 +433,7 @@ module Roby
                 matcher = create_exception_matcher(
                     matcher, original_exception: original_exception,
                     failure_point: failure_point)
-                expect_execution { yield }.to { fail_to_start task }
+                expect_execution { yield if block_given? }.to { fail_to_start task }
                 task.failure_reason
             end
 
@@ -447,7 +447,7 @@ module Roby
                 matcher = create_exception_matcher(
                     matcher, original_exception: original_exception,
                     failure_point: failure_point)
-                expect_execution { yield }.to { have_error_matching matcher }.exception
+                expect_execution { yield if block_given? }.to { have_error_matching matcher }.exception
             end
 
             # Asserts that an exception is raised and handled
@@ -461,7 +461,7 @@ module Roby
                 matcher = create_exception_matcher(
                     matcher, original_exception: original_exception,
                     failure_point: failure_point)
-                expect_execution { yield }.to { have_handled_error_matching matcher }
+                expect_execution { yield if block_given? }.to { have_handled_error_matching matcher }
             end
 
             # Asserts that a non-fatal exception is raised
