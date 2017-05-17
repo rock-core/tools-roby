@@ -73,25 +73,6 @@ module Roby
                         end
                         exp
                     end.join("\n") + propagation_info
-                    end.join("\n") + "\n" + ExecutionExpectations.format_propagation_info(@propagation_info)
-                end
-            end
-
-            class Timeout < Minitest::Assertion
-                def initialize(expectations_with_explanations, propagation_info)
-                    @expectations = expectations_with_explanations
-                    @propagation_info = propagation_info
-                end
-
-                def to_s
-                    "timed out waiting for #{@expectations.size} expectations\n" +
-                    @expectations.map do |exp, explanation|
-                        exp = PP.pp(exp, "").chomp
-                        if explanation
-                            exp += " because of " + PP.pp(explanation, "").chomp
-                        end
-                        exp
-                    end.join("\n") + "\n" + ExecutionExpectations.format_propagation_info(@propagation_info)
                 end
             end
 
@@ -231,9 +212,7 @@ module Roby
                     end
 
                     remaining_timeout = timeout_deadline - Time.now
-                    if remaining_timeout < 0
-                        raise Timeout.new(unmet, all_propagation_info)
-                    end
+                    break if remaining_timeout < 0
 
                     if engine.has_waiting_work? && @join_all_waiting_work
                         _, propagation_info = engine.join_all_waiting_work(timeout: remaining_timeout)
