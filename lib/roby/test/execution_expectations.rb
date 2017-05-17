@@ -163,8 +163,8 @@ module Roby
                 nil
             end
 
-            def fail_to_start(task, backtrace: caller(1))
-                add_expectation(FailsToStart.new(task, backtrace))
+            def fail_to_start(task, reason: nil, backtrace: caller(1))
+                add_expectation(FailsToStart.new(task, reason, backtrace))
                 nil
             end
 
@@ -479,13 +479,28 @@ module Roby
             end
 
             class FailsToStart < Expectation
-                def initialize(task, backtrace)
+                def initialize(task, reason, backtrace)
                     super(backtrace)
                     @task = task
+                    @reason = reason
                 end
 
                 def unmet?(propagation_info)
-                    !@task.failed_to_start?
+                    if !@task.failed_to_start?
+                        true
+                    elsif @reason
+                        !(@reason === @task.failure_reason)
+                    end
+                end
+
+                def unachievable?(propagation_info)
+                    if @reason && @task.failed_to_start?
+                        !(@reason === @task.failure_reason)
+                    end
+                end
+
+                def explain_unachievable(propagation_info)
+                    "#{@task.failure_reason} does not match #{@reason}"
                 end
 
                 def to_s
