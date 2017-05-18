@@ -50,6 +50,11 @@ module Roby
                 self
             end
 
+            def with_empty_trace
+                @expected_edges = Set.new
+                self
+            end
+
             def with_trace(*edges)
                 @expected_edges = edges.each_slice(2).map { |a, b| [a, b, nil] }.to_set
                 self

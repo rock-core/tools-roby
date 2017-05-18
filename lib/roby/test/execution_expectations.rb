@@ -40,18 +40,8 @@ module Roby
                 end
             end
 
-            def self.format_propagation_info(propagation_info)
-                result = []
-                if !propagation_info.emitted_events.empty?
-                    result << "received #{propagation_info.emitted_events} events:\n  " +
-                        propagation_info.emitted_events.map { |ev| ev.to_s }.join("\n  ")
-                end
-                exceptions = propagation_info.exceptions
-                if !exceptions.empty?
-                    result << "#{exceptions.size} exceptions:\n  " +
-                        exceptions.map { |e| PP.pp(e, "").split("\n").join("\n    ") }.join("\n  ")
-                end
-                result.join("\n")
+            def self.format_propagation_info(propagation_info, indent: 0)
+                PP.pp(propagation_info).split("\n").join("\n" + " " * indent)
             end
 
             class Unmet < Minitest::Assertion
@@ -60,19 +50,24 @@ module Roby
                     @propagation_info = propagation_info
                 end
 
-                def to_s
-                    propagation_info = ExecutionExpectations.format_propagation_info(@propagation_info)
-                    if !propagation_info.empty?
-                        propagation_info = "\n" + propagation_info
-                    end
-                    "#{@expectations.size} unmet expectations\n" +
-                    @expectations.map do |exp, explanation|
-                        exp = PP.pp(exp, "").chomp
+                def pretty_print(pp)
+                    pp.text "#{@expectations.size} unmet expectations"
+                    @expectations.each do |exp, explanation|
+                        pp.breakable
+                        exp.pretty_print(pp)
                         if explanation
-                            exp += " because of " + PP.pp(explanation, "").chomp
+                            pp.text " because of "
+                            explanation.pretty_print(pp)
                         end
-                        exp
-                    end.join("\n") + propagation_info
+                    end
+                    if !@propagation_info.empty?
+                        pp.breakable
+                        @propagation_info.pretty_print(pp)
+                    end
+                end
+
+                def to_s
+                    PP.pp(self, "", 1).strip
                 end
             end
 
@@ -185,17 +180,23 @@ module Roby
                     engine.start_new_cycle
                     propagation_info =
                         begin
+                            current_scheduler = engine.scheduler
                             current_scheduler_state = engine.scheduler.enabled?
                             current_display_exceptions = engine.display_exceptions?
                             if !@display_exceptions.nil?
                                 engine.display_exceptions = @display_exceptions
                             end
                             if !@scheduler.nil?
-                                engine.scheduler.enabled = @scheduler
+                                if @scheduler != true && @scheduler != false
+                                    engine.scheduler = @scheduler
+                                else
+                                    engine.scheduler.enabled = @scheduler
+                                end
                             end
 
                             engine.process_events(garbage_collect_pass: @garbage_collect, &block)
                         ensure
+                            engine.scheduler = current_scheduler
                             engine.scheduler.enabled = current_scheduler_state
                             engine.display_exceptions = current_display_exceptions
                         end
@@ -237,7 +238,7 @@ module Roby
                 if @return_objects.respond_to?(:to_ary)
                     @return_objects.map do |obj|
                         if obj.respond_to?(:return_object)
-                            obj.return_object(all_propagation_info)
+                            obj.return_object
                         else
                             obj
                         end
@@ -245,7 +246,7 @@ module Roby
                 else
                     obj = @return_objects
                     if obj.respond_to?(:return_object)
-                        obj.return_object(all_propagation_info)
+                        obj.return_object
                     else
                         obj
                     end
@@ -261,9 +262,8 @@ module Roby
                 # on their internal errors
                 internal_errors = propagation_info.emitted_events.find_all do |ev|
                     if ev.generator.respond_to?(:symbol) && ev.generator.symbol == :internal_error
-                        @expectations.none? do |exp|
-                            exp.kind_of?(Emit) && exp.generator == ev.generator
-                        end
+                        exceptions_context = ev.context.find_all { |obj| obj.kind_of?(Exception) }
+                        !exceptions_context.any? { |exception| @expectations.any? { |expectation| expectation.relates_to_error?(exception) } }
                     end
                 end
 
@@ -290,7 +290,7 @@ module Roby
 
             def find_all_unmet_expectations(all_errors)
                 @expectations.find_all do |exp|
-                    exp.unmet?(all_errors)
+                    !exp.update_match(all_errors)
                 end
             end
 
@@ -302,8 +302,11 @@ module Roby
                     @backtrace = backtrace
                 end
 
-                def unmet?(propagation_info)
-                    false
+                # Verifies whether the expectation is met at this point
+                #
+                # This method is meant to update 
+                def update_match(propagation_info)
+                    true
                 end
                 def unachievable?(propagation_info)
                     false
@@ -329,9 +332,10 @@ module Roby
                     "no emission of #{@generator}"
                 end
 
-                def unmet?(propagation_info)
-                    propagation_info.emitted_events.
-                        any? { |ev| ev.generator == @generator }
+                def update_match(propagation_info)
+                    @emitted_events = propagation_info.emitted_events.
+                        find_all { |ev| ev.generator == @generator }
+                    @emitted_events.empty?
                 end
 
                 def unachievable?(propagation_info)
@@ -362,13 +366,14 @@ module Roby
                     "emission of #{@generator}"
                 end
 
-                def unmet?(propagation_info)
-                    !return_object(propagation_info)
+                def update_match(propagation_info)
+                    @emitted_events = propagation_info.emitted_events.
+                        find_all { |ev| ev.generator == @generator }
+                    !@emitted_events.empty?
                 end
 
-                def return_object(propagation_info)
-                    propagation_info.emitted_events.
-                        find { |ev| ev.generator == @generator }
+                def return_object
+                    @emitted_events.first
                 end
 
                 def unachievable?(propagation_info)
@@ -384,23 +389,37 @@ module Roby
                 end
             end
 
-            class HaveErrorMatching < Expectation
+            class ErrorExpectation < Expectation
                 def initialize(matcher, backtrace)
                     super(backtrace)
                     @matcher = matcher.to_execution_exception_matcher
                 end
 
-                def relates_to_error?(error)
-                    @matcher === error
+                def update_match(exceptions)
+                    @matched_execution_exceptions = exceptions.
+                        find_all { |error| @matcher === error }
+                    @matched_exceptions = @matched_execution_exceptions.
+                        map(&:exception).to_set
+                    @matched_exceptions = @matched_exceptions.flat_map do |e|
+                        Roby.flatten_exception(e).to_a
+                    end.to_set
+                    !@matched_execution_exceptions.empty?
                 end
 
-                def unmet?(propagation_info)
-                    !return_object(propagation_info)
+                def relates_to_error?(execution_exception)
+                    @matched_execution_exceptions.include?(execution_exception) ||
+                        Roby.flatten_exception(execution_exception.exception).
+                            any? { |e| @matched_exceptions.include?(e) }
                 end
 
-                def return_object(propagation_info)
-                    propagation_info.exceptions.
-                        find { |error| @matcher === error }
+                def return_object
+                    @matched_execution_exceptions.first
+                end
+            end
+
+            class HaveErrorMatching < ErrorExpectation
+                def update_match(propagation_info)
+                    super(propagation_info.exceptions)
                 end
 
                 def to_s
@@ -408,27 +427,13 @@ module Roby
                 end
             end
 
-            class HaveHandledErrorMatching < Expectation
-                def initialize(matcher, backtrace)
-                    super(backtrace)
-                    @matcher = matcher
-                end
-
-                def relates_to_error?(error)
-                    @matcher === error
-                end
-
-                def unmet?(propagation_info)
-                    !return_object(propagation_info)
-                end
-
-                def return_object(propagation_info)
-                    propagation_info.handled_errors.
-                        none? { |error| @matcher === error }
+            class HaveHandledErrorMatching < ErrorExpectation
+                def update_match(propagation_info)
+                    super(propagation_info.handled_errors.map(&:first))
                 end
 
                 def to_s
-                    "has error matching #{@matcher}"
+                    "has handled error matching #{@matcher}"
                 end
             end
 
@@ -438,8 +443,8 @@ module Roby
                     @task = task
                 end
 
-                def unmet?(propagation_info)
-                    !@task.quarantined?
+                def update_match(propagation_info)
+                    @task.quarantined?
                 end
 
                 def to_s
@@ -453,8 +458,8 @@ module Roby
                     @generator = generator
                 end
 
-                def unmet?(propagation_info)
-                    !@generator.unreachable?
+                def update_match(propagation_info)
+                    @generator.unreachable?
                 end
 
                 def to_s
@@ -469,11 +474,13 @@ module Roby
                     @reason = reason
                 end
 
-                def unmet?(propagation_info)
+                def update_match(propagation_info)
                     if !@task.failed_to_start?
+                        false
+                    elsif !@reason
                         true
-                    elsif @reason
-                        !(@reason === @task.failure_reason)
+                    else
+                        @reason === @task.failure_reason
                     end
                 end
 

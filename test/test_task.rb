@@ -31,13 +31,10 @@ module Roby
                     end
                 end
                 plan.add(task = task_m.new)
-                begin
-                    old_scheduler = execution_engine.scheduler
-                    execution_engine.scheduler = scheduler
-                    expect_execution { }.to { have_handled_error_matching error.class }
-                ensure
-                    execution_engine.scheduler = old_scheduler
-                end
+                expect_execution { }.with_setup { scheduler(scheduler) }.
+                    to do
+                        fail_to_start task
+                    end
             end
 
             it "emits the internal error if it fails after it emitted the event" do
@@ -50,7 +47,11 @@ module Roby
                 end
                 plan.add(task = task_m.new)
                 expect_execution { task.start! }.
-                    to { emit task.internal_error_event }
+                    to do
+                        have_handled_error_matching error
+                        emit task.internal_error_event
+                    end
+
                 refute task.failed_to_start?, "#{task} is marked as failed to start but should not be"
                 refute task.running?
                 assert task.internal_error?
@@ -926,9 +927,13 @@ module Roby
                 plan.add_permanent_task(task = task_m.new)
 
                 mock.should_receive(:polled).once
-                assert_event_emission(task.internal_error_event) do
-                    task.start!
-                end
+                expect_execution { task.start! }.
+                    with_setup { timeout 0 }.
+                    to do
+                        have_handled_error_matching CodeError.match.
+                            with_ruby_exception(error_m)
+                        emit task.internal_error_event
+                    end
                 assert task.stop?
             end
 
@@ -944,9 +949,11 @@ module Roby
 
                 plan.add_permanent_task(task = task_m.new)
                 mock.should_receive(:polled).once
-                assert_event_emission task.internal_error_event do
-                    task.start!
-                end
+                expect_execution { task.start! }.
+                    to do
+                        emit task.internal_error_event
+                        have_handled_error_matching error_m
+                    end
                 assert(task.failed?)
                 assert(task.running?)
                 assert(task.finishing?)
@@ -2519,7 +2526,12 @@ class TC_Task < Minitest::Test
         expect_execution do
             task.start!
             task.intermediate_event.emit_failed
-        end.to { emit task.internal_error_event }
+        end.to do
+            have_handled_error_matching EmissionFailed.match.
+                with_origin(task.intermediate_event).
+                with_ruby_exception(nil)
+            emit task.internal_error_event 
+        end
         assert task.internal_error?
         assert task.failed?
         assert_kind_of EmissionFailed, task.failure_reason
@@ -2537,7 +2549,11 @@ class TC_Task < Minitest::Test
         expect_execution do
             task.start!
             task.command_fails!
-        end.to { emit task.internal_error_event }
+        end.to do
+            have_handled_error_matching CommandFailed.match.
+                with_origin(task.command_fails_event)
+            emit task.internal_error_event
+        end
 
         assert(task.internal_error?)
         assert(task.failed?)
@@ -2548,7 +2564,13 @@ class TC_Task < Minitest::Test
         expect_execution do
             task.start!
             task.emission_fails_event.emit_failed
-        end.to { emit task.internal_error_event }
+        end.to do
+            have_handled_error_matching EmissionFailed.match.
+                with_origin(task.emission_fails_event).
+                with_ruby_exception(nil)
+            emit task.internal_error_event
+        end
+
         assert(task.failed?)
         assert_kind_of EmissionFailed, task.failure_reason
     end

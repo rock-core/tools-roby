@@ -47,6 +47,10 @@ module Roby
             @original_exceptions = exceptions
         end
 
+        def each_original_exception(&block)
+            @original_exceptions.each(&block)
+        end
+
         def report_exceptions_from(object)
             if object.kind_of?(Exception)
                 original_exceptions << object

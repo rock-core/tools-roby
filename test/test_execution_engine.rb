@@ -381,25 +381,19 @@ module Roby
 
             it "adds the error with no parents by default" do
                 assert_fatal_exception(localized_error_m, failure_point: child, tasks: [other_root, root, child]) do
-                    process_events do
-                        execution_engine.add_error(child_e)
-                    end
+                    execution_engine.add_error(child_e)
                 end
             end
 
             it "allows providing specific parents" do
                 assert_fatal_exception(localized_error_m, failure_point: child, tasks: [root, child]) do
-                    process_events do
-                        execution_engine.add_error(child_e, propagate_through: [root])
-                    end
+                    execution_engine.add_error(child_e, propagate_through: [root])
                 end
             end
 
             it "does not propagate the exception if an empty parent set is given" do
                 assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child]) do
-                    process_events do
-                        execution_engine.add_error(child_e, propagate_through: [])
-                    end
+                    execution_engine.add_error(child_e, propagate_through: [])
                 end
             end
 
@@ -1068,7 +1062,7 @@ module Roby
                 it "inhibits errors that have the same class and origin than the one that caused the error" do
                     root.depends_on(child = task_m.new)
                     assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child, root]) do
-                        process_events(garbage_collect_pass: false) { execution_engine.add_error(localized_error_m.new(child)) }
+                        execution_engine.add_error(localized_error_m.new(child))
                     end
                     process_events { execution_engine.add_error(localized_error_m.new(child)) }
                 end
@@ -1076,11 +1070,11 @@ module Roby
                     root.hold_stop = true
                     root.depends_on(child = task_m.new)
                     assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child, root]) do
-                        process_events { execution_engine.add_error(localized_error_m.new(child)) }
+                        execution_engine.add_error(localized_error_m.new(child))
                     end
                     new_localized_error_m = Class.new(LocalizedError)
                     assert_fatal_exception(new_localized_error_m, failure_point: child, tasks: [child, root]) do
-                        process_events { execution_engine.add_error(new_localized_error_m.new(child)) }
+                        execution_engine.add_error(new_localized_error_m.new(child))
                     end
                     process_events { execution_engine.add_error(localized_error_m.new(child)) }
                     process_events { execution_engine.add_error(new_localized_error_m.new(child)) }
@@ -1091,9 +1085,7 @@ module Roby
                 root.stop_event.when_unreachable do
                     execution_engine.add_error localized_error_m.new(root)
                 end
-                assert_fatal_exception(localized_error_m, tasks: [root], kill_tasks: [root]) do
-                    process_events
-                end
+                assert_fatal_exception(localized_error_m, tasks: [root], kill_tasks: [root], garbage_collect: true)
             end
 
             describe "exception notification" do
@@ -1139,10 +1131,7 @@ module Roby
                     mock_compute_errors :fatal_errors
                     Roby.app.filter_backtraces = false
                     assert_receives_notification ExecutionEngine::EXCEPTION_FATAL
-                    messages = capture_log(execution_engine, :warn) do
-                        process_events(raise_errors: false)
-                    end
-                    assert_equal "1 unhandled fatal exceptions, involving 0 tasks that will be forcefully killed", messages.first
+                    process_events(raise_errors: false)
                 end
             end
 
@@ -1164,13 +1153,18 @@ module Roby
                     root.depends_on(origin = task_m.new)
                     error = localized_error_m.new(origin).to_execution_exception
                     error.propagate(origin, root)
-                    assert_nonfatal_exception(PermanentTaskError, failure_point: root, tasks: [root]) do
-                        assert_fatal_exception(localized_error_m, failure_point: origin, tasks: [root, origin]) do
-                            process_events do
-                                execution_engine.once { execution_engine.add_error(error) }
-                            end
+
+                    error_match = localized_error_m.match.with_origin(origin).
+                        to_execution_exception_matcher
+
+                    expect_execution { execution_engine.add_error(error) }.
+                        to do
+                            have_error_matching PermanentTaskError.match.
+                                with_origin(root).
+                                with_original_exception(error_match)
+                            have_error_matching error_match.
+                                with_trace(origin, root)
                         end
-                    end
                 end
             end
 
@@ -1192,13 +1186,19 @@ module Roby
                     root.depends_on(origin = task_m.new)
                     error = localized_error_m.new(origin).to_execution_exception
                     error.propagate(origin, root)
-                    assert_fatal_exception(MissionFailedError, failure_point: root, tasks: [root]) do
-                        assert_fatal_exception(localized_error_m, failure_point: origin, tasks: [root, origin]) do
-                            process_events do
-                                execution_engine.once { execution_engine.add_error(error) }
-                            end
+
+                    error_matcher  = localized_error_m.match.
+                        with_origin(origin).
+                        to_execution_exception_matcher
+
+                    expect_execution { execution_engine.add_error(error) }.
+                        to do
+                            have_error_matching error_matcher.
+                                with_trace(origin, root)
+                            have_error_matching MissionFailedError.match.
+                                with_origin(root).
+                                with_original_exception(error_matcher)
                         end
-                    end
                 end
 
                 it "does not propagate MissionFailedError through the network" do
@@ -1209,15 +1209,26 @@ module Roby
                     root.start!
 
                     error = localized_error_m.new(origin).to_execution_exception
-                    assert_fatal_exception(MissionFailedError, failure_point: root, tasks: [root]) do
-                        assert_fatal_exception(MissionFailedError, failure_point: middle, tasks: [middle]) do
-                            assert_fatal_exception(localized_error_m, failure_point: origin, tasks: [root, middle, origin]) do
-                                process_events(garbage_collect_pass: false) do
-                                    execution_engine.once { execution_engine.add_error(error) }
-                                end
-                            end
+                    error_matcher = localized_error_m.match.
+                        with_origin(origin).
+                        to_execution_exception_matcher
+
+                    expect_execution { execution_engine.add_error(error) }.
+                        to do
+                            have_error_matching error_matcher.
+                                with_trace(origin, middle,
+                                           middle, root)
+                            have_error_matching MissionFailedError.match.
+                                with_origin(root).
+                                with_original_exception(error_matcher).
+                                to_execution_exception_matcher.
+                                with_empty_trace
+                            have_error_matching MissionFailedError.match.
+                                with_origin(middle).
+                                with_original_exception(error_matcher).
+                                to_execution_exception_matcher.
+                                with_empty_trace
                         end
-                    end
                     root.stop_event.emit
                 end
             end
@@ -1260,12 +1271,12 @@ module Roby
                     flexmock(root).should_receive(:find_all_matching_repair_tasks).
                         at_least.once.with(root_e).and_return([repair_task])
 
-                    assert_handled_exception(localized_error_m, failure_point: root.failed_event, tasks: [root]) do
-                        process_events(garbage_collect_pass: false) do
-                            execution_engine.add_error(root_e)
+                    expect_execution { execution_engine.add_error(root_e) }.
+                        to do
+                            have_handled_error_matching localized_error_m.match.
+                                with_origin(root.failed_event)
+                            emit repair_task.start_event
                         end
-                    end
-                    assert repair_task.running?
                 end
             end
 
@@ -1278,9 +1289,7 @@ module Roby
 
                 it "marks the involved free events as unreachable" do
                     assert_free_event_exception(localized_error_m, failure_point: event) do
-                        process_events(garbage_collect_pass: false) do
-                            execution_engine.add_error(localized_error_m.new(event))
-                        end
+                        execution_engine.add_error(localized_error_m.new(event))
                     end
                     assert event.unreachable?
                 end

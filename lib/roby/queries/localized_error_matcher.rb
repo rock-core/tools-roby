@@ -34,7 +34,11 @@ module Roby
             #
             # Set to nil to allow for no original exception at all
             def with_original_exception(model)
-                @original_exception_model = model
+                if model.respond_to?(:exception_matcher)
+                    @original_exception_model = model.exception_matcher
+                else
+                    @original_exception_model = model
+                end
                 self
             end
 

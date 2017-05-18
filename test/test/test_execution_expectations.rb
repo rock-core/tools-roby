@@ -105,7 +105,7 @@ module Roby
                             execution_engine.should_receive(:has_waiting_work?).
                                 and_return(true)
                             expectations.add_expectation(
-                                flexmock(explain_unachievable: "", unmet?: true, unachievable?: true))
+                                flexmock(explain_unachievable: "", update_match: false, unachievable?: true))
                             assert_raises(ExecutionExpectations::Unmet) do
                                 expectations.timeout 0
                                 expectations.verify {}
@@ -134,7 +134,7 @@ module Roby
 
                         it "raises if there are unachievable expectations" do
                             expectations.add_expectation(
-                                flexmock(explain_unachievable: "", unmet?: true, unachievable?: true))
+                                flexmock(explain_unachievable: "", update_match: false, unachievable?: true))
                             assert_raises(ExecutionExpectations::Unmet) do
                                 expectations.timeout 0
                                 expectations.verify {}
@@ -143,7 +143,7 @@ module Roby
 
                         it "raises if there are unmet expectations" do
                             expectations.add_expectation(
-                                flexmock(unmet?: true, unachievable?: false))
+                                flexmock(update_match: false, unachievable?: false))
                             assert_raises(ExecutionExpectations::Unmet) do
                                 expectations.timeout 0
                                 expectations.verify {}
@@ -183,7 +183,7 @@ module Roby
                             expect_execution { generator.unreachable!(cause) }.
                                 with_setup { timeout 0 }.to { emit generator }
                         end
-                        assert_equal "1 unmet expectations\nemission of #{generator} because of #{PP.pp(cause, "").chomp}", e.message
+                        assert_equal "1 unmet expectations\nemission of #{generator} because of #{PP.pp(cause, "", 0).chomp}", e.message
                     end
                     it "validates if the event's emission caused exceptions" do
                         plan.add(generator = EventGenerator.new)
@@ -199,6 +199,7 @@ module Roby
                     it "validates when the exception has been raised" do
                         plan.add(task = Roby::Task.new)
                         matcher = flexmock
+                        matcher.should_receive(:exception_matcher).and_return(flexmock)
                         matcher.should_receive(:===).
                             with(->(e) { e.exception.failed_generator == task.start_event }).
                             and_return(true)
@@ -209,6 +210,7 @@ module Roby
                     it "fails if only non-matching exceptions have been raised" do
                         plan.add(task = Roby::Task.new)
                         matcher = flexmock
+                        matcher.should_receive(:exception_matcher).and_return(flexmock)
                         matcher.should_receive(:===).
                             with(->(e) { e.exception.failed_generator == task.start_event }).
                             and_return(false)
@@ -222,6 +224,7 @@ module Roby
                     it "fails if no exceptions have been raised" do
                         plan.add(task = Roby::Task.new)
                         matcher = flexmock
+                        matcher.should_receive(:exception_matcher).and_return(flexmock)
                         e = assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution {}.
                                 with_setup { timeout 0 }.to { have_error_matching flexmock(to_execution_exception_matcher: matcher) }
@@ -232,6 +235,7 @@ module Roby
                         plan.add(task = Roby::Task.new)
                         plan.add(other_task = Roby::Task.new)
                         matcher = flexmock
+                        matcher.should_receive(:exception_matcher).and_return(flexmock)
                         matcher.should_receive(:===).
                             with(->(e) { e.exception.failed_generator == task.start_event }).
                             and_return(true)
@@ -240,6 +244,58 @@ module Roby
                             other_error = LocalizedError.new(other_task.start_event)
                             other_error.report_exceptions_from(error)
                         end.to { have_error_matching flexmock(to_execution_exception_matcher: matcher) }
+                    end
+                end
+
+                describe "#have_handled_error_matching" do
+                    attr_reader :matcher
+                    before do
+                        @error_m = Class.new(LocalizedError)
+                        @task_m = Roby::Task.new_submodel
+                        @task_m.on_exception(@error_m) { |e| }
+                        plan.add(@task = @task_m.new)
+                        @matcher = flexmock
+                        @matcher.should_receive(:exception_matcher).and_return(flexmock)
+                    end
+
+                    it "validates when the exception has been raised and handled" do
+                        @matcher.should_receive(:===).
+                            with(->(e) { e.exception.failed_generator == @task.start_event }).
+                            and_return(true)
+                        expect_execution do
+                            execution_engine.add_error(@error_m.new(@task.start_event))
+                        end.to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
+                    end
+                    it "fails if only non-matching exceptions have been raised" do
+                        @matcher.should_receive(:===).
+                            with(->(e) { e.exception.failed_generator == @task.start_event }).
+                            and_return(false)
+                        e = assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution do
+                                execution_engine.add_error(@error_m.new(@task.start_event))
+                            end.with_setup { timeout 0 }.
+                            to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
+                        end
+                        assert_match /^1 unmet expectations\nhas handled error matching #{matcher}/m, e.message
+                    end
+                    it "fails if no exceptions have been raised" do
+                        e = assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution {}.
+                                with_setup { timeout 0 }.
+                                to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
+                        end
+                        assert_match /^1 unmet expectations\nhas handled error matching #{matcher}/m, e.message
+                    end
+                    it "validates even if the exception causes other errors" do
+                        plan.add(other_task = Roby::Task.new)
+                        @matcher.should_receive(:===).
+                            with(->(e) { e.exception.failed_generator == @task.start_event }).
+                            and_return(true)
+                        expect_execution do
+                            execution_engine.add_error(error = @error_m.new(@task.start_event))
+                            other_error = @error_m.new(other_task.start_event)
+                            other_error.report_exceptions_from(error)
+                        end.to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
                     end
                 end
             end

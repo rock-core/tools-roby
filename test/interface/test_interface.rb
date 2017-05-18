@@ -137,10 +137,8 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).with(Roby::Interface::JOB_FINALIZED, 10, "the job").once.ordered
             interface.monitor_job(task.planning_task, task)
             job_task.start!
-            assert_fatal_exception(Roby::MissionFailedError, failure_point: task, tasks: [task]) do
-                assert_fatal_exception(Roby::PlanningFailedError, failure_point: task, tasks: [task]) do
-                    job_task.failed_event.emit
-                end
+            assert_fatal_exception(Roby::PlanningFailedError, failure_point: task, tasks: [task], garbage_collect: true) do
+                job_task.failed_event.emit
             end
             interface.push_pending_job_notifications
         end

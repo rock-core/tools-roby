@@ -113,13 +113,13 @@ module Roby
             #
             # @yieldparam yields to a block that should perform the action that
             #   should cause the emission
-            def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, enable_scheduler: nil, garbage_collect_pass: true)
+            def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, enable_scheduler: nil, garbage_collect: true)
                 expect_execution do
                     yield if block_given?
                 end.with_setup do
                     self.timeout timeout
                     self.scheduler enable_scheduler
-                    self.garbage_collect garbage_collect_pass
+                    self.garbage_collect garbage_collect
                 end.to do
                     Array(positive).each { |g| emit g }
                     Array(negative).each { |g| not_emit g }
@@ -443,11 +443,11 @@ module Roby
             # @param (see create_exception_matcher)
             # @param [Enumerable<Task>] tasks forming the exception's trace
             # @return [LocalizedError] the exception
-            def assert_fatal_exception(matcher, failure_point: Task, original_exception: nil, tasks: [], kill_tasks: tasks)
+            def assert_fatal_exception(matcher, failure_point: Task, original_exception: nil, tasks: [], kill_tasks: tasks, garbage_collect: false)
                 matcher = create_exception_matcher(
                     matcher, original_exception: original_exception,
                     failure_point: failure_point)
-                expect_execution { yield if block_given? }.to { have_error_matching matcher }.exception
+                expect_execution { yield if block_given? }.with_setup { garbage_collect(garbage_collect) }.to { have_error_matching matcher }.exception
             end
 
             # Asserts that an exception is raised and handled

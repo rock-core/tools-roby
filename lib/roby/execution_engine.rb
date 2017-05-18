@@ -1535,6 +1535,47 @@ module Roby
             def has_inhibited_errors?
                 !inhibited_errors.empty?
             end
+
+            def pretty_print(pp)
+                if !emitted_events.empty?
+                    pp.text "received #{emitted_events.size} events:"
+                    pp.nest(2) do
+                        emitted_events.each do |ev|
+                            pp.breakable
+                            ev.pretty_print(pp)
+                        end
+                    end
+                end
+                exceptions = self.exceptions
+                if !exceptions.empty?
+                    pp.breakable if !emitted_events.empty?
+                    pp.text "#{exceptions.size} unhandled exceptions:"
+                    pp.nest(2) do
+                        exceptions.map do |e|
+                            pp.breakable
+                            e.pretty_print(pp)
+                        end
+                    end
+                end
+                if !handled_errors.empty?
+                    pp.breakable if !emitted_events.empty? || !exceptions.empty?
+                    pp.text "#{handled_errors.size} handled exceptions:"
+                    pp.nest(2) do
+                        handled_errors.each do |e, handled_by|
+                            pp.breakable
+                            e.pretty_print(pp)
+                            pp.breakable
+                            pp.text "Handled by:"
+                            pp.nest(2) do
+                                handled_by.each do |t|
+                                    pp.breakable
+                                    t.pretty_print(pp)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
         end
 
         # The methods that setup propagation context in ExecutionEngine must not

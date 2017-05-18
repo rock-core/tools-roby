@@ -26,7 +26,7 @@ module Roby
 
                 plan.add(task = model.new)
                 task.start!
-                assert_event_emission task.success_event, garbage_collect_pass: false do
+                assert_event_emission task.success_event, garbage_collect: false do
                     sync.set
                 end
                 assert_equal 1, task.result
@@ -47,7 +47,7 @@ module Roby
                 task.start!
                 sync.set
                 wait_thread_end(task, exception: error)
-                assert_event_emission task.failed_event, garbage_collect_pass: false
+                assert_event_emission task.failed_event, garbage_collect: false
 
                 assert task.failed?
                 assert_kind_of ArgumentError, task.failed_event.last.context.first
@@ -68,7 +68,7 @@ module Roby
 
                 plan.add(task = model.new)
                 task.start!
-                assert_event_emission task.failed_event, garbage_collect_pass: false do
+                assert_event_emission task.failed_event, garbage_collect: false do
                     task.stop!
                     sync.set
                 end

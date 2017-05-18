@@ -158,7 +158,7 @@ module Roby
                 task_model = Tasks::Simple.new_submodel
                 task_model.executed_by ExecutionAgentModel, id: 2
                 plan.add(task = task_model.new)
-                assert_task_fails_to_start(task, TaskStructure::MissingRequiredExecutionAgent, direct: true) do
+                assert_task_fails_to_start(task, TaskStructure::MissingRequiredExecutionAgent) do
                     task.start!
                 end
             end
@@ -198,7 +198,7 @@ module Roby
                 plan.add(task = Tasks::Simple.new)
                 task.executed_by(agent = BaseExecutionAgent.new)
                 agent.start!
-                assert_task_fails_to_start(task, Roby::LocalizedError, failure_point: nil, direct: true) do
+                assert_task_fails_to_start(task, Roby::LocalizedError, failure_point: nil) do
                     agent.ready_event.unreachable!(LocalizedError.new(task))
                 end
             end

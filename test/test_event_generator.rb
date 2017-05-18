@@ -791,7 +791,7 @@ module Roby
                 promise = execution_engine.promise { }.
                     on_success { raise ArgumentError }
                 ev.achieve_asynchronously(promise, on_failure: :emit)
-                assert_event_emission ev, garbage_collect_pass: false
+                assert_event_emission ev, garbage_collect: false
             end
 
             it "does nothing if on_failure is :nothing" do

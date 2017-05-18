@@ -48,7 +48,7 @@ class TC_Tasks_ExternalProcess < Minitest::Test
 
     def test_failure
         plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--error"]))
-        assert_event_emission(task.failed_event, garbage_collect_pass: false) do
+        assert_event_emission(task.failed_event, garbage_collect: false) do
             task.start!
         end
         assert_equal 1, task.event(:failed).last.context.first.exitstatus
@@ -59,7 +59,7 @@ class TC_Tasks_ExternalProcess < Minitest::Test
         assert_event_emission(task.start_event) do
             task.start!
         end
-        assert_event_emission(task.failed_event, garbage_collect_pass: false) do
+        assert_event_emission(task.failed_event, garbage_collect: false) do
             Process.kill 'KILL', task.pid
         end
         assert task.signaled?

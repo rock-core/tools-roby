@@ -46,7 +46,6 @@ class TC_Actions_Task < Minitest::Test
     def test_it_emits_failed_if_the_action_raised
         flexmock(iface_m).new_instances.
             should_receive(:test_action).and_raise(ArgumentError)
-        assert_logs_exception_with_backtrace ArgumentError, Roby.logger, :warn
         assert_fatal_exception Roby::PlanningFailedError, failure_point: task.planned_task, tasks: [task.planned_task] do
             task.start!
         end
@@ -56,7 +55,6 @@ class TC_Actions_Task < Minitest::Test
     def test_it_emits_failed_if_the_transaction_failed_to_commit
         flexmock(Transaction).new_instances.
             should_receive(:commit_transaction).and_raise(ArgumentError)
-        assert_logs_exception_with_backtrace ArgumentError, Roby.logger, :warn
         assert_fatal_exception Roby::PlanningFailedError, failure_point: task.planned_task, tasks: [task.planned_task] do
             task.start!
         end
@@ -66,7 +64,6 @@ class TC_Actions_Task < Minitest::Test
     def test_it_discards_the_transaction_on_failure
         flexmock(iface_m).new_instances.should_receive(:test_action).and_raise(ArgumentError)
         flexmock(Transaction).new_instances.should_receive(:discard_transaction).once.pass_thru
-        assert_logs_exception_with_backtrace ArgumentError, Roby.logger, :warn
         assert_fatal_exception Roby::PlanningFailedError, failure_point: task.planned_task, tasks: [task.planned_task] do
             task.start!
         end
@@ -92,7 +89,7 @@ class TC_Actions_Task < Minitest::Test
         plan.add(task = iface_m.test_action.as_plan)
         tracker = task.as_service
         task.planning_task.job_id = 10
-        assert_event_emission(task.planning_task.success_event) do
+        assert_event_emission(task.planning_task.success_event, garbage_collect: false) do
             task.planning_task.start!
         end
         assert_kind_of task_m, tracker.task
@@ -118,7 +115,7 @@ class TC_Actions_Task < Minitest::Test
         plan.add(task = iface_m.test_action.as_plan)
         tracker = task.as_service
         task.planning_task.job_id = 10
-        assert_event_emission(task.planning_task.success_event) do
+        assert_event_emission(task.planning_task.success_event, garbage_collect: false) do
             task.planning_task.start!
         end
         assert_nil tracker.task.planning_task.job_id
@@ -127,11 +124,11 @@ class TC_Actions_Task < Minitest::Test
     def test_it_emits_the_start_event_after_having_created_the_transaction
         flexmock(Transaction).should_receive(:new).and_raise(RuntimeError)
         plan.unmark_mission_task(task.planned_task)
-        assert_fatal_exception(Roby::PlanningFailedError, tasks: [task.planned_task], failure_point: task.planned_task) do
-            assert_task_fails_to_start(task, CodeError, original_exception: RuntimeError, tasks: [task]) do
-                task.start!
+        expect_execution { task.start! }.
+            to do
+                fail_to_start task, reason: CodeError.match.with_origin(task).with_original_exception(RuntimeError)
+                have_error_matching PlanningFailedError
             end
-        end
     end
 end
 
