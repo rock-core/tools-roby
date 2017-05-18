@@ -43,11 +43,21 @@ module Roby
             end
 
             def find_through_method_missing(m, args)
-                MetaRuby::DSLs.find_through_method_missing(@toplevel_task, m, args, 'event' => :find_event, 'child' => :find_child_from_role, call: false) || super
+                MetaRuby::DSLs.find_through_method_missing(
+                    @toplevel_task, m, args,
+                    '_event' => :find_event,
+                    '_child' => :find_child_from_role) || super
+            end
+
+            def has_through_method_missing?(m)
+                MetaRuby::DSLs.has_through_method_missing?(
+                    @toplevel_task, m,
+                    '_event' => :has_event?,
+                    '_child' => :has_role?) || super
             end
 
             def respond_to_missing?(m, include_private)
-                find_through_method_missing(m, []) || @test.respond_to?(m) || super
+                has_through_method_missing?(m) || @test.respond_to?(m) || super
             end
 
             def method_missing(m, *args, &block)

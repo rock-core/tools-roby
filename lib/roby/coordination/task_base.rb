@@ -44,16 +44,23 @@ module Roby
                     end
                 end
 
-                def find_through_method_missing(m, args, call: true)
+                def find_through_method_missing(m, args)
                     MetaRuby::DSLs.find_through_method_missing(
                         self, m, args,
-                        'child' => :find_child,
-                        'port' => :find_port,
-                        'event' => :find_event, call: call) || super
+                        '_child' => :find_child,
+                        '_port'  => :find_port,
+                        '_event' => :find_event) || super
+                end
+                def has_through_method_missing?(m)
+                    MetaRuby::DSLs.has_through_method_missing?(
+                        self, m,
+                        '_child' => :has_child?,
+                        '_port'  => :has_port?,
+                        '_event' => :has_event?) || super
                 end
 
                 def respond_to_missing?(m, include_private)
-                    !!find_through_method_missing(m, []) || super
+                    has_through_method_missing?(m) || super
                 end
 
                 def method_missing(m, *args, &block)

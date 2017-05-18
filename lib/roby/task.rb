@@ -864,7 +864,7 @@ module Roby
 	attr_accessor :calling_event
 
         def respond_to_missing?(m, include_private)
-            !!find_through_method_missing(m, [], call: false) || super
+            has_through_method_missing?(m) || super
         end
 
 	def method_missing(name, *args, &block) # :nodoc:

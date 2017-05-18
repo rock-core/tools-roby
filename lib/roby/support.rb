@@ -29,7 +29,9 @@ class IO
 end
 
 class Object
-    def find_through_method_missing(m, args, call: true)
+    def has_through_method_missing?(m)
+    end
+    def find_through_method_missing(m, args)
     end
 
     def inspect
