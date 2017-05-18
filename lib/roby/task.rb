@@ -1107,15 +1107,9 @@ module Roby
                     poll_block.block.call(self)
                 end
             rescue LocalizedError => e
-                if execution_engine.display_exceptions?
-                    Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
-                end
-                internal_error_event.emit e
+                execution_engine.add_error(e)
             rescue Exception => e
-                if execution_engine.display_exceptions?
-                    Roby.log_exception_with_backtrace(e, Roby.logger, :warn)
-                end
-                internal_error_event.emit CodeError.new(e, self)
+                execution_engine.add_error(CodeError.new(e, self))
             end
         end
 
@@ -1476,46 +1470,60 @@ module Roby
             super(options.merge(remaining), &block)
         end
 
-        def command_or_handler_error(exception)
-            if exception.originates_from?(self) && (gen = exception.generator)
-                error = exception.exception
-                if (gen == start_event) && !gen.emitted?
-                    if !failed_to_start?
-                        failed_to_start!(error)
-                    end
-                elsif pending?
-                    pass_exception
-                elsif !gen.terminal? && !internal_error_event.emitted?
-                    internal_error_event.emit(error)
-                    if stop_event.pending? || !stop_event.controlable?
-                        # In this case, we can't "just" stop the task. We have
-                        # to inject +error+ in the exception handling and kill
-                        # everything that depends on it.
-                        add_error(TaskEmergencyTermination.new(self, error, false))
-                    end
-                else
-                    # No nice way to isolate this error through the task
-                    # interface, as we can't emergency stop it. Quarantine it
-                    # and inject it in the normal exception propagation
-                    # mechanisms.
-                    execution_engine.fatal "putting #{self} in quarantine: #{self} failed to emit"
-                    execution_engine.fatal "the error is:"
-                    Roby.log_exception_with_backtrace(error, execution_engine, :fatal)
+        def internal_error_handler(exception)
+            if !exception.originates_from?(self)
+                return pass_exception
+            end
 
-                    plan.quarantine_task(self)
-                    add_error(TaskEmergencyTermination.new(self, error, true))
+            error = exception.exception
+            gen = exception.generator
+            if pending?
+                pass_exception
+            elsif (!gen || !gen.terminal?) && !internal_error_event.emitted?
+                internal_error_event.emit(error)
+                if stop_event.pending? || !stop_event.controlable?
+                    # In this case, we can't "just" stop the task. We have
+                    # to inject +error+ in the exception handling and kill
+                    # everything that depends on it.
+                    add_error(TaskEmergencyTermination.new(self, error, false))
                 end
             else
-                pass_exception
+                # No nice way to isolate this error through the task
+                # interface, as we can't emergency stop it. Quarantine it
+                # and inject it in the normal exception propagation
+                # mechanisms.
+                execution_engine.fatal "putting #{self} in quarantine: #{self} failed to emit"
+                execution_engine.fatal "the error is:"
+                Roby.log_exception_with_backtrace(error, execution_engine, :fatal)
+
+                plan.quarantine_task(self)
+                add_error(TaskEmergencyTermination.new(self, error, true))
             end
         end
 
-        on_exception(Roby::EmissionFailed) do |exception|
-            command_or_handler_error(exception)
+        def command_or_handler_error(exception)
+            if !exception.originates_from?(self)
+                return pass_exception
+            end
+
+            gen = exception.generator
+            error = exception.exception
+            if (gen == start_event) && !gen.emitted?
+                if !failed_to_start?
+                    failed_to_start!(error)
+                end
+            else
+                internal_error_handler(exception)
+            end
         end
 
-        on_exception(Roby::CommandFailed) do |exception|
-            command_or_handler_error(exception)
+        on_exception(Roby::CodeError) do |exception|
+            case exception.exception
+            when EmissionFailed, CommandFailed
+                command_or_handler_error(exception)
+            else
+                internal_error_handler(exception)
+            end
         end
 
         # Creates a sequence where +self+ will be started first, and +task+ is
