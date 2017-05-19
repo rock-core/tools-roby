@@ -57,6 +57,122 @@ module Roby
                 assert task.internal_error?
             end
         end
+
+        describe "handling of CodeError originating from the task" do
+            describe "a pending task" do
+                it "passes the exception" do
+                    plan.add(task = Tasks::Simple.new)
+                    expect_execution do
+                        execution_engine.add_error(CodeError.new(ArgumentError.new, task))
+                    end.to do
+                        have_error_matching CodeError.match.
+                            with_ruby_exception(ArgumentError).
+                            with_origin(task)
+                    end
+                end
+            end
+            describe "failed-to-start task" do
+                it "passes the exception" do
+                    plan.add(task = Tasks::Simple.new)
+                    expect_execution do
+                        task.failed_to_start!(ArgumentError.new)
+                        execution_engine.add_error(CodeError.new(ArgumentError.new, task))
+                    end.to do
+                        have_error_matching CodeError.match.
+                            with_ruby_exception(ArgumentError).
+                            with_origin(task)
+                    end
+                end
+            end
+            describe "a finished task" do
+                it "passes the exception" do
+                    plan.add(task = Tasks::Simple.new)
+                    expect_execution do
+                        task.start!
+                        task.stop!
+                        execution_engine.add_error(CodeError.new(ArgumentError.new, task))
+                    end.to do
+                        have_error_matching CodeError.match.
+                            with_ruby_exception(ArgumentError).
+                            with_origin(task)
+                    end
+                end
+            end
+            describe "a starting task" do
+                after do
+                    if @task.starting?
+                        @task.start_event.emit
+                    end
+                end
+                it "marks the task as failed-to-start if the error's origin is the task's start_event" do
+                    task_m = Tasks::Simple.new_submodel do
+                        event :start do |context|
+                        end
+                    end
+                    plan.add(@task = task = task_m.new)
+                    expect_execution do
+                        task.start!
+                        execution_engine.add_error(CodeError.new(ArgumentError.new, task.start_event))
+                    end.to do
+                        fail_to_start task, reason: CodeError.match.
+                            with_ruby_exception(ArgumentError).
+                            with_origin(task.start_event)
+                    end
+                end
+            end
+            describe "a running task" do
+                after do
+                    if @task && @task.stop_event.pending?
+                        @task.stop_event.emit
+                    end
+                end
+
+                it "handles the error and emits internal_error_event with the error as context" do
+                    plan.add(task = Tasks::Simple.new)
+                    error_matcher = CodeError.match.
+                        with_ruby_exception(ArgumentError).
+                        with_origin(task)
+
+                    event = expect_execution do
+                        task.start!
+                        execution_engine.add_error(CodeError.new(ArgumentError.new, task))
+                    end.to do
+                        have_handled_error_matching error_matcher
+                        emit task.internal_error_event
+                    end
+                    assert error_matcher === event.context.first
+                end
+
+                it "does not emit internal_error_event twice" do
+                    task_m = Task.new_submodel
+                    task_m.event(:stop) { |context| }
+                    plan.add(@task = task = task_m.new)
+                    error_matcher = CodeError.match.
+                        with_ruby_exception(ArgumentError).
+                        with_origin(task)
+
+                    expect_execution do
+                        task.start!
+                        execution_engine.add_error(CodeError.new(ArgumentError.exception("first error"), task))
+                    end.to do
+                        have_handled_error_matching error_matcher
+                        emit task.internal_error_event
+                    end
+                    assert task.stop_event.pending?
+
+                    expect_execution do
+                        execution_engine.add_error(CodeError.new(ArgumentError.exception("second error"), task))
+                    end.to do
+                        have_handled_error_matching error_matcher
+                        have_error_matching TaskEmergencyTermination.match.
+                            with_origin(task).
+                            with_original_exception(error_matcher)
+                    end
+                    assert task.quarantined?
+                end
+            end
+        end
+
         describe "event validation" do
             attr_reader :task
             before do
