@@ -169,6 +169,29 @@ module Roby
                 add_expectation(HaveHandledErrorMatching.new(matcher, backtrace))
             end
 
+            def with_execution_engine_setup
+                engine = @plan.execution_engine
+                current_scheduler = engine.scheduler
+                current_scheduler_state = engine.scheduler.enabled?
+                current_display_exceptions = engine.display_exceptions?
+                if !@display_exceptions.nil?
+                    engine.display_exceptions = @display_exceptions
+                end
+                if !@scheduler.nil?
+                    if @scheduler != true && @scheduler != false
+                        engine.scheduler = @scheduler
+                    else
+                        engine.scheduler.enabled = @scheduler
+                    end
+                end
+
+                yield
+            ensure
+                engine.scheduler = current_scheduler
+                engine.scheduler.enabled = current_scheduler_state
+                engine.display_exceptions = current_display_exceptions
+            end
+
             # Verify that executing the given block in event propagation context
             # will cause the expectations to be met
             def verify(&block)
@@ -178,28 +201,9 @@ module Roby
                 begin
                     engine = @plan.execution_engine
                     engine.start_new_cycle
-                    propagation_info =
-                        begin
-                            current_scheduler = engine.scheduler
-                            current_scheduler_state = engine.scheduler.enabled?
-                            current_display_exceptions = engine.display_exceptions?
-                            if !@display_exceptions.nil?
-                                engine.display_exceptions = @display_exceptions
-                            end
-                            if !@scheduler.nil?
-                                if @scheduler != true && @scheduler != false
-                                    engine.scheduler = @scheduler
-                                else
-                                    engine.scheduler.enabled = @scheduler
-                                end
-                            end
-
-                            engine.process_events(garbage_collect_pass: @garbage_collect, &block)
-                        ensure
-                            engine.scheduler = current_scheduler
-                            engine.scheduler.enabled = current_scheduler_state
-                            engine.display_exceptions = current_display_exceptions
-                        end
+                    propagation_info = with_execution_engine_setup do
+                        engine.process_events(garbage_collect_pass: @garbage_collect, &block)
+                    end
 
                     all_propagation_info.merge(propagation_info)
 
@@ -216,7 +220,9 @@ module Roby
                     break if remaining_timeout < 0
 
                     if engine.has_waiting_work? && @join_all_waiting_work
-                        _, propagation_info = engine.join_all_waiting_work(timeout: remaining_timeout)
+                        _, propagation_info = with_execution_engine_setup do
+                            engine.join_all_waiting_work(timeout: remaining_timeout)
+                        end
                         all_propagation_info.merge(propagation_info)
                     elsif unmet.empty?
                         break
