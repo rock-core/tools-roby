@@ -275,6 +275,10 @@ module Roby
             end
         end
 
+        def app_path
+            @app_path ||= Pathname.new(app_dir)
+        end
+
         # The PID of the server that gives access to the log file
         #
         # Its port is allocated automatically, and must be discovered through
@@ -1209,7 +1213,7 @@ module Roby
             if !File.exists?(path)
                 path
             elsif root_path = find_base_path_for(path)
-                return Pathname.new(path).relative_path_from(Pathname.new(root_path)).to_s
+                return Pathname.new(path).relative_path_from(root_path).to_s
             else
                 path
             end
@@ -1365,7 +1369,7 @@ module Roby
             model.definition_location.each do |location|
                 file = location.absolute_path
                 next if !(base_path = find_base_path_for(file))
-                relative = Pathname.new(file).relative_path_from(Pathname.new(base_path))
+                relative = Pathname.new(file).relative_path_from(base_path)
                 split = relative.each_filename.to_a
                 next if split[0] != 'models'
                 return file
@@ -1382,7 +1386,7 @@ module Roby
             model.definition_location.each do |location|
                 file = location.absolute_path
                 next if !(base_path = find_base_path_for(file))
-                relative = Pathname.new(file).relative_path_from(Pathname.new(base_path))
+                relative = Pathname.new(file).relative_path_from(base_path)
                 split = relative.each_filename.to_a
                 next if split[0] != 'models'
                 split[0] = 'test'
@@ -2258,16 +2262,23 @@ module Roby
         # @param [String] path
         # @return [nil,String]
         def find_base_path_for(path)
-            candidates = search_path.find_all do |app_dir|
-                (path =~ %r{(^|/)#{app_dir}(/|$)}) ||
+            if @find_base_path_rx_paths != search_path
+                @find_base_path_rx = search_path.map { |app_dir| [Pathname.new(app_dir), app_dir, %r{(^|/)#{app_dir}(/|$)}] }.
+                    sort_by { |_, app_dir, _| app_dir.size }.
+                    reverse
+                @find_base_path_rx_paths = search_path.dup
+            end
+
+            longest_prefix_path, _ = @find_base_path_rx.find do |app_path, app_dir, rx|
+                (path =~ rx) ||
                     ((path[0] != ?/) && File.file?(File.join(app_dir, path)))
             end
-            candidates.max_by(&:size)
+            longest_prefix_path
         end
 
         # Returns true if the given path points to a file under {#app_dir}
         def self_file?(path)
-            find_base_path_for(path) == app_dir
+            find_base_path_for(path) == app_path
         end
 
         # Returns true if the given path points to a file in the Roby app

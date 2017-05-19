@@ -195,10 +195,10 @@ module Roby
                     assert_nil app.find_base_path_for("/somewhere/else")
                 end
                 it "returns the matching entry in search_path" do
-                    assert_equal "/bla/blo", app.find_base_path_for("/bla/blo/models")
+                    assert_equal Pathname.new("/bla/blo"), app.find_base_path_for("/bla/blo/models")
                 end
                 it "returns the longest matching entry in search_path if there are multiple candidates" do
-                    assert_equal "/bla/blo/blu", app.find_base_path_for("/bla/blo/blu/models")
+                    assert_equal Pathname.new("/bla/blo/blu"), app.find_base_path_for("/bla/blo/blu/models")
                 end
             end
 
