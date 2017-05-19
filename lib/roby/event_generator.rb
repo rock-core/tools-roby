@@ -960,6 +960,7 @@ module Roby
         end
 
         def mark_unreachable!(reason)
+            @pending = false
             @unreachable = true
             @unreachability_reason = reason
         end

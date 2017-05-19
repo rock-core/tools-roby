@@ -1592,6 +1592,16 @@ module Roby
                 assert event.unreachable?
             end
         end
+
+        describe "#unreachable!" do
+            it "resets the pending flag" do
+                plan.add(event = EventGenerator.new { })
+                execute { event.call }
+                assert event.pending?
+                execute { event.unreachable! }
+                refute event.pending?
+            end
+        end
     end
 end
 
