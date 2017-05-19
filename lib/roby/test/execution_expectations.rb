@@ -482,6 +482,11 @@ module Roby
                     super(backtrace)
                     @task = task
                     @reason = reason
+                    if @reason && @reason.respond_to?(:to_execution_exception_matcher)
+                        @reason = @reason.to_execution_exception_matcher
+                        @related_error_matcher = LocalizedError.match.with_original_exception(@reason).
+                            to_execution_exception_matcher
+                    end
                 end
 
                 def update_match(propagation_info)
@@ -497,6 +502,12 @@ module Roby
                 def unachievable?(propagation_info)
                     if @reason && @task.failed_to_start?
                         !(@reason === @task.failure_reason)
+                    end
+                end
+
+                def relates_to_error?(exception)
+                    if @reason
+                        (@reason === exception) || (@related_error_matcher === exception)
                     end
                 end
 

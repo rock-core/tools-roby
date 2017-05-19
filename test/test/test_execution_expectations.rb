@@ -301,6 +301,49 @@ module Roby
                         end.to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
                     end
                 end
+                describe "#fail_to_start" do
+                    attr_reader :task, :error_m
+                    before do
+                        task_m = Task.new_submodel
+                        task_m.terminates
+                        plan.add(@task = task_m.new)
+                        @error_m = Class.new(ArgumentError)
+                    end
+                    it "matches a task that fails to start" do
+                        expect_execution { task.failed_to_start!(CodeError.new(error_m.new, task)) }.
+                            to { fail_to_start task }
+                    end
+                    it "matches the failure reason" do
+                        expect_execution { task.failed_to_start!(CodeError.new(error_m.new, task)) }.
+                            to { fail_to_start task, reason: error_m }
+                    end
+                    it "does not match if the given reason matcher does not match the failure reason" do
+                        other_error_m = Class.new(RuntimeError)
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution { task.failed_to_start!(CodeError.new(error_m.new, task)) }.
+                                to do
+                                    fail_to_start task, reason: other_error_m
+                                    fail_to_start task, reason: error_m
+                                end
+                        end
+                    end
+                    it "is related to the original failure reason" do
+                        expect_execution do
+                            original_e = CodeError.new(error_m.new, task)
+                            execution_engine.add_error(original_e)
+                            task.failed_to_start!(original_e)
+                        end.to { fail_to_start task, reason: error_m }
+                    end
+                    it "does not relate to the original failure reason if no reason matcher is given" do
+                        assert_raises(ExecutionExpectations::UnexpectedErrors) do
+                            expect_execution do
+                                original_e = CodeError.new(error_m.new, task)
+                                execution_engine.add_error(original_e)
+                                task.failed_to_start!(original_e)
+                            end.to { fail_to_start task }
+                        end
+                    end
+                end
             end
         end
     end
