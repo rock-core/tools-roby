@@ -217,7 +217,10 @@ module Roby
                         e = assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution do
                                 execution_engine.add_error(LocalizedError.new(task.start_event))
-                            end.with_setup { timeout 0 }.to { have_error_matching flexmock(to_execution_exception_matcher: matcher) }
+                            end.with_setup { timeout 0 }.to do
+                                have_error_matching LocalizedError
+                                have_error_matching flexmock(to_execution_exception_matcher: matcher)
+                            end
                         end
                         assert_match /^1 unmet expectations\nhas error matching #{matcher}/m, e.message
                     end

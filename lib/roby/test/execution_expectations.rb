@@ -216,6 +216,10 @@ module Roby
                         raise Unmet.new(unachievable, all_propagation_info)
                     end
 
+                    if @validate_unexpected_errors
+                        validate_has_no_unexpected_error(all_propagation_info)
+                    end
+
                     remaining_timeout = timeout_deadline - Time.now
                     break if remaining_timeout < 0
 
