@@ -49,12 +49,12 @@ module Roby
                 nil
             end
 
-            def assert_raises(*exp, return_original_exception: false, &block)
+            def assert_raises(*exp, display_exceptions: false, return_original_exception: false, &block)
                 if plan.executable?
                     # Avoid having it displayed by the execution engine. We're going
                     # to display any unexpected exception anyways
                     display_exceptions_enabled, plan.execution_engine.display_exceptions =
-                        plan.execution_engine.display_exceptions?, false
+                        plan.execution_engine.display_exceptions?, display_exceptions
                 end
 
                 msg = exp.pop if String === exp.last

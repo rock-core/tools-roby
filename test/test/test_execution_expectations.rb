@@ -392,6 +392,36 @@ module Roby
                         end
                     end
                 end
+
+                describe "#have_framework_error_matching" do
+                    attr_reader :error_m
+                    before do
+                        @error_m = Class.new(RuntimeError)
+                    end
+                    it "matches a framework error" do
+                        expect_execution { execution_engine.add_framework_error(error_m.new, 'test') }.
+                            to { have_framework_error_matching error_m }
+                    end
+                    it "does not match an unrelated framework error" do
+                        other_error_m = Class.new(RuntimeError)
+                        assert_raises(ExecutionExpectations::UnexpectedErrors) do
+                            expect_execution { execution_engine.add_framework_error(error_m.new, 'test') }.
+                                with_setup { timeout 0 }.
+                                to do
+                                    have_framework_error_matching other_error_m
+                                end
+                        end
+                    end
+                    it "does not match if no framework errors happened" do
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution.
+                                with_setup { timeout 0 }.
+                                to do
+                                    have_framework_error_matching error_m
+                                end
+                        end
+                    end
+                end
             end
         end
     end

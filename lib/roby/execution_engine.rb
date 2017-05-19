@@ -395,15 +395,24 @@ module Roby
             finished = Array.new
             propagation_info = PropagationInfo.new
             begin
-                this_propagation = process_events do
-                    finished.concat(process_waiting_work)
-                    blocks = Array.new
-                    while !once_blocks.empty?
-                        blocks << once_blocks.pop.last
+                framework_errors = gather_framework_errors("#join_all_waiting_work", raise_caught_exceptions: false) do
+                    next_steps = nil
+                    event_errors = gather_errors do
+                        next_steps = gather_propagation do
+                            finished.concat(process_waiting_work)
+                            blocks = Array.new
+                            while !once_blocks.empty?
+                                blocks << once_blocks.pop.last
+                            end
+                            call_poll_blocks(blocks)
+                        end
                     end
-                    call_poll_blocks(blocks)
+
+                    this_propagation = propagate_events_and_errors(next_steps, event_errors, garbage_collect_pass: false)
+                    propagation_info.merge(this_propagation)
                 end
-                propagation_info.merge(this_propagation)
+                propagation_info.add_framework_errors(framework_errors)
+
                 Thread.pass
                 if deadline && (Time.now > deadline)
                     raise JoinAllWaitingWorkTimeout.new(waiting_work)
@@ -609,17 +618,21 @@ module Roby
             end
         end
 
-        def process_pending_application_exceptions(application_errors = clear_application_exceptions)
+        def process_pending_application_exceptions(application_errors = clear_application_exceptions,
+            raise_framework_errors: Roby.app.abort_on_application_exception?)
+
             # We don't aggregate exceptions, so report them all and raise one
-            application_errors.each do |error, source|
-                if !error.kind_of?(Interrupt)
-                    fatal "Application error in #{source}"
-                    Roby.log_exception_with_backtrace(error, self, :fatal)
+            if display_exceptions?
+                application_errors.each do |error, source|
+                    if !error.kind_of?(Interrupt)
+                        fatal "Application error in #{source}"
+                        Roby.log_exception_with_backtrace(error, self, :fatal)
+                    end
                 end
             end
 
             error, source = application_errors.find do |error, _|
-                Roby.app.abort_on_application_exception? || error.kind_of?(SignalException)
+                raise_framework_errors || error.kind_of?(SignalException)
             end
             if error
                 raise error, "in #{source}: #{error.message}", error.backtrace
@@ -1436,7 +1449,7 @@ module Roby
 
         # Gathering of all the errors that happened during an event processing
         # loop and were not handled
-        PropagationInfo = Struct.new :called_generators, :emitted_events, :kill_tasks, :fatal_errors, :nonfatal_errors, :free_events_errors, :handled_errors, :inhibited_errors do
+        PropagationInfo = Struct.new :called_generators, :emitted_events, :kill_tasks, :fatal_errors, :nonfatal_errors, :free_events_errors, :handled_errors, :inhibited_errors, :framework_errors do
             def initialize(called_generators = Set.new,
                            emitted_events = Set.new,
                            kill_tasks = Set.new,
@@ -1444,7 +1457,8 @@ module Roby
                            nonfatal_errors = Array.new,
                            free_events_errors = Array.new,
                            handled_errors = Array.new,
-                           inhibited_errors = Array.new)
+                           inhibited_errors = Array.new,
+                           framework_errors = Array.new)
 
                 self.called_generators  = called_generators .to_set
                 self.emitted_events     = emitted_events.to_set
@@ -1454,6 +1468,7 @@ module Roby
                 self.free_events_errors = free_events_errors
                 self.handled_errors     = handled_errors
                 self.inhibited_errors   = inhibited_errors
+                self.framework_errors = framework_errors
             end
 
             def merge(results)
@@ -1465,6 +1480,7 @@ module Roby
                 self.free_events_errors.concat(results.free_events_errors)
                 self.handled_errors.concat(results.handled_errors)
                 self.inhibited_errors.concat(results.inhibited_errors)
+                self.framework_errors.concat(results.framework_errors)
             end
 
             def add_generator_call(generator)
@@ -1536,6 +1552,18 @@ module Roby
                 !inhibited_errors.empty?
             end
 
+            def each_framework_error(&block)
+                framework_errors.each(&block)
+            end
+
+            def has_framework_errors?
+                !framework_errors.empty?
+            end
+
+            def add_framework_errors(errors)
+                framework_errors.concat(errors)
+            end
+
             def pretty_print(pp)
                 if !emitted_events.empty?
                     pp.text "received #{emitted_events.size} events:"
@@ -1575,6 +1603,17 @@ module Roby
                         end
                     end
                 end
+                if !framework_errors.empty?
+                    pp.breakable if !emitted_events.empty? || !exceptions.empty? || !handled_errors.empty?
+                    pp.text "#{framework_errors.size} framework errors"
+                    pp.nest(2) do
+                        framework_errors.each do |e, source|
+                            pp.breakable
+                            pp.text "from #{source}: "
+                            e.pretty_print(pp)
+                        end
+                    end
+                end
             end
         end
 
@@ -1594,7 +1633,7 @@ module Roby
         #
         # @return [PropagationInfo] what happened during the propagation
         # @raise RecursivePropagationContext if called recursively
-        def process_events(garbage_collect_pass: true, &caller_block)
+        def process_events(raise_framework_errors: Roby.app.abort_on_application_exception?, garbage_collect_pass: true, &caller_block)
             if @application_exceptions
                 raise RecursivePropagationContext, "recursive call to process_events"
             end
@@ -1626,11 +1665,12 @@ module Roby
             if Roby.app.abort_on_exception? && !all_errors.fatal_errors.empty?
                 raise Aborting.new(propagation_info.each_fatal_error.map(&:exception))
             end
+            propagation_info.framework_errors.concat(@application_exceptions)
             propagation_info
 
         ensure
             if passed_recursive_check
-                process_pending_application_exceptions
+                process_pending_application_exceptions(raise_framework_errors: raise_framework_errors)
             end
         end
 

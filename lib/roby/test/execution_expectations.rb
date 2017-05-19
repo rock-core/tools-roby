@@ -174,6 +174,10 @@ module Roby
                 add_expectation(HaveHandledErrorMatching.new(matcher, backtrace))
             end
 
+            def have_framework_error_matching(error, backtrace: caller(1))
+                add_expectation(HaveFrameworkError.new(error, backtrace))
+            end
+
             def with_execution_engine_setup
                 engine = @plan.execution_engine
                 current_scheduler = engine.scheduler
@@ -207,7 +211,7 @@ module Roby
                     engine = @plan.execution_engine
                     engine.start_new_cycle
                     propagation_info = with_execution_engine_setup do
-                        engine.process_events(garbage_collect_pass: @garbage_collect, &block)
+                        engine.process_events(raise_framework_errors: false, garbage_collect_pass: @garbage_collect, &block)
                     end
 
                     all_propagation_info.merge(propagation_info)
@@ -272,6 +276,8 @@ module Roby
                 unexpected_errors = propagation_info.exceptions.find_all do |e|
                     unexpected_error?(e)
                 end
+                unexpected_errors.concat propagation_info.each_framework_error.
+                    map(&:first).find_all { |e| unexpected_error?(e) }
 
                 # Look for internal_error_event, which is how the tasks report
                 # on their internal errors
@@ -522,6 +528,27 @@ module Roby
 
                 def to_s
                     "#{@generator} has failed to start"
+                end
+            end
+
+            class HaveFrameworkError < Expectation
+                def initialize(error_matcher, backtrace)
+                    super(backtrace)
+                    @error_matcher = error_matcher
+                end
+
+                def update_match(propagation_info)
+                    @matched_exceptions = propagation_info.framework_errors.
+                        map(&:first).find_all { |e| @error_matcher === e }
+                    !@matched_exceptions.empty?
+                end
+
+                def relates_to_error?(error)
+                    @matched_exceptions.include?(error)
+                end
+
+                def to_s
+                    "have a framework error matching #{@error_matcher}"
                 end
             end
         end

@@ -413,7 +413,7 @@ module Roby
 
             it "raises the exceptions registerd by #add_framework_error by default" do
                 flexmock(execution_engine).should_receive(:fatal).with("Application error in test").once
-                assert_raises(error_m) do
+                assert_raises(error_m, display_exceptions: true) do
                     assert_logs_exception_with_backtrace(error_m, execution_engine, :fatal)
                     execution_engine.gather_framework_errors 'test' do
                         execution_engine.add_framework_error(error_m.exception, 'test')
@@ -424,7 +424,7 @@ module Roby
                 flexmock(execution_engine).should_receive(:fatal).with("Application error in inside").once
                 recorder = flexmock
                 recorder.should_receive(:called).once
-                assert_raises(error_m) do
+                assert_raises(error_m, display_exceptions: true) do
                     assert_logs_exception_with_backtrace(error_m, execution_engine, :fatal)
 
                     execution_engine.gather_framework_errors 'test' do
@@ -439,7 +439,7 @@ module Roby
                 recorder = flexmock
                 recorder.should_receive(:called).once
                 log_message = capture_log(execution_engine, :fatal) do
-                    assert_raises(error_m) do
+                    assert_raises(error_m, display_exceptions: true) do
                         assert_logs_exception_with_backtrace(error_m, execution_engine, :fatal)
                         execution_engine.gather_framework_errors 'test' do
                             FlexMock.use(execution_engine) do |mock|
@@ -1661,7 +1661,7 @@ class TC_ExecutionEngine < Minitest::Test
         mock.should_receive(:called).once
         msg = capture_log(execution_engine, :fatal) do
             assert_logs_exception_with_backtrace(exception_m, execution_engine, :fatal)
-            assert_raises(exception_m) { process_events }
+            assert_raises(exception_m, display_exceptions: true) { execution_engine.process_events }
         end
         assert_match /Application error/, msg.first
     end
