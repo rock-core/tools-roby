@@ -28,6 +28,13 @@ class IO
     end
 end
 
+class Module
+    def each_fullfilled_model
+        return enum_for(__method__) if !block_given?
+        yield self
+    end
+end
+
 class Object
     def has_through_method_missing?(m)
     end
