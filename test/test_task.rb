@@ -1687,7 +1687,7 @@ class TC_Task < Minitest::Test
     end
 
     def assert_event_flag(task, event_name, instance_flag, model_flag)
-        ASSERT_EVENT_PREDICATES[instance_flag].each do |pred|
+        ASSERT_EVENT_PREDICATES.fetch(instance_flag).each do |pred|
             assert task.event(event_name).send(pred), "#{task}.#{event_name}.#{pred} returned false"
         end
         (ASSERT_EVENT_ALL_PREDICATES - ASSERT_EVENT_PREDICATES[instance_flag]).each do |pred|
@@ -1712,8 +1712,10 @@ class TC_Task < Minitest::Test
     def test_terminal_forward_success; test_terminal_forward_stop(:success) end
     def test_terminal_forward_failed; test_terminal_forward_stop(:failed) end
 
-    def test_terminal_forward_stop_in_model(target_event = :stop)
+    def test_terminal_forward_stop_in_model(target_event = :stop, flag: target_event)
 	klass = Task.new_submodel do
+            event :terminal_e, terminal: true
+
 	    event :direct
             forward direct: target_event
 
@@ -1725,13 +1727,14 @@ class TC_Task < Minitest::Test
         assert_model_event_flag(klass, :direct, target_event)
         assert_model_event_flag(klass, :indirect, target_event)
         plan.add(task = klass.new)
-        assert_event_flag(task, :direct, target_event, target_event)
-        assert_event_flag(task, :indirect, target_event, target_event)
+        assert_event_flag(task, :direct, flag, flag)
+        assert_event_flag(task, :indirect, flag, flag)
     end
     def test_terminal_forward_success_in_model; test_terminal_forward_stop_in_model(:success) end
     def test_terminal_forward_failed_in_model; test_terminal_forward_stop_in_model(:failed) end
+    def test_terminal_forward_terminal_e_in_model; test_terminal_forward_stop_in_model(:terminal_e, flag: :stop) end
 
-    def test_terminal_signal_stop(target_event = :stop)
+    def test_terminal_signal_stop(target_event = :stop, flag: target_event)
 	klass = Task.new_submodel do
 	    event :direct
 
@@ -1743,13 +1746,21 @@ class TC_Task < Minitest::Test
         task.direct_event.signals task.event(target_event)
         task.indirect_event.signals task.intermediate_event
         task.intermediate_event.signals task.event(target_event)
-        assert_event_flag(task, :direct, target_event, :normal)
-        assert_event_flag(task, :indirect, target_event, :normal)
+        assert_event_flag(task, :direct, flag, :normal)
+        assert_event_flag(task, :indirect, flag, :normal)
     end
     def test_terminal_signal_success; test_terminal_signal_stop(:success) end
     def test_terminal_signal_failed; test_terminal_signal_stop(:failed) end
+    def test_terminal_event_is_terminal
+	klass = Task.new_submodel do
+            event :terminal_e, controlable: true, terminal: true
+	end
+        plan.add(task = klass.new)
+        assert task.terminal_e_event.terminal?
+        assert_event_flag(task, :terminal_e, :stop, :stop)
+    end
 
-    def test_terminal_signal_stop_in_model(target_event = :stop)
+    def test_terminal_signal_stop_in_model(target_event = :stop, flag: target_event)
 	klass = Task.new_submodel do
 	    event :direct
 
@@ -1764,11 +1775,12 @@ class TC_Task < Minitest::Test
         assert_model_event_flag(klass, :direct, target_event)
         assert_model_event_flag(klass, :indirect, target_event)
         plan.add(task = klass.new)
-        assert_event_flag(task, :direct, target_event, target_event)
-        assert_event_flag(task, :indirect, target_event, target_event)
+        assert_event_flag(task, :direct, flag, flag)
+        assert_event_flag(task, :indirect, flag, flag)
     end
     def test_terminal_signal_success_in_model; test_terminal_signal_stop_in_model(:success) end
     def test_terminal_signal_failed_in_model; test_terminal_signal_stop_in_model(:failed) end
+    def test_terminal_signal_terminal_e_in_model; test_terminal_signal_stop_in_model(:terminal_e, flag: :stop) end
 
     def test_terminal_alternate_stop(target_event = :stop)
 	klass = Task.new_submodel do

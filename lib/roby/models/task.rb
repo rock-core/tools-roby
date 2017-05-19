@@ -27,6 +27,16 @@ module Roby
                 end
             end
 
+            class TemplateEventGenerator < EventGenerator
+                def initialize(controlable, event_model, plan: Template.new)
+                    super(controlable, plan: plan)
+                    @event_model = event_model
+                end
+                def model
+                    @event_model
+                end
+            end
+
             def invalidate_template
                 @template = nil
             end
@@ -37,7 +47,7 @@ module Roby
 
                 template = Template.new
                 each_event do |event_name, event_model|
-                    template.add(event = EventGenerator.new(event_model.controlable?, plan: template))
+                    template.add(event = TemplateEventGenerator.new(event_model.controlable?, event_model, plan: template))
                     template.events_by_name[event_name] = event
                 end
 
@@ -144,6 +154,15 @@ module Roby
                 discover_terminal_events(event_set, terminal_events, success_events, events[:success])
                 discover_terminal_events(event_set, terminal_events, failure_events, events[:failed])
                 discover_terminal_events(event_set, terminal_events, nil, events[:stop])
+
+                events.each_value do |ev|
+                    if ev.event_model.terminal?
+                        if !success_events.include?(ev) && !failure_events.include?(ev)
+                            terminal_events << ev 
+                        end
+                    end
+                end
+
                 return terminal_events, success_events, failure_events
             end
 
