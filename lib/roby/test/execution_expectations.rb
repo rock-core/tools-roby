@@ -139,6 +139,11 @@ module Roby
                 add_expectation(Emit.new(generator, backtrace))
             end
 
+            def have_internal_error(task, original_exception)
+                emit task.internal_error_event
+                have_handled_error_matching original_exception.match.with_origin(task)
+            end
+
             def quarantine(task, backtrace: caller(1))
                 add_expectation(Quarantine.new(task, backtrace))
                 nil

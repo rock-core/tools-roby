@@ -301,6 +301,54 @@ module Roby
                         end.to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
                     end
                 end
+
+                describe "#have_internal_error" do
+                    attr_reader :error_m
+                    before do
+                        @task_m = Task.new_submodel
+                        @task_m.terminates
+                        @error_m = Class.new(ArgumentError)
+                    end
+                    describe "when the task does raise an internal error" do
+                        attr_reader :task
+                        before do
+                            error_m = @error_m
+                            @task_m.poll { raise error_m }
+                            plan.add(@task = @task_m.new)
+                        end
+                        it "matches the exception" do
+                            expect_execution { task.start! }.
+                                to { have_internal_error task, error_m }
+                        end
+                        it "does not match if the exception does not fit the matcher object" do
+                            other_error_m = Class.new(RuntimeError)
+                            assert_raises(ExecutionExpectations::Unmet) do
+                                expect_execution { task.start! }.with_setup { timeout 0 }.
+                                    to do
+                                        have_internal_error task, error_m
+                                        have_internal_error task, other_error_m
+                                    end
+                            end
+                        end
+                    end
+
+                    it "does not match if the task raises nothing" do
+                        plan.add(task = @task_m.new)
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution.with_setup { timeout 0 }.
+                                to { have_internal_error task, error_m }
+                        end
+                    end
+                    it "does not match a plain internal_error_event emission" do
+                        plan.add(task = @task_m.new)
+                        execute { task.start! }
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution { task.internal_error_event.emit }.with_setup { timeout 0 }.
+                                to { have_internal_error task, error_m }
+                        end
+                    end
+                end
+
                 describe "#fail_to_start" do
                     attr_reader :task, :error_m
                     before do
