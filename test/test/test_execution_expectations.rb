@@ -422,6 +422,21 @@ module Roby
                         end
                     end
                 end
+
+                describe "#promise_finishes" do
+                    it "waits until the promise finishes" do
+                        promise = execution_engine.promise.then { }.on_success { }.then { }
+                        expect_execution { promise.execute }.
+                            to { finish_promise promise }
+                        assert promise.complete?
+                    end
+                    it "is successful even if the promise fails" do
+                        promise = execution_engine.promise.then { }.on_success { }.then { raise ArgumentError }.on_error { }
+                        expect_execution { promise.execute }.
+                            to { finish_promise promise }
+                        assert promise.complete?
+                    end
+                end
             end
         end
     end

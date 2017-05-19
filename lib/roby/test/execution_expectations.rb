@@ -154,6 +154,11 @@ module Roby
                 nil
             end
 
+            def finish_promise(promise, backtrace: caller(1))
+                add_expectation(PromiseFinishes.new(promise, backtrace))
+                nil
+            end
+
             def finish(task, backtrace: caller(1))
                 emit task.start_event, backtrace: backtrace if !task.running?
                 emit task.stop_event, backtrace: backtrace
@@ -528,6 +533,21 @@ module Roby
 
                 def to_s
                     "#{@generator} has failed to start"
+                end
+            end
+
+            class PromiseFinishes < Expectation
+                def initialize(promise, backtrace)
+                    super(backtrace)
+                    @promise = promise
+                end
+
+                def update_match(propagation_info)
+                    @promise.complete?
+                end
+
+                def to_s
+                    "#{@promise} finishes"
                 end
             end
 
