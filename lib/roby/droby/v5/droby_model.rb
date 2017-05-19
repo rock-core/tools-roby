@@ -25,6 +25,10 @@ module Roby
                 def create_new_proxy_model(peer)
                     supermodel = peer.local_model(self.supermodel)
                     local_model = supermodel.new_submodel(name: name || "#{supermodel.name}#")
+                    # This looks useless, but it actually does ensure that the
+                    # peer-local info gets registered, thus allowing further
+                    # unmarshalling that would depend on it
+                    @provided_models.each { |m| peer.local_object(m) }
                     peer.register_model(local_model, remote_siblings)
                     local_model
                 end
