@@ -54,6 +54,7 @@ module Roby
             super
             if symbol == :start
                 task.freeze_delayed_arguments
+                plan.task_index.set_state(task, :starting?) if plan && !plan.template?
                 task.pending  = false
                 task.starting = true
             end
@@ -62,7 +63,9 @@ module Roby
         def clear_pending
             if @pending && symbol == :start
                 if !emitted? && !task.failed_to_start?
+                    plan.task_index.set_state(task, :pending?) if plan && !plan.template?
                     task.pending = true
+                    task.starting = false
                 end
             end
             super

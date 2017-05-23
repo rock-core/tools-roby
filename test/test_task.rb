@@ -13,9 +13,15 @@ module Roby
                 neg_states = state_predicates - states
                 states.each do |s|
                     assert task.send(s), "expected #{task} to be #{s}"
+                    if Queries::Index::STATE_PREDICATES.include?(s)
+                        assert plan.find_tasks.send("#{s}"[0..-2]).to_a.include?(task)
+                    end
                 end
                 neg_states.each do |s|
                     refute task.send(s), "expected #{task} to not be #{s}"
+                    if Queries::Index::STATE_PREDICATES.include?(s)
+                        assert plan.find_tasks.send("not_#{s}"[0..-2]).to_a.include?(task)
+                    end
                 end
             end
 
@@ -56,6 +62,21 @@ module Roby
                 execute { task.start! }
                 assert_task_in_states task, :starting?
                 execute { task.start_event.emit }
+            end
+
+            it "is back to pending if a call fails during propagation" do
+                task_m = Task.new_submodel do
+                    terminates
+                    event :start do |context|
+                    end
+                end
+                plan.add(task = task_m.new)
+                flexmock(task.start_event).
+                    should_receive(:check_call_validity_after_calling).
+                    and_return(TaskEventNotExecutable.new(task.start_event))
+                expect_execution { task.start! }.
+                    to { have_error_matching TaskEventNotExecutable }
+                assert_task_in_states task, :pending?
             end
 
             it "is started and running on a task whose start event has been emitted" do

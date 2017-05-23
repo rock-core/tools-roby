@@ -258,7 +258,7 @@ module Roby
         # See also #finishing, Task#finishing?
 
 	match_predicates :abstract?, :partially_instanciated?, :fully_instanciated?,
-	    :pending?, :running?, :finished?, :success?, :failed?, :interruptible?
+	    :starting?, :pending?, :running?, :finished?, :success?, :failed?, :interruptible?
 
         # Finishing tasks are also running task, use the index on 'running'
         match_predicate :finishing?, [[:running?], []]

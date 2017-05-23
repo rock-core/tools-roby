@@ -15,7 +15,7 @@ module Roby
         # Tasks that are locally owned
         attr_reader :self_owned
 
-	STATE_PREDICATES = [:pending?, :running?, :finished?, :success?, :failed?].to_set
+	STATE_PREDICATES = [:pending?, :starting?, :running?, :finished?, :success?, :failed?].to_set
         PREDICATES = STATE_PREDICATES.dup
 
 	def initialize
