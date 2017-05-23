@@ -43,6 +43,7 @@ module Roby
                                 if one_shot
                                     app.notify "profiling", 'INFO', "stopped"
                                     execution_engine.remove_propagation_handler(@cycle_counter_handler)
+                                    @cycle_counter_handler = nil
                                 else
                                     StackProf.start(mode: mode, interval: interval)
                                 end
@@ -60,6 +61,11 @@ module Roby
                 interval: "sampling interval. Either microseconds for :cpu and :wall (defaults to 1000, that is 1ms), or a number of objects for :object (defaults to one)",
                 raw: "whether the profile should include raw samples, needed for e.g. flamegraph generation"
 
+            def stackprof_active?
+                !!@cycle_counter_handler
+            end
+            command 'stackprof_active?', "whether stackprof profiling has been started",
+
             # Stop profiling
             #
             # This does not save the results, call {#save} for this
@@ -67,6 +73,7 @@ module Roby
                 StackProf.stop
                 if @cycle_counter_handler
                     execution_engine.remove_propagation_handler(@cycle_counter_handler)
+                    @cycle_counter_handler = nil
                 end
             end
             command 'stackprof_stop', "stops profiling. This does not save the results to disk, call #save explicitely for that"
