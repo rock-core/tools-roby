@@ -213,7 +213,10 @@ module Roby
             @abstract = @model.abstract?
             
             @failed_to_start = false
+            @pending = true
             @started = false
+            @running = false
+            @starting = false
             @finished = false
             @finishing = false
             @success = nil
@@ -476,9 +479,9 @@ module Roby
         
         # True if this task is starting, i.e. if its start event is pending
         # (has been called, but is not emitted yet)
-	def starting?; event(:start).pending? end
+	attr_predicate :starting?, true
 	# True if this task can be started
-        def pending?; !failed_to_start? && !starting? && !started? end
+        attr_predicate :pending?, true
         # True if this task is currently running (i.e. is has already started,
         # and is not finished)
         def running?; started? && !finished? end
@@ -517,7 +520,7 @@ module Roby
             @quarantined = true
         end
 
-        def failed_to_start?; !!@failed_to_start end
+        def failed_to_start?; @failed_to_start end
 
         def mark_failed_to_start(reason, time)
             if failed_to_start?
@@ -528,6 +531,8 @@ module Roby
             @failed_to_start = true
             @failed_to_start_time = time
             @failure_reason = reason
+            @pending = false
+            @starting = false
             plan.task_index.set_state(self, :failed?)
         end
 
@@ -694,6 +699,15 @@ module Roby
 	
 	# Call to update the task status because of +event+
 	def update_task_status(event) # :nodoc:
+	    if event.symbol == :start
+		plan.task_index.set_state(self, :running?)
+                @starting = false
+                @pending  = false
+		@started  = true
+                @running  = true
+		@executable = true
+            end
+
 	    if event.success?
 		plan.task_index.add_state(self, :success?)
 		self.success = true
@@ -708,15 +722,12 @@ module Roby
 		@terminal_event ||= event
 	    end
 	    
-	    if event.symbol == :start
-		plan.task_index.set_state(self, :running?)
-		self.started = true
-		@executable = true
-	    elsif event.symbol == :stop
+	    if event.symbol == :stop
 		plan.task_index.remove_state(self, :running?)
+                @running    = false
                 plan.task_index.add_state(self, :finished?)
-		self.finished = true
-                self.finishing = false
+                @finishing  = false
+		@finished   = true
 	        @executable = false
 	    end
 	end

@@ -701,6 +701,8 @@ module Roby
                 raise Roby::EventNotExecutable.new(target), "#{target} not in executed plan"
             end
 
+            target.pending(sources.find_all { |ev| ev.kind_of?(Event) })
+
             @propagation_step_id += 1
             target_info = (@propagation[target] ||= [@propagation_step_id, [], []])
             step = target_info[is_forward ? PENDING_PROPAGATION_FORWARD : PENDING_PROPAGATION_SIGNAL]

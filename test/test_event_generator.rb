@@ -30,7 +30,7 @@ class TC_Event < Minitest::Test
 
     def test_pending_includes_queued_events
         plan.add_permanent_event(e = EventGenerator.new { })
-        execution_engine.process_events_synchronous do
+        execute do
             e.emit
             assert e.pending?
             assert !e.emitted?
@@ -665,12 +665,11 @@ module Roby
                         mock.should_receive(:called).once.
                             with(->(context) { context.to_set == Set[1, 2, 3, 4] })
 
-                        seeds = execution_engine.gather_propagation do
+                        execute do
                             empty_source.emit
                             source.emit(1, 2)
                             other_source.emit(3, 4)
                         end
-                        execution_engine.process_events_synchronous(seeds)
                     end
                 end
             end
@@ -940,7 +939,7 @@ module Roby
                         flexmock_invoke_original(generator, :emit_failed, *args)
                     end
                     assert_free_event_exception CommandFailed, failure_point: generator, original_exception: RuntimeError do
-                        generator.call_without_propagation([])
+                        generator.call
                     end
                     refute generator.pending?
                 end

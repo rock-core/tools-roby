@@ -50,11 +50,22 @@ module Roby
                 end
         end
 
-        def calling(context)
+        def pending(sources)
             super
             if symbol == :start
                 task.freeze_delayed_arguments
+                task.pending  = false
+                task.starting = true
             end
+        end
+
+        def clear_pending
+            if @pending && symbol == :start
+                if !emitted? && !task.failed_to_start?
+                    task.pending = true
+                end
+            end
+            super
         end
 
         def called(context)
@@ -66,9 +77,9 @@ module Roby
 
         def fire(event)
             super
-            if event.symbol == :start
+            if symbol == :start
                 task.do_poll(plan)
-            elsif event.symbol == :stop
+            elsif symbol == :stop
                 task.each_event do |ev|
                     ev.unreachable!(task.terminal_event)
                 end

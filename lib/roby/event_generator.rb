@@ -89,10 +89,8 @@ module Roby
 	def model; self.class end
 	# The model name
 	def name; model.name end
-	# The count of command calls that have not a corresponding emission
-	attr_reader :pending
-	# True if this event has been called but is not emitted yet
-	def pending?; pending || (execution_engine && execution_engine.has_propagation_for?(self)) end
+
+        attr_predicate :pending?, true
 
         def plan=(plan)
             super
@@ -214,6 +212,7 @@ module Roby
 	# Calls the command from within the event propagation code
 	def call_without_propagation(context)
             if error = check_call_validity
+                clear_pending
                 execution_engine.add_error(error)
                 return
             end
@@ -221,12 +220,11 @@ module Roby
             calling(context)
 
             if (error = check_call_validity) || (error = check_call_validity_after_calling)
+                clear_pending
                 execution_engine.add_error(error)
                 return
             end
 
-            @pending = true
-            @pending_sources = execution_engine.propagation_source_events
             begin
                 @calling_command = true
                 @command_emitted = false
@@ -267,6 +265,7 @@ module Roby
             end
 
             if error = check_call_validity
+                clear_pending
                 raise error
             end
 
@@ -555,7 +554,7 @@ module Roby
 	# This method is always called in a propagation context
 	def fire(event)
             @emitted = true
-            @pending = false
+            clear_pending
             fired(event)
 
             execution_engine = self.execution_engine
@@ -642,7 +641,7 @@ module Roby
             execution_engine.add_error(error)
             error
 	ensure
-	    @pending = false
+            clear_pending
 	end
 
 	# Emits the event regardless of wether we are in a propagation context
@@ -665,10 +664,9 @@ module Roby
 	    event.add_sources(execution_engine.propagation_source_events)
             event.add_sources(@pending_sources)
 	    fire(event)
-            @pending_sources = []
             event
         ensure
-            @pending = false
+            clear_pending
 	end
 
 	# Emit the event with +context+ as the event context
@@ -681,6 +679,7 @@ module Roby
             end
 
             if error = check_emission_validity
+                clear_pending
                 raise error
             end
 
@@ -823,6 +822,16 @@ module Roby
 	    raise EventCanceled.new(self), (reason || "event canceled")
 	end
 
+        def pending(sources)
+            @pending = true
+            @pending_sources.concat(sources)
+        end
+
+        def clear_pending
+            @pending = false
+            @pending_sources = []
+        end
+
 	# Hook called when this event generator is called (i.e. the associated
 	# command is), before the command is actually called. Think of it as a
 	# pre-call hook.
@@ -960,7 +969,7 @@ module Roby
         end
 
         def mark_unreachable!(reason)
-            @pending = false
+            clear_pending
             @unreachable = true
             @unreachability_reason = reason
         end

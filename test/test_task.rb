@@ -4,6 +4,94 @@ require 'roby/schedulers/basic'
 
 module Roby
     describe Task do
+        describe "state flags" do
+            def state_predicates
+                [:pending?, :failed_to_start?, :starting?, :started?, :running?, :success?, :failed?, :finishing?, :finished?]
+            end
+
+            def assert_task_in_states(task, *states)
+                neg_states = state_predicates - states
+                states.each do |s|
+                    assert task.send(s), "expected #{task} to be #{s}"
+                end
+                neg_states.each do |s|
+                    refute task.send(s), "expected #{task} to not be #{s}"
+                end
+            end
+
+            it "is pending on a new task" do
+                plan.add(task = Tasks::Simple.new)
+                assert_task_in_states task, :pending?
+            end
+
+            it "is starting on a new task whose start event's call command is pending" do
+                plan.add(task = Tasks::Simple.new)
+                execute do
+                    task.start!
+                    assert_task_in_states task, :starting?
+                end
+            end
+
+            it "is failed_to_start? on a new task whose start event's call command has been pending but failed" do
+                task_m = Task.new_submodel do
+                    terminates
+                    event :start do |context|
+                    end
+                end
+                plan.add(task = task_m.new)
+                execute { task.start! }
+                execute do
+                    task.start_event.emit_failed RuntimeError.new
+                end
+                assert_task_in_states task, :failed_to_start?, :failed?
+            end
+
+            it "is starting on a new task whose start event's call command has been called" do
+                task_m = Task.new_submodel do
+                    terminates
+                    event :start do |context|
+                    end
+                end
+                plan.add(task = task_m.new)
+                execute { task.start! }
+                assert_task_in_states task, :starting?
+                execute { task.start_event.emit }
+            end
+
+            it "is started and running on a task whose start event has been emitted" do
+                plan.add(task = Tasks::Simple.new)
+                execute { task.start! }
+                assert_task_in_states task, :started?, :running?
+            end
+
+            it "is started and finished on a task whose stop event has been emitted" do
+                plan.add(task = Tasks::Simple.new)
+                execute do
+                    task.start!
+                    task.stop_event.emit
+                end
+                assert_task_in_states task, :started?, :finished?
+            end
+
+            it "is started, finished and failed on a task whose failed event has been emitted" do
+                plan.add(task = Tasks::Simple.new)
+                execute do
+                    task.start!
+                    task.failed_event.emit
+                end
+                assert_task_in_states task, :started?, :finished?, :failed?
+            end
+
+            it "is started, finished and successful on a task whose success event has been emitted" do
+                plan.add(task = Tasks::Simple.new)
+                execute do
+                    task.start!
+                    task.success_event.emit
+                end
+                assert_task_in_states task, :started?, :finished?, :success?
+            end
+        end
+
         describe "the failure of the start command" do
             it "sets failed_to_start if the start command fails before the start event was emitted" do
                 error = Class.new(ArgumentError).new
@@ -2020,123 +2108,6 @@ class TC_Task < Minitest::Test
         assert_equal(start_model, start_event.event_model)
         assert_equal([:stop, :success].to_set, task.model.enum_for(:each_forwarding, :start).to_set)
     end
-    def test_status
-	task = Roby::Task.new_submodel do
-	    event :start do |context|
-	    end
-	    event :failed, terminal: true do |context|
-	    end
-	    event :stop do |context|
-		failed!
-	    end
-	end.new
-	plan.add(task)
-
-	assert(task.pending?)
-	assert(!task.starting?)
-	assert(!task.running?)
-	assert(!task.success?)
-	assert(!task.failed?)
-	assert(!task.finishing?)
-	assert(!task.finished?)
-
-	execute { task.start! }
-	assert(!task.pending?)
-	assert(task.starting?)
-	assert(!task.running?)
-	assert(!task.success?)
-	assert(!task.failed?)
-	assert(!task.finishing?)
-	assert(!task.finished?)
-
-	execute { task.start_event.emit }
-	assert(!task.pending?)
-	assert(!task.starting?)
-	assert(task.running?)
-	assert(!task.success?)
-	assert(!task.failed?)
-	assert(!task.finishing?)
-	assert(!task.finished?)
-
-	execute { task.stop! }
-	assert(!task.pending?)
-	assert(!task.starting?)
-	assert(task.running?)
-	assert(!task.success?)
-	assert(!task.failed?)
-	assert(task.finishing?)
-	assert(!task.finished?)
-
-	execute { task.failed_event.emit }
-	assert(!task.pending?)
-	assert(!task.starting?)
-	assert(!task.running?)
-	assert(!task.success?)
-	assert(task.failed?)
-	assert(!task.finishing?)
-	assert(task.finished?)
-    end
-
-    def test_status_precisely
-        status_flags = [:pending?, :starting?, :started?, :running?, :finishing?, :finished?, :success?]
-        expected_status = lambda do |true_flags|
-            result = true_flags.dup
-            status_flags.each do |fl|
-                if !true_flags.has_key?(fl)
-                    result[fl] = false
-                end
-            end
-            result
-        end
-
-        mock = flexmock
-	task = Roby::Task.new_submodel do
-            define_method(:complete_status) do
-                as_array = status_flags.map { |s| [s, send(s)] }
-                Hash[as_array]
-            end
-
-	    event :start do |context|
-                mock.cmd_start(complete_status)
-                start_event.emit
-	    end
-            on :start do |context|
-                mock.on_start(complete_status)
-            end
-	    event :failed, terminal: true do |context|
-                mock.cmd_failed(complete_status)
-                failed_event.emit
-	    end
-            on :failed do |ev|
-                mock.on_failed(complete_status)
-            end
-	    event :stop do |context|
-                mock.cmd_stop(complete_status)
-                failed!
-	    end
-            on :stop do |context|
-                mock.on_stop(complete_status)
-            end
-	end.new
-        plan.add(task)
-        task.stop_event.when_unreachable do
-            mock.stop_unreachable
-        end
-
-        mock.should_expect do |m|
-            m.cmd_start(expected_status[:starting? => true, :success? => nil]).once.ordered
-            m.on_start(expected_status[:started? => true, :running? => true, :success? => nil]).once.ordered
-            m.cmd_stop(expected_status[:started? => true, :running? => true, :success? => nil]).once.ordered
-            m.cmd_failed(expected_status[:started? => true, :running? => true, :finishing? => true, :success? => nil]).once.ordered
-            m.on_failed(expected_status[:started? => true, :running? => true, :finishing? => true, :success? => false]).once.ordered
-            m.on_stop(expected_status[:started? => true, :finished? => true, :success? => false]).once.ordered
-            m.stop_unreachable.once.ordered
-        end
-
-        assert(task.pending?)
-        execute { task.start! }
-        execute { task.stop! }
-    end
 
     def test_context_propagation
 	FlexMock.use do |mock|
@@ -2268,18 +2239,6 @@ class TC_Task < Minitest::Test
 
         plan.add(task = model.new)
         assert_fatal_exception(EventNotExecutable, tasks: [task], failure_point: task.start_event) do
-            task.start!
-        end
-    end
-
-    def test_cannot_leave_pending_if_not_executable
-        model = Tasks::Simple.new_submodel do
-            def executable?; !pending?  end
-        end
-	plan.add(task = model.new)
-        assert_fatal_exception(
-            EventNotExecutable,
-            tasks: [task], failure_point: task.start_event) do
             task.start!
         end
     end
