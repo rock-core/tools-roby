@@ -33,9 +33,9 @@ module Roby
                 io_w_buffer_size = @io_w.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int
                 @io_w.write("0" * io_w_buffer_size) 
                 # Just make sure ...
-                assert_raises(IO::WaitWritable) { @io_w.write_nonblock(" ") }
-
                 channel = DRobyChannel.new(@io_w, false)
+                assert_raises(Errno::EAGAIN) { @io_w.syswrite(" ") }
+
                 channel.write_packet(Hash.new)
             end
             it "handles partial packets on write" do
@@ -95,14 +95,14 @@ module Roby
                 end
                 it "raises ComError if writing the socket raises SystemCallError a.k.a. any of the Errno constants" do
                     io_r, io_w = Socket.pair(:UNIX, :STREAM, 0)
-                    flexmock(io_w).should_receive(:write_nonblock).and_raise(SystemCallError.new("test", 0))
+                    flexmock(io_w).should_receive(:syswrite).and_raise(SystemCallError.new("test", 0))
                     channel = DRobyChannel.new(io_w, true)
                     io_r.close
                     assert_raises(ComError) { channel.write_packet([]) }
                 end
                 it "raises ComError if reading the socket raises SystemCallError a.k.a. any of the Errno constants" do
                     io_r, io_w = Socket.pair(:UNIX, :STREAM, 0)
-                    flexmock(io_r).should_receive(:read_nonblock).and_raise(SystemCallError.new("test", 0))
+                    flexmock(io_r).should_receive(:sysread).and_raise(SystemCallError.new("test", 0))
                     channel = DRobyChannel.new(io_r, true)
                     io_w.close
                     assert_raises(ComError) { channel.read_packet }

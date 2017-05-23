@@ -16,6 +16,7 @@ module Roby
 
             def initialize(io, client, marshaller: DRoby::Marshal.new(auto_create_plans: true), max_write_buffer_size: 25*1024**2)
                 @io = io
+                @io.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
                 @client = client
 
                 @incoming =
@@ -26,6 +27,7 @@ module Roby
                     end
                 @marshaller = marshaller
                 @max_write_buffer_size = max_write_buffer_size
+                @read_buffer  = String.new
                 @write_buffer = String.new
             end
 
@@ -68,39 +70,43 @@ module Roby
             # @return [Object,nil] returns the unmarshalled object, or nil if no
             #   full object can be found in the data received so far
             def read_packet(timeout = 0)
-                deadline = Time.now + timeout if timeout
+                deadline       = Time.now + timeout if timeout
+                remaining_time = timeout
 
-                begin
-                    if data = io.read_nonblock(1024 ** 2)
-                        @incoming << data
-                    end
-                rescue IO::WaitReadable
+                if packet = @incoming.next
+                    return unmarshal_packet(packet)
                 end
 
-                while !(packet = @incoming.next)
+                while true
+                    if IO.select([io], [], [], remaining_time)
+                        begin
+                            if io.sysread(1024 ** 2, @read_buffer)
+                                @incoming << @read_buffer
+                            end
+                        rescue Errno::EWOULDBLOCK, Errno::EAGAIN
+                        end
+                    end
+
+                    if packet = @incoming.next
+                        return unmarshal_packet(packet)
+                    end
+
                     if deadline
                         remaining_time = deadline - Time.now
                         return if remaining_time < 0
                     end
-
-                    if IO.select([io], [], [], remaining_time)
-                        begin
-                           if data = io.read_nonblock(1024 ** 2)
-                               @incoming << data
-                           end
-                        rescue IO::WaitReadable
-                        end
-                    end
                 end
 
+            rescue SystemCallError, EOFError, IOError
+                raise ComError, "closed communication"
+            end
+
+            def unmarshal_packet(packet)
                 unmarshalled = begin Marshal.load(packet.to_s)
                                rescue TypeError => e
                                    raise ProtocolError, "failed to unmarshal received packet: #{e.message}"
                                end
                 marshaller.local_object(unmarshalled)
-
-            rescue SystemCallError, EOFError, IOError
-                raise ComError, "closed communication"
             end
 
             # Write one ruby object (usually an array) as a marshalled packet and
@@ -122,10 +128,10 @@ module Roby
 
             def push_write_data(new_bytes = nil)
                 @write_buffer.concat(new_bytes) if new_bytes
-                written_bytes = io.write_nonblock(@write_buffer)
+                written_bytes = io.syswrite(@write_buffer)
                 @write_buffer = @write_buffer[written_bytes..-1]
                 !@write_buffer.empty?
-            rescue IO::WaitWritable
+            rescue Errno::EWOULDBLOCK, Errno::EAGAIN
                 if @write_buffer.size > max_write_buffer_size
                     raise ComError, "droby_channel reached an internal buffer size of #{@write_buffer.size}, which is bigger than the limit of #{max_write_buffer_size}, bailing out"
                 end
