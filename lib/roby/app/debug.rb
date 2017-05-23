@@ -26,8 +26,8 @@ module Roby
                              end
                 StackProf.start(mode: mode, interval: interval, raw: raw)
 
-                if one_shot || cycles
-                    cycles ||= 1
+                if one_shot && !cycles
+                    cycles = 1
                 end
 
                 if cycles
