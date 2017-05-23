@@ -437,6 +437,20 @@ module Roby
                         assert promise.complete?
                     end
                 end
+
+                describe "#achieve" do
+                    it "succeeds if the block returns true" do
+                        expect_execution { }.
+                            to { achieve { true } }
+                    end
+                    it "fails if the block never returns true" do
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution { }.
+                                with_setup { timeout 0 }.
+                                to { achieve { } }
+                        end
+                    end
+                end
             end
         end
     end

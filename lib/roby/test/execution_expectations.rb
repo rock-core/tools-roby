@@ -139,6 +139,10 @@ module Roby
                 add_expectation(Emit.new(generator, backtrace))
             end
 
+            def achieve(backtrace: caller(1), &block)
+                add_expectation(Achieve.new(block, backtrace))
+            end
+
             def have_internal_error(task, original_exception)
                 emit task.internal_error_event
                 have_handled_error_matching original_exception.match.with_origin(task)
@@ -569,6 +573,21 @@ module Roby
 
                 def to_s
                     "have a framework error matching #{@error_matcher}"
+                end
+            end
+
+            class Achieve < Expectation
+                def initialize(block, backtrace)
+                    super(backtrace)
+                    @block = block
+                end
+
+                def update_match(propagation_info)
+                    @block.call(propagation_info)
+                end
+
+                def to_s
+                    "achieves #{@block}"
                 end
             end
         end
