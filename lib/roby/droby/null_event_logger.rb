@@ -17,6 +17,9 @@ module Roby
             def dump_time
                 0
             end
+
+            def flush_cycle
+            end
         end
     end
 end
