@@ -1292,14 +1292,16 @@ module Roby
 	#
 	# This method is provided for consistency with Transaction#[]
 	def [](object, create = true)
-            if !object.finalized? && object.plan.template?
+            if object.plan == self
+                object
+            elsif !object.finalized? && object.plan.template?
 		add(object)
+                object
             elsif object.finalized? && create
 		raise ArgumentError, "#{object} is has been finalized, and can't be reused"
-	    elsif object.plan != self
+            else
 		raise ArgumentError, "#{object} is not from #{self}"
 	    end
-	    object
 	end
 
 	def self.can_gc?(task)
