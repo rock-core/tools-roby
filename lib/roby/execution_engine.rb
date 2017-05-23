@@ -85,7 +85,7 @@ module Roby
 
             @control = control
             @scheduler = Schedulers::Null.new(plan)
-            @thread_pool = Concurrent::CachedThreadPool.new
+            reset_thread_pool
             @thread = Thread.current
 
             @propagation = nil
@@ -1641,6 +1641,10 @@ module Roby
             @application_exceptions = []
             @emitted_events = Array.new
 
+            @thread_pool.send :synchronize do
+                @thread_pool.send(:ns_prune_pool)
+            end
+
             # Gather new events and propagate them
 	    events_errors = nil
             next_steps = gather_propagation do
@@ -2420,8 +2424,10 @@ module Roby
         end
 
         def reset_thread_pool
-            thread_pool.shutdown
-            @thread_pool = Concurrent::CachedThreadPool.new
+            if @thread_pool
+                @thread_pool.shutdown
+            end
+            @thread_pool = Concurrent::CachedThreadPool.new(idletime: 10)
         end
 
         # Kill all tasks that are currently running in the plan
