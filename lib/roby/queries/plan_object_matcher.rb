@@ -56,19 +56,21 @@ module Roby
         # Initializes an empty TaskMatcher object
 	def initialize(instance = nil)
             @instance             = instance
+            @indexed_query        = !@instance
             @model                = Array.new
-	    @predicates           = Set.new
-	    @neg_predicates       = Set.new
-	    @indexed_predicates     = Set.new
-	    @indexed_neg_predicates = Set.new
+	    @predicates           = Array.new
+	    @neg_predicates       = Array.new
+	    @indexed_predicates     = Array.new
+	    @indexed_neg_predicates = Array.new
 	    @owners               = Array.new
-            @parents              = Hash.new { |h, k| h[k] = Array.new }
-            @children             = Hash.new { |h, k| h[k] = Array.new }
+            @parents              = Hash.new
+            @children             = Hash.new
 	end
 
         # Match an instance explicitely
         def with_instance(instance)
             @instance = instance
+            @indexed_query = false
             self
         end
 
@@ -112,6 +114,7 @@ module Roby
             def match_predicate(name, positive_index = nil, negative_index = nil)
                 method_name = name.to_s.gsub(/\?$/, '')
                 if Index::PREDICATES.include?(name)
+                    indexed_predicate = true
                     positive_index ||= [["#{name}"], []]
                     negative_index ||= [[], ["#{name}"]]
                 end
@@ -122,6 +125,7 @@ module Roby
                     if neg_predicates.include?(:#{name})
                         raise ArgumentError, "trying to match (#{name} & !#{name})"
                     end
+                    #{"@indexed_query = false" if !indexed_predicate}
                     predicates << :#{name}
                     #{if !positive_index[0].empty? then ["indexed_predicates", *positive_index[0]].join(" << :") end}
                     #{if !positive_index[1].empty? then ["indexed_neg_predicates", *positive_index[1]].join(" << :") end}
@@ -131,6 +135,7 @@ module Roby
                     if predicates.include?(:#{name})
                         raise ArgumentError, "trying to match (#{name} & !#{name})"
                     end
+                    #{"@indexed_query = false" if !indexed_predicate}
                     neg_predicates << :#{name}
                     #{if !negative_index[0].empty? then ["indexed_predicates", *negative_index[0]].join(" << :") end}
                     #{if !negative_index[1].empty? then ["indexed_neg_predicates", *negative_index[1]].join(" << :") end}
@@ -194,7 +199,8 @@ module Roby
         #
         def with_child(other_query, relation = nil, relation_options = nil)
             relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
-            @children[relation] << spec
+            (@children[relation] ||= Array.new) << spec
+            @indexed_query = false
             self
         end
 
@@ -209,7 +215,8 @@ module Roby
         # See examples for #with_child
         def with_parent(other_query, relation = nil, relation_options = nil)
             relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
-            @parents[relation] << spec
+            (@parents[relation] ||= Array.new) << spec
+            @indexed_query = false
             self
         end
 
@@ -237,9 +244,7 @@ module Roby
         # equivalent to calling #filter() using a Index. This is used to
         # avoid an explicit O(N) filtering step after filter() has been called
         def indexed_query?
-            !@instance && @children.empty? && @parents.empty? &&
-                Index::PREDICATES.superset?(predicates) &&
-                Index::PREDICATES.superset?(neg_predicates)
+            @indexed_query
         end
 
         def to_s
@@ -295,6 +300,36 @@ module Roby
             true
         end
 
+        # @api private
+        #
+        # Resolve the indexed sets needed to filter an initial set in {#filter}
+        #
+        # @return [(Set,Set)] the positive (intersection) and
+        #   negative (difference) sets
+        def indexed_sets(index)
+            positive_sets = []
+            for m in @model
+                positive_sets << index.by_model[m]
+            end
+
+            for o in @owners
+                if candidates = index.by_owner[o]
+                    positive_sets << candidates
+                else
+                    return [Set.new, Set.new]
+                end
+            end
+
+	    for pred in @indexed_predicates
+                positive_sets << index.by_predicate[pred]
+	    end
+
+            negative_sets = @indexed_neg_predicates.
+                map { |pred| index.by_predicate[pred] }
+
+            return positive_sets, negative_sets
+        end
+
         # Filters the tasks in +initial_set+ by using the information in
         # +index+, and returns the result. The resulting set must
         # include all tasks in +initial_set+ which match with #===, but can
@@ -303,28 +338,23 @@ module Roby
         # @param [Set] initial_set
         # @param [Index] index
         # @return [Set]
-	def filter(initial_set, index)
-            for m in model
-                initial_set = initial_set.intersection(index.by_model[m])
+	def filter(initial_set, index, initial_is_complete: false)
+            positive_sets, negative_sets = indexed_sets(index)
+            positive_sets << initial_set if !initial_is_complete || positive_sets.empty?
+
+            negative = negative_sets.shift || Set.new
+            if negative_sets.size > 1
+                negative = negative.dup
+                negative_sets.each { |set| negative.merge(set) }
             end
 
-            for o in owners
-                if candidates = index.by_owner[o]
-                    initial_set = initial_set.intersection(candidates)
-                else
-                    return Set.new
-                end
+            positive_sets = positive_sets.sort_by(&:size)
+
+            result = Set.new
+            positive_sets.shift.each do |obj|
+                result.add(obj) if !negative.include?(obj) && positive_sets.all? { |set| set.include?(obj) }
             end
-
-	    for pred in indexed_predicates
-		initial_set = initial_set.intersection(index.by_predicate[pred])
-	    end
-
-	    for pred in indexed_neg_predicates
-		initial_set = initial_set.difference(index.by_predicate[pred])
-	    end
-
-	    initial_set
+            return result
 	end
     end
     end

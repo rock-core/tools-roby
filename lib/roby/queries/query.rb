@@ -56,23 +56,21 @@ module Roby
 	    @result_set ||= plan.query_result_set(self)
 	end
 
-        # Overload of TaskMatcher#filter
-	def filter(initial_set, task_index)
-            result = super
+        def indexed_sets(index)
+            positive_sets, negative_sets = super
 
             if plan_predicates.include?(:mission_task?)
-                result = result.intersection(plan.mission_tasks)
+                positive_sets << plan.mission_tasks
             elsif neg_plan_predicates.include?(:mission_task?)
-                result.subtract(plan.mission_tasks)
+                negative_sets << plan.mission_tasks
             end
 
             if plan_predicates.include?(:permanent_task?)
-                result = result.intersection(plan.permanent_tasks)
+                positive_sets << plan.permanent_tasks
             elsif neg_plan_predicates.include?(:permanent_task?)
-                result.subtract(plan.permanent_tasks)
+                negative_sets << plan.permanent_tasks
             end
-
-            result
+            return positive_sets, negative_sets
         end
 
         # Reinitializes the cached query result.

@@ -1702,7 +1702,7 @@ module Roby
 	# Called by TaskMatcher#result_set and Query#result_set to get the set
 	# of tasks matching +matcher+
 	def query_result_set(matcher) # :nodoc:
-            filtered = matcher.filter(tasks.dup, task_index)
+            filtered = matcher.filter(tasks, task_index, initial_is_complete: true)
 
             if matcher.indexed_query?
                 filtered

@@ -548,10 +548,10 @@ module Roby
                             matcher.neg_predicates << :c
                             matcher.indexed_neg_predicates << :d
                             matcher = transfer(self.matcher)
-                            assert_equal Set[:a], matcher.predicates
-                            assert_equal Set[:b], matcher.indexed_predicates
-                            assert_equal Set[:c], matcher.neg_predicates
-                            assert_equal Set[:d], matcher.indexed_neg_predicates
+                            assert_equal [:a], matcher.predicates
+                            assert_equal [:b], matcher.indexed_predicates
+                            assert_equal [:c], matcher.neg_predicates
+                            assert_equal [:d], matcher.indexed_neg_predicates
                         end
 
                         describe "relation matching" do
