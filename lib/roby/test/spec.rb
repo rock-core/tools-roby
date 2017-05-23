@@ -172,23 +172,19 @@ module Roby
                 return root_task if by_handler.empty?
 
                 placeholder_tasks = Hash.new
-                execution_engine.process_events_synchronous do
+                expect_execution do
                     by_handler.each do |handler, tasks|
                         tasks.each do |t|
                             placeholder_tasks[t] = t.as_service
                         end
                         handler.start(tasks)
                     end
-                end
-
-                finished = false
-                while !finished
-                    process_events do
-                        finished = by_handler.all? do |handler, tasks|
+                end.to do
+                    achieve do
+                        by_handler.all? do |handler, tasks|
                             handler.finished?
                         end
                     end
-                    sleep 0.01
                 end
 
                 if placeholder = placeholder_tasks[root_task]

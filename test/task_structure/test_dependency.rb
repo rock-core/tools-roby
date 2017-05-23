@@ -676,7 +676,7 @@ module Roby
                             parent.depends_on child, success: :start
                         end
                         plan.add_mission_task(parent)
-                        execution_engine.process_events_synchronous do
+                        execute do
                             parent.start!
                             plan.remove_task(child)
                         end
@@ -871,8 +871,8 @@ module Roby
                     parent.depends_on(child = child_m.new,
                                       success: :intermediate,
                                       failure: :stop)
-                    child.start!
-                    execution_engine.process_events_synchronous do
+                    execute { child.start! }
+                    execute do
                         child.intermediate_event.emit
                         child.stop_event.emit
                     end
@@ -881,8 +881,8 @@ module Roby
                 it "reports success if the positive event is emitted and becomes unreachable in the same cycle" do
                     parent.depends_on(child = child_m.new,
                                       success: :intermediate)
-                    child.start!
-                    execution_engine.process_events_synchronous do
+                    execute { child.start! }
+                    execute do
                         child.intermediate_event.emit
                         child.stop_event.emit
                     end

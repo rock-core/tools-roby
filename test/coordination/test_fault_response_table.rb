@@ -126,9 +126,7 @@ describe Roby::Coordination::FaultResponseTable do
             flexmock(execution_engine).should_receive(:notify_exception).once.
                 with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error_m.to_execution_exception_matcher, any)
 
-            execution_engine.process_events_synchronous do
-                execution_engine.add_error(error_m.new(root_task))
-            end
+            execute { execution_engine.add_error(error_m.new(root_task)) }
             fault_handling_task = root_task.each_error_handler.to_a.first.first
             assert_kind_of Roby::Coordination::FaultHandlingTask, fault_handling_task
             assert_equal fault_handler_m, fault_handling_task.fault_handler
@@ -141,9 +139,7 @@ describe Roby::Coordination::FaultResponseTable do
             flexmock(execution_engine).should_receive(:notify_exception).once.
                 with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error_m.to_execution_exception_matcher, any)
             
-            execution_engine.process_events_synchronous do
-                execution_engine.add_error(error_m.new(root_task))
-            end
+            execute { execution_engine.add_error(error_m.new(root_task)) }
             assert execution_engine.inhibited_exception?(error_m.new(root_task))
         end
     end
