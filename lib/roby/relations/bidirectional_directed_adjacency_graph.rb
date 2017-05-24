@@ -177,7 +177,7 @@ module Roby
             alias :each_adjacent :each_out_neighbour
 
             def out_neighbours(v)
-                each_out_neighbour(v).to_set
+                each_out_neighbour(v).to_a
             end
             alias :adjacent_vertices :out_neighbours
 
@@ -197,7 +197,7 @@ module Roby
             end
 
             def in_neighbours(v)
-                each_in_neighbour(v).to_set
+                each_in_neighbour(v).to_a
             end
 
             def in_degree(v)
