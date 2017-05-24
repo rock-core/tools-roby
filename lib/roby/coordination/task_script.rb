@@ -225,15 +225,14 @@ module Roby
             end
 
             def respond_to_missing?(m, include_private)
-                if m =~ /(.*)_(event|child)$/
+                if m =~ /_(?:event|child)$/
                     instance_for(model.root).respond_to?(m)
                 else super
                 end
             end
 
             def method_missing(m, *args, &block)
-                case m.to_s
-                when /(.*)_(event|child)$/
+                if m =~ /_(?:event|child)$/
                     instance_for(model.root).send(m, *args, &block)
                 else super
                 end

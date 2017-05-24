@@ -124,13 +124,19 @@ module Roby
                 end
             end
 
+            def respond_to_missing?(m, include_private)
+                has_argument?(m) ||
+                    (m =~ /_event$|_child$/ && root.respond_to?(m)) ||
+                    super
+            end
+
             def method_missing(m, *args, &block)
                 if has_argument?(m)
-                    if args.size != 0
+                    if !args.empty?
                         raise ArgumentError, "expected zero arguments to #{m}, got #{args.size}"
                     end
                     Variable.new(m)
-                elsif m.to_s =~ /(.*)_event$/ || m.to_s =~ /(.*)_child$/
+                elsif m =~ /(.*)(?:_event$|_child$)/
                     return root.send(m, *args, &block)
                 else return super
                 end

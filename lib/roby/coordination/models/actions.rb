@@ -174,13 +174,16 @@ module Roby
                 class_eval(&block)
             end
 
-            def method_missing(m, *args, &block)
+            def respond_to_missing?(m, include_private)
+                (action_interface && action_interface.find_action_by_name(m.to_s)) || super
+            end
+
+            def method_missing(m, *args)
                 if action = action_interface.find_action_by_name(m.to_s)
-                    action_interface.send(m, *args, &block)
+                    action.new(*args)
                 else return super
                 end
             end
-
         end
         end
     end

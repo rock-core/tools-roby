@@ -58,6 +58,10 @@ module Roby
                     end
                 end
 
+                def respond_to_missing?(m, include_private)
+                    Queries::ExecutionExceptionMatcher.method_defined?(m) || super
+                end
+
                 def method_missing(m, *args, &block)
                     if Queries::ExecutionExceptionMatcher.method_defined?(m)
                         matcher = Queries::ExecutionExceptionMatcher.new

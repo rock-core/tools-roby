@@ -310,7 +310,7 @@ module Roby
                 nil
             end
 
-            def method_missing(m, *args, &block)
+            def method_missing(m, *args)
                 if sub = client.find_subcommand_by_name(m.to_s)
                     ShellSubcommand.new(self, m.to_s, sub.description, sub.commands)
                 elsif act = client.find_action_by_name(m.to_s)

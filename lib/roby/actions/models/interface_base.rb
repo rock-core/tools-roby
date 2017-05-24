@@ -264,10 +264,14 @@ module Roby
                 create_and_register_coordination_action(name, Coordination::ActionScript, &block)
             end
 
+            def respond_to_missing?(m, include_private)
+                find_action_by_name(m.to_s) || super
+            end
+
             # Returns an action description if 'm' is the name of a known action
             #
             # @return [Action]
-            def method_missing(m, *args, &block)
+            def method_missing(m, *args)
                 if model = find_action_by_name(m.to_s)
                     if args.size > 1
                         raise ArgumentError, "expected zero or one argument, got #{args.size}"

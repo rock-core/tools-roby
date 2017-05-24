@@ -345,7 +345,7 @@ module Roby
             result
         end
 
-        def method_missing(m, *args, &block)
+        def method_missing(m, *args)
             if args.empty? && !block_given?
                 @methods << m
                 self

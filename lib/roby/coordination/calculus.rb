@@ -1,23 +1,26 @@
 module Roby
     module Tools
         module Calculus
-            UNARY_OPS = [:-@, :+@]
-            BINARY_OPS = [:+, :-, :*, :/, :**]
             module Build
-                def method_missing(m, *args, &block)
-                    if UNARY_OPS.include?(m)
-                        if args.size != 0
-                            raise ArgumentError, "#{m} expects no arguments, got #{args.size}"
-                        end
-                        return Unary.new(m, self)
-                    elsif BINARY_OPS.include?(m)
-                        if args.size != 1
-                            raise ArgumentError, "#{m} expects one argument, got #{args.size}"
-                        end
-                        return Binary.new(m, self, args[0])
+                def self.unary_op(name)
+                    define_method(name) do
+                        Unary.new(name, self)
                     end
-                    super
                 end
+
+                def self.binary_op(name)
+                    define_method(name) do |arg|
+                        Binary.new(name, self, arg)
+                    end
+                end
+
+                unary_op :-@
+                unary_op :+@
+                binary_op :+
+                binary_op :-
+                binary_op :*
+                binary_op :/
+                binary_op :**
             end
             Unary  = Struct.new :op, :val do
                 def evaluate(variables)

@@ -567,12 +567,7 @@ module Roby
                 define_method("event_command_#{event_name}", &block)
                 method = instance_method("event_command_#{event_name}")
                 lambda do |dst_task, *event_context| 
-                    begin
-                        dst_task.calling_event = dst_task.event(event_name)
-                        method.bind(dst_task).call(*event_context) 
-                    ensure
-                        dst_task.calling_event = nil
-                    end
+                    method.bind(dst_task).call(*event_context) 
                 end
             end
 

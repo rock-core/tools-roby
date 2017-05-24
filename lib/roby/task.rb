@@ -871,21 +871,7 @@ module Roby
 	    end
 	end
 
-	attr_accessor :calling_event
-
-        def respond_to_missing?(m, include_private)
-            has_through_method_missing?(m) || super
-        end
-
-	def method_missing(name, *args, &block) # :nodoc:
-            if found = find_through_method_missing(name, args)
-                found
-	    elsif calling_event && calling_event.respond_to?(name)
-		calling_event.send(name, *args, &block)
-	    else
-		super
-	    end
-	end
+        include MetaRuby::DSLs::FindThroughMethodMissing
 
         # Iterates on all the events defined for this task
         #

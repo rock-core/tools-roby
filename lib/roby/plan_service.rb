@@ -173,13 +173,13 @@ module Roby
             end
         end
 
-        def respond_to?(name, *args)
-            super || task.respond_to?(name, *args)
+        def respond_to_missing?(m, include_private)
+            task.respond_to?(m)
         end
 
         # Forwards all calls to {task}
         def method_missing(*args, &block) # :nodoc:
-            task.send(*args, &block)
+            task.public_send(*args, &block)
         end
 
         # Returns the underlying task

@@ -38,8 +38,12 @@ module Roby
             state_machine.event(event, &block)
         end
 
-        def method_missing(*args, &block)
-            state_machine.send(*args, &block)
+        def respond_to_missing?(m, include_private)
+            state_machine.respond_to?(m)
+        end
+
+        def method_missing(m, *args, &block)
+            state_machine.public_send(m, *args, &block)
         end
     end
 
@@ -98,10 +102,14 @@ module Roby
             other.update
         end
 
-        def method_missing(method_name, *args, &block)
+        def respond_to_missing?(m, include_private)
+            proxy.respond_to?(m) || super
+        end
+
+        def method_missing(m, *args, &block)
             # If proxy provides missing method, then use the proxy
-            if proxy.respond_to?("#{method_name}")
-                proxy.send(method_name, *args, &block)
+            if proxy.respond_to?(m)
+                proxy.public_send(m, *args, &block)
             else
                 # otherwise pass it on
                 super

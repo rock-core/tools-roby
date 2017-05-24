@@ -69,7 +69,7 @@ module Roby
 
     # Representation of the last known state
     class StateLastValueField < OpenStruct
-        def method_missing(name, *args, &block)
+        def method_missing(name, *args)
             if name =~ /=$/
                 raise ArgumentError, "cannot write to a StateLastValueField object"
             end
@@ -180,7 +180,7 @@ module Roby
 
         # Reimplemented from OpenStruct
         def method_missing(name, *args)
-            if name.to_s =~ /(.*)=$/
+            if name =~ /(.*)=$/
                 if data_source = data_sources.get($1)
                     raise ArgumentError, "cannot explicitely set a field for which a data source exists"
                 end

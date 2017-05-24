@@ -326,11 +326,15 @@ module Roby
                     __push([], :kill_job, job_id)
                 end
 
+                def respond_to_missing?(m, include_private)
+                    (m =~ /(.*)!$/) || super
+                end
+
                 # @api private
                 #
                 # Provides the action_name! syntax to start jobs
                 def method_missing(m, *args)
-                    if m.to_s =~ /(.*)!$/
+                    if m =~ /(.*)!$/
                         start_job($1, *args)
                     else
                         ::Kernel.raise ::NoMethodError.new(m), "#{m} either does not exist, or is not supported in batch context (only starting and killing jobs is)"

@@ -59,13 +59,7 @@ module Roby
                         '_event' => :has_event?) || super
                 end
 
-                def respond_to_missing?(m, include_private)
-                    has_through_method_missing?(m) || super
-                end
-
-                def method_missing(m, *args, &block)
-                    find_through_method_missing(m, args) || super
-                end
+                include MetaRuby::DSLs::FindThroughMethodMissing
 
                 def to_coordination_task(task_model); model.to_coordination_task(task_model) end
             end

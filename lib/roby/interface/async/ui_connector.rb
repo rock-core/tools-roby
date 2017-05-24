@@ -160,15 +160,14 @@ module Roby
                 end
 
                 def respond_to_missing?(m, include_private = false)
-                    (m.to_s =~ /!$/) || widget.respond_to?(m, include_private)
+                    (m =~ /!$/) || widget.respond_to?(m)
                 end
 
                 def method_missing(m, *args, &block)
-                    m = m.to_s
                     if m =~ /!$/
-                        ActionMonitor.new(interface, m[0..-2], *args)
+                        ActionMonitor.new(interface, m.to_s[0..-2], *args)
                     elsif widget.respond_to?(m)
-                        widget.send(m, *args, &block)
+                        widget.public_send(m, *args, &block)
                     else
                         super
                     end

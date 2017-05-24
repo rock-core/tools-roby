@@ -31,13 +31,19 @@ module Roby
                         @state_machine = state_machine
                     end
 
-                    def method_missing(m, *args, &block)
-                        if args.empty? 
-                            if @state_machine.arguments.has_key?(m)
+                    def respond_to_missing?(m, include_private)
+                        @state_machine.model.has_argument?(m) || super
+                    end
+
+                    def method_missing(m, *args)
+                        if @state_machine.arguments.has_key?(m)
+                            if args.empty?
                                 return @state_machine.arguments[m]
-                            elsif @state_machine.model.has_argument?(m)
-                                raise ArgumentError, "#{m} is not set"
+                            else
+                                raise ArgumentError, "expected zero argument to #{m}, got #{args.size}"
                             end
+                        elsif @state_machine.model.has_argument?(m)
+                            raise ArgumentError, "#{m} is not set"
                         end
                         super
                     end

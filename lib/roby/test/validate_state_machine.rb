@@ -56,14 +56,14 @@ module Roby
                     '_child' => :has_role?) || super
             end
 
+            include MetaRuby::DSLs::FindThroughMethodMissing
+
             def respond_to_missing?(m, include_private)
-                has_through_method_missing?(m) || @test.respond_to?(m) || super
+                @test.respond_to?(m) || super
             end
 
             def method_missing(m, *args, &block)
-                if found = find_through_method_missing(m, args)
-                    found
-                elsif @test.respond_to?(m)
+                if @test.respond_to?(m)
                     @test.public_send(m, *args, &block)
                 else
                     super

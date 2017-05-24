@@ -40,10 +40,18 @@ module Roby
                 include Models::Actions
                 include Models::Script
 
-                def method_missing(m, *args, &block)
-                    if m.to_s =~ /(.*)!/
+                def respond_to_missing?(m, include_private)
+                    if m =~ /(.*)!/
+                        action_interface && action_interface.find_action_by_name(m.to_s)
+                    else super
+                    end
+                end
+
+                def method_missing(m, *args)
+                    if m =~ /(.*)!/
                         action_name = $1
-                        task = task(send(action_name, *args, &block))
+                        action = action_interface.find_action_by_name(action_name)
+                        task = task(action.new(*args))
                         task.name = action_name
                         execute(task)
                     else super
