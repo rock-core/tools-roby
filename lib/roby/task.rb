@@ -488,6 +488,7 @@ module Roby
 
 	attr_predicate :started?, true
 	attr_predicate :finished?, true
+        attr_predicate :failed?, true
 	attr_predicate :success?, true
         # True if the task is finishing, i.e. if a terminal event is pending.
         attr_predicate :finishing?, true
@@ -531,8 +532,9 @@ module Roby
             @failed_to_start = true
             @failed_to_start_time = time
             @failure_reason = reason
-            @pending = false
+            @pending  = false
             @starting = false
+            @failed   = true
             plan.task_index.set_state(self, :failed?)
         end
 
@@ -543,9 +545,6 @@ module Roby
             end
             execution_engine.log(:task_failed_to_start, self, reason)
         end
-
-        # True if the +failed+ event of this task has been fired
-	def failed?; failed_to_start? || (@success == false) end
 
         # Clear relations events of this task have with events outside the task
         def clear_events_external_relations(remove_strong: true)
@@ -710,10 +709,10 @@ module Roby
 
 	    if event.success?
 		plan.task_index.add_state(self, :success?)
-		self.success = true
+		@success = true
 	    elsif event.failure?
 		plan.task_index.add_state(self, :failed?)
-		self.success = false
+		@failed = true
                 @failure_reason ||= event
                 @failure_event  ||= event
             end
@@ -724,8 +723,8 @@ module Roby
 	    
 	    if event.symbol == :stop
 		plan.task_index.remove_state(self, :running?)
-                @running    = false
                 plan.task_index.add_state(self, :finished?)
+                @running    = false
                 @finishing  = false
 		@finished   = true
 	        @executable = false
