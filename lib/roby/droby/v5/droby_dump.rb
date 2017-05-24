@@ -252,9 +252,9 @@ module Roby
                     # Update an existing proxy, using the information stored in this DRoby
                     # object.
                     def update(peer, proxy, fresh_proxy: false)
-                        proxy.owners.clear
+                        proxy.clear_owners
                         owners.each do |m_owner|
-                            proxy.owners << peer.local_object(m_owner)
+                            proxy.add_owner(peer.local_object(m_owner))
                         end
                     end
                 end

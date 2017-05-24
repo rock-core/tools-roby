@@ -171,6 +171,7 @@ module Roby
 	    end
             @addition_time = Time.now
 	    @plan = new_plan
+            @local_owner_id = plan.droby_id
             if new_plan && new_plan.executable?
                 @execution_engine = new_plan.execution_engine
                 @promise_executor = Concurrent::SerializedExecutionDelegator.

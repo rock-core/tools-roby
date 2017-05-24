@@ -31,11 +31,16 @@ module Roby
     # at the core of Roby object management. In particular, it maintains the
     # distributed object information (needed in multi-Roby setups).
     class DistributedObject
+        # The ID of the local process
+        attr_reader :local_owner_id
 	# The set of Peer objects which own this object
 	attr_reader :owners
+
+        attr_predicate :self_owned?
 	
         def initialize # :nodoc:
             @owners = Array.new
+            @self_owned = true
         end
 
 	def initialize_copy(old) # :nodoc:
@@ -43,14 +48,28 @@ module Roby
             @owners = Array.new
 	end
 
-	# True if we own this object
-        def self_owned?
-            owners.empty? || owners.include?(local_owner_id)
+        def add_owner(owner)
+            @owners << owner
+            @self_owned = @owners.include?(local_owner_id)
+        end
+
+        def remove_owner(owner)
+            @owners.delete(owner)
+            @self_owned = @owners.empty? || @owners.include?(local_owner_id)
         end
 
 	# True if the given peer owns this object
         def owned_by?(peer_id)
-            owners.include?(peer_id)
+            if peer_id == local_owner_id
+                self_owned?
+            else
+                owners.include?(peer_id)
+            end
+        end
+
+        def clear_owners
+            owners.clear
+            @self_owned = true
         end
     end
 end
