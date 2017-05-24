@@ -582,19 +582,20 @@ module Roby
             #
             # @param [Symbol] event_name the event name
             def define_event_methods(event_name)
+                event_name = event_name.to_sym
                 if !method_defined?("#{event_name}_event")
                     define_method("#{event_name}_event") do
-                        event(event_name)
+                        @bound_events[event_name] || event(event_name)
                     end
                 end
                 if !method_defined?("#{event_name}?")
                     define_method("#{event_name}?") do
-                        event(event_name).emitted?
+                        (@bound_events[event_name] || event(event_name)).emitted?
                     end
                 end
                 if !method_defined?("#{event_name}!")
                     define_method("#{event_name}!") do |*context| 
-                        event(event_name).call(*context)
+                        (@bound_events[event_name] || event(event_name)).call(*context)
                     end
                 end
                 if !respond_to?("#{event_name}_event")
