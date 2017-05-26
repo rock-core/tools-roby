@@ -305,7 +305,7 @@ module Roby
 
                     cycle = plan_rebuilder.cycle_index
                     time = plan_rebuilder.cycle_start_time
-                    emit info("@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}")
+                    emit info("@#{cycle} - #{time.strftime('%H:%M:%S.%3N')}")
                 end
                 @connection_pull = timer = Qt::Timer.new(self)
                 timer.connect(SIGNAL('timeout()')) do

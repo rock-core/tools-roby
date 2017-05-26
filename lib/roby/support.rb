@@ -102,7 +102,7 @@ module Roby
         if format == 'sec'
             time.to_f.to_s
         elsif format == 'hms'
-            "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+            "#{time.strftime('%H:%M:%S.%3N')}"
         else
             "#{time.strftime(format)}"
         end
