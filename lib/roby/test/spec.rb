@@ -180,6 +180,8 @@ module Roby
                         end
                         handler.start(tasks)
                     end
+                end.with_setup do
+                    scheduler true
                 end.to do
                     achieve do
                         by_handler.all? do |handler, tasks|
