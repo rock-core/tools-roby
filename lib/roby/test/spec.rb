@@ -104,6 +104,7 @@ module Roby
                     execution_engine.join_all_waiting_work(timeout: timeout)
                     execution_engine.start_new_cycle
                     errors = execution_engine.process_events(**options, &caller_block)
+                    caller_block = nil
                     exceptions.concat(errors.exceptions)
                     execution_engine.cycle_end(Hash.new)
                 end
