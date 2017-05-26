@@ -29,7 +29,7 @@ module Roby
             end
 
             def flush_cycle_events
-                event_logger.flush_cycle
+                event_logger.flush_cycle(:cycle_end, Time.now, [Hash.new])
                 event_logger.flush
                 logfile.cycles.first
             end

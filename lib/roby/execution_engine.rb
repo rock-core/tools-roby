@@ -2286,8 +2286,7 @@ module Roby
                         stats[:gc_profile_data] = nil
                         stats[:gc_total_time] = 0
                     end
-                    log(:cycle_end, stats)
-                    log_flush_cycle
+                    log_flush_cycle :cycle_end, stats
 
                     last_dump_time = dump_time
                     last_process_times = process_times

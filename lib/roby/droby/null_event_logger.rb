@@ -18,7 +18,7 @@ module Roby
                 0
             end
 
-            def flush_cycle
+            def flush_cycle(m, *args)
             end
         end
     end

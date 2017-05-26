@@ -105,7 +105,7 @@ module Roby
 
             def append_message(m, time, args)
                 if stats_mode? && m == :cycle_end
-                    current_cycle << m << time.tv_sec << time.tv_usec << args
+                    @current_cycle << m << time.tv_sec << time.tv_usec << args
                 else
                     if m == :merged_plan
                         plan_id, merged_plan = *args
@@ -132,13 +132,13 @@ module Roby
                         args = marshal.dump(args)
                     end
 
-                    current_cycle << m << time.tv_sec << time.tv_usec << args
+                    @current_cycle << m << time.tv_sec << time.tv_usec << args
                 end
             end
 
             def dump_timepoint(event, time, args)
                 synchronize do
-                    current_cycle << event << time.tv_sec << time.tv_usec << args
+                    @current_cycle << event << time.tv_sec << time.tv_usec << args
                 end
             end
 
@@ -151,21 +151,25 @@ module Roby
             ensure @dump_time += (Time.now - start)
             end
 
-            def flush_cycle
+            def flush_cycle(*last_message)
                 start = Time.now
                 if threaded?
                     if !@dump_thread.alive?
                         @dump_thread.value
                     end
 
-                    @dump_queue << current_cycle
-                    @current_cycle = Array.new
+                    synchronize do
+                        append_message(*last_message)
+                        @dump_queue << @current_cycle
+                        @current_cycle = Array.new
+                    end
                 else
-                    logfile.dump(current_cycle)
+                    append_message(*last_message)
+                    logfile.dump(@current_cycle)
                     if sync?
                         logfile.flush
                     end
-                    current_cycle.clear
+                    @current_cycle.clear
                 end
             ensure @dump_time += (Time.now - start)
             end

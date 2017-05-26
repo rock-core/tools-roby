@@ -47,8 +47,8 @@ module Roby
                 event_logger.log_queue_size
             end
 
-            def log_flush_cycle
-                event_logger.flush_cycle
+            def log_flush_cycle(m, *args)
+                event_logger.flush_cycle(m, Time.now, args)
             end
         end
     end
