@@ -635,6 +635,8 @@ module Roby
                 attr_reader :events
                 attr_accessor :messages
 
+                attr_accessor :title
+
                 attr_reader :base_height
 
                 def initialize(task, base_time, time_to_pixel, fm)
@@ -695,19 +697,39 @@ module Roby
 
                     event_y = event_current_level * event_height
                     event_max_x[event_current_level] = event_x + 2 * EVENT_CIRCLE_RADIUS + fm.width(event.symbol.to_s)
+                    @start_time ||= event.time
+                    @end_time     = event.time
                     events << [event.time, event_x, event_y, event.symbol.to_s]
                 end
 
                 def events_in_range(display_start_time, display_end_time)
-                    events.find_all do |time, _|
-                        time > display_start_time && time < display_end_time
+                    if !@start_time
+                        return
+                    elsif @start_time > display_end_time
+                        return
+                    elsif @end_time < display_start_time
+                        return
+                    else
+                        result = []
+                        events.each do |ev|
+                            time = ev.first
+                            if time > display_start_time
+                                if time < display_end_time
+                                    result << ev
+                                else
+                                    break
+                                end
+                            end
+                        end
+                        result if !result.empty?
                     end
                 end
 
                 def height(display_start_time, display_end_time)
-                    max_event_y = events_in_range(display_start_time, display_end_time).
-                        max_by { |_, _, y, _| y } || Array.new
-                    max_event_y = max_event_y[2] || 0
+                    if events = events_in_range(display_start_time, display_end_time)
+                        max_event_y = events.max_by { |_, _, y, _| y }
+                        max_event_y = max_event_y[2]
+                    end
                     (max_event_y || 0) + (messages.size + 1) * fm.height
                 end
             end
@@ -741,10 +763,13 @@ module Roby
                     task          = task_layout.task
                     event_height  = task_layout.event_height
 
-                    events = task_layout.events_in_range(display_start_time, display_end_time)
-                    task_line_height = (events.max_by { |_, _, y, _| y } || Array.new)[2] || 0
-                    task_line_height += event_height
-                    task_line_height = [task_height, task_line_height].max
+                    task_line_height = event_height
+                    if events = task_layout.events_in_range(display_start_time, display_end_time)
+                        task_line_height += events.max_by { |_, _, y, _| y }[2]
+                    end
+                    if task_height > task_line_height
+                        task_line_height = task_height
+                    end
 
                     # Paint the pending stage, i.e. before the task started
                     top_task_line = top_y
@@ -773,20 +798,23 @@ module Roby
 
                     # Display the emitted events
                     event_baseline = top_task_line + event_height / 2
-                    events.each do |_, x, y, text|
-                        x += display_offset
-                        y += event_baseline
-                        painter.brush, painter.pen = EVENT_STYLES[EVENT_CONTROLABLE | EVENT_EMITTED]
-                        painter.drawEllipse(Qt::Point.new(x, y),
-                                            EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS)
-                        painter.pen = EVENT_NAME_PEN
-                        painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, y), text)
+                    if events
+                        events.each do |_, x, y, text|
+                            x += display_offset
+                            y += event_baseline
+                            painter.brush, painter.pen = EVENT_STYLES[EVENT_CONTROLABLE | EVENT_EMITTED]
+                            painter.drawEllipse(Qt::Point.new(x, y),
+                                                EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS)
+                            painter.pen = EVENT_NAME_PEN
+                            painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, y), text)
+                        end
                     end
 
                     # Add the title
                     painter.pen = TASK_NAME_PEN
-                    title_baseline = top_task_line + task_line_height + fm.ascent
-                    painter.drawText(Qt::Point.new(0, title_baseline), task_timeline_title(task))
+                    title_baseline = top_task_line + task_line_height + text_ascent
+                    task_layout.title ||= task_timeline_title(task)
+                    painter.drawText(Qt::Point.new(0, title_baseline), task_layout.title)
 
                     # And finally display associated messages
                     messages_baseline = title_baseline + text_height
