@@ -248,6 +248,11 @@ module Roby
                             other_error.report_exceptions_from(error)
                         end.to { have_error_matching flexmock(to_execution_exception_matcher: matcher) }
                     end
+                    it "relates to a task error that is transformed into an internal_error event" do
+                        plan.add(task = Roby::Tasks::Simple.new)
+                        expect_execution { execution_engine.add_error(CodeError.new(ArgumentError.new, task)) }.
+                            to { have_error_matching CodeError.match.with_origin(task) }
+                    end
                 end
 
                 describe "#have_handled_error_matching" do
@@ -299,6 +304,11 @@ module Roby
                             other_error = @error_m.new(other_task.start_event)
                             other_error.report_exceptions_from(error)
                         end.to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
+                    end
+                    it "relates to a task error that is transformed into an internal_error event" do
+                        plan.add(task = Roby::Tasks::Simple.new)
+                        expect_execution { execution_engine.add_error(CodeError.new(ArgumentError.new, task)) }.
+                            to { have_error_matching CodeError.match.with_origin(task) }
                     end
                 end
 

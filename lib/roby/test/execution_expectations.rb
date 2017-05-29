@@ -293,7 +293,7 @@ module Roby
                 internal_errors = propagation_info.emitted_events.find_all do |ev|
                     if ev.generator.respond_to?(:symbol) && ev.generator.symbol == :internal_error
                         exceptions_context = ev.context.find_all { |obj| obj.kind_of?(Exception) }
-                        !exceptions_context.any? { |exception| @expectations.any? { |expectation| expectation.relates_to_error?(exception) } }
+                        !exceptions_context.any? { |exception| @expectations.any? { |expectation| expectation.relates_to_error?(ExecutionException.new(exception)) } }
                     end
                 end
 
@@ -423,21 +423,35 @@ module Roby
                 def initialize(matcher, backtrace)
                     super(backtrace)
                     @matcher = matcher.to_execution_exception_matcher
+                    @matched_execution_exceptions = Array.new
+                    @matched_exceptions = Array.new
                 end
 
-                def update_match(exceptions)
+                def update_match(exceptions, emitted_events)
                     @matched_execution_exceptions = exceptions.
                         find_all { |error| @matcher === error }
-                    @matched_exceptions = @matched_execution_exceptions.
+                    matched_exceptions = @matched_execution_exceptions.
                         map(&:exception).to_set
-                    @matched_exceptions = @matched_exceptions.flat_map do |e|
+
+                    emitted_events.each do |ev|
+                        next if !ev.generator.respond_to?(:symbol) || ev.generator.symbol != :internal_error
+
+                        ev.context.each do |obj|
+                            if obj.kind_of?(Exception) && (@matcher === ExecutionException.new(obj))
+                                matched_exceptions << obj
+                            end
+                        end
+                    end
+
+                    @matched_exceptions = matched_exceptions.flat_map do |e|
                         Roby.flatten_exception(e).to_a
                     end.to_set
-                    !@matched_execution_exceptions.empty?
+                    !@matched_exceptions.empty?
                 end
 
                 def relates_to_error?(execution_exception)
                     @matched_execution_exceptions.include?(execution_exception) ||
+                        @matched_exceptions.include?(execution_exception.exception) ||
                         Roby.flatten_exception(execution_exception.exception).
                             any? { |e| @matched_exceptions.include?(e) }
                 end
@@ -449,7 +463,7 @@ module Roby
 
             class HaveErrorMatching < ErrorExpectation
                 def update_match(propagation_info)
-                    super(propagation_info.exceptions)
+                    super(propagation_info.exceptions, propagation_info.emitted_events)
                 end
 
                 def to_s
@@ -459,7 +473,7 @@ module Roby
 
             class HaveHandledErrorMatching < ErrorExpectation
                 def update_match(propagation_info)
-                    super(propagation_info.handled_errors.map(&:first))
+                    super(propagation_info.handled_errors.map(&:first), propagation_info.emitted_events)
                 end
 
                 def to_s
