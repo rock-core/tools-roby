@@ -1,6 +1,47 @@
 require 'roby/test/self'
 require 'roby/tasks/simple'
 
+module Roby
+    module Queries
+        describe TaskMatcher do
+            describe "the _event accessor" do
+                attr_reader :task_m
+                before do
+                    @task_m = Roby::Tasks::Simple.new_submodel do
+                        event :extra
+                    end
+                end
+
+                it "returns the task event generator matcher for the given event" do
+                    matcher = plan.find_tasks(task_m).extra_event
+                    assert_equal [task_m], matcher.task_matcher.model
+                    assert_equal 'extra', matcher.symbol
+                end
+                it "raises ArgumentError if arguments have been given" do
+                    e = assert_raises(ArgumentError) do
+                        plan.find_tasks(task_m).extra_event(10)
+                    end
+                    assert_equal "extra_event expected zero arguments, got 1",
+                        e.message
+                end
+                it "raises NoMethodError if the event does not exist in the selected models" do
+                    e = assert_raises(NoMethodError) do
+                        plan.find_tasks(task_m).does_not_exist_event
+                    end
+                    assert_equal "no event 'does_not_exist' in match model #{task_m}, use #which_fullfills to narrow the task model",
+                        e.message
+                end
+                it "matches against Roby::Task if no models have been selected at all" do
+                    matcher = plan.find_tasks.start_event
+                    assert_equal [], matcher.task_matcher.model
+                    assert_equal 'start', matcher.symbol
+                end
+            end
+        end
+    end
+end
+
+
 class TC_Query < Minitest::Test
     TaskMatcher = Queries::TaskMatcher
 

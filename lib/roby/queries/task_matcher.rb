@@ -295,6 +295,45 @@ module Roby
             arguments.empty? && super
         end
 
+        def find_event(event_name)
+            event_name = event_name.to_sym
+            models = if !@model.empty?
+                         @model
+                     else [Roby::Task]
+                     end
+            models.each do |m|
+                if event_m = m.find_event(event_name)
+                    return TaskEventGeneratorMatcher.new(self, event_name)
+                end
+            end
+            nil
+        end
+
+        def respond_to_missing?(m, include_private)
+            m =~ /_event$/ || super
+        end
+
+        def method_missing(m, *args)
+            if m =~ /_event$/
+                event_name = $`
+                model = find_event(event_name)
+                if !model
+                    task_models =
+                        if !@model.empty?
+                            @model
+                        else [Roby::Task]
+                        end
+                    raise NoMethodError.new(m), "no event '#{event_name}' in match model #{task_models.map(&:to_s).join(", ")}, use #which_fullfills to narrow the task model"
+                elsif !args.empty?
+                    raise ArgumentError, "#{m} expected zero arguments, got #{args.size}"
+                else
+                    return TaskEventGeneratorMatcher.new(self, event_name)
+                end
+            else
+                super
+            end
+        end
+
 	# Define singleton classes. For instance, calling TaskMatcher.which_fullfills is equivalent
 	# to TaskMatcher.new.which_fullfills
 	declare_class_methods :which_fullfills, :with_arguments
