@@ -1,3 +1,5 @@
+require 'roby/test/expect_execution'
+
 module Roby
     module Test
         # Handlers for minitest-based tests
@@ -5,32 +7,7 @@ module Roby
         # They mainly "tune" the default minitest behaviour to match some of the
         # Roby idioms as e.g. using pretty-print to format exception messages
         module MinitestHelpers
-            ExpectExecution = Struct.new :expectations, :block do
-                def with_setup(&block)
-                    expectations.instance_eval(&block)
-                    self
-                end
-
-                def to(&expectation_block)
-                    expectations.parse(&expectation_block)
-                    expectations.verify(&block)
-                rescue Minitest::Assertion => e
-                    raise e, e.message, caller(2)
-                end
-            end
-
-            def expect_execution(&block)
-                expectations = ExecutionExpectations.new(self, plan)
-                ExpectExecution.new(expectations, block)
-            end
-
-            def execute(garbage_collect: false)
-                result = nil
-                expect_execution { result = yield }.with_setup { garbage_collect(garbage_collect) }.to { }
-                result
-            rescue Minitest::Assertion => e
-                raise e, e.message, caller(2)
-            end
+            include ExpectExecution
 
             def roby_find_matching_exception(expected, exception)
                 queue = [exception]

@@ -1,12 +1,33 @@
 module Roby
     module Test
         # Underlying implementation for Roby's when do end.expect ... feature
+        #
+        # The expectation's documented return value are NOT the values returned
+        # by the method itself, but the value that the user can expect out of
+        # {ExpectExecution#to}.
+        #
+        # @example execute until a block returns true. The call returns the block's return value
+        #   expect_execution.to do
+        #     achieve { plan.num_tasks }
+        #   end # => the number of tasks from the plan
+        #
+        # @example execute until an event was emitted and an error raised. The call will in this case return the error object and the emitted event
+        #   expect_execution.to do
+        #     event = emit task.start_event
+        #     error = have_error_matching CodeError
+        #     [error, event]
+        #   end # => the pair (raised error, emitted event)
+        #
         class ExecutionExpectations
+            # @!group Expectations
+
             # Expect that an event is not emitted after the expect_execution block
             #
             # Note that only one event propagation pass is guaranteed to happen
             # before the "no emission" expectation is validated. I.e. this
             # cannot test for the non-existence of a delayed emission
+            #
+            # @return [nil]
             def not_emit(generator, backtrace: caller(1))
                 if generator.kind_of?(EventGenerator)
                     add_expectation(NotEmitGenerator.new(generator, backtrace))
@@ -17,6 +38,26 @@ module Roby
             end
 
             # Expect that an event is emitted after the expect_execution block
+            #
+            # @param [EventGenerator,Queries::EventGeneratorMatcher] generator
+            # @return [Event,[Event]]
+            #
+            # @overload emit(generator)
+            #   @param [EventGenerator] generator the generator we're waiting
+            #     the emission of
+            #   @return [Event] the emitted event
+            #
+            # @overload emit(generator_query)
+            #   @param [Queries::EventGeneratorMatcher] query a query that
+            #     matches the event whose emission we're watching.
+            #   @return [[Event]] all the events whose generator match the
+            #     query
+            #
+            #   @example wait for the emission of the start event of any task of model MyTask. The call will return the emitted events that match this.
+            #     expect_execution.to do
+            #       emit find_tasks(MyTask).start_event
+            #     end
+            # 
             def emit(generator, backtrace: caller(1))
                 if generator.kind_of?(EventGenerator)
                     add_expectation(EmitGenerator.new(generator, backtrace))
@@ -24,6 +65,147 @@ module Roby
                     add_expectation(EmitGeneratorModel.new(generator, backtrace))
                 end
             end
+
+            # Expect that the given block returns true
+            #
+            # @yieldparam [ExecutionEngine::PropagationInfo]
+            #   all_propagation_info all that happened during the propagations
+            #   since the beginning of expect_execution block. It contains event
+            #   emissions and raised/caught errors.
+            # @yieldreturn the value that should be returned by the expectation
+            def achieve(backtrace: caller(1), &block)
+                add_expectation(Achieve.new(block, backtrace))
+            end
+
+            # Expect that the given task fails to start
+            #
+            # @param [Task] task
+            # @return [nil]
+            def fail_to_start(task, reason: nil, backtrace: caller(1))
+                add_expectation(FailsToStart.new(task, reason, backtrace))
+                nil
+            end
+
+            # Expect that the given task becomes running
+            #
+            # @param [Task] task
+            # @return [Event] the task's start event
+            def have_running(task, backtrace: caller(1))
+                if task.running?
+                    task.start_event.last
+                else
+                    emit task.start_event, backtrace: backtrace 
+                end
+            end
+
+            # Expect that the given task becomes running and does not stop
+            #
+            # The caveats of {#not_emit} apply to the "does not stop" part of
+            # the expectation. This should usually be used in conjunction with a
+            # synchronization point.
+            #
+            # @param [Task] task
+            # @return [nil]
+            #
+            # @example task keeps running until action_task stops
+            #   expect_execution.to do
+            #     keep_running task
+            #     finish action_task
+            #   end
+            #
+            def keep_running(task, backtrace: caller(1))
+                emit task.start_event, backtrace: backtrace if !task.running?
+                not_emit task.stop_event, backtrace: backtrace
+                nil
+            end
+
+            # Expect that the given task finishes
+            #
+            # @param [Task] task
+            # @return [Event] the task's stop event
+            def finish(task, backtrace: caller(1))
+                emit task.start_event, backtrace: backtrace if !task.running?
+                emit task.stop_event, backtrace: backtrace
+                nil
+            end
+
+            # Expect that the given task emits its internal_error event
+            #
+            # @param [Task] task
+            # @return [Event] the emitted internal error event
+            def have_internal_error(task, original_exception)
+                have_handled_error_matching original_exception.match.with_origin(task)
+                emit task.internal_error_event
+            end
+
+            # Expect that the given task is put in quarantine
+            #
+            # @param [Task] task
+            # @return [nil]
+            def quarantine(task, backtrace: caller(1))
+                add_expectation(Quarantine.new(task, backtrace))
+                nil
+            end
+
+            # Expect that the given promise finishes
+            #
+            # @param [Promise] promise
+            # @return [nil]
+            def finish_promise(promise, backtrace: caller(1))
+                add_expectation(PromiseFinishes.new(promise, backtrace))
+                nil
+            end
+
+            # Expect that an error is raised and not caught
+            #
+            # @param [#===] matcher an error matching object. These are usually
+            #   obtained by calling {Exception.match} on an exception class and then refining
+            #   the match by using the {Queries::LocalizedErrorMatcher} AP (see
+            #   example above)I
+            # @return [ExecutionException] the matched exception
+            #
+            # @example expect that a {ChildFailedError} is raised from 'task'
+            #   expect_execution.to do
+            #     have_error_matching Roby::ChildFailedError.match.
+            #       with_origin(task)
+            #   end
+            def have_error_matching(matcher, backtrace: caller(1))
+                add_expectation(HaveErrorMatching.new(matcher, backtrace))
+            end
+
+            # Expect that an error is raised and caught
+            #
+            # @param [#===] matcher an error matching object. These are usually
+            #   obtained by calling {Exception.match} on an exception class and then refining
+            #   the match by using the {Queries::LocalizedErrorMatcher} API (see
+            #   example above)
+            # @return [ExecutionException] the matched exception
+            #
+            # @example expect that a {ChildFailedError} is raised from 'task' and caught somewhere
+            #   expect_execution.to do
+            #     have_handled_error_matching Roby::ChildFailedError.match.
+            #       with_origin(task)
+            #   end
+            def have_handled_error_matching(matcher, backtrace: caller(1))
+                add_expectation(HaveHandledErrorMatching.new(matcher, backtrace))
+            end
+
+            # Expect that a framework error is added
+            #
+            # Framework errors are errors that are raised outside of user code.
+            # They are fatal inconsistencies, and cause the whole Roby instance
+            # to quit forcefully
+            #
+            # Unlike with {#have_error_matching} and
+            # {#have_handled_error_matching}, the error is rarely a
+            # LocalizedError. For simple exceptions, one can simply use the
+            # exception class to match.
+            def have_framework_error_matching(error, backtrace: caller(1))
+                add_expectation(HaveFrameworkError.new(error, backtrace))
+            end
+
+            # @!endgroup Expectations
+
             # Parse a expect { } block into an Expectation object
             #
             # @return [Expectation]
@@ -156,36 +338,6 @@ module Roby
                 expectation
             end
 
-            def achieve(backtrace: caller(1), &block)
-                add_expectation(Achieve.new(block, backtrace))
-            end
-
-            def have_internal_error(task, original_exception)
-                emit task.internal_error_event
-                have_handled_error_matching original_exception.match.with_origin(task)
-            end
-
-            def quarantine(task, backtrace: caller(1))
-                add_expectation(Quarantine.new(task, backtrace))
-                nil
-            end
-
-            def fail_to_start(task, reason: nil, backtrace: caller(1))
-                add_expectation(FailsToStart.new(task, reason, backtrace))
-                nil
-            end
-
-            def finish_promise(promise, backtrace: caller(1))
-                add_expectation(PromiseFinishes.new(promise, backtrace))
-                nil
-            end
-
-            def finish(task, backtrace: caller(1))
-                emit task.start_event, backtrace: backtrace if !task.running?
-                emit task.stop_event, backtrace: backtrace
-                nil
-            end
-
             # Queue a block for execution
             #
             # This is meant to be used by expectation objects which require to
@@ -199,24 +351,6 @@ module Roby
             # {#execute}
             def has_pending_execute_blocks?
                 !@execute_blocks.empty?
-            end
-
-            def keep_running(task, backtrace: caller(1))
-                emit task.start_event, backtrace: backtrace if !task.running?
-                not_emit task.stop_event, backtrace: backtrace
-                nil
-            end
-
-            def have_error_matching(matcher, backtrace: caller(1))
-                add_expectation(HaveErrorMatching.new(matcher, backtrace))
-            end
-
-            def have_handled_error_matching(matcher, backtrace: caller(1))
-                add_expectation(HaveHandledErrorMatching.new(matcher, backtrace))
-            end
-
-            def have_framework_error_matching(error, backtrace: caller(1))
-                add_expectation(HaveFrameworkError.new(error, backtrace))
             end
 
             def with_execution_engine_setup
@@ -244,6 +378,13 @@ module Roby
 
             # Verify that executing the given block in event propagation context
             # will cause the expectations to be met
+            #
+            # @return [Object] a value or array of value as returned by the
+            #   parsed block. If the block returns expectations, they are
+            #   converted to a user-visible object by calling their
+            #   #return_object method. Each expectation documents this as their
+            #   return value (for instance, {#achieve} returns the block's
+            #   "trueish" value)
             def verify(&block)
                 all_propagation_info = ExecutionEngine::PropagationInfo.new
                 timeout_deadline = Time.now + @timeout
@@ -359,9 +500,9 @@ module Roby
                 true
             end
 
-            def find_all_unmet_expectations(all_errors)
+            def find_all_unmet_expectations(all_propagation_info)
                 @expectations.find_all do |exp|
-                    !exp.update_match(all_errors)
+                    !exp.update_match(all_propagation_info)
                 end
             end
 

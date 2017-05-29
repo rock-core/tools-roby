@@ -1,4 +1,7 @@
 class Exception
+    # Create a {Queries::CodeErrorMatcher} object that matches this exception
+    #
+    # @return [Queries::CodeErrorMatcher]
     def self.match
         Roby::CodeError.match.with_ruby_exception(self)
     end
@@ -140,6 +143,9 @@ module Roby
         def self.to_execution_exception_matcher
             Roby::Queries::ExecutionExceptionMatcher.new.with_model(self)
         end
+
+        # Create a {Queries::LocalizedErrorMatcher} that matches this exception
+        #
         # @return [Queries::LocalizedErrorMatcher]
         def self.match
             Roby::Queries::LocalizedErrorMatcher.new.with_model(self)
@@ -275,6 +281,9 @@ module Roby
             failure_point.pretty_print(pp)
         end
 
+        # Create a {Queries::CodeErrorMatcher} that matches this exception
+        #
+        # @return [Queries::CodeErrorMatcher]
         def self.match
             Roby::Queries::CodeErrorMatcher.new.with_model(self)
         end
