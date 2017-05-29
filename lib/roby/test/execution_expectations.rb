@@ -41,6 +41,7 @@ module Roby
                 @plan = plan
 
                 @expectations = Array.new
+                @execute_blocks = Array.new
 
                 @scheduler = false
                 @timeout = 5
@@ -185,6 +186,21 @@ module Roby
                 nil
             end
 
+            # Queue a block for execution
+            #
+            # This is meant to be used by expectation objects which require to
+            # perform some actions in execution context.
+            def execute(&block)
+                @execute_blocks << block
+                nil
+            end
+
+            # Whether some blocks have been queued for execution with
+            # {#execute}
+            def has_pending_execute_blocks?
+                !@execute_blocks.empty?
+            end
+
             def keep_running(task, backtrace: caller(1))
                 emit task.start_event, backtrace: backtrace if !task.running?
                 not_emit task.stop_event, backtrace: backtrace
@@ -232,11 +248,20 @@ module Roby
                 all_propagation_info = ExecutionEngine::PropagationInfo.new
                 timeout_deadline = Time.now + @timeout
 
+                if block
+                    @execute_blocks << block
+                end
+
                 begin
                     engine = @plan.execution_engine
                     engine.start_new_cycle
                     propagation_info = with_execution_engine_setup do
-                        engine.process_events(raise_framework_errors: false, garbage_collect_pass: @garbage_collect, &block)
+                        engine.process_events(raise_framework_errors: false, garbage_collect_pass: @garbage_collect) do
+                            @execute_blocks.delete_if do |block|
+                                block.call
+                                true
+                            end
+                        end
                     end
 
                     all_propagation_info.merge(propagation_info)
@@ -262,13 +287,13 @@ module Roby
                             engine.join_all_waiting_work(timeout: remaining_timeout)
                         end
                         all_propagation_info.merge(propagation_info)
-                    elsif unmet.empty?
+                    elsif !has_pending_execute_blocks? && unmet.empty?
                         break
                     end
 
                     engine.cycle_end(Hash.new)
                     block = nil
-                end while @wait_until_timeout || (engine.has_waiting_work? && @join_all_waiting_work)
+                end while has_pending_execute_blocks? || @wait_until_timeout || (engine.has_waiting_work? && @join_all_waiting_work)
 
                 unmet = find_all_unmet_expectations(all_propagation_info)
                 if !unmet.empty?

@@ -520,6 +520,43 @@ module Roby
                     end
                 end
             end
+
+            describe "#execute" do
+                attr_reader :achieve_without_memory
+                before do
+                    @achieve_without_memory = Class.new(ExecutionExpectations::Achieve) do
+                        def update_match(all_propagation_info)
+                            @block.call(all_propagation_info)
+                        end
+                    end
+                end
+
+                it "allows to queue work from within the expectation block" do
+                    values = Array.new
+                    achieved = false
+                    expect_execution.to do
+                        achieve do
+                            execute { achieved = true }
+                            values << achieved
+                            achieved
+                        end
+                    end
+                    assert_equal [false, true], values[0, 2]
+                end
+                it "forces the expectation loop to run one more event processing loop" do
+                    values = Array.new
+                    achieved = false
+                    expect_execution.with_timeout(60).to do
+                        block = proc do
+                            execute { achieved = true } if !achieved
+                            values << achieved
+                            true
+                        end
+                        add_expectation achieve_without_memory.new(block, [])
+                    end
+                    assert_equal [false, true], values[0, 2]
+                end
+            end
         end
     end
 end
