@@ -7,7 +7,7 @@ module Roby
         module ExpectExecution
             # The context object that allows the expect_execution { }.to { }
             # syntax
-            Context = Struct.new :expectations, :block do
+            Context = Struct.new :test, :expectations, :block do
                 def with_setup(&block)
                     expectations.instance_eval(&block)
                     self
@@ -24,12 +24,19 @@ module Roby
                 end
 
                 def to(&expectation_block)
+                    test.setup_current_expect_execution(self)
                     expectations.parse(&expectation_block)
                     expectations.verify(&block)
                 rescue Minitest::Assertion => e
                     raise e, e.message, caller(2)
+                ensure
+                    test.reset_current_expect_execution
                 end
             end
+
+            # Exception raised when one of the method is called in a context
+            # that is not allowed
+            class InvalidContext < RuntimeError; end
 
             # Declare expectations about the execution of a code block
             #
@@ -38,11 +45,37 @@ module Roby
             #    plan.add(task = MyTask.new)
             #    expect_execution { task.start }.
             #       to { emit task.start_event }
+            #
+            # @raise [InvalidContext] if expect_execution is used from within an
+            #   expect_execution context, or within propagation context
             def expect_execution(&block)
+                if execution_engine.in_propagation_context?
+                    raise InvalidContext, "cannot recursively call #expect_execution"
+                end
                 expectations = ExecutionExpectations.new(self, plan)
-                Context.new(expectations, block)
+                Context.new(self, expectations, block)
             end
 
+            # @api private
+            #
+            # Set the current expect_execution context. This is used to check
+            # for recursive calls to {#expect_execution}
+            def setup_current_expect_execution(context)
+                if @current_expect_execution
+                    raise InvalidContext, "cannot perform an expect_execution test within another one"
+                end
+                @current_expect_execution = context
+            end
+
+            # @api private
+            #
+            # Reset the current expect_execution block. This is used to check
+            # for recursive calls to {#expect_execution}
+            def reset_current_expect_execution
+                @current_expect_execution = nil
+            end
+
+            # Execute a block within the event propagation context
             def execute(garbage_collect: false)
                 result = nil
                 expect_execution { result = yield }.with_setup { garbage_collect(garbage_collect) }.to { }
