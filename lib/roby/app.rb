@@ -2565,7 +2565,7 @@ module Roby
         # @param [Boolean] all if set, list all files in {#app_dir}/test.
         #   Otherwise, list only the tests that are related to the loaded
         #   models.
-        # @param [Boolean] self if set, list only test files from within
+        # @param [Boolean] only_self if set, list only test files from within
         #   {#app_dir}. Otherwise, consider test files from all over {#search_path}
         # @return [Array<String>]
         def discover_test_files(all: true, only_self: false)

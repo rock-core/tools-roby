@@ -308,8 +308,8 @@ module Roby
         #
         # It is assumed that other_plan and plan do not intersect
         #
-        # Unlike {#merge}, it ensures that all plan objects have their {#plan}
-        # attribute properly updated, and it cleans plan
+        # Unlike {#merge}, it ensures that all plan objects have their
+        # {PlanObject#plan} attribute properly updated, and it cleans plan
         #
         # @param [Roby::Plan] plan the plan to merge into self
         def merge!(plan)
@@ -1047,7 +1047,9 @@ module Roby
         #
         # Compute the subplan that is useful for a given set of tasks
         #
-        # @param [Set<Roby::Task>
+        # @param [Set<Roby::Task>] seeds the root "useful" tasks
+        # @param [Array<Relations::BidirectionalDirectedAdjancencyGraph>] graphs the
+        #   graphs through which "usefulness" is propagated
 	def compute_useful_tasks(seeds, graphs: default_useful_task_graphs)
             seeds = seeds.to_set
             visitors = graphs.map do |g|
@@ -1161,9 +1163,6 @@ module Roby
         # It contains every event that is connected to an event in
         # {#permanent_events} or to an event on a task in the plan
         #
-        # @param [Set<EventGenerator>] useful_events  the set of useful events (free or task) computed so far
-        # @param [Set<EventGenerator>] useless_events the remainder of {#free_events} that
-        #   is not included in useful_events yet
         # @return [Set<EventGenerator>]
         def compute_useful_free_events
             # Quick path for a very common case
@@ -1264,8 +1263,8 @@ module Roby
             free_events.include?(generator)
         end
 
-	# @deprecated use the more specific {#has_task?} {#has_free_event?} or
-        #   {#has_event?} instead
+	# @deprecated use the more specific {#has_task?}, {#has_free_event?} or
+        #   {#has_task_event?} instead
 	def include?(object)
             Roby.warn_deprecated "Plan#include? is deprecated, use one of the more specific #has_task? #has_task_event? and #has_free_event?"
             has_free_event?(object) || has_task_event?(object) || has_task?(object)
