@@ -461,6 +461,15 @@ module Roby
                                 achieve { flipflop = !flipflop }
                             end
                     end
+                    it "returns the block's value" do
+                        obj = flexmock
+                        ret = expect_execution { }.
+                            with_setup { timeout 0 }.
+                            to do
+                                achieve { obj }
+                            end
+                        assert_same obj, ret
+                    end
                 end
             end
         end

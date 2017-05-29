@@ -586,6 +586,10 @@ module Roby
                     @achieved ||= @block.call(propagation_info)
                 end
 
+                def return_object
+                    @achieved
+                end
+
                 def to_s
                     "achieves #{@block}"
                 end
