@@ -213,8 +213,9 @@ module Roby
                 new(test, plan).parse(&block)
             end
 
-            def parse(&block)
-                @return_objects = instance_eval(&block)
+            def parse(ret: true, &block)
+                block_ret = instance_eval(&block)
+                @return_objects = block_ret if ret
                 self
             end
 

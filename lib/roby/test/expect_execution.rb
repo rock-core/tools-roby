@@ -83,6 +83,18 @@ module Roby
             rescue Minitest::Assertion => e
                 raise e, e.message, caller(2)
             end
+
+            # Add an expectation from within an execute { } or expect_execution
+            # { } block
+            #
+            # @raise [InvalidContext] if called outside of an
+            #   {#expect_execution} context
+            def add_expectations(&block)
+                if !@current_expect_execution
+                    raise InvalidContext, "#add_expectations not called within an expect_execution context"
+                end
+                @current_expect_execution.expectations.parse(ret: false, &block)
+            end
         end
     end
 end
