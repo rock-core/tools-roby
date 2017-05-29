@@ -583,7 +583,7 @@ module Roby
                 end
 
                 def update_match(propagation_info)
-                    @block.call(propagation_info)
+                    @achieved ||= @block.call(propagation_info)
                 end
 
                 def to_s

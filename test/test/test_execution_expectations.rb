@@ -450,6 +450,17 @@ module Roby
                                 to { achieve { } }
                         end
                     end
+                    it "remains achieved once it did" do
+                        # This tests the behaviour of Achieve given that
+                        # ExecutionExpectations evaluates #update_match multiple
+                        # times.
+                        flipflop = false
+                        expect_execution { }.
+                            with_setup { timeout 0 }.
+                            to do
+                                achieve { flipflop = !flipflop }
+                            end
+                    end
                 end
             end
         end
