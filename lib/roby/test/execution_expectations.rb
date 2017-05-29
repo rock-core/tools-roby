@@ -2,6 +2,28 @@ module Roby
     module Test
         # Underlying implementation for Roby's when do end.expect ... feature
         class ExecutionExpectations
+            # Expect that an event is not emitted after the expect_execution block
+            #
+            # Note that only one event propagation pass is guaranteed to happen
+            # before the "no emission" expectation is validated. I.e. this
+            # cannot test for the non-existence of a delayed emission
+            def not_emit(generator, backtrace: caller(1))
+                if generator.kind_of?(EventGenerator)
+                    add_expectation(NotEmitGenerator.new(generator, backtrace))
+                else
+                    add_expectation(NotEmitGeneratorModel.new(generator, backtrace))
+                end
+                nil
+            end
+
+            # Expect that an event is emitted after the expect_execution block
+            def emit(generator, backtrace: caller(1))
+                if generator.kind_of?(EventGenerator)
+                    add_expectation(EmitGenerator.new(generator, backtrace))
+                else
+                    add_expectation(EmitGeneratorModel.new(generator, backtrace))
+                end
+            end
             # Parse a expect { } block into an Expectation object
             #
             # @return [Expectation]
@@ -27,6 +49,10 @@ module Roby
                 @garbage_collect = false
                 @validate_unexpected_errors = true
                 @display_exceptions = false
+            end
+
+            def find_tasks(*args)
+                @test.plan.find_tasks(*args)
             end
 
             def respond_to_missing?(m, include_private)
@@ -127,16 +153,6 @@ module Roby
             def add_expectation(expectation)
                 @expectations << expectation
                 expectation
-            end
-
-            # Expect that an event should be emitted
-            def not_emit(generator, backtrace: caller(1))
-                add_expectation(NotEmit.new(generator, backtrace))
-                nil
-            end
-
-            def emit(generator, backtrace: caller(1))
-                add_expectation(Emit.new(generator, backtrace))
             end
 
             def achieve(backtrace: caller(1), &block)
@@ -349,7 +365,7 @@ module Roby
                 end
             end
 
-            class NotEmit < Expectation
+            class NotEmitGenerator < Expectation
                 def initialize(generator, backtrace)
                     super(backtrace)
                     @generator = generator
@@ -369,11 +385,11 @@ module Roby
                 end
 
                 def unachievable?(propagation_info)
-                    @generator.emitted?
+                    !@emitted_events.empty?
                 end
 
                 def explain_unachievable(propagation_info)
-                    @generator.last
+                    @emitted_events.first
                 end
 
                 def relates_to_error?(error)
@@ -381,7 +397,85 @@ module Roby
                 end
             end
 
-            class Emit < Expectation
+            class NotEmitGeneratorModel < Expectation
+                attr_reader :generator_model
+
+                def initialize(event_query, backtrace)
+                    super(backtrace)
+                    @event_query = event_query
+                    @generators = Array.new
+                    @related_error_matchers = Array.new
+                    @emitted_events = Array.new
+                end
+
+                def to_s
+                    "no emission of #{@event_query}"
+                end
+
+                def update_match(propagation_info)
+                    @emitted_events = propagation_info.emitted_events.
+                        find_all do |ev|
+                            if @event_query === ev.generator
+                                @generators << ev.generator
+                                @related_error_matchers << Queries::LocalizedErrorMatcher.new.
+                                    with_origin(ev.generator).
+                                    to_execution_exception_matcher
+                            end
+                        end
+                    @emitted_events.empty?
+                end
+
+                def unachievable?(propagation_info)
+                    !@emitted_events.empty?
+                end
+
+                def explain_unachievable(propagation_info)
+                    @emitted_events.first
+                end
+
+                def relates_to_error?(error)
+                    @related_error_matchers.any? { |match| match === error }
+                end
+            end
+
+            class EmitGeneratorModel < Expectation
+                attr_reader :generator_model
+
+                def initialize(event_query, backtrace)
+                    super(backtrace)
+                    @event_query = event_query
+                    @generators = Array.new
+                    @related_error_matchers = Array.new
+                    @emitted_events = Array.new
+                end
+
+                def to_s
+                    "emission of #{@event_query}"
+                end
+
+                def update_match(propagation_info)
+                    @emitted_events = propagation_info.emitted_events.
+                        find_all do |ev|
+                            if @event_query === ev.generator
+                                @generators << ev.generator
+                                @related_error_matchers << Queries::LocalizedErrorMatcher.new.
+                                    with_origin(ev.generator).
+                                    to_execution_exception_matcher
+                            end
+                        end
+                    !@emitted_events.empty?
+                end
+
+                def return_object
+                    @emitted_events
+                end
+
+                def relates_to_error?(error)
+                    @related_error_matchers.any? { |match| match === error }
+                end
+            end
+
+            class EmitGenerator < Expectation
                 attr_reader :generator
 
                 def initialize(generator, backtrace)

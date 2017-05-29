@@ -154,7 +154,7 @@ module Roby
             end
 
             describe "standard expectations" do
-                describe "#emits" do
+                describe "#emits a generator instance" do
                     it "validates when the event is emitted" do
                         plan.add(generator = EventGenerator.new)
                         expect_execution { generator.emit }.
@@ -192,6 +192,44 @@ module Roby
                             generator.on { |ev| execution_engine.add_error(
                                 LocalizedError.new(ev)) }
                         end.to { emit generator }
+                    end
+                end
+                describe "#emit a task event query" do
+                    attr_reader :task_m
+                    before do
+                        @task_m = Roby::Tasks::Simple.new_submodel
+                    end
+                    it "validates when the event is emitted" do
+                        task = nil
+                        result = expect_execution do
+                            plan.add(task = task_m.new)
+                            task.start!
+                        end.to { emit find_tasks(task_m).start_event }
+                        assert_equal [task.start_event.last], result
+                    end
+                    it "fails if no matching events are added" do
+                        e = assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution {}.with_setup { timeout 0 }.
+                                to { emit find_tasks(task_m).start_event }
+                        end
+                        assert_equal "1 unmet expectations\nemission of #{task_m}.start", e.message
+                    end
+                    it "fails if matching events are not emitted" do
+                        e = assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution do
+                                plan.add(task = task_m.new)
+                            end.with_setup { timeout 0 }.
+                                to { emit find_tasks(task_m).start_event }
+                        end
+                        assert_equal "1 unmet expectations\nemission of #{task_m}.start", e.message
+                    end
+                    it "validates if the event's emission caused exceptions" do
+                        expect_execution do
+                            plan.add(task = task_m.new)
+                            task.start_event.on { |ev| execution_engine.add_error(
+                                LocalizedError.new(ev)) }
+                            task.start!
+                        end.to { emit find_tasks(task_m).start_event }
                     end
                 end
 
