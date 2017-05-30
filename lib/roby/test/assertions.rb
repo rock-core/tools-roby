@@ -609,7 +609,7 @@ module Roby
             end
             # Assert that a state machine transitions
             def assert_state_machine_transition(state_machine_task, to_state: Regexp.new, timeout: 5, start: true)
-                state_machines = state_machine_task.coordination_objects.
+                state_machines = state_machine_task.each_coordination_object.
                     find_all { |obj| obj.kind_of?(Coordination::ActionStateMachine) }
                 if state_machines.empty?
                     raise ArgumentError, "#{state_machine_task} has no state machines"

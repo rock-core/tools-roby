@@ -6,7 +6,7 @@ module Roby
                 @test = test
                 @toplevel_task = @test.roby_run_planner(task_or_action)
 
-                @state_machines = @toplevel_task.coordination_objects.
+                @state_machines = @toplevel_task.each_coordination_object.
                     find_all { |obj| obj.kind_of?(Coordination::ActionStateMachine) }
                 if @state_machines.empty?
                     raise ArgumentError, "#{task_or_action} has no state machines"

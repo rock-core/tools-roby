@@ -1,5 +1,5 @@
 module Roby
-    # In a plan, Task objects represent the activities of the robot. 
+    # In a plan, Task objects represent the system's activities. 
     # 
     # === Task models
     #
@@ -82,35 +82,40 @@ module Roby
     #     execution) cannot become non-terminal. Nonetheless, a non-terminal
     #     event can become terminal.
     #
+    # @!macro InstanceHandlerOptions
+    #   @option options [:copy,:drop] :on_replace defines the behaviour
+    #      when this object gets replaced in the plan. If :copy is used,
+    #      the handler is added to the replacing task and is also kept
+    #      in the original task. If :drop, it is not copied (but is
+    #      kept).
     class Task < PlanObject
         extend Models::Task
         provides TaskService
 
-	# The task arguments as symbol => value associative container
+	# The task arguments
+        #
+        # @return [TaskArguments]
 	attr_reader :arguments
         
         # The accumulated history of this task
         #
         # This is the list of events that this task ever emitted, sorted by
-        # emission time
+        # emission time (oldest first)
         #
         # @return [Array<Event>]
         attr_reader :history
 
-        # The list of coordination objects attached to this task
-        #
-        # @return [Array<Coordination::Base>]
-        attr_reader :coordination_objects
-
-	# The part of +arguments+ that is meaningful for this task model. I.e.
-        # it returns the set of elements in the +arguments+ property that define
-        # arguments listed in the task model
+        # The part of {#arguments} that is meaningful for this task model. I.e.
+        # it returns the set of elements in {#arguments} that are listed in the
+        # task model
 	def meaningful_arguments(task_model = self.model)
             task_model.meaningful_arguments(arguments)
 	end
 
-        # Called when the start event get called, to resolve the delayed
-        # arguments (if there are any)
+        # @api private
+        #
+        # Evaluate delayed arguments, and replace in {#arguments} the ones that
+        # currently have a value
         def freeze_delayed_arguments
             if !arguments.static?
                 result = Hash.new
@@ -126,6 +131,8 @@ module Roby
         end
 
 	# The task name
+        #
+        # @return [String]
 	def name
             return @name if @name
             name = "#{model.name || self.class.name}:0x#{address.to_s(16)}"
@@ -135,8 +142,10 @@ module Roby
             name
 	end
 	
-	# This predicate is true if this task is a mission for its owners. If
-	# you want to know if it a mission for the local system, use Plan#mission_task?
+        # Whether the task is a mission for its owners.
+        #
+        # If you want to know if it a mission for the local system, use
+        # Plan#mission_task?. In non-distributed Roby, the two are identical
 	attr_predicate :mission?, true
 
 	def inspect
@@ -150,6 +159,8 @@ module Roby
 	    "#<#{to_s} executable=#{executable?} state=#{state} plan=#{plan.to_s}>"
 	end
 
+        # @api private
+        #
         # Helper to assign multiple argument values at once
         #
         # It differs from calling assign_argument in a loop in two ways:
@@ -184,6 +195,8 @@ module Roby
             @arguments = initial_arguments
         end
 
+        # @api private
+        #
         # Sets one of this task's arguments
         def assign_argument(key, value)
             key = key.to_sym
@@ -203,8 +216,9 @@ module Roby
 	
         # Create a new task object
         #
-        # The task is initially added to a {TemplatePlan} object in which all of
-        # the model's event relations are already instantiated.
+        # @param [Plan] plan the plan this task should be added two. The default
+        #   is to add it to its own TemplatePlan object
+        # @param [Hash<Symbol,Object>] arguments assignation to task arguments
         def initialize(plan: TemplatePlan.new, **arguments)
             @bound_events = Hash.new
             super(plan: plan)
@@ -261,10 +275,15 @@ module Roby
 	end
         
 	# Retrieve the current state of the task 
-	# Can be one of the core states: pending, failed_to_start, starting, started, running, finishing, 
-	# succeeded or failed
-	# In order to add substates to +running+ TaskStateMachine#refine_running_state 
-	# can be used. 
+        #
+        # Can be one of the core states: pending, failed_to_start, starting,
+        # started, running, finishing, succeeded or failed
+        #
+	# If the task has a state machine defined with
+        # {TaskStateHelper#refine_running_state}, the state
+        # machine's current state will be returned in place of :running
+        #
+        # @return [Symbol]
 	def current_state
 	    # Started and not finished
 	    if running? 
@@ -296,6 +315,9 @@ module Roby
 	end
 
 	# Test if that current state corresponds to the provided state (symbol)
+        #
+        # @param [Symbol] state
+        # @return [Boolean]
 	def current_state?(state) 
 	    return state == current_state.to_sym
 	end
@@ -312,9 +334,11 @@ module Roby
 	    end
 	    @bound_events = bound_events
         end
+        private :initialize_events
 
-        # @see (PlanObject#promise)
-        # @raise PromiseInFinishedTask if attempting to create a promise on a
+        # (see PlanObject#promise)
+        #
+        # @raise [PromiseInFinishedTask] if attempting to create a promise on a
         #   task that is either finished, or failed to start
         def promise(description: "#{self}.promise", executor: promise_executor, &block)
             if failed_to_start?
@@ -734,27 +758,20 @@ module Roby
 	# List of EventGenerator objects bound to this task
         attr_reader :bound_events
 
-        # Emits +event_model+ in the given +context+. Event handlers are fired.
-        # This is equivalent to
-        #   event(event_model).emit(*context)
+        # Returns the event generator by its name
         #
-        # @param [Symbol] event_model the event that should be fired
-        # @param [Object] context the event context, i.e. payload data that is
-        #   propagated along with the event itself
-        # @return self
-        def emit(event_model, *context)
-            Roby.warn_deprecated "Roby::Task#emit(event_name) is deprecated, use EventGenerator#emit (e.g. task.start_event.emit or task.event(:start).emit)"
-            event(event_model).emit(*context)
-            self
-        end
-
+        # @param [Symbol] name the event name
+        # @return [TaskEventGenerator,nil]
         def find_event(name)
             bound_events[name] ||
                 bound_events[event_model(name).symbol]
         end
 
-        # Returns the TaskEventGenerator which describes the required event
-        # model. +event_model+ can either be an event name or an Event class.
+        # Returns the event generator by its name or model
+        #
+        # @param [Symbol] name the event name
+        # @return [TaskEventGenerator,nil]
+        # @raise [ArgumentError] if the event does not exist
         def event(event_model)
             if event = find_event(event_model)
                 event
@@ -763,48 +780,25 @@ module Roby
             end
         end
 
-        # Registers an event handler for the given event.
-        #
-        # @param [Symbol] event_model the generator for which this handler should be registered
-        # @yield [event] the event handler
-        # @yieldparam [TaskEvent] event the emitted event that caused this
-        #   handler to be called
-        # @return self
+        # @!group Deprecated Event API
+
+        # @deprecated use {TaskEventGenerator#emit} instead (e.g. task.start_event.emit)
+        def emit(event_model, *context)
+            Roby.warn_deprecated "Roby::Task#emit(event_name) is deprecated, use EventGenerator#emit (e.g. task.start_event.emit or task.event(:start).emit)"
+            event(event_model).emit(*context)
+            self
+        end
+
+
+        # @deprecated use {TaskEventGenerator#on} on the event object, e.g.
+        #   task.start_event.on { |event| ... }
         def on(event_model, options = Hash.new, &user_handler)
             Roby.warn_deprecated "Task#on is deprecated, use EventGenerator#on instead (e.g. #{event_model}_event.signals other_event)"
             event(event_model).on(options, &user_handler)
             self
         end
 
-        # Creates a signal between task events.
-        #
-        # Signals specify that a target event's command should be called
-        # whenever a source event is emitted. To emit target events (i.e. not
-        # calling the event's commands), use #forward_to
-        #
-        # Optionally, a delay can be added to the signal. See
-        # EventGenerator#signals for more information on the available delay
-        # options
-        #
-        # @overload signals(source_event, dest_task, dest_event)
-        #   @param [Symbol] source_event the source event on self
-        #   @param [Task] dest_task the target task owning the target event
-        #   @param [Symbol] dest_event the target event on dest_task
-        #   @return self
-        #
-        #   Sets up a signal between source_event on self and dest_event on
-        #   dest_task.
-        #
-        # @overload signals(source_event, dest_task, dest_event, delay_options)
-        #   @param [Symbol] source_event the source event on self
-        #   @param [Task] dest_task the target task owning the target event
-        #   @param [Symbol] dest_event the target event on dest_task
-        #   @return self
-        #
-        #   Sets up a signal between source_event on self and dest_event on
-        #   dest_task, with delay options. See EventGenerator#signals for more
-        #   information on the available options
-        #
+        # @deprecated use {TaskEventGenerator#signal} instead (e.g. task.start_event.signal other_task.stop_event)
         def signals(event_model, to, *to_task_events)
             Roby.warn_deprecated "Task#signals is deprecated, use EventGenerator#signal instead (e.g. #{event_model}_event.signals other_event)"
 
@@ -826,31 +820,7 @@ module Roby
             self
         end
 
-        # Fowards an event to another event
-        #
-        # Forwarding an event means that the target event should be emitted
-        # whenever the source event is emitted. To call the target event command
-        # instead,use #signals
-        #
-        # Optionally, a delay can be added to the forwarding. See
-        # EventGenerator#signals for more information on the available delay
-        # options
-        #
-        # @overload forward_to(source_event, dest_task, dest_event)
-        #   @param [Symbol] source_event the source event on self
-        #   @param [Task] dest_task the target task owning the target event
-        #   @param [Symbol] dest_event the target event on dest_task
-        #   @return self
-        #
-        # @overload forward_to(source_event, dest_task, dest_event, delay_options)
-        #   @param [Symbol] source_event the source event on self
-        #   @param [Task] dest_task the target task owning the target event
-        #   @param [Symbol] dest_event the target event on dest_task
-        #   @return self
-        #
-        # @overload forward_to(source_event, dest_task)
-        #   @deprecated you must always specify the target event
-        #
+        # @deprecated use {TaskEventGenerator#forward_to} instead (e.g.  task.start_event.forward_to other_task.stop_event)
 	def forward_to(event_model, to, *to_task_events)
             Roby.warn_deprecated "Task#forward_to is deprecated, use EventGenerator#forward_to instead (e.g. #{event_model}_event.forward_to other_event)"
 
@@ -871,6 +841,8 @@ module Roby
 	    end
 	end
 
+        # @!endgroup Deprecated Event API
+
         include MetaRuby::DSLs::FindThroughMethodMissing
 
         # Iterates on all the events defined for this task
@@ -882,10 +854,7 @@ module Roby
         #   tied to this task
         # @return self
         def each_event(only_wrapped = true)
-            if !block_given?
-                return enum_for(:each_event, only_wrapped)
-            end
-
+            return enum_for(__method__, only_wrapped) if !block_given?
             for ev in bound_events.each_value
 		yield(ev)
 	    end
@@ -893,15 +862,21 @@ module Roby
         end
 	alias :each_plan_child :each_event
 
-        # Returns the set of terminal events this task has. A terminal event is
-        # an event whose emission announces the end of the task. In most case,
-        # it is an event which is forwarded directly on indirectly to +stop+.
+        # Returns this task's set of terminal events.
+        #
+        # A terminal event is an event whose emission announces the end of the
+        # task. In most case, it is an event which is forwarded directly on
+        # indirectly to +stop+.
+        #
+        # @return [Array<TaskEventGenerator>]
 	def terminal_events
 	    bound_events.each_value.find_all { |ev| ev.terminal? }
 	end
 
-        # Get the event model for +event+
-        def event_model(model); self.model.event_model(model) end
+        # (see Models::Task#event_model)
+        def event_model(model)
+            self.model.event_model(model)
+        end
 
         def to_s # :nodoc:
             s = "#{name}<id:#{droby_id.id}>(#{arguments})"
@@ -981,7 +956,8 @@ module Roby
         # It is obviously forwarded to {#stop_event}
 	event :failed,  terminal: true
 
-        # Event emitted when the task's underlying {#execution_agent} finished
+        # Event emitted when the task's underlying
+        # {TaskStructure::ExecutionAgent#execution_agent} finished
         # while the task was running
         #
         # It is obviously forwarded to {#failed_event}
@@ -1009,14 +985,18 @@ module Roby
         end
 
         # The internal data for this task
+        #
+        # @see data= updated_data updated_data_event
 	attr_reader :data
+
         # Sets the internal data value for this task. This calls the
-        # #updated_data hook, and emits +updated_data+ if the task is running.
+        # {#updated_data} hook, and emits {#updated_data_event} if the task is running.
 	def data=(value)
 	    @data = value
 	    updated_data
 	    emit :updated_data if running?
 	end
+
         # This hook is called whenever the internal data of this task is
         # updated.  See #data, #data= and the +updated_data+ event
 	def updated_data
@@ -1029,14 +1009,25 @@ module Roby
 	    finished? || !(running? ^ task.running?)
 	end
 
-        # The set of instance-level execute blocks (InstanceHandler instances)
+        # @api private
+        #
+        # The set of instance-level execute blocks
+        #
+        # @return [Array<InstanceHandler>]
         attr_reader :execute_handlers
 
-        # The set of instance-level poll blocks (InstanceHandler instances)
+        # @api private
+        #
+        # The set of instance-level poll blocks
+        #
+        # @return [Array<InstanceHandler>]
         attr_reader :poll_handlers
 
         # Add a block that is going to be executed once, either at the next
         # cycle if the task is already running, or when the task is started
+        #
+        # @macro InstanceHandlerOptions
+        # @return [void]
         def execute(options = Hash.new, &block)
             default_on_replace = if abstract? then :copy else :drop end
             options = InstanceHandler.validate_options(options, on_replace: default_on_replace)
@@ -1071,12 +1062,18 @@ module Roby
             @poll_handlers.delete(handler)
         end
 
+        # @api private
+        #
+        # Helper for {#execute} and {#poll} that ensures that the {#do_poll} is
+        # called by the execution engine
         def ensure_poll_handler_called
             if !transaction_proxy? && running?
                 @poll_handler_id ||= execution_engine.add_propagation_handler(description: "poll block for #{self}", type: :external_events, &method(:do_poll))
             end
         end
 
+        # @api private
+        #
         # Internal method used to register the poll blocks in the engine
         # execution cycle
         def do_poll(plan) # :nodoc:
@@ -1141,8 +1138,10 @@ module Roby
             end
         end
 
+        # Whether this task instance provides a set of models and arguments
+        #
 	# The fullfills? predicate checks if this task can be used
-	# to fullfill the need of the given +model+ and +arguments+
+	# to fullfill the need of the given model and arguments
 	# The default is to check if
 	#   * the needed task model is an ancestor of this task
 	#   * the task 
@@ -1167,17 +1166,24 @@ module Roby
 	    true
 	end
 
-        # True if this model requires an argument named +key+ and that argument
-        # is set
+        # True if this model requires an argument named key and that argument is
+        # set
         def has_argument?(key)
             self.arguments.set?(key)
         end
 
-        # True if +self+ can be used to replace +target+
+        # True if self can be used to replace target
         def can_replace?(target)
             fullfills?(*target.fullfilled_model)
         end
 
+        # Tests if a task could be merged within self
+        #
+        # Unlike a replacement, a merge implies that self is modified to match
+        # both its current role and the target's role. Roby has no built-in
+        # merge logic (no merge method). This method is a helper for Roby
+        # extensions that implement such a scheme, to check for attributes
+        # common to all tasks that would forbid a merge 
 	def can_merge?(target)
             if defined?(super) && !super
                 return
@@ -1209,6 +1215,8 @@ module Roby
 
 	include ExceptionHandlingObject
 
+        # @api private
+        #
         # Handles the given exception.
         #
         # In addition to the exception handlers provided by
@@ -1228,9 +1236,14 @@ module Roby
         end
 
         # Lists all exception handlers attached to this task
-	def each_exception_handler(&iterator); model.each_exception_handler(&iterator) end
+	def each_exception_handler(&iterator)
+            model.each_exception_handler(&iterator)
+        end
 
-	# We can't add relations on objects we don't own
+        # @api private
+        #
+        # Validates that both self and the child object are owned by the local
+        # instance
 	def add_child_object(child, type, info)
 	    unless read_write? && child.read_write?
 	        raise OwnershipError, "cannot add a relation between tasks we don't own.  #{self} by #{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
@@ -1239,7 +1252,10 @@ module Roby
 	    super
 	end
 
-        # This method is called during the commit process to 
+        # @api private
+        #
+        # This method is called during the commit process to apply changes
+        # stored in a proxy
 	def commit_transaction
 	    super
 
@@ -1259,6 +1275,7 @@ module Roby
 	    plan.respawn(self)
 	end
 
+        # @api private
         def compute_subplan_replacement_operation(object)
             edges, edges_candidates = [], []
             subplan_tasks = Set[self, object]
@@ -1334,6 +1351,7 @@ module Roby
             edges
         end
 
+        # @api private
         def apply_replacement_operations(edges)
             edges.each do |g, removed_parent, removed_child, added_parent, added_child|
                 info = g.edge_info(removed_parent, removed_child)
@@ -1346,13 +1364,16 @@ module Roby
             end
         end
 
-        # Replaces, in the plan, the subplan generated by this plan object by
-        # the one generated by +object+. In practice, it means that we transfer
-        # all parent edges whose target is +self+ from the receiver to
-        # +object+. It calls the various add/remove hooks defined in
-        # {DirectedRelationSupport}.
+        # Replaces self's subplan by another subplan
+        #
+        # Replaces the subplan generated by self by the one generated by object.
+        # In practice, it means that we transfer all parent edges whose target
+        # is self from the receiver to object. It calls the various add/remove
+        # hooks defined in {DirectedRelationSupport}.
         #
         # Relations to free events are not copied during replacement
+        #
+        # @see replace_by
 	def replace_subplan_by(object)
             edges = compute_subplan_replacement_operation(object)
             apply_replacement_operations(edges)
@@ -1363,6 +1384,7 @@ module Roby
             end
 	end
 
+        # @api private
         def compute_object_replacement_operation(object)
             edges = []
             plan.each_task_relation_graph do |g|
@@ -1402,8 +1424,12 @@ module Roby
             edges
         end
 
-        # Replaces +self+ by +object+ in all relations +self+ is part of, and
-        # do the same for the task's event generators.
+        # Replaces self by object
+        #
+        # It replaces self by object in all relations +self+ is part of, and do
+        # the same for the task's event generators.
+        #
+        # @see replace_subplan_by
 	def replace_by(object)
             event_mappings = Hash.new
             event_resolver = ->(e) { object.event(e.symbol) }
@@ -1421,6 +1447,7 @@ module Roby
             end
         end
 
+        # @api private
         def initialize_replacement(task)
             super
 
@@ -1437,7 +1464,7 @@ module Roby
             end
         end
 
-        # Simulate that the given event is emitted
+        # @deprecated this has no equivalent. It really has never seen proper support
         def simulate
             simulation_task = self.model.simulation_model.new(arguments.to_hash)
             plan.force_replace(self, simulation_task)
@@ -1460,6 +1487,9 @@ module Roby
             self
         end
 
+        # Register a hook that is called when this task is finalized (removed from its plan)
+        #
+        # @macro InstanceHandlerOptions
         def when_finalized(options = Hash.new, &block)
             default = if abstract? then :copy else :drop end
             options, remaining = InstanceHandler.filter_options options, on_replace: default
@@ -1502,6 +1532,7 @@ module Roby
                 add_error(TaskEmergencyTermination.new(self, error, true))
             end
         end
+        private :internal_error_handler
 
         on_exception(Roby::CodeError) do |exception|
             internal_error_handler(exception)
@@ -1559,10 +1590,14 @@ module Roby
             ExecutionException.new(LocalizedError.new(self))
         end
 
+        # @api private
         def create_transaction_proxy(transaction)
             transaction.create_and_register_proxy_task(self)
         end
 
+        # Return a task match object that matches self
+        #
+        # @return [Queries::TaskMatcher]
         def match
             self.class.match.with_instance(self)
         end
@@ -1571,7 +1606,7 @@ module Roby
         #
         # @yieldparam [Coordination::Base] object
         def each_coordination_object(&block)
-            coordination_objects.each(&block)
+            @coordination_objects.each(&block)
         end
 
         # @api private
@@ -1580,7 +1615,7 @@ module Roby
         #
         # @param [Coordination::Base] object
         def add_coordination_object(object)
-            coordination_objects.push(object)
+            @coordination_objects.push(object)
         end
 
         # @api private
@@ -1589,7 +1624,7 @@ module Roby
         #
         # @param [Coordination::Base] object
         def remove_coordination_object(object)
-            coordination_objects.delete(object)
+            @coordination_objects.delete(object)
         end
     end
 

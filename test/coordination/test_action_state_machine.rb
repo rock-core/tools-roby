@@ -179,7 +179,7 @@ describe Roby::Coordination::ActionStateMachine do
                 transition(start_state, monitor.success_event, next_state)
             end
             task = start_machine(action_m.test)
-            flexmock(task.coordination_objects.first).should_receive(:instanciate_state_transition).
+            flexmock(task.each_coordination_object.first).should_receive(:instanciate_state_transition).
                 once.pass_thru
             task.monitor_child.start!
             task.monitor_child.success_event.emit
@@ -214,7 +214,7 @@ describe Roby::Coordination::ActionStateMachine do
             plan.add_permanent_task(task)
             task.start!
 
-            state_machine = task.coordination_objects.first
+            state_machine = task.each_coordination_object.first
             assert_event_emission task.current_task_child.planning_task.success_event do
                 task.current_task_child.planning_task.start!
             end
@@ -253,7 +253,7 @@ describe Roby::Coordination::ActionStateMachine do
             plan.add_permanent_task(task)
             task.start!
 
-            state_machine = task.coordination_objects.first
+            state_machine = task.each_coordination_object.first
             2.times do |i|
                 assert_event_emission task.current_task_child.planning_task.success_event do
                     task.current_task_child.planning_task.start!
@@ -271,7 +271,7 @@ describe Roby::Coordination::ActionStateMachine do
                 transition start.stop_event, state(next_task)
             end
             task = start_machine(action_m.test)
-            state_machine = task.coordination_objects.first
+            state_machine = task.each_coordination_object.first
             flexmock(state_machine).should_receive(:instanciate_state_transition).
                 and_raise(error_m = Class.new(Exception))
 
