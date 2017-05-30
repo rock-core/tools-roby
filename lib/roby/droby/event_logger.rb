@@ -104,39 +104,37 @@ module Roby
             end
 
             def append_message(m, time, args)
-                if stats_mode? && m == :cycle_end
-                    @current_cycle << m << time.tv_sec << time.tv_usec << args
-                else
-                    if m == :merged_plan
-                        plan_id, merged_plan = *args
+                if m == :merged_plan
+                    plan_id, merged_plan = *args
 
-                        merged_plan.tasks.each do |t|
-                            object_manager.register_object(t)
-                        end
-                        merged_plan.free_events.each do |e|
-                            object_manager.register_object(e)
-                        end
-                        merged_plan.task_events.each do |e|
-                            object_manager.register_object(e)
-                        end
-                        args = [plan_id, merged_plan.droby_dump(marshal)]
-                    elsif m == :finalized_task
-                        task = args[1]
-                        args = marshal.dump(args)
-                        object_manager.deregister_object(task)
-                    elsif m == :finalized_event
-                        event = args[1]
-                        args = marshal.dump(args)
-                        object_manager.deregister_object(event)
-                    else
-                        args = marshal.dump(args)
+                    merged_plan.tasks.each do |t|
+                        object_manager.register_object(t)
                     end
-
-                    @current_cycle << m << time.tv_sec << time.tv_usec << args
+                    merged_plan.free_events.each do |e|
+                        object_manager.register_object(e)
+                    end
+                    merged_plan.task_events.each do |e|
+                        object_manager.register_object(e)
+                    end
+                    args = [plan_id, merged_plan.droby_dump(marshal)]
+                elsif m == :finalized_task
+                    task = args[1]
+                    args = marshal.dump(args)
+                    object_manager.deregister_object(task)
+                elsif m == :finalized_event
+                    event = args[1]
+                    args = marshal.dump(args)
+                    object_manager.deregister_object(event)
+                else
+                    args = marshal.dump(args)
                 end
+
+                @current_cycle << m << time.tv_sec << time.tv_usec << args
             end
 
             def dump_timepoint(event, time, args)
+                return if stats_mode?
+
                 synchronize do
                     @current_cycle << event << time.tv_sec << time.tv_usec << args
                 end
@@ -144,6 +142,8 @@ module Roby
 
             # Dump one log message
             def dump(m, time, args)
+                return if stats_mode?
+
                 start = Time.now
                 synchronize do
                     append_message(m, time, args)
