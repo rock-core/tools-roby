@@ -475,16 +475,18 @@ module Roby
                 begin
                     engine = @plan.execution_engine
                     engine.start_new_cycle
-                    propagation_info = with_execution_engine_setup do
-                        engine.process_events(raise_framework_errors: false, garbage_collect_pass: @garbage_collect) do
+                    with_execution_engine_setup do
+                        propagation_info = engine.process_events(raise_framework_errors: false, garbage_collect_pass: @garbage_collect) do
                             @execute_blocks.delete_if do |block|
                                 block.call
                                 true
                             end
                         end
-                    end
+                        all_propagation_info.merge(propagation_info)
 
-                    all_propagation_info.merge(propagation_info)
+                        exceptions = engine.cycle_end(Hash.new, raise_framework_errors: false)
+                        all_propagation_info.framework_errors.concat(exceptions)
+                    end
 
                     unmet = find_all_unmet_expectations(all_propagation_info)
                     unachievable = unmet.find_all { |expectation| expectation.unachievable?(all_propagation_info) }
@@ -510,9 +512,6 @@ module Roby
                     elsif !has_pending_execute_blocks? && unmet.empty?
                         break
                     end
-
-                    engine.cycle_end(Hash.new)
-                    block = nil
                 end while has_pending_execute_blocks? || @wait_until_timeout || (engine.has_waiting_work? && @join_all_waiting_work)
 
                 unmet = find_all_unmet_expectations(all_propagation_info)

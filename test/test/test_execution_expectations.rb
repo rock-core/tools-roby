@@ -75,6 +75,37 @@ module Roby
                     end
                 end
 
+                describe "cycle_end" do
+                    attr_reader :recorder
+                    before do
+                        @handler_ids = Array.new
+                        @recorder = flexmock
+                    end
+                    after do
+                        @handler_ids.each do |id|
+                            execution_engine.remove_at_cycle_end(id)
+                        end
+                    end
+
+                    def at_cycle_end
+                        @handler_ids << execution_engine.at_cycle_end do
+                            yield
+                        end
+                    end
+
+                    it "executes cycle_end handlers" do
+                        recorder.should_receive(:called).once
+                        at_cycle_end { recorder.called }
+                        execute_one_cycle
+                    end
+
+                    it "gets exceptions from cycle_end as framework errors" do
+                        exception_m = Class.new(Exception)
+                        at_cycle_end { raise exception_m }
+                        expect_execution.to { have_framework_error_matching exception_m }
+                    end
+                end
+
                 describe "exit conditions" do
                     describe "with join_all_waiting_work set" do
                         before do

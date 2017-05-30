@@ -2365,8 +2365,8 @@ module Roby
         end
 
 	# Called at each cycle end
-	def cycle_end(stats)
-            gather_framework_errors("#cycle_end") do
+        def cycle_end(stats, raise_framework_errors: Roby.app.abort_on_application_exception?)
+            gather_framework_errors("#cycle_end", raise_caught_exceptions: raise_framework_errors) do
                 call_poll_blocks(at_cycle_end_handlers)
             end
 	end
