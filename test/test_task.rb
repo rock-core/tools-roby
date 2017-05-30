@@ -140,7 +140,7 @@ module Roby
                     end
                 end
                 plan.add(task = task_m.new)
-                expect_execution { }.with_setup { scheduler(scheduler) }.
+                expect_execution.scheduler(scheduler).
                     to do
                         fail_to_start task
                     end
@@ -1153,7 +1153,7 @@ module Roby
 
                 mock.should_receive(:polled).once
                 expect_execution { task.start! }.
-                    with_setup { timeout 0 }.
+                    timeout(0).
                     to do
                         have_handled_error_matching CodeError.match.
                             with_ruby_exception(error_m)

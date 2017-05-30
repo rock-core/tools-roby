@@ -163,7 +163,7 @@ module Roby
                     it "fails if the event is not emitted" do
                         plan.add(generator = EventGenerator.new)
                         e = assert_raises(ExecutionExpectations::Unmet) do
-                            expect_execution {}.with_setup { timeout 0 }.
+                            expect_execution.timeout(0).
                                 to { emit generator }
                         end
                         assert_equal "1 unmet expectations\nemission of #{generator}", e.message
@@ -172,7 +172,7 @@ module Roby
                         plan.add(generator = EventGenerator.new)
                         e = assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution { generator.unreachable! }.
-                                with_setup { timeout 0 }.to { emit generator }
+                                timeout(0).to { emit generator }
                         end
                         assert_equal "1 unmet expectations\nemission of #{generator}", e.message
                     end
@@ -181,7 +181,7 @@ module Roby
                         plan.add(cause = EventGenerator.new)
                         e = assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution { generator.unreachable!(cause) }.
-                                with_setup { timeout 0 }.to { emit generator }
+                                timeout(0).to { emit generator }
                         end
                         assert_equal "1 unmet expectations\nemission of #{generator} because of #{PP.pp(cause, "", 0).chomp}", e.message
                     end
@@ -209,7 +209,7 @@ module Roby
                     end
                     it "fails if no matching events are added" do
                         e = assert_raises(ExecutionExpectations::Unmet) do
-                            expect_execution {}.with_setup { timeout 0 }.
+                            expect_execution.timeout(0).
                                 to { emit find_tasks(task_m).start_event }
                         end
                         assert_equal "1 unmet expectations\nemission of #{task_m}.start", e.message
@@ -218,7 +218,7 @@ module Roby
                         e = assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution do
                                 plan.add(task = task_m.new)
-                            end.with_setup { timeout 0 }.
+                            end.timeout(0).
                                 to { emit find_tasks(task_m).start_event }
                         end
                         assert_equal "1 unmet expectations\nemission of #{task_m}.start", e.message
@@ -255,7 +255,7 @@ module Roby
                         e = assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution do
                                 execution_engine.add_error(LocalizedError.new(task.start_event))
-                            end.with_setup { timeout 0 }.to do
+                            end.timeout(0).to do
                                 have_error_matching LocalizedError
                                 have_error_matching flexmock(to_execution_exception_matcher: matcher)
                             end
@@ -267,8 +267,8 @@ module Roby
                         matcher = flexmock
                         matcher.should_receive(:exception_matcher).and_return(flexmock)
                         e = assert_raises(ExecutionExpectations::Unmet) do
-                            expect_execution {}.
-                                with_setup { timeout 0 }.to { have_error_matching flexmock(to_execution_exception_matcher: matcher) }
+                            expect_execution.
+                                timeout(0).to { have_error_matching flexmock(to_execution_exception_matcher: matcher) }
                         end
                         assert_match /^1 unmet expectations\nhas error matching #{matcher}/m, e.message
                     end
@@ -319,15 +319,15 @@ module Roby
                         e = assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution do
                                 execution_engine.add_error(@error_m.new(@task.start_event))
-                            end.with_setup { timeout 0 }.
+                            end.timeout(0).
                             to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
                         end
                         assert_match /^1 unmet expectations\nhas handled error matching #{matcher}/m, e.message
                     end
                     it "fails if no exceptions have been raised" do
                         e = assert_raises(ExecutionExpectations::Unmet) do
-                            expect_execution {}.
-                                with_setup { timeout 0 }.
+                            expect_execution.
+                                timeout(0).
                                 to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
                         end
                         assert_match /^1 unmet expectations\nhas handled error matching #{matcher}/m, e.message
@@ -371,7 +371,7 @@ module Roby
                         it "does not match if the exception does not fit the matcher object" do
                             other_error_m = Class.new(RuntimeError)
                             assert_raises(ExecutionExpectations::Unmet) do
-                                expect_execution { task.start! }.with_setup { timeout 0 }.
+                                expect_execution { task.start! }.timeout(0).
                                     to do
                                         have_internal_error task, error_m
                                         have_internal_error task, other_error_m
@@ -383,7 +383,7 @@ module Roby
                     it "does not match if the task raises nothing" do
                         plan.add(task = @task_m.new)
                         assert_raises(ExecutionExpectations::Unmet) do
-                            expect_execution.with_setup { timeout 0 }.
+                            expect_execution.timeout(0).
                                 to { have_internal_error task, error_m }
                         end
                     end
@@ -391,7 +391,7 @@ module Roby
                         plan.add(task = @task_m.new)
                         execute { task.start! }
                         assert_raises(ExecutionExpectations::Unmet) do
-                            expect_execution { task.internal_error_event.emit }.with_setup { timeout 0 }.
+                            expect_execution { task.internal_error_event.emit }.timeout(0).
                                 to { have_internal_error task, error_m }
                         end
                     end
@@ -454,7 +454,7 @@ module Roby
                         other_error_m = Class.new(RuntimeError)
                         assert_raises(ExecutionExpectations::UnexpectedErrors) do
                             expect_execution { execution_engine.add_framework_error(error_m.new, 'test') }.
-                                with_setup { timeout 0 }.
+                                timeout(0).
                                 to do
                                     have_framework_error_matching other_error_m
                                 end
@@ -463,7 +463,7 @@ module Roby
                     it "does not match if no framework errors happened" do
                         assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution.
-                                with_setup { timeout 0 }.
+                                timeout(0).
                                 to do
                                     have_framework_error_matching error_m
                                 end
@@ -488,13 +488,13 @@ module Roby
 
                 describe "#achieve" do
                     it "succeeds if the block returns true" do
-                        expect_execution { }.
+                        expect_execution.
                             to { achieve { true } }
                     end
                     it "fails if the block never returns true" do
                         assert_raises(ExecutionExpectations::Unmet) do
-                            expect_execution { }.
-                                with_setup { timeout 0 }.
+                            expect_execution.
+                                timeout(0).
                                 to { achieve { } }
                         end
                     end
@@ -503,16 +503,16 @@ module Roby
                         # ExecutionExpectations evaluates #update_match multiple
                         # times.
                         flipflop = false
-                        expect_execution { }.
-                            with_setup { timeout 0 }.
+                        expect_execution.
+                            timeout(0).
                             to do
                                 achieve { flipflop = !flipflop }
                             end
                     end
                     it "returns the block's value" do
                         obj = flexmock
-                        ret = expect_execution { }.
-                            with_setup { timeout 0 }.
+                        ret = expect_execution.
+                            timeout(0).
                             to do
                                 achieve { obj }
                             end
@@ -546,7 +546,7 @@ module Roby
                 it "forces the expectation loop to run one more event processing loop" do
                     values = Array.new
                     achieved = false
-                    expect_execution.with_timeout(60).to do
+                    expect_execution.timeout(60).to do
                         block = proc do
                             execute { achieved = true } if !achieved
                             values << achieved

@@ -116,11 +116,10 @@ module Roby
             def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, enable_scheduler: nil, garbage_collect: true)
                 expect_execution do
                     yield if block_given?
-                end.with_setup do
-                    self.timeout timeout
-                    self.scheduler enable_scheduler
-                    self.garbage_collect garbage_collect
-                end.to do
+                end.timeout(timeout).
+                    scheduler(enable_scheduler).
+                    garbage_collect(garbage_collect).
+                to do
                     Array(positive).each { |g| emit g }
                     Array(negative).each { |g| not_emit g }
                 end
@@ -447,7 +446,7 @@ module Roby
                 matcher = create_exception_matcher(
                     matcher, original_exception: original_exception,
                     failure_point: failure_point)
-                expect_execution { yield if block_given? }.with_setup { garbage_collect(garbage_collect) }.to { have_error_matching matcher }.exception
+                expect_execution { yield if block_given? }.garbage_collect(garbage_collect).to { have_error_matching matcher }.exception
             end
 
             # Asserts that an exception is raised and handled

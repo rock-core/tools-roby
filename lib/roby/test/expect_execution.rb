@@ -1,31 +1,76 @@
 module Roby
     module Test
-        # Testclass-level implementation of the expect_execution feature
+        # Test related to execution in a Roby context
         #
-        # The heavy-lifting is done in {ExecutionExpectations}. This is really
-        # only the sugar-coating above the test framework itself.
+        # This is the public interface of Roby's test swiss-army knife
+        # {#expect_execution}
+        #
+        # The block given to {#expect_execution} will be executed in Roby's
+        # event propagation context, and then some expectations can be matched
+        # against the result using the .to call:
+        #
+        #    expect_execution { ...code to be executed... }.
+        #       to { ... expectations ... }
+        #
+        # See the 'Expectations' section of {ExecutionExpectations} for an
+        # exhaustive list of existing expectations. Additional setup
+        # regarding the processing loop is documented in the Setup section
+        # of the same page, and can be used like this:
+        #
+        #    expect_execution { ...code to be executed... }.
+        #       timeout(10).
+        #       scheduler(true).
+        #       to { ... expectations ... }
+        #
+        # The execution expectation object is actually executed when one of
+        # the to_run or to { } methods is called. The former runs the block
+        # without any expectation (and therefore runs it only once, or until
+        # all async work is finished). The latter defines expectations and
+        # verifies them.
+        #
+        # @example emit an event and validate that it is emitted
+        #    plan.add(task = MyTask.new)
+        #    expect_execution { task.start! }.
+        #       to { emit task.start_event }
+        #
+        # Note that the heavy-lifting is done in {ExecutionExpectations}. This
+        # is really only the sugar-coating above the test harness itself.
         module ExpectExecution
             # The context object that allows the expect_execution { }.to { }
             # syntax
             Context = Struct.new :test, :expectations, :block do
-                def with_setup(&block)
-                    expectations.instance_eval(&block)
+                SETUP_METHODS = [
+                    :timeout,
+                    :wait_until_timeout,
+                    :join_all_waiting_work,
+                    :scheduler,
+                    :garbage_collect,
+                    :validate_unexpected_errors,
+                    :display_exceptions]
+
+                def respond_to_missing?(m, include_private)
+                    SETUP_METHODS.include?(m)
+                end
+
+                def method_missing(m, *args)
+                    expectations.public_send(m, *args)
                     self
                 end
 
-                def with_timeout(timeout)
-                    expectations.timeout(timeout)
-                    self
+                # Run the block without any expectations
+                #
+                # Expectations might be added dynamically by the block given to
+                # expect_execution using {ExpectExecution#add_expectations}
+                def to_run
+                    to
                 end
 
-                def with_scheduling
-                    expectations.scheduler(true)
-                    self
-                end
-
+                # Declare the expectations and run
                 def to(&expectation_block)
                     test.setup_current_expect_execution(self)
-                    expectations.parse(&expectation_block)
+                    if expectation_block
+                        expectations.parse(&expectation_block)
+                    end
                     expectations.verify(&block)
                 rescue Minitest::Assertion => e
                     raise e, e.message, caller(2)
@@ -40,11 +85,7 @@ module Roby
 
             # Declare expectations about the execution of a code block
             #
-            # @example emit an event and validate that it is emitted
-            #
-            #    plan.add(task = MyTask.new)
-            #    expect_execution { task.start }.
-            #       to { emit task.start_event }
+            # See the documentation of {ExpectExecution} for more details
             #
             # @raise [InvalidContext] if expect_execution is used from within an
             #   expect_execution context, or within propagation context
@@ -78,7 +119,7 @@ module Roby
             # Execute a block within the event propagation context
             def execute(garbage_collect: false)
                 result = nil
-                expect_execution { result = yield }.with_setup { garbage_collect(garbage_collect) }.to { }
+                expect_execution { result = yield }.garbage_collect(garbage_collect).to_run
                 result
             rescue Minitest::Assertion => e
                 raise e, e.message, caller(2)

@@ -4,7 +4,7 @@ module Roby
         #
         # The expectation's documented return value are NOT the values returned
         # by the method itself, but the value that the user can expect out of
-        # {ExpectExecution#to}.
+        # the expectation run.
         #
         # @example execute until a block returns true. The call returns the block's return value
         #   expect_execution.to do
@@ -294,44 +294,82 @@ module Roby
                 end
             end
 
+            # @!group Setup
+
+            # @!method timeout(timeout)
+            #
             # How long will the test wait either for asynchronous jobs (if
-            # #wait_until_timeout is false) or until it succeeds (if
-            # #wait_until_timeout is true)
+            # #wait_until_timeout is false and #join_all_waiting_work is true)
+            # or until it succeeds (if #wait_until_timeout is true)
+            #
+            # @param [Float] timeout
             #
             # The default is 5s
             dsl_attribute :timeout
 
-            # How long will the test wait for asynchronous jobs until it fails
+            # @!method wait_until_timeout(wait)
+            #
+            # Whether the execution will run until the timeout if the
+            # expectations have not been met yet.
             #
             # The default is 5s
+            #
+            # @param [Boolean] wait
             dsl_attribute :wait_until_timeout
 
+            # @!method join_all_waiting_work(join)
+            #
             # Whether the expectation test should wait for asynchronous work to
             # finish between event propagations
             #
             # The default is true
+            #
+            # @param [Boolean] join
             dsl_attribute :join_all_waiting_work
 
-            # Whether the scheduler should be active
+            # @!method scheduler(enabled_or_scheduler)
+            #
+            # Controls the scheduler
             #
             # The default is false
+            #
+            # @overload scheduler(enabled)
+            #   @param [Boolean] enabled controls whether the scheduler is
+            #     enabled or not
+            #
+            # @overload scheduler(scheduler)
+            #   @param [Schedulers::Basic] the scheduler object that should be used
             dsl_attribute :scheduler
 
+            # @!method garbage_collect(enable)
+            #
             # Whether a garbage collection pass should be run
             #
             # The default is false
+            #
+            # @param [Boolean] enable
             dsl_attribute :garbage_collect
 
+            # @!method validate_unexpected_errors(enable)
+            #
             # Whether the expectations will pass if exceptions are propagated
             # that are not explicitely expected
             #
             # The default is true
+            #
+            # @param [Boolean] enable
             dsl_attribute :validate_unexpected_errors
 
+            # @!method display_exceptions(enable)
+            #
             # Whether exceptions should be displayed by the execution engine
             #
             # The default is false
+            #
+            # @param [Boolean] enable
             dsl_attribute :display_exceptions
+
+            # @!endgroup Setup
 
             # Add a new expectation to be run during {#verify}
             def add_expectation(expectation)
