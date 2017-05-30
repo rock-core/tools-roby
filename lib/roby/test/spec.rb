@@ -140,11 +140,15 @@ module Roby
                 end
             end
 
+            # @deprecated use capture_log instead
             def inhibit_fatal_messages(&block)
+                Roby.warn_deprecated "#{__method__} is deprecated, use capture_log instead"
                 with_log_level(Roby, Logger::FATAL, &block)
             end
 
+            # @deprecated use capture_log instead
             def with_log_level(log_object, level)
+                Roby.warn_deprecated "#{__method__} is deprecated, use capture_log instead"
                 if log_object.respond_to?(:logger)
                     log_object = log_object.logger
                 end

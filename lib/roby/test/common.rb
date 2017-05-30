@@ -63,7 +63,10 @@ module Roby
         attr_reader :plan
         # The decision control component used by the tests
         attr_reader :control
-        def execution_engine; plan.execution_engine if plan && plan.executable? end
+
+        def execution_engine
+            plan.execution_engine if plan && plan.executable?
+        end
 
         def execute(&block)
             execution_engine.execute(&block)
@@ -144,35 +147,15 @@ module Roby
             @handler_ids = Array.new
 	end
 
-        def assert_adds_roby_localized_error(matcher)
-            matcher = matcher.match.to_execution_exception_matcher
-            errors = plan.execution_engine.gather_errors do
-                yield
-            end
-            errors = errors.map(&:first)
-
-            assert !errors.empty?, "expected to have added a LocalizedError, but got none"
-            errors.each do |e|
-                assert_exception_can_be_pretty_printed(e.exception)
-            end
-            if matched_e = errors.find { |e| matcher === e }
-                return matched_e.exception
-            elsif errors.empty?
-                flunk "block was expected to add an error matching #{matcher}, but did not"
-            else
-                raise SynchronousEventProcessingMultipleErrors.new(errors.map(&:exception))
-            end
-        end
-
-        def assert_exception_can_be_pretty_printed(e)
-            PP.pp(e, "") # verify that the exception can be pretty-printed, all Roby exceptions should
-        end
-
+        # @deprecated use {Assertions#capture_log} instead
         def inhibit_fatal_messages(&block)
+            Roby.warn_deprecated "##{__method__} is deprecated, use #capture_log instead"
             with_log_level(Roby, Logger::FATAL, &block)
         end
 
+        # @deprecated use {Assertions#capture_log} instead
         def set_log_level(log_object, level)
+            Roby.warn_deprecated "#set_log_level is deprecated, use #capture_log instead"
             if log_object.respond_to?(:logger)
                 log_object = log_object.logger
             end
@@ -180,14 +163,20 @@ module Roby
             log_object.level = level
         end
 
-        def reset_log_levels
+        # @deprecated use {Assertions#capture_log} instead
+        def reset_log_levels(warn_deprecated: true)
+            if warn_deprecated
+                Roby.warn_deprecated "##{__method__} is deprecated, use #capture_log instead"
+            end
             @log_levels.each do |log_object, level|
                 log_object.level = level
             end
             @log_levels.clear
         end
 
+        # @deprecated use {Assertions#capture_log} instead
         def with_log_level(log_object, level)
+            Roby.warn_deprecated "##{__method__} is deprecated, use #capture_log instead"
             if log_object.respond_to?(:logger)
                 log_object = log_object.logger
             end
@@ -231,7 +220,7 @@ module Roby
             super
 
 	ensure
-            reset_log_levels
+            reset_log_levels(warn_deprecated: false)
             clear_registered_plans
 
             if @original_roby_logger_level
@@ -241,6 +230,7 @@ module Roby
         
 	# Process pending events
 	def process_events(timeout: 2, enable_scheduler: nil, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true, &caller_block)
+            Roby.warn_deprecated "Test#process_events is deprecated, use #expect_execution instead"
             exceptions = Array.new
             registered_plans.each do |p|
                 engine = p.execution_engine
@@ -285,6 +275,7 @@ module Roby
         #
         # @param (see #process_events)
         def process_events_until(timeout: 5, join_all_waiting_work: false, **options)
+            Roby.warn_deprecated "Test#process_events_until is deprecated, use #expect_execution.to { achieve { ... } } instead"
             start = Time.now
             while !yield
                 now = Time.now
@@ -414,58 +405,6 @@ module Roby
 	    end
 	    remote_processes.clear
 	end
-
-	def wait_thread_stopped(thread)
-	    while !thread.stop?
-		sleep(0.1)
-		raise "#{thread} died" unless thread.alive?
-	    end
-	end
-
-	def display_event_structure(object, relation, indent = "  ")
-	    result   = object.to_s
-	    object.history.each do |event|
-		result << "#{indent}#{event.time.to_hms} #{event}"
-	    end
-	    children = object.child_objects(relation)
-	    unless children.empty?
-		result << " ->\n" << indent
-		children.each do |child|
-		    result << display_event_structure(child, relation, indent + "  ")
-		end
-	    end
-
-	    result
-	end
-
-        def develop_planning_method(method_name, args = Hash.new)
-            options, args = Kernel.filter_options args,
-                planner_model: MainPlanner
-
-            planner = options[:planner_model].new(plan)
-            planner.send(method_name, args)
-        rescue Roby::Planning::NotFound => e
-            Roby.log_exception_with_backtrace(e, Roby, :fatal)
-            raise
-        end
-
-        module ClassExtension
-            attr_reader :planning_method_tests
-
-            def test_planning_method(method_name, args = Hash.new)
-                @planning_method_tests ||= Hash.new { |h, k| h[k] = Array.new }
-                @planning_method_tests[method_name.to_sym] << args
-
-                if !instance_method?("test_planning_method_#{method_name}")
-                    define_method("test_planning_method_#{method_name}") do
-                        tests = self.class.planning_method_tests[method_name.to_sym]
-                        tests.each do |t|
-                            develop_planning_method(method_name, t)
-                        end
-                    end
-                end
-            end
-        end
     end
 end
 

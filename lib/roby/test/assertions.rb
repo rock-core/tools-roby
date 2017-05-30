@@ -19,6 +19,15 @@ module Roby
                 super
             end
 
+            # Checks that an exception's #pretty_print method passes without
+            # exceptions
+            def assert_exception_can_be_pretty_printed(e)
+                PP.pp(e, "") # verify that the exception can be pretty-printed, all Roby exceptions should
+            end
+
+            # Better equality test for sets
+            #
+            # It displays the difference between the two sets
             def assert_sets_equal(expected, actual)
                 if !(diff = (expected - actual)).empty?
                     flunk("expects two sets to be equal, but #{expected} is missing #{diff.size} expected elements:\n  #{diff.to_a.map(&:to_s).join(", ")}")
