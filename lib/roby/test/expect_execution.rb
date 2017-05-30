@@ -125,6 +125,15 @@ module Roby
                 raise e, e.message, caller(2)
             end
 
+            # Run exactly once cycle
+            def execute_one_cycle(scheduler: false, garbage_collect: false)
+                expect_execution.
+                    join_all_waiting_work(false).
+                    scheduler(scheduler).
+                    garbage_collect(garbage_collect).
+                    to_run
+            end
+
             # Add an expectation from within an execute { } or expect_execution
             # { } block
             #
