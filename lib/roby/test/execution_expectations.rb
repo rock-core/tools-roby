@@ -129,6 +129,28 @@ module Roby
                 nil
             end
 
+            # Expect that plan objects (task or event) are finalized
+            #
+            # @param [Array<PlanObject>] plan_objects
+            # @return [nil]
+            def finalize(*plan_objects, backtrace: caller(1))
+                plan_objects.each do |plan_object|
+                    add_expectation(Finalize.new(plan_object, backtrace))
+                end
+                nil
+            end
+
+            # Expect that plan objects (task or event) are not finalized
+            #
+            # @param [Array<PlanObject>] plan_objects
+            # @return [nil]
+            def not_finalize(*plan_objects, backtrace: caller(1))
+                plan_objects.each do |plan_object|
+                    add_expectation(NotFinalize.new(plan_object, backtrace))
+                end
+                nil
+            end
+
             # Expect that the given task emits its internal_error event
             #
             # @param [Task] task
@@ -910,6 +932,36 @@ module Roby
                     else
                         @backtrace[0].to_s
                     end
+                end
+            end
+
+            class NotFinalize < Expectation
+                def initialize(plan_object, backtrace)
+                    super(backtrace)
+                    @plan_object = plan_object
+                end
+
+                def update_match(propagation_info)
+                    @plan_object.plan
+                end
+
+                def to_s
+                    "not finalize #{@plan_object}"
+                end
+            end
+
+            class Finalize < Expectation
+                def initialize(plan_object, backtrace)
+                    super(backtrace)
+                    @plan_object = plan_object
+                end
+
+                def update_match(propagation_info)
+                    !@plan_object.plan
+                end
+
+                def to_s
+                    "finalize #{@plan_object}"
                 end
             end
         end

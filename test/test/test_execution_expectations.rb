@@ -519,6 +519,33 @@ module Roby
                         assert_same obj, ret
                     end
                 end
+
+                describe "#not_finalize" do
+                    it "succeeds if the object remains in the plan" do
+                        plan.add(plan_object = Roby::Task.new)
+                        expect_execution.to { not_finalize plan_object }
+                    end
+                    it "fails if the plan object is removed from the plan" do
+                        plan.add(plan_object = Roby::Task.new)
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution { plan.remove_task(plan_object) }.
+                                timeout(0).to { not_finalize plan_object }
+                        end
+                    end
+                end
+                describe "#finalize" do
+                    it "succeeds if the object is removed from the plan" do
+                        plan.add(plan_object = Roby::Task.new)
+                        expect_execution { plan.remove_task(plan_object) }.
+                            to { finalize plan_object }
+                    end
+                    it "does not succeeds if the plan object remains in the plan" do
+                        plan.add(plan_object = Roby::Task.new)
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution.timeout(0).to { finalize plan_object }
+                        end
+                    end
+                end
             end
 
             describe "#execute" do
