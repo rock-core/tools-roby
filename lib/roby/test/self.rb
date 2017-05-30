@@ -4,9 +4,6 @@
 if ENV['TEST_ENABLE_COVERAGE'] == '1'
     begin
         require 'simplecov'
-        SimpleCov.start do
-            add_filter "/test/"
-        end
     rescue LoadError
         require 'roby'
         Roby.warn "coverage is disabled because the 'simplecov' gem cannot be loaded"
