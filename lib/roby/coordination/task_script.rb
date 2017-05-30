@@ -100,9 +100,9 @@ module Roby
             # @param [Task] task the task that should be started
             # @param [Hash] dependency_options options that should be passed to
             #   TaskStructure::Dependency::Extension#depends_on
-            def start(task, dependency_options = Hash.new)
+            def start(task, explicit_start: false, **dependency_options)
                 task, model_task = resolve_task(task)
-                model.start(model_task, dependency_options)
+                model.start(model_task, explicit_start: explicit_start, **dependency_options)
                 task
             end
 
@@ -155,7 +155,7 @@ module Roby
             # @param [Float] seconds the number of seconds to stop the script
             #   execution
             def sleep(seconds)
-                task = start(Tasks::Timeout.new(delay: seconds))
+                task = start(Tasks::Timeout.new(delay: seconds), explicit_start: true)
                 wait task.stop_event
             end
 
@@ -220,8 +220,11 @@ module Roby
             end
 
             # Used by Script
-            def start_task(task)
+            def start_task(task, explicit_start: false)
                 root_task.start_event.remove_causal_link(task.resolve.start_event)
+                if explicit_start
+                    task.resolve.start_event.call
+                end
             end
 
             def respond_to_missing?(m, include_private)

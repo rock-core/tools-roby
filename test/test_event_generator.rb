@@ -739,13 +739,13 @@ module Roby
                 recorder = flexmock
                 recorder.should_receive(:called).once.with(proc { |thread| thread != main_thread })
                 ev.achieve_asynchronously { recorder.called(Thread.current) }
-                process_events
+                expect_execution.to_run
             end
             it "calls emit_failed if the block raises" do
                 flexmock(ev).should_receive(:emit_failed).once.
                     with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
                 ev.achieve_asynchronously { raise ArgumentError }
-                process_events
+                expect_execution.to_run
             end
             it "accepts a promise as argument" do
                 recorder, result = flexmock, flexmock
@@ -755,7 +755,7 @@ module Roby
                     on_success { |result| recorder.call(Thread.current, result) }
 
                 ev.achieve_asynchronously(promise)
-                process_events
+                expect_execution.to_run
             end
             it "emits the event on success if the emit_on_success option is true" do
                 recorder.should_receive(:call).ordered
@@ -765,7 +765,7 @@ module Roby
             end
             it "should not emit the event automatically if the emit_on_success option is false" do
                 ev.achieve_asynchronously(emit_on_success: false) { true }
-                process_events
+                expect_execution.to_run
                 assert !ev.emitted?
             end
 
@@ -774,7 +774,7 @@ module Roby
                 flexmock(ev).should_receive(:emit_failed).once.with(proc { |e| Thread.current == main_thread })
                 promise = execution_engine.promise { }
                 ev.achieve_asynchronously(promise)
-                process_events
+                expect_execution.to_run
             end
 
             it "calls emit_failed if the callback raises" do
@@ -783,7 +783,7 @@ module Roby
                 promise = execution_engine.promise { }.
                     on_success { raise ArgumentError }
                 ev.achieve_asynchronously(promise)
-                process_events
+                expect_execution.to_run
             end
 
             it "emits if the callback raises and on_failure is :emit" do
@@ -800,7 +800,7 @@ module Roby
                 recorder = flexmock
                 recorder.should_receive(:called).once
                 promise.on_error { recorder.called }
-                process_events
+                expect_execution.to_run
             end
 
             describe "null promises" do

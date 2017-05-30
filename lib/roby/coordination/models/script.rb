@@ -13,17 +13,20 @@ module Roby
                     attr_reader :task
                     attr_reader :dependency_options
 
-                    def initialize(task, dependency_options)
+                    attr_predicate :explicit_start?, true
+
+                    def initialize(task, explicit_start: false, **dependency_options)
+                        @explicit_start = explicit_start
                         @task = task
                         @dependency_options = dependency_options
                     end
 
                     def new(script)
-                        Start.new(script.instance_for(task), dependency_options)
+                        Start.new(script.instance_for(task), explicit_start: explicit_start?, **dependency_options)
                     end
 
                     def execute(script)
-                        script.start_task(task)
+                        script.start_task(task, explicit_start: explicit_start?)
                         true
                     end
 
@@ -193,9 +196,9 @@ module Roby
                 #   calling {Base#task} on the relevant object
                 # @param [Hash] options the dependency relation options. See
                 #   {Roby::TaskStructure::Dependency::Extension#depends_on}
-                def start(task, options = Hash.new)
+                def start(task, explicit_start: false, **options)
                     task = validate_or_create_task task
-                    add Start.new(task, options)
+                    add Start.new(task, explicit_start: explicit_start, **options)
                     wait(task.start_event)
                 end
 
@@ -216,7 +219,7 @@ module Roby
                 # @param [Float] time the amount of time to wait, in seconds
                 def sleep(time)
                     task = self.task(ActionCoordination::TaskFromAsPlan.new(Tasks::Timeout.with_arguments(delay: time), Tasks::Timeout))
-                    start task
+                    start task, explicit_start: true
                     wait task.stop_event
                 end
 

@@ -6,10 +6,14 @@ module Roby
         describe Debug do
             attr_reader :debug
             before do
-                app = Application.new
-                app.log_dir = make_tmpdir
-                @debug = Debug.new(app)
-                register_plan(app.plan)
+                @app = Application.new
+                @app.log_dir = make_tmpdir
+                @debug = Debug.new(@app)
+                register_plan(@app.plan)
+            end
+
+            def execute_one_cycle(plan: @app.plan)
+                super
             end
 
             def mock_context
@@ -38,13 +42,13 @@ module Roby
                     2.times do
                         mock_context do |debug, stackprof|
                             debug.should_receive(:stackprof_save).never
-                            4.times { process_events }
+                            4.times { execute_one_cycle }
                         end
                         mock_context do |debug, stackprof|
                             stackprof.should_receive(:stop).once.globally.ordered
                             debug.should_receive(:stackprof_save).once.globally.ordered
                             stackprof.should_receive(:start).once.globally.ordered
-                            process_events
+                            execute_one_cycle
                         end
                     end
                 end
@@ -56,17 +60,17 @@ module Roby
                     mock_context do |debug, stackprof|
                         debug.should_receive(:stackprof_save).never
                         stackprof.should_receive(:stop).never
-                        4.times { process_events }
+                        4.times { execute_one_cycle }
                     end
                     mock_context do |debug, stackprof|
                         stackprof.should_receive(:stop).once.ordered
                         debug.should_receive(:stackprof_save).once.ordered
-                        process_events
+                        execute_one_cycle
                     end
                     mock_context do |debug, stackprof|
                         debug.should_receive(:stackprof_save).never
                         stackprof.should_receive(:stop).never
-                        5.times { process_events }
+                        5.times { execute_one_cycle }
                     end
                 end
                 it "does only one cycle if one_shot is set but no cycles are given" do
@@ -78,12 +82,12 @@ module Roby
                         stackprof.should_receive(:stop).once.ordered
                         debug.should_receive(:stackprof_save).once.ordered
                         stackprof.should_receive(:start).never
-                        process_events
+                        execute_one_cycle
                     end
                     mock_context do |debug, stackprof|
                         debug.should_receive(:stackprof_save).never
                         stackprof.should_receive(:stop).never
-                        5.times { process_events }
+                        5.times { execute_one_cycle }
                     end
                 end
             end
@@ -107,7 +111,7 @@ module Roby
                     debug.stackprof_start(one_shot: true)
                     debug.stackprof_stop
                     flexmock(debug).should_receive(:stackprof_stop).never
-                    process_events
+                    execute_one_cycle
                 end
             end
             describe "#stackprof_save" do

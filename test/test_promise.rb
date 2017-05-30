@@ -200,7 +200,9 @@ Roby::Promise(the promise description).
                 recorder.should_receive(:called).with(3, 4, 5).once.ordered
                 recorder.should_receive(:called).with(6).once.ordered
                 p.execute
-                process_events_until { p.fulfilled? }
+                expect_execution.to do
+                    achieve { p.fulfilled? }
+                end
             end
 
             it "optionally executes on_success handlers on the thread pool" do

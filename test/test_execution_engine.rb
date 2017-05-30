@@ -296,6 +296,50 @@ module Roby
         end
 
         describe "#garbage_collect" do
+            it "stops running tasks" do
+                plan.add(task = Roby::Tasks::Simple.new)
+                expect_execution { task.start! }.
+                    garbage_collect(true).
+                    to do
+                        finish task
+                        finalize task
+                    end
+            end
+
+            it "removes pending tasks" do
+                plan.add(task = Roby::Tasks::Simple.new)
+                expect_execution.garbage_collect(true).
+                    to do
+                        not_emit task.start_event
+                        finalize task
+                    end
+            end
+
+            it "ignores finishing tasks" do
+                task_m = Roby::Task.new_submodel do
+                    event :stop do |context|
+                    end
+                end
+                plan.add(task = task_m.new)
+                expect_execution { task.start! }.garbage_collect(true).
+                    to { achieve { task.finishing? } }
+                execute_one_cycle
+                execute { task.stop_event.emit }
+            end
+
+            it "inhibits propagation between two garbage-collected events" do
+                Roby::Plan.logger.level = Logger::WARN
+                a, b = prepare_plan discover: 2, model: Tasks::Simple
+                a.stop_event.signals b.stop_event
+                expect_execution { a.start! }.
+                    garbage_collect(true).
+                    to do
+                        finalize a
+                        finalize b
+                        not_emit b.start_event
+                    end
+            end
+
             describe "handling of the quarantine" do
                 it "does not attempt to terminate a running quarantined task" do
                     plan.add(task = Tasks::Simple.new)
@@ -1064,20 +1108,22 @@ module Roby
                     assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child, root]) do
                         execution_engine.add_error(localized_error_m.new(child))
                     end
-                    process_events { execution_engine.add_error(localized_error_m.new(child)) }
+                    expect_execution { execution_engine.add_error(localized_error_m.new(child)) }.to_run
                 end
                 it "does report new errors while the task is being GCed but then inhibits them as well" do
                     root.hold_stop = true
                     root.depends_on(child = task_m.new)
-                    assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child, root]) do
-                        execution_engine.add_error(localized_error_m.new(child))
-                    end
+                    expect_execution { execution_engine.add_error(localized_error_m.new(child)) }.
+                        garbage_collect(true).
+                        to { have_error_matching localized_error_m.match.with_origin(child) }
+
                     new_localized_error_m = Class.new(LocalizedError)
-                    assert_fatal_exception(new_localized_error_m, failure_point: child, tasks: [child, root]) do
-                        execution_engine.add_error(new_localized_error_m.new(child))
-                    end
-                    process_events { execution_engine.add_error(localized_error_m.new(child)) }
-                    process_events { execution_engine.add_error(new_localized_error_m.new(child)) }
+                    expect_execution { execution_engine.add_error(new_localized_error_m.new(child)) }.
+                        garbage_collect(true).
+                        to { have_error_matching new_localized_error_m.match.with_origin(child) }
+
+                    expect_execution { execution_engine.add_error(localized_error_m.new(child)) }.to_run
+                    expect_execution { execution_engine.add_error(new_localized_error_m.new(child)) }.to_run
                 end
             end
 
@@ -1119,7 +1165,7 @@ module Roby
                     mock_compute_errors :handled_errors
                     assert_receives_notification ExecutionEngine::EXCEPTION_HANDLED
                     messages = capture_log(execution_engine, :warn) do
-                        process_events
+                        execution_engine.process_events
                     end
                     assert_equal ["1 handled errors"], messages
                 end
@@ -1131,7 +1177,9 @@ module Roby
                     mock_compute_errors :fatal_errors
                     Roby.app.filter_backtraces = false
                     assert_receives_notification ExecutionEngine::EXCEPTION_FATAL
-                    process_events(raise_errors: false)
+                    messages = capture_log(execution_engine, :warn) do
+                        execution_engine.process_events
+                    end
                 end
             end
 
@@ -1301,24 +1349,37 @@ module Roby
                 recorder = flexmock
                 recorder.should_receive(:barrier).once.ordered
                 recorder.should_receive(:called).once.ordered
-                process_events do
+                execute do
                     execution_engine.once do
                         execution_engine.once { recorder.called }
                     end
                 end
+
                 recorder.barrier
-                process_events
+                execute_one_cycle
             end
             it "queues execution within the same loop with type is :propagation" do
                 recorder = flexmock
                 recorder.should_receive(:called).once.ordered
-                process_events do
+                execute do
                     execution_engine.once do
                         execution_engine.once(type: :propagation) { recorder.called }
                     end
                 end
             end
+
+            it "registers a framework exception on error by default" do
+                error_m = Class.new(RuntimeError)
+                called = false
+
+                execution_engine.once { called = true; raise error_m }
+                expect_execution.to do
+                    achieve { called }
+                    have_framework_error_matching error_m
+                end
+            end
         end
+
 
         def assert_exception_and_object_set_matches(expected, actual, message = "failed to match propagation result exception and/or involved objects")
             expected = expected.each_slice(2).flat_map do |match_e, tasks_e|
@@ -1378,14 +1439,14 @@ module Roby
         end
 
         attr_reader :task
+
         before do
             plan.add_permanent_task(@task = Roby::Tasks::Simple.new)
-            @thread.value if @thread
         end
 
         it "blocks the caller until the event is emitted" do
             thread = wait_until_in_thread task.start_event
-            process_events { task.start! }
+            execute { task.start! }
             thread.value
         end
 
@@ -1393,7 +1454,7 @@ module Roby
             thread = wait_until_in_thread task.start_event do
                 assert_equal Thread.main, Thread.current
             end
-            process_events { task.start! }
+            execute { task.start! }
             thread.value
         end
 
@@ -1402,7 +1463,7 @@ module Roby
             thread = wait_until_in_thread task.start_event do
                 ret
             end
-            process_events { task.start! }
+            execute { task.start! }
             assert_equal ret, thread.value
         end
 
@@ -1411,14 +1472,13 @@ module Roby
             thread = wait_until_in_thread task.start_event do
                 raise error
             end
-            process_events { task.start! }
-            assert_raises(error) { thread.value }
+            execute { task.start! }
         end
 
         it "raises in the thread if the event is already unreachable" do
             task.start_event.unreachable!
             thread = wait_until_in_thread task.start_event
-            process_events
+            execute_one_cycle
             assert_raises(UnreachableEvent) { thread.value }
         end
 
@@ -1426,7 +1486,7 @@ module Roby
             thread = wait_until_in_thread task.start_event do
                 task.start_event.unreachable!
             end
-            process_events
+            execute_one_cycle
             assert_raises(UnreachableEvent) { thread.value }
         end
     end
@@ -1453,19 +1513,6 @@ module Roby
         end
     end
 
-    describe "#once" do
-        it "registers a framework exception on error by default" do
-            error_m = Class.new(RuntimeError)
-            spy = flexmock
-            spy.should_receive(:called).once
-            execution_engine.once { spy.called; raise error_m }
-
-            assert_adds_framework_error(error_m) do
-                process_events
-            end
-        end
-    end
-
     describe "#at_cycle_end" do
         attr_reader :error_m
         before do
@@ -1473,28 +1520,224 @@ module Roby
         end
 
         it "registers a framework error for any exception raised" do
-            spy = flexmock { |s| s.should_receive(:before_error).once }
-            execution_engine.at_cycle_end do
-                spy.before_error
-                raise error_m
-            end
-            assert_adds_framework_error(error_m) do
-                process_events
+            called = false
+            execution_engine.at_cycle_end { called = true; raise error_m }
+            expect_execution.to do
+                achieve { called }
+                have_framework_error_matching error_m
             end
         end
 
         it "calls the other handlers regardless of an exception" do
-            spy = flexmock { |s| s.should_receive(:called).at_least.once }
-            execution_engine.at_cycle_end do
-                raise error_m
-            end
-            execution_engine.at_cycle_end do
-                spy.called
-            end
-            assert_adds_framework_error(error_m) do
-                process_events
+            called = false
+            execution_engine.at_cycle_end { raise error_m }
+            execution_engine.at_cycle_end { called = true }
+            expect_execution.to do
+                achieve { called }
+                have_framework_error_matching error_m
             end
         end
+    end
+
+    describe "propagation handlers" do
+        def add_propagation_handler(**options)
+            @handler_ids << execution_engine.add_propagation_handler(**options) do |plan|
+                yield(plan)
+            end
+        end
+        def remove_propagation_handlers
+            @handler_ids.each do |id|
+                execution_engine.remove_propagation_handler(id)
+            end
+        end
+
+        attr_reader :recorder
+        before do
+            @recorder = flexmock
+            @handler_ids = Array.new
+        end
+
+        after do
+            remove_propagation_handlers
+        end
+
+        describe "type: :external_events" do
+            it "calls the handler exactly once per propagation cycle" do
+                recorder.should_receive(:called).once
+                add_propagation_handler(type: :external_events) do |plan|
+                    recorder.called(plan)
+                end
+                execution_engine.process_events
+            end
+
+            it "calls the handler exactly once per propagation cycle" do
+                recorder.should_receive(:called).twice
+                add_propagation_handler(type: :external_events) do |plan|
+                    recorder.called(plan)
+                end
+                execution_engine.process_events
+                execution_engine.process_events
+            end
+
+            it "calls the propagation handler only at the beginning of the cycle" do
+                recorder.should_receive(:called).once
+                add_propagation_handler(type: :external_events) do |plan|
+                    plan.add(ev = EventGenerator.new)
+                    ev.emit
+                    recorder.called(plan)
+                end
+                execution_engine.process_events
+            end
+
+            it "does not call the handler once removed" do
+                recorder.should_receive(:called).never
+                add_propagation_handler(type: :external_events) do |plan|
+                    recorder.called
+                end
+                remove_propagation_handlers
+                execution_engine.process_events
+            end
+        end
+
+        describe "type: :propagation" do
+            it "calls the handler at each propagation loop" do
+                recorder.should_receive(:called).at_least.twice
+                plan.add_permanent_event(ev = EventGenerator.new)
+                add_propagation_handler(type: :propagation) do |plan|
+                    if !ev.emitted?
+                        ev.emit
+                    end
+                    recorder.called(plan)
+                end
+                execution_engine.process_events
+            end
+
+            it "does not call the handler once removed" do
+                recorder.should_receive(:called).never
+                add_propagation_handler(type: :propagation) do |plan|
+                    recorder.called
+                end
+                remove_propagation_handlers
+                execution_engine.process_events
+            end
+        end
+
+        describe "type: :propagation, late: true" do
+            it "calls the late handlers only when there are no emissions queued" do
+                plan.add_permanent_event(event = Roby::EventGenerator.new(true))
+                plan.add_permanent_event(late_event = Roby::EventGenerator.new(true))
+
+                index = -1
+                event.on { |_| recorder.event_emitted(index += 1) }
+                late_event.on { |_| recorder.late_event_emitted(index += 1) }
+
+
+                add_propagation_handler(type: :propagation) do |plan|
+                    recorder.handler_called(index += 1)
+                    if !event.emitted?
+                        event.emit
+                    end
+                end
+                add_propagation_handler(type: :propagation, late: true) do |plan|
+                    recorder.late_handler_called(index += 1)
+                    if !late_event.emitted?
+                        late_event.emit
+                    end
+                end
+
+                recorder.should_receive(:handler_called).with(0).once.ordered
+                recorder.should_receive(:event_emitted).with(1).once.ordered
+                recorder.should_receive(:handler_called).with(2).once.ordered
+                recorder.should_receive(:late_handler_called).with(3).once.ordered
+                recorder.should_receive(:late_event_emitted).with(4).once.ordered
+                recorder.should_receive(:handler_called).with(5).once.ordered
+                recorder.should_receive(:late_handler_called).with(6).once.ordered
+
+                execution_engine.process_events
+            end
+
+            it "does not call the handlers once removed" do
+                recorder.should_receive(:called).never
+                add_propagation_handler(type: :propagation, late: true) do |plan|
+                    recorder.called
+                end
+                remove_propagation_handlers
+                execution_engine.process_events
+            end
+        end
+
+        it "accepts method objects" do
+            obj = Class.new do
+                def called?; @called end
+                def handler(plan); @called = true end
+            end.new
+
+            add_propagation_handler(type: :external_events, &obj.method(:handler))
+            execution_engine.process_events
+            assert obj.called?
+        end
+
+        it "validates the callback arity" do
+            mock = flexmock
+            # Validate the arity
+            assert_raises(ArgumentError) do
+                execution_engine.add_propagation_handler(&lambda { |plan, failure| mock.called(plan) })
+            end
+            execution_engine.process_events
+        end
+
+        describe "error handling" do
+            attr_reader :exception_m
+            before do
+                @exception_m = Class.new(Exception)
+            end
+
+            describe "on_error: :raise" do
+                it "adds the error as a framework error" do
+                    recorder.should_receive(:called).once
+                    add_propagation_handler on_error: :raise do |plan|
+                        recorder.called
+                        raise exception_m
+                    end
+                    expect_execution.to do
+                        have_framework_error_matching exception_m
+                    end
+                end
+            end
+
+            describe "on_error: :disable" do
+                it "removes the handler" do
+                    recorder.should_receive(:called).once
+                    add_propagation_handler description: 'test', on_error: :disable do |plan|
+                        recorder.called
+                        raise exception_m
+                    end
+                    messages = capture_log(execution_engine, :warn) do
+                        expect_execution.to_run
+                    end
+                    assert_equal "propagation handler test disabled because of the following error", messages.first
+                end
+            end
+
+            describe "on_error: :ignore" do
+                it "ignores the errors" do
+                    recorder.should_receive(:called).at_least.twice
+                    flexmock(Roby).should_receive(:log_exception_with_backtrace).
+                        with(exception_m, execution_engine, :warn).twice
+
+                    add_propagation_handler description: 'test', on_error: :ignore do |plan|
+                        recorder.called
+                        raise exception_m
+                    end
+                    messages = capture_log(execution_engine, :warn) do
+                        execution_engine.process_events
+                        execution_engine.process_events
+                    end
+                    assert_equal ['ignored error from propagation handler test'] * 2, messages
+                end
+            end
+        end
+
     end
 end
 
@@ -1518,186 +1761,6 @@ class TC_ExecutionEngine < Minitest::Test
               e3 => [5, [nil, [6], nil], [nil, [5], nil]] }, set)
     end
 
-    class PropagationHandlerTest
-        attr_reader :event
-        attr_reader :plan
-
-        def initialize(plan, mockup)
-            @mockup = mockup
-            @plan = plan
-            reset_event
-        end
-
-        def reset_event
-            plan.add_permanent_event(@event = Roby::EventGenerator.new(true))
-        end
-
-        def handler(plan)
-            if @event.history.size != 2
-                @event.call
-            end
-            @mockup.called(plan)
-        end
-    end
-
-    def test_add_propagation_handlers_for_external_events
-        FlexMock.use do |mock|
-            handler = PropagationHandlerTest.new(plan, mock)
-            id = execution_engine.add_propagation_handler(type: :external_events) { |plan| handler.handler(plan) }
-
-            mock.should_receive(:called).with(plan).twice
-
-            process_events
-            assert_equal(1, handler.event.history.size)
-
-            handler.reset_event
-            process_events
-            assert_equal(1, handler.event.history.size)
-
-            execution_engine.remove_propagation_handler id
-            handler.reset_event
-            process_events
-            assert_equal(0, handler.event.history.size)
-        end
-    end
-
-    def test_add_propagation_handlers_for_propagation
-        FlexMock.use do |mock|
-            handler = PropagationHandlerTest.new(plan, mock)
-            id = execution_engine.add_propagation_handler(type: :propagation) { |plan| handler.handler(plan) }
-
-            # In the handler, we call the event two times
-            #
-            # The propagation handler should be called one time more (until
-            # it does not emit any event), So it will be called 6 times over the
-            # whole test
-            mock.should_receive(:called).with(plan).times(6)
-
-            process_events
-            assert_equal(2, handler.event.history.size)
-
-            handler.reset_event
-            process_events
-            assert_equal(2, handler.event.history.size)
-
-            execution_engine.remove_propagation_handler id
-            handler.reset_event
-            process_events
-            assert_equal(0, handler.event.history.size)
-        end
-    end
-
-    def test_add_propagation_handlers_for_propagation_late
-        FlexMock.use do |mock|
-            plan.add_permanent_event(event = Roby::EventGenerator.new(true))
-            plan.add_permanent_event(late_event = Roby::EventGenerator.new(true))
-
-            index = -1
-            event.on { |_| mock.event_emitted(index += 1) }
-            late_event.on { |_| mock.late_event_emitted(index += 1) }
-
-
-            id = execution_engine.add_propagation_handler(type: :propagation) do |plan|
-                mock.handler_called(index += 1)
-                if !event.emitted?
-                    event.emit
-                end
-            end
-            late_id = execution_engine.add_propagation_handler(type: :propagation, late: true) do |plan|
-                mock.late_handler_called(index += 1)
-                if !late_event.emitted?
-                    late_event.emit
-                end
-            end
-
-            mock.should_receive(:handler_called).with(0).once.ordered
-            mock.should_receive(:event_emitted).with(1).once.ordered
-            mock.should_receive(:handler_called).with(2).once.ordered
-            mock.should_receive(:late_handler_called).with(3).once.ordered
-            mock.should_receive(:late_event_emitted).with(4).once.ordered
-            mock.should_receive(:handler_called).with(5).once.ordered
-            mock.should_receive(:late_handler_called).with(6).once.ordered
-
-            process_events
-            execution_engine.remove_propagation_handler(id)
-            execution_engine.remove_propagation_handler(late_id)
-            process_events
-        end
-    end
-
-    def test_add_propagation_handlers_accepts_method_object
-        FlexMock.use do |mock|
-            handler = PropagationHandlerTest.new(plan, mock)
-            id = execution_engine.add_propagation_handler(type: :external_events, &handler.method(:handler))
-
-            mock.should_receive(:called).with(plan).twice
-            process_events
-            process_events
-            execution_engine.remove_propagation_handler id
-            process_events
-
-            assert_equal(2, handler.event.history.size)
-        end
-    end
-
-    def test_add_propagation_handler_validates_arity
-        mock = flexmock
-        # Validate the arity
-        assert_raises(ArgumentError) do
-            execution_engine.add_propagation_handler(&lambda { |plan, failure| mock.called(plan) })
-        end
-
-        process_events
-    end
-
-    def test_propagation_handlers_raises_on_error
-        mock = flexmock
-
-        exception_m = Class.new(Exception)
-        execution_engine.add_propagation_handler do |plan|
-            mock.called
-            raise exception_m
-        end
-        mock.should_receive(:called).once
-        msg = capture_log(execution_engine, :fatal) do
-            assert_logs_exception_with_backtrace(exception_m, execution_engine, :fatal)
-            assert_raises(exception_m, display_exceptions: true) { execution_engine.process_events }
-        end
-        assert_match /Application error/, msg.first
-    end
-
-    def test_propagation_handlers_disabled_on_error
-        spy = flexmock { |s| s.should_receive(:called).once }
-        error_m = Class.new(RuntimeError)
-        assert_logs_exception_with_backtrace(error_m, execution_engine, :warn)
-        execution_engine.add_propagation_handler description: 'test', on_error: :disable do |plan|
-            spy.called
-            raise error_m
-        end
-        messages = capture_log(execution_engine, :warn) do
-            process_events
-        end
-        assert_equal ["propagation handler test disabled because of the following error"], messages
-    end
-
-    def test_propagation_handlers_ignore_on_error
-        spy = flexmock { |s| s.should_receive(:called).twice }
-        error_m = Class.new(RuntimeError)
-        flexmock(Roby).should_receive(:log_exception_with_backtrace).
-            with(error_m, execution_engine, :warn).twice
-
-        handler = execution_engine.add_propagation_handler description: 'test', on_error: :ignore do |plan|
-            spy.called
-            raise error_m
-        end
-        messages = capture_log(execution_engine, :warn) do
-            process_events
-            process_events
-        end
-        assert_equal ['ignored error from propagation handler test'] * 2, messages
-    ensure
-        execution_engine.remove_propagation_handler(handler) if handler
-    end
 
     def test_prepare_propagation
 	g1, g2 = EventGenerator.new(true), EventGenerator.new(true)
@@ -1762,20 +1825,18 @@ class TC_ExecutionEngine < Minitest::Test
 	assert_equal(e2, execution_engine.next_event(pending).first)
     end
 
-    def test_delay
-        time_proxy = flexmock(Time)
-        current_time = Time.now + 5
-        time_proxy.should_receive(:now).and_return { current_time }
+    def test_delayed_signal
+        Timecop.freeze(base_time = Time.now)
 
         plan.add_mission_task(t = Tasks::Simple.new)
         e = EventGenerator.new(true)
-        t.event(:start).signals e, delay: 0.1
-        execution_engine.once { t.start! }
-        process_events
-        assert(!e.emitted?)
-        current_time += 0.2
-        process_events
-        assert(e.emitted?)
+        t.start_event.signals e, delay: 0.1
+        expect_execution { t.start! }.
+            to { have_running t }
+
+        assert !e.emitted?
+        expect_execution { Timecop.freeze(Time.now + 0.2) }.
+            to { emit e }
     end
 
     def test_delay_with_unreachability
@@ -1892,65 +1953,29 @@ class TC_ExecutionEngine < Minitest::Test
 	end
     end
 
-    def test_event_loop
-        plan.add_mission_task(start_node = EmptyTask.new)
-        next_event = [ start_node, :start ]
-        plan.add_mission_task(if_node    = ChoiceTask.new)
-        start_node.stop_event.on { |ev| next_event = [if_node, :start] }
-	if_node.stop_event.on { |ev| }
-            
-        execution_engine.add_propagation_handler(type: :external_events) do |plan|
-            next unless next_event
-            task, event = *next_event
-            next_event = nil
-            task.event(event).call(nil)
-        end
-        process_events
-        assert(start_node.finished?)
-	
-        process_events
-	assert(if_node.finished?)
-    end
-
     def test_every
-        time = Time.now
-        flexmock(Time).should_receive(:now).and_return { time }
+        Timecop.freeze(base_time = Time.now)
 
 	# Check that every(cycle_length) works fine
 	samples = []
-	id = execution_engine.every(0.1) do
+	handler_id = execution_engine.every(0.1) do
 	    samples << execution_engine.cycle_start
 	end
 
-        expected_samples = Array.new
-        expected_samples << time
-        process_events
-        expected_samples << (time += 0.12)
-        process_events
-        process_events
-        process_events
-        expected_samples << (time += 0.1)
-        process_events
-        process_events
-	execution_engine.remove_periodic_handler(id)
-        process_events
-        assert_equal expected_samples, samples, "expected #{expected_samples.map { |t| Roby.format_time(t) }}, got #{samples.map { |t| Roby.format_time(t) }}"
-    end
 
-    def test_once_blocks_are_called_by_proces_events
-	FlexMock.use do |mock|
-	    execution_engine.once { mock.called }
-	    mock.should_receive(:called).once
-	    process_events
-	end
-    end
-    def test_once_blocks_are_called_only_once
-	FlexMock.use do |mock|
-	    execution_engine.once { mock.called }
-	    mock.should_receive(:called).once
-	    process_events
-	    process_events
-	end
+        execute_one_cycle
+        Timecop.freeze(base_time + 0.12)
+        execute_one_cycle
+        execute_one_cycle
+        Timecop.freeze(base_time + 0.22)
+        execute_one_cycle
+        execute_one_cycle
+	execution_engine.remove_periodic_handler(handler_id)
+        execute_one_cycle
+        execute_one_cycle
+
+        expected_samples = [base_time, base_time + 0.12, base_time + 0.22]
+        assert_equal expected_samples, samples, "expected #{expected_samples.map { |t| Roby.format_time(t) }}, got #{samples.map { |t| Roby.format_time(t) }}"
     end
 
 
@@ -1959,7 +1984,7 @@ class TC_ExecutionEngine < Minitest::Test
     def apply_check_structure(&block)
 	Plan.structure_checks.clear
 	Plan.structure_checks << lambda(&block)
-	process_events
+	execute_one_cycle
     ensure
 	Plan.structure_checks.clear
     end
@@ -2143,67 +2168,10 @@ class TC_ExecutionEngine < Minitest::Test
 	end
     end
 
-    def test_gc_ignores_incoming_events
-	Roby::Plan.logger.level = Logger::WARN
-	a, b = prepare_plan discover: 2, model: Tasks::Simple
-        a.stop_event.signals b.stop_event
-	a.start!
-
-	process_events
-	process_events
-	assert(!a.plan)
-	assert(!b.plan)
-	assert(!b.event(:start).emitted?)
-    end
-
     # Test a setup where there is both pending tasks and running tasks. This
     # checks that #stop! is called on all the involved tasks. This tracks
     # problems related to bindings in the implementation of #garbage_collect:
     # the killed task bound to the Roby.once block must remain the same.
-    def test_gc_stopping
-	Roby::Plan.logger.level = Logger::WARN
-	running_task = nil
-	FlexMock.use do |mock|
-	    task_model = Task.new_submodel do
-		event :start, command: true
-		event :stop do |context|
-		    mock.stop(self)
-		end
-	    end
-
-	    running_tasks = (1..5).map do
-		task_model.new
-	    end
-
-	    plan.add(running_tasks)
-	    t1, t2 = Roby::Task.new, Roby::Task.new
-	    t1.depends_on t2
-	    plan.add(t1)
-
-	    running_tasks.each do |t|
-		t.start!
-		mock.should_receive(:stop).with(t).once
-	    end
-		
-	    execution_engine.garbage_collect
-	    process_events
-
-	    assert(!plan.has_task?(t1))
-	    assert(!plan.has_task?(t2))
-	    running_tasks.each do |t|
-		assert(t.finishing?)
-		t.stop_event.emit
-	    end
-
-	    execution_engine.garbage_collect
-	    running_tasks.each do |t|
-		assert(!plan.has_task?(t))
-	    end
-	end
-
-    ensure
-	running_task.stop_event.emit if running_task && !running_task.finished?
-    end
 
     def test_garbage_collect_events
 	t  = Tasks::Simple.new
@@ -2244,12 +2212,11 @@ class TC_ExecutionEngine < Minitest::Test
         influencing.depends_on planned
         planning.add_weak_test influencing
 
-        planned.start!
-        planning.start!
-        influencing.start!
-        
-        process_events
-	assert(plan.tasks.empty?)
+        expect_execution do
+            planned.start!
+            planning.start!
+            influencing.start!
+        end.garbage_collect(true).to { achieve { plan.tasks.empty? } }
     end
 
     def test_forward_signal_ordering
@@ -2279,18 +2246,17 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_delayed_block
-        time_mock = flexmock(Time)
-        time = Time.now
-        time_mock.should_receive(:now).and_return { time }
+        Timecop.freeze(base_time = Time.now)
 
-        recorder = flexmock
-        recorder.should_receive(:triggered).once.with(time + 6)
-        execution_engine.delayed(5) { recorder.triggered(Time.now) }
-        process_events
-        time = time + 2
-        process_events
-        time = time + 4
-        process_events
+        trigger_time = nil
+        execution_engine.delayed(5) { trigger_time = Time.now }
+        expect_execution.timeout(10).to do
+            achieve do
+                Timecop.freeze(Time.now + 1)
+                trigger_time
+            end
+        end
+        assert_equal base_time + 5, trigger_time
     end
 
 
@@ -2319,9 +2285,7 @@ class TC_ExecutionEngine < Minitest::Test
             end
         end
         plan.execution_engine.quit
-        while task.running?
-            plan.execution_engine.process_events
-        end
+        expect_execution.to { achieve { !task.running? } }
     end
 end
 

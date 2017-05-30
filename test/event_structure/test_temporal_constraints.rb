@@ -28,8 +28,9 @@ module Roby
                 plan.add(e2 = Roby::EventGenerator.new(true))
                 e1.add_occurence_constraint(e2, 1, 2)
                 assert !e2.meets_temporal_constraints?(Time.now)
-                with_log_level(Roby, Logger::FATAL) do
-                    assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+                expect_execution { e2.emit }.to do
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
+                        with_origin(e2)
                 end
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
@@ -48,8 +49,9 @@ module Roby
                 e1.emit
                 e1.emit
                 assert !e2.meets_temporal_constraints?(Time.now)
-                with_log_level(Roby, Logger::FATAL) do
-                    assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+                expect_execution { e2.emit }.to do
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
+                        with_origin(e2)
                 end
             end
 
@@ -58,8 +60,9 @@ module Roby
                 plan.add(e2 = Roby::EventGenerator.new(true))
                 e1.add_occurence_constraint(e2, 1, 2, true)
                 assert !e2.meets_temporal_constraints?(Time.now)
-                with_log_level(Roby, Logger::FATAL) do
-                    assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+                expect_execution { e2.emit }.to do
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
+                        with_origin(e2)
                 end
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
@@ -70,8 +73,9 @@ module Roby
                 e2.emit
                 # Counts are reset
                 assert !e2.meets_temporal_constraints?(Time.now)
-                with_log_level(Roby, Logger::FATAL) do
-                    assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+                expect_execution { e2.emit }.to do
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
+                        with_origin(e2)
                 end
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
@@ -83,8 +87,9 @@ module Roby
                 assert e2.meets_temporal_constraints?(Time.now)
                 e1.emit
                 assert !e2.meets_temporal_constraints?(Time.now)
-                with_log_level(Roby, Logger::FATAL) do
-                    assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+                expect_execution { e2.emit }.to do
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
+                        with_origin(e2)
                 end
             end
 
@@ -269,8 +274,9 @@ module Roby
 
                     e1.emit
                     current_time += 12
-                    with_log_level(Roby, Logger::FATAL) do
-                        assert_raises(EventStructure::TemporalConstraintViolation) { e2.emit }
+                    expect_execution { e2.emit }.to do
+                        have_error_matching EventStructure::TemporalConstraintViolation.match.
+                            with_origin(e2)
                     end
                 end
             end
@@ -292,8 +298,10 @@ module Roby
                     current_time += 6
                     e2.emit
                     current_time += 6
-                    with_log_level(Roby, Logger::FATAL) do
-                        assert_raises(EventStructure::TemporalConstraintViolation) { e2.emit }
+
+                    expect_execution { e2.emit }.to do
+                        have_error_matching EventStructure::TemporalConstraintViolation.match.
+                            with_origin(e2)
                     end
                 end
             end

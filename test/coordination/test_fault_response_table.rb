@@ -14,16 +14,18 @@ describe Roby::Coordination::FaultResponseTable do
             mission, child = prepare_plan missions: 1, add: 1,
                 model: Roby::Tasks::Simple
             mission.depends_on child, role: 'name'
-            mission.start!
-            child.start!
-            child.stop!
 
+            events = expect_execution do
+                mission.start!
+                child.start!
+                child.stop!
+            end.to do
+                emit find_tasks(Roby::Coordination::FaultHandlingTask).start_event
+            end
+
+            repair_task = events.first.task
             repairs = child.find_all_matching_repair_tasks(child.failed_event.last)
-            assert_equal 1, repairs.size
-            repair_task = repairs.first
-            process_events
-            assert repair_task.running?
-            assert_kind_of Roby::Coordination::FaultHandlingTask, repair_task
+            assert_equal [repair_task], repairs
             assert_equal fault_handler, repair_task.fault_handler
 
         ensure
@@ -122,11 +124,9 @@ describe Roby::Coordination::FaultResponseTable do
 
         it "registers a fault response task and starts it" do
             root_task.start!
-            flexmock(execution_engine).should_receive(:warn).with("1 handled errors")
-            flexmock(execution_engine).should_receive(:notify_exception).once.
-                with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error_m.to_execution_exception_matcher, any)
 
-            execute { execution_engine.add_error(error_m.new(root_task)) }
+            expect_execution { execution_engine.add_error(error_m.new(root_task)) }.
+                to { have_handled_error_matching error_m.match.with_origin(root_task) }
             fault_handling_task = root_task.each_error_handler.to_a.first.first
             assert_kind_of Roby::Coordination::FaultHandlingTask, fault_handling_task
             assert_equal fault_handler_m, fault_handling_task.fault_handler

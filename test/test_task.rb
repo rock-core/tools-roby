@@ -624,12 +624,10 @@ module Roby
 
             it "yields in the next cycle on running tasks" do
                 plan.add(task = Roby::Tasks::Simple.new)
-                execute { task.start! }
-                task.execute do |t|
-                    recorder.execute_called(t)
-                end
-                recorder.should_receive(:execute_called).with(task).once
-                process_events
+                executed = false
+                task.execute { |t| executed = true }
+                expect_execution { task.start! }.
+                    to { achieve { executed } }
             end
 
             describe "on_replace: :copy" do
@@ -1112,18 +1110,17 @@ module Roby
                 mock.should_receive(:start_handler).twice.globally.ordered
                 mock.should_receive(:poll_handler).at_least.twice.globally.ordered
                 execute { task.start! }
-                process_events
             end
 
             it "is not called on pending tasks" do
                 mock = flexmock
 
                 task_m.poll { mock.poll_handler }
-                plan.add_permanent_task(task = task_m.new)
+                plan.add(task = task_m.new)
                 task.poll { |_| mock.poll_handler }
 
                 mock.should_receive(:poll_handler).never
-                process_events
+                expect_execution.to_run
             end
 
             it "is not called on finished tasks" do
@@ -1134,10 +1131,10 @@ module Roby
                 task.poll { |_| mock.poll_handler }
 
                 mock.should_receive(:poll_handler).by_default
-                execute { task.start! }
-                assert_event_emission(task.stop_event) { task.stop! }
+                expect_execution { task.start!; task.stop! }.
+                    to { finish task }
                 mock.should_receive(:poll_handler).never
-                process_events
+                expect_execution.to_run
             end
 
             it "terminates a task if the block raises an exception" do
@@ -1159,7 +1156,6 @@ module Roby
                             with_ruby_exception(error_m)
                         emit task.internal_error_event
                     end
-                assert task.stop?
             end
 
             it "stops the task using its own stop command" do
@@ -2884,10 +2880,8 @@ class TC_Task < Minitest::Test
             mock.should_receive(:should_not_be_passed_on).with(old).once
             mock.should_receive(:should_be_passed_on).with(old).once
             mock.should_receive(:should_be_passed_on).with(new).once
-            execute { old.start! }
-            execute { new.start! }
 
-            process_events
+            expect_execution { old.start!; new.start! }.to_run
         end
     end
 
@@ -2965,17 +2959,17 @@ class TC_Task < Minitest::Test
         plan.add_permanent_task(new = Roby::Tasks::Simple.new)
 
         FlexMock.use do |mock|
-            mock.should_receive(:should_be_passed_on).with(new).twice
+            mock.should_receive(:should_be_passed_on).with(new).once
 
             old.poll { |task| mock.should_be_passed_on(task) }
             old.poll(on_replace: :drop) { |task| mock.should_not_be_passed_on(task) }
 
             plan.replace(old, new)
-            execute { new.start! }
 
             assert_equal(1, new.poll_handlers.size, new.poll_handlers.map(&:block))
             assert_equal(new.poll_handlers[0].block, old.poll_handlers[0].block)
-            process_events
+
+            expect_execution { new.start! }.to_run
         end
     end
 

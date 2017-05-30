@@ -65,7 +65,7 @@ module Roby
                     remove_when_done: true]
             end
 
-            def start_task(toplevel)
+            def start_task(toplevel, explicit_start: false)
                 task_info = self.task_info[toplevel]
                 tasks, forwards = task_info.required_tasks, task_info.forwards
                 variables = arguments.merge(resolved_captures)

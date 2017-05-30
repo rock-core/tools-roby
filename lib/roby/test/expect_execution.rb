@@ -89,8 +89,8 @@ module Roby
             #
             # @raise [InvalidContext] if expect_execution is used from within an
             #   expect_execution context, or within propagation context
-            def expect_execution(&block)
-                if execution_engine.in_propagation_context?
+            def expect_execution(plan: self.plan, &block)
+                if plan.execution_engine.in_propagation_context?
                     raise InvalidContext, "cannot recursively call #expect_execution"
                 end
                 expectations = ExecutionExpectations.new(self, plan)
@@ -117,17 +117,17 @@ module Roby
             end
 
             # Execute a block within the event propagation context
-            def execute(garbage_collect: false)
+            def execute(plan: self.plan, garbage_collect: false)
                 result = nil
-                expect_execution { result = yield }.garbage_collect(garbage_collect).to_run
+                expect_execution(plan: plan) { result = yield }.garbage_collect(garbage_collect).to_run
                 result
             rescue Minitest::Assertion => e
                 raise e, e.message, caller(2)
             end
 
             # Run exactly once cycle
-            def execute_one_cycle(scheduler: false, garbage_collect: false)
-                expect_execution.
+            def execute_one_cycle(plan: self.plan, scheduler: false, garbage_collect: false)
+                expect_execution(plan: plan).
                     join_all_waiting_work(false).
                     scheduler(scheduler).
                     garbage_collect(garbage_collect).

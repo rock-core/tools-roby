@@ -183,6 +183,38 @@ module Roby
                     child.subtask_child.test_event.emit
                 end
             end
+
+            describe "#timeout" do
+                attr_reader :task
+                before do
+                    task_m = Roby::Tasks::Simple.new_submodel do
+                        event :intermediate
+                        event :timeout
+                    end
+                    plan.add(@task = task_m.new)
+
+                    task.script do
+                        timeout 1, emit: timeout_event do
+                            wait intermediate_event
+                        end
+                        emit success_event
+                    end
+                end
+
+                it "passes if the sub-script finished before the timeout" do
+                    Timecop.freeze(base_time = Time.now)
+                    expect_execution { task.start! }.to { not_emit task.stop_event }
+                    expect_execution { task.intermediate_event.emit }.to { emit task.stop_event }
+                end
+
+                it "fails if the sub-script has not finished before the timeout" do
+                    Timecop.freeze(base_time = Time.now)
+                    execute { task.start! }
+
+                    expect_execution { Timecop.freeze(base_time + 1.1) }.
+                        to { emit task.timeout_event }
+                end
+            end
         end
     end
 end
@@ -202,11 +234,9 @@ class TC_Coordination_TaskScript < Minitest::Test
                 counter += 1
             end
         end
-        task.start!
-
-        process_events
-        process_events
-        process_events
+        expect_execution { task.start! }.
+            to { achieve { counter == 1 } }
+        execute_one_cycle
         assert_equal 1, counter
     end
 
@@ -219,14 +249,10 @@ class TC_Coordination_TaskScript < Minitest::Test
             end
             emit success_event
         end
-        task.start!
 
-        process_events
-        process_events
-        process_events
-        process_events
+        expect_execution { task.start! }.
+            to { emit task.success_event }
         assert_equal 1, counter
-        assert task.success?
     end
 
     def test_poll
@@ -241,15 +267,10 @@ class TC_Coordination_TaskScript < Minitest::Test
             end
             emit success_event
         end
-        task.start!
 
-        process_events
-        process_events
-        process_events
-        process_events
+        expect_execution { task.start! }.
+            to { emit task.success_event }
         assert_equal 4, counter
-        # Make the poll block transition
-        assert !task.failed?
     end
 
     def test_cancelling_a_poll_operation_deregisters_the_poll_handler
@@ -298,91 +319,29 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_sleep
-        task = prepare_plan missions: 1, model: Roby::Tasks::Simple
+        plan.add(task = Roby::Tasks::Simple.new)
 
-        FlexMock.use(Time) do |mock|
-            time = Time.now
-            mock.should_receive(:now).and_return { time }
-            task.script do
-                sleep 5
-                emit success_event
-            end
-
-            task.start!
-            process_events
-            assert !task.finished?
-            time = time + 3
-            process_events
-            assert !task.finished?
-            time = time + 3
-            process_events
-            assert task.finished?
-        end
-    end
-
-    def test_timeout_pass
-        model = Roby::Tasks::Simple.new_submodel do
-            event :intermediate
-            event :timeout
-        end
-        task = prepare_plan missions: 1, model: model
-
-        FlexMock.use(Time) do |mock|
-            time = Time.now
-            mock.should_receive(:now).and_return { time }
-
-            plan.add(task)
-            task.script do
-                timeout 5, emit: :timeout do
-                    wait intermediate_event
-                end
-                emit success_event
-            end
-            task.start!
-
-            process_events
-            assert task.running?
-            task.intermediate_event.emit
-            process_events
-            assert task.success?
-        end
-    end
-
-    def test_timeout_fail
-        model = Roby::Tasks::Simple.new_submodel do
-            event :intermediate
-            event :timeout
-        end
-        task = prepare_plan missions: 1, model: model
-
-        mock = flexmock(Time)
-        time = Time.now
-        mock.should_receive(:now).and_return { time }
-
+        Timecop.freeze(base_time = Time.now)
         task.script do
-            timeout 5, emit: :timeout do
-                wait intermediate_event
-            end
+            sleep 1
             emit success_event
         end
-        task.start!
-        process_events
 
-        assert task.running?
-        time += 6
-        process_events
-        assert task.timeout?
-        assert task.success?
+        expect_execution { task.start! }.to { not_emit task.stop_event }
+        Timecop.freeze(base_time + 0.1)
+        expect_execution.to { not_emit task.stop_event }
+        Timecop.freeze(base_time + 1.1)
+        expect_execution.to { emit task.stop_event }
     end
 
     def test_parallel_scripts
-        model = Roby::Tasks::Simple.new_submodel do
+        task_m = Roby::Tasks::Simple.new_submodel do
             event :start_script1
             event :done_script1
             event :start_script2
             event :done_script2
         end
-        task = prepare_plan permanent: 1, model: model
+        plan.add(task = task_m.new)
 
         task.script do
             wait start_script1_event
@@ -393,47 +352,47 @@ class TC_Coordination_TaskScript < Minitest::Test
             emit done_script2_event
         end
 
-        process_events
-        process_events
-        task.start_script1_event.emit
-        process_events
-        assert task.done_script1?
-        assert !task.done_script2?
-        plan.unmark_permanent_task(task)
-        assert_fatal_exception(Roby::Coordination::Script::DeadInstruction, failure_point: task, tasks: [task]) do
-            task.done_script2_event.unreachable!
-        end
-        assert task.done_script1?
-        assert !task.done_script2?
+        execute { task.start! }
+        expect_execution { task.start_script1_event.emit }.
+            to do
+                emit task.done_script1_event
+                not_emit task.done_script2_event
+            end
+
+        expect_execution { task.done_script2_event.unreachable! }.
+            to do
+                have_error_matching Roby::Coordination::Script::DeadInstruction.match.
+                    with_origin(task)
+                not_emit task.done_script2_event
+            end
     end
 
     def test_start
-        mock = flexmock
-        mock.should_receive(:child_started).once.with(true)
-
-        model = Roby::Tasks::Simple.new_submodel do
+        task_m = Roby::Tasks::Simple.new_submodel do
             event :start_child
         end
-        child_model = Roby::Tasks::Simple.new_submodel
+        child_task_m = Roby::Tasks::Simple.new_submodel
 
-        task = nil
-        task = prepare_plan permanent: 1, model: model
+        plan.add(task = task_m.new)
+        recorder = flexmock
+        recorder.should_receive(:child_started).with(true).once
         task.script do
             wait start_child_event
-            child_task = start(child_model, role: "subtask")
+            child_task = start(child_task_m, role: "subtask")
             execute do
-                mock.child_started(child_task.resolve.running?)
+                recorder.child_started(child_task.resolve.running?)
             end
         end
-        task.start!
+
+        execute { task.start! }
 
         child = task.subtask_child
-        assert_kind_of(child_model, child)
-        assert(!child.running?)
+        assert_kind_of child_task_m, child
+        refute child.running?
 
-        task.start_child_event.emit
-        process_events
-        assert task.subtask_child.running?
+        expect_execution { task.start_child_event.emit }.
+            scheduler(Roby::Schedulers::Basic.new(true, plan)).
+            to { have_running task.subtask_child }
     end
 
     def test_execute_always_goes_on_regardless_of_the_output_of_the_block
@@ -508,52 +467,54 @@ class TC_Coordination_TaskScript < Minitest::Test
     end
 
     def test_transaction_commits_new_script_on_pending_task
-        task = prepare_plan permanent: 1, model: Roby::Tasks::Simple
+        plan.add(task = Roby::Tasks::Simple.new)
         task.executable = false
 
         mock = flexmock
-        mock.should_receive(:executed).with(false).never.ordered
-        mock.should_receive(:barrier).once.ordered
-        mock.should_receive(:executed).with(true).once.ordered
+        mock.should_receive(:executed).with(false).never.globally.ordered
+        mock.should_receive(:barrier).once.globally.ordered
+        mock.should_receive(:executed).with(true).once.globally.ordered
+        executed = false
         plan.in_transaction do |trsc|
             proxy = trsc[task]
             proxy.script do
                 execute do
+                    executed = true
                     mock.executed(task.executable?)
                 end
             end
-            process_events
+            execute_one_cycle
             mock.barrier
             trsc.commit_transaction
         end
-        process_events
+        execute_one_cycle
         task.executable = true
-        task.start!
-        process_events
-        process_events
+        expect_execution { task.start! }.
+            to { achieve { executed = true } }
     end
 
     def test_transaction_commits_new_script_on_running_task
-        task = prepare_plan permanent: 1, model: Roby::Tasks::Simple
+        plan.add(task = Roby::Tasks::Simple.new)
         task.start!
 
         mock = flexmock
         mock.should_receive(:executed).with(false).never.ordered
         mock.should_receive(:barrier).once.ordered
         mock.should_receive(:executed).with(true).once.ordered
+        executed = false
         plan.in_transaction do |trsc|
             proxy = trsc[task]
             proxy.script do
                 execute do
+                    executed = true
                     mock.executed(task.executable?)
                 end
             end
-            process_events
+            execute_one_cycle
             mock.barrier
             trsc.commit_transaction
         end
-        process_events
-        process_events
+        expect_execution.to { achieve { executed } }
     end
 end
 

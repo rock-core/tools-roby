@@ -2,6 +2,132 @@ require 'roby/test/self'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 
+module Roby
+    describe TaskStateMachine do
+        describe "#poll_in_state" do
+            it "does not interact with the regular poll" do
+                poll_called, running_state_poll_called = nil
+                task_m = Roby::Task.new_submodel do
+                    terminates
+                    poll { poll_called = true }
+                    refine_running_state do
+                        poll_in_state :running do |task|
+                            running_state_poll_called = true
+                        end
+                    end
+                end
+
+                plan.add(task = task_m.new)
+                expect_execution { task.start! }.
+                    to { achieve { poll_called && running_state_poll_called } }
+            end
+
+            it "is polling in the expected state" do
+                running_poll, one_poll = nil
+                task_m = Roby::Task.new_submodel do
+                    terminates
+                    event :intermediate
+
+                    refine_running_state do
+                        poll_in_state :running do |task|
+                            running_poll = true
+                        end
+                        on(:intermediate) { transition :running => :one }
+                        poll_in_state :one do |task|
+                            one_poll = true
+                        end
+                    end
+                end
+
+                plan.add(task = task_m.new)
+                expect_execution { task.start! }.
+                    to { achieve { running_poll && !one_poll } }
+                expect_execution { task.intermediate_event.emit }.
+                    to { achieve { one_poll } }
+                running_poll = false
+                expect_execution.to { achieve { !running_poll && one_poll } }
+            end
+
+            it "is passed the task instance" do
+                running_task = nil
+                task_m = Roby::Task.new_submodel do
+                    terminates
+                    refine_running_state do
+                        poll_in_state :running do |task|
+                            running_task = task
+                        end
+                    end
+                end
+                plan.add(task = task_m.new)
+                yield_task = expect_execution { task.start! }.
+                    to { achieve { running_task } }
+                assert_equal task, yield_task
+            end
+        end
+
+        describe "#script_in_state" do
+            it "is executed as a task script" do
+                running_poll, one_poll = nil
+                task_m = Roby::Task.new_submodel do
+                    terminates
+                    event :intermediate
+                    event :running_poll
+                    event :one_poll
+
+                    refine_running_state do
+                        script_in_state :running do
+                            execute { running_poll = true }
+                            emit running_poll_event
+                        end
+                        on(:intermediate) { transition :running => :one }
+                        script_in_state :one do
+                            execute { one_poll = true }
+                            emit one_poll_event
+                        end
+                        on(:one_poll) { transition :one => :running }
+                    end
+                end
+
+                plan.add(task = task_m.new)
+                expect_execution { task.start! }.
+                    to do
+                        achieve { running_poll && !one_poll }
+                        emit task.running_poll_event
+                    end
+
+                running_poll = false
+                expect_execution { task.intermediate_event.emit }.
+                    to do
+                        achieve { !running_poll && one_poll }
+                        emit task.one_poll_event
+                    end
+            end
+
+            it "calls the script repeatedly until the script finishes" do
+                running_poll = 0
+                task_m = Roby::Task.new_submodel do
+                    terminates
+                    event :done
+                    refine_running_state do
+                        script_in_state :running do
+                            poll_until(done_event) { running_poll += 1 }
+                        end
+                    end
+                end
+
+                plan.add(task = task_m.new)
+                expect_execution { task.start! }.
+                    to { achieve { running_poll == 2 } }
+                expect_execution { task.done_event.emit }.
+                    to { achieve { running_poll <= 3 } }
+                expect_execution.
+                    to { achieve { running_poll <= 3 } }
+            end
+        end
+    end
+end
+
+
 class TC_TaskStateMachine < Minitest::Test
     class TestTask < Roby::Task
         refine_running_state do
@@ -189,144 +315,5 @@ class TC_TaskStateMachine < Minitest::Test
         end
     end
 
-    def test_has_no_interaction_with_regular_poll
-        mock = flexmock
-        mock.should_receive(:poll_called).at_least.once
-        mock.should_receive(:one_called).at_least.once
-
-        model = Roby::Task.new_submodel do
-            terminates
-            event :intermediate
-
-            poll do
-                mock.poll_called
-            end
-
-            refine_running_state do
-                state :running do
-                    define_method(:poll) do |task|
-                        mock.one_called
-                    end
-                end
-            end
-        end
-
-        task = prepare_plan permanent: 1, model: model
-        task.start!
-        process_events
-    end
-
-    def test_poll_in_state
-        mock = flexmock
-        mock.should_receive(:running_poll).once.ordered
-        mock.should_receive(:running_poll_event).once.ordered
-        mock.should_receive(:one_poll).once.ordered
-        mock.should_receive(:one_poll_event).once.ordered
-
-        model = Roby::Task.new_submodel do
-            terminates
-            event :intermediate
-            event :running_poll
-            event :one_poll
-
-            refine_running_state do
-                poll_in_state :running do |task|
-                    mock.running_poll
-                    task.running_poll_event.emit
-                end
-                on(:intermediate) { transition running: :one }
-                poll_in_state :one do |task|
-                    mock.one_poll
-                    task.one_poll_event.emit
-                end
-                on(:one_poll) { transition one: :final }
-            end
-        end
-
-        task = prepare_plan missions: 1, model: model
-        task.running_poll_event.on { |_| mock.running_poll_event }
-        task.start!
-        task.one_poll_event.on { |_| mock.one_poll_event }
-        task.intermediate_event.emit
-        process_events
-    end
-
-    def test_script_in_state
-        mock = flexmock
-        mock.should_receive(:running_poll).at_least.once
-        mock.should_receive(:running_poll_event).at_least.once
-        mock.should_receive(:one_poll).at_least.once
-        mock.should_receive(:one_poll_event).at_least.once
-
-        model = Roby::Task.new_submodel do
-            terminates
-            event :intermediate
-            event :running_poll
-            event :one_poll
-
-            refine_running_state do
-                script_in_state :running do
-                    execute { mock.running_poll }
-                    emit :running_poll
-                end
-                on(:intermediate) { transition running: :one }
-                script_in_state :one do
-                    execute { mock.one_poll }
-                    emit :one_poll
-                end
-                on(:one_poll) { transition one: :running }
-            end
-        end
-
-        task = prepare_plan permanent: 1, model: model
-        task.start!
-        task.running_poll_event.on { |_| mock.running_poll_event }
-        process_events
-        assert task.running_poll?
-        task.intermediate_event.emit
-        task.one_poll_event.on { |_| mock.one_poll_event }
-        process_events
-        assert task.one_poll?, task.history.map(&:symbol).map(&:to_s).join(", ")
-
-        process_events
-        process_events
-        assert_equal [:start, :running_poll, :intermediate, :one_poll, :running_poll], task.history.map(&:symbol)
-    end
-
-    def test_script_in_state_progresses_through_the_script
-        mock = flexmock
-        mock.should_receive(:execute).once
-        mock.should_receive(:poll).at_least.twice
-        model = Roby::Task.new_submodel do
-            terminates
-            refine_running_state do
-                script_in_state :running do
-                    execute { mock.execute }
-                    poll { mock.poll }
-                end
-            end
-        end
-
-        task = prepare_plan permanent: 1, model: model
-        task.start!
-        process_events
-    end
-
-    def test_script_in_state_calls_the_script_back
-        mock = flexmock
-        mock.should_receive(:poll).twice
-        model = Roby::Task.new_submodel do
-            terminates
-            refine_running_state do
-                script_in_state :running do
-                    poll { mock.poll }
-                end
-            end
-        end
-
-        task = prepare_plan permanent: 1, model: model
-        task.start!
-        process_events
-    end
 end
 

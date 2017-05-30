@@ -277,9 +277,8 @@ class TC_Dependency < Minitest::Test
         c1.start!
         c1.success!
         p.remove_finished_children
-        process_events
-        assert(!plan.has_task?(c1))
-        assert(plan.has_task?(c2))
+        refute p.depends_on?(c1)
+        assert p.depends_on?(c2)
     end
 
     def test_role_definition

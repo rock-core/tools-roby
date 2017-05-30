@@ -336,23 +336,24 @@ module Roby
                 it "removes the task" do
                     plan.add_permanent_task(source = Tasks::Simple.new)
                     source.start_event.signals task.stop_event
-                    plan.should_receive(:remove_task).once
-                    process_events
+                    expect_execution.garbage_collect(true).to do
+                        finalize task
+                    end
                 end
 
                 it "does not mark the task as garbage" do
-                    process_events
+                    expect_execution.garbage_collect(true).to { finalize task }
                     refute task.garbage?
                 end
 
                 it "does mark the task as finalized" do
-                    process_events
+                    expect_execution.garbage_collect(true).to { finalize task }
                     assert task.finalized?
                 end
 
                 it "emits the garbage_task log event" do
                     assert_logs_event(:garbage_task, plan.droby_id, task, true)
-                    process_events
+                    expect_execution.garbage_collect(true).to { finalize task }
                 end
             end
 
@@ -362,26 +363,26 @@ module Roby
                 end
                 it "emits the garbage_task log event" do
                     assert_logs_event(:garbage_task, plan.droby_id, task, false)
-                    process_events
+                    expect_execution.garbage_collect(true).to { not_finalize task }
                 end
                 it "marks the task as garbage" do
-                    process_events
+                    expect_execution.garbage_collect(true).to { not_finalize task }
                     assert task.garbage?
                 end
                 it "does not finalize the task" do
-                    process_events
+                    expect_execution.garbage_collect(true).to { not_finalize task }
                     refute task.finalized?
                 end
                 it "removes all non-strong task relations and all external event relations" do
                     task.should_receive(:clear_relations).with(remove_internal: false, remove_strong: false).once
-                    process_events
+                    expect_execution.garbage_collect(true).to { not_finalize task }
                 end
                 it "does not remove the task from the plan" do
                     plan.should_receive(:remove_task).never
-                    process_events
+                    expect_execution.garbage_collect(true).to { not_finalize task }
                 end
                 it "marks the task as non-reusable" do
-                    process_events
+                    expect_execution.garbage_collect(true).to { not_finalize task }
                     refute task.reusable?
                 end
             end

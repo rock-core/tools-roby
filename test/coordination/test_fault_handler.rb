@@ -58,13 +58,10 @@ describe Roby::Coordination::Models::FaultHandler do
         it "removes children so that the relevant ones are garbage-collected" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([m0, m1].to_set)
             handler.activate(flexmock(origin: t2))
-            process_events
-            assert !t1.plan
-            assert !t2.plan
-            assert !t0.plan
-            assert m1.plan
-            assert m2.plan
-            assert m0.plan
+            expect_execution.garbage_collect(true).to do
+                finalize t0, t1, t2
+                not_finalize m0, m1, m2
+            end
         end
         it "registers the fault handling task as a repair for the error event if the response location is the origin" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([t2].to_set)
