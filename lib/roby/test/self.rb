@@ -22,6 +22,7 @@ require 'roby'
 require 'roby/test/common'
 require 'roby/test/event_reporter'
 require 'roby/test/minitest_helpers'
+require 'roby/test/run_planners'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 
@@ -36,6 +37,7 @@ module Roby
     module Self
         include Roby::Test
         include Roby::Test::Assertions
+        include Test::RunPlanners
 
         def setup
             @temp_dirs = Array.new

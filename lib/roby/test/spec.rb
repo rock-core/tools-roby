@@ -4,6 +4,7 @@ require 'roby/test/common'
 require 'roby/test/dsl'
 require 'roby/test/teardown_plans'
 require 'roby/test/minitest_helpers'
+require 'roby/test/run_planners'
 require 'timecop'
 
 FlexMock.partials_are_based = true
@@ -15,6 +16,7 @@ module Roby
             include Test::Assertions
             include Test::TeardownPlans
             include Test::MinitestHelpers
+            include Test::RunPlanners
             include Utilrb::Timepoints
             extend DSL
 
@@ -153,91 +155,9 @@ module Roby
                 end
             end
 
-            # Plan the given task
+            # @deprecated use {#run_planners} instead
             def roby_run_planner(root_task, recursive: true, **options)
-                if root_task.respond_to?(:as_plan)
-                    root_task = root_task.as_plan
-                    plan.add_permanent_task(root_task)
-                end
-
-                if recursive
-                    tasks = plan.task_relation_graph_for(Roby::TaskStructure::Dependency).enum_for(:depth_first_visit, root_task).to_a
-                else
-                    tasks = [root_task]
-                end
-
-                by_handler = tasks.find_all { |t| t.abstract? && t.planning_task }.
-                    group_by { |t| Spec.planner_handler_for(t) }.
-                    map { |handler_class, tasks| [handler_class.new, tasks] }
-
-                return root_task if by_handler.empty?
-
-                placeholder_tasks = Hash.new
-                expect_execution do
-                    by_handler.each do |handler, tasks|
-                        tasks.each do |t|
-                            placeholder_tasks[t] = t.as_service
-                        end
-                        handler.start(tasks)
-                    end
-                end.with_setup do
-                    scheduler true
-                end.to do
-                    achieve do
-                        by_handler.all? do |handler, tasks|
-                            handler.finished?
-                        end
-                    end
-                end
-
-                if placeholder = placeholder_tasks[root_task]
-                    root_task = placeholder.to_task
-                end
-
-                if recursive
-                    roby_run_planner(root_task, recursive: true, **options)
-                else
-                    root_task
-                end
-            end
-
-            # Interface for a planning handler for {#roby_run_planner}
-            #
-            # This class is only used to describe the required interface. See
-            # {ActionPlanningHandler} for an example
-            class PlanningHandler
-                # Start planning these tasks
-                #
-                # This is called within a propagation context
-                def start(tasks)
-                    raise NotImplementedError
-                end
-
-                # Whether planning is finished for the given tasks
-                #
-                # This is called within a propagation context
-                def finished?
-                    raise NotImplementedError
-                end
-            end
-
-            @@roby_planner_handlers = Array.new
-
-            # @api private
-            #
-            # Find the handler that should be used by {#roby_run_planner} to
-            # plan a given task.
-            #
-            # @param [Task] task
-            # @return [PlanningHandler]
-            # @raise ArgumentError
-            def self.planner_handler_for(task)
-                _, handler_class = @@roby_planner_handlers.find { |matcher, handler| matcher === task }
-                if handler_class
-                    handler_class
-                else
-                    raise ArgumentError, "no planning handler found for #{task}"
-                end
+                run_planners(root_task, recursive: true, **options)
             end
 
             # Declare what {#roby_run_planner} should use to develop a given
@@ -247,23 +167,8 @@ module Roby
             #
             # @param [PlanningHandler] a planning handler
             def self.roby_plan_with(matcher, handler)
-                @@roby_planner_handlers.unshift [matcher, handler]
+                RunPlanners.roby_plan_with(matcher, handler)
             end
-
-
-            # Planning handler for {#roby_run_planner} that handles roby action tasks
-            class ActionPlanningHandler
-                # (see PlanningHandler#start)
-                def start(tasks)
-                    @planning_tasks = tasks.map(&:planning_task)
-                end
-                
-                # (see PlanningHandler#finished?)
-                def finished?
-                    @planning_tasks.all?(&:success?)
-                end
-            end
-            roby_plan_with Roby::Task.match.with_child(Roby::Actions::Task), ActionPlanningHandler
 
             # Filters out the test suites that are not enabled by the current
             # Roby configuration
