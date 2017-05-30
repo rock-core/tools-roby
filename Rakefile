@@ -1,5 +1,7 @@
 require "bundler/gem_tasks"
 require "rake/testtask"
+require 'yard'
+require 'yard/rake/yardoc_task'
 
 task :default
 
@@ -51,3 +53,5 @@ task :uic do
 end
 task :compile => :uic
 
+YARD::Rake::YardocTask.new
+task :doc => :yard
