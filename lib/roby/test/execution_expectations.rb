@@ -73,8 +73,8 @@ module Roby
             #   since the beginning of expect_execution block. It contains event
             #   emissions and raised/caught errors.
             # @yieldreturn the value that should be returned by the expectation
-            def achieve(backtrace: caller(1), &block)
-                add_expectation(Achieve.new(block, backtrace))
+            def achieve(description: nil, backtrace: caller(1), &block)
+                add_expectation(Achieve.new(block, description, backtrace))
             end
 
             # Expect that the given task fails to start
@@ -852,8 +852,9 @@ module Roby
             end
 
             class Achieve < Expectation
-                def initialize(block, backtrace)
+                def initialize(block, description, backtrace)
                     super(backtrace)
+                    @description = description
                     @block = block
                 end
 
@@ -866,7 +867,11 @@ module Roby
                 end
 
                 def to_s
-                    "achieves #{@block}"
+                    if @description
+                        @description
+                    else
+                        @backtrace[0].to_s
+                    end
                 end
             end
         end

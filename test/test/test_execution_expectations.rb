@@ -552,7 +552,7 @@ module Roby
                             values << achieved
                             true
                         end
-                        add_expectation achieve_without_memory.new(block, [])
+                        add_expectation achieve_without_memory.new(block, "", [])
                     end
                     assert_equal [false, true], values[0, 2]
                 end
