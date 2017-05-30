@@ -98,6 +98,8 @@ module Roby
             end
 
             def process_events(timeout: 10, **options, &caller_block)
+                Roby.warn_deprecated "do not use #process_events. Use the expect_execution infrastructure instead"
+
                 exceptions = Array.new
                 first_pass = true
                 while first_pass || execution_engine.has_waiting_work?
@@ -124,6 +126,8 @@ module Roby
             #
             # @yieldreturn [Boolean] true if the condition is met, false otherwise
             def process_events_until(timeout: 5, **options)
+                Roby.warn_deprecated "do not use #process_events. Use the expect_execution infrastructure with the 'achieve' expectation instead"
+
                 start = Time.now
                 while !yield
                     now = Time.now
