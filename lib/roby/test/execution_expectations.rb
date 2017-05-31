@@ -329,7 +329,18 @@ module Roby
                 def to_s
                     "#{@errors.size} unexpected errors\n" +
                     @errors.map do |e|
-                        Roby.format_exception(e).join("\n")
+                        exception = Roby.format_exception(e).join("\n")
+                        backtrace =
+                            if e.kind_of?(ExecutionException)
+                                Roby.format_backtrace(e.exception)
+                            else
+                                Roby.format_backtrace(e)
+                            end
+
+                        if !backtrace.empty?
+                            exception += "  " + backtrace.join("\n  ")
+                        end
+                        exception
                     end.join("\n")
                 end
             end

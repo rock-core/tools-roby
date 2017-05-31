@@ -376,13 +376,17 @@ module Roby
         end
     end
 
-    def self.log_backtrace(e, logger, level, filter: Roby.app.filter_backtraces?)
+    def self.format_backtrace(e, filter: Roby.app.filter_backtraces?)
         backtrace = e.backtrace
         if filter
             backtrace = filter_backtrace(backtrace)
         end
 
-        format_exception(BacktraceFormatter.new(e, backtrace)).each do |line|
+        format_exception(BacktraceFormatter.new(e, backtrace))
+    end
+
+    def self.log_backtrace(e, logger, level, filter: Roby.app.filter_backtraces?)
+        format_backtrace(e, filter: filter).each do |line|
             logger.send(level, line)
         end
     end
