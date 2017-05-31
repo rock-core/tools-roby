@@ -28,11 +28,13 @@ module Roby
             # cannot test for the non-existence of a delayed emission
             #
             # @return [nil]
-            def not_emit(generator, backtrace: caller(1))
-                if generator.kind_of?(EventGenerator)
-                    add_expectation(NotEmitGenerator.new(generator, backtrace))
-                else
-                    add_expectation(NotEmitGeneratorModel.new(generator, backtrace))
+            def not_emit(*generators, backtrace: caller(1))
+                generators.each do |generator|
+                    if generator.kind_of?(EventGenerator)
+                        add_expectation(NotEmitGenerator.new(generator, backtrace))
+                    else
+                        add_expectation(NotEmitGeneratorModel.new(generator, backtrace))
+                    end
                 end
                 nil
             end
@@ -58,11 +60,18 @@ module Roby
             #       emit find_tasks(MyTask).start_event
             #     end
             # 
-            def emit(generator, backtrace: caller(1))
-                if generator.kind_of?(EventGenerator)
-                    add_expectation(EmitGenerator.new(generator, backtrace))
+            def emit(*generators, backtrace: caller(1))
+                return_values = generators.map do |generator|
+                    if generator.kind_of?(EventGenerator)
+                        add_expectation(EmitGenerator.new(generator, backtrace))
+                    else
+                        add_expectation(EmitGeneratorModel.new(generator, backtrace))
+                    end
+                end
+                if return_values.size == 1
+                    return_values.first
                 else
-                    add_expectation(EmitGeneratorModel.new(generator, backtrace))
+                    return_values
                 end
             end
 
