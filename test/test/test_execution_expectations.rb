@@ -546,6 +546,28 @@ module Roby
                         end
                     end
                 end
+
+                describe "become_unreachable" do
+                    it "succeeds if the generator becomes unreachable" do
+                        plan.add(generator = Roby::EventGenerator.new)
+                        expect_execution { generator.unreachable! }.
+                            to { become_unreachable generator }
+                    end
+                    it "returns the unreachability reason" do
+                        error_m = Class.new(RuntimeError)
+                        plan.add(generator = Roby::EventGenerator.new)
+                        reason = expect_execution { generator.unreachable!(error_m.new) }.
+                            to { become_unreachable generator }
+                        assert_kind_of error_m, reason
+                    end
+                    it "fails if the generator does not become unreachable" do
+                        plan.add(generator = Roby::EventGenerator.new)
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution.timeout(0).
+                                to { become_unreachable generator }
+                        end
+                    end
+                end
             end
 
             describe "#execute" do

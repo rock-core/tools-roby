@@ -66,6 +66,24 @@ module Roby
                 end
             end
 
+            # Expect that the generator(s) become unreachable
+            #
+            # @param [Array<EventGenerator>] generators the generators that are
+            #   expected to become unreachable
+            # @return [Object,Array<Object>] if only one generator is provided,
+            #   its unreachability reason. Otherwise, the unreachability reasons
+            #   of all the generators, in the same order than the argument
+            def become_unreachable(*generators, backtrace: caller(1))
+                return_values = generators.map do |generator|
+                    add_expectation(BecomeUnreachable.new(generator, backtrace))
+                end
+                if return_values.size == 1
+                    return_values.first
+                else
+                    return_values
+                end
+            end
+
             # Expect that the given block returns true
             #
             # @yieldparam [ExecutionEngine::PropagationInfo]
@@ -817,7 +835,7 @@ module Roby
                 end
             end
 
-            class MakeUnreachable < Expectation
+            class BecomeUnreachable < Expectation
                 def initialize(generator, backtrace)
                     super(backtrace)
                     @generator = generator
@@ -825,6 +843,10 @@ module Roby
 
                 def update_match(propagation_info)
                     @generator.unreachable?
+                end
+
+                def return_object
+                    @generator.unreachability_reason
                 end
 
                 def to_s
