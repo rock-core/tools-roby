@@ -1259,9 +1259,9 @@ module Roby
 
             def self.validity_checks_fail_during_propagation(context, exception = TaskEventNotExecutable, *_)
                 context.it "fails in #call_without_propagation" do
-                    error = assert_fatal_exception(
-                        exception, tasks: [task], failure_point: task.start_event) { task.start_event.call }
-                    assert_equal yield(true, task), error.message
+                    execution_exception = expect_execution { task.start_event.call }.
+                        to { have_error_matching exception.match.with_origin(task.start_event) }
+                    assert_equal yield(true, task), execution_exception.exception.message
                 end
 
                 context.it "fails in #emit" do
@@ -2250,14 +2250,12 @@ class TC_Task < Minitest::Test
 	end
 
         plan.add(task = model.new)
-        assert_fatal_exception(EventNotExecutable, tasks: [task], failure_point: task.start_event) do
-            task.start_event.call
-        end
+        expect_execution { task.start_event.call }.
+            to { have_error_matching EventNotExecutable.match.with_origin(task.start_event) }
 
         plan.add(task = model.new)
-        assert_fatal_exception(EventNotExecutable, tasks: [task], failure_point: task.start_event) do
-            task.start!
-        end
+        expect_execution { task.start! }.
+            to { have_error_matching EventNotExecutable.match.with_origin(task.start_event) }
     end
 
     def test_executable
@@ -2549,9 +2547,8 @@ class TC_Task < Minitest::Test
         plan.add(t = task_m.new)
         mock.should_receive(:polled).once
         mock.should_receive(:emitted).once
-        assert_event_emission(t.internal_error_event) do
-            t.start!
-        end
+        expect_execution { t.start! }.
+            to { emit t.internal_error_event }
     end
 
     def test_event_task_sources

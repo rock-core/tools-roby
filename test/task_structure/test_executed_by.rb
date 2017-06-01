@@ -158,9 +158,8 @@ module Roby
                 task_model = Tasks::Simple.new_submodel
                 task_model.executed_by ExecutionAgentModel, id: 2
                 plan.add(task = task_model.new)
-                assert_task_fails_to_start(task, TaskStructure::MissingRequiredExecutionAgent) do
-                    task.start!
-                end
+                expect_execution { task.start! }.
+                    to { fail_to_start task, reason: TaskStructure::MissingRequiredExecutionAgent }
             end
 
             def test_as_plan
@@ -189,18 +188,18 @@ module Roby
                 plan.add(task = Tasks::Simple.new)
                 plan.add(agent = ExecutionAgentModel.new)
                 task.executed_by agent
-                assert_task_fails_to_start(task, TaskStructure::ExecutionAgentNotReady) do
-                    task.start!
-                end
+                expect_execution { task.start! }.
+                    to { fail_to_start task, reason: TaskStructure::ExecutionAgentNotReady }
             end
 
             it "marks the executed tasks as failed_to_start if the agent's ready_event becomes unreachable" do
                 plan.add(task = Tasks::Simple.new)
                 task.executed_by(agent = BaseExecutionAgent.new)
                 agent.start!
-                assert_task_fails_to_start(task, Roby::LocalizedError, failure_point: nil) do
-                    agent.ready_event.unreachable!(LocalizedError.new(task))
-                end
+
+                error_m = Class.new(LocalizedError)
+                expect_execution { agent.ready_event.unreachable!(error_m.new(task)) }.
+                    to { fail_to_start task, reason: error_m }
             end
 
             it "does not mark the executed task as failed_to_start because the ready_event becomes unreachable once it has been emitted" do

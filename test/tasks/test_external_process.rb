@@ -12,56 +12,48 @@ class TC_Tasks_ExternalProcess < Minitest::Test
         end
     end
 
+    def run_task(task)
+        expect_execution { task.start! }.to { emit task.success_event }
+    end
+
     def test_nominal
-        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--no-output"]))
-        assert_event_emission(task.success_event) do
-            task.start!
-        end
+        plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--no-output"]))
+        run_task(task)
     end
 
     def test_nominal_array_with_one_element
-        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
+        plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
         task.redirect_output "mockup-%p.log"
-        assert_event_emission(task.success_event) do
-            task.start!
-        end
+        run_task(task)
     ensure
         FileUtils.rm_f "mockup-#{task.pid}.log"
     end
 
     def test_nominal_no_array
-        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: MOCKUP))
+        plan.add(task = Tasks::ExternalProcess.new(command_line: MOCKUP))
         task.redirect_output "mockup-%p.log"
-        assert_event_emission(task.success_event) do
-            task.start!
-        end
+        run_task(task)
     ensure
         FileUtils.rm_f "mockup-#{task.pid}.log"
     end
 
     def test_inexistent_program
         plan.add(task = Tasks::ExternalProcess.new(command_line: ['does_not_exist', "--error"]))
-        assert_task_fails_to_start(task, CommandFailed, original_exception: Errno::ENOENT) do
-            task.start!
-        end
+        expect_execution { task.start! }.
+            to { fail_to_start task, reason: CommandFailed.match.with_original_exception(Errno::ENOENT) }
     end
 
     def test_failure
         plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--error"]))
-        assert_event_emission(task.failed_event, garbage_collect: false) do
-            task.start!
-        end
+        expect_execution { task.start! }.to { emit task.failed_event }
         assert_equal 1, task.event(:failed).last.context.first.exitstatus
     end
 
     def test_signaling
         plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--block"]))
-        assert_event_emission(task.start_event) do
-            task.start!
-        end
-        assert_event_emission(task.failed_event, garbage_collect: false) do
-            Process.kill 'KILL', task.pid
-        end
+        expect_execution { task.start! }.to { emit task.start_event }
+        expect_execution { Process.kill('KILL', task.pid) }.
+            to { emit task.failed_event }
         assert task.signaled?
 
         ev = task.signaled_event.last
@@ -69,12 +61,10 @@ class TC_Tasks_ExternalProcess < Minitest::Test
     end
 
     def do_redirection(expected)
-        plan.add_permanent_task(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
+        plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
         yield(task)
 
-        assert_event_emission(task.success_event) do
-            task.start!
-        end
+        run_task(task)
 
         assert File.exists?("mockup-#{task.pid}.log")
         File.read("mockup-#{task.pid}.log")

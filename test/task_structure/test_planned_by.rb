@@ -33,21 +33,23 @@ module Roby
                 end
 
                 it "does not generate any error if the planner is running" do
-                    planner.start!
+                    execute { planner.start! }
                     assert_equal([], plan.check_structure.to_a)
                 end
 
                 it "does not generate any error if the planner has successfully finished" do
-                    planner.start!
-                    planner.success!
+                    execute do
+                        planner.start!
+                        planner.success!
+                    end
                     assert_equal([], plan.check_structure.to_a)
                 end
 
                 it "generates a PlanningFailedError error localized on the planned task if the planner fails" do
-                    planner.start!
-                    error = assert_fatal_exception(PlanningFailedError, failure_point: task, tasks: [task]) do
-                        planner.failed!
-                    end
+                    execute { planner.start! }
+                    error = expect_execution { planner.failed! }.
+                        to { have_error_matching PlanningFailedError.match.with_origin(task) }.
+                        exception
                     assert_equal planner, error.planning_task
                     assert_equal task, error.planned_task
                 end
@@ -60,8 +62,10 @@ module Roby
                     planner = task.planned_by(Roby::Test::Tasks::Simple.new)
                     planner.start!
 
-                    assert_fatal_exception(PlanningFailedError, failure_point: task, tasks: [task, root]) do
-                        planner.failed!
+                    expect_execution { planner.failed! }.to do
+                        have_error_matching PlanningFailedError.match.with_origin(task).
+                            to_execution_exception_matcher.
+                            with_trace(task => root)
                     end
                 end
             end

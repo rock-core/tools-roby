@@ -33,7 +33,7 @@ module Roby
                 @test.roby_run_planner(@toplevel_task)
                 state_task = @toplevel_task.current_task_child
                 if start
-                    @test.assert_event_emission state_task.start_event
+                    expect_execution.to { emit state_task.start_event }
                 end
                 state_task
             end

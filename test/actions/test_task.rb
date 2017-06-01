@@ -43,31 +43,31 @@ class TC_Actions_Task < Minitest::Test
         assert task.success?
     end
 
-    def test_it_emits_failed_if_the_action_raised
+    def test_it_emits_failed_and_raises_PlanningFailedError_if_the_action_raised
         flexmock(iface_m).new_instances.
             should_receive(:test_action).and_raise(ArgumentError)
-        assert_fatal_exception Roby::PlanningFailedError, failure_point: task.planned_task, tasks: [task.planned_task] do
-            task.start!
+        expect_execution { task.start! }.to do
+            have_error_matching PlanningFailedError.match.with_origin(task.planned_task)
+            emit task.failed_event
         end
-        assert task.failed?
     end
 
     def test_it_emits_failed_if_the_transaction_failed_to_commit
         flexmock(Transaction).new_instances.
             should_receive(:commit_transaction).and_raise(ArgumentError)
-        assert_fatal_exception Roby::PlanningFailedError, failure_point: task.planned_task, tasks: [task.planned_task] do
-            task.start!
+        expect_execution { task.start! }.to do
+            have_error_matching PlanningFailedError.match.with_origin(task.planned_task)
+            emit task.failed_event
         end
-        assert task.failed?
     end
 
     def test_it_discards_the_transaction_on_failure
         flexmock(iface_m).new_instances.should_receive(:test_action).and_raise(ArgumentError)
         flexmock(Transaction).new_instances.should_receive(:discard_transaction).once.pass_thru
-        assert_fatal_exception Roby::PlanningFailedError, failure_point: task.planned_task, tasks: [task.planned_task] do
-            task.start!
+        expect_execution { task.start! }.to do
+            have_error_matching PlanningFailedError.match.with_origin(task.planned_task)
+            emit task.failed_event
         end
-        assert task.failed?
         assert !task.transaction.plan, "transaction is neither discarded nor committed"
     end
 
@@ -89,9 +89,8 @@ class TC_Actions_Task < Minitest::Test
         plan.add(task = iface_m.test_action.as_plan)
         tracker = task.as_service
         task.planning_task.job_id = 10
-        assert_event_emission(task.planning_task.success_event, garbage_collect: false) do
-            task.planning_task.start!
-        end
+        expect_execution { task.planning_task.start! }.
+            to { emit task.planning_task.success_event }
         assert_kind_of task_m, tracker.task
         assert_kind_of planning_m, tracker.task.planning_task
         assert_equal 10, tracker.task.planning_task.job_id
@@ -115,9 +114,8 @@ class TC_Actions_Task < Minitest::Test
         plan.add(task = iface_m.test_action.as_plan)
         tracker = task.as_service
         task.planning_task.job_id = 10
-        assert_event_emission(task.planning_task.success_event, garbage_collect: false) do
-            task.planning_task.start!
-        end
+        expect_execution { task.planning_task.start! }.
+            to { emit task.planning_task.success_event }
         assert_nil tracker.task.planning_task.job_id
     end
 

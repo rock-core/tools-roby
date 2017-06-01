@@ -68,11 +68,11 @@ module Roby
                             wait event_source_task.test_event
                             emit success_event
                         end
-                        root.start!
-                        event_source_task.start! if !event_source_task.running?
-                        assert_fatal_exception(Models::Script::DeadInstruction, failure_point: root, tasks: [root]) do
+                        expect_execution do
+                            root.start!
+                            event_source_task.start! if !event_source_task.running?
                             event_source_task.test_event.unreachable!
-                        end
+                        end.to { have_error_matching Models::Script::DeadInstruction.match.with_origin(root) }
                     end
                 end
 
@@ -84,11 +84,11 @@ module Roby
                             wait event_source_task.test_event
                             emit success_event
                         end
-                        event_source_task.start!; event_source_task.stop!
-
-                        assert_fatal_exception(Models::Script::DeadInstruction, failure_point: root, tasks: [root]) do
+                        expect_execution do
+                            event_source_task.start!
+                            event_source_task.stop!
                             root.start!
-                        end
+                        end.to { have_error_matching Models::Script::DeadInstruction.match.with_origin(root) }
                     end
                 end
 

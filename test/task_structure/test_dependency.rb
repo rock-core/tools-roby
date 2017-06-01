@@ -512,11 +512,17 @@ class TC_Dependency < Minitest::Test
         plan.add(grandchild)
         parent.depends_on child, failure: :failed
         grandchild.stop_event.forward_to child.aborted_event
-        parent.start!
-        child.start!
-        grandchild.start!
-        assert_fatal_exception(ChildFailedError, failure_point: child, tasks: [parent, child]) do
+
+        expect_execution do
+            parent.start!
+            child.start!
+            grandchild.start!
             grandchild.stop!
+        end.to do
+            have_error_matching ChildFailedError.match.
+                with_origin(child).
+                to_execution_exception_matcher.
+                with_trace(child => parent)
         end
     end
 
@@ -525,11 +531,15 @@ class TC_Dependency < Minitest::Test
         plan.add(parent)
         plan.add(grandchild)
         parent.depends_on child, failure: :start.never
-        grandchild.start!
-        parent.start!
-
-        assert_fatal_exception(ChildFailedError, failure_point: child.start_event, tasks: [parent, child]) do
+        expect_execution do
+            grandchild.start!
+            parent.start!
             child.start_event.unreachable!(grandchild.start_event.last)
+        end.to do
+            have_error_matching ChildFailedError.match.
+                with_origin(child.start_event).
+                to_execution_exception_matcher.
+                with_trace(child => parent)
         end
     end
 end
@@ -652,9 +662,13 @@ module Roby
                             should_receive(:<<).with(child.start_event).at_least.once.pass_thru
                         flexmock(dependency_graph.interesting_events).
                             should_receive(:<<)
-                        assert_fatal_exception(ChildFailedError, tasks: [parent, child], failure_point: child) do
-                            child.failed_to_start!(nil)
-                        end
+                        expect_execution { child.failed_to_start!(nil) }.
+                            to do
+                                have_error_matching ChildFailedError.match.
+                                    with_origin(child).
+                                    to_execution_exception_matcher.
+                                    with_trace(child => parent)
+                            end
                     end
 
                     context.it "registers an event emitted that is negatively involved in a dependency" do
@@ -665,9 +679,13 @@ module Roby
                             should_receive(:<<).with(child.start_event).at_least.once.pass_thru
                         flexmock(dependency_graph.interesting_events).
                             should_receive(:<<)
-                        assert_fatal_exception(ChildFailedError, tasks: [parent, child], failure_point: child.start_event) do
-                            child.start!
-                        end
+                        expect_execution { child.start! }.
+                            to do
+                                have_error_matching ChildFailedError.match.
+                                    with_origin(child).
+                                    to_execution_exception_matcher.
+                                    with_trace(child => parent)
+                            end
                     end
 
                     context.it "removes a finalized event" do
@@ -753,52 +771,49 @@ module Roby
             describe "failure on pending relation" do
                 attr_reader :parent, :child, :decision_control
                 before do
-                    plan.add(@parent = Tasks::Simple.new)
-                    parent.depends_on(@child = Tasks::Simple.new, failure: :stop)
                     @decision_control = flexmock
                     plan.execution_engine.control = @decision_control
                 end
 
+                def expect_pending_relation(**options)
+                    plan.add(@parent = Tasks::Simple.new)
+                    @parent.depends_on(@child = Tasks::Simple.new, failure: :stop, **options)
+                    expect_execution do
+                        child.start!
+                        child.stop!
+                    end
+                end
+
                 it "generates an error on failure events if the decision control object returns true" do
                     decision_control.should_receive(pending_dependency_failed: true).at_least.once
-                    child.start!
-                    assert_fatal_exception(ChildFailedError, failure_point: child, tasks: [parent, child]) do
-                        child.stop!
+                    expect_pending_relation.to do
+                        have_error_matching ChildFailedError.match.
+                            with_origin(child).
+                            to_execution_exception_matcher.
+                            with_trace(child => parent)
                     end
                 end
 
                 it "does not generate an error on failure events if the decision control object returns false" do
                     decision_control.should_receive(pending_dependency_failed: false).at_least.once
-                    child.start!
-                    child.stop!
+                    expect_pending_relation.to_run
                 end
 
                 it "does not generate an error on failure events if the relation was created with consider_in_pending: false" do
                     decision_control.should_receive(:pending_dependency_failed).never
-                    plan.add(parent = Tasks::Simple.new)
-                    parent.depends_on(child = Tasks::Simple.new, failure: :stop, consider_in_pending: false)
-                    child.start!
-                    child.stop!
+                    expect_pending_relation(consider_in_pending: false).to_run
                 end
 
                 it "fails on parent startup if the relation's failure was ignored by the decision control" do
                     decision_control.should_receive(pending_dependency_failed: false).at_least.once
-                    plan.add(parent = Tasks::Simple.new)
-                    parent.depends_on(child = Tasks::Simple.new, failure: :stop)
-                    child.start!
-                    child.stop!
-                    assert_fatal_exception(ChildFailedError, failure_point: child.stop_event, tasks: [parent, child]) do
-                        parent.start!
-                    end
+                    expect_pending_relation.to_run
+                    expect_execution { parent.start! }.
+                        to { have_error_matching ChildFailedError.match.with_origin(child.stop_event) }
                 end
                 it "fails on parent startup if the relation's failure was ignored with 'consider_in_pending'" do
-                    plan.add(parent = Tasks::Simple.new)
-                    parent.depends_on(child = Tasks::Simple.new, failure: :stop, consider_in_pending: false)
-                    child.start!
-                    child.stop!
-                    assert_fatal_exception(ChildFailedError, failure_point: child.stop_event, tasks: [parent, child]) do
-                        parent.start!
-                    end
+                    expect_pending_relation(consider_in_pending: false).to_run
+                    expect_execution { parent.start! }.
+                        to { have_error_matching ChildFailedError.match.with_origin(child.stop_event) }
                 end
             end
 
@@ -830,24 +845,31 @@ module Roby
 
                 it "reports a ChildFailedError if a positive 'start' event becomes unreachable" do
                     parent.depends_on(child = Roby::Tasks::Simple.new, success: :start)
-                    assert_fatal_exception(ChildFailedError, failure_point: child.start_event, tasks: [parent, child]) do
-                        child.start_event.unreachable!
+                    expect_execution { child.start_event.unreachable! }.to do
+                        have_error_matching ChildFailedError.match.
+                            with_origin(child.start_event).
+                            to_execution_exception_matcher.
+                            with_trace(child => parent)
                     end
                 end
                 
                 it "reports a ChildFailedError if a positive intermediate event becomes unreachable" do
                     parent.depends_on(child = child_m.new, success: :intermediate)
-                    child.start!
-                    assert_fatal_exception(ChildFailedError, failure_point: child.stop_event, tasks: [parent, child]) do
-                        child.stop_event.emit
+                    expect_execution { child.start!; child.stop_event.emit }.to do
+                        have_error_matching ChildFailedError.match.
+                            with_origin(child.stop_event).
+                            to_execution_exception_matcher.
+                            with_trace(child => parent)
                     end
                 end
 
                 it "reports a ChildFailedError if an event listed in 'failure' is emitted" do
                     parent.depends_on(child = child_m.new, failure: :intermediate)
-                    child.start!
-                    assert_fatal_exception(ChildFailedError, failure_point: child.intermediate_event, tasks: [parent, child]) do
-                        child.intermediate_event.emit
+                    expect_execution { child.start!; child.intermediate_event.emit }.to do
+                        have_error_matching ChildFailedError.match.
+                            with_origin(child.intermediate_event).
+                            to_execution_exception_matcher.
+                            with_trace(child => parent)
                     end
                 end
 
@@ -855,15 +877,27 @@ module Roby
                     plan.add(child = child_m.new)
                     child.start!
                     parent.depends_on(child, failure: :start)
-                    assert_fatal_exception(ChildFailedError, failure_point: child.start_event, tasks: [parent, child])
+                    expect_execution.to do
+                        have_error_matching ChildFailedError.match.
+                            with_origin(child.start_event).
+                            to_execution_exception_matcher.
+                            with_trace(child => parent)
+                    end
                 end
 
                 it "reports a ChildFailedError if adding a new dependency while the success event was already unreachable" do
                     plan.add(child = child_m.new)
-                    child.start!
-                    child.intermediate_event.unreachable!
+                    execute do
+                        child.start!
+                        child.intermediate_event.unreachable!
+                    end
                     parent.depends_on(child, success: :intermediate)
-                    assert_fatal_exception(ChildFailedError, failure_point: child.intermediate_event, tasks: [parent, child])
+                    expect_execution.to do
+                        have_error_matching ChildFailedError.match.
+                            with_origin(child.intermediate_event).
+                            to_execution_exception_matcher.
+                            with_trace(child => parent)
+                    end
                 end
 
                 it "reports success if both a positive and negative events are emitted at the same time" do

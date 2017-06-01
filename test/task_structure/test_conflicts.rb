@@ -44,12 +44,12 @@ module Roby
                     assert task_2.child_object?(task_1, Roby::TaskStructure::Conflicts)
                 end
                 it "fails a conflicting task that attempts to start" do
-                    task_1.start!
-                    assert_fatal_exception(CommandRejected, tasks: [task_2], failure_point: task_2.start_event) do
-                        task_2.start!
-                    end
-                    assert task_2.failed_to_start?
-                    assert_kind_of Roby::TaskStructure::ConflictError, task_2.failure_reason
+                    execute { task_1.start! }
+                    expect_execution { task_2.start! }.
+                        to do
+                            have_error_matching CommandRejected.match.with_origin(task_2.start_event)
+                            fail_to_start task_2, reason: ConflictError
+                        end
                 end
             end
         end

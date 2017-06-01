@@ -1,6 +1,8 @@
 require 'roby/test/self'
 
-describe Roby::Coordination::ActionStateMachine do
+module Roby
+    module Coordination
+describe ActionStateMachine do
     attr_reader :task_m, :action_m, :description
     before do
         task_m = @task_m = Roby::Task.new_submodel(name: 'TaskModel') do
@@ -26,13 +28,16 @@ describe Roby::Coordination::ActionStateMachine do
         task
     end
 
+    def plan_machine_child(machine_task)
+        expect_execution { machine_task.current_task_child.planning_task.start! }.
+            to { emit machine_task.current_task_child.planning_task.success_event }
+        machine_task.current_task_child
+    end
+
     def start_machine_child(machine_task)
-        assert_event_emission(machine_task.current_task_child.planning_task.success_event) do
-            machine_task.current_task_child.planning_task.start!
-        end
-        assert_event_emission(machine_task.current_task_child.start_event) do
-            machine_task.current_task_child.start!
-        end
+        child = plan_machine_child(machine_task)
+        expect_execution { child.start! }.
+            to { emit child.start_event }
     end
 
 
@@ -215,9 +220,7 @@ describe Roby::Coordination::ActionStateMachine do
             task.start!
 
             state_machine = task.each_coordination_object.first
-            assert_event_emission task.current_task_child.planning_task.success_event do
-                task.current_task_child.planning_task.start!
-            end
+            plan_machine_child(task)
 
             flexmock(state_machine).should_receive(:instanciate_state_transition).once.pass_thru
             state_task.left_event.emit
@@ -255,9 +258,7 @@ describe Roby::Coordination::ActionStateMachine do
 
             state_machine = task.each_coordination_object.first
             2.times do |i|
-                assert_event_emission task.current_task_child.planning_task.success_event do
-                    task.current_task_child.planning_task.start!
-                end
+                plan_machine_child(task)
                 FlexMock.use(state_machine) do |machine|
                     machine.should_receive(:instanciate_state_transition).once.pass_thru
                     task.current_task_child.transition_event.emit
@@ -274,12 +275,11 @@ describe Roby::Coordination::ActionStateMachine do
             state_machine = task.each_coordination_object.first
             flexmock(state_machine).should_receive(:instanciate_state_transition).
                 and_raise(error_m = Class.new(Exception))
-
-            task.current_task_child.start!
-            plan.unmark_permanent_task(task)
-            assert_fatal_exception(Roby::ActionStateTransitionFailed, failure_point: task, original_exception: error_m, tasks: [task]) do
+            
+            expect_execution do
+                task.current_task_child.start!
                 task.current_task_child.stop_event.emit
-            end
+            end.to { have_error_matching ActionStateTransitionFailed.match.with_origin(task).with_original_exception(error_m) }
         end
     end
 
@@ -295,11 +295,14 @@ describe Roby::Coordination::ActionStateMachine do
         end
 
         task = start_machine(action_m.test)
-        task.children.first.start!
-        task.children.first.success_event.emit
-        task.children.first.start!
-        task.children.first.success_event.emit
-        assert task.next_is_done_event.emitted?
+        execute do
+            task.children.first.start!
+            task.children.first.success_event.emit
+        end
+        expect_execution do
+            task.children.first.start!
+            task.children.first.success_event.emit
+        end.to { emit task.next_is_done_event }
     end
 
     it "setups forwards so that the context is passed along" do
@@ -314,10 +317,9 @@ describe Roby::Coordination::ActionStateMachine do
             start.success_event.forward_to success_event
         end
         task = start_machine(action_m.test)
-        assert_event_emission task.success_event do
-            task.start_state_child.start!
-        end
-        assert_equal [10], task.success_event.last.context
+        event = expect_execution { task.start_state_child.start! }.
+            to { emit task.success_event }
+        assert_equal [10], event.context
     end
 
     it "sets known transitions and only them as 'success' in the dependency" do
@@ -326,11 +328,9 @@ describe Roby::Coordination::ActionStateMachine do
         end
 
         task = start_machine(action_m.test)
-        plan.unmark_permanent_task(task)
-        task.current_task_child.start!
-        assert_fatal_exception(Roby::ChildFailedError, failure_point: task.current_task_child.success_event, tasks: [task, task.current_task_child]) do
-            task.current_task_child.success_event.emit
-        end
+        execute { task.current_task_child.start! }
+        expect_execution { task.current_task_child.success_event.emit }.
+            to { have_error_matching ChildFailedError.match.with_origin(task.current_task_child.success_event) }
         plan.remove_task(task.children.first)
     end
 
@@ -464,10 +464,12 @@ describe Roby::Coordination::ActionStateMachine do
             test_task = start_machine(action_m.test)
             start_machine_child(test_task)
             plan.unmark_permanent_task(test_task)
-            e = assert_fatal_exception(Roby::ActionStateTransitionFailed, failure_point: test_task, original_exception: Roby::Coordination::Models::Capture::Unbound, tasks: [test_task]) do
-                test_task.current_task_child.stop!
-            end
-            assert_equal "in the action state machine #{action_m}.test running on #{test_task} while starting followup_state, capture:arg is not bound yet", e.original_exceptions.first.message
+            execution_exception = expect_execution { test_task.current_task_child.stop! }.
+                to { have_error_matching ActionStateTransitionFailed.match.
+                     with_origin(test_task).
+                     with_original_exception(Models::Capture::Unbound) }
+            assert_equal "in the action state machine #{action_m}.test running on #{test_task} while starting followup_state, capture:arg is not bound yet",
+                execution_exception.exception.original_exceptions.first.message
         end
     end
 
@@ -493,7 +495,7 @@ describe Roby::Coordination::ActionStateMachine do
     # NOTE: this should be in a separate test suite for Coordination::Base (!)
     def test_it_can_be_associated_with_fault_response_tables
         task_m = self.task_m
-        table_m = Roby::Coordination::FaultResponseTable.new_submodel
+        table_m = FaultResponseTable.new_submodel
         action_m.action_state_machine 'test' do
             use_fault_response_table table_m
             start state(task_m)
@@ -511,7 +513,7 @@ describe Roby::Coordination::ActionStateMachine do
     # NOTE: this should be in a separate test suite for Coordination::Base (!)
     def test_it_can_pass_arguments_to_the_associated_fault_response_tables
         task_m = self.task_m
-        table_m = Roby::Coordination::FaultResponseTable.new_submodel do
+        table_m = FaultResponseTable.new_submodel do
             argument :arg
         end
         description.required_arg('machine_arg')
@@ -560,4 +562,5 @@ describe Roby::Coordination::ActionStateMachine do
         task.current_task_child.success_event.emit
     end
 end
-
+    end
+end

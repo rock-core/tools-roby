@@ -423,20 +423,29 @@ module Roby
                 @child_e = localized_error_m.new(child).to_execution_exception
             end
 
+            def assert_raises_error_with_trace(*trace)
+                expect_execution { yield }.to do
+                    have_error_matching localized_error_m.match.
+                        with_origin(child).
+                        to_execution_exception_matcher.
+                        with_trace(*trace)
+                end
+            end
+
             it "adds the error with no parents by default" do
-                assert_fatal_exception(localized_error_m, failure_point: child, tasks: [other_root, root, child]) do
+                assert_raises_error_with_trace(child => [other_root, root]) do
                     execution_engine.add_error(child_e)
                 end
             end
 
             it "allows providing specific parents" do
-                assert_fatal_exception(localized_error_m, failure_point: child, tasks: [root, child]) do
+                assert_raises_error_with_trace(child => root) do
                     execution_engine.add_error(child_e, propagate_through: [root])
                 end
             end
 
             it "does not propagate the exception if an empty parent set is given" do
-                assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child]) do
+                assert_raises_error_with_trace do
                     execution_engine.add_error(child_e, propagate_through: [])
                 end
             end
@@ -1105,9 +1114,8 @@ module Roby
             describe "tasks that are being forcefully killed" do
                 it "inhibits errors that have the same class and origin than the one that caused the error" do
                     root.depends_on(child = task_m.new)
-                    assert_fatal_exception(localized_error_m, failure_point: child, tasks: [child, root]) do
-                        execution_engine.add_error(localized_error_m.new(child))
-                    end
+                    expect_execution { execution_engine.add_error(localized_error_m.new(child)) }.
+                        to { have_error_matching localized_error_m }
                     expect_execution { execution_engine.add_error(localized_error_m.new(child)) }.to_run
                 end
                 it "does report new errors while the task is being GCed but then inhibits them as well" do
@@ -1131,7 +1139,9 @@ module Roby
                 root.stop_event.when_unreachable do
                     execution_engine.add_error localized_error_m.new(root)
                 end
-                assert_fatal_exception(localized_error_m, tasks: [root], kill_tasks: [root], garbage_collect: true)
+                expect_execution.garbage_collect(true).to do
+                    have_error_matching localized_error_m
+                end
             end
 
             describe "exception notification" do
@@ -1190,10 +1200,10 @@ module Roby
                         forward specialized_failure: :failed
                     end
                     plan.add_permanent_task(task = task_m.new)
-                    task.start!
-                    assert_nonfatal_exception(PermanentTaskError, failure_point: task.specialized_failure_event, tasks: [task]) do
+                    expect_execution do
+                        task.start!
                         task.specialized_failure_event.emit
-                    end
+                    end.to { have_error_matching PermanentTaskError.match.with_origin(task.specialized_failure_event) }
                 end
 
                 it "adds a PermanentTaskError if a permanent task is involved in an unhandled exception, and passes the exception" do
@@ -1224,9 +1234,8 @@ module Roby
                     end
                     plan.add_mission_task(task = task_m.new)
                     task.start!
-                    assert_fatal_exception(MissionFailedError, failure_point: task.specialized_failure_event, tasks: [task]) do
-                        task.specialized_failure_event.emit
-                    end
+                    expect_execution { task.specialized_failure_event.emit }.
+                        to { have_error_matching MissionFailedError.match.with_origin(task.specialized_failure_event) }
                 end
 
                 it "adds a MissionFailedError if a mission task is involved in a fatal exception, and passes the exception" do
@@ -1336,10 +1345,11 @@ module Roby
                 end
 
                 it "marks the involved free events as unreachable" do
-                    assert_free_event_exception(localized_error_m, failure_point: event) do
-                        execution_engine.add_error(localized_error_m.new(event))
-                    end
-                    assert event.unreachable?
+                    expect_execution { execution_engine.add_error(localized_error_m.new(event)) }.
+                        to do
+                            become_unreachable event
+                            have_error_matching localized_error_m
+                        end
                 end
             end
         end
