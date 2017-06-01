@@ -55,7 +55,32 @@ module Roby
                 self
             end
 
+            # Match the exception trace
+            #
+            # The trace is a representation of the exception's propagation
+            # during Roby's exception propagation phase. This verifies that the
+            # graph contains the edges specified by its argument
+            #
+            # @overload with_trace(*edges)
+            #   @param [Array<Task>] edges specify the edges of the propagation
+            #     graph two-by-two, source then sink
+            #
+            #     @example match a graph with (source0, sink0), (source0, sink1) edges
+            #       with_trace(source0, sink0, source0, sink1)
+            #
+            # @overload with_trace(edges)
+            #   @param [Hash] edges specify edges as a mapping. Edges that share
+            #     the same source must be specified as source=>[sink0, sink1]
+            #
+            #     @example match a graph with (source0, sink0), (source0, sink1) edges
+            #       with_trace(source0 => [sink0, sink1])
+            #
             def with_trace(*edges)
+                if edges.first.kind_of?(Hash)
+                    edges = edges.first.to_a.flat_map do |source, targets|
+                        Array(targets).flat_map { |t| [source, t] }
+                    end
+                end
                 @expected_edges = edges.each_slice(2).map { |a, b| [a, b, nil] }.to_set
                 self
             end
