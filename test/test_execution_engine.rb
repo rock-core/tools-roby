@@ -340,6 +340,30 @@ module Roby
                     end
             end
 
+            it "inhibits exceptions originating from garbage-collected tasks" do
+                plan.add(event = EventGenerator.new)
+                event.when_unreachable do
+                    plan.add_error(LocalizedError.new(event))
+                end
+                expect_execution.garbage_collect(true).to_run
+            end
+
+            it "inhibits exceptions originating from garbage-collected tasks" do
+                plan.add(task = Roby::Tasks::Simple.new)
+                task.stop_event.when_unreachable do
+                    plan.add_error(LocalizedError.new(task))
+                end
+                expect_execution.garbage_collect(true).to_run
+            end
+
+            it "inhibits exceptions originating from garbage-collected tasks whose events have exceptions" do
+                plan.add(task = Roby::Tasks::Simple.new)
+                task.stop_event.when_unreachable do
+                    plan.add_error(LocalizedError.new(task.stop_event))
+                end
+                expect_execution.garbage_collect(true).to_run
+            end
+
             describe "handling of the quarantine" do
                 it "does not attempt to terminate a running quarantined task" do
                     plan.add(task = Tasks::Simple.new)

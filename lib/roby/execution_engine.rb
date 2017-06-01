@@ -1288,8 +1288,10 @@ module Roby
             end
             # Normalize the free events exceptions
             free_events_exceptions = free_events_exceptions.map do |e, _|
-                [e, Set[e.exception.failed_generator]]
-            end
+                if e.exception.failed_generator.plan
+                    [e, Set[e.exception.failed_generator]]
+                end
+            end.compact
 
             debug "Filtering inhibited exceptions"
             exceptions = log_nest(2) do
@@ -1326,6 +1328,10 @@ module Roby
         #   origin.task towards which they should be propagated
         # @return [Array<ExecutionException>] the unhandled exceptions
         def remove_inhibited_exceptions(exceptions)
+            exceptions = exceptions.find_all do |execution_exception, _|
+                execution_exception.origin.plan
+            end
+
             propagate_exception_in_plan(exceptions) do |e, object|
                 if has_pending_exception_matching?(e, object)
                     true
