@@ -351,19 +351,28 @@ module Roby
 
                 def to_s
                     "#{@errors.size} unexpected errors\n" +
-                    @errors.map do |e|
-                        exception = Roby.format_exception(e).join("\n")
-                        backtrace =
-                            if e.kind_of?(ExecutionException)
-                                Roby.format_backtrace(e.exception)
-                            else
-                                Roby.format_backtrace(e)
-                            end
+                    @errors.each_with_index.map do |e, i|
+                        formatted_execution_exception =
+                            "[#{i}/#{@errors.size}] " + Roby.format_exception(e).join("\n")
 
-                        if !backtrace.empty?
-                            exception += "  " + backtrace.join("\n  ")
+                        if e.kind_of?(ExecutionException)
+                            e = e.exception
                         end
-                        exception
+                        sub_exceptions = Roby.flatten_exception(e)
+                        sub_exceptions.delete(e)
+                        formatted_sub_exceptions = sub_exceptions.each_with_index.map do |sub_e, sub_i|
+                            formatted = "[#{sub_i}] " + Roby.format_exception(sub_e).join("\n    ")
+                            backtrace = Roby.format_backtrace(sub_e)
+                            if !backtrace.empty?
+                                formatted += "    " + backtrace.join("\n    ")
+                            end
+                            formatted
+                        end.join("\n  ")
+
+                        if !formatted_sub_exceptions.empty?
+                            formatted_execution_exception += "\n  " + formatted_sub_exceptions
+                        end
+                        formatted_execution_exception
                     end.join("\n")
                 end
             end
