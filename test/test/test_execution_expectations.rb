@@ -517,6 +517,27 @@ module Roby
                     end
                 end
 
+                describe "#maintain" do
+                    it "succeeds if the block returns true during the whole duration" do
+                        expect_execution.
+                            to { maintain(at_least_during: 0.2) { true } }
+                    end
+                    it "fails if the block returns false at least one time during the whole duration" do
+                        flag = false
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution.
+                                to { maintain(at_least_during: 0.2) { flag = !flag } }
+                        end
+                    end
+                    it "evaluates the block for at_least_during seconds" do
+                        Timecop.freeze(base_time = Time.now)
+                        expect_execution.to do
+                            maintain(at_least_during: 1) { Timecop.freeze(Time.now + 0.1); true }
+                        end
+                        assert (Time.now - base_time) >= 1
+                    end
+                end
+
                 describe "#achieve" do
                     it "succeeds if the block returns true" do
                         expect_execution.

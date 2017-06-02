@@ -93,6 +93,21 @@ module Roby
                 end
             end
 
+            # Expect that the given block is true during a certain amount of
+            # time
+            #
+            # @param [Float] at_least_during the minimum duration in seconds. If
+            #   zero, the expectations will run at least one execution cycle. The
+            #   exact duration depends on the other expectations.
+            # @yieldparam [ExecutionEngine::PropagationInfo]
+            #   all_propagation_info all that happened during the propagations
+            #   since the beginning of expect_execution block. It contains event
+            #   emissions and raised/caught errors.
+            # @yieldreturn [Boolean] expected to be true over duration seconds
+            def maintain(at_least_during: 0, description: nil, backtrace: caller(1), &block)
+                add_expectation(Maintain.new(at_least_during, block, description, backtrace))
+            end
+
             # Expect that the given block returns true
             #
             # @yieldparam [ExecutionEngine::PropagationInfo]
@@ -949,6 +964,42 @@ module Roby
 
                 def to_s
                     "have a framework error matching #{@error_matcher}"
+                end
+            end
+
+            class Maintain < Expectation
+                def initialize(at_least_during, block, description, backtrace)
+                    super(backtrace)
+                    @at_least_during = at_least_during
+                    @description = description
+                    @block = block
+                    @deadline = Time.now + at_least_during
+                    @failed = false
+                end
+
+                def update_match(propagation_info)
+                    if !@block.call(propagation_info)
+                        @failed = true
+                        return false
+                    elsif Time.now > @deadline
+                        return true
+                    end
+                end
+
+                def unachievable?(propagation_info)
+                    @failed
+                end
+
+                def explain_unachievable(propagation_info)
+                    "#{self} returned false"
+                end
+
+                def to_s
+                    if @description
+                        @description
+                    else
+                        @backtrace[0].to_s
+                    end
                 end
             end
 
