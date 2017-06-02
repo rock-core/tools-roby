@@ -125,7 +125,6 @@ module Roby
             # @return [nil]
             def fail_to_start(task, reason: nil, backtrace: caller(1))
                 add_expectation(FailsToStart.new(task, reason, backtrace))
-                nil
             end
 
             # Expect that the given task becomes running
@@ -924,6 +923,10 @@ module Roby
 
                 def explain_unachievable(propagation_info)
                     "#{@task.failure_reason} does not match #{@reason}"
+                end
+
+                def return_object
+                    @task.failure_reason
                 end
 
                 def to_s

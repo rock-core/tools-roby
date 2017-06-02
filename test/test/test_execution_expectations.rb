@@ -444,6 +444,11 @@ module Roby
                         expect_execution { task.failed_to_start!(CodeError.new(error_m.new, task)) }.
                             to { fail_to_start task, reason: error_m }
                     end
+                    it "returns the failure reason" do
+                        ret = expect_execution { task.failed_to_start!(CodeError.new(error_m.new, task)) }.
+                            to { fail_to_start task, reason: error_m }
+                        assert_equal task.failure_reason, ret
+                    end
                     it "does not match if the given reason matcher does not match the failure reason" do
                         other_error_m = Class.new(RuntimeError)
                         assert_raises(ExecutionExpectations::Unmet) do
