@@ -21,6 +21,11 @@ describe Roby::Queries::TaskEventGeneratorMatcher do
                 Roby::Queries::TaskEventGeneratorMatcher.new(task_matcher, *args)
             end
 
+            it "returns false for a plain event generator" do
+                plan.add(generator = Roby::EventGenerator.new)
+                assert !(create_matcher === generator)
+            end
+
             it "should return false if the task matcher returns false" do
                 task_matcher.should_receive(:===).with(task).and_return(false)
                 assert !(create_matcher === generator)
@@ -68,6 +73,10 @@ describe Roby::Queries::TaskEventGeneratorMatcher do
                 Roby::Queries::TaskEventGeneratorMatcher.new(task_matcher, *args).generalized
             end
 
+            it "returns false for a plain event generator" do
+                plan.add(generator = Roby::EventGenerator.new)
+                assert !(create_matcher === generator)
+            end
             it "should return false if the task matcher returns false" do
                 task_matcher.should_receive(:===).with(task).and_return(false)
                 assert !(create_matcher === generator)

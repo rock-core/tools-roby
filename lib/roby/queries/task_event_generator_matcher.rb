@@ -63,6 +63,8 @@ module Roby
             # @param [TaskEventGenerator] object
             # @return [Boolean]
             def ===(object)
+                return if !object.kind_of?(TaskEventGenerator)
+
                 if match_not_generalized(object)
                     true
                 elsif generalized?
