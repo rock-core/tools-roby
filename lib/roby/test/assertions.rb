@@ -241,13 +241,13 @@ module Roby
             end
 
             # @deprecated use #expect_execution { ... }.to { emit event } instead
-            def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, enable_scheduler: nil, garbage_collect: true)
+            def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, enable_scheduler: nil, garbage_collect_pass: true)
                 Roby.warn_deprecated "#{__method__} is deprecated, use #expect_execution { ... }.to { emit event } instead"
                 expect_execution do
                     yield if block_given?
                 end.timeout(timeout).
                     scheduler(enable_scheduler).
-                    garbage_collect(garbage_collect).
+                    garbage_collect(garbage_collect_pass).
                 to do
                     Array(positive).each { |g| emit g }
                     Array(negative).each { |g| not_emit g }
