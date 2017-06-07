@@ -34,5 +34,6 @@
   <test_depend package="minitest" />
   <test_depend package="flexmock" />
   <test_depend package="fakefs" />
+  <test_depend package="timecop" />
 </package>
 
