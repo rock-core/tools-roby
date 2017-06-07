@@ -663,6 +663,87 @@ module Roby
                     assert_equal [false, true], values[0, 2]
                 end
             end
+
+            describe "#start" do
+                attr_reader :task
+                before do
+                    plan.add(@task = Roby::Tasks::Simple.new)
+                end
+
+                it "succeeds if the task starts" do
+                    expect_execution { task.start! }.to { start task }
+                end
+                it "succeeds if the task starts and stops" do
+                    expect_execution { task.start!; task.stop! }.to { start task }
+                end
+                it "fails if the task is already finished" do
+                    execute { task.start!; task.stop! }
+                    assert_raises(ExecutionExpectations::Unmet) do
+                        expect_execution.to { start task }
+                    end
+                end
+                it "fails if the task has failed-to-start" do
+                    execute { task.failed_to_start!(ArgumentError.new) }
+                    assert_raises(ExecutionExpectations::Unmet) do
+                        expect_execution.to { start task }
+                    end
+                end
+                it "fails if the task is already running" do
+                    execute { task.start! }
+                    assert_raises(ExecutionExpectations::Unmet) do
+                        expect_execution.timeout(0).to { start task }
+                    end
+                end
+                it "fails if the task does not emit the start event" do
+                    assert_raises(ExecutionExpectations::Unmet) do
+                        expect_execution.timeout(0).to { start task }
+                    end
+                end
+            end
+
+            describe "#have_running" do
+                attr_reader :task
+                before do
+                    plan.add(@task = Roby::Tasks::Simple.new)
+                end
+
+                it "fails if the task is already finished" do
+                    execute { task.start!; task.stop! }
+                    assert_raises(ExecutionExpectations::Unmet) do
+                        expect_execution.to { have_running task }
+                    end
+                end
+                it "fails if the task has failed-to-start" do
+                    execute { task.failed_to_start!(ArgumentError.new) }
+                    assert_raises(ExecutionExpectations::Unmet) do
+                        expect_execution.to { start task }
+                    end
+                end
+                it "succeeds if the task is already running and does not stop" do
+                    execute { task.start! }
+                    expect_execution.timeout(0).to { have_running task }
+                end
+                it "succeeds if the task was pending, starts and does not stop" do
+                    expect_execution { task.start! }.
+                        timeout(0).
+                        to { have_running task }
+                end
+                it "fails if the task was pending, starts but also stops" do
+                    assert_raises(ExecutionExpectations::Unmet) do
+                        expect_execution { task.start!; task.stop! }.
+                            timeout(0).
+                            to { have_running task }
+                    end
+                end
+                it "fails if the task was running and stops" do
+                    assert_raises(ExecutionExpectations::Unmet) do
+                        execute { task.start! }
+                        expect_execution { task.stop! }.
+                            timeout(0).
+                            to { have_running task }
+                    end
+                end
+            end
         end
     end
 end

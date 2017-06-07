@@ -127,26 +127,19 @@ module Roby
                 add_expectation(FailsToStart.new(task, reason, backtrace))
             end
 
-            # Expect that the given task becomes running
+            # Expect that the given task starts
             #
             # @param [Task] task
             # @return [Event] the task's start event
-            def have_running(task, backtrace: caller(1))
-                if task.running?
-                    task.start_event.last
-                else
-                    emit task.start_event, backtrace: backtrace 
-                end
+            def start(task, backtrace: caller(1))
+                emit task.start_event, backtrace: backtrace 
             end
 
-            # Expect that the given task becomes running and does not stop
+            # Expect that the given task either starts or is running, and does not stop
             #
             # The caveats of {#not_emit} apply to the "does not stop" part of
             # the expectation. This should usually be used in conjunction with a
             # synchronization point.
-            #
-            # @param [Task] task
-            # @return [nil]
             #
             # @example task keeps running until action_task stops
             #   expect_execution.to do
@@ -154,9 +147,13 @@ module Roby
             #     finish action_task
             #   end
             #
-            def keep_running(task, backtrace: caller(1))
-                emit task.start_event, backtrace: backtrace if !task.running?
-                not_emit task.stop_event, backtrace: backtrace
+            # @param [Task] task
+            # @return [nil]
+            def have_running(task, backtrace: caller(1))
+                if !task.running?
+                    emit task.start_event, backtrace: backtrace 
+                end
+                not_emit task.stop_event
                 nil
             end
 
