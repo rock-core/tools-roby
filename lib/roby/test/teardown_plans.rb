@@ -14,7 +14,7 @@ module Roby
                 registered_plans.each do |p|
                     p.execution_engine.killall
                     p.execution_engine.reset
-                    p.clear
+                    execute { p.clear }
                 end
                 registered_plans.clear
             end

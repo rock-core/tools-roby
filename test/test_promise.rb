@@ -86,7 +86,7 @@ Roby::Promise(the promise description).
                 refute p.unscheduled?
                 assert p.pending?
                 refute p.complete?
-                barrier.wait; p.wait
+                barrier.wait
             end
             it "is complete and fulfilled once the whole pipeline finished successfuly" do
                 p = execution_engine.promise { }.execute
@@ -109,17 +109,17 @@ Roby::Promise(the promise description).
                 p = execution_engine.promise { raise }
                 barrier = Concurrent::CyclicBarrier.new(2)
                 p.on_error(in_engine: false) do
-                    barrier.wait; barrier.wait
+                    2.times { barrier.wait }
                 end
                 p.execute
                 barrier.wait
                 refute p.unscheduled?
                 assert p.pending?
                 refute p.complete?
+                barrier.wait
             end
             it "is complete and rejected if the error handler has finished execution" do
                 p = execution_engine.promise { raise }
-                barrier = Concurrent::CyclicBarrier.new(2)
                 p.on_error(in_engine: false) { }
                 p.execute
                 execution_engine.join_all_waiting_work

@@ -1840,7 +1840,9 @@ module Roby
             cleanup_handlers.each(&:call)
 
             planners.clear
-            plan.clear
+            plan.execution_engine.gather_propagation do
+                plan.clear
+            end
             clear_models
             clear_config
 
