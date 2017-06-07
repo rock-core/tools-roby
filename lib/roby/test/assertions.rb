@@ -249,8 +249,8 @@ module Roby
                     scheduler(enable_scheduler).
                     garbage_collect(garbage_collect_pass).
                 to do
-                    Array(positive).each { |g| emit g }
-                    Array(negative).each { |g| not_emit g }
+                    not_emit *Array(negative)
+                    emit *Array(positive)
                 end
             end
 
