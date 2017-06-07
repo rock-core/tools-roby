@@ -1699,6 +1699,8 @@ module Roby
         # SynchronousEventProcessingMultipleErrors to wrap all the exceptions
         # into one.
         def process_events_synchronous(seeds = Hash.new, initial_errors = Array.new, enable_scheduler: false, raise_errors: true)
+            Roby.warn_deprecated "#process_events_synchronous is deprecated, use the expect_execution harness instead"
+
             if @application_exceptions
                 raise RecursivePropagationContext, "recursive call to process_events"
             end
