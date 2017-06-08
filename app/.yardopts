@@ -1,0 +1,6 @@
+--plugin utilrb
+--plugin metaruby
+--plugin roby
+--plugin syskit
+--embed-mixins
+

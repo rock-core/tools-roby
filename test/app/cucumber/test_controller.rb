@@ -208,6 +208,10 @@ module Roby
                                 def cucumber_action_with_required_argument(arguments)
                                 end
                             end
+                            Robot.init do
+                                require 'roby/schedulers/temporal'
+                                Roby.scheduler = Roby::Schedulers::Temporal.new
+                            end
                             Robot.actions { use_library CucumberTestActions }
                             EOACTION
                         end

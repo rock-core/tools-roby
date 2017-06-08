@@ -1,11 +1,14 @@
 # Logging configuration
 log:
-  # Where log files go
+  # Where log files go. If relative, it is relative to the app's root dir,
+  # unless the environment variable ROBY_BASE_LOG_DIR is set in which case it is
+  # relative to this directory.
   # dir: logs/
   
   # Whether backtraces should be filtered (i.e. call sites from the framework
   # are hidden)
   # The default is true
+  #
   # filter_backtraces: false
   
   # Log system events. It can be either true, false or stats. If true, all
@@ -67,24 +70,6 @@ log:
 engine:
   # The length of a cycle (in seconds). It defaults to 100ms.
   # cycle: 0.1
-
-# dRoby neighbour discovery
-discovery:
-  # The host:port at which we can connect to a discovery tuplespace
-  # (default: no discovery tuplespace)
-  # tuplespace: "localhost:29568"
-  # The port at which we do ring discovery (default: disabled)
-  # ring: 42865
-
-# dRoby host configuration
-droby:
-  # How many errors are allowed before disconnecting from a peer
-  # max_errors: 1
-  # The ring discovery period if we do ring discovery
-  # period: 0.5
-  # The hostname at the dRoby server must listen to. It is either
-  # 'host:port', or just ':port'
-  # host: ":48902"
 
 # Per-robot configuration. In these, you can override global options, or set
 # new options.

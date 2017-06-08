@@ -241,14 +241,17 @@ module Roby
         end
 
         # Allows to override the app name
+        attr_writer :app_name
+
+        # Allows to override the app's module name
         #
         # The default is to convert the app dir's basename to camelcase, but
         # that fails in some cases (mostly, when there are acronyms in the name)
-        attr_writer :app_name
+        attr_writer :module_name
 
         # Returns the name of this app's toplevel module
         def module_name
-            app_name.camelcase(:upper)
+            @module_name || app_name.camelcase(:upper)
         end
 
         # Returns this app's toplevel module
@@ -637,6 +640,8 @@ module Roby
             @auto_load_all = false
             @default_auto_load = true
             @auto_load_models = nil
+            @app_name = nil
+            @module_name = nil
             @app_dir = nil
             @backward_compatible_naming = true
             @development_mode = true

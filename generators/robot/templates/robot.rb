@@ -19,16 +19,11 @@ end
 
 # Block evaluated to load the models this robot requires
 Robot.requires do
-    # The default is to load the root files in models/ (e.g.
-    # models/compositions.rb, ...). If you use the generators to create new
-    # models (you should !), they are automatically updated.
-    Roby.app.load_default_models
 end
 
 # Block evaluated to configure the system, that is set up values in Roby's Conf
 # and State
 Robot.config do
-    Conf.ready = true
 end
 
 # Block evaluated when the Roby app is fully setup, and the robot ready to
