@@ -72,6 +72,13 @@ module Roby
                 # @return [Array<String,(String,String)>]
                 attr_accessor :robot_names
 
+                # Patterns matching excluded test files
+                #
+                # It accepts any string that File.fnmatch? accepts
+                #
+                # @return [Array<String>]
+                attr_accessor :excludes
+
                 # Whether the 'test' target should run all robot tests (false, the
                 # default) or the 'all tests' target (true)
                 attr_predicate :all_by_default?, true
@@ -81,6 +88,7 @@ module Roby
                     @app = Roby.app
                     @all_by_default = all_by_default
                     @robot_names = discover_robot_names
+                    @excludes = []
                     yield self if block_given?
                     define
                 end
@@ -93,7 +101,7 @@ module Roby
 
                         desc "run the tests for configuration #{robot_name}:#{robot_type}"
                         task task_name do
-                            if !run_roby('test', '-r', "#{robot_name},#{robot_type}")
+                            if !run_roby_test('-r', "#{robot_name},#{robot_type}")
                                 raise Failed.new("failed to run tests for #{robot_name}:#{robot_type}")
                             end
                         end
@@ -104,7 +112,7 @@ module Roby
                         failures = Array.new
                         keep_going = args.fetch(:keep_going, '1') == '1'
                         each_robot do |robot_name, robot_type|
-                            if !run_roby('test', '-r', "#{robot_name},#{robot_type}", '--all')
+                            if !run_roby_test('-r', "#{robot_name},#{robot_type}")
                                 if keep_going
                                     failures << [robot_name, robot_type]
                                 else
@@ -119,7 +127,7 @@ module Roby
 
                     desc "run all tests"
                     task "#{task_name}:all" do
-                        if !run_roby('test', '--all')
+                        if !run_roby_test
                             raise Failed.new("failed to run tests")
                         end
                     end
@@ -139,6 +147,13 @@ module Roby
                     else
                         "#{task_name}:#{robot_name}-#{robot_type}" 
                     end
+                end
+
+                def run_roby_test(*args)
+                    args = args + excludes.flat_map do |pattern|
+                        ["--exclude", pattern]
+                    end
+                    run_roby('test', *args)
                 end
 
                 def run_roby(*args)

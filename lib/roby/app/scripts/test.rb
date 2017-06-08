@@ -19,6 +19,7 @@ coverage_mode = false
 only_self = false
 all = true
 testrb_args = []
+excluded_patterns = []
 parser = OptionParser.new do |opt|
     opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- [MINITEST_OPTIONS] [TEST_FILES]"
     opt.on('--self', 'only run tests that are present in this bundle') do |val|
@@ -32,6 +33,9 @@ parser = OptionParser.new do |opt|
         all = true
     end
 
+    opt.on('--exclude PATTERN', String, 'do not run files matching this pattern') do |pattern|
+        excluded_patterns << File.expand_path(pattern, Roby.app.app_dir)
+    end
     opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
 	Roby.app.single = !val
     end
@@ -108,6 +112,7 @@ exception = Roby.display_exception do
         end
 
         test_files.each do |arg|
+            next if excluded_patterns.any? { |pattern| File.fnmatch?(pattern, arg) }
             require arg
         end
         Minitest.run testrb_args
