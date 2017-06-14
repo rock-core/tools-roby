@@ -1503,6 +1503,21 @@ module Roby
             @shell_interface_port = Integer(match[2])
         end
 
+        def update_load_path
+            search_path.reverse.each do |app_dir|
+                $LOAD_PATH.unshift(app_dir) if !$LOAD_PATH.include?(app_dir)
+                libdir = File.join(app_dir, 'lib')
+                $LOAD_PATH.unshift(libdir) if !$LOAD_PATH.include?(libdir)
+            end
+
+            find_dirs('lib', 'ROBOT', all: true, order: :specific_last).
+                each do |libdir|
+                    if !$LOAD_PATH.include?(libdir)
+                        $LOAD_PATH.unshift libdir
+                    end
+                end
+        end
+
         # Loads the base configuration
         #
         # This method loads the two most basic configuration files:
@@ -1524,21 +1539,12 @@ module Roby
                 require initfile
             end
 
-            search_path.reverse.each do |app_dir|
-                $LOAD_PATH.unshift(app_dir) if !$LOAD_PATH.include?(app_dir)
-                libdir = File.join(app_dir, 'lib')
-                $LOAD_PATH.unshift(libdir) if !$LOAD_PATH.include?(libdir)
-            end
+            update_load_path
 
             call_plugins(:load, self, options)
             call_plugins(:load_base_config, self, options)
 
-            find_dirs('lib', 'ROBOT', all: true, order: :specific_last).
-                each do |libdir|
-                    if !$LOAD_PATH.include?(libdir)
-                        $LOAD_PATH.unshift libdir
-                    end
-                end
+            update_load_path
 
             if defined? Roby::Conf
                 Roby::Conf.datadirs = find_dirs('data', 'ROBOT', all: true, order: :specific_first)
@@ -1561,6 +1567,7 @@ module Roby
             end
 	    setup_loggers
             init_handlers.each(&:call)
+            update_load_path
 
 	    # Set up the loaded plugins
 	    call_plugins(:base_setup, self)
