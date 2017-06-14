@@ -716,7 +716,10 @@ module Roby
                         !to.fullfills?(m)
                     end
                     if missing.empty?
-                        raise InvalidReplace.new(from, to), "argument mismatch from #{from.fullfilled_model.last} to #{to.arguments}"
+                        mismatching_argument = from.fullfilled_model.last.find do |key, expected_value|
+                            (value = to.arguments[key]) && (expected_value != value)
+                        end
+                        raise InvalidReplace.new(from, to), "argument mismatch for #{mismatching_argument.first}"
                     else
                         raise InvalidReplace.new(from, to), "missing provided models #{missing.map(&:name).join(", ")}"
                     end
