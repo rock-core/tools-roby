@@ -24,10 +24,12 @@ module Roby
             # @param [DRobyChannel] io a channel to the server
             # @param [Interface] interface the interface object we give remote
             #   access to
-            def initialize(io, interface)
+            def initialize(io, interface, main_thread: Thread.current)
                 @notifications_enabled = true
                 @abort_on_exception = true
                 @io, @interface = io, interface
+                @main_thread = main_thread
+                @pending_notifications = Queue.new
 
                 interface.on_cycle_end do
                     write_packet([
@@ -38,7 +40,10 @@ module Roby
                 end
                 interface.on_notification do |*args|
                     if notifications_enabled?
-                        write_packet([:notification, *args], defer_exceptions: true)
+                        @pending_notifications << args
+                    end
+                    if Thread.current == @main_thread
+                        flush_pending_notifications
                     end
                 end
                 interface.on_job_notification do |*args|
@@ -46,6 +51,13 @@ module Roby
                 end
                 interface.on_exception do |*args|
                     write_packet([:exception, *args], defer_exceptions: true)
+                end
+            end
+
+            def flush_pending_notifications
+                while !@pending_notifications.empty?
+                    args = @pending_notifications.pop
+                    write_packet([:notification, *args], defer_exceptions: true)
                 end
             end
 
@@ -93,6 +105,7 @@ module Roby
             def write_packet(call, defer_exceptions: false)
                 return if has_deferred_exception?
 
+                flush_pending_notifications
                 io.write_packet(call)
             rescue Exception => e
                 if defer_exceptions
