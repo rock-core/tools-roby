@@ -35,5 +35,7 @@
   <test_depend package="flexmock" />
   <test_depend package="fakefs" />
   <test_depend package="timecop" />
+  <test_depend package="stackprof" />
+  <test_depend package="rbtrace" />
 </package>
 
