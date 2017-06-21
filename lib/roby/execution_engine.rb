@@ -414,7 +414,8 @@ module Roby
                 propagation_info.add_framework_errors(framework_errors)
 
                 Thread.pass
-                if deadline && (Time.now > deadline)
+                has_scheduled_promises = has_waiting_work?
+                if deadline && (Time.now > deadline) && has_scheduled_promises
                     raise JoinAllWaitingWorkTimeout.new(waiting_work)
                 end
             end while waiting_work.any? { |w| !w.unscheduled? }
