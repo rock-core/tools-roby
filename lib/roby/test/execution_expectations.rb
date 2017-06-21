@@ -355,6 +355,10 @@ module Roby
                         if e.kind_of?(ExecutionException)
                             e = e.exception
                         end
+                        if e.backtrace && !e.backtrace.empty?
+                            formatted_execution_exception += "\n    " + e.backtrace.join("\n    ")
+                        end
+
                         sub_exceptions = Roby.flatten_exception(e)
                         sub_exceptions.delete(e)
                         formatted_sub_exceptions = sub_exceptions.each_with_index.map do |sub_e, sub_i|
