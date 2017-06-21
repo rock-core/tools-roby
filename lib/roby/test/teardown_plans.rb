@@ -12,9 +12,11 @@ module Roby
 
             def clear_registered_plans
                 registered_plans.each do |p|
-                    p.execution_engine.killall
-                    p.execution_engine.reset
-                    execute { p.clear }
+                    if p.respond_to?(:execution_engine)
+                        p.execution_engine.killall
+                        p.execution_engine.reset
+                        execute(plan: p) { p.clear }
+                    end
                 end
                 registered_plans.clear
             end
