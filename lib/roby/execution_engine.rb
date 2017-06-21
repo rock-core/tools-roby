@@ -418,7 +418,7 @@ module Roby
                 if deadline && (Time.now > deadline) && has_scheduled_promises
                     raise JoinAllWaitingWorkTimeout.new(waiting_work)
                 end
-            end while waiting_work.any? { |w| !w.unscheduled? }
+            end while has_waiting_work?
             return finished, propagation_info
         end
 
@@ -1433,7 +1433,9 @@ module Roby
 
         # Whether this EE has asynchronous waiting work waiting to be processed
         def has_waiting_work?
-            !waiting_work.empty?
+            # Filter out unscheduled promises (promises on which #execute was
+            # not called). If they are unscheduled, we're not waiting on them
+            waiting_work.any? { |w| !w.unscheduled? }
         end
 
         # Process asynchronous work registered in {#waiting_work} to clear

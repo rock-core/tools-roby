@@ -1414,6 +1414,20 @@ module Roby
             end
         end
 
+        describe "#has_waiting_work?" do
+            it "returns false if there are no promises" do
+                refute execution_engine.has_waiting_work?
+            end
+            it "returns false if there is an unscheduled promise" do
+                execution_engine.promise { }
+                refute execution_engine.has_waiting_work?
+            end
+            it "returns true if there is a scheduled promise" do
+                execution_engine.promise { }.execute
+                assert execution_engine.has_waiting_work?
+            end
+        end
+
 
         def assert_exception_and_object_set_matches(expected, actual, message = "failed to match propagation result exception and/or involved objects")
             expected = expected.each_slice(2).flat_map do |match_e, tasks_e|
