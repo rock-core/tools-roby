@@ -350,7 +350,7 @@ module Roby
                     "#{@errors.size} unexpected errors\n" +
                     @errors.each_with_index.map do |e, i|
                         formatted_execution_exception =
-                            "[#{i}/#{@errors.size}] " + Roby.format_exception(e).join("\n")
+                            "[#{i + 1}/#{@errors.size}] " + Roby.format_exception(e).join("\n")
 
                         if e.kind_of?(ExecutionException)
                             e = e.exception
