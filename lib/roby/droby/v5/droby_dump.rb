@@ -197,10 +197,18 @@ module Roby
                     include ModelDumper
 
                     def droby_dump(peer)
+                        arguments = __arguments.each_value.map do |arg|
+                            if arg.has_default?
+                                [arg.name, true, peer.dump(arg.default), arg.doc]
+                            else
+                                [arg.name, false, nil, arg.doc]
+                            end
+                        end
+
                         DRoby.new(
                             name,
                             peer.known_siblings_for(self),
-                            argument_set,
+                            arguments,
                             DRobyModel.dump_supermodel(peer, self),
                             DRobyModel.dump_provided_models_of(peer, self),
                             each_event.map { |_, ev| [ev.symbol, ev.controlable?, ev.terminal?] })
@@ -208,18 +216,25 @@ module Roby
 
                     class DRoby < DRobyModel
                         attr_reader :events
-                        attr_reader :argument_set
+                        attr_reader :arguments
 
-                        def initialize(name, remote_siblings, argument_set, supermodel, provided_models, events)
+                        def initialize(name, remote_siblings, arguments, supermodel, provided_models, events)
                             super(name, remote_siblings, supermodel, provided_models)
-                            @argument_set = argument_set
+                            @arguments = arguments
                             @events = events
                         end
 
                         def update(peer, local_object, fresh_proxy: false)
-                            argument_set.each do |arg_name|
-                                if !local_object.has_argument?(arg_name)
-                                    local_object.argument arg_name
+                            if @argument_set # Backward compatibility
+                                arguments = @argument_set.map { |name| [name, false, nil, nil] }
+                            end
+
+                            @arguments.each do |name, has_default, default, doc|
+                                if !local_object.has_argument?(name)
+                                    if !has_default
+                                        default = Roby::Models::Task::NO_DEFAULT_ARGUMENT 
+                                    end
+                                    local_object.argument name, default: default, doc: doc
                                 end
                             end
                             events.each do |name, controlable, terminal|

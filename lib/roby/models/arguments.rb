@@ -5,38 +5,43 @@ module Roby
         module Arguments
             extend MetaRuby::Attributes
 
+            # Representation of one argument
+            Argument = Struct.new :name, :default, :doc do
+                # Tests whether this argument has a default
+                def has_default?
+                    default != NO_DEFAULT_ARGUMENT
+                end
+            end
+
             # The set of knwon argument names
             #
             # @return [Set<Symbol>]
-            inherited_attribute("argument_set", "argument_set") { Set.new }
-
-            # The set of known argument default values
-            #
-            # @return [Set<#evaluate_delayed_argument>]
-            inherited_attribute("argument_default", "argument_defaults", map: true) { Hash.new }
-
-            # @return [Boolean] returns if the given name is a known argument of
-            #   this task
-            def has_argument?(name)
-                each_argument_set do |arg_name|
-                    if arg_name == name
-                        return true
-                    end
-                end
-                nil
-            end
+            inherited_attribute("argument", "__arguments", map: true) { Hash.new }
 
             # @return [Array<String>] the list of arguments required by this task model
             def arguments
-                return enum_for(:each_argument_set)
+                each_argument.map { |name, _| name }
             end
+
+            # The null object used in {#argument} to signify that there are no
+            # default arguments
+            #
+            # nil cannot be used as 'nil' is a valid default as well
+            NO_DEFAULT_ARGUMENT = Object.new
+            def NO_DEFAULT_ARGUMENT.evaluate_delayed_argument
+                raise NotImplementedError, "trying to evaluate Roby::Models::Task::NO_DEFAULT_ARGUMENT which is an internal null object"
+            end
+            NO_DEFAULT_ARGUMENT.freeze
 
             # @overload argument(argument_name, options)
             #   @param [String] argument_name the name of the new argument
             #   @param [Hash] options
-            #   @option options default the default value for this argument. It
+            #   @param default the default value for this argument. It
             #     can either be a plain value (e.g. a number) or one of the
             #     delayed arguments (see examples below)
+            #   @param doc documentation string for the argument. If left
+            #     to nil, the method will attempt to extract the argument's
+            #     documentation block.
             #
             # @example getting an argument at runtime from another object
             #   argument :target_point, default: from(:planned_task).target_point
@@ -44,23 +49,17 @@ module Roby
             #   argument :target_point, default: from_conf.target_position
             # @example defining 'nil' as a default value
             #   argument :main_direction, default: nil
-            def argument(arg_name, **options)
-                options = Kernel.validate_options options, default: nil
-
-                arg_name = arg_name.to_sym
-                argument_set << arg_name
-                if arg_name =~ /^\w+$/ && !method_defined?(arg_name)
-                    define_method(arg_name) { arguments[arg_name] }
-                    define_method("#{arg_name}=") { |value| arguments[arg_name] = value }
+            def argument(name, default: NO_DEFAULT_ARGUMENT, doc: nil)
+                name = name.to_sym
+                if !TaskArguments.delayed_argument?(default)
+                    default = DefaultArgument.new(default)
                 end
+                doc ||= MetaRuby::DSLs.parse_documentation_block /\.rb$/, 'argument'
+                __arguments[name] = Argument.new(name, default, doc)
 
-                if options.has_key?(:default)
-                    defval = options[:default]
-                    if !TaskArguments.delayed_argument?(defval)
-                        argument_defaults[arg_name] = DefaultArgument.new(defval)
-                    else
-                        argument_defaults[arg_name] = defval
-                    end
+                if name =~ /^\w+$/ && !method_defined?(name)
+                    define_method(name) { arguments[name] }
+                    define_method("#{name}=") { |value| arguments[name] = value }
                 end
             end
 
@@ -71,15 +70,14 @@ module Roby
             #   whether there is a default defined for the requested argument and
             #   the second is that value. Note that the default value can be nil.
             def default_argument(argname)
-                each_argument_default(argname.to_sym) do |value|
-                    return true, value
+                if (arg = find_argument(argname)) && arg.has_default?
+                    return true, arg.default
                 end
-                nil
             end
 
             # The part of +arguments+ that is meaningful for this task model
             def meaningful_arguments(arguments)
-                self_arguments = self.arguments.to_set
+                self_arguments = self.arguments
                 result = Hash.new
                 arguments.each_assigned_argument do |key, value|
                     if self_arguments.include?(key)

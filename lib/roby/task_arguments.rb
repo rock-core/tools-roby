@@ -292,6 +292,11 @@ module Roby
             else value.to_s
             end + ")"
         end
+
+        def ==(other)
+            other.kind_of?(self.class) &&
+                other.value == value
+        end
     end
 
     # Placeholder that can be used to assign an argument from an object's

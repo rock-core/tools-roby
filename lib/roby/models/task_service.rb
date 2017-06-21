@@ -29,8 +29,7 @@ module Roby
 
             def clear_model
                 super
-                argument_set.clear
-                argument_defaults.clear
+                arguments.clear
             end
 
             def query(*args)

@@ -232,7 +232,7 @@ module Roby
                     end
 
                     [@events, @signal_sets, @forwarding_sets, @causal_link_sets,
-                        @argument_set, @handler_sets, @precondition_sets].each do |set|
+                        @arguments, @handler_sets, @precondition_sets].each do |set|
                         set.clear if set
                     end
                 end
