@@ -11,6 +11,11 @@ module Roby
                 def has_default?
                     default != NO_DEFAULT_ARGUMENT
                 end
+
+                # Tests whether this argument has a delayed argument as default
+                def has_delayed_default?
+                    has_default? && TaskArguments.delayed_argument?(default)
+                end
             end
 
             # The set of knwon argument names
