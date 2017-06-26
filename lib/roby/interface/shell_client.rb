@@ -238,6 +238,7 @@ module Roby
 
             def safe
                 @batch ||= client.create_batch
+                nil
             end
 
             def unsafe
