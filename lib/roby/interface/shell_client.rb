@@ -347,6 +347,18 @@ module Roby
 
             def help(subcommand = client)
                 puts
+                if safe?
+                    puts Roby.color("Currently in safe mode, use 'unsafe' to switch", :bold)
+                    puts "Job commands like drop_job, kill_job, ... are queued, only sent if on 'process'"
+                    puts "review           display the pending job commands"
+                    puts "process          apply the pending job commands"
+                    puts "cancel           clear the pending job commands"
+                else
+                    puts Roby.color("Currently in unsafe mode, use 'safe' to switch", :bold, :red)
+                    puts "Job commands like drop_job, kill_job, ... are sent directly"
+                end
+
+                puts
                 if subcommand.respond_to?(:description)
                     puts Roby.color(subcommand.description.join("\n"), :bold)
                     puts
