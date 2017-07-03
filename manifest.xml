@@ -31,11 +31,11 @@
 
   <depend_optional package="autorespawn" />
 
-  <test_depend package="minitest" />
-  <test_depend package="flexmock" />
-  <test_depend package="fakefs" />
-  <test_depend package="timecop" />
-  <test_depend package="stackprof" />
-  <test_depend package="rbtrace" />
+  <depend_optional package="minitest" />
+  <depend_optional package="flexmock" />
+  <depend_optional package="fakefs" />
+  <depend_optional package="timecop" />
+  <depend_optional package="stackprof" />
+  <depend_optional package="rbtrace" />
 </package>
 
