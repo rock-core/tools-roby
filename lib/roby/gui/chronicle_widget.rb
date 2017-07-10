@@ -629,6 +629,7 @@ module Roby
                 attr_reader :add_point
                 attr_reader :start_point
                 attr_reader :end_point
+                attr_reader :finalization_point
 
                 attr_reader :event_height
                 attr_reader :event_max_x
@@ -647,9 +648,11 @@ module Roby
                     @event_height = [2 * EVENT_CIRCLE_RADIUS, fm.height].max
 
                     @add_point = time_to_pixel * (task.addition_time - base_time)
-                    @history_size = 0
+                    @start_point = nil
+                    @end_point   = nil
+                    @finalization_point = nil
+
                     @state = :pending
-                    @end_time = task.finalization_time
                     @messages = Array.new
                     @events = Array.new
                     @event_max_x = Array.new
@@ -658,25 +661,31 @@ module Roby
                 end
 
                 def update
+                    return if @finalization_point
                     history_size = events.size
-                    return if task.history.size == history_size
+                    return if !task.finalization_time && task.history.size == history_size
 
                     last_event = task.last_event
                     if !last_event
                         @state = :pending
-                        end_time = task.finalization_time
                     else
                         @state = GUI.task_state_at(task, last_event.time)
+                        @time_last_event = last_event.time
                         if state != :running
                             end_time = last_event.time
                         end
                     end
 
+
                     if start_time = task.start_time
+                        @time_first_event = start_time
                         @start_point = time_to_pixel * (start_time - base_time)
                     end
                     if end_time
                         @end_point = time_to_pixel * (end_time - base_time)
+                    end
+                    if finalization_time = task.finalization_time
+                        @finalization_point = time_to_pixel * (finalization_time - base_time)
                     end
 
                     task.history[history_size..-1].each do |event|
@@ -697,17 +706,15 @@ module Roby
 
                     event_y = event_current_level * event_height
                     event_max_x[event_current_level] = event_x + 2 * EVENT_CIRCLE_RADIUS + fm.width(event.symbol.to_s)
-                    @start_time ||= event.time
-                    @end_time     = event.time
                     events << [event.time, event_x, event_y, event.symbol.to_s]
                 end
 
                 def events_in_range(display_start_time, display_end_time)
-                    if !@start_time
+                    if !@time_first_event
                         return
-                    elsif @start_time > display_end_time
+                    elsif @time_first_event > display_end_time
                         return
-                    elsif @end_time < display_start_time
+                    elsif @time_last_event < display_start_time
                         return
                     else
                         result = []
@@ -757,8 +764,8 @@ module Roby
                     break if top_y > view_height
 
                     task_layout = lay_out_task(fm, task)
-                    add_point, start_point, end_point =
-                        task_layout.add_point, task_layout.start_point, task_layout.end_point
+                    add_point, start_point, end_point, finalization_point =
+                        task_layout.add_point, task_layout.start_point, task_layout.end_point, task_layout.finalization_point
                     state         = task_layout.state
                     task          = task_layout.task
                     event_height  = task_layout.event_height
@@ -777,7 +784,7 @@ module Roby
                     painter.pen   = TASK_PENS[:pending]
                     painter.drawRect(
                         add_point + display_offset, top_task_line,
-                        (start_point || end_point || current_point) - add_point, task_line_height)
+                        (start_point || finalization_point || current_point) - add_point, task_line_height)
 
                     if start_point
                         painter.brush = TASK_BRUSHES[:running]
