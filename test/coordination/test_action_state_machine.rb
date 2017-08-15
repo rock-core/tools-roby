@@ -110,6 +110,9 @@ describe Roby::Coordination::ActionStateMachine do
             monitor = plan.find_tasks.with_arguments(id: 'monitoring').first
             monitor.start!
             monitor.success_event.emit
+            assert_equal 2, task.children.size
+            refute task.children.include?(monitor) # task is restarted on transition
+            assert_equal Hash[id: 'monitoring'], task.monitor_state_child.arguments
             assert_equal Hash[id: :next], task.current_task_child.arguments
         end
 

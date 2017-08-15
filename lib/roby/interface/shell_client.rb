@@ -30,6 +30,8 @@ module Roby
                 retry_warning = false
                 begin
                     @client = connection_method.call
+                    @batch = client.create_batch
+                    @batch_job_info = Hash.new
                 rescue ConnectionError, ComError => e
                     if retry_period
                         if e.kind_of?(ComError)
@@ -47,6 +49,7 @@ module Roby
 
             def close
                 client.close
+                @job_manager = nil
                 @client = nil
             end
 
@@ -103,16 +106,24 @@ module Roby
                 end.join(", ")
             end
 
+            def __jobs
+                call Hash[retry: true], [], :jobs
+            end
+
             def jobs
-                jobs = call Hash[retry: true], [], :jobs
-                jobs.each do |id, (state, task, planning_task)|
-                    if planning_task.respond_to?(:action_model) && planning_task.action_model
-                        name = "#{planning_task.action_model.to_s}(#{format_arguments(planning_task.action_arguments)})"
-                    else name = task.to_s
-                    end
-                    puts "[%4d] (%s) %s" % [id, state.to_s, name]
+                jobs = __jobs
+                jobs.each do |id, job_info|
+                    puts format_job_info(id, *job_info)
                 end
                 nil
+            end
+
+            def format_job_info(id, state, task, planning_task)
+                if planning_task.respond_to?(:action_model) && planning_task.action_model
+                    name = "#{planning_task.action_model.to_s}(#{format_arguments(planning_task.action_arguments)})"
+                else name = task.to_s
+                end
+                "[%4d] (%s) %s" % [id, state.to_s, name]
             end
 
             def retry_on_com_error
@@ -221,11 +232,94 @@ module Roby
                 nil
             end
 
+            def safe?
+                !!@batch
+            end
+
+            def safe
+                @batch ||= client.create_batch
+            end
+
+            def unsafe
+                @batch = nil
+            end
+
+            def resolve_job_id(job_id)
+                if job_info = __jobs[job_id]
+                    job_info
+                else
+                    STDERR.puts Roby.color("No job #{job_id}", :bold, :bright_red)
+                end
+            end
+
+            def kill_job(job_id)
+                if safe?
+                    if @batch_job_info[job_id] = resolve_job_id(job_id)
+                        @batch.kill_job job_id
+                        review
+                    end
+                else
+                    super
+                end
+                nil
+            end
+
+            def drop_job(job_id)
+                if safe?
+                    if @batch_job_info[job_id] = resolve_job_id(job_id)
+                        @batch.drop_job job_id
+                        review
+                    end
+                else
+                    super
+                end
+                nil
+            end
+
+            def review
+                if safe?
+                    puts "#{@batch.__calls.size} actions queued in the current batch, use #process to send, #cancel to delete"
+                    @batch.__calls.each do |context, m, *args|
+                        if m == :drop_job || m == :kill_job
+                            job_id = args.first
+                            job_info = format_job_info(job_id, *@batch_job_info[job_id])
+                            puts "#{Roby.color(m.to_s, :bold, :bright_red)} #{job_info}"
+                        elsif m == :start_job
+                            puts "#{Roby.color("#{args[0]}!", :bright_blue)}(#{args[1]})"
+                        else
+                            puts "#{Roby.color("#{m}!", :bright_blue)}(#{args.first})"
+                        end
+                    end
+                end
+                nil
+            end
+
+            def process
+                if safe?
+                    @batch.__process
+                else
+                    STDERR.puts "Not in batch context"
+                end
+                @batch = client.create_batch
+                nil
+            end
+
+            def cancel
+                @batch = client.create_batch
+                review
+                nil
+            end
+
             def method_missing(m, *args, &block)
                 if sub = client.find_subcommand_by_name(m.to_s)
                     ShellSubcommand.new(self, m.to_s, sub.description, sub.commands)
                 elsif act = client.find_action_by_name(m.to_s)
                     Roby::Actions::Action.new(act, *args)
+                elsif @batch && m.to_s =~ /(.*)!$/
+                    action_name = $1
+                    @batch.start_job(action_name, *args)
+                    review
+                    nil
                 else
                     begin
                         call Hash[], [], m, *args
