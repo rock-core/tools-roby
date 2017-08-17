@@ -260,8 +260,10 @@ module Roby
                 end
                 vertical_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
                     value = vertical_scroll_bar.value
-                    self.start_line = value
-                    update
+                    if value < current_tasks.size
+                        self.start_line = value
+                        update
+                    end
                 end
             end
 
@@ -908,7 +910,7 @@ module Roby
             signals 'selectedTime(QDateTime)'
 
             def update_scroll_ranges
-                vertical_scroll_bar.setRange(0, current_tasks.size)
+                vertical_scroll_bar.setRange(0, current_tasks.size - 1)
                 return if horizontal_scroll_bar_down?
 
                 if base_time && current_time && display_time
