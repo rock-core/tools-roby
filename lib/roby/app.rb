@@ -1015,6 +1015,11 @@ module Roby
             @log_dir = nil
         end
 
+        # Reset the plan to a new Plan object
+        def reset_plan(plan = ExecutablePlan.new)
+            @plan = plan
+        end
+
         # Explicitely set the log directory
         #
         # It is usually automatically created under {#log_base_dir} during
