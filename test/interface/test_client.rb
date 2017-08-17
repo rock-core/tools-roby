@@ -24,16 +24,19 @@ module Roby
                 Command.new(name.to_sym, 'doc')
             end
 
-            let :interface_mock do
-                flexmock(Interface.new(app))
-            end
-
             before do
                 @app = Roby::Application.new
                 @plan = app.plan
                 register_plan(plan)
 
-                @interface = interface_mock
+                interface_class = Class.new(Interface)
+                sublib = Class.new(CommandLibrary) do
+                    def subcommand_test_call(val)
+                    end
+                end
+                interface_class.subcommand 'sublib', sublib, 'test subcommand'
+
+                flexmock(@interface = interface_class.new(app))
                 server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0) 
                 @server    = Server.new(DRobyChannel.new(server_socket, false), interface)
                 @server_thread = Thread.new do
@@ -64,16 +67,16 @@ module Roby
             end
 
             it "discovers actions and commands on connection" do
-                interface_mock.should_receive(actions:  [stub_action("Test")])
+                interface.should_receive(actions:  [stub_action("Test")])
                 commands = CommandLibrary::InterfaceCommands.new('', nil, Hash[test: stub_command(:test)])
-                interface_mock.should_receive(commands: Hash['' => commands])
+                interface.should_receive(commands: Hash['' => commands])
                 assert_equal [:test], client.commands[''].commands.values.map(&:name)
-                assert_equal interface_mock.actions, client.actions
+                assert_equal interface.actions, client.actions
             end
 
             it "dispatches an action call as a start_job message" do
-                interface_mock.should_receive(actions:  [stub_action("Test")])
-                interface_mock.should_receive(:start_job).with('Test', arg0: 10).once.
+                interface.should_receive(actions:  [stub_action("Test")])
+                interface.should_receive(:start_job).with('Test', arg0: 10).once.
                     and_return(10)
                 assert_equal 10, client.Test!(arg0: 10)
             end
@@ -116,7 +119,7 @@ module Roby
 
                 it "gets notified of the new jobs on creation" do
                     job_id = client.test!
-                    interface_mock.push_pending_job_notifications
+                    interface.push_pending_job_notifications
                     client.poll
                     assert client.has_job_progress?
                     assert_equal [:monitored, job_id], client.pop_job_progress[1][0, 2]
@@ -145,8 +148,8 @@ module Roby
 
             describe "#find_action_by_name" do
                 it "returns a matching action" do
-                    interface_mock.should_receive(actions:  [stub_action("Test")])
-                    assert_equal interface_mock.actions.first, client.find_action_by_name('Test')
+                    interface.should_receive(actions:  [stub_action("Test")])
+                    assert_equal interface.actions.first, client.find_action_by_name('Test')
                 end
                 it "returns nil for an unknown action" do
                     assert !client.find_action_by_name('bla')
@@ -155,8 +158,8 @@ module Roby
 
             describe "#find_all_actions_matching" do
                 it "returns a matching action" do
-                    interface_mock.should_receive(actions:  [stub_action("Test")])
-                    assert_equal [interface_mock.actions.first],
+                    interface.should_receive(actions:  [stub_action("Test")])
+                    assert_equal [interface.actions.first],
                         client.find_all_actions_matching(/Te/)
                 end
                 it "returns an empty array for an unknown action" do
@@ -167,10 +170,10 @@ module Roby
             describe "command batches" do
                 describe "nominal cases" do
                     before do
-                        interface_mock.should_receive(actions:  [stub_action("Test")])
-                        interface_mock.should_receive(:start_job).with('Test', arg: 10).and_return(1).ordered.once
-                        interface_mock.should_receive(:kill_job).with(1).and_return(2).ordered.once
-                        interface_mock.should_receive(:start_job).with('Test', arg: 20).and_return(3).ordered.once
+                        interface.should_receive(actions:  [stub_action("Test")])
+                        interface.should_receive(:start_job).with('Test', arg: 10).and_return(1).ordered.once
+                        interface.should_receive(:kill_job).with(1).and_return(2).ordered.once
+                        interface.should_receive(:start_job).with('Test', arg: 20).and_return(3).ordered.once
                     end
 
                     it "gathers commands and executes them all at once" do
@@ -241,7 +244,7 @@ module Roby
                     end
 
                     it "the Return provides a shortcut to return the dropped job IDs" do
-                        interface_mock.should_receive(:drop_job).with(2).and_return(4).ordered.once
+                        interface.should_receive(:drop_job).with(2).and_return(4).ordered.once
                         batch = client.create_batch
                         batch.Test!(arg: 10)
                         batch.kill_job 1
@@ -313,7 +316,7 @@ module Roby
                         # 'client' is lazily loaded, create it now to avoid
                         # interference
                         client
-                        interface_mock.notify_cycle_end
+                        interface.notify_cycle_end
                         assert_equal true, client.poll.last
                         assert !client.has_notifications?
                     end
@@ -349,6 +352,18 @@ module Roby
                 it "raises ProtocolError if it gets an unknown message" do
                     server.io.write_packet [:unknown]
                     assert_raises(ProtocolError) { client.poll }
+                end
+            end
+
+            describe "subcommands" do
+                it "returns a SubcommandClient object for a known subcommand" do
+                    subcommand = client.sublib
+                    assert_kind_of SubcommandClient, subcommand
+                    assert_equal 'sublib', subcommand.name
+                end
+                it "the returned object allows to call the subcommand's command" do
+                    flexmock(@interface.sublib).should_receive(:subcommand_test_call).explicitly.with(42).and_return(20)
+                    assert_equal 20, client.sublib.subcommand_test_call(42)
                 end
             end
         end

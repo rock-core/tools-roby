@@ -1,29 +1,9 @@
 module Roby
     module Interface
         # Representation of a subcommand on {Interface} on the shell side
-        class ShellSubcommand
-            # @return [ShellClient,ShellSubcommand] the parent shell /
-            #   subcommand
-            attr_reader :parent
-            # @return [
-            # @return [String] the subcommand name
-            attr_reader :name
-            # @return [String] the subcommand description
-            attr_reader :description
-            # @return [String] the set of commands on this subcommand
-            attr_reader :commands
-
-            def initialize(parent, name, description, commands)
-                @parent, @name, @description, @commands =
-                    parent, name, description, commands
-            end
-
+        class ShellSubcommand < SubcommandClient
             def call(options, path, m, *args)
                 parent.call(options, [name] + path, m, *args)
-            end
-
-            def path
-                parent.path + [name]
             end
 
             def method_missing(m, *args)

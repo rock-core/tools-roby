@@ -43,7 +43,7 @@ module Roby
                 @job_progress_queue = Array.new
                 @exception_queue = Array.new
 
-                @actions, @commands = handshake(id)
+                @actions, @commands = call([], :handshake, id)
             end
 
             # Whether the communication channel to the server is closed
@@ -461,7 +461,11 @@ module Roby
             end
 
             def method_missing(m, *args)
-                call([], m, *args)
+                if sub = find_subcommand_by_name(m.to_s)
+                    SubcommandClient.new(self, m.to_s, sub.description, sub.commands)
+                else
+                    call([], m, *args)
+                end
             end
         end
     end
