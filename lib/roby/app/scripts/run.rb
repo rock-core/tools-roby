@@ -33,6 +33,9 @@ scripts/controllers/ and/or some explicitly given actions
     opt.on '--single', "run without connecting to external server. Support for this is plugin-dependent."  do
         app.single
     end
+    opt.on '--production', 'run in production mode, disabling all development-related functionality' do
+        app.development_mode = false
+    end
     opt.on "--simulation", "run in simulation mode. All external tasks will be stubbed internally."  do
         app.simulation
     end
