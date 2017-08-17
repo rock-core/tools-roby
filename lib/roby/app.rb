@@ -701,18 +701,27 @@ module Roby
         # Declares a block that should be executed when the Roby app gets
         # initialized (i.e. just after init.rb gets loaded)
         def on_init(&block)
+            if !block
+                raise ArgumentError, "missing expected block argument"
+            end
             init_handlers << block
         end
 
         # Declares a block that should be executed when the Roby app is begin
         # setup
         def on_setup(&block)
+            if !block
+                raise ArgumentError, "missing expected block argument"
+            end
             setup_handlers << block
         end
 
         # Declares a block that should be executed when the Roby app loads
         # models (i.e. in {#require_models})
         def on_require(&block)
+            if !block
+                raise ArgumentError, "missing expected block argument"
+            end
             require_handlers << block
         end
 
@@ -736,12 +745,18 @@ module Roby
         # Declares that the following block should be called when
         # {#clear_models} is called
         def on_clear_models(&block)
+            if !block
+                raise ArgumentError, "missing expected block argument"
+            end
             clear_models_handlers << block
         end
 
         # Declares that the following block should be called when
         # {#clear_models} is called
         def on_cleanup(&block)
+            if !block
+                raise ArgumentError, "missing expected block argument"
+            end
             cleanup_handlers << block
         end
 
@@ -2562,6 +2577,9 @@ module Roby
         # @return [Object] the listener ID that can be given to
         #   {#remove_ui_event_listener}
         def on_ui_event(&block)
+            if !block
+                raise ArgumentError, "missing expected block argument"
+            end
             ui_event_listeners << block
             block
         end
@@ -2603,6 +2621,9 @@ module Roby
         # @return [Object] the listener ID that can be given to
         #   {#remove_notification_listener}
         def on_notification(&block)
+            if !block
+                raise ArgumentError, "missing expected block argument"
+            end
             notification_listeners << block
             block
         end
