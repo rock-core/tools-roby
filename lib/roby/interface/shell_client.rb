@@ -209,9 +209,9 @@ module Roby
             def wtf?
                 msg = []
                 @mutex.synchronize do
-                    client.notification_queue.each do |id, level, message|
+                    client.notification_queue.each do |id, (source, level, message)|
                         msg << Roby.color("-- ##{id} (notification) --", :bold)
-                        msg.concat format_message(kind, level, message)
+                        msg.concat format_notification(source, level, message)
                         msg << "\n"
                     end
                     client.job_progress_queue.each do |id, (kind, job_id, job_name, *args)|
