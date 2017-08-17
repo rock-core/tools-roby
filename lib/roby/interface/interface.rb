@@ -252,12 +252,22 @@ module Roby
                 @tracked_jobs = final_tracked_jobs
             end
 
+            # (see Application#on_ui_event)
+            def on_ui_event(&block)
+                app.on_ui_event(&block)
+            end
+
+            # (see Application#remove_ui_event_listener)
+            def remove_ui_event_listener(block)
+                app.remove_ui_event_listener(block)
+            end
+
             # (see Application#on_notification)
             def on_notification(&block)
                 app.on_notification(&block)
             end
 
-            # @param (see Application#remove_notification_listener)
+            # (see Application#remove_notification_listener)
             def remove_notification_listener(listener)
                 app.remove_notification_listener(listener)
             end

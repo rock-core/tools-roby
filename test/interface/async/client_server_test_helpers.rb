@@ -17,6 +17,10 @@ module Roby
                     @interface_servers.each(&:close)
                 end
 
+                def app
+                    Roby.app
+                end
+
                 def default_server_port
                     Roby::Interface::DEFAULT_PORT + 1
                 end

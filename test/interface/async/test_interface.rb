@@ -286,6 +286,27 @@ module Roby
                         end
                     end
                 end
+
+                describe "notifications" do
+                    attr_reader :client, :server
+                    before do
+                        @server = create_server
+                        @client = connect(server)
+                    end
+                    def interface; server.interface end
+
+                    it "calls when a new UI event is received" do
+                        recorder = flexmock
+                        recorder.should_receive(:called).with('test-event', [42]).once
+                        app.ui_event 'test-event', 42
+                        client.on_ui_event do |event_name, *args|
+                            recorder.called(event_name, args)
+                        end
+                        process_call do
+                            client.poll
+                        end
+                    end
+                end
             end
         end
     end

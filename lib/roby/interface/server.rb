@@ -46,6 +46,9 @@ module Roby
                         flush_pending_notifications
                     end
                 end
+                interface.on_ui_event do |*args|
+                    write_packet([:ui_event, *args], defer_exceptions: true)
+                end
                 interface.on_job_notification do |*args|
                     write_packet([:job_progress, *args], defer_exceptions: true)
                 end

@@ -276,6 +276,16 @@ module Roby
                 assert !client.has_notifications?
             end
 
+            it "queues ui events and allows to retrieve the notifications in FIFO order" do
+                app.ui_event('test-event', 42)
+                app.ui_event('test-event', 84)
+                client.poll
+                assert client.has_ui_event?
+                assert_equal ['test-event', 42], client.pop_ui_event.last
+                assert_equal ['test-event', 84], client.pop_ui_event.last
+                assert !client.has_ui_event?
+            end
+
             it "queues exceptions and allows to retrieve the notifications in FIFO order" do
                 plan.execution_engine.display_exceptions = false
                 plan.add(t0 = Tasks::Simple.new(id: 1))

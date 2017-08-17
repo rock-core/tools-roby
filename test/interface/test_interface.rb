@@ -416,6 +416,26 @@ describe Roby::Interface::Interface do
         end
     end
 
+    describe "UI event handlers" do
+        it "registers a new handler for UI events" do
+            recorder = flexmock
+            recorder.should_receive(:called).with(:test_event, [0, 2, 3]).once
+            interface.on_ui_event do |event, *args|
+                recorder.called(event, args)
+            end
+            app.ui_event(:test_event, 0, 2, 3)
+        end
+        it "#remove_notification_listener removes a registered notification handler" do
+            recorder = flexmock
+            recorder.should_receive(:called).never
+            id = interface.on_ui_event do |event, *args|
+                recorder.called
+            end
+            interface.remove_ui_event_listener(id)
+            app.ui_event(:test_event, 0, 2, 3)
+        end
+    end
+
     describe "cycle end handlers" do
         it "registers a new handler called when the execution engine announces a cycle end" do
             recorder = flexmock

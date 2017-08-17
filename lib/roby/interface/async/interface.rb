@@ -58,6 +58,17 @@ module Roby
                 #     notification
                 #   @return [void]
                 define_hooks :on_notification
+                # @!method on_ui_event
+                #   Hooks called for UI events, that is notifications that are
+                #   meant for user interaction (but are mostly meaningless to
+                #   the user). These are arbitrary, and defined by Roby or
+                #   its plugins.
+                #
+                #   @yieldparam [String] event_name the event name
+                #   @yieldparam args the event arguments, which are
+                #     event-specific
+                #   @return [void]
+                define_hooks :on_ui_event
                 # @!method on_job_progress
                 #
                 #   Hooks called for job progress notifications
@@ -190,6 +201,10 @@ module Roby
                         run_hook :on_notification, level, message
                     end
                     client.notification_queue.clear
+                    client.ui_event_queue.each do |id, event_name, *args|
+                        run_hook :on_ui_event, event_name, *args
+                    end
+                    client.ui_event_queue.clear
 
                     client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
                         new_job_listeners.each do |listener|

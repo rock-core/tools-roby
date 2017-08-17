@@ -675,6 +675,7 @@ module Roby
 
             @planners    = []
             @notification_listeners = Array.new
+            @ui_event_listeners = Array.new
 
             @init_handlers         = Array.new
             @setup_handlers        = Array.new
@@ -2531,6 +2532,46 @@ module Roby
                 plan.add(task = m.plan_pattern(arguments))
             end
             return task, task.planning_task
+        end
+
+        # @return [#call] the blocks that listen to ui events. They are
+        #   added with {#on_ui_event} and removed with
+        #   {#remove_ui_event}
+        attr_reader :ui_event_listeners
+
+        # Enumerates the listeners currently registered through
+        # #on_ui_event
+        #
+        # @yieldparam [#call] the job listener object
+        def each_ui_event_listener(&block)
+            ui_event_listeners.each(&block)
+        end
+
+        # Sends a message to all UI event listeners
+        def ui_event(name, *args)
+            each_ui_event_listener do |block|
+                block.call(name, *args)
+            end
+        end
+
+        # Registers a block to be called when a message needs to be
+        # dispatched from {#ui_event}
+        #
+        # @yieldparam [String] name the event name
+        # @yieldparam args the UI event listener arguments
+        # @return [Object] the listener ID that can be given to
+        #   {#remove_ui_event_listener}
+        def on_ui_event(&block)
+            ui_event_listeners << block
+            block
+        end
+
+        # Removes a notification listener added with {#on_ui_event}
+        #
+        # @param [Object] listener the listener ID returned by
+        #   {#on_ui_event}
+        def remove_ui_event_listener(listener)
+            ui_event_listeners.delete(listener)
         end
 
         # @return [#call] the blocks that listen to notifications. They are

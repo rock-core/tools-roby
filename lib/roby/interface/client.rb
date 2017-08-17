@@ -22,6 +22,10 @@ module Roby
             #   integer is an ID that can be used to refer to the exception.
             #   It is always growing and will never collide with a notification ID
             attr_reader :exception_queue
+            # @return [Array<Integer,Array>] list of queued UI events. The
+            #   integer is an ID that can be used to refer to the exception.
+            #   It is always growing and will never collide with a notification ID
+            attr_reader :ui_event_queue
 
             # @return [Integer] index of the last processed cycle
             attr_reader :cycle_index
@@ -42,6 +46,7 @@ module Roby
                 @notification_queue = Array.new
                 @job_progress_queue = Array.new
                 @exception_queue = Array.new
+                @ui_event_queue = Array.new
 
                 @actions, @commands = call([], :handshake, id)
             end
@@ -106,6 +111,8 @@ module Roby
                     queue_job_progress(*args)
                 elsif m == :notification
                     queue_notification(*args)
+                elsif m == :ui_event
+                    queue_ui_event(*args)
                 elsif m == :exception
                     queue_exception(*args)
                 else
@@ -204,6 +211,23 @@ module Roby
             #   by (Application#notify)
             def pop_notification
                 notification_queue.shift
+            end
+
+            # @api private
+            #
+            # Push a UI event to {#ui_event_queue}
+            def queue_ui_event(event_name, *args)
+                ui_event_queue.push [allocate_message_id, [event_name, *args]]
+            end
+
+            # Whether some UI events have been queued
+            def has_ui_event?
+                !ui_event_queue.empty?
+            end
+
+            # Remove the oldest UI event and return it
+            def pop_ui_event
+                ui_event_queue.shift
             end
 
             # @api private
