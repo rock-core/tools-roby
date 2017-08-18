@@ -126,7 +126,7 @@ module Roby
                         end
                     elsif !closed?
                         poll_connection_attempt
-                        return STATE_PENDING_DATA
+                        return STATE_DISCONNECTED
                     end
                 rescue Interrupt
                     close
