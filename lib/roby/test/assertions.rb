@@ -196,9 +196,16 @@ module Roby
             #   'object'
             # @return [Object] the 'remote' object created from the unmarshalled
             #   droby representation
-            def assert_droby_compatible(object, local_marshaller: self.droby_local_marshaller, remote_marshaller: self.droby_remote_marshaller)
-                droby_transfer(object, local_marshaller: local_marshaller,
+            def assert_droby_compatible(object, local_marshaller: self.droby_local_marshaller, remote_marshaller: self.droby_remote_marshaller, bidirectional: false)
+                remote_object = droby_transfer(object, local_marshaller: local_marshaller,
                                remote_marshaller: remote_marshaller)
+                if bidirectional
+                    local_object  = droby_transfer(remote_object, local_marshaller: remote_marshaller,
+                                                   remote_marshaller: local_marshaller)
+                    return remote_object, local_object
+                else
+                    return remote_object
+                end
             end
 
             # Expects the event logger to receive the given message
