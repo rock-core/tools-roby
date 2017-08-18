@@ -230,11 +230,22 @@ module Roby
                 model
             end
 
+            # (see ObjectManager#find_model_by_name)
+            def find_model_by_name(name)
+                object_manager.find_model_by_name(name)
+            end
+
+            # (see ObjectManager#register_object)
+            def register_object(object, known_siblings = Hash.new)
+                object_manager.register_object(object, known_siblings)
+            end
+
+            # (see ObjectManager#register_model)
             def register_model(local_model, known_siblings = Hash.new)
                 object_manager.register_model(local_model, known_siblings)
             end
 
-            # Returns the set of siblings known for this object
+            # (see ObjectManager#known_siblings_for)
             def known_siblings_for(object)
                 object_manager.known_siblings_for(object)
             end
