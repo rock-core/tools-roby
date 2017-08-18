@@ -346,7 +346,9 @@ module Roby
                         job_notify(JOB_PLANNING, job_id, job_name)
                     end
                     planner.success_event.on do |ev|
-                        job_notify(JOB_READY, job_id, job_name)
+                        if (job_task = planner.planned_task) && (job_task.pending? || job_task.starting?)
+                            job_notify(JOB_READY, job_id, job_name)
+                        end
                     end
                     planner.stop_event.on do |ev|
                         if !ev.task.success?
@@ -358,6 +360,7 @@ module Roby
                 service.on_replacement do |current, new|
                     if job_id_of_task(new) == job_id
                         job_notify(JOB_REPLACED, job_id, job_name, new)
+                        job_notify(job_state(new), job_id, job_name)
                     else
                         job_notify(JOB_LOST, job_id, job_name, new)
                     end
@@ -377,7 +380,7 @@ module Roby
             end
 
             def job_state(task)
-                if !task
+                if !task.plan
                     return JOB_FINALIZED
                 elsif !plan.mission_task?(task)
                     return JOB_DROPPED
