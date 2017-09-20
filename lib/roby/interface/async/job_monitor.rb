@@ -189,9 +189,6 @@ module Roby
                 # Start monitoring this job's state
                 def start
                     update_state(state)
-                    interface.on_unreachable do
-                        update_state(:unreachable)
-                    end
                     interface.add_job_monitor(self)
                 end
 

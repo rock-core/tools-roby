@@ -337,7 +337,7 @@ module Roby
                 def unreachable!
                     job_monitors.each_value do |monitors|
                         monitors.each do |j|
-                            j.update_state(:finalized)
+                            j.update_state(:unreachable)
                         end
                     end
                     job_monitors.clear
