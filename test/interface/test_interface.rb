@@ -124,11 +124,15 @@ describe Roby::Interface::Interface do
 
         it "should notify of job state changes" do
             interface.monitor_job(job_task, task)
-            job_task.start!
-            job_task.success_event.emit
-            task.start!
-            task.success_event.emit
-            plan.remove_task(task)
+            expect_execution do
+                job_task.start!
+                job_task.success_event.emit
+            end.to_run
+            expect_execution do
+                task.start!
+                task.success_event.emit
+            end.to_run
+            expect_execution { plan.remove_task(task) }.to_run
             interface.push_pending_job_notifications
 
             assert_received_notifications \
@@ -143,7 +147,7 @@ describe Roby::Interface::Interface do
 
         it "notifies of planning failures" do
             interface.monitor_job(job_task, task)
-            job_task.start!
+            expect_execution { job_task.start! }.to_run
             expect_execution { job_task.failed_event.emit }.
                 garbage_collect(true).to { have_error_matching Roby::PlanningFailedError }
             interface.push_pending_job_notifications
@@ -233,8 +237,10 @@ describe Roby::Interface::Interface do
             interface.monitor_job(job_task, task)
             plan.unmark_mission_task(task)
             interface.push_pending_job_notifications
-            job_task.start!
-            job_task.success_event.emit
+            expect_execution do
+                job_task.start!
+                job_task.success_event.emit
+            end.to_run
             interface.push_pending_job_notifications
 
             assert_received_notifications \
@@ -247,8 +253,10 @@ describe Roby::Interface::Interface do
             interface.monitor_job(job_task, task)
             plan.unmark_mission_task(task)
             interface.push_pending_job_notifications
-            job_task.start!
-            job_task.success_event.emit
+            expect_execution do
+                job_task.start!
+                job_task.success_event.emit
+            end.to_run
             interface.push_pending_job_notifications
             plan.add_mission_task(task)
             interface.push_pending_job_notifications
@@ -266,8 +274,10 @@ describe Roby::Interface::Interface do
             interface.monitor_job(job_task, task)
             plan.replace(task, new_task)
             interface.push_pending_job_notifications
-            task.start!
-            new_task.start!
+            expect_execution do
+                task.start!
+                new_task.start!
+            end.to_run
             interface.push_pending_job_notifications
 
             assert_received_notifications \
@@ -279,7 +289,7 @@ describe Roby::Interface::Interface do
         it "allows to remove a listener completely" do
             interface.monitor_job(job_task, task)
             interface.remove_job_listener(job_listener)
-            task.start!
+            expect_execution { task.start! }.to_run
             assert recorder.empty?
         end
     end
@@ -335,7 +345,7 @@ describe Roby::Interface::Interface do
             assert !plan.mission_task?(task)
         end
         it "forcefully stops a running job" do
-            task.start!
+            expect_execution { task.start! }.to_run
             interface.kill_job 10
             assert task.finished?
         end
