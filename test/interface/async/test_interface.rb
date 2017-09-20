@@ -151,6 +151,49 @@ module Roby
                     end
                 end
 
+                describe "job monitors" do
+                    before do
+                        @job_monitor = flexmock(job_id: 10)
+                        @job_monitor.should_receive(:update_state).by_default
+                        @job_monitor.should_receive(:finalized?).and_return(false).by_default
+                        @interface = connect
+                        @client = @interface.client
+                        @interface.add_job_monitor(@job_monitor)
+                    end
+
+                    it "is active while added" do
+                        assert @interface.active_job_monitor?(@job_monitor)
+                    end
+
+                    it "is not active when removed" do
+                        @interface.remove_job_monitor(@job_monitor)
+                        refute @interface.active_job_monitor?(@job_monitor)
+                    end
+
+                    it "notifies added job monitors" do
+                        @client.queue_job_progress(:new_state, 10, 'test')
+                        flexmock(@job_monitor).should_receive(:update_state).with(:new_state).once
+                        @interface.poll
+                    end
+                    it "does not notify removed job monitors" do
+                        @interface.remove_job_monitor(@job_monitor)
+                        @client.queue_job_progress(:new_state, 10, 'test')
+                        flexmock(@job_monitor).should_receive(:update_state).never
+                        @interface.poll
+                    end
+                    it "auto-deregisters job monitors when the job is finalized" do
+                        @client.queue_job_progress(:new_state, 10, 'test')
+                        flexmock(@job_monitor).should_receive(:finalized?).and_return(true)
+                        @interface.poll
+                        refute @interface.active_job_monitor?(@job_monitor)
+                    end
+                    it "accepts an already removed job monitor as argument to #remove_job_monitor" do
+                        @interface.remove_job_monitor(@job_monitor)
+                        @interface.remove_job_monitor(@job_monitor)
+                        refute @interface.active_job_monitor?(@job_monitor)
+                    end
+                end
+
                 describe "#on_job" do
                     it "calls the hook on the current jobs" do
                         server = create_server

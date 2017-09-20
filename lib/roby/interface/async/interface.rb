@@ -458,10 +458,17 @@ module Roby
                 end
 
                 def remove_job_monitor(job)
-                    set = job_monitors[job.job_id]
-                    set.delete(job)
-                    if set.empty?
-                        job_monitors.delete(job.job_id)
+                    if set = job_monitors[job.job_id]
+                        set.delete(job)
+                        if set.empty?
+                            job_monitors.delete(job.job_id)
+                        end
+                    end
+                end
+
+                def active_job_monitor?(job)
+                    if set = job_monitors[job.job_id]
+                        set.include?(job)
                     end
                 end
 

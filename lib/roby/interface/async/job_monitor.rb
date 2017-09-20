@@ -181,6 +181,11 @@ module Roby
                     Roby::Interface.finalized_state?(state)
                 end
 
+                # Whether this job monitor is still active
+                def active?
+                    interface.active_job_monitor?(self)
+                end
+
                 # Start monitoring this job's state
                 def start
                     update_state(state)
