@@ -193,15 +193,23 @@ module Roby
             #   false otherwise
             # @see kill_job
             def drop_job(job_id)
-                if task = find_job_placeholder_by_id(job_id)
+                return if !(task = find_job_by_id(job_id))
+
+                placeholder_task = task.planned_task
+                if !placeholder_task
                     plan.unmark_mission_task(task)
+                    return true
+                end
+
+                placeholder_task.remove_planning_task(task)
+                if job_ids_of_task(placeholder_task).empty?
+                    plan.unmark_mission_task(placeholder_task)
                     true
                 else false
                 end
             end
             command :drop_job, "remove this job from the list of jobs, this does not necessarily kill the job's main task",
                 job_id: 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
-
 
             # Enumerates the job listeners currently registered through
             # {#on_job_notification}
@@ -317,17 +325,31 @@ module Roby
                 job_listeners.delete(listener)
             end
 
+            # Returns all the job IDs of this task
+            #
+            # @param [Roby::Task] task the job task itself, or its placeholder
+            #   task
+            # @return [Array<Integer>] the task's job IDs. May be empty if
+            #   the task is not a job task, or if its job ID is not set
+            def job_ids_of_task(task)
+                if task.fullfills?(Job)
+                    [task.job_id]
+                else
+                    task.each_planning_task.map do |planning_task|
+                        if planning_task.fullfills?(Job)
+                            planning_task.job_id
+                        end
+                    end.compact
+                end
+            end
+
             # Returns the job ID of a task, where the task can either be a
             # placeholder for the job or the job task itself
             #
             # @return [Integer,nil] the task's job ID or nil if (1) the task is
             #   not a job task or (2) its job ID is not set
             def job_id_of_task(task)
-                if task.fullfills?(Job)
-                    task.job_id
-                elsif task.planning_task && task.planning_task.fullfills?(Job)
-                    task.planning_task.job_id
-                end
+                job_ids_of_task(task).first
             end
 
             # Monitor the given task as a job
@@ -368,7 +390,7 @@ module Roby
                 end
 
                 service.on_replacement do |current, new|
-                    if job_id_of_task(new) == job_id
+                    if job_ids_of_task(new).include?(job_id)
                         job_notify(JOB_REPLACED, job_id, job_name, new)
                         job_notify(job_state(new), job_id, job_name)
                     else
@@ -385,6 +407,10 @@ module Roby
                     job_notify(JOB_FAILED, job_id, job_name)
                 end
                 service.when_finalized do 
+                    job_notify(JOB_FINALIZED, job_id, job_name)
+                end
+
+                PlanService.new(planning_task).when_finalized do
                     job_notify(JOB_FINALIZED, job_id, job_name)
                 end
             end
@@ -503,8 +529,8 @@ module Roby
             def on_exception(&block)
                 execution_engine.execute do
                     execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
-                        involved_job_ids = tasks.map do |t|
-                            job_id_of_task(t) if t.plan
+                        involved_job_ids = tasks.flat_map do |t|
+                            job_ids_of_task(t) if t.plan
                         end.compact.to_set
                         block.call(kind, exception, tasks, involved_job_ids)
                     end

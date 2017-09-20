@@ -354,24 +354,45 @@ describe Roby::Interface::Interface do
     describe "#drop_job" do
         attr_reader :task
         before do
-            plan.add(job_task = job_task_m.new(job_id: 10))
+            plan.add(@job_task = job_task_m.new(job_id: 10))
             plan.add_mission_task(@task = Roby::Tasks::Simple.new)
-            task.planned_by job_task
+            task.planned_by @job_task
         end
         it "returns true for an existing job" do
             assert interface.drop_job(10)
         end
         it "returns false for a non-existent job" do
-            assert !interface.drop_job(20)
+            refute interface.drop_job(20)
+        end
+        it "removes the planning task relation" do
+            interface.drop_job(10)
+            assert_equal [], task.each_planning_task.to_a
         end
         it "unmarks the job as mission" do
             interface.drop_job 10
-            assert !plan.mission_task?(task)
+            refute plan.mission_task?(task)
         end
         it "does not stops a running job" do
-            task.start!
+            expect_execution { task.start! }.to_run
             interface.drop_job 10
             assert task.running?
+        end
+        
+        describe "multiple planning tasks" do
+            before do
+                @other_job_task = job_task_m.new(job_id: 20)
+                task.add_planning_task @other_job_task
+            end
+
+            it "does not unmark as mission" do
+                interface.drop_job 10
+                assert plan.mission_task?(task)
+            end
+
+            it "does remove the planning relation" do
+                interface.drop_job 10
+                assert_equal [@other_job_task], task.each_planning_task.to_a
+            end
         end
     end
 
