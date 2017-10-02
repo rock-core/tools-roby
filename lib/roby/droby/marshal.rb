@@ -201,11 +201,11 @@ module Roby
             # It is first resolved among the 
             # models registered with {#register_model} and then resolved in
             # the process constant hierarchy
-            def find_local_model(marshalled)
+            def find_local_model(marshalled, name: marshalled.name)
                 resolved, local_model = find_local_object(marshalled)
                 if resolved
                     return local_model
-                elsif local_model = object_manager.find_model_by_name(marshalled.name)
+                elsif name && (local_model = object_manager.find_model_by_name(name))
                     return local_model
                 elsif !marshalled.name
                     return
@@ -241,8 +241,8 @@ module Roby
             end
 
             # (see ObjectManager#register_model)
-            def register_model(local_model, known_siblings = Hash.new)
-                object_manager.register_model(local_model, known_siblings)
+            def register_model(local_model, known_siblings = Hash.new, name: local_model.name)
+                object_manager.register_model(local_model, known_siblings, name: name)
             end
 
             # (see ObjectManager#known_siblings_for)

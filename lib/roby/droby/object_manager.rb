@@ -134,9 +134,9 @@ module Roby
             # In addition to ID-based resolution, models can also be resolved by
             # name through {#find_model_by_name}. This registers the name
             # mapping and then calls {#register_object}
-            def register_model(local_object, known_siblings = Hash.new)
-                if n = local_object.name
-                    models_by_name[n] = local_object
+            def register_model(local_object, known_siblings = Hash.new, name: local_object.name)
+                if name
+                    models_by_name[name] = local_object
                 end
                 register_object(local_object, known_siblings)
             end

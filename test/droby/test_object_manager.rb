@@ -148,7 +148,14 @@ module Roby
                     model = flexmock(name: nil)
                     flexmock(subject).should_receive(:register_object).with(model, Hash).once
                     subject.register_model(model)
-                    assert !subject.find_model_by_name(nil)
+                    refute subject.find_model_by_name(nil)
+                end
+
+                it "allows to pass a name explicitly" do
+                    model = flexmock(name: nil)
+                    flexmock(subject).should_receive(:register_object).with(model, Hash).once
+                    subject.register_model(model, name: 'test')
+                    assert subject.find_model_by_name('test')
                 end
             end
         end

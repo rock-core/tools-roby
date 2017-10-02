@@ -160,6 +160,7 @@ module Roby
             describe "#find_local_model" do
                 let(:marshalled) { flexmock }
                 it "resolves it as an object first" do
+                    marshalled.should_receive(name: 'Test')
                     flexmock(subject).should_receive(:find_local_object).with(marshalled).
                         and_return([true, obj = flexmock])
                     assert_equal obj, subject.find_local_model(marshalled)
@@ -170,6 +171,15 @@ module Roby
                         and_return([false, nil])
                     model = flexmock(name: 'Test', droby_id: Object.new)
                     subject.object_manager.register_model(model)
+                    marshalled.should_receive(name: 'Test')
+                    assert_equal model, subject.find_local_model(marshalled, name: 'Test')
+                end
+
+                it "accepts an explicit name" do
+                    flexmock(subject).should_receive(:find_local_object).with(marshalled).
+                        and_return([false, nil])
+                    model = flexmock(droby_id: Object.new)
+                    subject.object_manager.register_model(model, name: 'Test')
                     marshalled.should_receive(name: 'Test')
                     assert_equal model, subject.find_local_model(marshalled)
                 end
