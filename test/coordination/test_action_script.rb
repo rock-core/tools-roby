@@ -121,10 +121,10 @@ describe ActionScript do
                 and_return(action_task = task_model.new)
             script_model.start script_task
             script = script_model.new(root_task)
-            root_task.start!
+            execute { root_task.start! }
             assert_equal action_task, root_task.current_task_child
-            assert !script.finished?
-            action_task.start!
+            refute script.finished?
+            execute { action_task.start! }
             assert script.finished?
         end
     end
@@ -136,10 +136,13 @@ describe ActionScript do
             script_model.forward script_task.intermediate_event, script_model.success_event
             script_model.start script_task
             script = script_model.new(root_task)
-            root_task.start!
-            action_task.start!
-            action_task.intermediate_event.emit
-            assert root_task.success?
+            execute { root_task.start! }
+            expect_execution do
+                action_task.start!
+                action_task.intermediate_event.emit
+            end.to do
+                emit root_task.success_event
+            end
         end
     end
 end
