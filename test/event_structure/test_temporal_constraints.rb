@@ -19,7 +19,7 @@ module Roby
                 assert !e1.has_temporal_constraints?
                 assert e2.has_temporal_constraints?
 
-                e1.emit
+                execute { e1.emit }
                 assert !e2.find_failed_temporal_constraint(Time.now)
             end
 
@@ -36,18 +36,20 @@ module Roby
                 plan.add(e1 = Roby::EventGenerator.new(true))
                 plan.add(e2 = Roby::EventGenerator.new(true))
                 e1.add_occurence_constraint(e2, 1, 2)
-                e1.emit
+                execute { e1.emit }
                 assert e2.meets_temporal_constraints?(Time.now)
-                e2.emit
+                execute { e2.emit }
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
                 plan.add(e2 = Roby::EventGenerator.new(true))
                 e1.add_occurence_constraint(e2, 1, 2)
-                e1.emit
+                execute { e1.emit }
                 assert e2.meets_temporal_constraints?(Time.now)
-                e2.emit
-                e1.emit
-                e1.emit
+                execute do
+                    e2.emit
+                    e1.emit
+                end
+                execute { e1.emit }
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
                     have_error_matching EventStructure::OccurenceConstraintViolation.match.
@@ -68,9 +70,9 @@ module Roby
                 plan.add(e1 = Roby::EventGenerator.new(true))
                 plan.add(e2 = Roby::EventGenerator.new(true))
                 e1.add_occurence_constraint(e2, 1, 2, true)
-                e1.emit
+                execute { e1.emit }
                 assert e2.meets_temporal_constraints?(Time.now)
-                e2.emit
+                execute { e2.emit }
                 # Counts are reset
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
@@ -81,11 +83,11 @@ module Roby
                 plan.add(e1 = Roby::EventGenerator.new(true))
                 plan.add(e2 = Roby::EventGenerator.new(true))
                 e1.add_occurence_constraint(e2, 1, 2, true)
-                e1.emit
+                execute { e1.emit }
                 assert e2.meets_temporal_constraints?(Time.now)
-                e1.emit
+                execute { e1.emit }
                 assert e2.meets_temporal_constraints?(Time.now)
-                e1.emit
+                execute { e1.emit }
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
                     have_error_matching EventStructure::OccurenceConstraintViolation.match.
@@ -187,7 +189,7 @@ module Roby
                     current_time = Time.now
                     time.should_receive(:now).and_return { current_time }
 
-                    e1.emit
+                    execute { e1.emit }
                     assert_equal [], temporal_constraints_graph.check_structure(plan)
                     current_time += 11
                     errors = temporal_constraints_graph.check_structure(plan)
@@ -210,11 +212,11 @@ module Roby
                     current_time = Time.now
                     time.should_receive(:now).and_return { current_time }
 
-                    e1.emit
+                    execute { e1.emit }
                     assert_equal [], temporal_constraints_graph.check_structure(plan)
                     current_time += 2
                     assert_equal [], temporal_constraints_graph.check_structure(plan)
-                    e2.emit
+                    execute { e2.emit }
                     assert plan.emission_deadlines.deadlines.empty?
                     current_time += 10
                     assert_equal [], temporal_constraints_graph.check_structure(plan)
@@ -237,15 +239,15 @@ module Roby
                     current_time = Time.now
                     time.should_receive(:now).and_return { current_time }
 
-                    e1.emit
+                    execute { e1.emit }
                     assert_equal [], temporal_constraints_graph.check_structure(plan)
                     current_time += 2
                     assert_equal [], temporal_constraints_graph.check_structure(plan)
                     assert_equal 2, plan.emission_deadlines.size
-                    e2.emit
+                    execute { e2.emit }
                     assert_equal 1, plan.emission_deadlines.size
                     current_time += 4
-                    e3.emit
+                    execute { e3.emit }
                     assert_equal 1, plan.emission_deadlines.size
                     current_time += 6
 
@@ -272,7 +274,7 @@ module Roby
                     current_time = Time.now
                     time.should_receive(:now).and_return { current_time }
 
-                    e1.emit
+                    execute { e1.emit }
                     current_time += 12
                     expect_execution { e2.emit }.to do
                         have_error_matching EventStructure::TemporalConstraintViolation.match.
@@ -292,11 +294,11 @@ module Roby
                     current_time = Time.now
                     time.should_receive(:now).and_return { current_time }
 
-                    e2.emit
+                    execute { e2.emit }
                     current_time += 6
-                    e1.emit
+                    execute { e1.emit }
                     current_time += 6
-                    e2.emit
+                    execute { e2.emit }
                     current_time += 6
 
                     expect_execution { e2.emit }.to do

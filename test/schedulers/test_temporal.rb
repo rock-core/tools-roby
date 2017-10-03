@@ -5,7 +5,8 @@ class TC_Schedulers_Temporal < Minitest::Test
     attr_reader :scheduler
 
     def scheduler_initial_events
-        while !scheduler.initial_events.empty?
+        while true
+            break if execute { scheduler.initial_events.empty? }
         end
     end
 
@@ -76,7 +77,7 @@ class TC_Schedulers_Temporal < Minitest::Test
         end
 
         t2.executable = true
-        t3.success!
+        execute { t3.success! }
         assert(!t3.running?)
         2.times do
             scheduler_initial_events
@@ -91,7 +92,7 @@ class TC_Schedulers_Temporal < Minitest::Test
         t2.depends_on(t2_child)
         t2_child.should_start_after(t1_child)
 
-        t1.start!
+        execute { t1.start! }
         assert scheduler.can_schedule?(t1, Time.now)
         assert scheduler.can_schedule?(t1_child, Time.now)
         assert scheduler.can_schedule?(t2, Time.now)
@@ -105,8 +106,10 @@ class TC_Schedulers_Temporal < Minitest::Test
             assert(!t2_child.running?)
         end
 
-        t1.stop!
-        t1_child.stop!
+        execute do
+            t1.stop!
+            t1_child.stop!
+        end
         assert scheduler.can_schedule?(t2_child, Time.now)
         2.times do
             scheduler_initial_events
@@ -126,7 +129,7 @@ class TC_Schedulers_Temporal < Minitest::Test
         t2.should_start_after(t3)
         t3.schedule_as(t2)
 
-        t0.start!
+        execute { t0.start! }
 
         t1.executable = false
         assert scheduler.can_schedule?(t1, Time.now)
@@ -144,7 +147,7 @@ class TC_Schedulers_Temporal < Minitest::Test
         assert(!t2.running?)
         assert(t3.running?)
 
-        t3.success!
+        execute { t3.success! }
         assert scheduler.can_schedule?(t2, Time.now)
         scheduler_initial_events
         assert(t2.running?)

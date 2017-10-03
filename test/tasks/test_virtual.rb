@@ -41,32 +41,32 @@ module Roby
 
                 start.on { |event| mock.start_event }
                 task.start_event.on { |event| mock.start_task }
-                task.start!
-                success.emit
+                execute { task.start! }
+                execute { success.emit }
                 assert(task.success?)
             end
 
             it "fails if its success event becomes unreachable" do
                 start, success = EventGenerator.new(true), EventGenerator.new
                 plan.add(task = VirtualTask.create(start, success))
-                task.start!
-                success.unreachable!
-                assert task.failed?
+                execute { task.start! }
+                expect_execution { success.unreachable! }.
+                    to { emit task.failed_event }
             end
 
             it "fails if its success event is garbage collected" do
                 start, success = EventGenerator.new(true), EventGenerator.new
                 plan.add(task = VirtualTask.create(start, success))
-                task.start!
-                plan.remove_free_event(success)
-                assert task.failed?
+                execute { task.start! }
+                expect_execution { plan.remove_free_event(success) }.
+                    to { emit task.failed_event }
             end
 
             it "does nothing if the success event is emitted while the task is still pending" do
                 start, success = EventGenerator.new(true), EventGenerator.new
                 plan.add(success)
                 plan.add(task = VirtualTask.create(start, success))
-                success.emit
+                execute { success.emit }
             end
         end
     end

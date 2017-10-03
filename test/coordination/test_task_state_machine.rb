@@ -209,7 +209,7 @@ class TC_TaskStateMachine < Minitest::Test
             end
         end
         plan.add(t = m2.new)
-        t.start!
+        execute { t.start! }
     end
 
     def test_responds_to_state_machine
@@ -258,15 +258,15 @@ class TC_TaskStateMachine < Minitest::Test
         assert model.event_model(:intermediate).controlable?
 
         task = prepare_plan add: 1, model: model
-        task.start!
+        execute { task.start! }
         assert_equal 'running', task.state_machine.status
-        task.intermediate!
+        execute { task.intermediate! }
         assert_equal 'one', task.state_machine.status
 
         task = prepare_plan add: 1, model: model
-        task.start!
+        execute { task.start! }
         assert_equal 'running', task.state_machine.status
-        task.intermediate_event.emit
+        execute { task.intermediate_event.emit }
         assert_equal 'one', task.state_machine.status
     end
 
@@ -281,9 +281,9 @@ class TC_TaskStateMachine < Minitest::Test
         assert !model.event_model(:intermediate).controlable?
 
         task = prepare_plan add: 1, model: model
-        task.start!
+        execute { task.start! }
         assert_equal 'running', task.state_machine.status
-        task.intermediate_event.emit
+        execute { task.intermediate_event.emit }
         assert_equal 'one', task.state_machine.status
     end
 

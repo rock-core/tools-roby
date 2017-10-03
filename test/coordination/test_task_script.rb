@@ -23,8 +23,8 @@ module Roby
                             wait event_source_task.start_event
                             emit success_event
                         end
-                        root.start!
-                        refute root.finished?
+                        expect_execution { root.start! }.
+                            to { not_emit root.stop_event }
                     end
                     context.it "passes after a new emission" do
                         event_source_task = self.event_source_task
@@ -32,10 +32,10 @@ module Roby
                             wait event_source_task.test_event
                             emit success_event
                         end
-                        root.start!
-                        event_source_task.start! if !event_source_task.running?
-                        event_source_task.test_event.emit
-                        assert root.finished?
+                        execute { root.start! }
+                        execute { event_source_task.start! } if !event_source_task.running?
+                        expect_execution { event_source_task.test_event.emit }.
+                            to { emit root.stop_event }
                     end
                     context.it "does not pass if the event is emitted before an explicit deadline" do
                         event_source_task = self.event_source_task
@@ -44,10 +44,10 @@ module Roby
                             wait event_source_task.test_event, after: t + 10
                             emit success_event
                         end
-                        root.start!
-                        event_source_task.start! if !event_source_task.running?
-                        event_source_task.test_event.emit
-                        refute root.finished?
+                        execute { root.start! }
+                        execute { event_source_task.start! } if !event_source_task.running?
+                        expect_execution { event_source_task.test_event.emit }.
+                            to { not_emit root.stop_event }
                     end
                     context.it "passes if the event is emitted after an explicit deadline" do
                         event_source_task = self.event_source_task
@@ -56,11 +56,11 @@ module Roby
                             wait event_source_task.test_event, after: t + 10
                             emit success_event
                         end
-                        root.start!
-                        event_source_task.start! if !event_source_task.running?
+                        execute { root.start! }
+                        execute { event_source_task.start! } if !event_source_task.running?
                         Timecop.travel(t + 11)
-                        event_source_task.test_event.emit
-                        assert root.finished?
+                        expect_execution { event_source_task.test_event.emit }.
+                            to { emit root.stop_event }
                     end
                     context.it "fails if the event becomes unreachable" do
                         event_source_task = self.event_source_task
@@ -112,7 +112,7 @@ module Roby
                         root.script do
                             wait event_source_task.start_event
                         end
-                        root.start!
+                        execute { root.start! }
                         assert root.depends_on?(event_source_task)
                     end
                     it "removes the dependency after the wait" do
@@ -123,7 +123,10 @@ module Roby
                             execute { recorder.is_child?(depends_on?(event_source_task)) }
                         end
                         recorder.should_receive(:is_child?).with(false).once
-                        root.start!; event_source_task.start!
+                        execute do
+                            root.start!
+                            event_source_task.start!
+                        end
                     end
                 end
                 describe "waiting for a child task's event" do
@@ -141,9 +144,11 @@ module Roby
                             execute { recorder.is_child?(depends_on?(event_source_task)) }
                         end
                         recorder.should_receive(:is_child?).with(true).once
-                        root.start!
-                        event_source_task.start!
-                        event_source_task.test_event.emit
+                        execute do
+                            root.start!
+                            event_source_task.start!
+                        end
+                        execute { event_source_task.test_event.emit }
                     end
                     it "does not remove the child when the event is emitted even if it has no explicit role" do
                         recorder = flexmock
@@ -155,7 +160,7 @@ module Roby
                             execute { recorder.is_child?(depends_on?(event_source_task)) }
                         end
                         recorder.should_receive(:is_child?).with(true).once
-                        root.start!; event_source_task.start!
+                        execute { root.start!; event_source_task.start! }
                     end
                 end
 
@@ -177,10 +182,10 @@ module Roby
                             recorder.second_execute
                         end
                     end
-                    root.start!
-                    root.test_event.emit
-                    child.subtask_child.start!
-                    child.subtask_child.test_event.emit
+                    execute { root.start! }
+                    execute { root.test_event.emit }
+                    execute { child.subtask_child.start! }
+                    execute { child.subtask_child.test_event.emit }
                 end
             end
 
@@ -281,7 +286,7 @@ class TC_Coordination_TaskScript < Minitest::Test
                 recorder.called
             end
         end
-        task.start!
+        execute { task.start! }
         script.prepare
 
         recorder.should_receive(:called).never
@@ -303,8 +308,8 @@ class TC_Coordination_TaskScript < Minitest::Test
             end
             emit success_event
         end
-        task.start!
-        task.poll_transition_event.emit
+        execute { task.start! }
+        execute { task.poll_transition_event.emit }
     end
 
     def test_child_of_real_task_is_modelled_using_the_actual_tasks_model
@@ -401,16 +406,16 @@ class TC_Coordination_TaskScript < Minitest::Test
             execute { true }
             emit success_event
         end
-        task.start!
-        assert task.success?
+        expect_execution { task.start! }.
+            to { emit task.success_event }
 
         task = prepare_plan permanent: 1, model: Tasks::Simple
         task.script do
             execute { false }
             emit success_event
         end
-        task.start!
-        assert task.success?
+        expect_execution { task.start! }.
+            to { emit task.success_event }
     end
 
     def test_execute_block_is_evaluated_in_the_context_of_the_root_task
@@ -419,7 +424,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         task.script do
             execute { context = self }
         end
-        task.start!
+        execute { task.start! }
         assert_equal task, context
     end
 
@@ -448,10 +453,12 @@ class TC_Coordination_TaskScript < Minitest::Test
         task1.done_event.on { |ev| mock.event_emitted(ev.task) }
         task2.done_event.on { |ev| mock.event_emitted(ev.task) }
 
-        task1.start!
-        task2.start!
-        task1.do_it_event.emit
-        task2.do_it_event.emit
+        execute do
+            task1.start!
+            task2.start!
+        end
+        execute { task1.do_it_event.emit }
+        execute { task2.do_it_event.emit }
     end
 
     def test_script_is_prepared_with_the_new_task_after_a_replacement
@@ -462,8 +469,8 @@ class TC_Coordination_TaskScript < Minitest::Test
             emit success_event
         end
         plan.replace_task(old, new)
-        new.start!
-        assert new.success?
+        expect_execution { new.start! }.
+            to { emit new.success_event }
     end
 
     def test_transaction_commits_new_script_on_pending_task
@@ -495,7 +502,7 @@ class TC_Coordination_TaskScript < Minitest::Test
 
     def test_transaction_commits_new_script_on_running_task
         plan.add(task = Roby::Tasks::Simple.new)
-        task.start!
+        execute { task.start! }
 
         mock = flexmock
         mock.should_receive(:executed).with(false).never.ordered

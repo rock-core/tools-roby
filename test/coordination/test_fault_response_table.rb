@@ -40,12 +40,12 @@ describe Roby::Coordination::FaultResponseTable do
         task = Roby::Tasks::Simple.new
         task.use_fault_response_table fault_table_m, arg: 20
         plan.add(task)
-        task.start!
+        execute { task.start! }
         assert_equal 1, plan.active_fault_response_tables.size
         table = plan.active_fault_response_tables.first
         assert_kind_of fault_table_m, table
         assert_equal Hash[arg: 20], table.arguments
-        task.stop!
+        execute { task.stop! }
         assert plan.active_fault_response_tables.empty?
     end
 
@@ -92,14 +92,18 @@ describe Roby::Coordination::FaultResponseTable do
             plan.use_fault_response_table fault_table_m
             plan.add_mission_task(parent = action_m.test.as_plan)
             parent = parent.as_service
-            parent.planning_task.start!
-            parent.start!
-            parent.test_child.start!
-            parent.test_child.stop!
+            execute { parent.planning_task.start! }
+            execute do
+                parent.start!
+                parent.test_child.start!
+                parent.test_child.stop!
+            end
 
-            parent.planning_task.start!
-            parent.start!
-            parent.test_child.start!
+            execute { parent.planning_task.start! }
+            execute do
+                parent.start!
+                parent.test_child.start!
+            end
         end
     end
 
@@ -123,8 +127,7 @@ describe Roby::Coordination::FaultResponseTable do
         end
 
         it "registers a fault response task and starts it" do
-            root_task.start!
-
+            execute { root_task.start! }
             expect_execution { execution_engine.add_error(error_m.new(root_task)) }.
                 to { have_handled_error_matching error_m.match.with_origin(root_task) }
             fault_handling_task = root_task.each_error_handler.to_a.first.first
@@ -134,7 +137,7 @@ describe Roby::Coordination::FaultResponseTable do
         end
 
         it "inhibits the localized error that caused it to trigger" do
-            root_task.start!
+            execute { root_task.start! }
             flexmock(execution_engine).should_receive(:warn).with("1 handled errors")
             flexmock(execution_engine).should_receive(:notify_exception).once.
                 with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error_m.to_execution_exception_matcher, any)

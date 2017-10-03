@@ -133,25 +133,27 @@ class TC_Query < Minitest::Test
 	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated.abstract }
 
 	assert_finds_tasks([t1, t2]) { TaskMatcher.pending }
-	t1.start!
+	execute { t1.start! }
 	assert_finds_tasks([t2]) { TaskMatcher.pending }
 	assert_finds_tasks([t1, t2]) { TaskMatcher.not_failed }
 	assert_finds_tasks([t1, t2]) { TaskMatcher.not_success }
 	assert_finds_tasks([t1, t2]) { TaskMatcher.not_finished }
 
 	assert_finds_tasks([t1]) { TaskMatcher.running }
-	t1.success!
+	execute { t1.success! }
 	assert_finds_tasks([t1], plan.task_index.by_predicate) { TaskMatcher.success }
 	assert_finds_tasks([t1]) { TaskMatcher.finished }
 	assert_finds_tasks([t1, t2]) { TaskMatcher.not_failed }
 	assert_finds_tasks([t2]) { TaskMatcher.not_finished }
 
-	plan.remove_task(t1)
+	execute { plan.remove_task(t1) }
 
 	t1 = Tasks::Simple.new
 	plan.add(t1)
-	t1.start!
-	t1.failed!
+        execute do
+            t1.start!
+            t1.failed!
+        end
 	assert_finds_tasks([t1]) { TaskMatcher.failed }
 	assert_finds_tasks([t1]) { TaskMatcher.finished }
 	assert_finds_tasks([t1]) { TaskMatcher.finished.not_success }

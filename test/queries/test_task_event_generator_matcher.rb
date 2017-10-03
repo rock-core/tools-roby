@@ -78,7 +78,7 @@ describe Roby::Queries::TaskEventGeneratorMatcher do
                 assert !(create_matcher === generator)
             end
             it "returns false for a finalized generator that is not directly the expected generator" do
-                plan.remove_task(task)
+                execute { plan.remove_task(task) }
                 assert !(create_matcher('bla') === task.start_event)
             end
             it "should return false if the task matcher returns false" do

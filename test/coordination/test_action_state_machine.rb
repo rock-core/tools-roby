@@ -24,7 +24,7 @@ describe ActionStateMachine do
     def start_machine(action, *args)
         task = action.instanciate(plan, *args)
         plan.add_permanent_task(task)
-        task.start!
+        execute { task.start! }
         task
     end
 
@@ -113,8 +113,10 @@ describe ActionStateMachine do
 
             task = start_machine(action_m.test)
             monitor = plan.find_tasks.with_arguments(id: 'monitoring').first
-            monitor.start!
-            monitor.success_event.emit
+            execute do
+                monitor.start!
+                monitor.success_event.emit
+            end
             assert_equal 2, task.children.size
             refute task.children.include?(monitor) # task is restarted on transition
             assert_equal Hash[id: 'monitoring'], task.monitor_state_child.arguments
@@ -132,8 +134,10 @@ describe ActionStateMachine do
 
             task = start_machine(action_m.test)
             monitor = plan.find_tasks.with_arguments(id: 'monitoring').first
-            monitor.start!
-            monitor.success_event.emit
+            execute do
+                monitor.start!
+                monitor.success_event.emit
+            end
             assert_equal Hash[id: :next], task.current_task_child.arguments
         end
 
@@ -165,11 +169,11 @@ describe ActionStateMachine do
 
             task = start_machine(action_m.test)
             assert_equal Hash[id: :start], task.current_task_child.arguments
-            task.monitor_child.start!
+            execute { task.monitor_child.start! }
             assert_equal Hash[id: :start], task.current_task_child.arguments
-            task.monitor_child.success_event.emit
+            execute { task.monitor_child.success_event.emit }
             assert_equal Hash[id: :next], task.current_task_child.arguments
-            task.monitor_child.start!
+            execute { task.monitor_child.start! }
             assert_equal Hash[id: :start], task.current_task_child.arguments
         end
 
@@ -186,8 +190,10 @@ describe ActionStateMachine do
             task = start_machine(action_m.test)
             flexmock(task.each_coordination_object.first).should_receive(:instanciate_state_transition).
                 once.pass_thru
-            task.monitor_child.start!
-            task.monitor_child.success_event.emit
+            execute do
+                task.monitor_child.start!
+                task.monitor_child.success_event.emit
+            end
         end
 
         it "does not fire a unused transition after it has quit the state by another transition" do
@@ -198,7 +204,7 @@ describe ActionStateMachine do
             end
 
             plan.add_permanent_task(state_task = state_task_m.new)
-            state_task.start!
+            execute { state_task.start! }
             action_m = Roby::Actions::Interface.new_submodel do
                 describe('always the same state task').
                     returns(state_task_m)
@@ -217,14 +223,16 @@ describe ActionStateMachine do
 
             task = action_m.find_action_by_name('test').instanciate(plan)
             plan.add_permanent_task(task)
-            task.start!
+            execute { task.start! }
 
             state_machine = task.each_coordination_object.first
             plan_machine_child(task)
 
             flexmock(state_machine).should_receive(:instanciate_state_transition).once.pass_thru
-            state_task.left_event.emit
-            state_task.right_event.emit
+            execute do
+                state_task.left_event.emit
+                state_task.right_event.emit
+            end
         end
 
         it "does not fire a transition multiple time even if the transition event is reused across states" do
@@ -234,7 +242,7 @@ describe ActionStateMachine do
             end
 
             plan.add_permanent_task(state_task = state_task_m.new)
-            state_task.start!
+            execute { state_task.start! }
             action_m = Roby::Actions::Interface.new_submodel do
                 describe('always the same state task').
                     returns(state_task_m)
@@ -254,14 +262,14 @@ describe ActionStateMachine do
 
             task = action_m.find_action_by_name('test').instanciate(plan)
             plan.add_permanent_task(task)
-            task.start!
+            execute { task.start! }
 
             state_machine = task.each_coordination_object.first
             2.times do |i|
                 plan_machine_child(task)
                 FlexMock.use(state_machine) do |machine|
                     machine.should_receive(:instanciate_state_transition).once.pass_thru
-                    task.current_task_child.transition_event.emit
+                    execute { task.current_task_child.transition_event.emit }
                 end
             end
         end
@@ -331,7 +339,7 @@ describe ActionStateMachine do
         execute { task.current_task_child.start! }
         expect_execution { task.current_task_child.success_event.emit }.
             to { have_error_matching ChildFailedError.match.with_origin(task.current_task_child.success_event) }
-        plan.remove_task(task.children.first)
+        execute { plan.remove_task(task.children.first) }
     end
 
     it "can be passed actual state models as arguments" do
@@ -393,7 +401,7 @@ describe ActionStateMachine do
 
             test_task = start_machine(action_m.test(test_arg: 10))
             start_machine_child(test_task)
-            test_task.current_task_child.stop!
+            execute { test_task.current_task_child.stop! }
             assert_same 10, value
         end
 
@@ -408,7 +416,7 @@ describe ActionStateMachine do
 
             test_task = start_machine(action_m.test)
             start_machine_child(test_task)
-            test_task.current_task_child.stop!
+            execute { test_task.current_task_child.stop! }
             assert_equal 42, test_task.current_task_child.planning_task.
                 action_arguments[:arg]
         end
@@ -425,8 +433,10 @@ describe ActionStateMachine do
 
             test_task = start_machine(action_m.test)
             start_machine_child(test_task)
-            test_task.current_task_child.intermediate_event.emit(42)
-            test_task.current_task_child.stop!
+            execute do
+                test_task.current_task_child.intermediate_event.emit(42)
+                test_task.current_task_child.stop!
+            end
             assert_equal 42, test_task.current_task_child.planning_task.
                 action_arguments[:arg]
         end
@@ -444,7 +454,7 @@ describe ActionStateMachine do
 
             test_task = start_machine(action_m.test)
             start_machine_child(test_task)
-            test_task.current_task_child.stop!
+            execute { test_task.current_task_child.stop! }
             assert_equal 21, test_task.current_task_child.planning_task.
                 action_arguments[:arg]
         end
@@ -487,7 +497,7 @@ describe ActionStateMachine do
         end
 
         task = child_m.find_action_by_name('test').instanciate(plan)
-        task.start!
+        execute { task.start! }
         assert task.current_task_child
         assert_kind_of child_task_m, task.current_task_child
     end
@@ -502,11 +512,11 @@ describe ActionStateMachine do
         end
         task = action_m.test.instanciate(plan)
         assert plan.active_fault_response_tables.empty?
-        task.start!
+        execute { task.start! }
         table = plan.active_fault_response_tables.first
         assert table
         assert_kind_of table_m, table
-        task.stop!
+        execute { task.stop! }
         assert plan.active_fault_response_tables.empty?
     end
 
@@ -522,7 +532,7 @@ describe ActionStateMachine do
             start state(task_m)
         end
         task = action_m.test.instanciate(plan, machine_arg: 10)
-        task.start!
+        execute { task.start! }
         table = plan.active_fault_response_tables.first
         assert_equal Hash[arg: 10], table.arguments
     end
@@ -538,12 +548,16 @@ describe ActionStateMachine do
         plan.add(task = task_m.new)
         state_machine = state_machine_m.new(task)
 
-        task.start!
+        execute { task.start! }
         flexmock(state_machine).should_receive(:instanciate_state).never
         plan.add_permanent_task(task.current_task_child)
-        task.current_task_child.start!
-        task.stop!
-        task.current_task_child.success_event.emit
+        execute do
+            task.current_task_child.start!
+            task.stop!
+        end
+        execute do
+            task.current_task_child.success_event.emit
+        end
     end
 
     it "removes forwarding to the root task if it is finished" do
@@ -556,10 +570,14 @@ describe ActionStateMachine do
         plan.add(task = task_m.new)
         state_machine = state_machine_m.new(task)
 
-        task.start!
-        task.current_task_child.start!
-        task.stop!
-        task.current_task_child.success_event.emit
+        execute { task.start! }
+        execute do
+            task.current_task_child.start!
+            task.stop!
+        end
+        execute do
+            task.current_task_child.success_event.emit
+        end
     end
 end
     end

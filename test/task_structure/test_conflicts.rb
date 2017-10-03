@@ -39,7 +39,7 @@ module Roby
                     refute task_2.child_object?(task_1, Roby::TaskStructure::Conflicts)
                 end
                 it "marks in the conflict graph the tasks that cannot start due to a started task" do
-                    task_1.start!
+                    execute { task_1.start! }
                     refute task_1.child_object?(task_2, Roby::TaskStructure::Conflicts)
                     assert task_2.child_object?(task_1, Roby::TaskStructure::Conflicts)
                 end

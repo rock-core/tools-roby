@@ -248,8 +248,10 @@ module Roby
                 plan.add(@garbage_task = Tasks::Simple.new)
                 plan.add(@free_event = EventGenerator.new)
                 plan.add(@garbage_free_event = EventGenerator.new)
-                garbage_task.garbage!
-                garbage_free_event.garbage!
+                execute do
+                    garbage_task.garbage!
+                    garbage_free_event.garbage!
+                end
             end
             describe "direct manipulation" do
                 it "raises if adding a relation whose parent is a garbage task" do

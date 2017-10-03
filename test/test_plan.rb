@@ -372,6 +372,12 @@ end
 class TC_Plan < Minitest::Test
     include TC_PlanStatic
 
+    attr_reader :plan
+    def setup
+        super
+        @plan = Plan.new
+    end
+
     def test_transaction_stack
         assert_equal [plan], plan.transaction_stack
     end
@@ -379,6 +385,11 @@ end
 
 module Roby
     describe Plan do
+        attr_reader :plan
+        before do
+            @plan = Plan.new
+        end
+
         describe "#initialize" do
             it "instanciates graphs for all the relation graphs registered on Roby::Task" do
                 space = flexmock(instanciate: Hash[1 => 2])

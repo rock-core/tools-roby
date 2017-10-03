@@ -24,6 +24,18 @@ module Roby
                 @plan_rebuilder = PlanRebuilder.new
             end
 
+            def expect_execution(plan: @local_plan, **options, &block)
+                super
+            end
+
+            def execute_one_cycle(plan: @local_plan, **options)
+                super
+            end
+
+            def execute(plan: @local_plan, **options)
+                super
+            end
+
             def rebuilt_plan
                 plan_rebuilder.plan
             end
@@ -159,7 +171,7 @@ module Roby
                     local_plan.add(task = Task.new)
                     process_logged_events
                     r_task = rebuilt_plan.tasks.first
-                    local_plan.execution_engine.garbage_collect
+                    execute_one_cycle(garbage_collect: true)
                     process_logged_events
                     assert rebuilt_plan.garbaged_tasks.include?(r_task)
                 end
@@ -168,16 +180,16 @@ module Roby
                     local_plan.add(task = Task.new)
                     process_logged_events
                     r_task = rebuilt_plan.tasks.first
-                    local_plan.remove_task(task)
+                    execute { local_plan.remove_task(task) }
                     process_logged_events
-                    assert !rebuilt_plan.has_task?(r_task)
+                    refute rebuilt_plan.has_task?(r_task)
                 end
 
                 it "does not remove a garbaged task until #clear_integrated is called" do
                     local_plan.add(task = Task.new)
                     process_logged_events
                     r_task = rebuilt_plan.tasks.first
-                    local_plan.execution_engine.garbage_collect
+                    execute_one_cycle(garbage_collect: true)
                     process_logged_events
                     assert rebuilt_plan.has_task?(r_task)
                     rebuilt_plan.clear_integrated
@@ -189,7 +201,7 @@ module Roby
                     local_plan.add(event = EventGenerator.new)
                     process_logged_events
                     r_event = rebuilt_plan.free_events.first
-                    local_plan.execution_engine.garbage_collect
+                    execute_one_cycle(garbage_collect: true)
                     process_logged_events
                     assert rebuilt_plan.garbaged_events.include?(r_event)
                 end
@@ -198,7 +210,7 @@ module Roby
                     local_plan.add(event = EventGenerator.new)
                     process_logged_events
                     r_event = rebuilt_plan.free_events.first
-                    local_plan.execution_engine.garbage_collect
+                    execute_one_cycle(garbage_collect: true)
                     process_logged_events
                     assert rebuilt_plan.has_free_event?(r_event)
                     rebuilt_plan.clear_integrated
@@ -210,7 +222,7 @@ module Roby
                     local_plan.add(event = EventGenerator.new)
                     process_logged_events
                     r_event = rebuilt_plan.free_events.first
-                    local_plan.remove_free_event(event)
+                    execute { local_plan.remove_free_event(event) }
                     process_logged_events
                     assert !rebuilt_plan.has_free_event?(r_event)
                 end
@@ -409,7 +421,7 @@ module Roby
 
                 it "propagates event emission" do
                     local_plan.add(generator = EventGenerator.new)
-                    event = generator.emit(flexmock(droby_dump: 42))
+                    event = execute { generator.emit(flexmock(droby_dump: 42)) }
                     process_logged_events
                     r_generator = rebuilt_plan.free_events.first
                     assert r_generator.emitted?
@@ -428,7 +440,7 @@ module Roby
 
                     it "propagates call information" do
                         source.on { target.call }
-                        source.emit
+                        execute { source.emit }
                         process_logged_events
 
                         assert rebuilt_plan.propagated_events.find { |is_forward, events, generator|
@@ -442,7 +454,7 @@ module Roby
 
                     it "propagates signalling information" do
                         source.signals target
-                        source.emit
+                        execute { source.emit }
                         process_logged_events
 
                         assert rebuilt_plan.propagated_events.any? { |is_forward, events, generator|
@@ -456,7 +468,7 @@ module Roby
 
                     it "propagates chained emission information" do
                         source.on { target.emit }
-                        source.emit
+                        execute { source.emit }
                         process_logged_events
 
                         assert rebuilt_plan.propagated_events.any? { |is_forward, events, generator|
@@ -470,7 +482,7 @@ module Roby
 
                     it "propagates forwarding information" do
                         source.forward_to target
-                        source.emit
+                        execute { source.emit }
                         process_logged_events
 
                         assert rebuilt_plan.propagated_events.any? { |is_forward, events, generator|
@@ -506,7 +518,7 @@ module Roby
                 it "dumps tasks using their ID in the finalization message" do
                     local_plan.add(task = Task.new)
                     process_logged_events
-                    local_plan.remove_task(task)
+                    execute { local_plan.remove_task(task) }
                     cycle_info = flush_cycle_events
                     assert cycle_info.each_slice(4).find { |m, _, _, args| m == :finalized_task && args == [local_plan.droby_id, RemoteDRobyID.new(nil, task.droby_id)] }
                 end
@@ -514,7 +526,7 @@ module Roby
                 it "dumps task events using their ID in the finalization message" do
                     local_plan.add(task = Task.new)
                     process_logged_events
-                    local_plan.remove_task(task)
+                    execute { local_plan.remove_task(task) }
                     cycle_info = flush_cycle_events
                     assert cycle_info.each_slice(4).find { |m, _, _, args| m == :finalized_event && args == [local_plan.droby_id, RemoteDRobyID.new(nil, task.start_event.droby_id)] }
                 end
@@ -522,28 +534,28 @@ module Roby
                 it "dumps events using their ID in the finalization message" do
                     local_plan.add(event = EventGenerator.new)
                     process_logged_events
-                    local_plan.remove_free_event(event)
+                    execute { local_plan.remove_free_event(event) }
                     cycle_info = flush_cycle_events
                     assert cycle_info.each_slice(4).find { |m, _, _, args| m == :finalized_event && args == [local_plan.droby_id, RemoteDRobyID.new(nil, event.droby_id)] }
                 end
 
                 it "dumps tasks fully once the task has been finalized" do
                     local_plan.add(task = Task.new)
-                    local_plan.remove_task(task)
+                    execute { local_plan.remove_task(task) }
                     flexmock(task).should_receive(:droby_dump).once.and_return(m = flexmock)
                     assert_equal m, event_logger.marshal.dump(task)
                 end
 
                 it "dumps task events fully once they have been finalized" do
                     local_plan.add(task = Task.new)
-                    local_plan.remove_task(task)
+                    execute { local_plan.remove_task(task) }
                     flexmock(task.start_event).should_receive(:droby_dump).once.and_return(m = flexmock)
                     assert_equal m, event_logger.marshal.dump(task.start_event)
                 end
 
                 it "dumps free events fully once they have been finalized" do
                     local_plan.add(event = EventGenerator.new)
-                    local_plan.remove_free_event(event)
+                    execute { local_plan.remove_free_event(event) }
                     flexmock(event).should_receive(:droby_dump).once.and_return(m = flexmock)
                     assert_equal m, event_logger.marshal.dump(event)
                 end

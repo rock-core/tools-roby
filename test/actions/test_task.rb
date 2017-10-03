@@ -28,19 +28,19 @@ class TC_Actions_Task < Minitest::Test
             with(result_task).pass_thru
         flexmock(Transaction).new_instances.
             should_receive(:add).with(any).pass_thru
-        task.start!
+        execute { task.start! }
     end
 
     def test_it_commits_the_transaction_if_the_action_is_successful
         flexmock(Transaction).new_instances.
             should_receive(:commit_transaction).once.pass_thru
-        task.start!
-        assert task.success?
+        expect_execution { task.start! }.
+            to { emit task.success_event }
     end
 
     def test_it_emits_success_if_the_action_is_successful
-        task.start!
-        assert task.success?
+        expect_execution { task.start! }.
+            to { emit task.success_event }
     end
 
     def test_it_emits_failed_and_raises_PlanningFailedError_if_the_action_raised

@@ -16,8 +16,10 @@ describe Roby::Coordination::Models::FaultHandler do
         fault_response_table = Roby::Coordination::FaultResponseTable.new_submodel
         @handler = Roby::Coordination::FaultHandler.new_submodel(action_interface: fault_response_table)
 
-        [m0, m1, m2, t0, t1, t2].each do |t|
-            t.start!
+        execute do
+            [m0, m1, m2, t0, t1, t2].each do |t|
+                t.start!
+            end
         end
     end
 
@@ -50,14 +52,14 @@ describe Roby::Coordination::Models::FaultHandler do
 
         it "stops all the response locations and makes it so that stopping the response locations do not generate any exceptions" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([m1].to_set)
-            handler.activate(flexmock(origin: t2))
+            execute { handler.activate(flexmock(origin: t2)) }
             assert m1.finished?
             assert m0.running?
             assert m2.running?
         end
         it "removes children so that the relevant ones are garbage-collected" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([m0, m1].to_set)
-            handler.activate(flexmock(origin: t2))
+            execute { handler.activate(flexmock(origin: t2)) }
             expect_execution.garbage_collect(true).to do
                 finalize t0, t1, t2
                 not_finalize m0, m1, m2
@@ -66,14 +68,14 @@ describe Roby::Coordination::Models::FaultHandler do
         it "registers the fault handling task as a repair for the error event if the response location is the origin" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([t2].to_set)
             failure_event = t2.start_event.last
-            handler.activate(flexmock(origin: t2))
+            execute { handler.activate(flexmock(origin: t2)) }
 
             repairs = t2.find_all_matching_repair_tasks(t2.stop_event)
             assert_equal 1, repairs.size
             repair_task = repairs.first
             assert_kind_of Roby::Coordination::FaultHandlingTask, repair_task
             assert_equal handler, repair_task.fault_handler
-            plan.remove_task t2
+            execute { plan.remove_task t2 }
         end
     end
 end

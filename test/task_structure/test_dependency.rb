@@ -95,7 +95,7 @@ class TC_Dependency < Minitest::Test
 	plan.add(p1)
 
         if do_start
-            child.start!; p1.start!
+            execute { child.start!; p1.start! }
         end
         return p1, child
     end
@@ -119,7 +119,7 @@ class TC_Dependency < Minitest::Test
             remove_when_done: false
 
 	assert_equal({}, plan.check_structure)
-	child.first!
+	execute { child.first! }
 	assert_equal({}, plan.check_structure)
         assert(parent.depends_on?(child))
     end
@@ -129,7 +129,7 @@ class TC_Dependency < Minitest::Test
             failure: [:stop],
             remove_when_done: true
 
-	child.first!
+	execute { child.first! }
 	assert_equal({}, plan.check_structure)
         assert(!parent.depends_on?(child))
     end
@@ -146,11 +146,11 @@ class TC_Dependency < Minitest::Test
 
             plan.execution_engine.control = decision_control
             parent, child = create_pair success: [], failure: [:stop], start: false
-            child.start!
+            execute { child.start! }
 
             mock.should_receive(:decision_control_called).once
 
-            child.stop!
+            execute { child.stop! }
             result = plan.check_structure
             assert(result.empty?)
         end
@@ -273,9 +273,11 @@ class TC_Dependency < Minitest::Test
 	p.depends_on c1
 	p.depends_on c2
 
-        p.start!
-        c1.start!
-        c1.success!
+        execute do
+            p.start!
+            c1.start!
+            c1.success!
+        end
         p.remove_finished_children
         refute p.depends_on?(c1)
         assert p.depends_on?(c2)
@@ -640,7 +642,7 @@ module Roby
                             should_receive(:<<).with(parent.start_event).at_least.once
                         flexmock(dependency_graph.interesting_events).
                             should_receive(:<<)
-                        parent.start!
+                        execute { parent.start! }
                     end
 
                     context.it "registers an event emitted that is positively involved in a dependency" do
@@ -651,7 +653,7 @@ module Roby
                             should_receive(:<<).with(child.start_event).at_least.once
                         flexmock(dependency_graph.interesting_events).
                             should_receive(:<<)
-                        child.start!
+                        execute { child.start! }
                     end
 
                     context.it "registers an unreachable event that is positively involved in a dependency" do
@@ -705,13 +707,15 @@ module Roby
                             parent.depends_on child, failure: :stop
                         end
                         plan.add_mission_task(parent)
-                        parent.start!
-                        child.start!
+                        execute do
+                            parent.start!
+                            child.start!
+                        end
 
                         plan.on_exception ChildFailedError do
                             plan.remove_task(child)
                         end
-                        child.stop!
+                        execute { child.stop! }
 
                         assert dependency_graph.failing_tasks.empty?
                     end
@@ -824,7 +828,7 @@ module Roby
                     @child_m = Roby::Tasks::Simple.new_submodel do
                         event :intermediate
                     end
-                    parent.start!
+                    execute { parent.start! }
                 end
 
                 it "creates a ChildFailedError that points to the original exception if the failure is caused by one" do
@@ -875,7 +879,7 @@ module Roby
 
                 it "reports a ChildFailedError if adding a new dependency while a failure event was already emitted" do
                     plan.add(child = child_m.new)
-                    child.start!
+                    execute { child.start! }
                     parent.depends_on(child, failure: :start)
                     expect_execution.to do
                         have_error_matching ChildFailedError.match.
