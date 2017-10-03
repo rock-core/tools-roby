@@ -93,6 +93,16 @@ module Roby
                 end
             end
 
+            # Expect that the generator(s) do not become unreachable
+            #
+            # @param [Array<EventGenerator>] generators the generators that are
+            #   expected to not become unreachable
+            def not_become_unreachable(*generators, backtrace: caller(1))
+                generators.map do |generator|
+                    add_expectation(NotBecomeUnreachable.new(generator, backtrace))
+                end
+            end
+
             # Expect that the given block is true during a certain amount of
             # time
             #
@@ -904,6 +914,25 @@ module Roby
 
                 def to_s
                     "#{@generator} is unreachable"
+                end
+            end
+
+            class NotBecomeUnreachable < Expectation
+                def initialize(generator, backtrace)
+                    super(backtrace)
+                    @generator = generator
+                end
+
+                def update_match(propagation_info)
+                    !@generator.unreachable?
+                end
+
+                def unachievable?(propagation_info)
+                    @generator.unreachable?
+                end
+
+                def to_s
+                    "#{@generator} is not unreachable"
                 end
             end
 
