@@ -133,6 +133,9 @@ module Roby
         # is the default
         attr_predicate :development_mode?
 
+        # The --set options passed on the command line
+        attr_reader :argv_set
+
         # Allows to attribute configuration keys to override configuration
         # parameters stored in config/app.yml
         #
@@ -513,6 +516,7 @@ module Roby
         def self.common_optparse_setup(parser)
             Roby.app.load_config_yaml
             parser.on("--set=KEY=VALUE", String, "set a value on the Conf object") do |value|
+                Roby.app.argv_set << value
                 key, value = value.split('=')
                 path = key.split('.')
                 base_conf = path[0..-2].inject(Conf) { |c, name| c.send(name) }
@@ -636,6 +640,7 @@ module Roby
 
 	def initialize
             @plan = ExecutablePlan.new
+            @argv_set = Array.new
 
             @auto_load_all = false
             @default_auto_load = true
