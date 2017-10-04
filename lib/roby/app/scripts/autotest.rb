@@ -50,6 +50,7 @@ parser = OptionParser.new do |opt|
         server_pid = pid
         cmdline_args << "--server" << pid.to_s
     end
+    Roby::Application.common_optparse_setup(opt)
 end
 
 test_files = parser.parse(ARGV)
