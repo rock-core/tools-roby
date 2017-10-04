@@ -346,6 +346,16 @@ module Roby
                     @errors = errors
                 end
 
+                def droby_dump(peer)
+                    UnexpectedErrors.new(
+                        @errors.map { |e| peer.dump(e) })
+                end
+
+                def proxy(peer)
+                    UnexpectedErrors.new(
+                        @errors.map { |e| peer.local_object(e) })
+                end
+
                 def to_s
                     "#{@errors.size} unexpected errors\n" +
                     @errors.each_with_index.map do |e, i|
