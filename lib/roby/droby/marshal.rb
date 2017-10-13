@@ -125,6 +125,14 @@ module Roby
                 end
             end
 
+            def dump_model(object)
+                marshalled = dump(object)
+                if !marshalled.kind_of?(RemoteDRobyID) && object.respond_to?(:droby_dump)
+                    register_model(object)
+                end
+                marshalled
+            end
+
             # Finds a local object that matches the object transmitted by
             # our peer
             #

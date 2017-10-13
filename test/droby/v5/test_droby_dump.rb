@@ -117,6 +117,14 @@ module Roby
                         assert_same loaded, demarshaller.local_object(marshalled)
                     end
 
+                    it "registers its model" do
+                        task_m = Roby::Task.new_submodel
+                        task = task_m.new
+                        droby_transfer(task_m.new)
+                        assert_kind_of Roby::DRoby::RemoteDRobyID,
+                            droby_local_marshaller.dump(task_m)
+                    end
+
                     it "handles a model that is also referenced in its arguments" do
                         task_m = Roby::Task.new_submodel
                         task_m.argument :arg
