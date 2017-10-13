@@ -115,7 +115,7 @@ module Roby
                 if droby_id = context_objects[object]
                     droby_id
                 elsif object.respond_to?(:droby_dump)
-                    if sibling = object_manager.known_sibling_on(object, peer_id)
+                    if sibling = object_manager.registered_sibling_on(object, peer_id)
                         RemoteDRobyID.new(peer_id, sibling)
                     else
                         object.droby_dump(self)

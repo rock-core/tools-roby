@@ -116,6 +116,14 @@ module Roby
                         # by ID
                         assert_same loaded, demarshaller.local_object(marshalled)
                     end
+
+                    it "handles a model that is also referenced in its arguments" do
+                        task_m = Roby::Task.new_submodel
+                        task_m.argument :arg
+                        task = task_m.new(arg: task_m)
+                        remote = droby_transfer task
+                        assert_same remote.class, remote.arg
+                    end
                 end
 
                 describe "marshalling and demarshalling of plan objects" do
