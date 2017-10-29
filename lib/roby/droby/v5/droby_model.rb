@@ -31,7 +31,7 @@ module Roby
                 end
 
                 def create_new_proxy_model(peer)
-                    local_model = @unmarshalled_supermodel.new_submodel(name: name || "#{supermodel.name}#")
+                    local_model = @unmarshalled_supermodel.new_submodel(name: name || "#{@unmarshalled_supermodel.name}#")
                     peer.register_model(local_model, remote_siblings)
                     local_model
                 end
