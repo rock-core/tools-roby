@@ -763,6 +763,12 @@ module Roby
                 ev.achieve_asynchronously(emit_on_success: true) { recorder.call }
                 execution_engine.join_all_waiting_work
             end
+            it "passes the context argument to the emission" do
+                context = [flexmock]
+                ev.achieve_asynchronously(emit_on_success: true, context: context) { }
+                emitted = expect_execution.to { emit ev }
+                assert_equal context, emitted.context
+            end
             it "should not emit the event automatically if the emit_on_success option is false" do
                 ev.achieve_asynchronously(emit_on_success: false) { true }
                 expect_execution.to { not_emit ev }
@@ -792,6 +798,15 @@ module Roby
                 expect_execution.to { emit ev }
             end
 
+            it "passes the context argument to the on_failure emission" do
+                promise = execution_engine.promise { }.
+                    on_success { raise ArgumentError }
+                context = [flexmock]
+                ev.achieve_asynchronously(promise, on_failure: :emit, context: context)
+                emitted = expect_execution.to { emit ev }
+                assert_equal context, emitted.context
+            end
+
             it "does nothing if on_failure is :nothing" do
                 promise = execution_engine.promise { }.
                     on_success { raise ArgumentError }
@@ -806,6 +821,12 @@ module Roby
                 it "emits right away" do
                     expect_execution { ev.achieve_asynchronously(Roby::Promise.null) }.
                         to { emit ev }
+                end
+                it "passes the context argument to the emission" do
+                    context = [flexmock]
+                    emitted = expect_execution { ev.achieve_asynchronously(Roby::Promise.null, context: context) }.
+                        to { emit ev }
+                    assert_equal context, emitted.context
                 end
                 it "does nothing if emit_on_success if false" do
                     expect_execution { ev.achieve_asynchronously(Roby::Promise.null, emit_on_success: false) }.

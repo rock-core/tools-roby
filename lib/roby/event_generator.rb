@@ -760,7 +760,7 @@ module Roby
         #
         # @return [Promise] the promise. Do NOT chain work on this promise, as
         #   that work won't be automatically error-checked by Roby's mechanisms
-        def achieve_asynchronously(promise = nil, description: "#{self}#achieve_asynchronously", emit_on_success: true, on_failure: :fail, &block)
+        def achieve_asynchronously(promise = nil, description: "#{self}#achieve_asynchronously", emit_on_success: true, on_failure: :fail, context: nil, &block)
             if promise && block
                 raise ArgumentError, "cannot give both a promise and a block"
             elsif ![:fail, :emit, :nothing].include?(on_failure)
@@ -770,19 +770,19 @@ module Roby
             end
 
             if promise.null?
-                emit if emit_on_success
+                emit(*context) if emit_on_success
                 return
             end
 
             if emit_on_success
-                promise.on_success(description: "#{self}.emit") { emit }
+                promise.on_success(description: "#{self}.emit") { emit(*context) }
             end
             if on_failure != :nothing
                 promise.on_error(description: "#{self}#emit_failed") do |reason|
                     if on_failure == :fail
                         emit_failed(reason)
                     elsif on_failure == :emit
-                        emit
+                        emit(*context)
                     end
                 end
             end
