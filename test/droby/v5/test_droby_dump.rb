@@ -597,7 +597,7 @@ module Roby
                                 matcher.with_child(task_m, Roby::TaskStructure::Dependency,
                                                    flexmock(droby_dump: 42))
                                 flexmock(demarshaller).should_receive(:local_object).with(42).and_return(Hash.new).once
-                                flexmock(demarshaller).should_receive(:local_object).with(any).pass_thru
+                                flexmock(demarshaller).should_receive(:local_object).with(any, any).pass_thru
                                 matcher = transfer(self.matcher)
 
                                 edges = matcher.children.fetch(Roby::TaskStructure::Dependency)
@@ -610,7 +610,7 @@ module Roby
                                 matcher.with_parent(task_m, Roby::TaskStructure::Dependency,
                                                     flexmock(droby_dump: 42))
                                 flexmock(demarshaller).should_receive(:local_object).with(42).and_return(Hash.new).once
-                                flexmock(demarshaller).should_receive(:local_object).with(any).pass_thru
+                                flexmock(demarshaller).should_receive(:local_object).with(any, any).pass_thru
                                 matcher = transfer(self.matcher)
 
                                 edges = matcher.parents.fetch(Roby::TaskStructure::Dependency)

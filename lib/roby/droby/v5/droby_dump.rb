@@ -860,7 +860,7 @@ module Roby
                         # argument set. This is to be used by DRoby-dumped versions of
                         # subclasses of TaskMatcher.
                         def proxy(peer, matcher: Roby::Queries::PlanObjectMatcher.new)
-                            model  = peer.local_model(self.model)
+                            model  = self.model.map { |m| peer.local_model(m) }
                             owners = peer.local_object(self.owners)
 
                             matcher.with_model(model)
@@ -880,7 +880,7 @@ module Roby
                     # representation. It is used for code reuse by subclasses of
                     # TaskMatcher.
                     def droby_dump(peer, droby: DRoby)
-                        droby.new(peer.dump_model(model),
+                        droby.new(model.map { |m| peer.dump_model(m) },
                                   predicates, neg_predicates, indexed_predicates, indexed_neg_predicates,
                                   peer.dump(owners),
                                   peer.dump(parents), peer.dump(children))
