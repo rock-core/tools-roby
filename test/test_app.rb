@@ -699,6 +699,37 @@ module Roby
                 app.ui_event(:test_event, 0, 2, 3)
             end
         end
+
+        describe "setup of the load path" do
+            before do
+                @test_dir_0 = make_tmpdir
+                @test_dir_1 = make_tmpdir
+                @load_path = $LOAD_PATH.dup
+                app.search_path = [@test_dir_0, @test_dir_1]
+            end
+            after do
+                $LOAD_PATH.clear
+                $LOAD_PATH.concat(@load_path)
+            end
+            it "injects the app dir with the same precedence than the search path" do
+                app.update_load_path
+                assert_equal @test_dir_0, $LOAD_PATH[0]
+                assert_equal @test_dir_1, $LOAD_PATH[1]
+            end
+            it "injects the app's lib dirs if they exist with the same precedence than the search path" do
+                FileUtils.mkdir File.join(@test_dir_0, 'lib')
+                app.update_load_path
+                assert_equal File.join(@test_dir_0, 'lib'), $LOAD_PATH[0]
+                assert_equal @test_dir_0, $LOAD_PATH[1]
+                assert_equal @test_dir_1, $LOAD_PATH[2]
+            end
+            it "enforces the ordering even if an app's dir is already present in the load path" do
+                $LOAD_PATH.unshift @test_dir_0
+                app.update_load_path
+                assert_equal @test_dir_0, $LOAD_PATH[0]
+                assert_equal @test_dir_1, $LOAD_PATH[1]
+            end
+        end
     end
 end
 
