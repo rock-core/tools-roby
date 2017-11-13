@@ -31,6 +31,8 @@ module Roby
             attr_reader :cycle_index
             # @return [Time] time of the last processed cycle
             attr_reader :cycle_start_time
+            # @return [Array<Hash>] list of the pending async calls
+            attr_reader :pending_async_calls
 
             # Create a client endpoint to a Roby interface [Server]
             #
@@ -41,6 +43,7 @@ module Roby
             #
             # @see Interface.connect_with_tcp_to
             def initialize(io, id)
+                @pending_async_calls = Array.new
                 @io = io
                 @message_id = 0
                 @notification_queue = Array.new
@@ -103,10 +106,18 @@ module Roby
                 end
 
                 if m == :bad_call
-                    e = args.first
-                    raise e, e.message, (e.backtrace + caller)
+                    if !pending_async_calls.empty?
+                        process_pending_async_call(args.first, nil)
+                    else
+                        e = args.first
+                        raise e, e.message, (e.backtrace + caller)
+                    end
                 elsif m == :reply
-                    yield args.first
+                    if !pending_async_calls.empty?
+                        process_pending_async_call(nil, args.first)
+                    else
+                        yield args.first
+                    end
                 elsif m == :job_progress
                     queue_job_progress(*args)
                 elsif m == :notification
@@ -131,6 +142,15 @@ module Roby
                 io.read_wait(timeout: timeout)
             end
 
+            # @api private
+            #
+            # Remove and call the block of a pending async call
+            def process_pending_async_call(error, result)
+                current_call = pending_async_calls.shift
+                call_block = current_call[:block]
+                call_block.call(error, result) if call_block
+            end
+
             # Polls for new data on the IO channel
             #
             # @return [Object] a call reply
@@ -147,7 +167,7 @@ module Roby
                 while packet = io.read_packet(timeout)
                     has_cycle_end = process_packet(*packet) do |reply_value|
                         if result
-                            raise ProtocolError, "got more than one reply in a single poll call"
+                            raise ProtocolError, "got more than one sync reply in a single poll call"
                         end
                         result = reply_value
                         expected_count -= 1
@@ -293,6 +313,31 @@ module Roby
                     result, _ = poll(1)
                     result
                 end
+            end
+
+            # @api private
+            #
+            # Asynchronously call a method on the interface or on one of the
+            # interface's subcommands
+            #
+            # @param [Array<String>] path path to the subcommand. Empty means on
+            #   the interface object itself.
+            # @param [Symbol] m command or action name. Actions are always
+            #   formatted as action_name!
+            # @param [Object] args the command or action arguments
+            def async_call(path, m, *args, &block)
+                if m.to_s =~ /(.*)!$/
+                    action_name = $1
+                    if find_action_by_name(action_name)
+                        path = []
+                        m = :start_job
+                        args = [action_name, *args]
+                    else raise NoSuchAction, "there is no action called #{action_name} on #{self}"
+                    end
+                end
+                io.write_packet([path, m, *args])
+                pending_async_calls << { block: block, path: path,
+                                         m: m, args: args }
             end
 
             # @api private
