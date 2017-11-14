@@ -12,7 +12,7 @@ module Roby
         end
 
         it "is deregistered from the plan on finalization" do
-            plan.remove_task(t1)
+            execute { plan.remove_task(t1) }
             assert !plan.find_plan_service(t1)
         end
 
@@ -40,11 +40,15 @@ module Roby
                 mock.called_on(event.task)
             end
 
-            t1.start!
-            t2.start!
-            plan.replace(t1, t2)
-            t1.success!
-            t2.success!
+            execute do
+                t1.start!
+                t2.start!
+            end
+            execute do
+                plan.replace(t1, t2)
+                t1.success!
+                t2.success!
+            end
         end
 
         it "calls finalization handlers only for the current underlying task" do
@@ -54,9 +58,11 @@ module Roby
                 mock.called(service.task)
             end
 
-            plan.replace(t1, t2)
-            plan.remove_task(t1)
-            plan.remove_task(t2)
+            execute do
+                plan.replace(t1, t2)
+                plan.remove_task(t1)
+                plan.remove_task(t2)
+            end
         end
 
         describe "#on_plan_status_change" do

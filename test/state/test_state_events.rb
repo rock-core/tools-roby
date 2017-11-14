@@ -21,24 +21,24 @@ class TC_StateEvents < Minitest::Test
 
 	plan.add(d = State.on_delta(d: 10))
 	assert_kind_of(PosDeltaEvent, d)
-	d.poll
+        expect_execution { d.poll }.
+            to { not_emit d }
 	assert_equal(State.pos, d.last_value)
-	assert(!d.emitted?)
 
 	State.pos.x = 5
-	d.poll
-	assert(!d.emitted?)
+        expect_execution { d.poll }.
+            to { not_emit d }
 
 	State.pos.x = 10
-	d.poll
-	assert_equal(1, d.history.size)
+        expect_execution { d.poll }.
+            to { emit d }
 
-	d.poll
-	assert_equal(1, d.history.size)
+        expect_execution { d.poll }.
+            to { not_emit d }
 
 	State.pos.x = 0
-	d.poll
-	assert_equal(2, d.history.size)
+        expect_execution { d.poll }.
+            to { emit d }
     end
 
     def test_yaw_delta_event
@@ -51,15 +51,15 @@ class TC_StateEvents < Minitest::Test
 
 	assert(!y.emitted?)
 	State.pos.yaw = 20
-	y.poll
-	assert(y.emitted?)
+        expect_execution { y.poll }.
+            to { emit y }
 
-	y.poll
-	assert_equal(1, y.history.size)
+        expect_execution { y.poll }.
+            to { not_emit y }
 
 	State.pos.yaw = 0
-	y.poll
-	assert_equal(2, y.history.size)
+        expect_execution { y.poll }.
+            to { emit y }
     end
 
     def test_time_delta_event
@@ -67,26 +67,26 @@ class TC_StateEvents < Minitest::Test
 	    current_time = Time.now + 5
 	    time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.add(t = State.on_delta(t: 1))
-	    assert_kind_of(TimeDeltaEvent, t)
+	    plan.add(ev = State.on_delta(t: 1))
+	    assert_kind_of(TimeDeltaEvent, ev)
 
-	    t.poll
-	    assert(!t.emitted?)
+            expect_execution { ev.poll }.
+                to { not_emit ev }
 	    current_time += 0.5
-	    t.poll
-	    assert(!t.emitted?)
-
-	    current_time += 0.5
-	    t.poll
-	    assert_equal(1, t.history.size)
+            expect_execution { ev.poll }.
+                to { not_emit ev }
 
 	    current_time += 0.5
-	    t.poll
-	    assert_equal(1, t.history.size)
+            expect_execution { ev.poll }.
+                to { emit ev }
 
 	    current_time += 0.5
-	    t.poll
-	    assert_equal(2, t.history.size)
+            expect_execution { ev.poll }.
+                to { not_emit ev }
+
+	    current_time += 0.5
+            expect_execution { ev.poll }.
+                to { emit ev }
 	end
     end
 
@@ -96,14 +96,14 @@ class TC_StateEvents < Minitest::Test
 	    time_proxy.should_receive(:now).and_return { current_time }
 
 	    plan.add(ev = State.at(t: current_time + 1))
-	    ev.poll
-	    assert(!ev.emitted?)
+            expect_execution { ev.poll }.
+                to { not_emit ev }
 	    current_time += 1
-	    ev.poll
-	    assert(ev.emitted?)
+            expect_execution { ev.poll }.
+                to { emit ev }
 	    current_time += 1
-	    ev.poll
-	    assert_equal(1, ev.history.size)
+            expect_execution { ev.poll }.
+                to { not_emit ev }
 	end
     end
 

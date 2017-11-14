@@ -60,7 +60,7 @@ module Roby
                     plan.add(root = Roby::Task.new)
                     task = root.depends_on(Roby::Task.new)
                     planner = task.planned_by(Roby::Test::Tasks::Simple.new)
-                    planner.start!
+                    execute { planner.start! }
 
                     expect_execution { planner.failed! }.to do
                         have_error_matching PlanningFailedError.match.with_origin(task).

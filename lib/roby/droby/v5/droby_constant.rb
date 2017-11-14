@@ -36,7 +36,7 @@ module Roby
                     # checks that +self+ can actually be referenced locally by
                     # calling <tt>constant(name)</tt>, or raises ArgumentError if
                     # it is not the case.
-                    def droby_dump(dest)
+                    def droby_dump(peer)
                         if constant = DRobyConstant.valid_constants[self]
                             return constant
                         elsif !name
@@ -54,16 +54,22 @@ module Roby
                         end
 
                         if (local_constant == self)
-                            return(DRobyConstant.valid_constants[self] = DRobyConstant.new(name))
+                            DRobyConstant.valid_constants[self] = DRobyConstant.new(name, peer.known_siblings_for(self))
                         else
                             raise MismatchingLocalConstant, "got DRobyConstant whose name '#{name}' resolves to #{local_constant}(#{local_constant.class}), not itself (#{self})"
                         end
                     end
                 end
 
+                attr_reader :remote_siblings
+
                 # The constant name
                 attr_reader :name
-                def initialize(name); @name = name end
+
+                def initialize(name, remote_siblings = Hash.new)
+                    @name = name
+                    @remote_siblings = remote_siblings
+                end
                 # Returns the local object which can be referenced by this name, or
                 # raises ArgumentError.
                 def proxy(peer); constant(name) end

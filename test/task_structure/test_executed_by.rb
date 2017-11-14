@@ -38,8 +38,11 @@ module Roby
                     event :ready
                 end.new
                 task.executed_by execution_agent
-                execution_agent.start!
-                execution_agent.ready_event.unreachable!(reason = flexmock)
+                execute { execution_agent.start! }
+                reason = execute do
+                    execution_agent.ready_event.unreachable!(reason = flexmock)
+                    reason
+                end
                 assert task.failed_to_start?
                 assert_equal reason, task.failure_reason
             end
@@ -54,8 +57,8 @@ module Roby
                 flexmock(plan.control).should_receive(:execution_agent_failed_to_start).
                     once
 
-                execution_agent.failed_to_start!(reason = flexmock)
-                assert !task.failed_to_start?
+                execute { execution_agent.failed_to_start!(reason = flexmock) }
+                refute task.failed_to_start?
             end
 
             def test_emission_of_stop_marks_pending_executed_tasks_as_failed_to_start_by_default
@@ -64,9 +67,11 @@ module Roby
                     event :ready
                 end.new
                 task.executed_by execution_agent
-                execution_agent.start!
-                execution_agent.ready_event.emit
-                execution_agent.stop!
+                execute do
+                    execution_agent.start!
+                    execution_agent.ready_event.emit
+                end
+                execute { execution_agent.stop! }
                 assert task.failed_to_start?
                 assert_equal execution_agent.failed_event.last, task.failure_reason
             end
@@ -81,10 +86,14 @@ module Roby
                 flexmock(plan.control).should_receive(:pending_executed_by_failed).
                     once
 
-                execution_agent.start!
-                execution_agent.ready_event.emit
-                execution_agent.stop!
-                assert !task.failed_to_start?
+                execute do
+                    execution_agent.start!
+                    execution_agent.ready_event.emit
+                end
+                execute do
+                    execution_agent.stop!
+                end
+                refute task.failed_to_start?
             end
 
             def test_nominal
@@ -100,12 +109,11 @@ module Roby
                     mock.should_receive(:agent_started).once.ordered
                     mock.should_receive(:agent_ready).once.ordered
                     mock.should_receive(:task_started).once.ordered
-                    exec.start!
-                    task.start!
+                    execute do
+                        exec.start!
+                        task.start!
+                    end
                 end
-
-                task.stop!
-                exec.stop!
             end
 
             def test_executed_by_verifies_that_the_agent_has_a_ready_event
@@ -124,15 +132,14 @@ module Roby
                 plan.add(task = Tasks::Simple.new)
                 task.executed_by(exec = ExecutionAgentModel.new)
                 task.execution_agent
-                exec.start!
-                exec.ready_event.emit
-                task.start!
+                execute do
+                    exec.start!
+                    exec.ready_event.emit
+                    task.start!
+                end
 
-                recorder = flexmock
-                task.aborted_event.on { |ev| recorder.called }
-                recorder.should_receive(:called).once
-                exec.stop!
-                assert(!task.running?)
+                expect_execution { exec.stop! }.
+                    to { emit task.aborted_event }
             end
 
             def test_task_has_wrong_agent
@@ -178,7 +185,7 @@ module Roby
             def test_it_refuses_setting_up_an_agent_on_a_running_task
                 plan.add(task = Tasks::Simple.new)
                 plan.add(agent = ExecutionAgentModel.new)
-                task.start!
+                execute { task.start! }
                 assert_raises(TaskStructure::ExecutedTaskAlreadyRunning) do
                     task.executed_by agent
                 end
@@ -195,7 +202,7 @@ module Roby
             it "marks the executed tasks as failed_to_start if the agent's ready_event becomes unreachable" do
                 plan.add(task = Tasks::Simple.new)
                 task.executed_by(agent = BaseExecutionAgent.new)
-                agent.start!
+                execute { agent.start! }
 
                 error_m = Class.new(LocalizedError)
                 expect_execution { agent.ready_event.unreachable!(error_m.new(task)) }.
@@ -205,21 +212,29 @@ module Roby
             it "does not mark the executed task as failed_to_start because the ready_event becomes unreachable once it has been emitted" do
                 plan.add(task = Tasks::Simple.new)
                 task.executed_by(agent = BaseExecutionAgent.new)
-                agent.start!
-                agent.ready_event.emit
-                agent.ready_event.unreachable!
+                execute do
+                    agent.start!
+                    agent.ready_event.emit
+                end
+                execute do
+                    agent.ready_event.unreachable!
+                end
                 refute task.failed_to_start?
-                task.start!
+                execute { task.start! }
             end
             it "does not mark the executed task as failed_to_start when the ready_event becomes unreachable if the relation was established after the event's emission" do
                 plan.add(task = Tasks::Simple.new)
                 plan.add(agent = BaseExecutionAgent.new)
-                agent.start!
-                agent.ready_event.emit
+                execute do
+                    agent.start!
+                    agent.ready_event.emit
+                end
                 task.executed_by(agent)
-                agent.ready_event.unreachable!
+                execute do
+                    agent.ready_event.unreachable!
+                end
                 refute task.failed_to_start?
-                task.start!
+                execute { task.start! }
             end
         end
     end

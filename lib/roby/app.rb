@@ -1531,9 +1531,13 @@ module Roby
 
         def update_load_path
             search_path.reverse.each do |app_dir|
-                $LOAD_PATH.unshift(app_dir) if !$LOAD_PATH.include?(app_dir)
+                $LOAD_PATH.delete(app_dir)
+                $LOAD_PATH.unshift(app_dir)
                 libdir = File.join(app_dir, 'lib')
-                $LOAD_PATH.unshift(libdir) if !$LOAD_PATH.include?(libdir)
+                if File.directory?(libdir)
+                    $LOAD_PATH.delete(libdir)
+                    $LOAD_PATH.unshift(libdir)
+                end
             end
 
             find_dirs('lib', 'ROBOT', all: true, order: :specific_last).

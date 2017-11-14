@@ -22,7 +22,8 @@ class TC_Schedulers_Basic < Minitest::Test
     end
 
     def scheduler_initial_events
-        while !scheduler.initial_events.empty?
+        while true
+            break if execute { scheduler.initial_events.empty? }
         end
     end
 
@@ -102,7 +103,7 @@ class TC_Schedulers_Basic < Minitest::Test
         scheduler_initial_events
         assert exec_t.running?
         assert !t.running?
-        exec_t.ready_event.emit
+        execute { exec_t.ready_event.emit }
         scheduler_initial_events
         assert t.running?
     end

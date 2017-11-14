@@ -93,6 +93,16 @@ module Roby
                 end
             end
 
+            # Expect that the generator(s) do not become unreachable
+            #
+            # @param [Array<EventGenerator>] generators the generators that are
+            #   expected to not become unreachable
+            def not_become_unreachable(*generators, backtrace: caller(1))
+                generators.map do |generator|
+                    add_expectation(NotBecomeUnreachable.new(generator, backtrace))
+                end
+            end
+
             # Expect that the given block is true during a certain amount of
             # time
             #
@@ -326,7 +336,7 @@ module Roby
                         pp.breakable
                         exp.pretty_print(pp)
                         if explanation
-                            pp.text " because of "
+                            pp.text ", but did not because of "
                             explanation.pretty_print(pp)
                         end
                     end
@@ -673,7 +683,7 @@ module Roby
                 end
 
                 def to_s
-                    "no emission of #{@generator}"
+                    "#{@generator} should not be emitted"
                 end
 
                 def update_match(propagation_info)
@@ -707,7 +717,7 @@ module Roby
                 end
 
                 def to_s
-                    "no emission of #{@event_query}"
+                    "no events matching #{@event_query} should be emitted"
                 end
 
                 def update_match(propagation_info)
@@ -748,7 +758,7 @@ module Roby
                 end
 
                 def to_s
-                    "emission of #{@event_query}"
+                    "at least one event matching #{@event_query} should be emitted"
                 end
 
                 def update_match(propagation_info)
@@ -785,7 +795,7 @@ module Roby
                 end
 
                 def to_s
-                    "emission of #{@generator}"
+                    "#{@generator} should be emitted"
                 end
 
                 def update_match(propagation_info)
@@ -859,7 +869,7 @@ module Roby
                 end
 
                 def to_s
-                    "has error matching #{@matcher}"
+                    "should have an error matching #{@matcher}"
                 end
             end
 
@@ -869,7 +879,7 @@ module Roby
                 end
 
                 def to_s
-                    "has handled error matching #{@matcher}"
+                    "should have handled an error matching #{@matcher}"
                 end
             end
 
@@ -884,7 +894,7 @@ module Roby
                 end
 
                 def to_s
-                    "#{@task} is quarantined"
+                    "#{@task} should be quarantined"
                 end
             end
 
@@ -903,7 +913,26 @@ module Roby
                 end
 
                 def to_s
-                    "#{@generator} is unreachable"
+                    "#{@generator} should be unreachable"
+                end
+            end
+
+            class NotBecomeUnreachable < Expectation
+                def initialize(generator, backtrace)
+                    super(backtrace)
+                    @generator = generator
+                end
+
+                def update_match(propagation_info)
+                    !@generator.unreachable?
+                end
+
+                def unachievable?(propagation_info)
+                    @generator.unreachable?
+                end
+
+                def to_s
+                    "#{@generator} should not be unreachable"
                 end
             end
 
@@ -950,7 +979,7 @@ module Roby
                 end
 
                 def to_s
-                    "#{@generator} has failed to start"
+                    "#{@generator} should fail to start"
                 end
             end
 
@@ -965,7 +994,7 @@ module Roby
                 end
 
                 def to_s
-                    "#{@promise} finishes"
+                    "#{@promise} should have finished"
                 end
             end
 
@@ -986,7 +1015,7 @@ module Roby
                 end
 
                 def to_s
-                    "have a framework error matching #{@error_matcher}"
+                    "should have a framework error matching #{@error_matcher}"
                 end
             end
 
@@ -1061,7 +1090,7 @@ module Roby
                 end
 
                 def to_s
-                    "not finalize #{@plan_object}"
+                    "#{@plan_object} should not be finalized"
                 end
             end
 
@@ -1076,7 +1105,7 @@ module Roby
                 end
 
                 def to_s
-                    "finalize #{@plan_object}"
+                    "#{@plan_object} should be finalized"
                 end
             end
         end

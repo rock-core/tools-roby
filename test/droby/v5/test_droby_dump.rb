@@ -32,6 +32,14 @@ module Roby
                 end
                 let(:remote_plan) { Roby::ExecutablePlan.new }
 
+                def execute(plan: local_plan, **options)
+                    super
+                end
+
+                def expect_execution(plan: local_plan, **options)
+                    super
+                end
+
                 def create_task_pair
                     local_plan.add(task  = Roby::Task.new)
                     marshaller_object_manager.register_object(task)
@@ -108,6 +116,22 @@ module Roby
                         # by ID
                         assert_same loaded, demarshaller.local_object(marshalled)
                     end
+
+                    it "registers its model" do
+                        task_m = Roby::Task.new_submodel
+                        task = task_m.new
+                        droby_transfer(task_m.new)
+                        assert_kind_of Roby::DRoby::RemoteDRobyID,
+                            droby_local_marshaller.dump(task_m)
+                    end
+
+                    it "handles a model that is also referenced in its arguments" do
+                        task_m = Roby::Task.new_submodel
+                        task_m.argument :arg
+                        task = task_m.new(arg: task_m)
+                        remote = droby_transfer task
+                        assert_same remote.class, remote.arg
+                    end
                 end
 
                 describe "marshalling and demarshalling of plan objects" do
@@ -131,7 +155,7 @@ module Roby
 
                         it "replicates the cached emitted flag" do
                             ev = EventGenerator.new(plan: local_plan)
-                            ev.emit
+                            execute { ev.emit }
                             ev = transfer(ev)
                             assert ev.emitted?
                         end
@@ -170,23 +194,27 @@ module Roby
 
                         it "replicates the cached started status" do
                             local_plan.add(task = task_m.new)
-                            task.start!
+                            execute { task.start! }
                             task = transfer(task)
                             assert task.running?
                         end
 
                         it "replicates the cached finished status" do
                             local_plan.add(task = task_m.new)
-                            task.start!
-                            task.stop!
+                            execute do
+                                task.start!
+                                task.stop!
+                            end
                             task = transfer(task)
                             assert task.finished?
                         end
 
                         it "replicates the cached success status" do
                             local_plan.add(task = task_m.new)
-                            task.start!
-                            task.success_event.emit
+                            execute do
+                                task.start!
+                                task.success_event.emit
+                            end
                             task = transfer(task)
                             assert task.success?
                         end
@@ -250,7 +278,7 @@ module Roby
 
                         it "duplicates the event's emitted status" do
                             local_plan.add(task = Roby::Task.new_submodel.new)
-                            task.start_event.emit
+                            execute { task.start_event.emit }
                             remote_event = transfer(task.start_event)
                             assert remote_event.emitted?
                         end
@@ -569,7 +597,7 @@ module Roby
                                 matcher.with_child(task_m, Roby::TaskStructure::Dependency,
                                                    flexmock(droby_dump: 42))
                                 flexmock(demarshaller).should_receive(:local_object).with(42).and_return(Hash.new).once
-                                flexmock(demarshaller).should_receive(:local_object).with(any).pass_thru
+                                flexmock(demarshaller).should_receive(:local_object).with(any, any).pass_thru
                                 matcher = transfer(self.matcher)
 
                                 edges = matcher.children.fetch(Roby::TaskStructure::Dependency)
@@ -582,7 +610,7 @@ module Roby
                                 matcher.with_parent(task_m, Roby::TaskStructure::Dependency,
                                                     flexmock(droby_dump: 42))
                                 flexmock(demarshaller).should_receive(:local_object).with(42).and_return(Hash.new).once
-                                flexmock(demarshaller).should_receive(:local_object).with(any).pass_thru
+                                flexmock(demarshaller).should_receive(:local_object).with(any, any).pass_thru
                                 matcher = transfer(self.matcher)
 
                                 edges = matcher.parents.fetch(Roby::TaskStructure::Dependency)

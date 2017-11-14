@@ -244,7 +244,7 @@ module Roby
 
                         action = interface_m.new(plan)
                         root_task = action.test(test_arg: 20)
-                        root_task.start!
+                        execute { root_task.start! }
                         assert_equal Hash[test_arg: 20], root_task.current_task_child.planning_task.action_arguments
                     end
 

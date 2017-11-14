@@ -63,14 +63,80 @@ module Roby
                     local_object = flexmock(droby_id: droby_id)
                     subject.register_object(local_object, peer_id => sibling_id)
                     subject.deregister_object(local_object)
-                    assert_equal Hash.new, subject.known_siblings_for(local_object)
-                    assert !subject.find_by_id(peer_id, sibling_id)
+                    refute subject.include?(local_object)
+                    refute subject.find_by_id(peer_id, sibling_id)
                 end
 
                 it "deregisters models from the name-to-model mapping" do
                     subject.register_model(m = flexmock(name: 'Test', droby_id: Object.new))
                     subject.deregister_object(m)
-                    assert !subject.find_model_by_name('Test')
+                    refute subject.find_model_by_name('Test')
+                end
+            end
+
+            describe "#registered_siblings_on" do
+                it "returns nil if the object is not registered, regardless of whether the peer is the local peer" do
+                    local = flexmock(droby_id: flexmock)
+                    assert_nil subject.registered_sibling_on(local, local_id)
+                end
+
+                it "returns a registered ID if the object is registered" do
+                    local = flexmock(droby_id: flexmock)
+                    remote_id, remote_droby_id, override_local_droby_id =
+                        flexmock, flexmock, flexmock
+                    subject.register_object(local,
+                        local_id => override_local_droby_id,
+                        remote_id => remote_droby_id)
+                    assert_equal override_local_droby_id, subject.registered_sibling_on(local, local_id)
+                    assert_equal remote_droby_id, subject.registered_sibling_on(local, remote_id)
+                end
+            end
+
+            describe "#known_sibling_on" do
+                it "returns the local ID for the peer ID if the object is not registered" do
+                    local_droby_id = flexmock
+                    local = flexmock(droby_id: local_droby_id)
+                    assert_equal local_droby_id,
+                        subject.known_sibling_on(local, local_id)
+                end
+
+                it "returns nil for a remote ID if the object is not registered" do
+                    local_droby_id = flexmock
+                    local = flexmock(droby_id: local_droby_id)
+                    remote_id = flexmock
+                    assert_nil subject.known_sibling_on(local, remote_id)
+                end
+
+                it "returns the registered IDs if the object is registered" do
+                    local = flexmock(droby_id: flexmock)
+                    remote_id, remote_droby_id, override_local_droby_id =
+                        flexmock, flexmock, flexmock
+                    subject.register_object(local,
+                        local_id => override_local_droby_id,
+                        remote_id => remote_droby_id)
+                    assert_equal override_local_droby_id, subject.known_sibling_on(local, local_id)
+                    assert_equal remote_droby_id, subject.known_sibling_on(local, remote_id)
+                end
+            end
+
+            describe "#known_siblings_for" do
+                it "returns the local ID if the object is not registered" do
+                    local_droby_id = flexmock
+                    local = flexmock(droby_id: local_droby_id)
+                    assert_equal Hash[local_id => local_droby_id],
+                        subject.known_siblings_for(local)
+                end
+
+                it "returns the registered IDs if the object is registered" do
+                    local = flexmock(droby_id: flexmock)
+                    remote_id, remote_droby_id, override_local_droby_id =
+                        flexmock, flexmock, flexmock
+                    subject.register_object(local,
+                        local_id => override_local_droby_id,
+                        remote_id => remote_droby_id)
+                    assert_equal Hash[
+                        local_id => override_local_droby_id,
+                        remote_id => remote_droby_id], subject.known_siblings_for(local)
                 end
             end
 
@@ -148,7 +214,14 @@ module Roby
                     model = flexmock(name: nil)
                     flexmock(subject).should_receive(:register_object).with(model, Hash).once
                     subject.register_model(model)
-                    assert !subject.find_model_by_name(nil)
+                    refute subject.find_model_by_name(nil)
+                end
+
+                it "allows to pass a name explicitly" do
+                    model = flexmock(name: nil)
+                    flexmock(subject).should_receive(:register_object).with(model, Hash).once
+                    subject.register_model(model, name: 'test')
+                    assert subject.find_model_by_name('test')
                 end
             end
         end

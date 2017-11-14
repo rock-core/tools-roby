@@ -125,10 +125,12 @@ class TC_TransactionsProxy < Minitest::Test
 	plan.add(task)
 	proxy = transaction[task]
 
-	task.start_event.emit(nil)
-	task.intermediate!(nil)
-	assert(!proxy.executable?)
-	assert(!proxy.event(:start).executable?)
+	execute do
+            task.start_event.emit(nil)
+            task.intermediate!(nil)
+        end
+	refute proxy.executable?
+	refute proxy.event(:start).executable?
         assert_raises(TaskEventNotExecutable) { proxy.start_event.emit }
 	assert_raises(TaskEventNotExecutable) { proxy.start!(nil) }
 

@@ -38,7 +38,20 @@ module Roby
                 if local_object = find_by_id(peer_id, droby_id)
                     local_object
                 else
-                    raise UnknownSibling, "there is no known object for #{droby_id}@#{peer_id}"
+                    raise UnknownSibling, "there is no known object for #{droby_id}@#{peer_id.inspect} on #{self}"
+                end
+            end
+
+            # The registered ID for this object on a given peer
+            #
+            # @param [#droby_id] local_object
+            # @param [PeerID] peer_id the ID of our peer
+            # @return [DRobyID,nil]
+            def registered_sibling_on(local_object, peer_id)
+                if local_object.respond_to?(:droby_id)
+                    if siblings = siblings_by_local_object_id.fetch(local_object.droby_id, nil)
+                        siblings[peer_id]
+                    end
                 end
             end
 
@@ -48,7 +61,13 @@ module Roby
             # @param [PeerID] peer_id the ID of our peer
             # @return [DRobyID,nil]
             def known_sibling_on(local_object, peer_id)
-                known_siblings_for(local_object)[peer_id]
+                if local_object.respond_to?(:droby_id)
+                    if siblings = siblings_by_local_object_id.fetch(local_object.droby_id, nil)
+                        siblings[peer_id]
+                    elsif peer_id == local_id
+                        local_object.droby_id
+                    end
+                end
             end
 
             # The set of IDs known for this object
@@ -58,11 +77,15 @@ module Roby
             # {#register_object} and {#deregister_object}
             #
             # @param [Object] object
-            # @return [Hash] the siblings. An empty hash is returned if the
-            #   object is not registered, or if it is not droby-addressable.
+            # @return [Hash] the siblings. A hash that announces the local ID is
+            #   returned if the object is not registered, and an empty hash if
+            #   it is not DRoby-addressable
             def known_siblings_for(object)
-                if object.respond_to?(:droby_id) && (siblings = siblings_by_local_object_id.fetch(object.droby_id, nil))
-                    siblings
+                if object.respond_to?(:droby_id)
+                    if siblings = siblings_by_local_object_id.fetch(object.droby_id, nil)
+                        siblings
+                    else Hash[local_id => object.droby_id]
+                    end
                 else Hash.new
                 end
             end
@@ -134,9 +157,9 @@ module Roby
             # In addition to ID-based resolution, models can also be resolved by
             # name through {#find_model_by_name}. This registers the name
             # mapping and then calls {#register_object}
-            def register_model(local_object, known_siblings = Hash.new)
-                if n = local_object.name
-                    models_by_name[n] = local_object
+            def register_model(local_object, known_siblings = Hash.new, name: local_object.name)
+                if name
+                    models_by_name[name] = local_object
                 end
                 register_object(local_object, known_siblings)
             end

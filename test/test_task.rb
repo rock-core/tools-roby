@@ -232,7 +232,7 @@ module Roby
             describe "a running task" do
                 after do
                     if @task && @task.stop_event.pending?
-                        @task.stop_event.emit
+                        execute { @task.stop_event.emit }
                     end
                 end
 

@@ -53,7 +53,7 @@ module Roby
                 target.on { mock.called_target(source.emitted?) }
                 mock.should_receive(:called_source).once.globally.ordered
                 mock.should_receive(:called_target).once.with(true).globally.ordered
-                source.emit
+                execute { source.emit }
             end
 
             it "calls handlers before propagating forwards" do
@@ -65,7 +65,7 @@ module Roby
                 target.on { mock.called_target(source.emitted?) }
                 mock.should_receive(:called_source).once.globally.ordered
                 mock.should_receive(:called_target).once.with(true).globally.ordered
-                source.emit
+                execute { source.emit }
             end
         end
 
@@ -133,15 +133,16 @@ module Roby
         end
 
         describe "#finalized_event" do
+            before do
+                plan.add(@event = Roby::EventGenerator.new)
+                execute { plan.remove_free_event(@event) }
+            end
+
             it "marks the event as unreachable" do
-                plan.add(event = Roby::EventGenerator.new)
-                plan.remove_free_event(event)
-                assert event.unreachable?
+                assert @event.unreachable?
             end
             it "reports 'finalized' as the unreachability reason" do
-                plan.add(event = Roby::EventGenerator.new)
-                plan.remove_free_event(event)
-                assert_equal 'finalized', event.unreachability_reason
+                assert_equal 'finalized', @event.unreachability_reason
             end
         end
 
@@ -367,67 +368,70 @@ module Roby
             describe "handling of the quarantine" do
                 it "does not attempt to terminate a running quarantined task" do
                     plan.add(task = Tasks::Simple.new)
-                    task.start!
+                    execute { task.start! }
                     task.quarantined!
                     warn_log = FlexMock.use(task) do |mock|
                         mock.should_receive(:stop!).never
                         capture_log(execution_engine, :warn) do
-                            execution_engine.garbage_collect
+                            execute { execution_engine.garbage_collect }
                         end
                     end
                     assert_equal ["GC: #{task} is running but in quarantine"],
                         warn_log
-                    task.stop!
+                    execute { task.stop! }
                 end
                 it "finalizes a pending quarantined task" do
                     plan.add(task = Tasks::Simple.new)
                     task.quarantined!
-                    execution_engine.garbage_collect
-                    assert task.finalized?
+                    expect_execution { execution_engine.garbage_collect }.
+                        to { finalize task }
                 end
                 it "finalizes a quarantined task that failed to start" do
                     plan.add(task = Tasks::Simple.new)
-                    task.failed_to_start!(Exception.new)
+                    execute { task.failed_to_start!(Exception.new) }
                     task.quarantined!
-                    execution_engine.garbage_collect
-                    assert task.finalized?
+                    expect_execution { execution_engine.garbage_collect }.
+                        to { finalize task }
                 end
                 it "finalizes a finished quarantined task" do
                     plan.add(task = Tasks::Simple.new)
                     task.quarantined!
-                    task.start!
-                    task.stop!
-                    execution_engine.garbage_collect
-                    assert task.finalized?
+                    expect_execution do
+                        task.start!
+                        task.stop!
+                    end.
+                        garbage_collect(true).
+                        to { finalize task }
                 end
                 it "quarantines a task that cannot be stopped" do
                     plan.add(uninterruptible_task = Task.new_submodel.new)
-                    uninterruptible_task.start_event.emit
+                    execute { uninterruptible_task.start_event.emit }
                     log = capture_log(execution_engine, :warn) do
-                        execution_engine.garbage_collect
+                        execute { execution_engine.garbage_collect }
                     end
                     assert_equal ["GC: #{uninterruptible_task} cannot be stopped, putting in quarantine"],
                         log
-                        assert uninterruptible_task.quarantined?
-                        uninterruptible_task.stop_event.emit
+
+                    assert uninterruptible_task.quarantined?
+                    execute { uninterruptible_task.stop_event.emit }
                 end
 
                 # This worked around a Heisenbug a long time ago ... need to make
                 # sure that it still happens
                 it "quarantines a task whose stop event is controllable but for which #stop! is not defined" do
                     plan.add(task = Tasks::Simple.new)
-                    task.start_event.emit
+                    execute { task.start_event.emit }
                     flexmock(task).should_receive(:respond_to?).with(:stop!).and_return(false)
                     flexmock(task).should_receive(:respond_to?).pass_thru
 
                     warn_log = capture_log(execution_engine, :warn) do
-                        execution_engine.garbage_collect
+                        execute { execution_engine.garbage_collect }
                     end
 
                     assert_equal ["something fishy: #{task}/stop is controlable but there is no #stop! method, putting in quarantine"],
                         warn_log
-                        assert task.quarantined?
-                        task.stop_event.emit
+                    assert task.quarantined?
+                    execute { task.stop_event.emit }
                 end
             end
         end
@@ -1060,13 +1064,15 @@ module Roby
                 @localized_error_m = Class.new(LocalizedError)
 
                 plan.add(@root = task_m.new)
-                root.start!
+                execute { root.start! }
             end
             after do
                 plan.task_relation_graph_for(TaskStructure::Dependency).each_edge.to_a.each do |a, b|
                     a.remove_child b
                 end
-                plan.each_task { |t| t.stop_event.emit if t.stop_event.pending? }
+                execute do
+                    plan.each_task { |t| t.stop_event.emit if t.stop_event.pending? }
+                end
             end
 
             def match_exception(*edges, handled: nil)
@@ -1079,8 +1085,8 @@ module Roby
             it "reports handled structure exceptions" do
                 child = root.depends_on(task_m)
                 plan.on_exception(ChildFailedError) { root.remove_child(child) }
-                child.start_event.emit
                 all_errors = execution_engine.process_events do
+                    child.start_event.emit
                     child.stop_event.emit
                 end
                 assert_exception_and_object_set_matches(
@@ -1091,9 +1097,9 @@ module Roby
             it "reports inhibited structure exceptions" do
                 child = root.depends_on(task_m)
                 plan.on_exception(ChildFailedError) { root.remove_child(child) }
-                child.start_event.emit
                 flexmock(child).should_receive(:handles_error?).and_return(true)
                 all_errors = execution_engine.process_events do
+                    child.start_event.emit
                     child.stop_event.emit
                 end
                 assert_exception_and_object_set_matches(
@@ -1228,6 +1234,7 @@ module Roby
                         task.start!
                         task.specialized_failure_event.emit
                     end.to { have_error_matching PermanentTaskError.match.with_origin(task.specialized_failure_event) }
+                    plan.unmark_permanent_task(task)
                 end
 
                 it "adds a PermanentTaskError if a permanent task is involved in an unhandled exception, and passes the exception" do
@@ -1257,9 +1264,10 @@ module Roby
                         forward specialized_failure: :failed
                     end
                     plan.add_mission_task(task = task_m.new)
-                    task.start!
-                    expect_execution { task.specialized_failure_event.emit }.
-                        to { have_error_matching MissionFailedError.match.with_origin(task.specialized_failure_event) }
+                    expect_execution do
+                        task.start!
+                        task.specialized_failure_event.emit
+                    end.to { have_error_matching MissionFailedError.match.with_origin(task.specialized_failure_event) }
                 end
 
                 it "adds a MissionFailedError if a mission task is involved in a fatal exception, and passes the exception" do
@@ -1287,7 +1295,7 @@ module Roby
                     plan.add_mission_task(middle = task_m.new)
                     root.depends_on(middle)
                     middle.depends_on(origin = task_m.new)
-                    root.start!
+                    execute { root.start! }
 
                     error = localized_error_m.new(origin).to_execution_exception
                     error_matcher = localized_error_m.match.
@@ -1310,7 +1318,7 @@ module Roby
                                 to_execution_exception_matcher.
                                 with_empty_trace
                         end
-                    root.stop_event.emit
+                    execute { root.stop_event.emit }
                 end
             end
 
@@ -1524,7 +1532,7 @@ module Roby
         end
 
         it "raises in the thread if the event is already unreachable" do
-            task.start_event.unreachable!
+            execute { task.start_event.unreachable! }
             thread = wait_until_in_thread task.start_event
             execute_one_cycle
             assert_raises(UnreachableEvent) { thread.value }
@@ -1895,24 +1903,24 @@ class TC_ExecutionEngine < Minitest::Test
         source, sink0, sink1 = prepare_plan permanent: 3, model: Tasks::Simple
         source.start_event.signals sink0.start_event, delay: 0.1
         source.start_event.signals sink1.start_event, delay: 0.1
-        source.start!
-        assert(!sink0.start_event.emitted?)
-        assert(!sink1.start_event.emitted?)
+        expect_execution do
+            source.start!
+        end.to do
+            not_emit sink0.start_event, sink1.start_event
+        end
 
-        plan.remove_task(sink0)
-        plan.unmark_permanent_task(sink1)
-        sink1.failed_to_start!("test")
-        assert(sink0.start_event.unreachable?)
-        assert(sink1.start_event.unreachable?)
-        assert(! execution_engine.delayed_events.
-               find { |_, _, _, target, _| target == sink0.start_event })
-        assert(! execution_engine.delayed_events.
-               find { |_, _, _, target, _| target == sink1.start_event })
-
-        current_time += 0.1
-        # Avoid unnecessary error messages
-        plan.unmark_permanent_task(sink0)
-        plan.unmark_permanent_task(sink1)
+        expect_execution do
+            plan.unmark_permanent_task sink1
+            plan.remove_task(sink0)
+            sink1.failed_to_start!("test")
+        end.to do
+            become_unreachable  sink0.start_event,
+                sink1.start_event
+        end
+        refute execution_engine.delayed_events.
+            find { |_, _, _, target, _| target == sink0.start_event }
+        refute execution_engine.delayed_events.
+            find { |_, _, _, target, _| target == sink1.start_event }
     end
 
     def test_duplicate_signals
@@ -1926,7 +1934,7 @@ class TC_ExecutionEngine < Minitest::Test
 	    t.stop_event.on    { |event| mock.stop(event.context) }
 	    mock.should_receive(:success).with([42, 42]).once.ordered
 	    mock.should_receive(:stop).with([42, 42]).once.ordered
-	    t.start!(42)
+	    execute { t.start!(42) }
 	end
     end
 
@@ -1948,9 +1956,11 @@ class TC_ExecutionEngine < Minitest::Test
 	    mock.should_receive(:child_success).once.ordered
 	    mock.should_receive(:parent_intermediate).once.ordered
 	    mock.should_receive(:parent_success).once.ordered
-	    a.start!
-	    b.start!
-	    b.success!
+            execute do
+                a.start!
+                b.start!
+                b.success!
+            end
 	end
     end
 
@@ -1970,9 +1980,11 @@ class TC_ExecutionEngine < Minitest::Test
 	FlexMock.use do |mock|
 	    a.child_stop_event.on { |ev| mock.stopped }
 	    mock.should_receive(:stopped).once.ordered
-	    a.start!
-	    b.start!
-	    b.success!
+            execute do
+                a.start!
+                b.start!
+                b.success!
+            end
 	end
     end
 
@@ -2140,10 +2152,12 @@ class TC_ExecutionEngine < Minitest::Test
                 end
             end
 
-            yield if block_given?
+            execute do
+                yield if block_given?
+            end
 
-            execution_engine.garbage_collect
-            execution_engine.garbage_collect
+            execute { execution_engine.garbage_collect }
+            execute { execution_engine.garbage_collect }
             if unneeded
                 assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
             end
@@ -2204,7 +2218,7 @@ class TC_ExecutionEngine < Minitest::Test
 	t1.depends_on t2
 
 	plan.add_mission_task(t1)
-	t1.start!
+	execute { t1.start! }
 	assert_finalizes(plan, []) do
 	    execution_engine.garbage_collect([t1])
 	end
@@ -2237,7 +2251,7 @@ class TC_ExecutionEngine < Minitest::Test
 	e1.forward_to e2
 	assert_equal([], plan.unneeded_events.to_a)
 
-	plan.remove_task(t)
+        execute { plan.remove_task(t) }
 	assert_equal([e1, e2].to_set, plan.unneeded_events)
 
         plan.add_permanent_event(e1)
@@ -2286,10 +2300,11 @@ class TC_ExecutionEngine < Minitest::Test
             source.stop_event.on do |ev|
                 stop_called = true
             end
-            source.start!
-            source.success_event.emit
-            assert(target.running?)
-            target.stop!
+            expect_execution do
+                source.start!
+                source.success_event.emit
+            end.to { achieve { target.running? } }
+            execute { target.stop! }
         end
     end
 
@@ -2326,7 +2341,7 @@ class TC_ExecutionEngine < Minitest::Test
             end
         end
         plan.add(task = task_model.new(obj: obj))
-        task.start!
+        execute { task.start! }
         plan.execution_engine.at_cycle_begin do
             if !obj.stopped?
                 obj.stop

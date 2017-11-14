@@ -104,7 +104,7 @@ module Roby
                 # the +dest+ peer.
                 def droby_dump(peer)
                     formatted = Roby.format_exception(self)
-                    DRoby.new(peer.dump(self.class),
+                    DRoby.new(peer.dump_model(self.class),
                               peer.dump(failure_point),
                               fatal?,
                               message,
@@ -472,12 +472,16 @@ module Roby
                         end
                     end
 
+                    d_model     = peer.dump_model(model)
+                    d_arguments = peer.dump(arguments)
+                    d_data      = peer.dump(data)
+
                     DRoby.new(peer.known_siblings_for(self),
                               peer.dump(owners),
-                              peer.dump(model),
+                              d_model,
                               plan.droby_id, 
-                              peer.dump(arguments),
-                              peer.dump(data),
+                              d_arguments,
+                              d_data,
                               mission: mission?, started: started?,
                               finished: finished?, success: success?)
                 end
@@ -506,8 +510,9 @@ module Roby
                     # Create a new proxy which maps the object of +peer+ represented by
                     # this communication intermediate.
                     def proxy(peer)
+                        model     = peer.local_object(self.model)
                         arguments = peer.local_object(self.arguments)
-                        peer.local_object(model).new(plan: local_plan(peer), **arguments)
+                        model.new(plan: local_plan(peer), **arguments)
                     end
 
                     # Updates an already existing proxy using the information contained
@@ -543,11 +548,11 @@ module Roby
                         permanent_events = peer.dump(self.permanent_events)
                         task_relation_graphs = each_task_relation_graph.map do |g|
                             edges = peer.dump(g.each_edge.flat_map { |*args| args })
-                            [peer.dump(g.class), edges]
+                            [peer.dump_model(g.class), edges]
                         end
                         event_relation_graphs = each_event_relation_graph.map do |g|
                             edges = peer.dump(g.each_edge.flat_map { |*args| args })
-                            [peer.dump(g.class), edges]
+                            [peer.dump_model(g.class), edges]
                         end
 
                         DRoby.new(
@@ -654,7 +659,7 @@ module Roby
                         end
 
                         def droby_dump!(peer)
-                            @returned_type = peer.dump(returned_type)
+                            @returned_type = peer.dump_model(returned_type)
                             @arguments = peer.dump(arguments)
                             # This is a cached value, invalidate it
                             @returned_task_type = nil
@@ -667,7 +672,7 @@ module Roby
                         end
 
                         def proxy!(peer)
-                            @returned_type = peer.local_object(returned_type)
+                            @returned_type = peer.local_model(returned_type)
                             @arguments = peer.local_object(arguments)
                         end
                     end
@@ -813,7 +818,7 @@ module Roby
                         end
                         def proxy(peer)
                             matcher = Roby::Queries::LocalizedErrorMatcher.new
-                            matcher.with_model(peer.local_object(model))
+                            matcher.with_model(peer.local_model(model))
                             matcher.with_origin(peer.local_object(failure_point_matcher))
                             matcher
                         end
@@ -823,7 +828,7 @@ module Roby
                     # to the +dest+ peer.
                     def droby_dump(peer)
                         DRoby.new(
-                            peer.dump(model),
+                            peer.dump_model(model),
                             peer.dump(failure_point_matcher))
                     end
                 end
@@ -855,7 +860,7 @@ module Roby
                         # argument set. This is to be used by DRoby-dumped versions of
                         # subclasses of TaskMatcher.
                         def proxy(peer, matcher: Roby::Queries::PlanObjectMatcher.new)
-                            model  = peer.local_object(self.model)
+                            model  = self.model.map { |m| peer.local_model(m) }
                             owners = peer.local_object(self.owners)
 
                             matcher.with_model(model)
@@ -875,7 +880,7 @@ module Roby
                     # representation. It is used for code reuse by subclasses of
                     # TaskMatcher.
                     def droby_dump(peer, droby: DRoby)
-                        droby.new(peer.dump(model),
+                        droby.new(model.map { |m| peer.dump_model(m) },
                                   predicates, neg_predicates, indexed_predicates, indexed_neg_predicates,
                                   peer.dump(owners),
                                   peer.dump(parents), peer.dump(children))

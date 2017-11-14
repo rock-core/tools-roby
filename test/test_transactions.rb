@@ -13,7 +13,7 @@ class TC_TransactionAsPlan < Minitest::Test
     def engine; (real_plan || plan).engine end
     def setup
 	super
-        @real_plan = @plan
+        @real_plan = Roby::Plan.new
 	@plan = Transaction.new(real_plan)
     end
     def teardown
@@ -33,6 +33,14 @@ module TC_TransactionBehaviour
     Forwarding = Roby::EventStructure::Forwarding
 
     Tasks = Roby::Tasks
+
+    def execute(plan: self.plan)
+        if plan.kind_of?(Roby::ExecutablePlan)
+            super
+        else
+            yield
+        end
+    end
 
     def test_wrap_task
         plan.add(t = Tasks::Simple.new)
@@ -898,7 +906,7 @@ module TC_TransactionBehaviour
 
     def test_wrap_raises_if_wrapping_a_finalized_task
 	t1 = prepare_plan add: 1
-        plan.remove_task(t1)
+        execute { plan.remove_task(t1) }
 
         plan.in_transaction do |trsc|
             assert_raises(ArgumentError) { trsc.wrap(t1) }
@@ -914,7 +922,7 @@ module TC_TransactionBehaviour
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		p1.depends_on(t3)
 		assert(trsc.wrap(t1, create: false))
-		plan.remove_task(t1)
+                execute { plan.remove_task(t1) }
 		assert(trsc.invalid?)
 	    end
 	end
@@ -924,7 +932,7 @@ module TC_TransactionBehaviour
 	t1 = prepare_plan add: 1
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1) do |trsc, p1|
-		plan.remove_task(t1)
+		execute { plan.remove_task(t1) }
                 assert(!plan.has_task?(t1))
 		assert(trsc.invalid?)
 	    end
@@ -935,7 +943,7 @@ module TC_TransactionBehaviour
 	t1 = prepare_plan add: 1
         transaction_commit(plan, t1) do |trsc, p1|
             trsc.remove_task(p1)
-            plan.remove_task(t1)
+            execute { plan.remove_task(t1) }
             assert(!trsc.invalid?)
         end
     end
@@ -1099,7 +1107,7 @@ class TC_Transactions < Minitest::Test
             end
             mock.should_receive(:old_handler).with(t).once
             mock.should_receive(:new_handler).with(t).once
-            plan.remove_task(t)
+            execute { plan.remove_task(t) }
         end
     end
 
@@ -1126,9 +1134,11 @@ class TC_Transactions < Minitest::Test
             mock.should_receive(:should_be_copied).with(t2).once
             mock.should_receive(:should_be_copied).with(t3).once
             mock.should_receive(:should_not_be_copied).with(t1).once
-            plan.remove_task(t1)
-            plan.remove_task(t2)
-            plan.remove_task(t3)
+            execute do
+                plan.remove_task(t1)
+                plan.remove_task(t2)
+                plan.remove_task(t3)
+            end
         end
     end
 
@@ -1156,9 +1166,11 @@ class TC_Transactions < Minitest::Test
             mock.should_receive(:should_be_copied).with(t2).once
             mock.should_receive(:should_be_copied).with(t3).once
             mock.should_receive(:should_not_be_copied).with(t1).once
-            plan.remove_task(t1)
-            plan.remove_task(t2)
-            plan.remove_task(t3)
+            execute do
+                plan.remove_task(t1)
+                plan.remove_task(t2)
+                plan.remove_task(t3)
+            end
         end
     end
 
@@ -1177,10 +1189,12 @@ class TC_Transactions < Minitest::Test
             trsc.replace(p1, p2)
         end
         mock.should_receive(:call).with(t2).once
-        t1.start!
-        t1.success!
-        t2.start!
-        t2.success!
+        execute do
+            t1.start!
+            t1.success!
+            t2.start!
+            t2.success!
+        end
     end
 
     def test_commits_plan_services_finalization_handlers
@@ -1198,7 +1212,9 @@ class TC_Transactions < Minitest::Test
                 trsc.replace(p1, p2)
             end
             mock.should_receive(:call).once
-            plan.remove_task(t2)
+            execute do
+                plan.remove_task(t2)
+            end
         end
     end
 
@@ -1211,9 +1227,9 @@ class TC_Transactions < Minitest::Test
 	    and_generator.signals t3.start_event
 	end
 
-	t1.start!
+	execute { t1.start! }
 	assert(!t3.running?)
-	t2.start!
+	execute { t2.start! }
 	assert(t3.running?)
     end
 
@@ -1238,9 +1254,9 @@ class TC_Transactions < Minitest::Test
 	    (p1.event(:start) | t2.event(:start)).signals t3.event(:start)
 	end
 
-	t1.start!
+	execute { t1.start! }
 	assert(t3.running?)
-	t2.start!
+	execute { t2.start! }
     end
 
     def test_commit_execute_handlers
@@ -1296,12 +1312,7 @@ class TC_Transactions < Minitest::Test
 	    mock.should_receive(:old_handler_called).once
 	    mock.should_receive(:new_handler_called).once
 	    mock.should_receive(:called_by_handler).once
-            begin
-                e.call(nil)
-            rescue Exception => e
-                pp e
-                raise
-            end
+            execute { e.call(nil) }
 	end
     end
 
@@ -1317,8 +1328,7 @@ class TC_Transactions < Minitest::Test
 	    trsc.add(ev)
 	    ev
 	end
-	ev.call
-
+	execute { ev.call }
 	assert(t1.event(:start).child_object?(t2.event(:start), Roby::EventStructure::Forwarding))
 	assert(t1.event(:start).child_object?(t3.event(:start), Roby::EventStructure::Signal))
     end
@@ -1329,9 +1339,11 @@ class TC_Transactions < Minitest::Test
         plan.add(t1)
         plan.add(t2)
         plan.add(t3)
-        t2.start!
-        t3.start!
-        t3.stop!
+        execute do
+            t2.start!
+            t3.start!
+            t3.stop!
+        end
 	transaction_commit(plan, t1, t2, t3) do |trsc, p1, p2, p3|
             assert(trsc.task_index.by_predicate[:pending?].include?(p1))
             assert(trsc.task_index.by_predicate[:running?].include?(p2))
@@ -1348,7 +1360,7 @@ class TC_Transactions < Minitest::Test
                 mock.is_unreachable
             end
         end
-        plan.remove_task(t1)
+        execute { plan.remove_task(t1) }
     end
 
     def test_it_emits_add_relation_hooks_for_tasks

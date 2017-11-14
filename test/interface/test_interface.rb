@@ -346,8 +346,8 @@ describe Roby::Interface::Interface do
         end
         it "forcefully stops a running job" do
             expect_execution { task.start! }.to_run
-            interface.kill_job 10
-            assert task.finished?
+            expect_execution { interface.kill_job 10 }.
+                to { emit task.stop_event }
         end
     end
 
