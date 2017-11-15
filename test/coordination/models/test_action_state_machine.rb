@@ -289,5 +289,72 @@ describe Roby::Coordination::Models::ActionStateMachine do
                 rebound.find_state_by_name('start_task').dependencies.map { |task, role| [task.action, role] }
         end
     end
-end
 
+    describe "DRoby handling" do
+        before do
+            task_m = self.task_m
+            action_m.action_state_machine 'test' do
+                task = state(task_m)
+                start task
+            end
+        end
+        it "is droby-marshallable" do
+            assert_droby_compatible action_m.test
+        end
+
+        describe "when the action is already existing remotely" do
+            before do
+                @r_interface = droby_transfer(action_m)
+            end
+
+            it "returns the existing action" do
+                @r_interface.describe 'test'
+                @r_interface.action_state_machine 'test' do
+                    start state(Roby::Task)
+                end
+                test = droby_transfer(action_m.test)
+                assert_same @r_interface.test.model, test.model
+            end
+
+            it "does not break transferring the return type afterwards" do
+                # Since the return type is marshalled on the local side, it
+                # gets registered on the object manager. The remote side
+                # *MUST* register it anyways, or transferring it later fails
+                # with a missing object ID.
+                #
+                # We do the "system test" side: this only cares that the
+                # task model can be transferred afterwards
+                @r_interface.describe 'test'
+                @r_interface.action_state_machine 'test' do
+                    start state(Roby::Task)
+                end
+                return_task_m = action_m.test.model.returned_type
+                droby_transfer(action_m.test)
+                droby_transfer(return_task_m)
+            end
+
+            it "does not break transferring DRoby-identifiable objects used on the arguments" do
+                # Since the arguments are marshalled on the local side, any
+                # droby-marshallable object gets registered on the object
+                # manager. The remote side *MUST* register it anyways, or
+                # transferring it later fails with a missing object ID.
+                #
+                # We do the "system test" side: this only cares that the
+                # task model can be transferred afterwards
+                test_task_m = Roby::Task.new_submodel
+                start_task_m = Roby::Task.new_submodel
+                description = action_m.describe("with_arguments").
+                    optional_arg('test', 'test', test_task_m)
+                action_m.action_state_machine 'with_arguments' do
+                    start state(start_task_m)
+                end
+                @r_interface.describe 'with arguments'
+                @r_interface.action_state_machine 'with_arguments' do
+                    start state(start_task_m)
+                end
+                droby_transfer(action_m.with_arguments)
+                droby_transfer(test_task_m)
+            end
+        end
+    end
+end
