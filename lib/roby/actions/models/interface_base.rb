@@ -242,7 +242,7 @@ module Roby
                 if action_model.has_arg?("start_state")
                     raise ArgumentError, "A argument \"start_state\" has defined for the statemachine, but this keyword is reserved"
                 end
-                action_model.optional_arg("start_state", default: nil)
+                action_model.optional_arg("start_state", "name of the state in which the state machine should start", nil)
                 create_and_register_coordination_action(name, Coordination::ActionStateMachine, action_model: action_model, &block)
             end
 

@@ -27,7 +27,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
     end
 
     def state_machine(name, &block)
-        action_m.state_machine(name) do
+        action_m.action_state_machine(name) do
             def start_task(task)
                 tasks = super
                 tasks.each do |t|
@@ -44,6 +44,17 @@ describe Roby::Coordination::Models::ActionStateMachine do
             start(state(Roby::Task))
         end
         assert action_m.find_action_by_name('state_machine_action')
+    end
+
+    it "defines the 'start_state' argument" do
+        state_machine('state_machine_action') do
+            start(state(Roby::Task))
+        end
+        machine = action_m.find_action_by_name('state_machine_action')
+        state_arg = machine.arguments.find { |arg| arg.name == 'start_state' }
+        assert_equal 'name of the state in which the state machine should start', state_arg.doc
+        refute state_arg.required
+        assert_nil state_arg.default
     end
 
     describe "#transition" do

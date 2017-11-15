@@ -131,6 +131,7 @@ module Roby
 
             # Documents a new optional argument to the method
             def optional_arg(name, doc = nil, default = nil)
+                doc = doc.to_str if doc
                 arg = Argument.new(name.to_s, doc, false)
                 arg.default = default
                 arguments << arg
