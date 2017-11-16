@@ -413,9 +413,13 @@ module Roby
                     end
                 end
 
+                it "raises RuntimeError if no callback block is given" do
+                    assert_raises(RuntimeError) { client.async_call([], 'Test!', arg0: 10) }
+                end
+
                 it "raises NoSuchAction on invalid actions without accessing the network" do
                     flexmock(client.io).should_receive(:write_packet).never
-                    assert_raises(Client::NoSuchAction) { client.async_call([], 'Test!', arg0: 10) }
+                    assert_raises(Client::NoSuchAction) { client.async_call([], 'Test!', arg0: 10) { } }
                 end
 
                 it "dispatches a method call and yields the result" do

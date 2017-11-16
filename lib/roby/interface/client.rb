@@ -147,8 +147,7 @@ module Roby
             # Remove and call the block of a pending async call
             def process_pending_async_call(error, result)
                 current_call = pending_async_calls.shift
-                call_block = current_call[:block]
-                call_block.call(error, result) if call_block
+                current_call[:block].call(error, result)
             end
 
             # Polls for new data on the IO channel
@@ -326,6 +325,7 @@ module Roby
             #   formatted as action_name!
             # @param [Object] args the command or action arguments
             def async_call(path, m, *args, &block)
+                raise RuntimeError, "no callback block given" unless block_given?
                 if m.to_s =~ /(.*)!$/
                     action_name = $1
                     if find_action_by_name(action_name)
