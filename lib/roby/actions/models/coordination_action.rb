@@ -49,18 +49,6 @@ module Roby
                     planner.planned_task
                 end
 
-                def proxy(peer)
-                    interface_model = @action_interface_model.proxy(peer)
-                    if action = interface_model.find_action_by_name(name)
-                        return action
-                    else
-                        action = super
-                        action.coordination_model =
-                            interface_model.create_coordination_model(action, Coordination::Actions) {}
-                        action
-                    end
-                end
-
                 def to_s
                     "#{action_interface_model.name}.#{name}[#{coordination_model}]"
                 end
@@ -68,4 +56,3 @@ module Roby
         end
     end
 end
-

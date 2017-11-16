@@ -687,6 +687,23 @@ module Roby
                     module CoordinationActionDumper
                         include MethodActionDumper
 
+                        def proxy(peer)
+                            interface_model = @action_interface_model.proxy(peer)
+                            if action = interface_model.find_action_by_name(name)
+                                # Load the return type and the default values, we must
+                                # make sure that any dumped droby-identifiable object
+                                # is loaded nonetheless
+                                peer.local_model(returned_type)
+                                arguments.each { |arg| peer.local_object(arg.default) }
+                                return action
+                            else
+                                action = super
+                                action.coordination_model =
+                                    interface_model.create_coordination_model(action, Coordination::Actions) {}
+                                action
+                            end
+                        end
+
                         def droby_dump!(peer)
                             super
                             @coordination_model = nil
