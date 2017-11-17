@@ -324,6 +324,7 @@ module Roby
             # @param [Symbol] m command or action name. Actions are always
             #   formatted as action_name!
             # @param [Object] args the command or action arguments
+            # @return [Object] an Object associated with the call @see async_call_pending?
             def async_call(path, m, *args, &block)
                 raise RuntimeError, "no callback block given" unless block_given?
                 if m.to_s =~ /(.*)!$/
@@ -336,8 +337,18 @@ module Roby
                     end
                 end
                 io.write_packet([path, m, *args])
-                pending_async_calls << { block: block, path: path,
-                                         m: m, args: args }
+                pending_async_calls << { block: block, path: path, m: m, args: args }
+                pending_async_calls.last.freeze
+            end
+
+            # @api private
+            #
+            # Whether the async call is still pending
+            # @param [Object] call the Object associated with the call
+            # @return [Boolean] true if the async call is pending,
+            #   false otherwise
+            def async_call_pending?(a_call)
+                pending_async_calls.any? { |item| item.equal?(a_call) }
             end
 
             # @api private
