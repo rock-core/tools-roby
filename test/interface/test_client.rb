@@ -1,6 +1,7 @@
 require 'roby/test/self'
 require 'roby/interface'
 require 'roby/tasks/simple'
+require 'socket'
 
 module Roby
     module Interface
@@ -374,6 +375,74 @@ module Roby
                 it "the returned object allows to call the subcommand's command" do
                     flexmock(@interface.sublib).should_receive(:subcommand_test_call).explicitly.with(42).and_return(20)
                     assert_equal 20, client.sublib.subcommand_test_call(42)
+                end
+            end
+
+            describe "#async_call" do
+                attr_reader :watch
+                attr_reader :async_calls_count
+                before do
+                    @watch = flexmock('watch')
+                    @async_calls_count = 0
+                end
+
+                def async_call_and_expect_ordered(exp_error, exp_result, seq, path, m, *args)
+                    client.async_call(path, m, *args) do |error, result|
+                        if !exp_error.nil?
+                            assert_kind_of exp_error.class, error
+                            assert_equal exp_error.message, error.message
+                        else
+                            assert_nil error
+                        end
+                        assert_equal [exp_result], [result]
+                        watch.ping(seq)
+                        @async_calls_count += 1
+                    end
+                    watch.should_receive(:ping).with(seq).once.ordered
+                end
+
+                it "dispatches an action call and yields the job id" do
+                    interface.should_receive(actions:  [stub_action("Test")])
+                    interface.should_receive(:start_job).with('Test', arg0: 10).once.
+                        and_return(15)
+
+                    async_call_and_expect_ordered(nil, 15, 0, [], 'Test!', arg0: 10)
+                    loop do
+                        client.poll
+                        break if async_calls_count == 1
+                    end
+                end
+
+                it "raises RuntimeError if no callback block is given" do
+                    assert_raises(RuntimeError) { client.async_call([], 'Test!', arg0: 10) }
+                end
+
+                it "raises NoSuchAction on invalid actions without accessing the network" do
+                    flexmock(client.io).should_receive(:write_packet).never
+                    assert_raises(Client::NoSuchAction) { client.async_call([], 'Test!', arg0: 10) { } }
+                end
+
+                it "dispatches a method call and yields the result" do
+                    async_call_and_expect_ordered(nil, "foo", 0, [], 'test', 0, 1)
+                    server.io.write_packet [:reply, "foo"]
+                    client.poll
+                end
+
+                it "dispatches a method call and yields an exception on error" do
+                    e = RuntimeError.new('test')
+                    async_call_and_expect_ordered(e, nil, 0, [], 'test', 0, 1)
+                    server.io.write_packet [:bad_call, e]
+                    client.poll
+                end
+
+                it "processes async calls and its responses as a FIFO" do
+                    e = RuntimeError.new('test')
+                    async_call_and_expect_ordered(nil, "foo", 0, [], 'test', 0, 1)
+                    async_call_and_expect_ordered(e, nil, 1, [], 'method', 1, 2)
+                    server.io.write_packet [:reply, "foo"]
+                    server.io.write_packet [:bad_call, e]
+                    server.io.write_packet [:reply, [10, "test"]]
+                    assert_equal client.call([], 'foo'), [10, "test"]
                 end
             end
         end
