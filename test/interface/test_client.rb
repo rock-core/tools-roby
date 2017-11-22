@@ -444,6 +444,24 @@ module Roby
                     server.io.write_packet [:reply, [10, "test"]]
                     assert_equal client.call([], 'foo'), [10, "test"]
                 end
+
+                it "returns true if the async call is still pending" do
+                    callback = proc { }
+
+                    first_call = client.async_call([], 'some_method', 'foo', &callback)
+                    second_call = client.async_call([], 'some_method', 'foo', &callback)
+
+                    assert_equal client.async_call_pending?(first_call), true
+                    assert_equal client.async_call_pending?(second_call), true
+                    server.io.write_packet [:reply, 'bar']
+                    client.poll
+                    assert_equal client.async_call_pending?(first_call), false
+                    assert_equal client.async_call_pending?(second_call), true
+                    server.io.write_packet [:reply, 'bar']
+                    client.poll
+                    assert_equal client.async_call_pending?(first_call), false
+                    assert_equal client.async_call_pending?(second_call), false
+                end
             end
         end
     end

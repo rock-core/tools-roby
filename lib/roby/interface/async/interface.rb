@@ -140,6 +140,21 @@ module Roby
                     @new_job_listeners = Array.new
                 end
 
+                # Schedules an async call on the client
+                #
+                # @see Client#async_call
+                def async_call(path, m, *args, &block)
+                    raise 'client not connected' unless connected?
+                    client.async_call(path, m, *args, &block)
+                end
+
+                # Checks whether an async call is still pending
+                #
+                # @see Client#async_call_pending?
+                def async_call_pending?(call)
+                    connected? && client.async_call_pending?(call)
+                end
+
                 # Start a connection attempt
                 def attempt_connection
                     @connection_future = Concurrent::Future.new do
