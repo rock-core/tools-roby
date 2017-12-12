@@ -12,6 +12,10 @@ class TC_Tasks_ExternalProcess < Minitest::Test
         end
     end
 
+    def test_initialize_may_be_called_without_arguments
+        Tasks::ExternalProcess.new
+    end
+
     def run_task(task)
         expect_execution { task.start! }.to { emit task.success_event }
     end
