@@ -15,7 +15,7 @@ module Roby
                 end
             end
 
-            def start_task_synchronized
+            def start_task_synchronized(one_shot: true)
                 sync = Concurrent::CyclicBarrier.new(2)
                 task_m = Tasks::Thread.new_submodel do
                     interruptible
@@ -25,7 +25,7 @@ module Roby
                         yield(self)
                     end
                 end
-                plan.add(task = task_m.new)
+                plan.add(task = task_m.new(one_shot: one_shot))
                 expect_execution { task.start! }.
                     to { emit task.start_event }
                 sync.wait
@@ -34,9 +34,17 @@ module Roby
 
             it "executes the implementation in a separate thread and stores its result" do
                 task, sync = start_task_synchronized { 1 }
-                expect_execution { sync.wait }.
+                event = expect_execution { sync.wait }.
                     to { emit task.success_event }
                 assert_equal 1, task.result
+                assert_equal 1, event.context.first
+            end
+
+            it "considers a non-one_shot task that stops an error" do
+                task, sync = start_task_synchronized(one_shot: false) { 1 }
+                event = expect_execution { sync.wait }.
+                    to { emit task.failed_event }
+                assert_equal 1, event.context.first
             end
 
             it "emits the failed_event if the implementation thread raises" do
