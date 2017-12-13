@@ -13,8 +13,8 @@ module Roby
                 end
 
                 def proxy(peer)
+                    unmarshal_dependent_models(peer)
                     if local_m = peer.find_local_model(self)
-                        unmarshal_dependent_models(peer)
                         # Ensures that the supermodel(s) are registered
                         return local_m
                     elsif !supermodel
@@ -25,8 +25,8 @@ module Roby
                 end
 
                 def create_new_proxy_model(peer)
-                    @unmarshalled_supermodel ||= peer.local_model(supermodel)
-                    local_model = @unmarshalled_supermodel.new_submodel(name: name || "#{@unmarshalled_supermodel.name}#")
+                    local_model = @unmarshalled_supermodel.
+                        new_submodel(name: name || "#{@unmarshalled_supermodel.name}#")
                     peer.register_model(local_model, remote_siblings)
                     local_model
                 end
