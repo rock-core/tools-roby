@@ -32,14 +32,15 @@ module Roby
             ##
             # :attr_reader:
             # The working directory. If not set, the current directory is used.
-            argument :working_directory
+            argument :working_directory, default: nil
 
             # Redirection specification. See #redirect_output
             attr_reader :redirection
 
-            def initialize(arguments)
-                arguments[:working_directory] ||= nil
-                            arguments[:command_line] = [arguments[:command_line]] unless arguments[:command_line].kind_of?(Array)
+            def initialize(arguments = Hash.new)
+                if arg = arguments[:command_line]
+                    arguments[:command_line] = [arg] if !arg.kind_of?(Array)
+                end
                 super(arguments)
             end
 
