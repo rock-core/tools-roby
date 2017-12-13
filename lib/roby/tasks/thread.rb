@@ -63,13 +63,20 @@ module Roby
             end
         end
 
-        event :start do |context|
-            start_event.emit
+        # @api private
+        #
+        # Start the underlying thread and the monitoring objects
+        def start_thread
             @interruption_event = Concurrent::Event.new
             @thread = ::Thread.new do
 		::Thread.current.priority = 0
                 instance_eval(&self.class.implementation_block)
             end
+        end
+
+        event :start do |context|
+            start_thread
+            start_event.emit
         end
 
 	poll do
