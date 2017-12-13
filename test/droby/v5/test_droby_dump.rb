@@ -87,6 +87,38 @@ module Roby
                         assert_same loaded, demarshaller.local_object(marshalled)
                     end
 
+                    it "resolves its default arguments" do
+                        other_m = Roby::Task.new_submodel(name: 'Argument')
+                        task_m = Roby::Task.new_submodel(name: 'Test')
+                        task_m.argument :test, default: other_m
+
+                        remote_m = transfer(task_m)
+                        assert_same remote_m.find_argument(:test).default.value, transfer(other_m)
+                    end
+
+                    it "resolves a model by name" do
+                        task_m = Roby::Task.new_submodel(name: 'Test')
+                        remote_m = Roby::Task.new_submodel(name: 'RemoteTest')
+                        flexmock(demarshaller).should_receive(:find_local_model).with(->(m) { m.name == 'Test' }).and_return(remote_m)
+                        flexmock(demarshaller).should_receive(:find_local_model).pass_thru
+
+                        transferred = transfer(task_m)
+                        assert_same remote_m, transferred
+                    end
+
+                    it "loads objects within its default arguments even if the model can be resolved by name" do
+                        other_m = Roby::Task.new_submodel(name: 'RemoteTest')
+                        task_m = Roby::Task.new_submodel(name: 'Test')
+                        task_m.argument :test, default: other_m
+                        remote_m = Roby::Task.new_submodel(name: 'RemoteTest')
+                        flexmock(demarshaller).should_receive(:find_local_model).with(->(m) { m.name == 'Test' }).and_return(remote_m)
+                        flexmock(demarshaller).should_receive(:find_local_model).pass_thru
+                        flexmock(demarshaller).should_receive(:local_object).with(V5::DefaultArgumentDumper::DRoby).once
+                        flexmock(demarshaller).should_receive(:local_object).pass_thru
+
+                        transfer(task_m)
+                    end
+
                     it "replicates the model's arguments" do
                         task_m = Roby::Task.new_submodel(name: 'Test') { argument :test }
                         loaded = transfer(task_m)
@@ -431,6 +463,18 @@ module Roby
                     end
                 end
 
+                describe DefaultArgumentDumper do
+                    it "transfers the default argument value" do
+                        local = Roby::Task.new_submodel
+                        obj = DefaultArgument.new(local)
+                        arg = Roby::DefaultArgument.new(local)
+
+                        remote_arg = droby_transfer(arg)
+                        assert_kind_of Roby::DefaultArgument, remote_arg
+                        assert_same droby_transfer(local), remote_arg.value
+                    end
+                end
+
                 describe DelayedArgumentFromObjectDumper do
                     it "handles DelayedArgumentFromObject" do
                         obj = Object.new
@@ -491,7 +535,7 @@ module Roby
                                 assert_same action_m, loaded
                             end
 
-                            it "can marshal actions with non trivial default arguments" do
+                            it "marshals actions with non trivial default arguments" do
                                 task_m = Roby::Task.new_submodel(name: 'Test')
                                 interface_m = Roby::Actions::Interface.new_submodel do
                                     describe('action').

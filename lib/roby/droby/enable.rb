@@ -78,6 +78,9 @@ module Roby
     class TaskEventGenerator
         include DRoby::V5::TaskEventGeneratorDumper
     end
+    class DefaultArgument
+        include DRoby::V5::DefaultArgumentDumper
+    end
     class DelayedArgumentFromObject
         extend DRoby::V5::Builtins::ClassDumper
         include DRoby::V5::DelayedArgumentFromObjectDumper

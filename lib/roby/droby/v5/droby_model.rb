@@ -13,13 +13,7 @@ module Roby
                 end
 
                 def proxy(peer)
-                    # Ensure that the peer-local info of related models gets
-                    # registered, no matter what.
-                    if supermodel
-                        @unmarshalled_supermodel = peer.local_model(supermodel)
-                    end
-                    @unmarshalled_provided_models = @provided_models.map { |m| peer.local_model(m) }
-
+                    unmarshal_dependent_models(peer)
                     if local_m = peer.find_local_model(self)
                         # Ensures that the supermodel(s) are registered
                         return local_m
@@ -31,9 +25,19 @@ module Roby
                 end
 
                 def create_new_proxy_model(peer)
-                    local_model = @unmarshalled_supermodel.new_submodel(name: name || "#{@unmarshalled_supermodel.name}#")
+                    local_model = @unmarshalled_supermodel.
+                        new_submodel(name: name || "#{@unmarshalled_supermodel.name}#")
                     peer.register_model(local_model, remote_siblings)
                     local_model
+                end
+
+                def unmarshal_dependent_models(peer)
+                    # Ensure that the peer-local info of related models gets
+                    # registered, no matter what.
+                    if supermodel
+                        @unmarshalled_supermodel = peer.local_model(supermodel)
+                    end
+                    @unmarshalled_provided_models = @provided_models.map { |m| peer.local_model(m) }
                 end
 
                 def update(peer, local_object, fresh_proxy: false)

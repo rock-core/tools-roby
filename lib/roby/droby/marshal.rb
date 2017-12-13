@@ -215,11 +215,11 @@ module Roby
                     return local_model
                 elsif name && (local_model = object_manager.find_model_by_name(name))
                     return local_model
-                elsif !marshalled.name
+                elsif !name
                     return
                 end
 
-                names = marshalled.name.split('::')
+                names = name.split('::')
 
                 # Look locally for the constant listed in the name
                 local_object = Object

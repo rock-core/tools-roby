@@ -168,7 +168,7 @@ module Roby
                 @droby_remote_marshaller ||= DRoby::Marshal.new
             end
 
-            def droby_transfer(object, local_marshaller: self.droby_local_marshaller, remote_marshaller: self.droby_remote_marshaller)
+            def droby_to_remote(object, local_marshaller: self.droby_local_marshaller)
                 droby = local_marshaller.dump(object)
                 dumped =
                     begin Marshal.dump(droby)
@@ -177,7 +177,11 @@ module Roby
                         obj, exception = Roby::DRoby::Logfile::Writer.find_invalid_marshalling_object(droby)
                         raise e, "#{obj} cannot be marshalled: #{exception.message}", exception.backtrace
                     end
-                loaded = Marshal.load(dumped)
+                Marshal.load(dumped)
+            end
+
+            def droby_transfer(object, local_marshaller: self.droby_local_marshaller, remote_marshaller: self.droby_remote_marshaller)
+                loaded = droby_to_remote(object, local_marshaller: local_marshaller)
                 remote_marshaller.local_object(loaded)
             end
 

@@ -2737,43 +2737,6 @@ class TC_Task < Minitest::Test
 	assert_equal 10, task.arguments[:value]
     end
 
-    def test_delayed_default_argument
-        has_value = false
-        value = nil
-        block = lambda do |task|
-            if has_value
-                value
-            else
-                throw :no_value
-            end
-        end
-
-        model = Roby::Task.new_submodel do
-            terminates
-            argument 'value', default: (Roby::DelayedTaskArgument.new(&block))
-        end
-        task = model.new
-        assert !task.arguments.static?
-
-        assert_nil task.value
-        assert !task.fully_instanciated?
-        has_value = true
-        assert_nil task.value
-        assert task.fully_instanciated?
-
-        value = 10
-        assert task.fully_instanciated?
-        has_value = false
-        assert_nil task.value
-        assert !task.fully_instanciated?
-
-        has_value = true
-        plan.add(task)
-        execute { task.start! }
-        assert_equal 10, task.arguments[:value]
-        assert_equal 10, task.value
-    end
-
     def test_delayed_argument_from_task
         value_obj = Class.new do
             attr_accessor :value
