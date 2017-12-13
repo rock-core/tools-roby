@@ -252,24 +252,6 @@ module Roby
         include Enumerable
     end
 
-    # Placeholder that can be used as an argument, to delay the assignation
-    # until the task is started
-    #
-    # This will usually not be used directly. One should use Task.from instead
-    class DelayedTaskArgument
-        def initialize(&block)
-            @block = block
-        end
-
-        def evaluate_delayed_argument(task)
-            @block.call(task)
-        end
-
-        def pretty_print(pp)
-            pp.text "delayed_argument_from(#{@block})"
-        end
-    end
-
     # Placeholder that can be used as an argument to represent a default value
     class DefaultArgument
         attr_reader :value
