@@ -16,11 +16,10 @@ module Roby
     #
     # By default, the task is not interruptible (i.e. +stop+ is not
     # controllable). The +interruptible+ statement allows to change that, in
-    # which case, the thread must call #interruption_point explicitely when the
-    # interruption can be safely performed by raising an exception. 
+    # which case, the thread must either check for
+    # {#interruption_requested?}, or call #interruption_point explicitely,
+    # when the interruption can be safely performed by raising an exception. 
     class Thread < Roby::Task
-        # The thread object. Only valid when the task is running
-        attr_reader :thread
         # The thread result if the execution was successful
         attr_reader :result
 
@@ -36,8 +35,24 @@ module Roby
             end
         end
 
-        # True if an interruption has been requested
-        attr_predicate :interruption_requested?, true
+        # True if Roby requests that the thread quits
+        def interruption_requested?
+            @interruption_event.set?
+        end
+
+        def initialize(arguments = Hash.new, one_shot: true)
+            @one_shot = one_shot
+            super(arguments)
+        end
+
+        # True if the thread will quit by itself, or run until an interruption
+        # is requested
+        #
+        # In the one shot case, a thread quitting without the stop event pending
+        # is considered a success. In the latter case, a failure
+        #
+        # The default is one shot
+        attr_predicate :one_shot?, true
 
         # Call that method in the interruption thread at points where an
         # interruption is safe. It will raise Interrupt if an interruption has
@@ -48,31 +63,39 @@ module Roby
             end
         end
 
-        event :start do |context|
-            start_event.emit
+        # @api private
+        #
+        # Start the underlying thread and the monitoring objects
+        def start_thread
+            @interruption_event = Concurrent::Event.new
             @thread = ::Thread.new do
 		::Thread.current.priority = 0
                 instance_eval(&self.class.implementation_block)
             end
         end
 
+        event :start do |context|
+            start_thread
+            start_event.emit
+        end
+
 	poll do
-	    if thread.alive?
+	    if @thread.alive?
 		return 
 	    end
 
             begin
-                result = thread.value
+                result = @thread.value
             rescue Exception => e
                 error = e
             end
             @thread = nil
 
-            if error
-                failed_event.emit error
+            if error || (!one_shot? && !stop_event.pending?)
+                failed_event.emit(error || result)
             else
                 @result = result
-                success_event.emit
+                success_event.emit(result)
             end
         end
 
@@ -80,7 +103,7 @@ module Roby
         # implementation will call #interruption_point regularly.
         def self.interruptible
             event :failed, terminal: true do |context|
-                self.interruption_requested = true
+                @interruption_event.set
             end
             super
         end
