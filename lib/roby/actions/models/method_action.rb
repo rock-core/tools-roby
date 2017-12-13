@@ -80,17 +80,6 @@ module Roby
                     planner.planned_task
                 end
 
-                def proxy(peer)
-                    interface_model = peer.local_object(action_interface_model)
-                    if action = interface_model.find_action_by_name(name)
-                        return action
-                    else
-                        action = super
-                        action.action_interface_model = interface_model
-                        action
-                    end
-                end
-
                 def to_s
                     "#{action_interface_model.name}.#{name}"
                 end

@@ -224,6 +224,16 @@ module Roby
                             @events = events
                         end
 
+                        def unmarshal_dependent_models(peer)
+                            super
+
+                            @arguments.each do |name, has_default, default, doc|
+                                if has_default
+                                    peer.local_object(default)
+                                end
+                            end
+                        end
+
                         def update(peer, local_object, fresh_proxy: false)
                             if @argument_set # Backward compatibility
                                 arguments = @argument_set.map { |name| [name, false, nil, nil] }
@@ -234,7 +244,7 @@ module Roby
                                     if !has_default
                                         default = Roby::Models::Task::NO_DEFAULT_ARGUMENT 
                                     end
-                                    local_object.argument name, default: default, doc: doc
+                                    local_object.argument name, default: peer.local_object(default), doc: doc
                                 end
                             end
                             events.each do |name, controlable, terminal|
@@ -416,6 +426,22 @@ module Roby
                             event.instance_eval { @emitted = true }
                         end
                         event
+                    end
+                end
+            end
+
+            module DefaultArgumentDumper
+                def droby_dump(peer)
+                    DRoby.new(peer.dump(value))
+                end
+
+                class DRoby
+                    def initialize(value)
+                        @value = value
+                    end
+
+                    def proxy(peer)
+                        DefaultArgument.new(peer.local_object(@value))
                     end
                 end
             end
@@ -677,27 +703,52 @@ module Roby
                         end
                     end
 
-                    module MethodActionDumper
+                    module InterfaceActionDumper
                         def droby_dump!(peer)
                             super
                             @action_interface_model = peer.dump(action_interface_model)
                         end
-                    end
 
-                    module CoordinationActionDumper
-                        include MethodActionDumper
-
-                        def proxy(peer)
-                            interface_model = @action_interface_model.proxy(peer)
+                        def proxy_from_existing(peer)
+                            interface_model = peer.local_object(@action_interface_model)
                             if action = interface_model.find_action_by_name(name)
                                 # Load the return type and the default values, we must
                                 # make sure that any dumped droby-identifiable object
                                 # is loaded nonetheless
                                 peer.local_model(returned_type)
                                 arguments.each { |arg| peer.local_object(arg.default) }
-                                return action
+                            end
+                            return action, interface_model
+                        end
+                    end
+
+                    module MethodActionDumper
+                        include InterfaceActionDumper
+
+                        def proxy(peer, resolve_existing: true)
+                            if resolve_existing
+                                existing, _interface_model = proxy_from_existing(peer)
+                                if existing
+                                    return existing
+                                end
+                            end
+
+                            interface_model = peer.local_object(@action_interface_model)
+                            action = super(peer)
+                            action.action_interface_model = interface_model
+                            action
+                        end
+                    end
+
+                    module CoordinationActionDumper
+                        include InterfaceActionDumper
+
+                        def proxy(peer)
+                            existing, interface_model = proxy_from_existing(peer)
+                            if existing
+                                return existing
                             else
-                                action = super
+                                action = super(peer)
                                 action.coordination_model =
                                     interface_model.create_coordination_model(action, Coordination::Actions) {}
                                 action

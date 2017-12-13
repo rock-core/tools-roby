@@ -18,15 +18,29 @@ module Roby
                         assert(unmarshalled.action_interface_model < Actions::Interface)
                         assert_equal 'test', unmarshalled.name
                     end
-                    it "unmarshals to an existing action on the loaded interface, if it exists" do
-                        mapped_interface_m = droby_transfer(interface_m)
 
-                        action_m = MethodAction.new(mapped_interface_m)
-                        action_m.name = 'test'
-                        mapped_interface_m.register_action 'test', action_m
+                    describe('when a remote action already exists with the same name') do
+                        before do
+                            @remote_interface_m = droby_transfer(interface_m)
 
-                        unmarshalled = droby_transfer(action_m)
-                        assert_equal mapped_interface_m, unmarshalled.action_interface_model
+                            @remote_action_m = MethodAction.new(@remote_interface_m)
+                            @remote_action_m.name = 'test'
+                            @remote_interface_m.register_action 'test', @remote_action_m
+                        end
+
+                        it "unmarshals to the existing action" do
+                            unmarshalled = droby_transfer(action_m)
+                            assert_same @remote_action_m, unmarshalled
+                        end
+                        it "registers the return type model even if the action already exists" do
+                            droby_remote = droby_to_remote(@action_m)
+                            flexmock(droby_remote_marshaller).should_receive(:local_object).
+                                with(droby_remote.returned_type, any).once.
+                                pass_thru
+                            flexmock(droby_remote_marshaller).should_receive(:local_object).
+                                pass_thru
+                            droby_remote_marshaller.local_object(droby_remote)
+                        end
                     end
                 end
             end
