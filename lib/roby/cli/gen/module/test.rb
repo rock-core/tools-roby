@@ -1,0 +1,6 @@
+require '<%= require_path %>'
+<% indent, open, close = ::Roby::CLI::Gen.in_module(*module_name[0..-2]) %>
+<%= open %>
+<%= indent %>describe <%= module_name.last %> do
+<%= indent %>end
+<%= close %>

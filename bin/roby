@@ -1,6 +1,20 @@
 #! /usr/bin/env ruby
 
 require 'roby'
+require 'roby/cli/main'
+
+if ARGV.first
+    command_name = ARGV.first.tr('-', '_')
+    if Roby::CLI::Main.instance_methods.include?(command_name.to_sym)
+        begin
+            Roby::CLI::Main.start(ARGV)
+            exit 0
+        rescue Roby::CLI::CLIException => e
+            STDERR.puts Roby.color(e.message, :red)
+            exit 1
+        end
+    end
+end
 
 ORIGINAL_ARGV = ARGV.dup
 mode = ARGV.shift
