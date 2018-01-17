@@ -3,7 +3,7 @@ require 'roby/test/self'
 module Roby
     module Relations
         describe Space do
-            let(:klass) do
+            let(:support_class) do
                 Class.new do
                     attr_reader :relation_graphs
                     def initialize(graphs = Hash.new)
@@ -12,10 +12,10 @@ module Roby
                     def plan; Hash.new { |h, k| k } end
                 end
             end
-            let(:space) { Roby.RelationSpace(klass) }
+            let(:space) { Roby.RelationSpace(support_class) }
             let(:graphs) { space.instanciate }
             def create_node(name = nil)
-                obj = klass.new(graphs)
+                obj = support_class.new(graphs)
                 if name
                     obj.singleton_class.class_eval do
                         define_method(:inspect) { name }
