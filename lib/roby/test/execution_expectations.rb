@@ -330,6 +330,16 @@ module Roby
                     @propagation_info = propagation_info
                 end
 
+                def each_original_exception
+                    return enum_for(__method__) if !block_given?
+
+                    @expectations.each do |_, e|
+                        if e.kind_of?(Exception)
+                            yield(e)
+                        end
+                    end
+                end
+
                 def pretty_print(pp)
                     pp.text "#{@expectations.size} unmet expectations"
                     @expectations.each do |exp, explanation|
@@ -354,6 +364,16 @@ module Roby
             class UnexpectedErrors < Minitest::Assertion
                 def initialize(errors)
                     @errors = errors
+                end
+
+                def each_original_exception
+                    return enum_for(__method__) if !block_given?
+
+                    @errors.each do |_, e|
+                        if e.kind_of?(Exception)
+                            yield(e)
+                        end
+                    end
                 end
 
                 def droby_dump(peer)

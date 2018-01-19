@@ -115,14 +115,19 @@ module Roby
                 super do
                     begin
                         yield
-                    rescue SynchronousEventProcessingMultipleErrors => aggregate_e
-                        exceptions = aggregate_e.errors
+                    rescue Exception => root_e
+                        if !root_e.respond_to?(:each_original_exception)
+                            raise
+                        end
+
+                        exceptions = root_e.each_original_exception
+                        self.failures << root_e
 
                         # Try to be smart and to only keep the toplevel
                         # exceptions
                         filter_execution_exceptions(exceptions).each do |e|
                             if !e.backtrace
-                                e.set_backtrace(aggregate_e.backtrace)
+                                e.set_backtrace(root_e.backtrace)
                             end
                             case e
                             when Assertion
@@ -136,11 +141,7 @@ module Roby
             end
 
             def filter_execution_exceptions(exceptions)
-                included_in_another = exceptions.
-                    inject(Set.new) do |s, e|
-                        s.merge(Roby.flatten_exception(e) - [e])
-                    end
-                exceptions.find_all { |e| !included_in_another.include?(e) }
+                exceptions.flat_map { |e| Roby.flatten_exception(e).to_a }.uniq
             end
 
             def exception_details e, msg
