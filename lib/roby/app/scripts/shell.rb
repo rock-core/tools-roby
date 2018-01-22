@@ -6,8 +6,7 @@ app = Roby.app
 app.guess_app_dir
 app.shell
 app.single
-app.load_config_yaml
-app.base_setup
+app.load_base_config
 
 require 'pp'
 

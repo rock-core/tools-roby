@@ -46,7 +46,7 @@ module Roby
                     app.guess_app_dir
                     app.shell
                     app.single
-                    app.base_setup
+                    app.load_base_config
 
                     interface = nil
                     if retry_connection && timeout

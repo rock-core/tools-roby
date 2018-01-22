@@ -117,6 +117,7 @@ exception = Roby.display_exception do
         end
         Minitest.run testrb_args
     ensure
+        Roby.app.shutdown
         Roby.app.cleanup
     end
 end

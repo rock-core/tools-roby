@@ -78,6 +78,7 @@ module Roby
             if execution_engine
                 execution_engine.shutdown
             end
+            Roby.app.shutdown
             Roby.app.cleanup
             State.clear
             State.clear_model

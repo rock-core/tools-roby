@@ -32,8 +32,8 @@ module Roby
 
             desc "robot ROBOT_NAME", "creates a new robot configuration"
             def robot(name, robot_path: 'roby_app')
-                Roby.app.setup_for_minimal_tooling
-                Roby.app.needs_to_be_in_current_app
+                Roby.app.require_app_dir(needs_current: true)
+                Roby.app.load_base_config
 
                 template File.join(robot_path, 'config', "robots", "robot.rb"),
                     File.join("config", "robots", "#{name}.rb"),
@@ -44,8 +44,8 @@ module Roby
             option :robot, aliases: 'r', desc: 'the robot name for robot-specific scaffolding',
                 type: :string, default: nil
             def actions(name)
-                Roby.app.setup_for_minimal_tooling
-                Roby.app.needs_to_be_in_current_app
+                Roby.app.require_app_dir(needs_current: true)
+                Roby.app.load_base_config
 
                 file_name, class_name = Gen.resolve_name(
                     'actions', name, options[:robot], ['models', 'actions'], ["Actions"])
@@ -62,8 +62,8 @@ module Roby
 
             desc "class CLASS_NAME", "creates a new utility class in lib/"
             def klass(name)
-                Roby.app.setup_for_minimal_tooling
-                Roby.app.needs_to_be_in_current_app
+                Roby.app.require_app_dir(needs_current: true)
+                Roby.app.load_base_config
 
                 file_name, class_name = Gen.resolve_name(
                     'class', name, nil, ['lib', Roby.app.app_name], [])
@@ -80,8 +80,8 @@ module Roby
 
             desc "module MODULE_NAME", "creates a new utility module in lib/"
             def module(name)
-                Roby.app.setup_for_minimal_tooling
-                Roby.app.needs_to_be_in_current_app
+                Roby.app.require_app_dir(needs_current: true)
+                Roby.app.load_base_config
 
                 file_name, class_name = Gen.resolve_name(
                     'module', name, nil, ['lib', Roby.app.app_name], [])
@@ -100,8 +100,8 @@ module Roby
             option :robot, aliases: 'r', desc: 'the robot name for robot-specific scaffolding',
                 type: :string, default: nil
             def task(name)
-                Roby.app.setup_for_minimal_tooling
-                Roby.app.needs_to_be_in_current_app
+                Roby.app.require_app_dir(needs_current: true)
+                Roby.app.load_base_config
 
                 file_name, class_name = Gen.resolve_name(
                     'tasks', name, options[:robot], ['models', 'tasks'], ["Tasks"])

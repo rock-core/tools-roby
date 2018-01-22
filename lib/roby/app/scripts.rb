@@ -36,11 +36,6 @@ module Roby
                     parser
                 end
 
-                def with_setup
-                    app.base_setup
-                    yield
-                end
-
                 def host
                     return *@host_options.values_at(:host, :port)
                 end
@@ -51,13 +46,12 @@ module Roby
                     app.guess_app_dir
                     app.shell
                     app.single
+                    app.load_base_config
 
                     args = option_parser.parse(args)
-                    with_setup do
-                        host, port = self.host
-                        interface = Roby::Interface.connect_with_tcp_to(host, port)
-                        yield(interface)
-                    end
+                    host, port = self.host
+                    interface = Roby::Interface.connect_with_tcp_to(host, port)
+                    yield(interface)
                 end
 
                 def self.run(*args, banner: '', &block)

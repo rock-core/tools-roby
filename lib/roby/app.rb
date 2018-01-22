@@ -357,10 +357,13 @@ module Roby
         # Call to require this roby application to be in a Roby application
         #
         # It tries to guess the app directory. If none is found, it raises.
-        def require_app_dir
+        def require_app_dir(needs_current: false, allowed_outside: true)
             guess_app_dir
             if !@app_dir
                 raise ArgumentError, "your current directory does not seem to be a Roby application directory; did you forget to run 'roby init'?"
+            end
+            if needs_current
+                needs_to_be_in_current_app(allowed_outside: allowed_outside)
             end
         end
 
@@ -691,6 +694,204 @@ module Roby
             @action_handlers       = Array.new
         end
 
+        # Loads the base configuration
+        #
+        # This method loads the two most basic configuration files:
+        #
+        #  * config/app.yml
+        #  * config/init.rb
+        #
+        # It also calls the plugin's 'load' method
+        def load_base_config
+            load_config_yaml
+            setup_loggers(redirections: false)
+
+            setup_robot_names_from_config_dir
+
+            # Get the application-wide configuration
+            if plugins_enabled?
+                register_plugins
+            end
+
+            if initfile = find_file('config', 'init.rb', order: :specific_first)
+                Application.info "loading init file #{initfile}"
+                require initfile
+            end
+
+            update_load_path
+
+            # Deprecated hook
+            call_plugins(:load, self, deprecated: "define 'load_base_config' instead")
+            call_plugins(:load_base_config, self)
+
+            update_load_path
+
+            if defined? Roby::Conf
+                Roby::Conf.datadirs = find_dirs('data', 'ROBOT', all: true, order: :specific_first)
+            end
+
+            if has_app?
+                require_robot_file
+            end
+
+            init_handlers.each(&:call)
+            update_load_path
+
+            # Define the app module if there is none, and define a root logger
+            # on it
+            app_module =
+                begin self.app_module
+                rescue NameError
+                    Object.const_set(module_name, Module.new)
+                end
+            if !app_module.respond_to?(:logger)
+                module_name = self.module_name
+                app_module.class_eval do
+                    extend ::Logger::Root(module_name, Logger::INFO)
+                end
+            end
+        end
+
+        def base_setup
+            STDOUT.sync = true
+
+            load_base_config
+            if !@log_dir
+                find_and_create_log_dir
+            end
+            setup_loggers(redirections: true)
+
+            # Set up the loaded plugins
+            call_plugins(:base_setup, self)
+        end
+
+        # The inverse of #base_setup
+        def base_cleanup
+            if !public_logs?
+                created_log_dirs.each do |dir|
+                    FileUtils.rm_rf dir
+                end
+                created_log_base_dirs.sort_by(&:length).reverse_each do |dir|
+                    # .rmdir will ignore nonempty / nonexistent directories
+                    FileUtils.rmdir(dir)
+                end
+            end
+        end
+
+        # Does basic setup of the Roby environment. It loads configuration files
+        # and sets up singleton objects.
+        #
+        # After a call to #setup, the Roby services that do not require an
+        # execution loop to run should be available
+        #
+        # Plugins that define a setup(app) method will see their method called
+        # at this point
+        #
+        # The #cleanup method is the reverse of #setup
+        def setup
+            base_setup
+            # Set up the loaded plugins
+            call_plugins(:setup, self)
+            # And run the setup handlers
+            setup_handlers.each(&:call)
+
+            require_models
+            call_plugins(:require_config, self, deprecated: "define 'require_models' instead")
+            call_plugins(:require_models, self)
+            plan.refresh_relations
+
+            # Main is always included in the planner list
+            self.planners << app_module::Actions::Main
+	   
+            # Attach the global fault tables to the plan
+            self.planners.each do |planner|
+                if planner.respond_to?(:each_fault_response_table)
+                    planner.each_fault_response_table do |table, arguments|
+                        plan.use_fault_response_table table, arguments
+                    end
+                end
+            end
+
+        rescue Exception
+            begin cleanup
+            rescue Exception => e
+                Roby.warn "failed to cleanup after #setup raised"
+                Roby.log_exception_with_backtrace(e, Roby, :warn)
+            end
+            raise
+        end
+
+        # The inverse of #setup. It gets called at the end of #run
+        def cleanup
+            # Run the cleanup handlers first, we want the plugins to still be
+            # active
+            cleanup_handlers.each(&:call)
+
+            call_plugins(:cleanup, self)
+            # Deprecated version of #cleanup
+            call_plugins(:reset, self, deprecated: "define 'cleanup' instead")
+
+            planners.clear
+            plan.execution_engine.gather_propagation do
+                plan.clear
+            end
+            clear_models
+            clear_config
+
+            stop_shell_interface
+            base_cleanup
+        end
+
+        # Prepares the environment to actually run
+        def prepare
+            if public_shell_interface?
+                setup_shell_interface
+            end
+
+            if public_logs? && log_create_current?
+                FileUtils.rm_f File.join(log_base_dir, "current")
+                FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
+            end
+
+            if log['events'] && public_logs?
+                require 'roby/droby/event_logger'
+                require 'roby/droby/logfile/writer'
+
+                logfile_path = File.join(log_dir, "#{robot_name}-events.log")
+                event_io = File.open(logfile_path, 'w')
+                logfile = DRoby::Logfile::Writer.new(event_io, plugins: plugins.map { |n, _| n })
+                plan.event_logger = DRoby::EventLogger.new(logfile)
+                plan.execution_engine.event_logger = plan.event_logger
+
+                Robot.info "logs are in #{log_dir}"
+
+                # Start a log server if needed, and poll the log directory for new
+                # data sources
+                if log_server_options = (log.has_key?('server') ? log['server'] : Hash.new)
+                    if !log_server_options.kind_of?(Hash)
+                        log_server_options = Hash.new
+                    end
+                    plan.event_logger.sync = true
+                    start_log_server(logfile_path, log_server_options)
+                    Roby.info "log server started"
+                else
+                    plan.event_logger.sync = false
+                    Roby.warn "log server disabled"
+                end
+            end
+
+            call_plugins(:prepare, self)
+        end
+
+
+        # The inverse of #prepare. It gets called either at the end of #run or
+        # at the end of #setup if there is an error during loading
+        def shutdown
+            call_plugins(:shutdown, self)
+            stop_log_server
+            stop_shell_interface
+        end
+
         # The robot names configuration
         #
         # @return [App::RobotNames]
@@ -834,8 +1035,11 @@ module Roby
         
         # Call +method+ on each loaded extension module which define it, with
         # arguments +args+
-        def call_plugins(method, *args)
+        def call_plugins(method, *args, deprecated: nil)
             each_responding_plugin(method) do |config_extension|
+                if deprecated
+                    Roby.warn "#{config_extension} uses the deprecated .#{method} hook during setup and teardown, #{deprecated}"
+                end
                 config_extension.send(method, *args)
             end
         end
@@ -1204,7 +1408,7 @@ module Roby
         # Sets up all the default loggers. It creates the logger for the Robot
         # module (accessible through Robot.logger), and sets up log levels as
         # specified in the <tt>config/app.yml</tt> file.
-	def setup_loggers
+        def setup_loggers(redirections: true)
             Robot.logger.progname = robot_name || 'Robot'
             return if !log['levels']
 
@@ -1218,7 +1422,7 @@ module Roby
                 end
                 level = Logger.const_get(value)
 
-                io = if file
+                io = if redirections && file
                          path = File.expand_path(file, log_dir)
                          Robot.info "redirected logger for #{mod} to #{path} (level #{level})"
                          log_files[path] ||= File.open(path, 'w')
@@ -1542,75 +1746,6 @@ module Roby
                 end
         end
 
-        # Loads the base configuration
-        #
-        # This method loads the two most basic configuration files:
-        #
-        #  * config/app.yml
-        #  * config/init.rb
-        #
-        # It also calls the plugin's 'load' method
-        def load_base_config
-            load_config_yaml
-
-            # Get the application-wide configuration
-            if plugins_enabled?
-                register_plugins
-            end
-
-            if initfile = find_file('config', 'init.rb', order: :specific_first)
-                Application.info "loading init file #{initfile}"
-                require initfile
-            end
-
-            update_load_path
-
-            call_plugins(:load, self, options)
-            call_plugins(:load_base_config, self, options)
-
-            update_load_path
-
-            if defined? Roby::Conf
-                Roby::Conf.datadirs = find_dirs('data', 'ROBOT', all: true, order: :specific_first)
-            end
-
-            if has_app?
-                require_robot_file
-            end
-        end
-
-        def base_setup
-	    STDOUT.sync = true
-
-            require 'roby/interface'
-
-            setup_robot_names_from_config_dir
-	    load_base_config
-            if !@log_dir
-                find_and_create_log_dir
-            end
-	    setup_loggers
-            init_handlers.each(&:call)
-            update_load_path
-
-	    # Set up the loaded plugins
-	    call_plugins(:base_setup, self)
-
-            # Define the app module if there is none, and define a root logger
-            # on it
-            app_module =
-                begin self.app_module
-                rescue NameError
-                    Object.const_set(module_name, Module.new)
-                end
-            if !app_module.respond_to?(:logger)
-                module_name = self.module_name
-                app_module.class_eval do
-                    extend ::Logger::Root(module_name, Logger::INFO)
-                end
-            end
-        end
-
         def setup_robot_names_from_config_dir
             robot_config_files = find_files_in_dirs 'config', 'robots', 
                 all: true,
@@ -1648,52 +1783,6 @@ module Roby
             end
         end
 
-        # Does basic setup of the Roby environment. It loads configuration files
-        # and sets up singleton objects.
-        #
-        # After a call to #setup, the Roby services that do not require an
-        # execution loop to run should be available
-        #
-        # Plugins that define a setup(app) method will see their method called
-        # at this point
-        #
-        # The #cleanup method is the reverse of #setup
-        def setup
-            base_setup
-            # Set up the loaded plugins
-            call_plugins(:setup, self)
-            # And run the setup handlers
-            setup_handlers.each(&:call)
-
-            require_models
-            call_plugins(:require_config, self)
-
-            # Main is always included in the planner list
-            self.planners << app_module::Actions::Main
-	   
-            # Attach the global fault tables to the plan
-            self.planners.each do |planner|
-                if planner.respond_to?(:each_fault_response_table)
-                    planner.each_fault_response_table do |table, arguments|
-                        plan.use_fault_response_table table, arguments
-                    end
-                end
-            end
-
-            if public_shell_interface?
-                setup_shell_interface
-            end
-            plan.refresh_relations
-
-        rescue Exception
-            begin cleanup
-            rescue Exception => e
-                Roby.warn "failed to cleanup after #setup raised"
-                Roby.log_exception_with_backtrace(e, Roby, :warn)
-            end
-            raise
-        end
-
         # Publishes a shell interface
         #
         # This method publishes a Roby::Interface object using
@@ -1706,6 +1795,8 @@ module Roby
         #
         # @see stop_shell_interface
         def setup_shell_interface
+            require 'roby/interface'
+
             if @shell_interface
                 raise RuntimeError, "there is already a shell interface started, call #stop_shell_interface first"
             end
@@ -1729,43 +1820,6 @@ module Roby
             end
         end
 
-        # Prepares the environment to actually run
-        def prepare
-            if public_logs? && log_create_current?
-                FileUtils.rm_f File.join(log_base_dir, "current")
-                FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
-            end
-
-            if log['events'] && public_logs?
-                require 'roby/droby/event_logger'
-                require 'roby/droby/logfile/writer'
-
-                logfile_path = File.join(log_dir, "#{robot_name}-events.log")
-                event_io = File.open(logfile_path, 'w')
-                logfile = DRoby::Logfile::Writer.new(event_io, plugins: plugins.map { |n, _| n })
-                plan.event_logger = DRoby::EventLogger.new(logfile)
-                plan.execution_engine.event_logger = plan.event_logger
-
-                Robot.info "logs are in #{log_dir}"
-
-                # Start a log server if needed, and poll the log directory for new
-                # data sources
-                if log_server_options = (log.has_key?('server') ? log['server'] : Hash.new)
-                    if !log_server_options.kind_of?(Hash)
-                        log_server_options = Hash.new
-                    end
-                    plan.event_logger.sync = true
-                    start_log_server(logfile_path, log_server_options)
-                    Roby.info "log server started"
-                else
-                    plan.event_logger.sync = false
-                    Roby.warn "log server disabled"
-                end
-            end
-
-            call_plugins(:prepare, self)
-        end
-
         def run(thread_priority: 0, &block)
             prepare
 
@@ -1782,7 +1836,7 @@ module Roby
             join
 
         ensure
-            cleanup
+            shutdown
             @thread = nil
             if restarting?
                 Kernel.exec *@restart_cmdline
@@ -1862,37 +1916,6 @@ module Roby
                     end
                 end
             end
-        end
-
-        # The inverse of #setup. It gets called either at the end of #run or at
-        # the end of #setup if there is an error during loading
-        def cleanup
-            call_plugins(:cleanup, self)
-            # Deprecated version of #cleanup
-            call_plugins(:reset, self)
-
-            # And run the cleanup handlers
-            cleanup_handlers.each(&:call)
-
-            planners.clear
-            plan.execution_engine.gather_propagation do
-                plan.clear
-            end
-            clear_models
-            clear_config
-
-            if !public_logs?
-                created_log_dirs.each do |dir|
-                    FileUtils.rm_rf dir
-                end
-                created_log_base_dirs.sort_by(&:length).reverse_each do |dir|
-                    # .rmdir will ignore nonempty / nonexistent directories
-                    FileUtils.rmdir(dir)
-                end
-            end
-
-            stop_log_server
-            stop_shell_interface
         end
 
         def stop; call_plugins(:stop, self) end

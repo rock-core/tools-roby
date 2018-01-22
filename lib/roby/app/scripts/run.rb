@@ -87,52 +87,56 @@ end
 Roby.app.additional_model_files.concat(additional_model_files)
 
 error = Roby.display_exception(STDERR) do
-    app.setup
-    actions = actions.map do |act_name|
-        _, action = Roby.app.find_action_from_name(act_name)
-        if !action
-            Robot.error "#{act_name}, given as an action on the command line, does not exist"
-            exit 1
+    begin
+        app.setup
+        actions = actions.map do |act_name|
+            _, action = Roby.app.find_action_from_name(act_name)
+            if !action
+                Robot.error "#{act_name}, given as an action on the command line, does not exist"
+                exit 1
+            end
+            action
         end
-        action
+
+        Roby.plan.execution_engine.once(description: 'roby run bootup') do
+            Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
+
+            # Start the requested actions
+            actions.each do |act|
+                Roby.plan.add_mission_task(act.plan_pattern)
+            end
+
+            if run_controller
+                # Load the controller
+                controller_file = Roby.app.find_file("scripts", "controllers", "ROBOT.rb", order: :specific_first) ||
+                    Roby.app.find_file("controllers", "ROBOT.rb", order: :specific_first)
+                if controller_file
+                    Robot.info "loading controller file #{controller_file}"
+                    load controller_file
+                end
+
+                Roby.app.controllers.each do |c|
+                    c.call
+                end
+
+                if Roby.app.controllers.empty? && !controller_file
+                    Robot.info "no controller block registered, and found no controller file to load for #{Roby.app.robot_name}:#{Roby.app.robot_type}"
+                end
+            end
+
+            if additional_controller_files
+                additional_controller_files.each do |c|
+                    Robot.info "loading #{c}"
+                    load c
+                end
+            end
+
+            Robot.info "done initialization"
+        end
+        app.run(thread_priority: -1)
+    ensure
+        app.cleanup
     end
-
-    Roby.plan.execution_engine.once(description: 'roby run bootup') do
-        Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
-
-        # Start the requested actions
-        actions.each do |act|
-            Roby.plan.add_mission_task(act.plan_pattern)
-        end
-
-        if run_controller
-            # Load the controller
-            controller_file = Roby.app.find_file("scripts", "controllers", "ROBOT.rb", order: :specific_first) ||
-                Roby.app.find_file("controllers", "ROBOT.rb", order: :specific_first)
-            if controller_file
-                Robot.info "loading controller file #{controller_file}"
-                load controller_file
-            end
-
-            Roby.app.controllers.each do |c|
-                c.call
-            end
-
-            if Roby.app.controllers.empty? && !controller_file
-                Robot.info "no controller block registered, and found no controller file to load for #{Roby.app.robot_name}:#{Roby.app.robot_type}"
-            end
-        end
-
-        if additional_controller_files
-            additional_controller_files.each do |c|
-                Robot.info "loading #{c}"
-                load c
-            end
-        end
-
-        Robot.info "done initialization"
-    end
-    app.run(thread_priority: -1)
 end
 if error
     exit 1

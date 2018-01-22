@@ -161,6 +161,7 @@ Roby.display_exception do
             end
         ensure
             reporter.test_finished
+            Roby.app.shutdown
             Roby.app.cleanup
             if reporter.has_failures?
                 manager.exit_code 1
