@@ -2,7 +2,7 @@ require 'roby/test/self'
 require 'roby/test/roby_app_helpers'
 require 'roby/droby/logfile/writer'
 require 'roby/droby/logfile/client'
-require 'roby/app/installer'
+require 'roby/cli/gen_main'
 
 module Roby
     describe Application do
@@ -18,7 +18,7 @@ module Roby
                     ENV.delete('ROBY_APP_DIR')
                 end
                 it "resolves the ROBY_APP_DIR environment variable if given" do
-                    Installer.install(app, quiet: true)
+                    gen_app
                     ENV['ROBY_APP_DIR'] = app_dir
                     assert_equal app_dir, Application.guess_app_dir
                 end
@@ -29,14 +29,14 @@ module Roby
                     end
                 end
                 it "returns Dir.pwd if it is the root of a Roby application" do
-                    Installer.install(app, quiet: true)
+                    gen_app
                     FlexMock.use(Dir) do |mock|
                         mock.should_receive(:pwd).and_return(app_dir)
                         assert_equal app_dir, Application.guess_app_dir
                     end
                 end
                 it "looks for a roby application starting at the current working directory" do
-                    Installer.install(app, quiet: true)
+                    gen_app
                     FileUtils.mkdir_p(path = File.join(app_dir, 'test', 'path', 'in', 'app'))
                     FlexMock.use(Dir) do |mock|
                         mock.should_receive(:pwd).and_return(path)
@@ -472,12 +472,8 @@ module Roby
         end
 
         describe "#each_test_file_for_loaded_models" do
-            attr_reader :app
             before do
-                @app = Roby::Application.new
-                app.app_dir = make_tmpdir
-                installer = Roby::Installer.new(app, quiet: true)
-                installer.install
+                gen_app
             end
 
             describe "included models" do

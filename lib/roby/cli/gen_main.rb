@@ -1,14 +1,17 @@
 require 'roby/cli/gen/helpers'
+require 'thor'
 
 module Roby
     module CLI
         class GenMain < Thor
             include Thor::Actions
 
+
             namespace :gen
             source_paths << File.join(__dir__, 'gen')
 
             desc "app [DIR]", "creates a new app scaffold in the current directory, or DIR if given"
+            option :quiet, type: :boolean, default: false
             def app(dir = nil, init_path: 'roby_app', robot_path: 'roby_app')
                 if dir
                     if File.exist?(dir)
@@ -18,11 +21,12 @@ module Roby
                     dir = Dir.pwd
                 end
 
-                directory 'app/', dir
-                copy_file File.join(init_path, 'config' , 'init.rb'), File.join(dir, 'config', 'init.rb')
+                directory 'app/', dir, verbose: !options[:quiet]
+                copy_file File.join(init_path, 'config' , 'init.rb'), File.join(dir, 'config', 'init.rb'), verbose: !options[:quiet]
                 template File.join(robot_path, 'config', "robots", "robot.rb"),
                     File.join(dir, "config", "robots", "default.rb"),
-                    context: Gen.make_context('robot_name' => 'default')
+                    context: Gen.make_context('robot_name' => 'default'),
+                    verbose: !options[:quiet]
                 dir
             end
 

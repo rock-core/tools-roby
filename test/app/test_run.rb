@@ -1,6 +1,5 @@
 require 'roby/test/self'
 require 'roby/test/roby_app_helpers'
-require 'roby/app/installer'
 
 module Roby
     describe 'run' do

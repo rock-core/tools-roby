@@ -1,5 +1,5 @@
 require 'roby/test/self'
-require 'roby/app/installer'
+require 'roby/cli/gen_main'
 require 'roby/app/cucumber/controller'
 
 module Roby
@@ -11,10 +11,7 @@ module Roby
                     @controller = Controller.new
                     @roby_app_dir = make_tmpdir
                     @roby_log_dir = make_tmpdir
-                    app = Roby::Application.new
-                    app.app_dir = roby_app_dir
-                    installer = Roby::Installer.new(app, quiet: true)
-                    installer.install
+                    Dir.chdir(roby_app_dir) { CLI::GenMain.start(['app', '--quiet']) }
                 end
 
                 after do

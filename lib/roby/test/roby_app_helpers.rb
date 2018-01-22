@@ -34,6 +34,11 @@ module Roby
                 end
             end
 
+            def gen_app
+                require 'roby/cli/gen_main'
+                Dir.chdir(app_dir) { CLI::GenMain.start(['app', '--quiet']) }
+            end
+
             def roby_bin
                 File.expand_path(
                     File.join("..", "..", "..", 'bin', 'roby'),
