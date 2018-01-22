@@ -27,7 +27,6 @@
 
   <depend package="qtruby" optional='1' />
   <depend package="graphviz" optional='1' />
-  <depend package="tools/rubigen" optional="1" />
 
   <depend_optional package="autorespawn" />
 
@@ -37,5 +36,7 @@
   <depend_optional package="timecop" />
   <depend_optional package="stackprof" />
   <depend_optional package="rbtrace" />
+
+  <test_depend package="aruba" />
 </package>
 

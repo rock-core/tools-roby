@@ -33,7 +33,6 @@ Roby.
   s.add_runtime_dependency "concurrent-ruby", '~> 1.0'
   s.add_runtime_dependency "pastel", '~> 0.5.2', '>= 0.5.2'
   s.add_runtime_dependency "hooks", '~> 0.4.0', '>= 0.4.1'
-  s.add_runtime_dependency "rubigen"
   s.add_runtime_dependency "autorespawn"
   s.add_runtime_dependency "yard"
   s.add_development_dependency "minitest", ">= 5.0", "~> 5.0"

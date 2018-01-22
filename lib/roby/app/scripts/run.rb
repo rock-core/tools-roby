@@ -86,7 +86,7 @@ remaining_arguments.each do |arg|
 end
 Roby.app.additional_model_files.concat(additional_model_files)
 
-error = Roby.display_exception do
+error = Roby.display_exception(STDERR) do
     app.setup
     actions = actions.map do |act_name|
         _, action = Roby.app.find_action_from_name(act_name)

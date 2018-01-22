@@ -1,0 +1,116 @@
+require 'roby/cli/gen/helpers'
+
+module Roby
+    module CLI
+        class GenMain < Thor
+            include Thor::Actions
+
+            namespace :gen
+            source_paths << File.join(__dir__, 'gen')
+
+            desc "app [DIR]", "creates a new app scaffold in the current directory, or DIR if given"
+            def app(dir = nil, init_path: 'roby_app', robot_path: 'roby_app')
+                if dir
+                    if File.exist?(dir)
+                        raise CLIInvalidArguments, "#{dir} already exists"
+                    end
+                else
+                    dir = Dir.pwd
+                end
+
+                directory 'app/', dir
+                copy_file File.join(init_path, 'config' , 'init.rb'), File.join(dir, 'config', 'init.rb')
+                template File.join(robot_path, 'config', "robots", "robot.rb"),
+                    File.join(dir, "config", "robots", "default.rb"),
+                    context: Gen.make_context('robot_name' => 'default')
+                dir
+            end
+
+            desc "robot ROBOT_NAME", "creates a new robot configuration"
+            def robot(name, robot_path: 'roby_app')
+                Roby.app.setup_for_minimal_tooling
+                Roby.app.needs_to_be_in_current_app
+
+                template File.join(robot_path, 'config', "robots", "robot.rb"),
+                    File.join("config", "robots", "#{name}.rb"),
+                    context: Gen.make_context('robot_name' => name)
+            end
+
+            desc "action ACTION_FILE_OR_CLASS", "create a new action interface at the provided file"
+            option :robot, aliases: 'r', desc: 'the robot name for robot-specific scaffolding',
+                type: :string, default: nil
+            def actions(name)
+                Roby.app.setup_for_minimal_tooling
+                Roby.app.needs_to_be_in_current_app
+
+                file_name, class_name = Gen.resolve_name(
+                    'actions', name, options[:robot], ['models', 'actions'], ["Actions"])
+
+                template File.join('actions', 'class.rb'),
+                    File.join('models', 'actions', *file_name) + ".rb",
+                    context: Gen.make_context('class_name' => class_name)
+                template File.join('actions', "test.rb"),
+                    File.join('test', 'actions', *file_name[0..-2], "test_#{file_name[-1]}.rb"),
+                    context: Gen.make_context(
+                        'class_name' => class_name,
+                        'require_path' => File.join('models', "actions", *file_name))
+            end
+
+            desc "class CLASS_NAME", "creates a new utility class in lib/"
+            def klass(name)
+                Roby.app.setup_for_minimal_tooling
+                Roby.app.needs_to_be_in_current_app
+
+                file_name, class_name = Gen.resolve_name(
+                    'class', name, nil, ['lib', Roby.app.app_name], [])
+
+                template File.join('class', 'class.rb'),
+                    File.join('lib', Roby.app.app_name, *file_name) + ".rb",
+                    context: Gen.make_context('class_name' => class_name)
+                template File.join('class', "test.rb"),
+                    File.join('test', 'lib', *file_name[0..-2], "test_#{file_name[-1]}.rb"),
+                    context: Gen.make_context(
+                        'class_name' => class_name,
+                        'require_path' => File.join(Roby.app.app_name, *file_name))
+            end
+
+            desc "module MODULE_NAME", "creates a new utility module in lib/"
+            def module(name)
+                Roby.app.setup_for_minimal_tooling
+                Roby.app.needs_to_be_in_current_app
+
+                file_name, class_name = Gen.resolve_name(
+                    'module', name, nil, ['lib', Roby.app.app_name], [])
+
+                template File.join('module', 'module.rb'),
+                    File.join('lib', Roby.app.app_name, *file_name) + ".rb",
+                    context: Gen.make_context('module_name' => class_name)
+                template File.join('module', "test.rb"),
+                    File.join('test', 'lib', *file_name[0..-2], "test_#{file_name[-1]}.rb"),
+                    context: Gen.make_context(
+                        'module_name' => class_name,
+                        'require_path' => File.join(Roby.app.app_name, *file_name))
+            end
+
+            desc "task NAME", "creates a new Roby task model"
+            option :robot, aliases: 'r', desc: 'the robot name for robot-specific scaffolding',
+                type: :string, default: nil
+            def task(name)
+                Roby.app.setup_for_minimal_tooling
+                Roby.app.needs_to_be_in_current_app
+
+                file_name, class_name = Gen.resolve_name(
+                    'tasks', name, options[:robot], ['models', 'tasks'], ["Tasks"])
+
+                template File.join('task', 'class.rb'),
+                    File.join('models', 'tasks', *file_name) + ".rb",
+                    context: Gen.make_context('class_name' => class_name)
+                template File.join('task', "test.rb"),
+                    File.join('test', 'tasks', *file_name[0..-2], "test_#{file_name[-1]}.rb"),
+                    context: Gen.make_context(
+                        'class_name' => class_name,
+                        'require_path' => File.join('models', "tasks", *file_name))
+            end
+        end
+    end
+end

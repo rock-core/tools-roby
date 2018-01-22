@@ -1384,13 +1384,7 @@ module Roby
                     require path
                 end
             end
-	    call_plugins(:load_default_models, self)
-        end
-
-        def register_generators
-            load_base_config
-            RubiGen::Base.__sources = [RubiGen::PathSource.new(:roby, File.join(Roby::ROBY_ROOT_DIR, "generators"))]
-            call_plugins(:register_generators, self)
+            call_plugins(:load_default_models, self)
         end
 
         # Returns the downmost app file that was involved in the given model's
