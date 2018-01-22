@@ -105,17 +105,17 @@ module Roby
         # @return [ExecutionEngine,nil]
         def execution_engine; plan.execution_engine if plan end
         
-	# A set of planners declared in this application
+        # A set of planners declared in this application
         # 
         # @return [Array]
-	attr_reader :planners
+        attr_reader :planners
 
-	# Applicatio configuration information is stored in a YAML file
+        # Applicatio configuration information is stored in a YAML file
         # config/app.yml. The options are saved in a hash.
         #
         # This attribute contains the raw hash as read from the file. It is
         # overlaid 
-	attr_reader :options
+        attr_reader :options
 
         # A set of exceptions that have been encountered by the application
         # The associated string, if given, is a hint about in which context
@@ -398,41 +398,41 @@ module Roby
             end
         end
 
-	# Logging options.
-	# events:: save a log of all events in the system. This log can be read using scripts/replay
-	#          If this value is 'stats', only the data necessary for timing statistics is saved.
-	# levels:: a component => level hash of the minimum level of the messages that 
-	#	   should be displayed on the console. The levels are DEBUG, INFO, WARN and FATAL.
-	#	     Roby: FATAL
-	#	     Roby::Interface: INFO
-	# dir:: the log directory. Uses $app_dir/log if not set
+        # Logging options.
+        # events:: save a log of all events in the system. This log can be read using scripts/replay
+        #          If this value is 'stats', only the data necessary for timing statistics is saved.
+        # levels:: a component => level hash of the minimum level of the messages that 
+        #	   should be displayed on the console. The levels are DEBUG, INFO, WARN and FATAL.
+        #	     Roby: FATAL
+        #	     Roby::Interface: INFO
+        # dir:: the log directory. Uses $app_dir/log if not set
         # results:: the 
-	# filter_backtraces:: true if the framework code should be removed from the error backtraces
-	attr_config :log
+        # filter_backtraces:: true if the framework code should be removed from the error backtraces
+        attr_config :log
 
         # ExecutionEngine setup
         attr_config :engine
-	
-	# A [name, dir, file, module] array of available plugins, where 'name'
-	# is the plugin name, 'dir' the directory in which it is installed,
-	# 'file' the file which should be required to load the plugin and
-	# 'module' the Application-compatible module for configuration of the
-	# plug-in
-	attr_reader :available_plugins
-	# An [name, module] array of the loaded plugins
-	attr_reader :plugins
 
-	# The discovery options in multi-robot mode
-	attr_config :discovery
+        # A [name, dir, file, module] array of available plugins, where 'name'
+        # is the plugin name, 'dir' the directory in which it is installed,
+        # 'file' the file which should be required to load the plugin and
+        # 'module' the Application-compatible module for configuration of the
+        # plug-in
+        attr_reader :available_plugins
+        # An [name, module] array of the loaded plugins
+        attr_reader :plugins
+
+        # The discovery options in multi-robot mode
+        attr_config :discovery
 
         # @!method abort_on_exception?
         # @!method abort_on_exception=(flag)
         #
-	# Controls whether the application should quit if an unhandled plan
+        # Controls whether the application should quit if an unhandled plan
         # exception is received
         #
         # The default is false
-	attr_predicate :abort_on_exception, true
+        attr_predicate :abort_on_exception, true
 
         # @!method abort_on_application_exception?
         # @!method abort_on_application_exception=(flag)
@@ -441,13 +441,13 @@ module Roby
         # non-plan) exception is received
         #
         # The default is true
-	attr_predicate :abort_on_application_exception, true
+        attr_predicate :abort_on_application_exception, true
 
         # @!method automatic_testing?
         # @!method automatic_testing=(flag)
         #
-	# True if user interaction is disabled during tests
-	attr_predicate :automatic_testing?, true
+        # True if user interaction is disabled during tests
+        attr_predicate :automatic_testing?, true
 
         # @!method plugins_enabled?
         # @!method plugins_enabled=(flag)
@@ -591,7 +591,7 @@ module Roby
             levels[mod_path] = [level, file].compact.join(":")
         end
 
-	##
+        ##
         # :method: filter_backtraces?
         #
         # True if we should remove the framework code from the error backtraces
@@ -603,7 +603,7 @@ module Roby
 
         overridable_configuration 'log', 'filter_backtraces', predicate: true
 
-	##
+        ##
         # :method: log_server?
         #
         # True if the log server should be started
@@ -638,7 +638,7 @@ module Roby
         # @return [Interface]
         attr_reader :shell_interface
 
-	def initialize
+        def initialize
             @plan = ExecutablePlan.new
             @argv_set = Array.new
 
@@ -651,9 +651,9 @@ module Roby
             @backward_compatible_naming = true
             @development_mode = true
             @search_path = nil
-	    @plugins = Array.new
+            @plugins = Array.new
             @plugins_enabled = true
-	    @available_plugins = Array.new
+            @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
 
             @public_logs = false
@@ -668,7 +668,7 @@ module Roby
             @shell_interface_port = Interface::DEFAULT_PORT
             @shell_abort_on_exception = true
 
-	    @automatic_testing = true
+            @automatic_testing = true
             @registered_exceptions = []
             @app_extra_metadata = Hash.new
 
@@ -689,7 +689,7 @@ module Roby
             @cleanup_handlers      = Array.new
             @controllers           = Array.new
             @action_handlers       = Array.new
-	end
+        end
 
         # The robot names configuration
         #
@@ -769,15 +769,15 @@ module Roby
         # registers them as Roby plugins
         def load_plugins_from_prefix(dir)
             dir = File.expand_path(dir)
-	    $LOAD_PATH.unshift dir
+            $LOAD_PATH.unshift dir
 
-	    Dir.new(dir).each do |subdir|
-		subdir = File.join(dir, subdir)
-		next unless File.directory?(subdir)
-		appfile = File.join(subdir, "app.rb")
-		next unless File.file?(appfile)
+            Dir.new(dir).each do |subdir|
+                subdir = File.join(dir, subdir)
+                next unless File.directory?(subdir)
+                appfile = File.join(subdir, "app.rb")
+                next unless File.file?(appfile)
                 load_plugin_file(appfile)
-	    end
+            end
         ensure
             $LOAD_PATH.shift
         end
@@ -797,48 +797,48 @@ module Roby
             Roby.info "loaded plugin #{appfile}"
         end
 
-	# Returns true if +name+ is a loaded plugin
-	def loaded_plugin?(name)
-	    plugins.any? { |plugname, _| plugname == name }
-	end
+        # Returns true if +name+ is a loaded plugin
+        def loaded_plugin?(name)
+            plugins.any? { |plugname, _| plugname == name }
+        end
 
-	# Returns the [name, dir, file, module] array definition of the plugin
-	# +name+, or nil if +name+ is not a known plugin
-	def plugin_definition(name)
-	    available_plugins.find { |plugname, *_| plugname == name }
-	end
+        # Returns the [name, dir, file, module] array definition of the plugin
+        # +name+, or nil if +name+ is not a known plugin
+        def plugin_definition(name)
+            available_plugins.find { |plugname, *_| plugname == name }
+        end
 
-	# True if +name+ is a plugin known to us
-	def defined_plugin?(name)
-	    available_plugins.any? { |plugname, *_| plugname == name }
-	end
+        # True if +name+ is a plugin known to us
+        def defined_plugin?(name)
+            available_plugins.any? { |plugname, *_| plugname == name }
+        end
 
         # Enumerates all available plugins, yielding only the plugin module
         # (i.e. the plugin object itself)
-	def each_plugin(on_available = false)
-	    plugins = self.plugins
-	    if on_available
-		plugins = available_plugins.map { |name, _, mod, _| [name, mod] }
-	    end
-	    plugins.each do |_, mod|
-		yield(mod)
-	    end
-	end
+        def each_plugin(on_available = false)
+            plugins = self.plugins
+            if on_available
+            plugins = available_plugins.map { |name, _, mod, _| [name, mod] }
+            end
+            plugins.each do |_, mod|
+            yield(mod)
+            end
+        end
 
-	# Yields each plugin object that respond to +method+
-	def each_responding_plugin(method, on_available = false)
-	    each_plugin do |mod|
-		yield(mod) if mod.respond_to?(method)
-	    end
-	end
-	
-	# Call +method+ on each loaded extension module which define it, with
-	# arguments +args+
-	def call_plugins(method, *args)
-	    each_responding_plugin(method) do |config_extension|
-		config_extension.send(method, *args)
-	    end
-	end
+        # Yields each plugin object that respond to +method+
+        def each_responding_plugin(method, on_available = false)
+            each_plugin do |mod|
+                yield(mod) if mod.respond_to?(method)
+            end
+        end
+        
+        # Call +method+ on each loaded extension module which define it, with
+        # arguments +args+
+        def call_plugins(method, *args)
+            each_responding_plugin(method) do |config_extension|
+                config_extension.send(method, *args)
+            end
+        end
 
         def register_plugins(force: false)
             if !plugins_enabled? && !force
@@ -857,43 +857,43 @@ module Roby
             end
         end
 
-	# Loads the plugins whose name are listed in +names+
-	def using(*names, force: false)
+        # Loads the plugins whose name are listed in +names+
+        def using(*names, force: false)
             if !plugins_enabled? && !force
                 raise PluginsDisabled, "plugins are disabled, cannot load #{names.join(", ")}"
             end
 
             register_plugins(force: true)
-	    names.map do |name|
-		name = name.to_s
-		unless plugin = plugin_definition(name)
-		    raise ArgumentError, "#{name} is not a known plugin (available plugins: #{available_plugins.map { |n, *_| n }.join(", ")})"
-		end
-		name, dir, mod, init = *plugin
-		if already_loaded = plugins.find { |n, m| n == name && m == mod }
-		    next(already_loaded[1])
-		end
+            names.map do |name|
+                name = name.to_s
+                unless plugin = plugin_definition(name)
+                    raise ArgumentError, "#{name} is not a known plugin (available plugins: #{available_plugins.map { |n, *_| n }.join(", ")})"
+                end
+                name, dir, mod, init = *plugin
+                if already_loaded = plugins.find { |n, m| n == name && m == mod }
+                    next(already_loaded[1])
+                end
 
                 if dir
                     filter_out_patterns.push(/#{Regexp.quote(dir)}/)
                 end
 
-		if init
-		    begin
-			$LOAD_PATH.unshift dir
-			init.call
-			mod.reset(self) if mod.respond_to?(:reset)
-		    rescue Exception => e
-			Roby.fatal "cannot load plugin #{name}: #{e.full_message}"
-			exit(1)
-		    ensure
-			$LOAD_PATH.shift
-		    end
-		end
+                if init
+                    begin
+                        $LOAD_PATH.unshift dir
+                        init.call
+                        mod.reset(self) if mod.respond_to?(:reset)
+                    rescue Exception => e
+                        Roby.fatal "cannot load plugin #{name}: #{e.full_message}"
+                        exit(1)
+                    ensure
+                        $LOAD_PATH.shift
+                    end
+                end
 
                 add_plugin(name, mod)
-	    end
-	end
+            end
+        end
 
         def add_plugin(name, mod)
             plugins << [name, mod]
@@ -913,7 +913,7 @@ module Roby
         # The robot name
         #
         # @return [String,nil]
-	def robot_name
+        def robot_name
             if @robot_name then @robot_name
             else robots.default_robot_name
             end
@@ -930,9 +930,9 @@ module Roby
 
         # Sets up the name and type of the robot. This can be called only once
         # in a given Roby controller.
-	def robot(name, type = nil)
+        def robot(name, type = nil)
             @robot_name, @robot_type = robots.resolve(name, type)
-	end
+        end
 
         # The base directory in which logs should be saved
         #
@@ -1005,15 +1005,14 @@ module Roby
             end
         end
 
-
-	# The directory in which logs are to be saved
-	# Defaults to app_dir/data/$time_tag
-	def log_dir
+        # The directory in which logs are to be saved
+        # Defaults to app_dir/data/$time_tag
+        def log_dir
             if !@log_dir
                 raise LogDirNotInitialized, "the log directory has not been initialized yet"
             end
             @log_dir
-	end
+        end
 
         # Reset the current log dir so that {#setup} picks a new one
         def reset_log_dir
@@ -1038,9 +1037,9 @@ module Roby
 
         # The time tag. It is a time formatted as YYYYMMDD-HHMM used to mark log
         # directories
-	def time_tag
-	    @time_tag ||= Time.now.strftime('%Y%m%d-%H%M')
-	end
+        def time_tag
+            @time_tag ||= Time.now.strftime('%Y%m%d-%H%M')
+        end
 
         # Add some metadata to {#app_metadata}, and save it to the log dir's
         # info.yml if it is already created
@@ -1162,9 +1161,9 @@ module Roby
             resolved_path
         end
 
-	# A path => File hash, to re-use the same file object for different
-	# logs
-	attribute(:log_files) { Hash.new }
+        # A path => File hash, to re-use the same file object for different
+        # logs
+        attribute(:log_files) { Hash.new }
 
         # Returns a unique directory name as a subdirectory of
         # +base_dir+, based on +path_spec+. The generated name
@@ -1172,35 +1171,35 @@ module Roby
         #   <base_dir>/a/b/c/YYYYMMDD-HHMM-basename
         # if <tt>path_spec = "a/b/c/basename"</tt>. A .<number> suffix
         # is appended if the path already exists.
-	def self.unique_dirname(base_dir, path_spec, date_tag = nil)
-	    if path_spec =~ /\/$/
-		basename = ""
-		dirname = path_spec
-	    else
-		basename = File.basename(path_spec)
-		dirname  = File.dirname(path_spec)
-	    end
+        def self.unique_dirname(base_dir, path_spec, date_tag = nil)
+            if path_spec =~ /\/$/
+                basename = ""
+                dirname = path_spec
+            else
+                basename = File.basename(path_spec)
+                dirname  = File.dirname(path_spec)
+            end
 
-	    date_tag ||= Time.now.strftime('%Y%m%d-%H%M')
-	    if basename && !basename.empty?
-		basename = date_tag + "-" + basename
-	    else
-		basename = date_tag
-	    end
+            date_tag ||= Time.now.strftime('%Y%m%d-%H%M')
+            if basename && !basename.empty?
+                basename = date_tag + "-" + basename
+            else
+                basename = date_tag
+            end
 
-	    # Check if +basename+ already exists, and if it is the case add a
-	    # .x suffix to it
-	    full_path = File.expand_path(File.join(dirname, basename), base_dir)
-	    base_dir  = File.dirname(full_path)
+            # Check if +basename+ already exists, and if it is the case add a
+            # .x suffix to it
+            full_path = File.expand_path(File.join(dirname, basename), base_dir)
+            base_dir  = File.dirname(full_path)
 
-	    final_path, i = full_path, 0
-	    while File.exists?(final_path)
-		i += 1
-		final_path = full_path + ".#{i}"
-	    end
+            final_path, i = full_path, 0
+            while File.exists?(final_path)
+                i += 1
+                final_path = full_path + ".#{i}"
+            end
 
-	    final_path
-	end
+            final_path
+        end
 
         # Sets up all the default loggers. It creates the logger for the Robot
         # module (accessible through Robot.logger), and sets up log levels as
@@ -1209,14 +1208,14 @@ module Roby
             Robot.logger.progname = robot_name || 'Robot'
             return if !log['levels']
 
-	    # Set up log levels
-	    log['levels'].each do |name, value|
-		name = name.modulize
+            # Set up log levels
+            log['levels'].each do |name, value|
+                name = name.modulize
                 mod = Kernel.constant(name)
-		if value =~ /^(\w+):(.+)$/
-		    value, file = $1, $2
-		    file = file.gsub('ROBOT', robot_name) if robot_name
-		end
+                if value =~ /^(\w+):(.+)$/
+                    value, file = $1, $2
+                    file = file.gsub('ROBOT', robot_name) if robot_name
+                end
                 level = Logger.const_get(value)
 
                 io = if file
@@ -1227,12 +1226,12 @@ module Roby
                          STDOUT
                      end
                 new_logger = Logger.new(io)
-		new_logger.level     = level
-		new_logger.formatter = mod.logger.formatter
+                new_logger.level     = level
+                new_logger.formatter = mod.logger.formatter
                 new_logger.progname = [name, robot_name].compact.join(" ")
                 mod.logger = new_logger
-	    end
-	end
+            end
+        end
 
         # Register a server port that can be discovered later
         def register_server(name, port)
@@ -1284,10 +1283,11 @@ module Roby
             end
         end
 
-        # Loads the models, based on the given robot name and robot type
-	def require_models
-	    # Set up the loaded plugins
-	    call_plugins(:require_models, self)
+            # Loads the models, based on the given robot name and robot type
+        def require_models
+            # Set up the loaded plugins
+            call_plugins(:require_models, self)
+
             require_handlers.each do |handler|
                 isolate_load_errors("while calling #{handler}") do
                     handler.call
@@ -1315,9 +1315,9 @@ module Roby
                 auto_require_models
             end
 
-	    # Set up the loaded plugins
-	    call_plugins(:finalize_model_loading, self)
-	end
+            # Set up the loaded plugins
+            call_plugins(:finalize_model_loading, self)
+        end
 
         def load_all_model_files_in(prefix_name, ignored_exceptions: Array.new)
             search_path = auto_load_search_path
@@ -1355,8 +1355,8 @@ module Roby
         end
         
         def auto_require_models
-	    # Require all common task models and the task models specific to
-	    # this robot
+            # Require all common task models and the task models specific to
+            # this robot
             if auto_load_models?
                 load_all_model_files_in('tasks')
                 
@@ -1471,7 +1471,7 @@ module Roby
                     require path
                 end
             end
-	    call_plugins(:require_planners, self)
+            call_plugins(:require_planners, self)
         end
 
         def load_config_yaml
@@ -1553,7 +1553,7 @@ module Roby
         def load_base_config
             load_config_yaml
 
-	    # Get the application-wide configuration
+            # Get the application-wide configuration
             if plugins_enabled?
                 register_plugins
             end
@@ -1658,17 +1658,17 @@ module Roby
         # at this point
         #
         # The #cleanup method is the reverse of #setup
-	def setup
+        def setup
             base_setup
-	    # Set up the loaded plugins
-	    call_plugins(:setup, self)
+            # Set up the loaded plugins
+            call_plugins(:setup, self)
             # And run the setup handlers
             setup_handlers.each(&:call)
 
-	    require_models
+            require_models
             call_plugins(:require_config, self)
 
-	    # Main is always included in the planner list
+            # Main is always included in the planner list
             self.planners << app_module::Actions::Main
 	   
             # Attach the global fault tables to the plan
@@ -1692,7 +1692,7 @@ module Roby
                 Roby.log_exception_with_backtrace(e, Roby, :warn)
             end
             raise
-	end
+        end
 
         # Publishes a shell interface
         #
@@ -1736,7 +1736,7 @@ module Roby
                 FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
             end
 
-	    if log['events'] && public_logs?
+            if log['events'] && public_logs?
                 require 'roby/droby/event_logger'
                 require 'roby/droby/logfile/writer'
 
@@ -1761,16 +1761,16 @@ module Roby
                     plan.event_logger.sync = false
                     Roby.warn "log server disabled"
                 end
-	    end
+            end
 
             call_plugins(:prepare, self)
         end
 
-	def run(thread_priority: 0, &block)
+        def run(thread_priority: 0, &block)
             prepare
 
-	    engine_config = self.engine
-	    engine = self.plan.execution_engine
+            engine_config = self.engine
+            engine = self.plan.execution_engine
             plugins = self.plugins.map { |_, mod| mod if (mod.respond_to?(:start) || mod.respond_to?(:run)) }.compact
             engine.once do
                 run_plugins(plugins, &block)
@@ -1787,22 +1787,22 @@ module Roby
             if restarting?
                 Kernel.exec *@restart_cmdline
             end
-	end
+        end
 
         def join
             @thread.join
 
-	rescue Exception => e
-	    if execution_engine.running?
+        rescue Exception => e
+            if execution_engine.running?
                 if execution_engine.forced_exit?
                     raise
                 else
                     execution_engine.quit
                     retry
                 end
-	    else
-		raise
-	    end
+            else
+                raise
+            end
         end
 
         # Whether we're inside {#run}
@@ -1846,14 +1846,13 @@ module Roby
         #
         # Note that the cleanup we talk about here is related to running.
         # Cleanup required after #setup must be done in #cleanup
-	def run_plugins(mods, &block)
+        def run_plugins(mods, &block)
             engine = plan.execution_engine
-	    if mods.empty?
-		yield if block_given?
-
+            if mods.empty?
+                yield if block_given?
                 Robot.info "ready"
-	    else
-		mod = mods.shift
+            else
+                mod = mods.shift
                 if mod.respond_to?(:start)
                     mod.start(self)
                     run_plugins(mods, &block)
@@ -1862,8 +1861,8 @@ module Roby
                         run_plugins(mods, &block)
                     end
                 end
-	    end
-	end
+            end
+        end
 
         # The inverse of #setup. It gets called either at the end of #run or at
         # the end of #setup if there is an error during loading
@@ -1896,7 +1895,7 @@ module Roby
             stop_shell_interface
         end
 
-	def stop; call_plugins(:stop, self) end
+        def stop; call_plugins(:stop, self) end
 
         def start_log_server(logfile, options = Hash.new)
             require 'roby/droby/logfile/server'
@@ -2226,15 +2225,15 @@ module Roby
         # regardless of this setting.
         attr_predicate :log_create_current?, true
 
-	attr_predicate :simulation?, true
-	def simulation; self.simulation = true end
+        attr_predicate :simulation?, true
+        def simulation; self.simulation = true end
 
-	attr_predicate :testing?, true
-	def testing; self.testing = true end
-	attr_predicate :shell?, true
-	def shell; self.shell = true end
-	attr_predicate :single?, true
-	def single;  @single = true end
+        attr_predicate :testing?, true
+        def testing; self.testing = true end
+        attr_predicate :shell?, true
+        def shell; self.shell = true end
+        attr_predicate :single?, true
+        def single;  @single = true end
 
         attr_predicate :modelling_only?, true
         def modelling_only; self.modelling_only = true end
@@ -2247,7 +2246,7 @@ module Roby
         # return value of {#auto_load_search_path}
         #
         # @return [Boolean]
-	attr_predicate :auto_load_all?, true
+        attr_predicate :auto_load_all?, true
 
         # @!method auto_load_models?
         # @!method auto_load_models=(flag)
@@ -2256,7 +2255,7 @@ module Roby
         # automatically in {#require_models}
         #
         # @return [Boolean]
-	attr_writer :auto_load_models
+        attr_writer :auto_load_models
 
         def auto_load_models?
             if @auto_load_models.nil?
@@ -2279,21 +2278,21 @@ module Roby
             Application.find_data(*name)
         end
 
-	def self.find_data(*name)
+        def self.find_data(*name)
             name = File.join(*name)
-	    Roby::Conf.datadirs.each do |dir|
-		path = File.join(dir, name)
-		return path if File.exists?(path)
-	    end
-	    raise Errno::ENOENT, "no file #{name} found in #{Roby::Conf.datadirs.join(":")}"
-	end
+            Roby::Conf.datadirs.each do |dir|
+            path = File.join(dir, name)
+            return path if File.exists?(path)
+            end
+            raise Errno::ENOENT, "no file #{name} found in #{Roby::Conf.datadirs.join(":")}"
+        end
 
-	def self.register_plugin(name, mod, &init)
-	    caller(1)[0] =~ /^([^:]+):\d/
-	    dir  = File.expand_path(File.dirname($1))
+        def self.register_plugin(name, mod, &init)
+            caller(1)[0] =~ /^([^:]+):\d/
+            dir  = File.expand_path(File.dirname($1))
             Roby.app.available_plugins.delete_if { |n| n == name }
-	    Roby.app.available_plugins << [name, dir, mod, init]
-	end
+            Roby.app.available_plugins << [name, dir, mod, init]
+        end
 
         # Returns the path in search_path that contains the given file or path
         #
@@ -2322,23 +2321,23 @@ module Roby
         # Returns true if the given path points to a file in the Roby app
         #
         # @param [String] path
-	def app_file?(path)
+        def app_file?(path)
             !!find_base_path_for(path)
-	end
+        end
 
         # Tests whether a path is within a framework library
         #
         # @param [String] path
-	def framework_file?(path)
-	    if path =~ /roby\/.*\.rb$/
-		true
-	    else
-		Roby.app.plugins.any? do |name, _|
-		    _, dir, _, _ = Roby.app.plugin_definition(name)
-		    path =~ %r{(^|/)#{dir}(/|$)}
-		end
-	    end
-	end
+        def framework_file?(path)
+            if path =~ /roby\/.*\.rb$/
+                true
+            else
+                Roby.app.plugins.any? do |name, _|
+                    _, dir, _, _ = Roby.app.plugin_definition(name)
+                    path =~ %r{(^|/)#{dir}(/|$)}
+                end
+            end
+        end
 
         # Ensure tha require'd files that match the given pattern can be
         # re-required
@@ -2382,9 +2381,9 @@ module Roby
             models = [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
              Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript]
 
-	    each_responding_plugin(:root_models) do |config_extension|
-		models.concat(config_extension.root_models)
-	    end
+            each_responding_plugin(:root_models) do |config_extension|
+                models.concat(config_extension.root_models)
+            end
             models
         end
 
