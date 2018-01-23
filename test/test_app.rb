@@ -726,6 +726,37 @@ module Roby
                 assert_equal @test_dir_1, $LOAD_PATH[1]
             end
         end
+
+        describe "#setup_rest_interface" do
+            before do
+                @app = Roby::Application.new
+                @app.rest_interface_port = 0
+            end
+            after do
+                @app.stop_rest_interface
+            end
+            it "starts the REST server" do
+                server = nil
+                capture_log(Robot, :info) { server = @app.setup_rest_interface }
+                assert_same @app, server.app
+                server.wait_start
+                assert server.server_alive?
+            end
+            it "allows to extend the API through plugins" do
+                plugin = Module.new do
+                    def self.setup_rest_interface(app, api)
+                        api.get('/extended') { 42 }
+                    end
+                end
+                @app.add_plugin 'test', plugin
+                server = nil
+                capture_log(Robot, :info) { server = @app.setup_rest_interface }
+                server.wait_start
+                returned_value = RestClient.
+                    get("http://localhost:#{server.port}/api/extended")
+                assert_equal 42, Integer(returned_value)
+            end
+        end
     end
 end
 

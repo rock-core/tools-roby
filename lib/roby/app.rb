@@ -1857,14 +1857,20 @@ module Roby
             if @rest_interface
                 raise RuntimeError, "there is already a REST interface started, call #stop_rest_interface first"
             end
+            composite_api = Class.new(Grape::API)
+            composite_api.mount Interface::REST::API
+            call_plugins(:setup_rest_interface, self, composite_api)
+
             @rest_interface = Interface::REST::Server.new(
-                self, host: rest_interface_host, port: rest_interface_port)
+                self, host: rest_interface_host, port: rest_interface_port,
+                api: composite_api)
+            @rest_interface.start
+
             if rest_interface_port != Interface::DEFAULT_REST_PORT
                 Robot.info "REST interface started on port #{@rest_interface.port(timeout: nil)}"
             else
                 Robot.debug "REST interface started on port #{rest_interface_port}"
             end
-            @rest_interface.start
             @rest_interface
         end
 

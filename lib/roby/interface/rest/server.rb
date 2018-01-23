@@ -3,6 +3,9 @@ module Roby
         module REST
             # A thin-based server class that provides the REST API in-process
             class Server
+                # The application that is being exposed by this server
+                attr_reader :app
+
                 # The host the server is bound to
                 #
                 # @return [String]
@@ -26,21 +29,23 @@ module Roby
                 # @param [Integer] port the port the server should bind to if it
                 #   is a TCP server. Set to zero to auto-allocate. Ignored if 'host'
                 #   is the path to a UNIX socket.
-                def initialize(app, host: '0.0.0.0',
-                               port: Roby::Interface::DEFAULT_REST_PORT)
-                    @interface = Interface.new(app)
+                def initialize(app, host: '0.0.0.0', port: Roby::Interface::DEFAULT_REST_PORT,
+                               api: REST::API)
+                    @app = app
                     @host = host
+                    @interface = Interface.new(app)
                     @wait_start = Concurrent::IVar.new
 
-                    api = self.class.attach_api_to_interface(API, @interface)
-                    @app = Rack::Builder.new do
+                    api = self.class.attach_api_to_interface(api, @interface)
+                    rack_app = Rack::Builder.new do
                         yield(self) if block_given?
 
                         map '/api' do
                             run api
                         end
                     end
-                    @server = Thin::Server.new(host, port, @app, signals: false)
+                    @server = Thin::Server.new(host, port, rack_app, signals: false)
+                    @server.silent = true
                     if @server.backend.respond_to?(:port)
                         @original_port = port
                         if port != 0

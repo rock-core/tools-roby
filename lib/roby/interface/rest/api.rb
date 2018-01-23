@@ -6,11 +6,7 @@ module Roby
                 version 'v1', using: :header, vendor: :syskit
                 format :json
 
-                helpers do
-                    def interface
-                        env['roby.interface']
-                    end
-                end
+                helpers Helpers
 
                 params do
                     optional :value, type: Integer, default: 20
