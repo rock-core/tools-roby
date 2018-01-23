@@ -2128,7 +2128,6 @@ module Roby
 	    end
             self.running = true
 
-	    @quit = 0
             @allow_propagation = false
             @waiting_work = Concurrent::Array.new
 
