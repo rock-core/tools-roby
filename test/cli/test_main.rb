@@ -1,11 +1,69 @@
 require 'roby/test/self'
 require 'roby/cli/main'
+require 'roby/interface/rest'
 require 'roby/test/aruba_minitest'
 
 module Roby
     module CLI
         describe Main do
             include Roby::Test::ArubaMinitest
+
+            describe "run" do
+                before do
+                    run_command "roby gen app"
+                end
+
+                after do
+                    FileUtils.rm_f "/tmp/roby-cli-main-rest-test"
+                end
+
+                def wait_for_file(path)
+                    assert_eventually { File.exist?(path) }
+                end
+
+                def assert_eventually(timeout: 10, msg: "failed while waiting for something to happen")
+                    deadline = Time.now + timeout
+                    while true
+                        if yield
+                            return
+                        elsif deadline < Time.now
+                            flunk(msg)
+                        end
+                        sleep 0.05
+                    end
+                end
+
+                describe "the REST API" do
+                    it "starts the API on the default port if --rest is given" do
+                        run_command "roby run --rest"
+                        assert_eventually { Interface::REST::Server.server_alive?(
+                            'localhost', Interface::DEFAULT_REST_PORT) }
+                        run_command_and_stop "roby quit --retry"
+                    end
+                    it "starts the API on a custom port if an integer argument is given to --rest" do
+                        # Guess an available port ... not optimal, but hopefully good enough
+                        tcp_server = TCPServer.new(0)
+                        port = tcp_server.local_address.ip_port
+                        tcp_server.close
+                        run_command "roby run --rest=#{port}"
+                        assert_eventually { Interface::REST::Server.server_alive?(
+                            'localhost', port) }
+                        run_command_and_stop "roby quit --retry"
+                    end
+                    it "properly shuts down the server" do
+                        # We check whether the server gets shut down by
+                        # starting two apps one after the other. If the socket
+                        # is not closed, we won't be able to create the new
+                        # server
+                        @run_cmd = run_command "roby run --rest"
+                        run_command_and_stop "roby quit --retry"
+                        assert_command_stops @run_cmd
+                        @run_cmd = run_command "roby run --rest"
+                        run_command_and_stop "roby quit --retry"
+                        assert_command_stops @run_cmd
+                    end
+                end
+            end
 
             describe "quit" do
                 before do

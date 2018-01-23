@@ -624,6 +624,22 @@ module Roby
             'engine' => Hash.new
         }
 
+        # @!method public_rest_interface?
+        # @!method public_rest_interface=(flag)
+        #
+        # If set to true, this Roby application will publish a
+        # {Interface::REST::API} object
+        attr_predicate :public_rest_interface?, true
+
+        # The host to which the REST interface server should bind
+        #
+        # @return [String]
+        attr_accessor :rest_interface_host
+        # The port on which the REST interface server should be
+        #
+        # @return [Integer]
+        attr_accessor :rest_interface_port
+
         # The host to which the shell interface server should bind
         #
         # @return [String]
@@ -670,6 +686,10 @@ module Roby
             @shell_interface_host = nil
             @shell_interface_port = Interface::DEFAULT_PORT
             @shell_abort_on_exception = true
+
+            @rest_interface = nil
+            @rest_interface_host = nil
+            @rest_interface_port = Interface::DEFAULT_REST_PORT
 
             @automatic_testing = true
             @registered_exceptions = []
@@ -848,6 +868,10 @@ module Roby
                 setup_shell_interface
             end
 
+            if public_rest_interface?
+                setup_rest_interface
+            end
+
             if public_logs? && log_create_current?
                 FileUtils.rm_f File.join(log_base_dir, "current")
                 FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
@@ -890,6 +914,7 @@ module Roby
             call_plugins(:shutdown, self)
             stop_log_server
             stop_shell_interface
+            stop_rest_interface(join: true)
         end
 
         # The robot names configuration
@@ -1817,6 +1842,41 @@ module Roby
             if @shell_interface
                 @shell_interface.close
                 @shell_interface = nil
+            end
+        end
+
+        # Publishes a REST API
+        #
+        # The REST API will long-term replace the shell interface. It is however
+        # currently too limited for this purpose. Whether one should use one or
+        # the other is up to the application, but prefer the REST API if it
+        # suits your needs
+        def setup_rest_interface
+            require 'roby/interface/rest'
+
+            if @rest_interface
+                raise RuntimeError, "there is already a REST interface started, call #stop_rest_interface first"
+            end
+            @rest_interface = Interface::REST::Server.new(
+                self, host: rest_interface_host, port: rest_interface_port)
+            if rest_interface_port != Interface::DEFAULT_REST_PORT
+                Robot.info "REST interface started on port #{@rest_interface.port(timeout: nil)}"
+            else
+                Robot.debug "REST interface started on port #{rest_interface_port}"
+            end
+            @rest_interface.start
+            @rest_interface
+        end
+
+        # Stops a running REST interface
+        def stop_rest_interface(join: false)
+            if @rest_interface
+                # In case we're shutting down while starting up,
+                # we must synchronize with the start to ensure that
+                # EventMachine will be properly stopped
+                @rest_interface.wait_start
+                @rest_interface.stop
+                @rest_interface.join if join
             end
         end
 

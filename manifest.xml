@@ -28,6 +28,10 @@
   <depend package="qtruby" optional='1' />
   <depend package="graphviz" optional='1' />
 
+  <depend_optional package="rest-client" />
+  <depend_optional package="grape" />
+  <depend_optional package="thin" />
+
   <depend_optional package="autorespawn" />
 
   <depend_optional package="minitest" />

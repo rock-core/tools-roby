@@ -21,7 +21,7 @@ module Roby
             # Creates a new interface server on the given port
             #
             # @param [Integer] port
-            def initialize(app, host: nil, port: Interface::DEFAULT_PORT)
+            def initialize(app, host: nil, port: Roby::Interface::DEFAULT_PORT)
                 @interface = Interface.new(app)
                 @server =
                     begin ::TCPServer.new(host, port)

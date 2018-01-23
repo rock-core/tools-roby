@@ -114,6 +114,7 @@ module Roby
 
     module Interface
         DEFAULT_PORT = 20201
+        DEFAULT_REST_PORT = 20202
 
         extend Logger::Hierarchy
 

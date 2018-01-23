@@ -30,6 +30,12 @@ scripts/controllers/ and/or some explicitly given actions
     opt.on '--port=PORT', Integer, 'the interface port' do |port|
         app.shell_interface_port = port
     end
+    opt.on '--rest[=PORT]', Integer, 'enable the experimental REST API' do |port|
+        app.public_rest_interface = true
+        if port
+            app.rest_interface_port = port
+        end
+    end
     opt.on '--single', "run without connecting to external server. Support for this is plugin-dependent."  do
         app.single
     end
