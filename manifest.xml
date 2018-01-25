@@ -21,7 +21,6 @@
   <depend package="ruby-backports" />
   <depend package="pastel" />
   <depend package="hooks" />
-  <depend package="rake-compiler" />
   <depend package="rgl" />
   <depend package="thor" />
   <depend package="autorespawn" optional="1" />
