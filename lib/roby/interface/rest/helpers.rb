@@ -9,6 +9,9 @@ module Roby
                 def roby_app
                     @roby_app ||= interface.app
                 end
+
+                def roby_storage
+                    env['roby.storage']
                 end
 
                 def execution_engine

@@ -62,9 +62,11 @@ module Roby
                 # gets an #interface accessor that provides the interface
                 # object the API is meant to work on
                 def self.attach_api_to_interface(api, interface)
+                    storage = Hash.new
                     Class.new do
                         define_method(:call) do |env|
                             env['roby.interface'] = interface
+                            env['roby.storage'] = storage
                             api.call(env)
                         end
                     end.new
