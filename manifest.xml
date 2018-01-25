@@ -18,6 +18,7 @@
   <depend package="binding_of_caller" />
   <depend package="rb-readline" />
   <depend package="concurrent-ruby" />
+  <depend package="ruby-backports" />
   <depend package="pastel" />
   <depend package="hooks" />
   <depend package="rake-compiler" />

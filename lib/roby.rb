@@ -22,6 +22,7 @@ module Roby
 end
 
 require 'concurrent'
+require 'roby/backports'
 
 require 'pp'
 require 'thread'
