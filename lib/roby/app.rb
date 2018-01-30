@@ -733,6 +733,8 @@ module Roby
                 register_plugins
             end
 
+            update_load_path
+
             if initfile = find_file('config', 'init.rb', order: :specific_first)
                 Application.info "loading init file #{initfile}"
                 require initfile
