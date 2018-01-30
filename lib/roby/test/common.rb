@@ -118,13 +118,16 @@ module Roby
             original_collections.clear
         end
 
+        attr_reader :app
+
         def setup
+            @app = Roby.app
             Roby.app.reload_config
             @log_levels = Hash.new
             @transactions = Array.new
 
             if !@plan
-                @plan = Roby.plan
+                @plan = Roby.app.plan
             end
             register_plan(@plan)
 
