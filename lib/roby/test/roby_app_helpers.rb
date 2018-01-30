@@ -63,6 +63,10 @@ module Roby
             def assert_roby_app_is_running(pid, timeout: 10, host: 'localhost', port: Roby::Interface::DEFAULT_PORT)
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
+                    if ::Process.waitpid(pid, Process::WNOHANG)
+                        flunk "Roby app unexpectedly quit"
+                    end
+
                     begin
                         return Roby::Interface.connect_with_tcp_to(host, port)
                     rescue Roby::Interface::ConnectionError
