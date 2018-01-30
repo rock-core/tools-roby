@@ -864,12 +864,26 @@ module Roby
             base_cleanup
         end
 
+        # @api private
+        def prepare_event_log
+            require 'roby/droby/event_logger'
+            require 'roby/droby/logfile/writer'
+
+            logfile_path = File.join(log_dir, "#{robot_name}-events.log")
+            event_io = File.open(logfile_path, 'w')
+            logfile = DRoby::Logfile::Writer.new(event_io, plugins: plugins.map { |n, _| n })
+            plan.event_logger = DRoby::EventLogger.new(logfile)
+            plan.execution_engine.event_logger = plan.event_logger
+
+            Robot.info "logs are in #{log_dir}"
+            logfile_path
+        end
+
         # Prepares the environment to actually run
         def prepare
             if public_shell_interface?
                 setup_shell_interface
             end
-
             if public_rest_interface?
                 setup_rest_interface
             end
@@ -880,16 +894,7 @@ module Roby
             end
 
             if log['events'] && public_logs?
-                require 'roby/droby/event_logger'
-                require 'roby/droby/logfile/writer'
-
-                logfile_path = File.join(log_dir, "#{robot_name}-events.log")
-                event_io = File.open(logfile_path, 'w')
-                logfile = DRoby::Logfile::Writer.new(event_io, plugins: plugins.map { |n, _| n })
-                plan.event_logger = DRoby::EventLogger.new(logfile)
-                plan.execution_engine.event_logger = plan.event_logger
-
-                Robot.info "logs are in #{log_dir}"
+                logfile_path = prepare_event_log
 
                 # Start a log server if needed, and poll the log directory for new
                 # data sources
