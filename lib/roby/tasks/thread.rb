@@ -27,9 +27,9 @@ module Roby
             # The implementation block for that task model
             attr_reader :implementation_block
 
-	    # Defines the block which should be executed in the separate
-	    # thread. The currently defined block can be accessed
-	    # through the implementation_block attribute.
+            # Defines the block which should be executed in the separate
+            # thread. The currently defined block can be accessed
+            # through the implementation_block attribute.
             def implementation(&block)
                 @implementation_block = block
             end
@@ -69,7 +69,7 @@ module Roby
         def start_thread
             @interruption_event = Concurrent::Event.new
             @thread = ::Thread.new do
-		::Thread.current.priority = 0
+                ::Thread.current.priority = 0
                 instance_eval(&self.class.implementation_block)
             end
         end
@@ -79,10 +79,10 @@ module Roby
             start_event.emit
         end
 
-	poll do
-	    if @thread.alive?
-		return 
-	    end
+        poll do
+            if @thread.alive?
+                return 
+            end
 
             begin
                 result = @thread.value

@@ -13,9 +13,9 @@ if !defined?(ChoiceTask)
         end
 
         event :a
-	forward :a => :success
+        forward :a => :success
         event :b
-	forward :b => :success
+        forward :b => :success
     end
 
     class MultiEventTask < Roby::Task

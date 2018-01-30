@@ -4,8 +4,8 @@ module Roby
     # While {Plan} maintains the plan data structure itself, this class provides
     # excution-related services such as exceptions and GC-related methods
     class ExecutablePlan < Plan
-	extend Logger::Hierarchy
-	extend Logger::Forward
+        extend Logger::Hierarchy
+        extend Logger::Forward
 
         # The ExecutionEngine object which handles this plan. The role of this
         # object is to provide the event propagation, error propagation and
@@ -29,11 +29,11 @@ module Roby
         # propagation.
         def control; execution_engine.control end
 
-	# A set of tasks which are useful (and as such would not been garbage
-	# collected), but we want to GC anyway
+        # A set of tasks which are useful (and as such would not been garbage
+        # collected), but we want to GC anyway
         #
         # @return [Set<Roby::Task>]
-	attr_reader :force_gc
+        attr_reader :force_gc
 
         # The list of plan-wide exception handlers 
         #
@@ -44,7 +44,7 @@ module Roby
             super(graph_observer: self, event_logger: event_logger)
 
             @execution_engine = ExecutionEngine.new(self)
-	    @force_gc    = Set.new
+            @force_gc    = Set.new
             @exception_handlers = Array.new
             on_exception LocalizedError do |plan, error|
                 plan.default_localized_error_handling(error)
@@ -69,10 +69,10 @@ module Roby
             self
         end
 
-	# Check that this is an executable plan
+        # Check that this is an executable plan
         #
         # This always returns true for {ExecutablePlan}
-	def executable?; true end
+        def executable?; true end
 
         def refresh_relations
             super
@@ -172,7 +172,7 @@ module Roby
         #   relations.first
         def adding_edge(parent, child, relations, info)
             if !parent.read_write? || !child.read_write?
-		raise OwnershipError, "cannot remove a relation between two objects we don't own"
+                raise OwnershipError, "cannot remove a relation between two objects we don't own"
             elsif parent.garbage?
                 raise ReusingGarbage, "attempting to reuse #{parent} which is marked as garbage"
             elsif child.garbage?
@@ -264,8 +264,8 @@ module Roby
         #   is being removed
         def removing_edge(parent, child, relations)
             unless parent.read_write? || child.child.read_write?
-		raise OwnershipError, "cannot remove a relation between two objects we don't own"
-	    end
+                raise OwnershipError, "cannot remove a relation between two objects we don't own"
+            end
 
             relations.each do |rel|
                 if name = rel.child_name
@@ -431,7 +431,7 @@ module Roby
 
         # @api private
         #
-	# Called to handle a task that should be garbage-collected
+        # Called to handle a task that should be garbage-collected
         #
         # What actually happens to the task is controlled by
         # {PlanObject#can_finalize?}.
@@ -462,7 +462,7 @@ module Roby
             end
         end
 
-	# Called to handle a free event that should be garbage-collected
+        # Called to handle a free event that should be garbage-collected
         #
         # What actually happens to the event is controlled by
         # {PlanObject#can_finalize?}. If the event can be finalized, it is (i.e.
@@ -518,7 +518,7 @@ module Roby
             end
 
             super
-	    @force_gc.delete(object)
+            @force_gc.delete(object)
         end
 
         # Clear the plan
@@ -527,14 +527,14 @@ module Roby
             @force_gc.clear
         end
 
-	# Replace +task+ with a fresh copy of itself and start it.
+        # Replace +task+ with a fresh copy of itself and start it.
         #
         # See #recreate for details about the new task.
-	def respawn(task)
+        def respawn(task)
             new = recreate(task)
             execution_engine.once { new.start!(nil) }
-	    new
-	end
+            new
+        end
 
         # @api private
         #

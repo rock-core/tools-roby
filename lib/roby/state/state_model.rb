@@ -227,10 +227,10 @@ module Roby
     #  * the current data source for a state variable is stored in
     #    data_sources.path.to.value
     class StateSpace < StateField
-	def initialize(model = nil)
+        def initialize(model = nil)
             @exported_fields = nil
-	    super(model)
-	end
+            super(model)
+        end
 
         # Declares that no state fields should be marshalled. The default is to
         # export everything
@@ -260,10 +260,10 @@ module Roby
         # If #export_all has been called, a call to #export cancels it.
         #
         # See also #export_none and #export_all
-	def export(*names)
+        def export(*names)
             @exported_fields ||= Set.new
-	    @exported_fields.merge names.map { |n| n.to_s }.to_set
-	end
+            @exported_fields.merge names.map { |n| n.to_s }.to_set
+        end
 
         def create_subfield(name)
             model = if self.model then self.model.get(name) end
@@ -277,7 +277,7 @@ module Roby
         #
         # Which fields get marshalled can be controlled with #export_all,
         # #export_none and #export. The default is to marshal all fields.
-	def _dump(lvl = -1)
+        def _dump(lvl = -1)
             if !@exported_fields
                 super
             else
@@ -288,16 +288,16 @@ module Roby
                 marshalled_members.compact!
                 Marshal.dump([marshalled_members, @aliases])
             end
-	end
+        end
 
-	def deep_copy
-	    exported_fields, @exported_fields = @exported_fields, Set.new
-	    Marshal.load(Marshal.dump(self))
-	ensure
-	    @exported_fields = exported_fields
-	end
+        def deep_copy
+            exported_fields, @exported_fields = @exported_fields, Set.new
+            Marshal.load(Marshal.dump(self))
+        ensure
+            @exported_fields = exported_fields
+        end
 
-	def testing?; Roby.app.testing? end
-	def simulation?; Roby.app.simulation? end
+        def testing?; Roby.app.testing? end
+        def simulation?; Roby.app.simulation? end
     end
 end

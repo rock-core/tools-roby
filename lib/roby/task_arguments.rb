@@ -3,15 +3,15 @@ module Roby
     # arguments cannot be overwritten and can not be changed by a task that is
     # not owned.
     class TaskArguments
-	attr_reader :task
+        attr_reader :task
         attr_reader :values
 
-	def initialize(task)
-	    @task   = task
+        def initialize(task)
+            @task   = task
             @static = true
             @values = Hash.new
-	    super()
-	end
+            super()
+        end
 
         def self.delayed_argument?(obj)
             obj.respond_to?(:evaluate_delayed_argument)
@@ -51,14 +51,14 @@ module Roby
         #
         # @param [Symbol] key the argument name
         # @param [Object] value the new argument value
-	def writable?(key, value)
+        def writable?(key, value)
             if has_key?(key)
                 !task.model.arguments.include?(key) ||
                     TaskArguments.delayed_argument?(values[key])
             else
                 true
             end
-	end
+        end
 
         # Returns the listed set of arguments
         #
@@ -69,10 +69,10 @@ module Roby
             evaluate_delayed_arguments.slice(*args)
         end
 
-	def dup; self.to_hash end
-	def to_hash
-	    values.dup
-	end
+        def dup; self.to_hash end
+        def to_hash
+            values.dup
+        end
 
         # Tests if a given argument has been assigned, that is either has a
         # static value or has a delayed value object
@@ -82,9 +82,9 @@ module Roby
 
         # Tests if a given argument has been set with a proper value (not a
         # delayed value object)
-	def set?(key)
+        def set?(key)
             has_key?(key) && !TaskArguments.delayed_argument?(values.fetch(key))
-	end
+        end
 
         # True if the arguments are equal
         #
@@ -121,14 +121,14 @@ module Roby
         end
 
         # Enumerates the arguments that have been explicitly assigned
-	def each_assigned_argument
+        def each_assigned_argument
             return assigned_arguments if !block_given?
-	    each do |key, value|
+            each do |key, value|
                 if !TaskArguments.delayed_argument?(value)
-		    yield(key, value)
-		end
-	    end
-	end
+                    yield(key, value)
+                end
+            end
+        end
 
         def each(&block)
             values.each(&block)
@@ -140,7 +140,7 @@ module Roby
         # @param [Symbol] key the argument name
         # @param [Object] value the new argument value
         # @return [Object]
-	def update!(key, value)
+        def update!(key, value)
             if values.has_key?(key)
                 current_value = values[key]
                 is_updated    = (current_value != value)
@@ -165,14 +165,14 @@ module Roby
         #
         # @raise OwnershipError if we don't own the task
         # @raise ArgumentError if the argument is already set
-	def []=(key, value)
+        def []=(key, value)
             key = warn_deprecated_non_symbol_key(key)
-	    if writable?(key, value)
+            if writable?(key, value)
                 if !value.droby_marshallable?
                     raise NotMarshallable, "values used as task arguments must be marshallable, attempting to set #{key} to #{value} of class #{value.class}, which is not"
-		elsif !task.read_write?
-		    raise OwnershipError, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
-		end
+                elsif !task.read_write?
+                    raise OwnershipError, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
+                end
 
                 if TaskArguments.delayed_argument?(value)
                     @static = false
@@ -180,17 +180,17 @@ module Roby
                     update_static = true
                 end
 
-		values[key] = value
+                values[key] = value
                 task.plan.log(:task_arguments_updated, task, key, value)
 
                 if update_static
                     @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
                 end
                 value
-	    else
-		raise ArgumentError, "cannot override task argument #{key} as it is already set to #{values[key]}"
-	    end
-	end
+            else
+                raise ArgumentError, "cannot override task argument #{key} as it is already set to #{values[key]}"
+            end
+        end
 
         def [](key)
             key = warn_deprecated_non_symbol_key(key)
@@ -229,25 +229,25 @@ module Roby
             @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
         end
 
-	def merge!(**hash)
+        def merge!(**hash)
             hash.each do |key, value|
                 if !value.droby_marshallable?
                     raise NotMarshallable, "values used as task arguments must be marshallable, attempting to set #{key} to #{value}, which is not"
                 end
             end
 
-	    values.merge!(hash) do |key, old, new|
-		if old == new then old
-		elsif writable?(key, new)
+            values.merge!(hash) do |key, old, new|
+                if old == new then old
+                elsif writable?(key, new)
                     task.plan.log(:task_arguments_updated, task, key, new)
                     new
-		else
-		    raise ArgumentError, "cannot override task argument #{key}: trying to replace #{old} by #{new}"
-		end
-	    end
+                else
+                    raise ArgumentError, "cannot override task argument #{key}: trying to replace #{old} by #{new}"
+                end
+            end
             @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
             self
-	end
+        end
 
         include Enumerable
     end
@@ -423,6 +423,6 @@ module Roby
     #   task.new(goal: Roby.from_state.pose.position))
     #
     def self.from_conf
-	from_state(Conf)
+        from_state(Conf)
     end
 end

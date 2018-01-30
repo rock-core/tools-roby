@@ -35,7 +35,7 @@ parser = OptionParser.new do |opt|
         modes << '--sim'
     end
     opt.on("-l", "--live", "run tests in live mode") do |val|
-	modes << '--live'
+        modes << '--live'
     end
     opt.on '--all-robots', 'run tests for all robots' do
         all_robots = true
@@ -44,7 +44,7 @@ parser = OptionParser.new do |opt|
         robots << name
     end
     opt.on("-k", "--keep-logs", "keep all logs") do |val|
-	cmdline_args << '--keep-logs'
+        cmdline_args << '--keep-logs'
     end
     opt.on('--server=PID', Integer, 'the minitest server PID (used to generate a drbunix path)') do |pid|
         server_pid = pid

@@ -47,7 +47,7 @@ module TC_PlanStatic
     end
 
     def test_add_task
-	plan.add(t = Task.new)
+        plan.add(t = Task.new)
         assert_same t.relation_graphs, plan.task_relation_graphs
         assert_task_state(t, :normal)
         assert_equal plan, t.plan
@@ -59,10 +59,10 @@ module TC_PlanStatic
     end
 
     def test_add_plan
-	t1, t2, t3 = (1..3).map { Roby::Task.new }
+        t1, t2, t3 = (1..3).map { Roby::Task.new }
         ev = EventGenerator.new
-	t1.depends_on t2
-	t2.depends_on t3
+        t1.depends_on t2
+        t2.depends_on t3
         t1.stop_event.signals t3.start_event
         t3.stop_event.forward_to ev
         plan.add(t1)
@@ -85,96 +85,96 @@ module TC_PlanStatic
     end
 
     def test_add_mission_task
-	plan.add_mission_task(t = Task.new)
+        plan.add_mission_task(t = Task.new)
         assert_task_state(t, :mission)
     end
     
     def test_unmark_mission_task
-	plan.add_mission_task(t = Task.new)
-	plan.unmark_mission_task(t)
+        plan.add_mission_task(t = Task.new)
+        plan.unmark_mission_task(t)
         assert_task_state(t, :normal)
     end
     def test_removed_mission
-	plan.add_mission_task(t = Task.new)
-	plan.remove_task(t)
+        plan.add_mission_task(t = Task.new)
+        plan.remove_task(t)
         assert_task_state(t, :removed)
     end
 
     def test_add_permanent_task
-	plan.add_permanent_task(t = Task.new)
+        plan.add_permanent_task(t = Task.new)
         assert_task_state(t, :permanent)
     end
     def test_unmark_permanent_task
-	plan.add_permanent_task(t = Task.new)
-	plan.unmark_permanent_task(t)
+        plan.add_permanent_task(t = Task.new)
+        plan.unmark_permanent_task(t)
         assert_task_state(t, :normal)
     end
     def test_remove_permanent_task
-	plan.add_permanent_task(t = Task.new)
-	plan.remove_task(t)
+        plan.add_permanent_task(t = Task.new)
+        plan.remove_task(t)
         assert_task_state(t, :removed)
     end
 
     def test_add_event
-	plan.add(ev = EventGenerator.new)
+        plan.add(ev = EventGenerator.new)
         assert_event_state(ev, :normal)
     end
     def test_remove_free_event
-	plan.add(ev = EventGenerator.new)
-	plan.remove_free_event(ev)
+        plan.add(ev = EventGenerator.new)
+        plan.remove_free_event(ev)
         assert_event_state(ev, :removed)
     end
     def test_add_permanent_event
-	plan.add_permanent_event(ev = EventGenerator.new)
+        plan.add_permanent_event(ev = EventGenerator.new)
         assert_event_state(ev, :permanent)
     end
     def test_unmark_permanent_event
-	plan.add_permanent_event(ev = EventGenerator.new)
-	plan.unmark_permanent_event(ev)
+        plan.add_permanent_event(ev = EventGenerator.new)
+        plan.unmark_permanent_event(ev)
         assert_event_state(ev, :normal)
     end
 
     def test_replace_task
-	(p, c1), (c11, c12, c2, c3) = prepare_plan missions: 2, tasks: 4, model: Roby::Tasks::Simple
-	p.depends_on c1, model: [Roby::Tasks::Simple, {}]
-	c1.depends_on c11
-	c1.depends_on c12
-	p.depends_on c2
+        (p, c1), (c11, c12, c2, c3) = prepare_plan missions: 2, tasks: 4, model: Roby::Tasks::Simple
+        p.depends_on c1, model: [Roby::Tasks::Simple, {}]
+        c1.depends_on c11
+        c1.depends_on c12
+        p.depends_on c2
         c1.stop_event.signals c2.start_event
         c1.start_event.forward_to c1.stop_event
         c11.success_event.forward_to c1.success_event
 
         plan.replace_task(c1, c3)
 
-	# Check that the external task and event structures have been
-	# transferred. 
-	assert( !p.child_object?(c1, TaskStructure::Dependency) )
-	assert( p.child_object?(c3, TaskStructure::Dependency) )
-	assert( c3.child_object?(c11, TaskStructure::Dependency) )
-	assert( !c1.child_object?(c11, TaskStructure::Dependency) )
+        # Check that the external task and event structures have been
+        # transferred. 
+        assert( !p.child_object?(c1, TaskStructure::Dependency) )
+        assert( p.child_object?(c3, TaskStructure::Dependency) )
+        assert( c3.child_object?(c11, TaskStructure::Dependency) )
+        assert( !c1.child_object?(c11, TaskStructure::Dependency) )
 
-	assert( !c1.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
-	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
-	assert( c3.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
-	assert( !c1.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
-	# Also check that the internal event structure has *not* been transferred
-	assert( !c3.event(:start).child_object?(c3.event(:stop), EventStructure::Forwarding) )
-	assert( c1.event(:start).child_object?(c1.event(:stop), EventStructure::Forwarding) )
+        assert( !c1.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
+        assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
+        assert( c3.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
+        assert( !c1.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
+        # Also check that the internal event structure has *not* been transferred
+        assert( !c3.event(:start).child_object?(c3.event(:stop), EventStructure::Forwarding) )
+        assert( c1.event(:start).child_object?(c1.event(:stop), EventStructure::Forwarding) )
 
-	# Check that +c1+ is no more marked as mission, and that c3 is marked. c1 should
-	# still be in the plan
-	assert(! plan.mission_task?(c1) )
-	assert( plan.mission_task?(c3) )
-	assert( plan.has_task?(c1) )
+        # Check that +c1+ is no more marked as mission, and that c3 is marked. c1 should
+        # still be in the plan
+        assert(! plan.mission_task?(c1) )
+        assert( plan.mission_task?(c3) )
+        assert( plan.has_task?(c1) )
 
-	# Check that #replace_task keeps the permanent flag too
-	(root, p), t = prepare_plan permanent: 2, tasks: 1, model: Roby::Tasks::Simple
+        # Check that #replace_task keeps the permanent flag too
+        (root, p), t = prepare_plan permanent: 2, tasks: 1, model: Roby::Tasks::Simple
         root.depends_on p, model: Roby::Tasks::Simple
 
-	plan.add_permanent_task(p)
-	plan.replace_task(p, t)
-	assert(!plan.permanent_task?(p))
-	assert(plan.permanent_task?(t))
+        plan.add_permanent_task(p)
+        plan.replace_task(p, t)
+        assert(!plan.permanent_task?(p))
+        assert(plan.permanent_task?(t))
     end
 
     def test_replace_task_raises_ArgumentError_if_one_argument_is_finalized
@@ -194,38 +194,38 @@ module TC_PlanStatic
     end
 
     def test_replace
-	(p, c1), (c11, c12, c2, c3) = prepare_plan missions: 2, tasks: 4, model: Roby::Tasks::Simple
-	p.depends_on c1, model: Roby::Tasks::Simple
-	c1.depends_on c11
-	c1.depends_on c12
-	p.depends_on c2
+        (p, c1), (c11, c12, c2, c3) = prepare_plan missions: 2, tasks: 4, model: Roby::Tasks::Simple
+        p.depends_on c1, model: Roby::Tasks::Simple
+        c1.depends_on c11
+        c1.depends_on c12
+        p.depends_on c2
         c1.stop_event.signals c2.start_event
         c1.start_event.forward_to c1.stop_event
         c11.success_event.forward_to c1.success_event
 
-	# Replace c1 by c3 and check that the hooks are properly called
+        # Replace c1 by c3 and check that the hooks are properly called
         plan.replace(c1, c3)
 
-	# Check that the external task and event structures have been
-	# transferred. 
-	assert( !p.child_object?(c1, TaskStructure::Dependency) )
-	assert( p.child_object?(c3, TaskStructure::Dependency) )
-	assert( c1.child_object?(c11, TaskStructure::Dependency) )
-	assert( !c3.child_object?(c11, TaskStructure::Dependency) )
+        # Check that the external task and event structures have been
+        # transferred. 
+        assert( !p.child_object?(c1, TaskStructure::Dependency) )
+        assert( p.child_object?(c3, TaskStructure::Dependency) )
+        assert( c1.child_object?(c11, TaskStructure::Dependency) )
+        assert( !c3.child_object?(c11, TaskStructure::Dependency) )
 
-	assert( !c1.stop_event.child_object?(c2.start_event, EventStructure::Signal) )
-	assert( c3.stop_event.child_object?(c2.start_event, EventStructure::Signal) )
-	assert( c1.success_event.parent_object?(c11.success_event, EventStructure::Forwarding) )
-	assert( !c3.success_event.parent_object?(c11.success_event, EventStructure::Forwarding) )
-	# Also check that the internal event structure has *not* been transferred
-	assert( !c3.start_event.child_object?(c3.stop_event, EventStructure::Forwarding) )
-	assert( c1.start_event.child_object?(c1.stop_event, EventStructure::Forwarding) )
+        assert( !c1.stop_event.child_object?(c2.start_event, EventStructure::Signal) )
+        assert( c3.stop_event.child_object?(c2.start_event, EventStructure::Signal) )
+        assert( c1.success_event.parent_object?(c11.success_event, EventStructure::Forwarding) )
+        assert( !c3.success_event.parent_object?(c11.success_event, EventStructure::Forwarding) )
+        # Also check that the internal event structure has *not* been transferred
+        assert( !c3.start_event.child_object?(c3.stop_event, EventStructure::Forwarding) )
+        assert( c1.start_event.child_object?(c1.stop_event, EventStructure::Forwarding) )
 
-	# Check that +c1+ is no more marked as mission, and that c3 is marked. c1 should
-	# still be in the plan
-	assert(! plan.mission_task?(c1) )
-	assert( plan.mission_task?(c3) )
-	assert( plan.has_task?(c1) )
+        # Check that +c1+ is no more marked as mission, and that c3 is marked. c1 should
+        # still be in the plan
+        assert(! plan.mission_task?(c1) )
+        assert( plan.mission_task?(c3) )
+        assert( plan.has_task?(c1) )
     end
 
     def test_replace_task_and_strong_relations
@@ -277,49 +277,49 @@ module TC_PlanStatic
     end
 
     def test_free_events
-	t1, t2, t3 = (1..3).map { Roby::Task.new }
-	plan.add_mission_task(t1)
-	t1.depends_on t2
-	assert_equal(plan, t2.plan)
-	assert_equal(plan, t1.event(:start).plan)
+        t1, t2, t3 = (1..3).map { Roby::Task.new }
+        plan.add_mission_task(t1)
+        t1.depends_on t2
+        assert_equal(plan, t2.plan)
+        assert_equal(plan, t1.event(:start).plan)
 
-	or_generator  = (t1.event(:stop) | t2.event(:stop))
-	assert_equal(plan, or_generator.plan)
-	assert(plan.has_free_event?(or_generator))
-	or_generator.signals t3.event(:start)
-	assert_equal(plan, t3.plan)
+        or_generator  = (t1.event(:stop) | t2.event(:stop))
+        assert_equal(plan, or_generator.plan)
+        assert(plan.has_free_event?(or_generator))
+        or_generator.signals t3.event(:start)
+        assert_equal(plan, t3.plan)
 
-	and_generator = (t1.event(:stop) & t2.event(:stop))
-	assert_equal(plan, and_generator.plan)
-	assert(plan.has_free_event?(and_generator))
+        and_generator = (t1.event(:stop) & t2.event(:stop))
+        assert_equal(plan, and_generator.plan)
+        assert(plan.has_free_event?(and_generator))
     end
 
     def test_plan_synchronization
-	t1, t2 = prepare_plan tasks: 2
+        t1, t2 = prepare_plan tasks: 2
 
-	plan.add_mission_task(t1)
-	assert_equal(plan, t1.plan)
-	t1.depends_on t2
-	assert_equal(plan, t1.plan)
-	assert_equal(plan, t2.plan)
-	assert(plan.has_task?(t2))
+        plan.add_mission_task(t1)
+        assert_equal(plan, t1.plan)
+        t1.depends_on t2
+        assert_equal(plan, t1.plan)
+        assert_equal(plan, t2.plan)
+        assert(plan.has_task?(t2))
 
-	e = EventGenerator.new(true)
+        e = EventGenerator.new(true)
         t1.start_event.signals e
-	assert_equal(plan, e.plan)
-	assert(plan.has_free_event?(e))
+        assert_equal(plan, e.plan)
+        assert(plan.has_free_event?(e))
     end
 
     # Checks that a garbage collected object (event or task) cannot be added back into the plan
     def test_removal_is_final
-	t = Roby::Tasks::Simple.new
-	e = EventGenerator.new(true)
-	plan.real_plan.add [t, e]
+        t = Roby::Tasks::Simple.new
+        e = EventGenerator.new(true)
+        plan.real_plan.add [t, e]
         plan.real_plan.remove_task(t)
         plan.real_plan.remove_free_event(e)
-	assert_raises(ArgumentError) { plan.add(t) }
+        assert_raises(ArgumentError) { plan.add(t) }
         assert !plan.has_task?(t)
-	assert_raises(ArgumentError) { plan.add(e) }
+        assert_raises(ArgumentError) { plan.add(e) }
         assert !plan.has_free_event?(e)
     end
 

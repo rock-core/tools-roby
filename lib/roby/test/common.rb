@@ -46,20 +46,20 @@ module Roby
     #
     # @see SelfTest
     module Test
-	include Roby
+        include Roby
         include TeardownPlans
 
         extend Logger::Hierarchy
         extend Logger::Forward
 
-	BASE_PORT     = 21000
-	DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
-	REMOTE_PORT    = BASE_PORT + 1
-	LOCAL_PORT     = BASE_PORT + 2
-	REMOTE_SERVER  = "druby://localhost:#{BASE_PORT + 3}"
-	LOCAL_SERVER   = "druby://localhost:#{BASE_PORT + 4}"
+        BASE_PORT     = 21000
+        DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
+        REMOTE_PORT    = BASE_PORT + 1
+        LOCAL_PORT     = BASE_PORT + 2
+        REMOTE_SERVER  = "druby://localhost:#{BASE_PORT + 3}"
+        LOCAL_SERVER   = "druby://localhost:#{BASE_PORT + 4}"
 
-	# The plan used by the tests
+        # The plan used by the tests
         attr_reader :plan
         # The decision control component used by the tests
         attr_reader :control
@@ -72,11 +72,11 @@ module Roby
             execution_engine.execute(&block)
         end
 
-	# Clear the plan and return it
-	def new_plan
-	    plan.clear
-	    plan
-	end
+        # Clear the plan and return it
+        def new_plan
+            plan.clear
+            plan
+        end
 
         def create_transaction
             t = Roby::Transaction.new(plan)
@@ -92,33 +92,33 @@ module Roby
             Roby.enable_deprecation_warnings = true
         end
 
-	# a [collection, collection_backup] array of the collections saved
-	# by #original_collections
-	attr_reader :original_collections
+        # a [collection, collection_backup] array of the collections saved
+        # by #original_collections
+        attr_reader :original_collections
 
-	# Saves the current state of +obj+. This state will be restored by
-	# #restore_collections. +obj+ must respond to #<< to add new elements
-	# (hashes do not work whild arrays or sets do)
-	def save_collection(obj)
-	    original_collections << [obj, obj.dup]
-	end
+        # Saves the current state of +obj+. This state will be restored by
+        # #restore_collections. +obj+ must respond to #<< to add new elements
+        # (hashes do not work whild arrays or sets do)
+        def save_collection(obj)
+            original_collections << [obj, obj.dup]
+        end
 
-	# Restors the collections saved by #save_collection to their previous state
-	def restore_collections
-	    original_collections.each do |col, backup|
-		col.clear
-		if col.kind_of?(Hash)
-		    col.merge! backup
-		else
+        # Restors the collections saved by #save_collection to their previous state
+        def restore_collections
+            original_collections.each do |col, backup|
+                col.clear
+                if col.kind_of?(Hash)
+                    col.merge! backup
+                else
                     backup.each do |obj|
                         col << obj
                     end
-		end
-	    end
+                end
+            end
             original_collections.clear
-	end
+        end
 
-	def setup
+        def setup
             Roby.app.reload_config
             @log_levels = Hash.new
             @transactions = Array.new
@@ -130,14 +130,14 @@ module Roby
 
             super
 
-	    @console_logger ||= false
+            @console_logger ||= false
             @event_logger   ||= false
 
-	    @original_roby_logger_level = Roby.logger.level
+            @original_roby_logger_level = Roby.logger.level
 
-	    @original_collections = []
-	    Thread.abort_on_exception = false
-	    @remote_processes = []
+            @original_collections = []
+            Thread.abort_on_exception = false
+            @remote_processes = []
 
             Roby.app.log_server = false
 
@@ -145,7 +145,7 @@ module Roby
 
             @watched_events = nil
             @handler_ids = Array.new
-	end
+        end
 
         # @deprecated use {Assertions#capture_log} instead
         def inhibit_fatal_messages(&block)
@@ -191,7 +191,7 @@ module Roby
             end
         end
 
-	def teardown
+        def teardown
             Timecop.return
 
             @transactions.each do |trsc|
@@ -208,28 +208,28 @@ module Roby
             end
 
             # Plan teardown would have disconnected the peers already
-	    stop_remote_processes
+            stop_remote_processes
 
-	    restore_collections
+            restore_collections
 
-	    if defined? Roby::Application
-		Roby.app.abort_on_exception = false
-		Roby.app.abort_on_application_exception = true
-	    end
+            if defined? Roby::Application
+                Roby.app.abort_on_exception = false
+                Roby.app.abort_on_application_exception = true
+            end
 
             super
 
-	ensure
+        ensure
             reset_log_levels(warn_deprecated: false)
             clear_registered_plans
 
             if @original_roby_logger_level
                 Roby.logger.level = @original_roby_logger_level
             end
-	end
+        end
         
-	# Process pending events
-	def process_events(timeout: 2, enable_scheduler: nil, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true, &caller_block)
+        # Process pending events
+        def process_events(timeout: 2, enable_scheduler: nil, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true, &caller_block)
             Roby.warn_deprecated "Test#process_events is deprecated, use #expect_execution instead"
             exceptions = Array.new
             registered_plans.each do |p|
@@ -267,7 +267,7 @@ module Roby
                     raise SynchronousEventProcessingMultipleErrors.new(exceptions.map(&:exception))
                 end
             end
-	end
+        end
 
         # Repeatedly process events until a condition is met
         #
@@ -299,58 +299,58 @@ module Roby
             object.instance_variable_get(:@flexmock_proxy).proxy.flexmock_invoke_original(method, args, &block)
         end
 
-	# The list of children started using #remote_process
-	attr_reader :remote_processes
+        # The list of children started using #remote_process
+        attr_reader :remote_processes
 
-	# Creates a set of tasks and returns them. Each task is given an unique
-	# 'id' which allows to recognize it in a failed assertion.
-	#
-	# Known options are:
-	# missions:: how many mission to create [0]
-	# discover:: how many tasks should be discovered [0]
-	# tasks:: how many tasks to create outside the plan [0]
-	# model:: the task model [Roby::Task]
-	# plan:: the plan to apply on [plan]
-	#
-	# The return value is [missions, discovered, tasks]
-	#   (t1, t2), (t3, t4, t5), (t6, t7) = prepare_plan missions: 2,
-	#	discover: 3, tasks: 2
-	#
-	# An empty set is omitted
-	#   (t1, t2), (t6, t7) = prepare_plan missions: 2, tasks: 2
-	#
-	# If a set is a singleton, the only object of this singleton is returned
-	#   t1, (t6, t7) = prepare_plan missions: 1, tasks: 2
-	#    
-	def prepare_plan(options)
-	    options = validate_options options,
-		missions: 0, add: 0, discover: 0, tasks: 0,
-		permanent: 0,
-		model: Roby::Task, plan: plan
+        # Creates a set of tasks and returns them. Each task is given an unique
+        # 'id' which allows to recognize it in a failed assertion.
+        #
+        # Known options are:
+        # missions:: how many mission to create [0]
+        # discover:: how many tasks should be discovered [0]
+        # tasks:: how many tasks to create outside the plan [0]
+        # model:: the task model [Roby::Task]
+        # plan:: the plan to apply on [plan]
+        #
+        # The return value is [missions, discovered, tasks]
+        #   (t1, t2), (t3, t4, t5), (t6, t7) = prepare_plan missions: 2,
+        #       discover: 3, tasks: 2
+        #
+        # An empty set is omitted
+        #   (t1, t2), (t6, t7) = prepare_plan missions: 2, tasks: 2
+        #
+        # If a set is a singleton, the only object of this singleton is returned
+        #   t1, (t6, t7) = prepare_plan missions: 1, tasks: 2
+        #    
+        def prepare_plan(options)
+            options = validate_options options,
+                missions: 0, add: 0, discover: 0, tasks: 0,
+                permanent: 0,
+                model: Roby::Task, plan: plan
 
-	    missions, permanent, added, tasks = [], [], [], []
-	    (1..options[:missions]).each do |i|
-		options[:plan].add_mission_task(t = options[:model].new(id: "mission-#{i}"))
-		missions << t
-	    end
-	    (1..options[:permanent]).each do |i|
-		options[:plan].add_permanent_task(t = options[:model].new(id: "perm-#{i}"))
-		permanent << t
-	    end
-	    (1..(options[:discover] + options[:add])).each do |i|
-		options[:plan].add(t = options[:model].new(id: "discover-#{i}"))
-		added << t
-	    end
-	    (1..options[:tasks]).each do |i|
-		tasks << options[:model].new(id: "task-#{i}")
-	    end
+            missions, permanent, added, tasks = [], [], [], []
+            (1..options[:missions]).each do |i|
+                options[:plan].add_mission_task(t = options[:model].new(id: "mission-#{i}"))
+                missions << t
+            end
+            (1..options[:permanent]).each do |i|
+                options[:plan].add_permanent_task(t = options[:model].new(id: "perm-#{i}"))
+                permanent << t
+            end
+            (1..(options[:discover] + options[:add])).each do |i|
+                options[:plan].add(t = options[:model].new(id: "discover-#{i}"))
+                added << t
+            end
+            (1..options[:tasks]).each do |i|
+                tasks << options[:model].new(id: "task-#{i}")
+            end
 
-	    result = []
-	    [missions, permanent, added, tasks].each do |set|
-		unless set.empty?
-		    result << set
-		end
-	    end
+            result = []
+            [missions, permanent, added, tasks].each do |set|
+                unless set.empty?
+                    result << set
+                end
+            end
 
             result = result.map do |set|
                 if set.size == 1 then set.first
@@ -362,15 +362,15 @@ module Roby
                 return result.first
             end
             return *result
-	end
+        end
 
-	# Start a new process and saves its PID in #remote_processes. If a block is
-	# given, it is called in the new child. #remote_process returns only after
-	# this block has returned.
-	def remote_process
-	    start_r, start_w= IO.pipe
-	    quit_r, quit_w = IO.pipe
-	    remote_pid = fork do
+        # Start a new process and saves its PID in #remote_processes. If a block is
+        # given, it is called in the new child. #remote_process returns only after
+        # this block has returned.
+        def remote_process
+            start_r, start_w= IO.pipe
+            quit_r, quit_w = IO.pipe
+            remote_pid = fork do
                 begin
                     start_r.close
                     yield
@@ -380,31 +380,31 @@ module Roby
 
                 start_w.write('OK')
                 quit_r.read(2)
-	    end
-	    start_w.close
-	    result = start_r.read(2)
+            end
+            start_w.close
+            result = start_r.read(2)
 
-	    remote_processes << [remote_pid, quit_w]
-	    remote_pid
+            remote_processes << [remote_pid, quit_w]
+            remote_pid
 
-	ensure
-	    # start_r.close
-	end
+        ensure
+            # start_r.close
+        end
 
-	# Stop all the remote processes that have been started using #remote_process
-	def stop_remote_processes
-	    remote_processes.reverse.each do |pid, quit_w|
-		begin
-		    quit_w.write('OK') 
-		rescue Errno::EPIPE
-		end
-		begin
-		    Process.waitpid(pid)
-		rescue Errno::ECHILD
-		end
-	    end
-	    remote_processes.clear
-	end
+        # Stop all the remote processes that have been started using #remote_process
+        def stop_remote_processes
+            remote_processes.reverse.each do |pid, quit_w|
+                begin
+                    quit_w.write('OK') 
+                rescue Errno::EPIPE
+                end
+                begin
+                    Process.waitpid(pid)
+                rescue Errno::ECHILD
+                end
+            end
+            remote_processes.clear
+        end
     end
 end
 

@@ -2,13 +2,13 @@ module Roby
     # Base class for all objects which are included in a plan.
     class PlanObject < DistributedObject
         extend Models::PlanObject
-	include Relations::DirectedRelationSupport
+        include Relations::DirectedRelationSupport
 
         # This object's model
         #
         # This is usually self.class, unless {#specialize} has been called in
         # which case it is this object's singleton class
-	attr_reader :model
+        attr_reader :model
 
         # The non-specialized model for self
         #
@@ -137,8 +137,8 @@ module Roby
             @finalization_handlers = other.finalization_handlers.dup
         end
 
-	# The plan this object belongs to
-	attr_reader :plan
+        # The plan this object belongs to
+        attr_reader :plan
 
         # @deprecated use {#execution_engine} instead
         def engine
@@ -151,26 +151,26 @@ module Roby
 
         # The place where this object has been removed from its plan. Once an
         # object is removed from its plan, it cannot be added back again.
-	attr_accessor :removed_at
+        attr_accessor :removed_at
 
         # True if this object has been included in a plan, but has been removed
         # from it since
-	def finalized?; !!removed_at end
+        def finalized?; !!removed_at end
 
-	# Sets the new plan. Since it is forbidden to re-use a plan object that
-	# has been removed from a plan, it raises ArgumentError if it is the
-	# case
-	def plan=(new_plan)
-	    if removed_at
+        # Sets the new plan. Since it is forbidden to re-use a plan object that
+        # has been removed from a plan, it raises ArgumentError if it is the
+        # case
+        def plan=(new_plan)
+            if removed_at
                 if PlanObject.debug_finalization_place?
                     raise ArgumentError, "#{self} has been removed from plan, cannot add it back\n" +
                         "Removed at\n  #{removed_at.join("\n  ")}"
                 else
                     raise ArgumentError, "#{self} has been removed from plan, cannot add it back. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
                 end
-	    end
+            end
             @addition_time = Time.now
-	    @plan = new_plan
+            @plan = new_plan
             @local_owner_id = plan.droby_id
             if new_plan && new_plan.executable?
                 @execution_engine = new_plan.execution_engine
@@ -180,7 +180,7 @@ module Roby
                 @execution_engine = nil
                 @promise_executor = nil
             end
-	end
+        end
 
         # Create a promise that is serialized with all promises created for this
         # object
@@ -331,16 +331,16 @@ module Roby
             end
         end
 
-	# A three-state flag with the following values:
-	# nil:: the object is executable if its plan is
-	# true:: the object is executable
-	# false:: the object is not executable
-	attr_writer :executable
+        # A three-state flag with the following values:
+        # nil:: the object is executable if its plan is
+        # true:: the object is executable
+        # false:: the object is not executable
+        attr_writer :executable
 
-	# If this object is executable
-	def executable?
-	    @executable || (@executable.nil? && !garbage? && plan && plan.executable?)
-	end
+        # If this object is executable
+        def executable?
+            @executable || (@executable.nil? && !garbage? && plan && plan.executable?)
+        end
 
         # @!method garbage?
         #
@@ -362,16 +362,16 @@ module Roby
             @garbage = true
         end
 
-	# True if we are explicitely subscribed to this object
-	def subscribed?
-	    if root_object?
-		(plan && plan.subscribed?) ||
-		    (!self_owned? && owners.any? { |peer| peer.subscribed_plan? }) ||
-		    super
-	    else
-		root_object.subscribed?
-	    end
-	end
+        # True if we are explicitely subscribed to this object
+        def subscribed?
+            if root_object?
+                (plan && plan.subscribed?) ||
+                    (!self_owned? && owners.any? { |peer| peer.subscribed_plan? }) ||
+                    super
+            else
+                root_object.subscribed?
+            end
+        end
 
         # Method called to apply modifications needed to commit this object into
         # the underlying plan
@@ -391,24 +391,24 @@ module Roby
         alias :__freeze__ :freeze
 
         # True if we should send updates about this object to +peer+
-	def update_on?(peer); (plan && plan.update_on?(peer)) || super end
+        def update_on?(peer); (plan && plan.update_on?(peer)) || super end
         # True if we receive updates for this object from +peer+
-	def updated_by?(peer); (plan && plan.updated_by?(peer)) || super end
+        def updated_by?(peer); (plan && plan.updated_by?(peer)) || super end
         # True if this object is useful for one of our peers
-	def remotely_useful?; (plan && plan.remotely_useful?) || super end
+        def remotely_useful?; (plan && plan.remotely_useful?) || super end
 
         # Checks that we do not link two objects from two different plans and
         # updates the +plan+ attribute accordingly
         #
         # It raises RuntimeError if both objects are already included in a
         # plan, but their plan mismatches.
-	def synchronize_plan(other) # :nodoc:
+        def synchronize_plan(other) # :nodoc:
             if !plan
                 raise RuntimeError, "cannot add a relation with #{self}, which has already been finalized"
             elsif !other.plan
                 raise RuntimeError, "cannot add a relation with #{other}, which has already been finalized"
             end
-	    return if plan == other.plan
+            return if plan == other.plan
 
             if other.plan.template?
                 plan.add(other)
@@ -417,41 +417,41 @@ module Roby
             else
                 raise RuntimeError, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
             end
-	end
-	protected :synchronize_plan
+        end
+        protected :synchronize_plan
 
         # Called when all links to +peer+ should be removed.
-	def forget_peer(peer)
-	    if !root_object?
-		raise ArgumentError, "#{self} is not root"
-	    end
+        def forget_peer(peer)
+            if !root_object?
+                raise ArgumentError, "#{self} is not root"
+            end
 
-	    each_plan_child do |child|
-		child.forget_peer(peer)
-	    end
-	    super
-	end
+            each_plan_child do |child|
+                child.forget_peer(peer)
+            end
+            super
+        end
 
         # Synchronizes the plan of this object from the one of its peer
-	def add_child_object(child, type, info = nil) # :nodoc:
-	    if child.plan != plan
-		root_object.synchronize_plan(child.root_object)
+        def add_child_object(child, type, info = nil) # :nodoc:
+            if child.plan != plan
+                root_object.synchronize_plan(child.root_object)
                 if !type.kind_of?(Class)
                     # If given a graph, we need to re-resolve it as #plan might
                     # have changed
                     type = relation_graphs.fetch(type.class)
                 end
-	    end
+            end
 
-	    super
-	end
+            super
+        end
 
         # Return the root plan object for this object.
-	def root_object; self end
+        def root_object; self end
         # True if this object is a root object in the plan.
-	def root_object?; root_object == self end
+        def root_object?; root_object == self end
         # Iterates on all the children of this root object
-	def each_plan_child; self end
+        def each_plan_child; self end
 
         # Transfers a set of relations from this plan object to +object+.
         # +changes+ is formatted as a sequence of <tt>relation, parents,
@@ -462,44 +462,44 @@ module Roby
         # <tt>parent->self</tt> and <tt>self->child</tt> edges in the given
         # relation, and then adds the corresponding <tt>parent->object</tt> and
         # <tt>object->child</tt> edges.
-	def apply_relation_changes(object, changes)
+        def apply_relation_changes(object, changes)
             # The operation is done in two parts to avoid problems with
             # creating cycles in the graph: first we remove the old edges, then
             # we add the new ones.
-	    changes.each_slice(3) do |rel, parents, children|
+            changes.each_slice(3) do |rel, parents, children|
                 next if rel.copy_on_replace?
 
-		parents.each_slice(2) do |parent, info|
-		    parent.remove_child_object(self, rel)
-		end
-		children.each_slice(2) do |child, info|
-		    remove_child_object(child, rel)
-		end
-	    end
+                parents.each_slice(2) do |parent, info|
+                    parent.remove_child_object(self, rel)
+                end
+                children.each_slice(2) do |child, info|
+                    remove_child_object(child, rel)
+                end
+            end
 
-	    changes.each_slice(3) do |rel, parents, children|
-		parents.each_slice(2) do |parent, info|
-		    parent.add_child_object(object, rel, info)
-		end
-		children.each_slice(2) do |child, info|
-		    object.add_child_object(child, rel, info)
-		end
-	    end
-	end
+            changes.each_slice(3) do |rel, parents, children|
+                parents.each_slice(2) do |parent, info|
+                    parent.add_child_object(object, rel, info)
+                end
+                children.each_slice(2) do |child, info|
+                    object.add_child_object(child, rel, info)
+                end
+            end
+        end
 
         # Replaces, in the plan, the subplan generated by this plan object by
         # the one generated by +object+. In practice, it means that we transfer
         # all parent edges whose target is +self+ from the receiver to
         # +object+. It calls the various add/remove hooks defined in
         # {Relations::DirectedRelationSupport}.
-	def replace_subplan_by(object)
+        def replace_subplan_by(object)
             raise NotImplementedError, "#{self.class} did not reimplement #replace_subplan_by"
-	end
+        end
 
         # Replaces +self+ by +object+ in all graphs +self+ is part of.
         def replace_by(object)
             raise NotImplementedError, "#{self.class} did not reimplement #replace_by"
-	end
+        end
 
         # Called by #replace_by and #replace_subplan_by to do object-specific
         # initialization of +object+ when +object+ is used to replace +self+ in
@@ -516,13 +516,13 @@ module Roby
         end
 
         # True if this object can be modified by the local plan manager
-	def read_write?
-	    if self_owned?
-		true
-	    elsif plan.self_owned?
+        def read_write?
+            if self_owned?
+                true
+            elsif plan.self_owned?
                 owners.all? { |p| plan.owned_by?(p) }
-	    end
-	end
+            end
+        end
 
         # @return [Array<InstanceHandler>] set of finalization handlers defined
         #   on this task instance

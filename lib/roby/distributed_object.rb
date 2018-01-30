@@ -33,20 +33,20 @@ module Roby
     class DistributedObject
         # The ID of the local process
         attr_reader :local_owner_id
-	# The set of Peer objects which own this object
-	attr_reader :owners
+        # The set of Peer objects which own this object
+        attr_reader :owners
 
         attr_predicate :self_owned?
-	
+        
         def initialize # :nodoc:
             @owners = Array.new
             @self_owned = true
         end
 
-	def initialize_copy(old) # :nodoc:
-	    super
+        def initialize_copy(old) # :nodoc:
+            super
             @owners = Array.new
-	end
+        end
 
         def add_owner(owner)
             @owners << owner
@@ -58,7 +58,7 @@ module Roby
             @self_owned = @owners.empty? || @owners.include?(local_owner_id)
         end
 
-	# True if the given peer owns this object
+        # True if the given peer owns this object
         def owned_by?(peer_id)
             if peer_id == local_owner_id
                 self_owned?

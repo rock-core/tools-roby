@@ -8,7 +8,7 @@ module Roby
                     event_log = Reader.new(event_io)
 
                     index_io.write [stat.size, stat.mtime.tv_sec, stat.mtime.tv_nsec].pack("Q<L<L<")
-                    dump_io	= StringIO.new("", 'w')
+                    dump_io     = StringIO.new("", 'w')
                     while !event_log.eof?
                         current_pos = event_log.tell
                         cycle = event_log.load_one_cycle

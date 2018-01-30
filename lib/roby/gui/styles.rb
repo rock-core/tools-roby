@@ -1,54 +1,54 @@
 module Roby
     module GUI
-	EVENT_CIRCLE_RADIUS = 3
-	TASK_EVENT_SPACING  = 5
-	DEFAULT_TASK_WIDTH = 20
-	DEFAULT_TASK_HEIGHT = 10
-	ARROW_COLOR   = Qt::Color.new('black')
-	ARROW_OPENING = 30
-	ARROW_SIZE    = 10
+        EVENT_CIRCLE_RADIUS = 3
+        TASK_EVENT_SPACING  = 5
+        DEFAULT_TASK_WIDTH = 20
+        DEFAULT_TASK_HEIGHT = 10
+        ARROW_COLOR   = Qt::Color.new('black')
+        ARROW_OPENING = 30
+        ARROW_SIZE    = 10
 
-	TASK_BRUSH_COLORS = {
-	    pending:  Qt::Color.new('#6DF3FF'),
-	    running:  Qt::Color.new('#B0FFA6'),
-	    success:  Qt::Color.new('#E2E2E2'),
-	    finished: Qt::Color.new('#E2A8A8'),
-	    finalized: Qt::Color.new('#555555')
-	}
+        TASK_BRUSH_COLORS = {
+            pending:  Qt::Color.new('#6DF3FF'),
+            running:  Qt::Color.new('#B0FFA6'),
+            success:  Qt::Color.new('#E2E2E2'),
+            finished: Qt::Color.new('#E2A8A8'),
+            finalized: Qt::Color.new('#555555')
+        }
         TASK_BRUSHES = Hash.new
         TASK_BRUSH_COLORS.each do |name, color|
             TASK_BRUSHES[name] = Qt::Brush.new(color)
         end
-	TASK_PEN_COLORS = {
-	    pending:  Qt::Color.new('#6DF3FF'),
-	    running:  Qt::Color.new('#B0FFA6'),
-	    success:  Qt::Color.new('#E2E2E2'),
-	    finished: Qt::Color.new('#E2A8A8'),
-	    finalized: Qt::Color.new('#555555')
-	}
+        TASK_PEN_COLORS = {
+            pending:  Qt::Color.new('#6DF3FF'),
+            running:  Qt::Color.new('#B0FFA6'),
+            success:  Qt::Color.new('#E2E2E2'),
+            finished: Qt::Color.new('#E2A8A8'),
+            finalized: Qt::Color.new('#555555')
+        }
         TASK_PENS = Hash.new
         TASK_PEN_COLORS.each do |name, color|
             TASK_PENS[name] = Qt::Pen.new(color)
         end
-	TASK_NAME_COLOR = Qt::Color.new('black')
+        TASK_NAME_COLOR = Qt::Color.new('black')
         TASK_NAME_PEN = Qt::Pen.new(TASK_NAME_COLOR)
-	TASK_MESSAGE_COLOR = Qt::Color.new('#606060')
+        TASK_MESSAGE_COLOR = Qt::Color.new('#606060')
         TASK_MESSAGE_PEN = Qt::Pen.new(TASK_MESSAGE_COLOR)
         TASK_MESSAGE_MARGIN = 10
-	EVENT_NAME_COLOR = Qt::Color.new('black')
+        EVENT_NAME_COLOR = Qt::Color.new('black')
         EVENT_NAME_PEN = Qt::Pen.new(EVENT_NAME_COLOR)
-	TASK_FONTSIZE = 10
+        TASK_FONTSIZE = 10
 
-	PENDING_EVENT_COLOR    = 'black' # default color for events
-	FIRED_EVENT_COLOR      = 'green'
-	EVENT_FONTSIZE = 8
+        PENDING_EVENT_COLOR    = 'black' # default color for events
+        FIRED_EVENT_COLOR      = 'green'
+        EVENT_FONTSIZE = 8
 
-	PLAN_LAYER             = 0
-	TASK_LAYER	       = PLAN_LAYER + 20
-	EVENT_LAYER	       = PLAN_LAYER + 30
-	EVENT_PROPAGATION_LAYER = PLAN_LAYER + 40
+        PLAN_LAYER             = 0
+        TASK_LAYER             = PLAN_LAYER + 20
+        EVENT_LAYER            = PLAN_LAYER + 30
+        EVENT_PROPAGATION_LAYER = PLAN_LAYER + 40
 
-	FIND_MARGIN = 10
+        FIND_MARGIN = 10
 
         EVENT_CALLED  = 1
         EVENT_EMITTED = 2

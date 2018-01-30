@@ -5,16 +5,16 @@ module Roby
         # argument which is automatically set to the object's #object_id if not
         # explicitely given at initialization.
         class Simple < Roby::Task
-	    argument :id
+            argument :id
 
-	    def initialize(arguments = {}) # :nodoc:
-		arguments = { id: object_id.to_s }.merge(arguments)
-		super(arguments)
-	    end
+            def initialize(arguments = {}) # :nodoc:
+                arguments = { id: object_id.to_s }.merge(arguments)
+                super(arguments)
+            end
 
-	    event :start, command: true
-	    event :success, command: true, terminal: true
-	    terminates
+            event :start, command: true
+            event :success, command: true, terminal: true
+            terminates
         end
     end
 end

@@ -33,56 +33,56 @@ module Roby
     #
     class OrGenerator < EventGenerator
         # Creates a new OrGenerator without any sources.
-	def initialize
-	    super do |context|
-		emit_if_first(context)
-	    end
-	    @active = true
-	end
+        def initialize
+            super do |context|
+                emit_if_first(context)
+            end
+            @active = true
+        end
 
         # True if there is no source events
-	def empty?; parent_objects(EventStructure::Signal).empty? end
+        def empty?; parent_objects(EventStructure::Signal).empty? end
 
         # Or generators will emit only once, unless this method is called. See
         # the documentation of OrGenerator for an example.
-	def reset
-	    @active = true
-	    each_parent_object(EventStructure::Signal) do |source|
-		if source.respond_to?(:reset)
-		    source.reset
-		end
-	    end
-	end
+        def reset
+            @active = true
+            each_parent_object(EventStructure::Signal) do |source|
+                if source.respond_to?(:reset)
+                    source.reset
+                end
+            end
+        end
 
         # Helper method called to emit the event when it is required
-	def emit_if_first(context) # :nodoc:
-	    return unless @active
-	    @active = false
-	    emit(context)
-	end
+        def emit_if_first(context) # :nodoc:
+            return unless @active
+            @active = false
+            emit(context)
+        end
 
         # Tracks the event's parents in the signalling relation
-	def added_signal_parent(parent, info) # :nodoc:
-	    super
-	    parent.if_unreachable(cancel_at_emission: true) do |reason, event|
-		if !emitted? && each_parent_object(EventStructure::Signal).all? { |ev| ev.unreachable? }
-		    unreachable!(reason || parent)
-		end
-	    end
-	end
+        def added_signal_parent(parent, info) # :nodoc:
+            super
+            parent.if_unreachable(cancel_at_emission: true) do |reason, event|
+                if !emitted? && each_parent_object(EventStructure::Signal).all? { |ev| ev.unreachable? }
+                    unreachable!(reason || parent)
+                end
+            end
+        end
 
         def removed_signal_parent(parent)
-	    super
+            super
             if !emitted? && each_parent_object(EventStructure::Signal).all? { |ev| ev.unreachable? }
                 unreachable!
             end
         end
 
-	# Adds +generator+ to the sources of this event
-	def << (generator)
-	    generator.add_signal self
-	    self
-	end
+        # Adds +generator+ to the sources of this event
+        def << (generator)
+            generator.add_signal self
+            self
+        end
     end
 end
 

@@ -1,14 +1,14 @@
 module Roby::TaskStructure
     class Roby::TaskEventGenerator
-	# Mark this event as being handled by the task +task+
-	def handle_with(repairing_task, remove_when_done: true)
+        # Mark this event as being handled by the task +task+
+        def handle_with(repairing_task, remove_when_done: true)
             if repairing_task.respond_to?(:as_plan)
                 repairing_task = repairing_task.as_plan
             end
 
-	    if !task.child_object?(repairing_task, ErrorHandling)
-		task.add_error_handler repairing_task, Set.new
-	    end
+            if !task.child_object?(repairing_task, ErrorHandling)
+                task.add_error_handler repairing_task, Set.new
+            end
 
             if remove_when_done
                 repairing_task.stop_event.on do |event|
@@ -19,22 +19,22 @@ module Roby::TaskStructure
                 end
             end
 
-	    task[repairing_task, ErrorHandling] << Roby::Queries::ExecutionExceptionMatcher.new.with_origin(task.model.find_event(symbol))
+            task[repairing_task, ErrorHandling] << Roby::Queries::ExecutionExceptionMatcher.new.with_origin(task.model.find_event(symbol))
             repairing_task
-	end
+        end
     end
 
     relation :ErrorHandling, child_name: :error_handler, strong: true, scheduling: true
 
     module ErrorHandling::Extension
         def repaired_tasks
-	    each_parent_object(ErrorHandling).to_a
+            each_parent_object(ErrorHandling).to_a
         end
 
-	def failed_task
+        def failed_task
             # For backward compatibility only. One should use #repaired_tasks
             repaired_tasks.first
-	end
+        end
 
         # Tests if this task can be used to repair an exception
         #

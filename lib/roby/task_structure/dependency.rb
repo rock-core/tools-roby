@@ -275,7 +275,7 @@ module Roby
             module Extension
                 # True if +obj+ is a parent of this object in the hierarchy relation
                 # (+obj+ is realized by +self+)
-                def depended_upon_by?(obj);	parent_object?(obj, Dependency) end
+                def depended_upon_by?(obj);     parent_object?(obj, Dependency) end
 
                 # True if +obj+ is a child of this object in the hierarchy relation.
                 # If +recursive+ is true, take into account the whole subgraph.

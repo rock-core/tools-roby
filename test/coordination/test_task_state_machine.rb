@@ -236,7 +236,7 @@ class TC_TaskStateMachine < Minitest::Test
         oneTask = TestTask.new
         twoTask = TestTask.new
         scndTask = SecondTestTask.new
-	
+        
         oneTask.state_machine.one!
         assert(oneTask.state_machine.status == 'one')
         assert(twoTask.state_machine.status == 'running')
@@ -288,21 +288,21 @@ class TC_TaskStateMachine < Minitest::Test
     end
 
     def test_inheritance
-	derivedTask = DerivedTask.new
-	assert(derivedTask.state_machine.proxy.respond_to?(:one))
-	assert(derivedTask.state_machine.proxy.respond_to?(:two))
-	assert(derivedTask.state_machine.proxy.respond_to?(:three))
-	assert(derivedTask.state_machine.proxy.respond_to?(:reset))
-	assert(derivedTask.state_machine.proxy.respond_to?(:four))
+        derivedTask = DerivedTask.new
+        assert(derivedTask.state_machine.proxy.respond_to?(:one))
+        assert(derivedTask.state_machine.proxy.respond_to?(:two))
+        assert(derivedTask.state_machine.proxy.respond_to?(:three))
+        assert(derivedTask.state_machine.proxy.respond_to?(:reset))
+        assert(derivedTask.state_machine.proxy.respond_to?(:four))
       
         event = [ :one, :two, :three, :four, :reset ] 
-	begin
-	    event.each do |event|
+        begin
+            event.each do |event|
                 derivedTask.state_machine.send("#{event}!")
             end
-	rescue Exception => e
-	    flunk("Calling event '#{event} failed")
-	end
+        rescue Exception => e
+            flunk("Calling event '#{event} failed")
+        end
     end
 
     def test_exception

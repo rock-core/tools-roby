@@ -3,27 +3,27 @@ require 'roby/state'
 
 class TC_OpenStruct < Minitest::Test
     def test_openstruct_behavior
-	s = OpenStruct.new
-	assert( s.respond_to?(:value=) )
+        s = OpenStruct.new
+        assert( s.respond_to?(:value=) )
         assert( ! s.respond_to?(:value) )
-	s.value = 42
+        s.value = 42
         assert( s.respond_to?(:value) )
-	assert_equal(42, s.value)
+        assert_equal(42, s.value)
     end
 
     def test_update
-	s = OpenStruct.new
-	s.value.update { |v| v.test = 10 }
-	assert_equal(10, s.value.test)
+        s = OpenStruct.new
+        s.value.update { |v| v.test = 10 }
+        assert_equal(10, s.value.test)
 
-	s.value { |v| v.test = 10 }
-	assert_equal(10, s.value.test)
+        s.value { |v| v.test = 10 }
+        assert_equal(10, s.value.test)
     end
 
     def test_send
-	s = OpenStruct.new
-	s.x = 10
-	assert_equal(10, s.send(:x))
+        s = OpenStruct.new
+        s.x = 10
+        assert_equal(10, s.send(:x))
     end
 
     def test_override_existing_method
@@ -38,7 +38,7 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_get
-	s = OpenStruct.new
+        s = OpenStruct.new
         assert_nil s.get(:x)
         s.x
         assert_nil s.get(:x)
@@ -47,33 +47,33 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_to_hash
-	s = OpenStruct.new
-	s.a = 10
-	s.b.a = 10
+        s = OpenStruct.new
+        s.a = 10
+        s.b.a = 10
 
-	assert_equal({a: 10, b: { a: 10 }}, s.to_hash)
-	assert_equal({a: 10, b: s.b}, s.to_hash(false))
+        assert_equal({a: 10, b: { a: 10 }}, s.to_hash)
+        assert_equal({a: 10, b: s.b}, s.to_hash(false))
     end
 
     def test_pending_subfields_behaviour
-	s = OpenStruct.new
-	child = s.child
-	refute_equal(child, s.child)
-	child = s.child
-	child.send(:attach)
-	assert_equal(child, s.child)
-	
-	s = OpenStruct.new
-	child = s.child
-	assert_equal([s, 'child'], child.send(:attach_as))
-	s.child = 10
-	# child should NOT attach itself to s 
-	assert_equal(10, s.child)
-	assert( !child.send(:attach_as) )
+        s = OpenStruct.new
+        child = s.child
+        refute_equal(child, s.child)
+        child = s.child
+        child.send(:attach)
+        assert_equal(child, s.child)
+        
+        s = OpenStruct.new
+        child = s.child
+        assert_equal([s, 'child'], child.send(:attach_as))
+        s.child = 10
+        # child should NOT attach itself to s 
+        assert_equal(10, s.child)
+        assert( !child.send(:attach_as) )
 
-	child.test = 20
-	refute_equal(child, s.child)
-	assert_equal(10, s.child)
+        child.test = 20
+        refute_equal(child, s.child)
+        assert_equal(10, s.child)
     end
 
     def test_field_attaches_when_read_from
@@ -95,7 +95,7 @@ class TC_OpenStruct < Minitest::Test
     end
     
     def test_alias
-	r = OpenStruct.new
+        r = OpenStruct.new
         obj = Object.new
         r.child = obj
         r.alias(:child, :aliased_child)
@@ -113,127 +113,127 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_delete_free_struct
-	r = OpenStruct.new
-	assert_raises(ArgumentError) { r.delete }
+        r = OpenStruct.new
+        assert_raises(ArgumentError) { r.delete }
     end
 
     def test_delete_from_pending_child
-	r = OpenStruct.new
-	child = r.child
-	child.delete
-	child.value = 10
-	assert(!r.child?)
+        r = OpenStruct.new
+        child = r.child
+        child.delete
+        child.value = 10
+        assert(!r.child?)
     end
 
     def test_delete_specific_pending_child_from_parent
-	r = OpenStruct.new
-	child = r.child
-	r.delete(:child)
-	child.value = 10
-	assert(!r.child?)
+        r = OpenStruct.new
+        child = r.child
+        r.delete(:child)
+        child.value = 10
+        assert(!r.child?)
     end
 
     def test_delete_from_attached_child
-	r = OpenStruct.new
-	r.child.value = 10
-	assert(r.child?)
-	r.delete(:child)
-	assert(!r.child?)
+        r = OpenStruct.new
+        r.child.value = 10
+        assert(r.child?)
+        r.delete(:child)
+        assert(!r.child?)
     end
 
     def test_delete_specific_attached_child_from_parent
-	r = OpenStruct.new
-	r.child.value = 10
-	assert(r.child?)
-	r.child.delete
-	assert(!r.child?)
+        r = OpenStruct.new
+        r.child.value = 10
+        assert(r.child?)
+        r.child.delete
+        assert(!r.child?)
     end
 
     def test_delete_alias_from_parent
-	r = OpenStruct.new
-	r.child.value = 10
-	r.alias(:child, :aliased_child)
-	assert(r.aliased_child?)
-	r.delete(:aliased_child)
-	assert(!r.aliased_child?)
+        r = OpenStruct.new
+        r.child.value = 10
+        r.alias(:child, :aliased_child)
+        assert(r.aliased_child?)
+        r.delete(:aliased_child)
+        assert(!r.aliased_child?)
     end
 
     def test_delete_aliased_child_from_parent_deletes_the_alias
-	r = OpenStruct.new
-	r.child.value = 10
-	r.alias(:child, :aliased_child)
-	assert(r.aliased_child?)
-	r.child.delete
-	assert(!r.aliased_child?)
-	assert(!r.child?)
+        r = OpenStruct.new
+        r.child.value = 10
+        r.alias(:child, :aliased_child)
+        assert(r.aliased_child?)
+        r.child.delete
+        assert(!r.aliased_child?)
+        assert(!r.child?)
     end
 
     def test_delete_from_attached_child_deletes_aliased_child
-	r = OpenStruct.new
-	r.child.value = 10
-	r.alias(:child, :aliased_child)
-	assert(r.aliased_child?)
-	r.child.delete
-	assert(!r.aliased_child?)
-	assert(!r.child?)
+        r = OpenStruct.new
+        r.child.value = 10
+        r.alias(:child, :aliased_child)
+        assert(r.aliased_child?)
+        r.child.delete
+        assert(!r.aliased_child?)
+        assert(!r.child?)
     end
 
     def test_empty
-	r = OpenStruct.new
-	c = r.child
-	assert(r.empty?)
-	r.child = 10
-	assert(!r.empty?)
-	r.delete(:child)
-	assert(r.empty?)
+        r = OpenStruct.new
+        c = r.child
+        assert(r.empty?)
+        r.child = 10
+        assert(!r.empty?)
+        r.delete(:child)
+        assert(r.empty?)
     end
 
     def test_stable
-	s = OpenStruct.new
-	s.other.attach
-	
+        s = OpenStruct.new
+        s.other.attach
+        
         s.stable!
-	assert(s.stable?)
-	assert(!s.other.stable?)
+        assert(s.stable?)
+        assert(!s.other.stable?)
         assert_raises(NoMethodError) { s.test }
         assert_raises(NoMethodError) { s.test = 10 }
-	assert(! s.respond_to?(:test=))
-	assert !s.other.test.attached?
-	s.other.test = 10
+        assert(! s.respond_to?(:test=))
+        assert !s.other.test.attached?
+        s.other.test = 10
 
         s.stable!(true)
-       	assert(s.stable?)
-	assert_raises(NoMethodError) { s.test }
-	assert_raises(NoMethodError) { s.test = 10 }
-	assert(s.other.stable?)
-	assert_raises(NoMethodError) { s.other.another_test }
-	assert_equal 10, s.other.test
+        assert(s.stable?)
+        assert_raises(NoMethodError) { s.test }
+        assert_raises(NoMethodError) { s.test = 10 }
+        assert(s.other.stable?)
+        assert_raises(NoMethodError) { s.other.another_test }
+        assert_equal 10, s.other.test
         assert_raises(NoMethodError) { s.other.test = 10 }
-	
+        
         s.stable!(false, false)
-       	assert(!s.stable?)
+        assert(!s.stable?)
         assert !s.test.attached?
         s.test = 10
-	assert(s.other.stable?)
-	assert_raises(NoMethodError) { s.other.another_test }
-	s.other.test
+        assert(s.other.stable?)
+        assert_raises(NoMethodError) { s.other.another_test }
+        s.other.test
         assert_raises(NoMethodError) { s.other.test = 10 }
-	
+        
         s.stable!(true, false)
-       	assert(!s.stable?)
-	assert(!s.other.stable?)
+        assert(!s.stable?)
+        assert(!s.other.stable?)
         s.test
         s.test = 10
-	s.other.test
+        s.other.test
         s.other.test = 10
     end
 
     def test_filter
-	s = OpenStruct.new
-	s.filter(:test) do |v|
+        s = OpenStruct.new
+        s.filter(:test) do |v|
             Integer(v)
         end
-	s.test = "10"
+        s.test = "10"
         assert_equal 10, s.test
     end
 
@@ -252,8 +252,8 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_raising_filter_cancels_attachment
-	s = OpenStruct.new
-	s.filter(:test) do |v|
+        s = OpenStruct.new
+        s.filter(:test) do |v|
             Integer(v)
         end
         assert_raises(ArgumentError) { s.test = "a" }
@@ -261,9 +261,9 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_raising_filter_cancels_update
-	s = OpenStruct.new
+        s = OpenStruct.new
         s.test = 10
-	s.filter(:test) do |v|
+        s.filter(:test) do |v|
             Integer(v)
         end
         assert_raises(ArgumentError) { s.test = "a" }
@@ -272,18 +272,18 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_global_filter
-	s = OpenStruct.new
-	s.global_filter do |name, v|
+        s = OpenStruct.new
+        s.global_filter do |name, v|
             assert_equal 'test', name
             Integer(v)
         end
-	s.test = "10"
+        s.test = "10"
         assert_equal 10, s.test
     end
 
     def test_global_filter_can_call_stable
         s = OpenStruct.new
-	s.global_filter do |name, v|
+        s.global_filter do |name, v|
             assert_equal 'test', name
             result = OpenStruct.new
             result.value = v
@@ -297,8 +297,8 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_raising_global_filter_cancels_attachment
-	s = OpenStruct.new
-	s.global_filter do |name, v|
+        s = OpenStruct.new
+        s.global_filter do |name, v|
             assert_equal 'test', name
             Integer(v)
         end
@@ -307,9 +307,9 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_raising_global_filter_cancels_update
-	s = OpenStruct.new
+        s = OpenStruct.new
         s.test = 10
-	s.global_filter do |name, v|
+        s.global_filter do |name, v|
             assert_equal 'test', name
             Integer(v)
         end
@@ -319,13 +319,13 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_on_change_attaches
-	s = OpenStruct.new
+        s = OpenStruct.new
         s.substruct.on_change { |_| }
         assert s.substruct.attached?
     end
 
     def test_on_change_recursive
-	s = OpenStruct.new
+        s = OpenStruct.new
 
         mock = flexmock
         s.on_change(:value, true) { |n, v| mock.updated(n, v) }
@@ -345,13 +345,13 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_on_change_all_names
-	s = OpenStruct.new
+        s = OpenStruct.new
         mock = flexmock
         s.on_change(nil, false) { |n, v| mock.updated(n, v) }
         mock.should_receive(:updated).with('value', 42).once
         s.value = 42
 
-	s = OpenStruct.new
+        s = OpenStruct.new
         mock = flexmock
         mock.should_receive(:updated).with('substruct', any).once
         mock.should_receive(:updated).with('value', 42).once
@@ -361,7 +361,7 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_on_change_non_recursive
-	s = OpenStruct.new
+        s = OpenStruct.new
 
         mock = flexmock
         s.on_change(:value, false) { |n, v| mock.updated(n, v) }
@@ -379,49 +379,49 @@ class TC_OpenStruct < Minitest::Test
     end
 
     def test_predicate
-	s = OpenStruct.new
-	s.a = false
-	s.b = 1
+        s = OpenStruct.new
+        s.a = false
+        s.b = 1
         s.unattached
-	assert(!s.foobar?)
+        assert(!s.foobar?)
         assert(!s.unattached?)
-	assert(!s.a?)
-	assert(s.b?)
+        assert(!s.a?)
+        assert(s.b?)
     end
 
     def test_marshalling
-	s = OpenStruct.new
-	s.value = 42
-	s.substruct.value = 24
-	s.invalid = Proc.new {}
+        s = OpenStruct.new
+        s.value = 42
+        s.substruct.value = 24
+        s.invalid = Proc.new {}
 
-	s.on_change(:substruct) {}
-	s.filter(:value) { |v| Numeric === v }
+        s.on_change(:substruct) {}
+        s.filter(:value) { |v| Numeric === v }
 
-	str = nil
-	str = Marshal.dump(s)
-	s = Marshal.load(str)
-	assert_equal(42, s.value)
+        str = nil
+        str = Marshal.dump(s)
+        s = Marshal.load(str)
+        assert_equal(42, s.value)
         assert_equal(s, s.substruct.__parent_struct)
         assert_equal('substruct', s.substruct.__parent_name)
-	assert_equal(24, s.substruct.value)
-	assert(!s.respond_to?(:invalid))
+        assert_equal(24, s.substruct.value)
+        assert(!s.respond_to?(:invalid))
     end
 
     def test_forbidden_names
-	s = OpenStruct.new
-	assert_raises(NoMethodError) { s.each_blah }
-	s.blato
-	assert_raises(NoMethodError) { s.enum_blah }
-	assert_raises(NoMethodError) { s.to_blah }
+        s = OpenStruct.new
+        assert_raises(NoMethodError) { s.each_blah }
+        s.blato
+        assert_raises(NoMethodError) { s.enum_blah }
+        assert_raises(NoMethodError) { s.to_blah }
     end
 
     def test_overrides_methods_that_are_not_protected
-	s = OpenStruct.new
+        s = OpenStruct.new
         def s.y(i); end
-	assert_raises(ArgumentError) { s.y }
-	s.y = 10
-	assert_equal(10, s.y)
+        assert_raises(ArgumentError) { s.y }
+        s.y = 10
+        assert_equal(10, s.y)
     end
 
     def test_existing_instance_methods_are_protected

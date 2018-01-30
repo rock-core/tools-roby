@@ -22,51 +22,51 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_definition
-	tag   = TaskService.new_submodel
-	klass = Tasks::Simple.new_submodel do
-	    argument :id
-	    include tag
-	end
-	plan.add(t1 = Tasks::Simple.new)
+        tag   = TaskService.new_submodel
+        klass = Tasks::Simple.new_submodel do
+            argument :id
+            include tag
+        end
+        plan.add(t1 = Tasks::Simple.new)
 
-	# Check validation of the model
-	child = nil
-	t1.depends_on((child = klass.new), model: Tasks::Simple)
-	assert_equal([[Tasks::Simple], {}], t1[child, Dependency][:model])
+        # Check validation of the model
+        child = nil
+        t1.depends_on((child = klass.new), model: Tasks::Simple)
+        assert_equal([[Tasks::Simple], {}], t1[child, Dependency][:model])
 
-	t1.depends_on klass.new, model: [Roby::Task, {}]
-	t1.depends_on klass.new, model: tag
+        t1.depends_on klass.new, model: [Roby::Task, {}]
+        t1.depends_on klass.new, model: tag
 
-	plan.add(simple_task = Tasks::Simple.new)
-	assert_raises(ArgumentError) { t1.depends_on simple_task, model: [Roby::Task.new_submodel, {}] }
-	assert_raises(ArgumentError) { t1.depends_on simple_task, model: TaskService.new_submodel }
-	
-	# Check validation of the arguments
-	plan.add(model_task = klass.new)
-	assert_raises(ArgumentError) { t1.depends_on model_task, model: [Tasks::Simple, {id: 'bad'}] }
+        plan.add(simple_task = Tasks::Simple.new)
+        assert_raises(ArgumentError) { t1.depends_on simple_task, model: [Roby::Task.new_submodel, {}] }
+        assert_raises(ArgumentError) { t1.depends_on simple_task, model: TaskService.new_submodel }
+        
+        # Check validation of the arguments
+        plan.add(model_task = klass.new)
+        assert_raises(ArgumentError) { t1.depends_on model_task, model: [Tasks::Simple, {id: 'bad'}] }
 
-	plan.add(child = klass.new(id: 'good'))
-	assert_raises(ArgumentError) { t1.depends_on child, model: [klass, {id: 'bad'}] }
-	t1.depends_on child, model: [klass, {id: 'good'}]
-	assert_equal([[klass], { id: 'good' }], t1[child, Dependency][:model])
+        plan.add(child = klass.new(id: 'good'))
+        assert_raises(ArgumentError) { t1.depends_on child, model: [klass, {id: 'bad'}] }
+        t1.depends_on child, model: [klass, {id: 'good'}]
+        assert_equal([[klass], { id: 'good' }], t1[child, Dependency][:model])
 
-	# Check edge annotation
-	t2 = Tasks::Simple.new
-	t1.depends_on t2, model: Tasks::Simple
-	assert_equal([[Tasks::Simple], {}], t1[t2, Dependency][:model])
-	t2 = klass.new(id: 10)
-	t1.depends_on t2, model: [klass, { id: 10 }]
+        # Check edge annotation
+        t2 = Tasks::Simple.new
+        t1.depends_on t2, model: Tasks::Simple
+        assert_equal([[Tasks::Simple], {}], t1[t2, Dependency][:model])
+        t2 = klass.new(id: 10)
+        t1.depends_on t2, model: [klass, { id: 10 }]
 
         # Check the various allowed forms for :model
         expected = [[Tasks::Simple], {id: 10}]
-	t2 = Tasks::Simple.new(id: 10)
-	t1.depends_on t2, model: [Tasks::Simple, { id: 10 }]
+        t2 = Tasks::Simple.new(id: 10)
+        t1.depends_on t2, model: [Tasks::Simple, { id: 10 }]
         assert_equal expected, t1[t2, Dependency][:model]
-	t2 = Tasks::Simple.new(id: 10)
-	t1.depends_on t2, model: Tasks::Simple
+        t2 = Tasks::Simple.new(id: 10)
+        t1.depends_on t2, model: Tasks::Simple
         assert_equal [[Tasks::Simple], Hash.new], t1[t2, Dependency][:model]
-	t2 = Tasks::Simple.new(id: 10)
-	t1.depends_on t2, model: [[Tasks::Simple], {id: 10}]
+        t2 = Tasks::Simple.new(id: 10)
+        t1.depends_on t2, model: [[Tasks::Simple], {id: 10}]
         assert_equal expected, t1[t2, Dependency][:model]
     end
 
@@ -83,16 +83,16 @@ class TC_Dependency < Minitest::Test
             do_start = true
         end
 
-	child_model = Tasks::Simple.new_submodel do
-	    event :first, controlable: true
-	    event :second, controlable: true
-	end
+        child_model = Tasks::Simple.new_submodel do
+            event :first, controlable: true
+            event :second, controlable: true
+        end
 
-	p1 = Tasks::Simple.new
-	child = child_model.new
-	plan.add([p1, child])
-	p1.depends_on child, options
-	plan.add(p1)
+        p1 = Tasks::Simple.new
+        child = child_model.new
+        plan.add([p1, child])
+        p1.depends_on child, options
+        plan.add(p1)
 
         if do_start
             execute { child.start!; p1.start! }
@@ -106,9 +106,9 @@ class TC_Dependency < Minitest::Test
     end
 
     def assert_child_failed(child, error, reason, plan)
-	result = plan.check_structure
-	assert_equal(child, error.failed_task)
-	assert_equal(reason, error.failure_point)
+        result = plan.check_structure
+        assert_equal(child, error.failed_task)
+        assert_equal(reason, error.failure_point)
         assert_formatting_succeeds(error)
         error
     end
@@ -118,9 +118,9 @@ class TC_Dependency < Minitest::Test
             failure: [:stop],
             remove_when_done: false
 
-	assert_equal({}, plan.check_structure)
-	execute { child.first! }
-	assert_equal({}, plan.check_structure)
+        assert_equal({}, plan.check_structure)
+        execute { child.first! }
+        assert_equal({}, plan.check_structure)
         assert(parent.depends_on?(child))
     end
 
@@ -129,8 +129,8 @@ class TC_Dependency < Minitest::Test
             failure: [:stop],
             remove_when_done: true
 
-	execute { child.first! }
-	assert_equal({}, plan.check_structure)
+        execute { child.first! }
+        assert_equal({}, plan.check_structure)
         assert(!parent.depends_on?(child))
     end
 
@@ -163,11 +163,11 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_fullfilled_model_validation
-	tag = TaskService.new_submodel
-	klass = Roby::Task.new_submodel
+        tag = TaskService.new_submodel
+        klass = Roby::Task.new_submodel
 
-	p1, p2, child = prepare_plan add: 3, model: Tasks::Simple
-	p1.depends_on child, model: [Tasks::Simple, { id: "discover-3" }]
+        p1, p2, child = prepare_plan add: 3, model: Tasks::Simple
+        p1.depends_on child, model: [Tasks::Simple, { id: "discover-3" }]
         p2.depends_on child, model: [Tasks::Simple, { id: 'discover-3' }]
 
         # Mess with the relation definition
@@ -178,23 +178,23 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_fullfilled_model_determination_from_dependency_relation
-	tag = TaskService.new_submodel
-	klass = Tasks::Simple.new_submodel do
-	    include tag
-	end
+        tag = TaskService.new_submodel
+        klass = Tasks::Simple.new_submodel do
+            include tag
+        end
 
-	p1, p2, child = prepare_plan add: 3, model: klass
+        p1, p2, child = prepare_plan add: 3, model: klass
 
-	p1.depends_on child, model: [Tasks::Simple, { id: "discover-3" }]
-	p2.depends_on child, model: Roby::Task
-	assert_equal([[Tasks::Simple], {id: 'discover-3'}], child.fullfilled_model)
-	p1.remove_child(child)
-	assert_equal([[Roby::Task], {}], child.fullfilled_model)
-	p1.depends_on child, model: tag
-	assert_equal([[Roby::Task, tag], {}], child.fullfilled_model)
-	p2.remove_child(child)
-	p2.depends_on child, model: [klass, { id: 'discover-3' }]
-	assert_equal([[klass, tag], {id: 'discover-3'}], child.fullfilled_model)
+        p1.depends_on child, model: [Tasks::Simple, { id: "discover-3" }]
+        p2.depends_on child, model: Roby::Task
+        assert_equal([[Tasks::Simple], {id: 'discover-3'}], child.fullfilled_model)
+        p1.remove_child(child)
+        assert_equal([[Roby::Task], {}], child.fullfilled_model)
+        p1.depends_on child, model: tag
+        assert_equal([[Roby::Task, tag], {}], child.fullfilled_model)
+        p2.remove_child(child)
+        p2.depends_on child, model: [klass, { id: 'discover-3' }]
+        assert_equal([[klass, tag], {id: 'discover-3'}], child.fullfilled_model)
     end
 
     def test_fullfilled_model_uses_model_fullfilled_model_for_its_default_value
@@ -208,15 +208,15 @@ class TC_Dependency < Minitest::Test
         task_m = Roby::Task.new_submodel { argument :arg }
         parent, child = prepare_plan add: 2, model: task_m
         child.arg = flexmock(evaluate_delayed_argument: nil)
-	parent.depends_on child
+        parent.depends_on child
         assert_equal Hash.new, parent[child, Dependency][:model][1]
     end
 
     def test_explicit_fullfilled_model
-	tag = TaskService.new_submodel
-	klass = Tasks::Simple.new_submodel do
-	    include tag
-	end
+        tag = TaskService.new_submodel
+        klass = Tasks::Simple.new_submodel do
+            include tag
+        end
         t, p = prepare_plan add: 2, model: klass
         t.fullfilled_model = [Roby::Task, [], Hash.new]
         assert_equal([[Roby::Task], Hash.new], t.fullfilled_model)
@@ -232,16 +232,16 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_fullfilled_model_transaction
-	tag = TaskService.new_submodel
-	klass = Tasks::Simple.new_submodel do
-	    include tag
-	end
+        tag = TaskService.new_submodel
+        klass = Tasks::Simple.new_submodel do
+            include tag
+        end
 
-	p1, p2, child = prepare_plan add: 3, model: klass.new_submodel
+        p1, p2, child = prepare_plan add: 3, model: klass.new_submodel
         trsc = Transaction.new(plan)
 
-	p1.depends_on child, model: [Tasks::Simple, { id: "discover-3" }]
-	p2.depends_on child, model: klass
+        p1.depends_on child, model: [Tasks::Simple, { id: "discover-3" }]
+        p2.depends_on child, model: klass
 
         t_child = trsc[child]
         assert_equal([[klass], {id: "discover-3"}], t_child.fullfilled_model)
@@ -249,7 +249,7 @@ class TC_Dependency < Minitest::Test
         assert_equal([[klass], {id: "discover-3"}], t_child.fullfilled_model)
         t_p2.remove_child(t_child)
         assert_equal([[Tasks::Simple], { id: 'discover-3' }], t_child.fullfilled_model)
-	t_p2.depends_on t_child, model: klass
+        t_p2.depends_on t_child, model: klass
         assert_equal([[klass], { id: 'discover-3' }], t_child.fullfilled_model)
         trsc.remove_task(t_p2)
         assert_equal([[klass], { id: 'discover-3' }], t_child.fullfilled_model)
@@ -258,20 +258,20 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_first_children
-	p, c1, c2 = prepare_plan add: 3, model: Tasks::Simple
-	p.depends_on c1
-	p.depends_on c2
-	assert_equal([c1, c2].to_set, p.first_children)
+        p, c1, c2 = prepare_plan add: 3, model: Tasks::Simple
+        p.depends_on c1
+        p.depends_on c2
+        assert_equal([c1, c2].to_set, p.first_children)
 
         c1.start_event.signals c2.start_event
-	assert_equal([c1].to_set, p.first_children)
+        assert_equal([c1].to_set, p.first_children)
     end
 
     def test_remove_finished_children
-	p, c1, c2 = prepare_plan add: 3, model: Tasks::Simple
+        p, c1, c2 = prepare_plan add: 3, model: Tasks::Simple
         plan.add_permanent_task(p)
-	p.depends_on c1
-	p.depends_on c2
+        p.depends_on c1
+        p.depends_on c2
 
         execute do
             p.start!
@@ -446,7 +446,7 @@ class TC_Dependency < Minitest::Test
         assert_nil parent.find_child_from_role('nonexist')
         assert_raises(NoSuchChild) { parent.child_from_role('nonexist') }
     ensure
-	plan.add(parent) if parent
+        plan.add(parent) if parent
     end
 
     def test_child_from_role

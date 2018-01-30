@@ -37,19 +37,19 @@ parser = OptionParser.new do |opt|
         excluded_patterns << File.expand_path(pattern, Roby.app.app_dir)
     end
     opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
-	Roby.app.single = !val
+        Roby.app.single = !val
     end
     opt.on('--list', 'lists the test files that are executed, but does not execute them') do
         list_tests = true
     end
     opt.on("-l", "--live", "run tests in live mode") do |val|
-	Roby.app.simulation = !val
+        Roby.app.simulation = !val
     end
     opt.on("-k", "--keep-logs", "keep all logs") do |val|
-	Roby.app.public_logs = true
+        Roby.app.public_logs = true
     end
     opt.on("-i", "--interactive", "allow user interaction during tests") do |val|
-	Roby.app.automatic_testing = false
+        Roby.app.automatic_testing = false
     end
     opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
         coverage_mode = true

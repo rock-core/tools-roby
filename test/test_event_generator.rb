@@ -2,30 +2,30 @@ require 'roby/test/self'
 
 class TC_Event < Minitest::Test
     def test_controlable_events
-	event = EventGenerator.new(true)
-	assert(event.controlable?)
+        event = EventGenerator.new(true)
+        assert(event.controlable?)
 
-	# Check command & emission behavior for controlable events
-	FlexMock.use do |mock|
-	    plan.add(event = EventGenerator.new { |context| mock.call_handler(context); event.emit(*context) })
-	    event.on { |event| mock.event_handler(event.context) }
+        # Check command & emission behavior for controlable events
+        FlexMock.use do |mock|
+            plan.add(event = EventGenerator.new { |context| mock.call_handler(context); event.emit(*context) })
+            event.on { |event| mock.event_handler(event.context) }
 
-	    assert(event.controlable?)
-	    mock.should_receive(:call_handler).once.with([42])
-	    mock.should_receive(:event_handler).once.with([42])
-	    execute { event.call(42) }
-	end
+            assert(event.controlable?)
+            mock.should_receive(:call_handler).once.with([42])
+            mock.should_receive(:event_handler).once.with([42])
+            execute { event.call(42) }
+        end
     end
 
     def test_contingent_events
-	# Check emission behavior for non-controlable events
-	FlexMock.use do |mock|
-	    event = EventGenerator.new
-	    plan.add(event)
-	    event.on { |event| mock.event(event.context) }
-	    mock.should_receive(:event).once.with([42])
-	    execute { event.emit(42) }
-	end
+        # Check emission behavior for non-controlable events
+        FlexMock.use do |mock|
+            event = EventGenerator.new
+            plan.add(event)
+            event.on { |event| mock.event(event.context) }
+            mock.should_receive(:event).once.with([42])
+            execute { event.emit(42) }
+        end
     end
 
     def test_pending_includes_queued_events
@@ -40,24 +40,24 @@ class TC_Event < Minitest::Test
     end
 
     def test_propagation_id
-	e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
-	    each { |e| plan.add(e) }
-	e1.signals e2
-	execute { e1.emit(nil) }
-	assert_equal(e1.last.propagation_id, e2.last.propagation_id)
+        e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
+            each { |e| plan.add(e) }
+        e1.signals e2
+        execute { e1.emit(nil) }
+        assert_equal(e1.last.propagation_id, e2.last.propagation_id)
 
-	execute { e2.emit(nil) }
-	assert(e1.last.propagation_id < e2.last.propagation_id)
+        execute { e2.emit(nil) }
+        assert(e1.last.propagation_id < e2.last.propagation_id)
 
-	execute { e3.emit(nil) }
-	assert(e1.last.propagation_id < e3.last.propagation_id)
-	assert(e2.last.propagation_id < e3.last.propagation_id)
+        execute { e3.emit(nil) }
+        assert(e1.last.propagation_id < e3.last.propagation_id)
+        assert(e2.last.propagation_id < e3.last.propagation_id)
     end
 
 
     def test_signals_without_delay
-	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
-	plan.add([e1, e2])
+        e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
+        plan.add([e1, e2])
 
         e1.signals e2
 
@@ -69,8 +69,8 @@ class TC_Event < Minitest::Test
     end
 
     def test_forward_to_without_delay
-	e1, e2 = EventGenerator.new, Roby::EventGenerator.new
-	plan.add([e1, e2])
+        e1, e2 = EventGenerator.new, Roby::EventGenerator.new
+        plan.add([e1, e2])
 
         e1.forward_to e2
 
@@ -83,8 +83,8 @@ class TC_Event < Minitest::Test
 
     # forward has been renamed into #forward_to
     def test_deprecated_forward
-	e1, e2 = EventGenerator.new, Roby::EventGenerator.new
-	plan.add([e1, e2])
+        e1, e2 = EventGenerator.new, Roby::EventGenerator.new
+        plan.add([e1, e2])
 
         deprecated_feature do
             e1.forward e2
@@ -98,8 +98,8 @@ class TC_Event < Minitest::Test
     end
 
     def common_test_source_setup(keep_source)
-	src    = EventGenerator.new(true)
-	e      = EventGenerator.new(true)
+        src    = EventGenerator.new(true)
+        e      = EventGenerator.new(true)
         target = EventGenerator.new(true)
         plan.add([src, e, target])
         src.signals e
@@ -131,36 +131,36 @@ class TC_Event < Minitest::Test
     end
 
     def test_simple_signal_handler_ordering
-	e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
-	    each { |e| plan.add(e) }
-	e1.signals(e2)
-	e1.on { |ev| e2.remove_signal(e3) }
-	e2.signals(e3)
+        e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
+            each { |e| plan.add(e) }
+        e1.signals(e2)
+        e1.on { |ev| e2.remove_signal(e3) }
+        e2.signals(e3)
 
-	execute { e1.call(nil) }
-	assert( e2.emitted? )
-	assert( !e3.emitted? )
+        execute { e1.call(nil) }
+        assert( e2.emitted? )
+        assert( !e3.emitted? )
     end
 
     def test_event_hooks
         FlexMock.use do |mock|
-	    hooks = [:calling, :called, :fired]
+            hooks = [:calling, :called, :fired]
             mod = Module.new do
-		hooks.each do |name|
-		    define_method(name) do |context|
-			mock.send(name, self)
-		    end
-        	end
+                hooks.each do |name|
+                    define_method(name) do |context|
+                        mock.send(name, self)
+                    end
+                end
             end
 
             generator = Class.new(EventGenerator) do
-		include mod
-	    end.new(true)
-	    plan.add(generator)
+                include mod
+            end.new(true)
+            plan.add(generator)
             
-	    hooks.each do |name|
-		mock.should_receive(name).once.with(generator).ordered
-	    end
+            hooks.each do |name|
+                mock.should_receive(name).once.with(generator).ordered
+            end
             execute { generator.call(nil) }
         end
     end
@@ -209,66 +209,66 @@ class TC_Event < Minitest::Test
     end
 
     def test_and_unreachability
-	a, b = (1..2).map { EventGenerator.new(true) }.
-	    each { |e| plan.add(e) }
+        a, b = (1..2).map { EventGenerator.new(true) }.
+            each { |e| plan.add(e) }
 
-	# Test unreachability
-	## it is unreachable once emitted, but if_unreachable(true) blocks
-	## must no be called
-	and_event = (a & b)
-	FlexMock.use do |mock|
-	    and_event.if_unreachable(cancel_at_emission: true) do
-		mock.unreachable
-	    end
-	    mock.should_receive(:unreachable).never
-	    execute { a.call }
-	    assert( !and_event.unreachable? )
-	    execute { b.call }
-	    assert( !and_event.unreachable? )
-	end
+        # Test unreachability
+        ## it is unreachable once emitted, but if_unreachable(true) blocks
+        ## must no be called
+        and_event = (a & b)
+        FlexMock.use do |mock|
+            and_event.if_unreachable(cancel_at_emission: true) do
+                mock.unreachable
+            end
+            mock.should_receive(:unreachable).never
+            execute { a.call }
+            assert( !and_event.unreachable? )
+            execute { b.call }
+            assert( !and_event.unreachable? )
+        end
 
-	## must be unreachable once one of the nonemitted source events are
-	and_event = (a & b)
-	execute { a.call }
-	execute { a.unreachable! }
-	assert(!and_event.unreachable?)
-	execute { b.unreachable! }
-	assert(and_event.unreachable?)
+        ## must be unreachable once one of the nonemitted source events are
+        and_event = (a & b)
+        execute { a.call }
+        execute { a.unreachable! }
+        assert(!and_event.unreachable?)
+        execute { b.unreachable! }
+        assert(and_event.unreachable?)
     end
 
     def test_and_reset
-	a, b = (1..2).map { EventGenerator.new(true) }.
-	    each { |e| plan.add(e) }
-	and_event = (a & b)
-	execute { a.emit(nil) }
+        a, b = (1..2).map { EventGenerator.new(true) }.
+            each { |e| plan.add(e) }
+        and_event = (a & b)
+        execute { a.emit(nil) }
 
-	and_event.reset
-	execute { b.emit(nil) }
-	assert(!and_event.emitted?)
-	execute { a.emit(nil) }
-	assert(and_event.emitted?)
+        and_event.reset
+        execute { b.emit(nil) }
+        assert(!and_event.emitted?)
+        execute { a.emit(nil) }
+        assert(and_event.emitted?)
 
-	and_event.reset
-	execute { a.emit(nil) }
-	execute { b.emit(nil) }
-	assert_equal(2, and_event.history.size)
+        and_event.reset
+        execute { a.emit(nil) }
+        execute { b.emit(nil) }
+        assert_equal(2, and_event.history.size)
 
-	and_event.on { |ev| and_event.reset }
-	and_event.reset
-	execute { a.emit(nil) }
-	execute { b.emit(nil) }
-	assert_equal(3, and_event.history.size)
-	execute { a.emit(nil) }
-	execute { b.emit(nil) }
-	assert_equal(4, and_event.history.size)
+        and_event.on { |ev| and_event.reset }
+        and_event.reset
+        execute { a.emit(nil) }
+        execute { b.emit(nil) }
+        assert_equal(3, and_event.history.size)
+        execute { a.emit(nil) }
+        execute { b.emit(nil) }
+        assert_equal(4, and_event.history.size)
     end
 
     def setup_aggregation(mock)
-	e1, e2, m1, m2, m3 = 5.enum_for(:times).map { EventGenerator.new(true) }
-	plan.add([e1, e2, m1, m2, m3])
-	e1.signals e2
-	m1.signals m2
-	m2.signals m3
+        e1, e2, m1, m2, m3 = 5.enum_for(:times).map { EventGenerator.new(true) }
+        plan.add([e1, e2, m1, m2, m3])
+        e1.signals e2
+        m1.signals m2
+        m2.signals m3
 
         (e1 & e2 & m2).on { |ev| mock.and }
         (e2 | m1).on { |ev| mock.or }
@@ -281,7 +281,7 @@ class TC_Event < Minitest::Test
     def test_aggregator
         FlexMock.use do |mock|
             e1, e2, m1, *_ = setup_aggregation(mock)
-	    e2.signals m1
+            e2.signals m1
             mock.should_receive(:or).once
             mock.should_receive(:and).once
             mock.should_receive(:and_or).once
@@ -309,13 +309,13 @@ class TC_Event < Minitest::Test
     end
 
     def test_until
-	source, sink, filter, limit = 4.enum_for(:times).map { EventGenerator.new(true) }
+        source, sink, filter, limit = 4.enum_for(:times).map { EventGenerator.new(true) }
         [source, sink, filter, limit].each do |ev|
             plan.add ev
         end
 
-	source.signals(filter)
-	filter.until(limit).signals(sink)
+        source.signals(filter)
+        filter.until(limit).signals(sink)
 
         mock = flexmock
         sink.on { |ev| mock.passed }
@@ -327,115 +327,115 @@ class TC_Event < Minitest::Test
     end
 
     def test_related_events
-	e1, e2 = (1..2).map { EventGenerator.new(true) }.
-	    each { |ev| plan.add(ev) }
+        e1, e2 = (1..2).map { EventGenerator.new(true) }.
+            each { |ev| plan.add(ev) }
 
-	assert_equal([].to_set, e1.related_events)
-	e1.signals e2
-	assert_equal([e2].to_set, e1.related_events)
-	assert_equal([e1].to_set, e2.related_events)
+        assert_equal([].to_set, e1.related_events)
+        e1.signals e2
+        assert_equal([e2].to_set, e1.related_events)
+        assert_equal([e1].to_set, e2.related_events)
     end
 
     def test_related_tasks
-	e1, e2 = (1..2).map { EventGenerator.new(true) }.
-	    each { |ev| plan.add(ev) }
-	t1 = Tasks::Simple.new
+        e1, e2 = (1..2).map { EventGenerator.new(true) }.
+            each { |ev| plan.add(ev) }
+        t1 = Tasks::Simple.new
 
-	assert_equal([].to_set, e1.related_tasks)
-	e1.signals t1.event(:start)
-	assert_equal([t1].to_set, e1.related_tasks)
+        assert_equal([].to_set, e1.related_tasks)
+        e1.signals t1.event(:start)
+        assert_equal([t1].to_set, e1.related_tasks)
     end
 
     def test_command
-	FlexMock.use do |mock|
-	    ev = EventGenerator.new do |context|
-		ev.emit(*context)
-		mock.called(*context)
-	    end
-	    plan.add(ev)
+        FlexMock.use do |mock|
+            ev = EventGenerator.new do |context|
+                ev.emit(*context)
+                mock.called(*context)
+            end
+            plan.add(ev)
 
-	    mock.should_receive(:called).with(42).once
-	    execute { ev.call(42) }
+            mock.should_receive(:called).with(42).once
+            execute { ev.call(42) }
 
-	    assert(ev.emitted?)
-	    assert_equal(1, ev.history.size, ev.history)
-	    assert(!ev.pending?)
-	end
+            assert(ev.emitted?)
+            assert_equal(1, ev.history.size, ev.history)
+            assert(!ev.pending?)
+        end
     end
 
     def test_set_command
-	FlexMock.use do |mock|
-	    ev = EventGenerator.new
-	    plan.add(ev)
-	    assert(!ev.controlable?)
+        FlexMock.use do |mock|
+            ev = EventGenerator.new
+            plan.add(ev)
+            assert(!ev.controlable?)
 
-	    ev.command = lambda { |_| mock.first }
-	    mock.should_receive(:first).once.ordered
-	    assert(ev.controlable?)
-	    execute { ev.call(nil) }
+            ev.command = lambda { |_| mock.first }
+            mock.should_receive(:first).once.ordered
+            assert(ev.controlable?)
+            execute { ev.call(nil) }
 
-	    ev.command = lambda { |_| mock.second }
-	    mock.should_receive(:second).once.ordered
-	    assert(ev.controlable?)
-	    execute { ev.call(nil) } 
+            ev.command = lambda { |_| mock.second }
+            mock.should_receive(:second).once.ordered
+            assert(ev.controlable?)
+            execute { ev.call(nil) } 
 
-	    ev.command = nil
-	    assert(!ev.controlable?)
-	end
+            ev.command = nil
+            assert(!ev.controlable?)
+        end
     end
 
     def test_once
-	plan.add(ev = EventGenerator.new(true))
-	FlexMock.use do |mock|
-	    ev.once { |_| mock.called_once }
-	    mock.should_receive(:called_once).once
+        plan.add(ev = EventGenerator.new(true))
+        FlexMock.use do |mock|
+            ev.once { |_| mock.called_once }
+            mock.should_receive(:called_once).once
 
-	    execute { ev.call }
-	    execute { ev.call }
-	end
+            execute { ev.call }
+            execute { ev.call }
+        end
     end
 
     def test_signal_once
-	ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
-	plan.add([ev1, ev2])
+        ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
+        plan.add([ev1, ev2])
 
-	FlexMock.use do |mock|
-	    ev1.signals_once(ev2)
-	    ev2.on { |ev| mock.called }
+        FlexMock.use do |mock|
+            ev1.signals_once(ev2)
+            ev2.on { |ev| mock.called }
 
-	    mock.should_receive(:called).once
+            mock.should_receive(:called).once
 
             execute { ev1.call }
             execute { ev1.call }
-	end
+        end
     end
 
     def test_forward_once
-	ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
-	plan.add([ev1, ev2])
+        ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
+        plan.add([ev1, ev2])
 
-	FlexMock.use do |mock|
-	    ev1.forward_to_once(ev2)
-	    ev2.on { |ev| mock.called }
+        FlexMock.use do |mock|
+            ev1.forward_to_once(ev2)
+            ev2.on { |ev| mock.called }
 
-	    mock.should_receive(:called).once
+            mock.should_receive(:called).once
 
-	    execute { ev1.call }
-	    execute { ev1.call }
-	end
+            execute { ev1.call }
+            execute { ev1.call }
+        end
     end
 
     def test_when_unreachable_block
-	FlexMock.use do |mock|
-	    plan.add(ev = EventGenerator.new(true))
+        FlexMock.use do |mock|
+            plan.add(ev = EventGenerator.new(true))
             ev.when_unreachable(false) { mock.called }
             ev.when_unreachable(true) { mock.canceled_called }
-	    execute { ev.call }
+            execute { ev.call }
 
-	    mock.should_receive(:called).once
-	    mock.should_receive(:canceled_called).never
-	    execute { execution_engine.garbage_collect }
-	end
+            mock.should_receive(:called).once
+            mock.should_receive(:canceled_called).never
+            execute { execution_engine.garbage_collect }
+        end
     end
 
     def test_when_unreachable_event_not_cancelled_at_emission
@@ -459,9 +459,9 @@ class TC_Event < Minitest::Test
     end
 
     def test_or_if_unreachable
-	plan.add(e1 = EventGenerator.new(true))
-	plan.add(e2 = EventGenerator.new(true))
-	a = e1 | e2
+        plan.add(e1 = EventGenerator.new(true))
+        plan.add(e2 = EventGenerator.new(true))
+        a = e1 | e2
         execute { e1.unreachable! }
         assert(!a.unreachable?)
 
@@ -470,15 +470,15 @@ class TC_Event < Minitest::Test
     end
 
     def test_and_on_removal
-	FlexMock.use do |mock|
-	    plan.add(e1 = EventGenerator.new(true))
-	    plan.add(e2 = EventGenerator.new(true))
-	    a = e1 & e2
-	    execute { e1.call }
+        FlexMock.use do |mock|
+            plan.add(e1 = EventGenerator.new(true))
+            plan.add(e2 = EventGenerator.new(true))
+            a = e1 & e2
+            execute { e1.call }
             execute { e2.remove_child_object(a, Roby::EventStructure::Signal) }
             execute { e2.unreachable! }
             assert(!a.unreachable?, "#{a} has become unreachable when e2 did, but e2 is not a source from a anymore")
-	end
+        end
     end
 
     def test_and_if_unreachable
@@ -498,43 +498,43 @@ class TC_Event < Minitest::Test
     end
 
     def test_dup
-	plan.add(e = EventGenerator.new(true))
-	plan.register_event(new = e.dup)
+        plan.add(e = EventGenerator.new(true))
+        plan.register_event(new = e.dup)
 
-	execute { e.call }
-	assert_equal(1, e.history.size)
+        execute { e.call }
+        assert_equal(1, e.history.size)
         assert(e.emitted?)
-	assert_equal(0, new.history.size)
-	assert(!new.emitted?)
+        assert_equal(0, new.history.size)
+        assert(!new.emitted?)
 
         plan.register_event(new = e.dup)
-	assert_equal(1, e.history.size)
+        assert_equal(1, e.history.size)
         assert(e.emitted?)
-	assert_equal(1, new.history.size)
-	assert(new.emitted?)
+        assert_equal(1, new.history.size)
+        assert(new.emitted?)
 
         execute { new.call }
-	assert_equal(1, e.history.size)
+        assert_equal(1, e.history.size)
         assert(e.emitted?)
-	assert_equal(2, new.history.size)
-	assert(new.emitted?)
+        assert_equal(2, new.history.size)
+        assert(new.emitted?)
     end
 
     def test_event_after
-	FlexMock.use(Time) do |time_proxy|
-	    current_time = Time.now + 5
-	    time_proxy.should_receive(:now).and_return { current_time }
+        FlexMock.use(Time) do |time_proxy|
+            current_time = Time.now + 5
+            time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.add(e = EventGenerator.new(true))
-	    execute { e.call }
-	    current_time += 0.5
-	    plan.add(delayed = e.last.after(1))
-	    execute { delayed.poll }
-	    assert(!delayed.emitted?)
-	    current_time += 0.5
-	    execute { delayed.poll }
-	    assert(delayed.emitted?)
-	end
+            plan.add(e = EventGenerator.new(true))
+            execute { e.call }
+            current_time += 0.5
+            plan.add(delayed = e.last.after(1))
+            execute { delayed.poll }
+            assert(!delayed.emitted?)
+            current_time += 0.5
+            execute { delayed.poll }
+            assert(delayed.emitted?)
+        end
     end
 
     def test_forward_source_is_event_source

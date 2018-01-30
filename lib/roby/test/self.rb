@@ -55,12 +55,12 @@ module Roby
 
             super
 
-	    # Save and restore some arrays
-	    save_collection Roby::ExecutionEngine.propagation_handlers
-	    save_collection Roby::ExecutionEngine.external_events_handlers
-	    save_collection Roby::Plan.structure_checks
-	    Roby.app.abort_on_exception = false
-	    Roby.app.abort_on_application_exception = true
+            # Save and restore some arrays
+            save_collection Roby::ExecutionEngine.propagation_handlers
+            save_collection Roby::ExecutionEngine.external_events_handlers
+            save_collection Roby::Plan.structure_checks
+            Roby.app.abort_on_exception = false
+            Roby.app.abort_on_application_exception = true
         end
 
         def enable_event_reporting(*filters)

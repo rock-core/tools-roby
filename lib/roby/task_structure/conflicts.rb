@@ -1,6 +1,6 @@
 module Roby
     module TaskStructure
-	relation :Conflicts, noinfo: true
+        relation :Conflicts, noinfo: true
 
         class Conflicts
             module Extension

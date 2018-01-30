@@ -3,9 +3,9 @@ module Roby
         # Called when there is a conflict between a set of running tasks and a
         # task that should have been started. The default operation is to
         # add an error about it
-	def conflict(starting_task, running_tasks)
+        def conflict(starting_task, running_tasks)
             starting_task.failed_to_start! TaskStructure::ConflictError.new(starting_task, running_tasks)
-	end
+        end
 
         # Called when a transaction/execution conflict occured, where a task
         # included in the transaction has been removed from the plan.
@@ -29,7 +29,7 @@ module Roby
         #
         # The default action is to do nothing
         def finalized_plan_event(transaction, proxy)
-	end
+        end
 
         # Called when a transaction/execution conflict occured, where relations
         # have been added in the plan and are not present in the transaction.
@@ -39,8 +39,8 @@ module Roby
         # invalidated prior to this call
         #
         # The default action is to do nothing
-	def adding_plan_relation(transaction, parent, child, relations, info)
-	end
+        def adding_plan_relation(transaction, parent, child, relations, info)
+        end
 
         # Called when a transaction/execution conflict occured, where relations
         # have been removed from the plan, which were present in the
@@ -51,7 +51,7 @@ module Roby
         # prior to this call
         #
         # The default action is to do nothing
-	def removing_plan_relation(transaction, parent, child, relations)
+        def removing_plan_relation(transaction, parent, child, relations)
         end
 
         # Called when a child failed a dependency relation, but the parent is

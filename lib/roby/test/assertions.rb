@@ -138,27 +138,27 @@ module Roby
                 refute(graph.has_vertex?(parent) && graph.has_vertex?(child) && parent.child_object?(child, relation))
             end
 
-	    # This assertion fails if the relative error between +found+ and
-	    # +expected+is more than +error+
-	    def assert_relative_error(expected, found, error, msg = "")
-		if expected == 0
-		    assert_in_delta(0, found, error, "comparing #{found} to #{expected} in #{msg}")
-		else
-		    assert_in_delta(0, (found - expected) / expected, error, "comparing #{found} to #{expected} in #{msg}")
-		end
-	    end
+            # This assertion fails if the relative error between +found+ and
+            # +expected+is more than +error+
+            def assert_relative_error(expected, found, error, msg = "")
+                if expected == 0
+                    assert_in_delta(0, found, error, "comparing #{found} to #{expected} in #{msg}")
+                else
+                    assert_in_delta(0, (found - expected) / expected, error, "comparing #{found} to #{expected} in #{msg}")
+                end
+            end
 
-	    # This assertion fails if +found+ and +expected+ are more than +dl+
-	    # meters apart in the x, y and z coordinates, or +dt+ radians apart
-	    # in angles
-	    def assert_same_position(expected, found, dl = 0.01, dt = 0.01, msg = "")
-		assert_relative_error(expected.x, found.x, dl, msg)
-		assert_relative_error(expected.y, found.y, dl, msg)
-		assert_relative_error(expected.z, found.z, dl, msg)
-		assert_relative_error(expected.yaw, found.yaw, dt, msg)
-		assert_relative_error(expected.pitch, found.pitch, dt, msg)
-		assert_relative_error(expected.roll, found.roll, dt, msg)
-	    end
+            # This assertion fails if +found+ and +expected+ are more than +dl+
+            # meters apart in the x, y and z coordinates, or +dt+ radians apart
+            # in angles
+            def assert_same_position(expected, found, dl = 0.01, dt = 0.01, msg = "")
+                assert_relative_error(expected.x, found.x, dl, msg)
+                assert_relative_error(expected.y, found.y, dl, msg)
+                assert_relative_error(expected.z, found.z, dl, msg)
+                assert_relative_error(expected.yaw, found.yaw, dt, msg)
+                assert_relative_error(expected.pitch, found.pitch, dt, msg)
+                assert_relative_error(expected.roll, found.roll, dt, msg)
+            end
 
             def droby_local_marshaller
                 @droby_local_marshaller ||= DRoby::Marshal.new

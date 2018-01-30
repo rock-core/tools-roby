@@ -125,10 +125,10 @@ begin
     end
 
     trap("SIGINT") do
-	irb.signal_handle
+        irb.signal_handle
     end
     catch(:IRB_EXIT) do
-	irb.eval_input
+        irb.eval_input
     end
 end
 

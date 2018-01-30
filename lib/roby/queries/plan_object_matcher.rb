@@ -7,14 +7,14 @@ module Roby
         # The actual instance that should match
         #
         # @return [nil,Object]
-	attr_reader :instance
+        attr_reader :instance
 
         # @api private
         #
         # A set of models that should be provided by the object
         #
         # @return [Array<Class>]
-	attr_reader :model
+        attr_reader :model
         
         # @api private
         #
@@ -54,18 +54,18 @@ module Roby
         attr_reader :children
 
         # Initializes an empty TaskMatcher object
-	def initialize(instance = nil)
+        def initialize(instance = nil)
             @instance             = instance
             @indexed_query        = !@instance
             @model                = Array.new
-	    @predicates           = Array.new
-	    @neg_predicates       = Array.new
-	    @indexed_predicates     = Array.new
-	    @indexed_neg_predicates = Array.new
-	    @owners               = Array.new
+            @predicates           = Array.new
+            @neg_predicates       = Array.new
+            @indexed_predicates     = Array.new
+            @indexed_neg_predicates = Array.new
+            @owners               = Array.new
             @parents              = Hash.new
             @children             = Hash.new
-	end
+        end
 
         # Match an instance explicitely
         def with_instance(instance)
@@ -79,37 +79,37 @@ module Roby
         # Matches if the object is owned by the listed peers.
         #
         # Use #self_owned to match if it is owned by the local plan manager.
-	def owned_by(*ids)
-	    @owners |= ids
-	    self
-	end
+        def owned_by(*ids)
+            @owners |= ids
+            self
+        end
 
         # Filters locally-owned tasks
         #
         # Matches if the object is owned by the local plan manager.
-	def self_owned
+        def self_owned
             predicates << :self_owned?
-	    self
-	end
+            self
+        end
 
         # Filters out locally-owned tasks
         #
         # Matches if the object is owned by the local plan manager.
         def not_self_owned
             neg_predicates << :self_owned?
-	    self
+            self
         end
 
-	# Filters on the task model
+        # Filters on the task model
         #
         # Will match if the task is an instance of +model+ or one of its
         # subclasses.
-	def with_model(model)
-	    @model = Array(model)
-	    self
-	end
+        def with_model(model)
+            @model = Array(model)
+            self
+        end
 
-	class << self
+        class << self
             # @api private
             def match_predicate(name, positive_index = nil, negative_index = nil)
                 method_name = name.to_s.gsub(/\?$/, '')
@@ -144,7 +144,7 @@ module Roby
                 EOD
                 declare_class_methods(method_name, "not_#{method_name}")
             end
-	end
+        end
 
         ##
         # :method: executable
@@ -160,7 +160,7 @@ module Roby
         #
         # See also #executable, PlanObject#executable?
 
-	match_predicates :executable?
+        match_predicates :executable?
 
         declare_class_methods :with_model, :owned_by, :self_owned
 
@@ -269,9 +269,9 @@ module Roby
                 return false if object != instance
             end
 
-	    if !model.empty?
-		return unless object.fullfills?(model)
-	    end
+            if !model.empty?
+                return unless object.fullfills?(model)
+            end
 
             for parent_spec in @parents
                 result = handle_parent_child_match(object, parent_spec) do |relation, m, relation_options|
@@ -289,14 +289,14 @@ module Roby
                 return false if !result
             end
 
-	    for pred in predicates
-		return false if !object.send(pred)
-	    end
-	    for pred in neg_predicates
-		return false if object.send(pred)
-	    end
+            for pred in predicates
+                return false if !object.send(pred)
+            end
+            for pred in neg_predicates
+                return false if object.send(pred)
+            end
 
-	    return false if !owners.empty? && !(object.owners - owners).empty?
+            return false if !owners.empty? && !(object.owners - owners).empty?
             true
         end
 
@@ -320,9 +320,9 @@ module Roby
                 end
             end
 
-	    for pred in @indexed_predicates
+            for pred in @indexed_predicates
                 positive_sets << index.by_predicate[pred]
-	    end
+            end
 
             negative_sets = @indexed_neg_predicates.
                 map { |pred| index.by_predicate[pred] }
@@ -338,7 +338,7 @@ module Roby
         # @param [Set] initial_set
         # @param [Index] index
         # @return [Set]
-	def filter(initial_set, index, initial_is_complete: false)
+        def filter(initial_set, index, initial_is_complete: false)
             positive_sets, negative_sets = indexed_sets(index)
             positive_sets << initial_set if !initial_is_complete || positive_sets.empty?
 
@@ -355,7 +355,7 @@ module Roby
                 result.add(obj) if !negative.include?(obj) && positive_sets.all? { |set| set.include?(obj) }
             end
             return result
-	end
+        end
     end
     end
 end

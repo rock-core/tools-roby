@@ -21,14 +21,14 @@ module Roby
         # Set of arguments that should be tested on the task
         #
         # @return [Hash]
-	attr_reader :arguments
+        attr_reader :arguments
 
         # Initializes an empty TaskMatcher object
-	def initialize
+        def initialize
             super
             @arguments            = Hash.new
-	    @interruptible	  = nil
-	end
+            @interruptible        = nil
+        end
 
         def to_s
             result = super
@@ -38,20 +38,20 @@ module Roby
             result
         end
 
-	# Filters on task model and arguments
+        # Filters on task model and arguments
         #
         # Will match if the task is an instance of +model+ or one of its
         # subclasses, and if parts of its arguments are the ones provided. Set
         # +arguments+ to nil if you don't want to filter on arguments.
-	def which_fullfills(model, arguments = nil)
-	    with_model(model)
+        def which_fullfills(model, arguments = nil)
+            with_model(model)
             if arguments
                 with_model_arguments(arguments)
             end
             self
-	end
+        end
 
-	# Filters on the arguments that are declared in the model
+        # Filters on the arguments that are declared in the model
         #
         # Will match if the task arguments for which there is a value in
         # +arguments+ are set to that very value, only looking at arguments that
@@ -82,13 +82,13 @@ module Roby
         #
         # In general, one would use #which_fullfills, which sets both the model
         # and the model arguments
-	def with_model_arguments(arguments)
+        def with_model_arguments(arguments)
             valid_arguments = model.inject(Array.new) { |set, model| set | model.arguments.to_a }
-	    with_arguments(arguments.slice(*valid_arguments))
-	    self
-	end
+            with_arguments(arguments.slice(*valid_arguments))
+            self
+        end
 
-	# Filters on the arguments that are declared in the model
+        # Filters on the arguments that are declared in the model
         #
         # Will match if the task arguments for which there is a value in
         # +arguments+ are set to that very value. Unlike #with_model_arguments,
@@ -113,16 +113,16 @@ module Roby
         #   # Looks for both :a and :c, even though :c is not declared in TaskModel
         #   TaskMatcher.new.
         #       with_arguments(a: 10, c: 30) === task # => false
-	def with_arguments(arguments)
-	    @arguments ||= Hash.new
-	    self.arguments.merge!(arguments) do |k, old, new| 
-		if old != new
-		    raise ArgumentError, "a constraint has already been set on the #{k} argument" 
-		end
-		old
-	    end
-	    self
-	end
+        def with_arguments(arguments)
+            @arguments ||= Hash.new
+            self.arguments.merge!(arguments) do |k, old, new| 
+                if old != new
+                    raise ArgumentError, "a constraint has already been set on the #{k} argument" 
+                end
+                old
+            end
+            self
+        end
 
         ##
         # :method: fully_instanciated
@@ -257,8 +257,8 @@ module Roby
         #
         # See also #finishing, Task#finishing?
 
-	match_predicates :abstract?, :partially_instanciated?, :fully_instanciated?,
-	    :starting?, :pending?, :running?, :finished?, :success?, :failed?, :interruptible?
+        match_predicates :abstract?, :partially_instanciated?, :fully_instanciated?,
+            :starting?, :pending?, :running?, :finished?, :success?, :failed?, :interruptible?
 
         # Finishing tasks are also running task, use the index on 'running'
         match_predicate :finishing?, [[:running?], []]
@@ -282,11 +282,11 @@ module Roby
             return relation, [other_query, relation_options]
         end
         # True if +task+ matches all the criteria defined on this object.
-	def ===(task)
-	    return unless task.kind_of?(Roby::Task)
+        def ===(task)
+            return unless task.kind_of?(Roby::Task)
             return unless task.arguments.slice(*arguments.keys) == arguments
             return super
-	end
+        end
 
         # Returns true if filtering with this TaskMatcher using #=== is
         # equivalent to calling #filter() using a Index. This is used to
@@ -334,9 +334,9 @@ module Roby
             end
         end
 
-	# Define singleton classes. For instance, calling TaskMatcher.which_fullfills is equivalent
-	# to TaskMatcher.new.which_fullfills
-	declare_class_methods :which_fullfills, :with_arguments
+        # Define singleton classes. For instance, calling TaskMatcher.which_fullfills is equivalent
+        # to TaskMatcher.new.which_fullfills
+        declare_class_methods :which_fullfills, :with_arguments
     end
     end
 end

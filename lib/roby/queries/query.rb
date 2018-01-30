@@ -8,16 +8,16 @@ module Roby
     # has been called.
     class Query < TaskMatcher
         # The plan this query acts on
-	attr_reader :plan
+        attr_reader :plan
 
         # Create a query object on the given plan
-	def initialize(plan = nil)
+        def initialize(plan = nil)
             @scope = :global
-	    @plan = plan
-	    super()
-	    @plan_predicates = Set.new
-	    @neg_plan_predicates = Set.new
-	end
+            @plan = plan
+            super()
+            @plan_predicates = Set.new
+            @neg_plan_predicates = Set.new
+        end
 
         def query
             self
@@ -52,9 +52,9 @@ module Roby
 
         # The set of tasks which match in plan. This is a cached value, so use
         # #reset to actually recompute this set.
-	def result_set
-	    @result_set ||= plan.query_result_set(self)
-	end
+        def result_set
+            @result_set ||= plan.query_result_set(self)
+        end
 
         def indexed_sets(index)
             positive_sets, negative_sets = super
@@ -78,45 +78,45 @@ module Roby
         # Queries cache their result, i.e. #each will always return the same
         # task set. #reset makes sure that the next call to #each will return
         # the same value.
-	def reset
-	    @result_set = nil
-	    self
-	end
+        def reset
+            @result_set = nil
+            self
+        end
 
         # The set of predicates of Plan which must return true for #=== to
         # return true
-	attr_reader :plan_predicates
+        attr_reader :plan_predicates
         # The set of predicates of Plan which must return false for #=== to
         # return true.
-	attr_reader :neg_plan_predicates
+        attr_reader :neg_plan_predicates
 
-	class << self
+        class << self
             # For each name in +names+, define the #name and #not_name methods
             # on Query objects. When one of these methods is called on a Query
             # object, plan.name?(task) must return true (resp. false) for the
             # task to match.
-	    def match_plan_predicates(names)
-		names.each do |name, predicate_name|
+            def match_plan_predicates(names)
+                names.each do |name, predicate_name|
                     predicate_name ||= name
-		    class_eval <<-EOD, __FILE__, __LINE__+1
-		    def #{name}
-			if neg_plan_predicates.include?(:#{predicate_name})
-			    raise ArgumentError, "trying to match (#{name} & !#{name})"
-		        end
-			plan_predicates << :#{predicate_name}
-			self
-		    end
-		    def not_#{name}
-			if plan_predicates.include?(:#{predicate_name})
-			    raise ArgumentError, "trying to match (#{name} & !#{name})"
-		        end
-			neg_plan_predicates << :#{predicate_name}
-			self
-		    end
-		    EOD
-		end
-	    end
-	end
+                    class_eval <<-EOD, __FILE__, __LINE__+1
+                    def #{name}
+                        if neg_plan_predicates.include?(:#{predicate_name})
+                            raise ArgumentError, "trying to match (#{name} & !#{name})"
+                        end
+                        plan_predicates << :#{predicate_name}
+                        self
+                    end
+                    def not_#{name}
+                        if plan_predicates.include?(:#{predicate_name})
+                            raise ArgumentError, "trying to match (#{name} & !#{name})"
+                        end
+                        neg_plan_predicates << :#{predicate_name}
+                        self
+                    end
+                    EOD
+                end
+            end
+        end
 
         ##
         # :method: mission
@@ -146,42 +146,42 @@ module Roby
         #
         # Matches tasks in plan that are not declared as permanent tasks
 
-	match_plan_predicates mission: :mission_task?
+        match_plan_predicates mission: :mission_task?
         match_plan_predicates permanent: :permanent_task?
-	
+        
         # Filters tasks which have no parents in the query itself.
         #
         # Will filter out tasks which have parents in +relation+ that are
         # included in the query result.
-	def roots(relation)
-	    @result_set = plan.query_roots(result_set, relation)
-	    self
-	end
+        def roots(relation)
+            @result_set = plan.query_roots(result_set, relation)
+            self
+        end
 
         # True if +task+ matches the query. Call #result_set to have the set of
         # tasks which match in the given plan.
-	def ===(task)
-	    for pred in plan_predicates
-		return unless plan.send(pred, task)
-	    end
-	    for neg_pred in neg_plan_predicates
-		return if plan.send(neg_pred, task)
-	    end
+        def ===(task)
+            for pred in plan_predicates
+                return unless plan.send(pred, task)
+            end
+            for neg_pred in neg_plan_predicates
+                return if plan.send(neg_pred, task)
+            end
 
-	    return unless super
+            return unless super
 
-	    true
-	end
+            true
+        end
 
         # Iterates on all the tasks in the given plan which match the query
         #
         # This set is cached, i.e. #each will yield the same task set until
         # #reset is called.
-	def each(&block)
+        def each(&block)
             return enum_for(__method__) if !block_given?
-	    plan.query_each(result_set, &block)
-	end
-	include Enumerable
+            plan.query_each(result_set, &block)
+        end
+        include Enumerable
     end
     end
 end

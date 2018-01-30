@@ -1,7 +1,7 @@
 module Roby::TaskStructure
     relation :PlannedBy,
         child_name: :planning_task, 
-	parent_name: :planned_task,
+        parent_name: :planned_task,
         noinfo: true,
         single_child: true
 
@@ -59,7 +59,7 @@ module Roby
     # the system will therefore not have a suitable executable development for
     # this task, and this is a failure
     class PlanningFailedError < LocalizedError
-	# The planning task
+        # The planning task
         attr_reader :planning_task
         # The planned task
         def planned_task; failed_task end
@@ -67,11 +67,11 @@ module Roby
         attr_reader :failure_reason
 
         def initialize(planned_task, planning_task, failure_reason: planning_task.failure_reason)
-	    super(planned_task)
+            super(planned_task)
             @planning_task = planning_task
             @failure_reason = failure_reason
             report_exceptions_from(failure_reason)
-	end
+        end
 
         def pretty_print(pp)
             pp.text "failed to plan "

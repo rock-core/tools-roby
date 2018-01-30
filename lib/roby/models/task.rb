@@ -422,28 +422,28 @@ module Roby
             #     terminates
             #   end
             #
-	    def terminates
-		event :failed, command: true, terminal: true
-		interruptible
-	    end
+            def terminates
+                event :failed, command: true, terminal: true
+                interruptible
+            end
 
             # Declare that tasks of this model can be interrupted by calling the
             # command of {Roby::Task#failed_event}
             #
             # @raise [ArgumentError] if {Roby::Task#failed_event} is not controlable.
-	    def interruptible
-		if !has_event?(:failed) || !event_model(:failed).controlable?
-		    raise ArgumentError, "failed is not controlable"
-		end
+            def interruptible
+                if !has_event?(:failed) || !event_model(:failed).controlable?
+                    raise ArgumentError, "failed is not controlable"
+                end
 
-		event(:stop) do |context| 
-		    if starting?
+                event(:stop) do |context| 
+                    if starting?
                         start_event.signals stop_event
-			return
-		    end
-		    failed!(context)
-		end
-	    end
+                        return
+                    end
+                    failed!(context)
+                end
+            end
 
             # True if this task is an abstract task
             #
@@ -767,9 +767,9 @@ module Roby
             #
             # @example install a handler for a TaskModelViolation exception
             #   on_exception(TaskModelViolation, ...) do |task, exception_object|
-            #	    if cannot_handle
-            #	        task.pass_exception # send to the next handler
-            #	    end
+            #       if cannot_handle
+            #           task.pass_exception # send to the next handler
+            #       end
             #       do_handle
             #   end
             def on_exception(matcher, &handler)

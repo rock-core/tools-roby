@@ -28,12 +28,12 @@ module Roby
 
         def initialize(task, generator, propagation_id, context, time = Time.now)
             @task = task
-	    @terminal_flag = generator.terminal_flag
+            @terminal_flag = generator.terminal_flag
             @model = self.class
             super(generator, propagation_id, context, time)
         end
 
-	# Returns the events that are the cause of this event, limiting itself
+        # Returns the events that are the cause of this event, limiting itself
         # to the task's events. The return value is a Set of TaskEvent
         # instances.
         #
@@ -55,16 +55,16 @@ module Roby
         # Event#event_sources will return both event.last and
         # task.failed_event.last while TaskEvent will only return
         # task.failed_event.last.
-	def task_sources
-	    result = Set.new
+        def task_sources
+            result = Set.new
             for ev in sources
                 gen = ev.generator
                 if gen.respond_to?(:task) && gen.task == task
                     result << ev
                 end
             end
-	    result
-	end
+            result
+        end
 
         # Recursively browses in the event sources, returning only those that
         # come from this event's task
@@ -87,13 +87,13 @@ module Roby
             end
         end
 
-	def to_s
-	    result = "[#{Roby.format_time(time)} @#{propagation_id}] #{task}/#{symbol}"
+        def to_s
+            result = "[#{Roby.format_time(time)} @#{propagation_id}] #{task}/#{symbol}"
             if context
                 result += ": #{context}"
             end
             result
-	end
+        end
 
         def pretty_print(pp, with_context = true)
             pp.text "event '#{symbol}' emitted at [#{Roby.format_time(time)} @#{propagation_id}] from "
@@ -115,12 +115,12 @@ module Roby
 
         # If the event is controlable
         def controlable?; model.controlable? end
-	# If this event is terminal
-	def success?; @terminal_flag == :success end
-	# If this event is terminal
-	def failure?; @terminal_flag == :failure end
-	# If this event is terminal
-	def terminal?; @terminal_flag end
+        # If this event is terminal
+        def success?; @terminal_flag == :success end
+        # If this event is terminal
+        def failure?; @terminal_flag == :failure end
+        # If this event is terminal
+        def terminal?; @terminal_flag end
         # The event symbol
         def symbol; model.symbol end
     end

@@ -405,9 +405,9 @@ module Roby
         # events:: save a log of all events in the system. This log can be read using scripts/replay
         #          If this value is 'stats', only the data necessary for timing statistics is saved.
         # levels:: a component => level hash of the minimum level of the messages that 
-        #	   should be displayed on the console. The levels are DEBUG, INFO, WARN and FATAL.
-        #	     Roby: FATAL
-        #	     Roby::Interface: INFO
+        #          should be displayed on the console. The levels are DEBUG, INFO, WARN and FATAL.
+        #            Roby: FATAL
+        #            Roby::Interface: INFO
         # dir:: the log directory. Uses $app_dir/log if not set
         # results:: the 
         # filter_backtraces:: true if the framework code should be removed from the error backtraces
@@ -619,8 +619,8 @@ module Roby
         overridable_configuration 'log', 'server', predicate: true, attr_name: 'log_server'
 
         DEFAULT_OPTIONS = {
-	    'log' => Hash['events' => true, 'server' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
-	    'discovery' => Hash.new,
+            'log' => Hash['events' => true, 'server' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
+            'discovery' => Hash.new,
             'engine' => Hash.new
         }
 
@@ -822,7 +822,7 @@ module Roby
 
             # Main is always included in the planner list
             self.planners << app_module::Actions::Main
-	   
+           
             # Attach the global fault tables to the plan
             self.planners.each do |planner|
                 if planner.respond_to?(:each_fault_response_table)
@@ -1044,10 +1044,10 @@ module Roby
         def each_plugin(on_available = false)
             plugins = self.plugins
             if on_available
-            plugins = available_plugins.map { |name, _, mod, _| [name, mod] }
+                plugins = available_plugins.map { |name, _, mod, _| [name, mod] }
             end
             plugins.each do |_, mod|
-            yield(mod)
+                yield(mod)
             end
         end
 

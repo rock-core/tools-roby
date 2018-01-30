@@ -91,7 +91,7 @@ module Roby
                 #
                 #   task = TaskModel.new
                 #   exec = <find a suitable ExecutionAgentModel instance in the plan or
-                #	   create a new one>
+                #          create a new one>
                 #   task.executed_by exec
                 #   
                 # for all instances of TaskModel. The actual job is done in the

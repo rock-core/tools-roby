@@ -10,21 +10,21 @@ require 'utilrb/marshal/load_with_missing_constants'
 
 class IO
     def ask(question, default, output_io = STDOUT)
-	output_io.print question
-	output_io.flush
-	loop do
-	    answer = readline.chomp.downcase
-	    if answer.empty?
-		return default
-	    elsif answer == 'y'
-		return true
-	    elsif answer == 'n'
-		return false
-	    else
-		output_io.print "\nInvalid answer, try again: "
-		output_io.flush
-	    end
-	end
+        output_io.print question
+        output_io.flush
+        loop do
+            answer = readline.chomp.downcase
+            if answer.empty?
+                return default
+            elsif answer == 'y'
+                return true
+            elsif answer == 'n'
+                return false
+            else
+                output_io.print "\nInvalid answer, try again: "
+                output_io.flush
+            end
+        end
     end
 end
 
@@ -71,25 +71,25 @@ end
 
 module Enumerable
     def empty?
-	for i in self
-	    return false
-	end
-	true
+        for i in self
+            return false
+        end
+        true
     end
 end
 
 class Thread
     def send_to(object, name, *args, &prc)
-	if Thread.current == self
-	    object.send(name, *args, &prc)
-	else
-	    @msg_queue ||= Queue.new
-	    @msg_queue << [ object, name, args, prc ]
-	end
+        if Thread.current == self
+            object.send(name, *args, &prc)
+        else
+            @msg_queue ||= Queue.new
+            @msg_queue << [ object, name, args, prc ]
+        end
     end
     def process_events
         @msg_queue ||= Queue.new
-	loop do
+        loop do
             object, name, args, block = *@msg_queue.deq(true)
             object.send(name, *args, &block)
         end

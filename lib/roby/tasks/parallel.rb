@@ -1,39 +1,39 @@
 module Roby::Tasks
     class Parallel < TaskAggregator
-	def name
-	    @name || @tasks.map { |t| t.name }.join("|")
-	end
+        def name
+            @name || @tasks.map { |t| t.name }.join("|")
+        end
 
-	attr_reader :children_success
+        attr_reader :children_success
         def initialize(arguments = {})
-	    super
+            super
 
-	    @children_success = Roby::AndGenerator.new
-	    @children_success.forward_to success_event
+            @children_success = Roby::AndGenerator.new
+            @children_success.forward_to success_event
         end
 
         def child_of(task = nil)
-	    return super() unless task
+            return super() unless task
 
-	    task = task.new unless task.kind_of?(Roby::Task)
-	    @tasks.each do |t| 
-		task.depends_on t
+            task = task.new unless task.kind_of?(Roby::Task)
+            @tasks.each do |t| 
+                task.depends_on t
                 task.start_event.signals t.start_event
-	    end
+            end
             children_success.forward_to task.success_event
 
-	    delete
+            delete
 
-	    task
+            task
         end
 
         def <<(task)
-	    raise "trying to change a running parallel task" if running?
+            raise "trying to change a running parallel task" if running?
             @tasks << task
 
             start_event.signals task.start_event
-	    depends_on task
-	    children_success << task.success_event
+            depends_on task
+            children_success << task.success_event
 
             self
         end

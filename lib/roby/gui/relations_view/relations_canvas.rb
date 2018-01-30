@@ -244,17 +244,17 @@ module Roby
                 display.update
                 scene = display.scene
 
-		svg = Qt::SvgGenerator.new
+                svg = Qt::SvgGenerator.new
                 if path = options[:path]
                     svg.file_name = path
                 else
                     buffer = svg.output_device = Qt::Buffer.new
                 end
-		svg.size = Qt::Size.new(Integer(scene.width), Integer(scene.height))
-		painter = Qt::Painter.new
-		painter.begin(svg)
-		scene.render(painter)
-		painter.end
+                svg.size = Qt::Size.new(Integer(scene.width), Integer(scene.height))
+                painter = Qt::Painter.new
+                painter.begin(svg)
+                scene.render(painter)
+                painter.end
                 if !path
                     buffer.data
                 end
@@ -318,31 +318,31 @@ module Roby
         Roby::Transaction::TaskProxy.include RelationsCanvasTaskProxy
         Roby::Plan.include RelationsCanvasPlan
 
-	class Qt::GraphicsScene
-	    attr_reader :default_arrow_pen
-	    attr_reader :default_arrow_brush
-	    def add_arrow(size, pen = nil, brush = nil)
-		@default_arrow_pen   ||= Qt::Pen.new(ARROW_COLOR)
-		@default_arrow_brush ||= Qt::Brush.new(ARROW_COLOR)
+        class Qt::GraphicsScene
+            attr_reader :default_arrow_pen
+            attr_reader :default_arrow_brush
+            def add_arrow(size, pen = nil, brush = nil)
+                @default_arrow_pen   ||= Qt::Pen.new(ARROW_COLOR)
+                @default_arrow_brush ||= Qt::Brush.new(ARROW_COLOR)
 
-		@arrow_points ||= (1..4).map { Qt::PointF.new(0, 0) }
-		@arrow_points[1].x = -size
-		@arrow_points[1].y = size / 2
-		@arrow_points[2].x = -size
-		@arrow_points[2].y = -size / 2
-		polygon = Qt::PolygonF.new(@arrow_points)
-		@arrow_line ||=   Qt::LineF.new(-1, 0, 0, 0)
+                @arrow_points ||= (1..4).map { Qt::PointF.new(0, 0) }
+                @arrow_points[1].x = -size
+                @arrow_points[1].y = size / 2
+                @arrow_points[2].x = -size
+                @arrow_points[2].y = -size / 2
+                polygon = Qt::PolygonF.new(@arrow_points)
+                @arrow_line ||=   Qt::LineF.new(-1, 0, 0, 0)
 
-		ending = add_polygon polygon, (pen || default_arrow_pen), (brush || default_arrow_brush)
-		line   = add_line @arrow_line
+                ending = add_polygon polygon, (pen || default_arrow_pen), (brush || default_arrow_brush)
+                line   = add_line @arrow_line
 
                 @arrow_id ||= 0
                 id = (@arrow_id += 1)
                 line.setData(0, Qt::Variant.new(id.to_s))
                 ending.setData(0, Qt::Variant.new(id.to_s))
 
-		line.parent_item = ending
-		ending.singleton_class.class_eval do
+                line.parent_item = ending
+                ending.singleton_class.class_eval do
                     attr_accessor :line
 
                     def pen=(pen)
@@ -350,71 +350,71 @@ module Roby
                         line.pen = pen
                     end
                 end
-		ending.line = line
-		ending
-	    end
-	end
+                ending.line = line
+                ending
+            end
+        end
 
-	def self.intersect_rect(w, h, from, to)
-	    to_x, to_y = *to
-	    from_x, from_y = *from
+        def self.intersect_rect(w, h, from, to)
+            to_x, to_y = *to
+            from_x, from_y = *from
 
-	    # We only use half dimensions since 'to' is supposed to be be the
-	    # center of the rectangle we are intersecting
-	    w /= 2
-	    h /= 2
+            # We only use half dimensions since 'to' is supposed to be be the
+            # center of the rectangle we are intersecting
+            w /= 2
+            h /= 2
 
-	    dx    = (to_x - from_x)
-	    dy    = (to_y - from_y)
-	    delta_x = dx / dy * h
-	    if dy != 0 && delta_x.abs < w
-		if dy > 0
-		    [to_x - delta_x, to_y - h]
-		else
-		    [to_x + delta_x, to_y + h]
-		end
-	    elsif dx != 0
-		delta_y = dy / dx * w
-		if dx > 0
-		    [to_x - w, to_y - delta_y]
-		else
-		    [to_x + w, to_y + delta_y]
-		end
-	    else
-		[0, 0]
-	    end
-	end
-	
-	def self.correct_line(from, to, rect)
-	    intersect_rect(rect.width, rect.height, from, to)
-	end
+            dx    = (to_x - from_x)
+            dy    = (to_y - from_y)
+            delta_x = dx / dy * h
+            if dy != 0 && delta_x.abs < w
+                if dy > 0
+                    [to_x - delta_x, to_y - h]
+                else
+                    [to_x + delta_x, to_y + h]
+                end
+            elsif dx != 0
+                delta_y = dy / dx * w
+                if dx > 0
+                    [to_x - w, to_y - delta_y]
+                else
+                    [to_x + w, to_y + delta_y]
+                end
+            else
+                [0, 0]
+            end
+        end
+        
+        def self.correct_line(from, to, rect)
+            intersect_rect(rect.width, rect.height, from, to)
+        end
 
-	def self.arrow_set(arrow, start_object, end_object)
-	    start_br    = start_object.scene_bounding_rect
-	    end_br      = end_object.scene_bounding_rect
-	    start_point = start_br.center
-	    end_point   = end_br.center
+        def self.arrow_set(arrow, start_object, end_object)
+            start_br    = start_object.scene_bounding_rect
+            end_br      = end_object.scene_bounding_rect
+            start_point = start_br.center
+            end_point   = end_br.center
 
-	    #from = intersect_rect(start_br.width, start_br.height, end_point, start_point)
-	    from = [start_point.x, start_point.y]
-	    to   = intersect_rect(end_br.width, end_br.height, from, [end_point.x, end_point.y])
+            #from = intersect_rect(start_br.width, start_br.height, end_point, start_point)
+            from = [start_point.x, start_point.y]
+            to   = intersect_rect(end_br.width, end_br.height, from, [end_point.x, end_point.y])
 
-	    dy = to[1] - from[1]
-	    dx = to[0] - from[0]
-	    alpha  = Math.atan2(dy, dx)
-	    length = Math.sqrt(dx ** 2 + dy ** 2)
+            dy = to[1] - from[1]
+            dx = to[0] - from[0]
+            alpha  = Math.atan2(dy, dx)
+            length = Math.sqrt(dx ** 2 + dy ** 2)
 
-	    #arrow.line.set_line from[0], from[1], to[0], to[1]
-	    arrow.resetMatrix
-	    arrow.line.set_line(-length, 0, 0, 0)
-	    arrow.translate to[0], to[1]
-	    arrow.rotate(alpha * 180 / Math::PI)
+            #arrow.line.set_line from[0], from[1], to[0], to[1]
+            arrow.resetMatrix
+            arrow.line.set_line(-length, 0, 0, 0)
+            arrow.translate to[0], to[1]
+            arrow.rotate(alpha * 180 / Math::PI)
             arrow
-	end
+        end
 
-	class RelationsCanvas < Qt::Object
+        class RelationsCanvas < Qt::Object
             # Common configuration options for displays that represent tasks
-	    include TaskDisplayConfiguration
+            include TaskDisplayConfiguration
 
             # The Qt::GraphicsScene we are manipulating
             attr_reader :scene
@@ -422,32 +422,32 @@ module Roby
             # The set of plans that should be displayed
             attr_reader :plans
 
-	    # A [object, object, relation] => GraphicsItem mapping of arrows
-	    attr_reader :arrows
+            # A [object, object, relation] => GraphicsItem mapping of arrows
+            attr_reader :arrows
 
-	    # A [object, object, relation] => GraphicsItem mapping of arrows
-	    attr_reader :last_arrows
+            # A [object, object, relation] => GraphicsItem mapping of arrows
+            attr_reader :last_arrows
 
             attr_reader :free_arrows
 
-	    # A DRbObject => GraphicsItem mapping
-	    attr_reader :graphics
+            # A DRbObject => GraphicsItem mapping
+            attr_reader :graphics
 
-	    # The set of objects that are to be shown at the last update
-	    attr_reader :visible_objects
+            # The set of objects that are to be shown at the last update
+            attr_reader :visible_objects
 
-	    # The set of objects that are selected for display in the :explicit
+            # The set of objects that are selected for display in the :explicit
             # display mode
-	    attr_reader :selected_objects
+            attr_reader :selected_objects
 
-	    # A set of events that are shown during only two calls of #update
-	    attr_reader :flashing_objects
+            # A set of events that are shown during only two calls of #update
+            attr_reader :flashing_objects
 
-	    # A pool of arrows items used to display the event signalling
-	    attr_reader :signal_arrows
+            # A pool of arrows items used to display the event signalling
+            attr_reader :signal_arrows
 
-	    # True if the finalized tasks should not be displayed
-	    attr_accessor :hide_finalized
+            # True if the finalized tasks should not be displayed
+            attr_accessor :hide_finalized
 
             # @return [Boolean] true if the plan's bounding boxes should be
             #   displayed or not (true)
@@ -457,53 +457,53 @@ module Roby
             #   Graphviz#layout
             attr_reader :layout_options
 
-	    def initialize(plans)
-		@scene  = Qt::GraphicsScene.new
-		super()
+            def initialize(plans)
+                @scene  = Qt::GraphicsScene.new
+                super()
 
                 @plans  = plans.dup
                 @display_plan_bounding_boxes = false
 
                 @display_policy    = :explicit
-		@graphics          = Hash.new
-		@selected_objects   = Set.new
-		@visible_objects   = Set.new
-		@flashing_objects  = Hash.new
-		@arrows            = Hash.new
+                @graphics          = Hash.new
+                @selected_objects   = Set.new
+                @visible_objects   = Set.new
+                @flashing_objects  = Hash.new
+                @arrows            = Hash.new
                 @free_arrows       = Array.new
-		@enabled_relations = Set.new
-		@layout_relations  = Set.new
-		@relation_colors   = Hash.new
-		@relation_pens     = Hash.new(Qt::Pen.new(Qt::Color.new(ARROW_COLOR)))
-		@relation_brushes  = Hash.new(Qt::Brush.new(Qt::Color.new(ARROW_COLOR)))
-		@current_color     = 0
+                @enabled_relations = Set.new
+                @layout_relations  = Set.new
+                @relation_colors   = Hash.new
+                @relation_pens     = Hash.new(Qt::Pen.new(Qt::Color.new(ARROW_COLOR)))
+                @relation_brushes  = Hash.new(Qt::Brush.new(Qt::Color.new(ARROW_COLOR)))
+                @current_color     = 0
 
-		@signal_arrows     = []
-		@hide_finalized	   = true
+                @signal_arrows     = []
+                @hide_finalized    = true
                 @layout_options    = Hash.new
 
-		default_colors = {
-		    Roby::TaskStructure::Dependency => 'grey',
-		    Roby::TaskStructure::PlannedBy => '#32ba21',
-		    Roby::TaskStructure::ExecutionAgent => '#5d95cf',
-		    Roby::TaskStructure::ErrorHandling => '#ff2727'
-		}
-		default_colors.each do |rel, color|
-		    update_relation_color(rel, color)
-		end
+                default_colors = {
+                    Roby::TaskStructure::Dependency => 'grey',
+                    Roby::TaskStructure::PlannedBy => '#32ba21',
+                    Roby::TaskStructure::ExecutionAgent => '#5d95cf',
+                    Roby::TaskStructure::ErrorHandling => '#ff2727'
+                }
+                default_colors.each do |rel, color|
+                    update_relation_color(rel, color)
+                end
 
-		relation_pens[Roby::EventStructure::Signal]    = Qt::Pen.new(Qt::Color.new('black'))
-		relation_brushes[Roby::EventStructure::Signal] = Qt::Brush.new(Qt::Color.new('black'))
-		relation_pens[Roby::EventStructure::Forwarding]    = Qt::Pen.new(Qt::Color.new('black'))
-		relation_pens[Roby::EventStructure::Forwarding].style = Qt::DotLine
-		relation_brushes[Roby::EventStructure::Forwarding] = Qt::Brush.new(Qt::Color.new('black'))
-		relation_brushes[Roby::EventStructure::Forwarding].style = Qt::DotLine
+                relation_pens[Roby::EventStructure::Signal]    = Qt::Pen.new(Qt::Color.new('black'))
+                relation_brushes[Roby::EventStructure::Signal] = Qt::Brush.new(Qt::Color.new('black'))
+                relation_pens[Roby::EventStructure::Forwarding]    = Qt::Pen.new(Qt::Color.new('black'))
+                relation_pens[Roby::EventStructure::Forwarding].style = Qt::DotLine
+                relation_brushes[Roby::EventStructure::Forwarding] = Qt::Brush.new(Qt::Color.new('black'))
+                relation_brushes[Roby::EventStructure::Forwarding].style = Qt::DotLine
 
 
                 enable_relation(Roby::TaskStructure::Dependency)
                 enable_relation(Roby::TaskStructure::ExecutionAgent)
                 enable_relation(Roby::TaskStructure::PlannedBy)
-	    end
+            end
 
             def save_options
                 options = Hash.new
@@ -537,16 +537,16 @@ module Roby
                 end
             end
 
-	    def object_of(item)
+            def object_of(item)
                 id = item.data(0).to_string
                 return if !id
                 id = Integer(id)
 
-		obj, _ = graphics.find do |obj, obj_item| 
-		    obj.object_id == id
-		end
-		obj
-	    end
+                obj, _ = graphics.find do |obj, obj_item| 
+                    obj.object_id == id
+                end
+                obj
+            end
 
             def relation_of(item)
                 id = item.data(0).to_string
@@ -558,20 +558,20 @@ module Roby
                 nil
             end
 
-	    def [](item); graphics[item] end
+            def [](item); graphics[item] end
 
             # Returns a canvas object that represents this relation
-	    def task_relation(from, to, rel, info)
-		arrow(from, to, rel, info, TASK_LAYER)
-	    end
+            def task_relation(from, to, rel, info)
+                arrow(from, to, rel, info, TASK_LAYER)
+            end
             # Returns a canvas object that represents this relation
-	    def event_relation(form, to, rel, info)
-		arrow(from, to, rel, info, EVENT_LAYER)
-	    end
+            def event_relation(form, to, rel, info)
+                arrow(from, to, rel, info, EVENT_LAYER)
+            end
 
             # Creates or reuses an arrow object to represent the given relation
-	    def arrow(from, to, rel, info, base_layer)
-		id = [from, to, rel]
+            def arrow(from, to, rel, info, base_layer)
+                id = [from, to, rel]
                 if !(item = arrows[id])
                     if item = last_arrows.delete(id)
                         arrows[id] = item
@@ -583,151 +583,151 @@ module Roby
                     end
                 end
 
-		GUI.arrow_set item, self[from], self[to]
-	    end
+                GUI.arrow_set item, self[from], self[to]
+            end
 
-	    # Centers the view on the set of object found which matches
-	    # +regex+.  If +regex+ is nil, ask one to the user
-	    def find(regex = nil)
-		unless regex
-		    regex = Qt::InputDialog.get_text main, 'Find objects in relation view', 'Object name'
-		    return unless regex && !regex.empty?
-		end
-		regex = /#{regex.to_str}/i if regex.respond_to?(:to_str)
+            # Centers the view on the set of object found which matches
+            # +regex+.  If +regex+ is nil, ask one to the user
+            def find(regex = nil)
+                unless regex
+                    regex = Qt::InputDialog.get_text main, 'Find objects in relation view', 'Object name'
+                    return unless regex && !regex.empty?
+                end
+                regex = /#{regex.to_str}/i if regex.respond_to?(:to_str)
 
-		# Get the tasks and events matching the string
-		objects = []
-		for p in plans
-		    objects.concat p.tasks.
-			find_all { |object| displayed?(object) && regex === object.display_name(self) }
-		    objects.concat p.free_events.
-			find_all { |object| displayed?(object) && regex === object.display_name(self) }
-		end
+                # Get the tasks and events matching the string
+                objects = []
+                for p in plans
+                    objects.concat p.tasks.
+                        find_all { |object| displayed?(object) && regex === object.display_name(self) }
+                    objects.concat p.free_events.
+                        find_all { |object| displayed?(object) && regex === object.display_name(self) }
+                end
 
-		return if objects.empty?
+                return if objects.empty?
 
-		# Find the graphics items
-		bb = objects.inject(Qt::RectF.new) do |bb, object| 
-		    if item = self[object]
-			item.selected = true
-			bb | item.scene_bounding_rect | item.map_to_scene(item.children_bounding_rect).bounding_rect
-		    else
-			bb
-		    end
-		end
-		bb.adjust(-FIND_MARGIN, -FIND_MARGIN, FIND_MARGIN, FIND_MARGIN)
-		ui.graphics.fit_in_view bb, Qt::KeepAspectRatio
-		scale = ui.graphics.matrix.m11
-		if scale > 1
-		    ui.graphics.resetMatrix
-		    ui.graphics.scale 1, 1
-		end
-	    end
-	    slots 'find()'
+                # Find the graphics items
+                bb = objects.inject(Qt::RectF.new) do |bb, object| 
+                    if item = self[object]
+                        item.selected = true
+                        bb | item.scene_bounding_rect | item.map_to_scene(item.children_bounding_rect).bounding_rect
+                    else
+                        bb
+                    end
+                end
+                bb.adjust(-FIND_MARGIN, -FIND_MARGIN, FIND_MARGIN, FIND_MARGIN)
+                ui.graphics.fit_in_view bb, Qt::KeepAspectRatio
+                scale = ui.graphics.matrix.m11
+                if scale > 1
+                    ui.graphics.resetMatrix
+                    ui.graphics.scale 1, 1
+                end
+            end
+            slots 'find()'
 
-	    attr_accessor :keep_signals
+            attr_accessor :keep_signals
 
-	    COLORS = %w{'black' #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}
-	    attr_reader :current_color
-	    # returns the next color in COLORS, cycles if at the end of the array
-	    def allocate_color
-		@current_color = (current_color + 1) % COLORS.size
-		COLORS[current_color]
-	    end
+            COLORS = %w{'black' #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}
+            attr_reader :current_color
+            # returns the next color in COLORS, cycles if at the end of the array
+            def allocate_color
+                @current_color = (current_color + 1) % COLORS.size
+                COLORS[current_color]
+            end
 
             # True if this relation should be displayed
-	    def relation_enabled?(relation); @enabled_relations.include?(relation) end
+            def relation_enabled?(relation); @enabled_relations.include?(relation) end
             # True if this relation should be used for layout
             #
             # See also #relation_enabled?, #layout_relation, #ignore_relation
-	    def layout_relation?(relation); relation_enabled?(relation) || @layout_relations.include?(relation) end
+            def layout_relation?(relation); relation_enabled?(relation) || @layout_relations.include?(relation) end
 
             # Display this relation
-	    def enable_relation(relation)
-		return if relation_enabled?(relation)
-		@enabled_relations << relation
-		arrows.each do |(_, _, rel), arrow|
-		    if rel == relation
-			arrow.visible = true 
-		    end
-		end
-	    end
+            def enable_relation(relation)
+                return if relation_enabled?(relation)
+                @enabled_relations << relation
+                arrows.each do |(_, _, rel), arrow|
+                    if rel == relation
+                        arrow.visible = true 
+                    end
+                end
+            end
 
             # The set of relations that should be displayed
-	    attr_reader :enabled_relations
+            attr_reader :enabled_relations
 
             # Use this relation for layout but not for display
             #
             # See also #ignore_relation
-	    def layout_relation(relation)
-		disable_relation(relation)
-		@layout_relations << relation
-	    end
+            def layout_relation(relation)
+                disable_relation(relation)
+                @layout_relations << relation
+            end
 
             # Don't use this relation at all
-	    def ignore_relation(relation)
-		disable_relation(relation)
-		@layout_relations.delete(relation)
-	    end
+            def ignore_relation(relation)
+                disable_relation(relation)
+                @layout_relations.delete(relation)
+            end
 
-	    def disable_relation(relation)
-		return unless relation_enabled?(relation)
-		@enabled_relations.delete(relation)
-		arrows.each do |(_, _, rel), arrow|
-		    if rel == relation
-			arrow.visible = false 
-		    end
-		end
-	    end
+            def disable_relation(relation)
+                return unless relation_enabled?(relation)
+                @enabled_relations.delete(relation)
+                arrows.each do |(_, _, rel), arrow|
+                    if rel == relation
+                        arrow.visible = false 
+                    end
+                end
+            end
 
-	    attr_reader :relation_colors
-	    attr_reader :relation_pens
-	    attr_reader :relation_brushes
-	    def relation_color(relation)
-		if !relation_colors.has_key?(relation)
-		    update_relation_color(relation, allocate_color)
-		end
-		relation_colors[relation]
-	    end
-	    def update_relation_color(relation, color)
-		relation_colors[relation] = color
-		color = Qt::Color.new(color)
-		pen   = relation_pens[relation]    = Qt::Pen.new(color)
-		brush = relation_brushes[relation] = Qt::Brush.new(color)
-		arrows.each do |(_, _, rel), arrow|
-		    if rel == relation
-			arrow.pen = arrow.line.pen = pen
-			arrow.brush = brush
-		    end
-		end
-	    end
+            attr_reader :relation_colors
+            attr_reader :relation_pens
+            attr_reader :relation_brushes
+            def relation_color(relation)
+                if !relation_colors.has_key?(relation)
+                    update_relation_color(relation, allocate_color)
+                end
+                relation_colors[relation]
+            end
+            def update_relation_color(relation, color)
+                relation_colors[relation] = color
+                color = Qt::Color.new(color)
+                pen   = relation_pens[relation]    = Qt::Pen.new(color)
+                brush = relation_brushes[relation] = Qt::Brush.new(color)
+                arrows.each do |(_, _, rel), arrow|
+                    if rel == relation
+                        arrow.pen = arrow.line.pen = pen
+                        arrow.brush = brush
+                    end
+                end
+            end
 
-	    def layout_method=(new_method)
-		return if new_method == @layout_method
+            def layout_method=(new_method)
+                return if new_method == @layout_method
 
-		@layout_method  = nil
-		@layout_options = nil
-		if new_method
-		    new_method =~ /^(\w+)(?: \[(.*)\])?$/
-		    @layout_method    = $1
-		    if $2
-			@layout_options = $2.split(",").inject(Hash.new) do |h, v|
-			    k, v = v.split("=")
-			    h[k] = v
-			    h
-			end
-		    end
-		end
-		display
-	    end
-	    def layout_options
-		return @layout_options if @layout_options
-		{ rankdir: 'TB' }
-	    end
-	    def layout_method
-		return @layout_method if @layout_method
-		"dot"
-	    end
+                @layout_method  = nil
+                @layout_options = nil
+                if new_method
+                    new_method =~ /^(\w+)(?: \[(.*)\])?$/
+                    @layout_method    = $1
+                    if $2
+                        @layout_options = $2.split(",").inject(Hash.new) do |h, v|
+                            k, v = v.split("=")
+                            h[k] = v
+                            h
+                        end
+                    end
+                end
+                display
+            end
+            def layout_options
+                return @layout_options if @layout_options
+                { rankdir: 'TB' }
+            end
+            def layout_method
+                return @layout_method if @layout_method
+                "dot"
+            end
 
             DISPLAY_POLICIES = [:explicit, :emitters, :emitters_and_parents]
             attr_reader :display_policy
@@ -738,55 +738,55 @@ module Roby
                 @display_policy = policy
             end
 
-	    def displayed?(object)
+            def displayed?(object)
                 if (parent = object.display_parent) && !displayed?(parent)
                     return false
                 end
                 return visible_objects.include?(object)
-	    end
+            end
 
-	    def create_or_get_item(object, initial_selection)
-		if !(item = graphics[object])
-		    item = graphics[object] = object.display_create(self)
-		    if item
+            def create_or_get_item(object, initial_selection)
+                if !(item = graphics[object])
+                    item = graphics[object] = object.display_create(self)
+                    if item
                         if object.display_parent
                             item.parent_item = self[object.display_parent]
                         end
 
-			yield(item) if block_given?
+                        yield(item) if block_given?
 
                         if initial_selection
                             selected_objects << object
                         end
-		    end
+                    end
                 end
-		item
-	    end
+                item
+            end
 
-	    # Add +object+ to the list of objects temporarily displayed. If a
-	    # block is given, the object is removed when the block returns
-	    # false. Otherwise, it is removed at the next display update
-	    #
-	    # If this method is called more than once for the same object, the
-	    # object is removed when *all* blocks have returned false at least
-	    # once
-	    def add_flashing_object(object, &block)
-		if block
-		    flashing_objects[object] ||= []
-		    flashing_objects[object] << block
-		else
-		    flashing_objects[object] ||= nil
-		end
+            # Add +object+ to the list of objects temporarily displayed. If a
+            # block is given, the object is removed when the block returns
+            # false. Otherwise, it is removed at the next display update
+            #
+            # If this method is called more than once for the same object, the
+            # object is removed when *all* blocks have returned false at least
+            # once
+            def add_flashing_object(object, &block)
+                if block
+                    flashing_objects[object] ||= []
+                    flashing_objects[object] << block
+                else
+                    flashing_objects[object] ||= nil
+                end
                 if object.display_parent
                     add_flashing_object(object.display_parent, &block)
                 end
 
-		create_or_get_item(object, false)
-	    end
+                create_or_get_item(object, false)
+            end
 
             # Removes the objects added with #add_flashing_object when they
             # should be removed
-	    def clear_flashing_objects
+            def clear_flashing_objects
                 removed_objects = []
                 flashing_objects.delete_if do |object, blocks|
                     blocks.delete_if { |block| !block.call }
@@ -797,9 +797,9 @@ module Roby
                 end
 
                 removed_objects.each do |object|
-		    if item = graphics[object]
-			item.visible = displayed?(object)
-		    end
+                    if item = graphics[object]
+                        item.visible = displayed?(object)
+                    end
                 end
             end
 
@@ -808,17 +808,17 @@ module Roby
             # 
             # +arrow+ is the graphics item representing the relation and +flag+
             # is one of the PROPAG_ constant
-	    def propagation_style(arrow, flag)
-		unless defined? @@propagation_styles
-		    @@propagation_styles = Hash.new
-		    @@propagation_styles[true] = 
-			[Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, (forward_pen = Qt::Pen.new)]
-		    forward_pen.style = Qt::DotLine
-		    @@propagation_styles[false] = 
-			[Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, Qt::Pen.new]
-		end
-		arrow.brush, arrow.pen, arrow.line.pen = @@propagation_styles[flag]
-	    end
+            def propagation_style(arrow, flag)
+                unless defined? @@propagation_styles
+                    @@propagation_styles = Hash.new
+                    @@propagation_styles[true] = 
+                        [Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, (forward_pen = Qt::Pen.new)]
+                    forward_pen.style = Qt::DotLine
+                    @@propagation_styles[false] = 
+                        [Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, Qt::Pen.new]
+                end
+                arrow.brush, arrow.pen, arrow.line.pen = @@propagation_styles[flag]
+            end
 
             def update_visible_objects
                 @visible_objects = Set.new
@@ -897,7 +897,7 @@ module Roby
             #
             # It would be too complex at this stage to know if the plan has been
             # updated, so the method always returns true
-	    def update(time = nil)
+            def update(time = nil)
                 # Allow time to be a Qt::DateTime object, so that we can make it
                 # a slot
                 if time.kind_of?(Qt::DateTime)
@@ -912,37 +912,37 @@ module Roby
                 @last_arrows, @arrows = arrows, Hash.new
                 @free_arrows ||= Array.new
 
-		update_prefixes_removal
-		clear_flashing_objects
+                update_prefixes_removal
+                clear_flashing_objects
 
-		# The sets of tasks and events know to the data stream
-		all_tasks  = plans.inject(Set.new) do |all_tasks, plan|
-		    all_tasks.merge plan.tasks
-		    all_tasks.merge plan.finalized_tasks
-		end
-		all_events = plans.inject(Set.new) do |all_events, plan|
-		    all_events.merge plan.free_events
-		    all_events.merge plan.finalized_events
-		end
+                # The sets of tasks and events know to the data stream
+                all_tasks  = plans.inject(Set.new) do |all_tasks, plan|
+                    all_tasks.merge plan.tasks
+                    all_tasks.merge plan.finalized_tasks
+                end
+                all_events = plans.inject(Set.new) do |all_events, plan|
+                    all_events.merge plan.free_events
+                    all_events.merge plan.finalized_events
+                end
                 all_task_events = all_tasks.inject(Set.new) do |all_task_events, task|
                     all_task_events.merge(task.bound_events.values)
                 end
 
-		# Remove the items for objects that don't exist anymore
-		(graphics.keys.to_set - all_tasks - all_events - all_task_events).each do |obj|
-		    selected_objects.delete(obj)
-		    remove_graphics(graphics.delete(obj))
-		    clear_arrows(obj)
-		end
+                # Remove the items for objects that don't exist anymore
+                (graphics.keys.to_set - all_tasks - all_events - all_task_events).each do |obj|
+                    selected_objects.delete(obj)
+                    remove_graphics(graphics.delete(obj))
+                    clear_arrows(obj)
+                end
 
-		# Create graphics items for all objects that may get displayed
+                # Create graphics items for all objects that may get displayed
                 # on the canvas
                 all_tasks.each do |object|
                     create_or_get_item(object, true)
-		    object.each_event do |ev|
+                    object.each_event do |ev|
                         create_or_get_item(ev, false)
-		    end
-		end
+                    end
+                end
                 all_events.each { |ev| create_or_get_item(ev, true) }
                 plans.each { |p| create_or_get_item(p, display_plan_bounding_boxes?) }
 
@@ -952,8 +952,8 @@ module Roby
                     item.visible = displayed?(object)
                 end
 
-		RelationsCanvasEventGenerator.priorities.clear
-		event_priority = 0
+                RelationsCanvasEventGenerator.priorities.clear
+                event_priority = 0
                 plans.each do |p|
                     flags = Hash.new(0)
 
@@ -980,7 +980,7 @@ module Roby
                         end
                     end
                 end
-		
+                
                 plans.each do |p|
                     p.propagated_events.each do |_, sources, to, _|
                         sources.each do |from|
@@ -990,25 +990,25 @@ module Roby
                     end
                 end
 
-		[all_tasks, all_events, plans].each do |object_set|
-		    object_set.each do |object|
+                [all_tasks, all_events, plans].each do |object_set|
+                    object_set.each do |object|
                         graphics = self.graphics[object]
                         if graphics.visible?
                             object.display(self, graphics)
                         end
-		    end
-		end
+                    end
+                end
 
-		# Update arrow visibility
-		arrows.each do |(from, to, rel), item|
+                # Update arrow visibility
+                arrows.each do |(from, to, rel), item|
                     next if !@enabled_relations.include?(rel)
-		    item.visible = (displayed?(from) && displayed?(to))
-		end
+                    item.visible = (displayed?(from) && displayed?(to))
+                end
 
-		# Layout the graph
-		layouts = plans.find_all { |p| p.root_plan? }.
-		    map do |p| 
-			dot = PlanDotLayout.new
+                # Layout the graph
+                layouts = plans.find_all { |p| p.root_plan? }.
+                    map do |p| 
+                        dot = PlanDotLayout.new
                         begin
                             dot.layout(self, p, layout_options)
                             dot
@@ -1016,10 +1016,10 @@ module Roby
                             puts "Failed to lay out the plan: #{e}"
                         end
                     end.compact
-		layouts.each { |dot| dot.apply }
+                layouts.each { |dot| dot.apply }
 
-		# Display the signals
-		signal_arrow_idx = -1
+                # Display the signals
+                signal_arrow_idx = -1
                 plans.each do |p|
                     p.propagated_events.each_with_index do |(flag, sources, to), signal_arrow_idx|
                         relation =
@@ -1048,41 +1048,41 @@ module Roby
             #rescue Exception => e
             #    message = "<html>#{e.message.gsub('<', '&lt;').gsub('>', '&gt;')}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
             #    Qt::MessageBox.critical nil, "Display failure", message
-	    end
+            end
 
-	    def remove_graphics(item, scene = nil)
-		return unless item
-		scene ||= item.scene
-		scene.remove_item(item) if scene
-	    end
+            def remove_graphics(item, scene = nil)
+                return unless item
+                scene ||= item.scene
+                scene.remove_item(item) if scene
+            end
 
-	    def clear_arrows(object)
-		arrows.delete_if do |(from, to, _), arrow|
-		    if from == object || to == object
-			remove_graphics(arrow)
-			true
-		    end
-		end
-	    end
+            def clear_arrows(object)
+                arrows.delete_if do |(from, to, _), arrow|
+                    if from == object || to == object
+                        remove_graphics(arrow)
+                        true
+                    end
+                end
+            end
 
-	    def clear
-		arrows.dup.each_value(&method(:remove_graphics))
-		graphics.dup.each_value(&method(:remove_graphics))
-		arrows.clear
+            def clear
+                arrows.dup.each_value(&method(:remove_graphics))
+                graphics.dup.each_value(&method(:remove_graphics))
+                arrows.clear
                 free_arrows.clear
                 last_arrows.clear
-		graphics.clear
+                graphics.clear
 
-		signal_arrows.each do |arrow|
-		    arrow.visible = false
-		end
+                signal_arrows.each do |arrow|
+                    arrow.visible = false
+                end
 
-		selected_objects.clear
-		visible_objects.clear
-		flashing_objects.clear
-		scene.update(scene.scene_rect)
-	    end
-	end
+                selected_objects.clear
+                visible_objects.clear
+                flashing_objects.clear
+                scene.update(scene.scene_rect)
+            end
+        end
     end
 end
 

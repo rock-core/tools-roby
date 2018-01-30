@@ -13,8 +13,8 @@ module Roby
             # responds to #call
             def controlable?; respond_to?(:call) end
 
-	    # Called by Task.update_terminal_flag to update the flag
-	    attr_predicate :terminal?, true
+            # Called by Task.update_terminal_flag to update the flag
+            attr_predicate :terminal?, true
 
             # @return [Symbol] the event name
             attr_accessor :symbol

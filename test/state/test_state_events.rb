@@ -4,145 +4,145 @@ require 'roby/state/pos'
 
 class TC_StateEvents < Minitest::Test
     def test_pos_euler3d
-	p = Pos::Euler3D.new(30)
-	assert_equal(30, p.x)
-	assert_equal(0, p.y)
-	assert_equal(0, p.z)
+        p = Pos::Euler3D.new(30)
+        assert_equal(30, p.x)
+        assert_equal(0, p.y)
+        assert_equal(0, p.z)
 
-	assert_equal(10, p.distance(30, 10))
-	assert_equal(0, p.distance(p))
-	assert_equal(0, Pos::Vector3D.new(30, 10, 50).distance2d(30, 10))
+        assert_equal(10, p.distance(30, 10))
+        assert_equal(0, p.distance(p))
+        assert_equal(0, Pos::Vector3D.new(30, 10, 50).distance2d(30, 10))
 
-	assert_equal(Pos::Vector3D.new(-30), -p)
+        assert_equal(Pos::Vector3D.new(-30), -p)
     end
 
     def test_pos_delta_event
-	State.pos = Pos::Euler3D.new
+        State.pos = Pos::Euler3D.new
 
-	plan.add(d = State.on_delta(d: 10))
-	assert_kind_of(PosDeltaEvent, d)
+        plan.add(d = State.on_delta(d: 10))
+        assert_kind_of(PosDeltaEvent, d)
         expect_execution { d.poll }.
             to { not_emit d }
-	assert_equal(State.pos, d.last_value)
+        assert_equal(State.pos, d.last_value)
 
-	State.pos.x = 5
+        State.pos.x = 5
         expect_execution { d.poll }.
             to { not_emit d }
 
-	State.pos.x = 10
+        State.pos.x = 10
         expect_execution { d.poll }.
             to { emit d }
 
         expect_execution { d.poll }.
             to { not_emit d }
 
-	State.pos.x = 0
+        State.pos.x = 0
         expect_execution { d.poll }.
             to { emit d }
     end
 
     def test_yaw_delta_event
-	State.pos = Pos::Euler3D.new
+        State.pos = Pos::Euler3D.new
 
-	plan.add(y = State.on_delta(yaw: 2))
-	assert_kind_of(YawDeltaEvent, y)
-	y.poll
-	assert_equal(0, y.last_value)
+        plan.add(y = State.on_delta(yaw: 2))
+        assert_kind_of(YawDeltaEvent, y)
+        y.poll
+        assert_equal(0, y.last_value)
 
-	assert(!y.emitted?)
-	State.pos.yaw = 20
+        assert(!y.emitted?)
+        State.pos.yaw = 20
         expect_execution { y.poll }.
             to { emit y }
 
         expect_execution { y.poll }.
             to { not_emit y }
 
-	State.pos.yaw = 0
+        State.pos.yaw = 0
         expect_execution { y.poll }.
             to { emit y }
     end
 
     def test_time_delta_event
-	FlexMock.use(Time) do |time_proxy|
-	    current_time = Time.now + 5
-	    time_proxy.should_receive(:now).and_return { current_time }
+        FlexMock.use(Time) do |time_proxy|
+            current_time = Time.now + 5
+            time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.add(ev = State.on_delta(t: 1))
-	    assert_kind_of(TimeDeltaEvent, ev)
+            plan.add(ev = State.on_delta(t: 1))
+            assert_kind_of(TimeDeltaEvent, ev)
 
             expect_execution { ev.poll }.
                 to { not_emit ev }
-	    current_time += 0.5
+            current_time += 0.5
             expect_execution { ev.poll }.
                 to { not_emit ev }
 
-	    current_time += 0.5
+            current_time += 0.5
             expect_execution { ev.poll }.
                 to { emit ev }
 
-	    current_time += 0.5
+            current_time += 0.5
             expect_execution { ev.poll }.
                 to { not_emit ev }
 
-	    current_time += 0.5
+            current_time += 0.5
             expect_execution { ev.poll }.
                 to { emit ev }
-	end
+        end
     end
 
     def test_timepoint_event
-	FlexMock.use(Time) do |time_proxy|
-	    current_time = Time.now + 5
-	    time_proxy.should_receive(:now).and_return { current_time }
+        FlexMock.use(Time) do |time_proxy|
+            current_time = Time.now + 5
+            time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.add(ev = State.at(t: current_time + 1))
+            plan.add(ev = State.at(t: current_time + 1))
             expect_execution { ev.poll }.
                 to { not_emit ev }
-	    current_time += 1
+            current_time += 1
             expect_execution { ev.poll }.
                 to { emit ev }
-	    current_time += 1
+            current_time += 1
             expect_execution { ev.poll }.
                 to { not_emit ev }
-	end
+        end
     end
 
     def test_and_state_events
-	State.pos = Pos::Euler3D.new
-	plan.add_permanent_event(ev = State.on_delta(yaw: 2, d: 10))
-	assert_kind_of(AndGenerator, ev)
+        State.pos = Pos::Euler3D.new
+        plan.add_permanent_event(ev = State.on_delta(yaw: 2, d: 10))
+        assert_kind_of(AndGenerator, ev)
 
-	execute_one_cycle
-	assert_equal(0, ev.history.size)
+        execute_one_cycle
+        assert_equal(0, ev.history.size)
 
         execute do
             State.pos.yaw = 1
             State.pos.x = 15
         end
-	assert_equal(0, ev.history.size)
+        assert_equal(0, ev.history.size)
 
         execute do
             State.pos.yaw = 2
         end
-	assert_equal(1, ev.history.size)
+        assert_equal(1, ev.history.size)
 
         execute do
             State.pos.yaw = 3
             State.pos.x = 25
         end
-	assert_equal(1, ev.history.size)
+        assert_equal(1, ev.history.size)
 
         execute do
             State.pos.yaw = 4
         end
-	assert_equal(2, ev.history.size, ev.waiting.to_a)
+        assert_equal(2, ev.history.size, ev.waiting.to_a)
     end
 
     def test_or_state_events
-	State.pos = Pos::Euler3D.new
-	plan.add(y = State.on_delta(yaw: 2))
+        State.pos = Pos::Euler3D.new
+        plan.add(y = State.on_delta(yaw: 2))
 
-	ev = y.or(d: 10)
+        ev = y.or(d: 10)
         expect_execution.to { not_emit ev }
 
         expect_execution do
@@ -158,7 +158,7 @@ class TC_StateEvents < Minitest::Test
             State.pos.yaw = 3
         end.to { emit ev }
 
-	ev = ev.or(t: 1)
+        ev = ev.or(t: 1)
         Timecop.freeze(base_time = Time.now)
         expect_execution.to { not_emit ev }
 

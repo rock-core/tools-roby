@@ -112,40 +112,40 @@ class TC_StateSpace < Minitest::Test
     end
 
     def test_export
-	s = create_state_space('pos.x', 'speed.x')
-	s.pos.x   = 42
-	s.speed.x = 0
+        s = create_state_space('pos.x', 'speed.x')
+        s.pos.x   = 42
+        s.speed.x = 0
 
-	obj = Marshal.load(Marshal.dump(s))
-	assert(obj.respond_to?(:pos))
-	assert(obj.respond_to?(:speed))
-	assert_equal(42, obj.pos.x)
-	assert_equal(0, obj.speed.x)
+        obj = Marshal.load(Marshal.dump(s))
+        assert(obj.respond_to?(:pos))
+        assert(obj.respond_to?(:speed))
+        assert_equal(42, obj.pos.x)
+        assert_equal(0, obj.speed.x)
 
-	s.export :pos
-	obj = Marshal.load(Marshal.dump(s))
-	assert(obj.respond_to?(:pos))
-	assert(!obj.respond_to?(:speed))
-	assert_equal(42, obj.pos.x)
+        s.export :pos
+        obj = Marshal.load(Marshal.dump(s))
+        assert(obj.respond_to?(:pos))
+        assert(!obj.respond_to?(:speed))
+        assert_equal(42, obj.pos.x)
 
-	s.export :speed
-	obj = Marshal.load(Marshal.dump(s))
-	assert(obj.respond_to?(:pos))
-	assert(obj.respond_to?(:speed))
-	assert_equal(42, obj.pos.x)
-	assert_equal(0, obj.speed.x)
+        s.export :speed
+        obj = Marshal.load(Marshal.dump(s))
+        assert(obj.respond_to?(:pos))
+        assert(obj.respond_to?(:speed))
+        assert_equal(42, obj.pos.x)
+        assert_equal(0, obj.speed.x)
 
         s.export_none
-	obj = Marshal.load(Marshal.dump(s))
-	assert(!obj.respond_to?(:pos))
-	assert(!obj.respond_to?(:speed))
+        obj = Marshal.load(Marshal.dump(s))
+        assert(!obj.respond_to?(:pos))
+        assert(!obj.respond_to?(:speed))
 
         s.export_all
-	obj = Marshal.load(Marshal.dump(s))
-	assert(obj.respond_to?(:pos))
-	assert(obj.respond_to?(:speed))
-	assert_equal(42, obj.pos.x)
-	assert_equal(0, obj.speed.x)
+        obj = Marshal.load(Marshal.dump(s))
+        assert(obj.respond_to?(:pos))
+        assert(obj.respond_to?(:speed))
+        assert_equal(42, obj.pos.x)
+        assert_equal(0, obj.speed.x)
     end
 
     def test_last_known_is_accessible_from_the_field

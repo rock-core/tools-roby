@@ -5,43 +5,43 @@ class TC_Queries_Query < Minitest::Test
     TaskMatcher = Queries::TaskMatcher
 
     def check_matches_fullfill(task_model, plan, t0, t1, t2)
-	result = plan.find_tasks.which_fullfills(task_model, value: 2).to_set
-	assert_equal([t2].to_set, result)
-	# Try the shortcut of find_tasks(model, args) for find_tasks.which_fullfills(model, args)
-	result = plan.find_tasks(task_model, value: 2).to_set
-	assert_equal([t2].to_set, result)
-	result = plan.find_tasks(task_model).to_set
-	assert_equal([t1, t2].to_set, result)
+        result = plan.find_tasks.which_fullfills(task_model, value: 2).to_set
+        assert_equal([t2].to_set, result)
+        # Try the shortcut of find_tasks(model, args) for find_tasks.which_fullfills(model, args)
+        result = plan.find_tasks(task_model, value: 2).to_set
+        assert_equal([t2].to_set, result)
+        result = plan.find_tasks(task_model).to_set
+        assert_equal([t1, t2].to_set, result)
     end
 
     def test_match_task_fullfills
-	task_model = Task.new_submodel do
-	    argument :value
-	end
+        task_model = Task.new_submodel do
+            argument :value
+        end
 
-	t0 = Roby::Task.new(value: 1)
-	t1 = task_model.new(value: 1)
-	t2 = task_model.new(value: 2)
+        t0 = Roby::Task.new(value: 1)
+        t1 = task_model.new(value: 1)
+        t2 = task_model.new(value: 2)
 
-	plan.add_mission_task(t0)
-	plan.add_mission_task(t1)
-	plan.add_mission_task(t2)
+        plan.add_mission_task(t0)
+        plan.add_mission_task(t1)
+        plan.add_mission_task(t2)
 
-	check_matches_fullfill(task_model, plan, t0, t1, t2)
+        check_matches_fullfill(task_model, plan, t0, t1, t2)
     end
 
     def test_match_proxy_fullfills
-	task_model = Task.new_submodel do
-	    argument :value
-	end
+        task_model = Task.new_submodel do
+            argument :value
+        end
 
-	t0 = Roby::Task.new(value: 1)
-	t1 = task_model.new(value: 1)
-	t2 = task_model.new(value: 2)
+        t0 = Roby::Task.new(value: 1)
+        t1 = task_model.new(value: 1)
+        t2 = task_model.new(value: 2)
 
-	plan.add_mission_task(t0)
-	plan.add_mission_task(t1)
-	plan.add_mission_task(t2)
+        plan.add_mission_task(t0)
+        plan.add_mission_task(t1)
+        plan.add_mission_task(t2)
 
         plan.in_transaction do |trsc|
             check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])
@@ -49,20 +49,20 @@ class TC_Queries_Query < Minitest::Test
     end
 
     def assert_query_finds_tasks(task_set)
-	assert_equal(task_set.to_set, yield.enum_for(:each).to_set)
+        assert_equal(task_set.to_set, yield.enum_for(:each).to_set)
     end
 
     def test_query_plan_predicates
-	t1, t2, t3 = prepare_plan missions: 1, add: 1, tasks: 1
-	plan.add_permanent_task(t3)
-	assert_query_finds_tasks([t1]) { plan.find_tasks.mission }
-	assert_query_finds_tasks([t2, t3]) { plan.find_tasks.not_mission }
-	assert_query_finds_tasks([t3]) { plan.find_tasks.permanent }
-	assert_query_finds_tasks([t1, t2]) { plan.find_tasks.not_permanent }
+        t1, t2, t3 = prepare_plan missions: 1, add: 1, tasks: 1
+        plan.add_permanent_task(t3)
+        assert_query_finds_tasks([t1]) { plan.find_tasks.mission }
+        assert_query_finds_tasks([t2, t3]) { plan.find_tasks.not_mission }
+        assert_query_finds_tasks([t3]) { plan.find_tasks.permanent }
+        assert_query_finds_tasks([t1, t2]) { plan.find_tasks.not_permanent }
     end
 
     def test_roots
-	(t1, t2, t3), (tr1, tr2, tr3) = prepare_plan add: 3, tasks: 3
+        (t1, t2, t3), (tr1, tr2, tr3) = prepare_plan add: 3, tasks: 3
         plan.in_transaction do |trsc|
             [tr1, tr2, tr3].each { |t| trsc.add(t) }
 
@@ -139,7 +139,7 @@ class TC_Queries_Query < Minitest::Test
     end
 
     def test_child_in_transactions
-	(t1, t2), t3 = prepare_plan add: 2, tasks: 1, model: Tasks::Simple
+        (t1, t2), t3 = prepare_plan add: 2, tasks: 1, model: Tasks::Simple
         t1.depends_on t2
         plan.in_transaction do |trsc|
             trsc[t2].depends_on t3
@@ -197,7 +197,7 @@ class TC_Queries_Query < Minitest::Test
     end
 
     def test_parent_in_transaction
-	(t1, t2), t3 = prepare_plan add: 2, tasks: 1, model: Tasks::Simple
+        (t1, t2), t3 = prepare_plan add: 2, tasks: 1, model: Tasks::Simple
         t1.depends_on t2
         plan.in_transaction do |trsc|
             trsc[t2].depends_on t3
@@ -219,12 +219,12 @@ class TC_Queries_Query < Minitest::Test
     end
 
     def test_transactions_simple
-	model = Roby::Task.new_submodel do
-	    argument :id
-	end
-	t1, t2, t3 = (1..3).map { |i| model.new(id: i) }
-	t1.depends_on t2
-	plan.add(t1)
+        model = Roby::Task.new_submodel do
+            argument :id
+        end
+        t1, t2, t3 = (1..3).map { |i| model.new(id: i) }
+        t1.depends_on t2
+        plan.add(t1)
 
         plan.in_transaction do |trsc|
             assert(trsc.find_tasks.which_fullfills(Tasks::Simple).to_a.empty?)

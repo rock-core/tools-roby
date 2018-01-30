@@ -39,28 +39,28 @@ module Roby
         # The trace of how this exception has been propagated in the plan so far
         #
         # @return [Relations::BidirectionalDirectedAdjacencyGraph]
-	attr_reader :trace
+        attr_reader :trace
 
-	# The last object(s) that handled the exception. This is either a
-	# single object or an array
+        # The last object(s) that handled the exception. This is either a
+        # single object or an array
         def propagation_leafs; trace.each_vertex.find_all { |v| trace.leaf?(v) } end
-	# The object from which the exception originates
+        # The object from which the exception originates
         def origin; @origin end
         # If true, the underlying exception is a fatal error, i.e. should cause
         # parent tasks to be stopped if unhandled.
         def fatal?; exception.fatal? end
     
-	# The origin EventGenerator if there is one
-	attr_reader :generator
-	# The exception object
-	attr_reader :exception
+        # The origin EventGenerator if there is one
+        attr_reader :generator
+        # The exception object
+        attr_reader :exception
 
-	# If this specific exception has been marked has handled
-	attr_accessor :handled
-	# If this exception has been marked as handled
-	def handled?
-	    handled
-	end
+        # If this specific exception has been marked has handled
+        attr_accessor :handled
+        # If this exception has been marked as handled
+        def handled?
+            handled
+        end
         # Enumerates all tasks that are involved in this exception (either
         # origin or in the trace)
         def each_involved_task(&block)
@@ -83,51 +83,51 @@ module Roby
             generator == object || origin == object
         end
 
-	# Creates a new execution exception object with the specified source
-	# If +source+ is nil, tries to guess the source from +exception+: if
-	# +exception+ responds to #task or #generator we use either #task or
-	# call #generator.task
-	def initialize(exception)
-	    @exception = exception
+        # Creates a new execution exception object with the specified source
+        # If +source+ is nil, tries to guess the source from +exception+: if
+        # +exception+ responds to #task or #generator we use either #task or
+        # call #generator.task
+        def initialize(exception)
+            @exception = exception
             @trace = Relations::BidirectionalDirectedAdjacencyGraph.new
 
-	    if task = exception.failed_task
+            if task = exception.failed_task
                 @origin = task
                 @trace.add_vertex(task)
-	    end
-	    if generator = exception.failed_generator
-		@generator = exception.failed_generator
-	    end
+            end
+            if generator = exception.failed_generator
+                @generator = exception.failed_generator
+            end
 
-	    if !task && !generator
-		raise ArgumentError, "invalid exception specification: cannot get the exception source"
-	    end
-	end
+            if !task && !generator
+                raise ArgumentError, "invalid exception specification: cannot get the exception source"
+            end
+        end
 
-	# Create a sibling from this exception
-	def fork
-	    dup
-	end
+        # Create a sibling from this exception
+        def fork
+            dup
+        end
 
         def propagate(from, to)
             trace.add_edge(from, to)
         end
 
-	# Merges +sibling+ into this object
+        # Merges +sibling+ into this object
         #
         # @param [Roby::Task] edge_source the source of the edge in sibling that
         #   led to this merge
         # @param [Roby::Task] edge_target the target of the edge in sibling that
         #   led to this merge
-	def merge(sibling)
+        def merge(sibling)
             @trace.merge(sibling.trace)
             self
-	end
+        end
 
-	def initialize_copy(from)
-	    super
-	    @trace = from.trace.dup
-	end
+        def initialize_copy(from)
+            super
+            @trace = from.trace.dup
+        end
 
         def to_execution_exception
             self
@@ -169,40 +169,40 @@ module Roby
 
         # To be used in exception handlers themselves. Passes the exception to
         # the next matching exception handler
-	def pass_exception
-	    throw :next_exception_handler
-	end
+        def pass_exception
+            throw :next_exception_handler
+        end
 
         def add_error(error, propagate_through: nil)
             execution_engine.add_error(error, propagate_through: propagate_through)
         end
 
-	# Calls the exception handlers defined in this task for +exception_object.exception+
-	# Returns true if the exception has been handled, false otherwise
-	def handle_exception(exception_object)
-	    each_exception_handler do |matcher, handler|
+        # Calls the exception handlers defined in this task for +exception_object.exception+
+        # Returns true if the exception has been handled, false otherwise
+        def handle_exception(exception_object)
+            each_exception_handler do |matcher, handler|
                 if exception_object.exception.kind_of?(FailedExceptionHandler)
                     # Do not handle a failed exception handler by itself
                     next if exception_object.exception.handler == handler
                 end
 
                 if matcher === exception_object
-		    catch(:next_exception_handler) do 
-			begin
-			    handler.call(self, exception_object)
-			    return true
-			rescue Exception => e
-			    if !kind_of?(PlanObject)
-				execution_engine.add_framework_error(e, 'global exception handling')
-			    else
-				add_error(FailedExceptionHandler.new(e, self, exception_object, handler))
-			    end
-			end
-		    end
-		end
-	    end
-	    return false
-	end
+                    catch(:next_exception_handler) do 
+                        begin
+                            handler.call(self, exception_object)
+                            return true
+                        rescue Exception => e
+                            if !kind_of?(PlanObject)
+                                execution_engine.add_framework_error(e, 'global exception handling')
+                            else
+                                add_error(FailedExceptionHandler.new(e, self, exception_object, handler))
+                            end
+                        end
+                    end
+                end
+            end
+            return false
+        end
     end
 
     def self.filter_backtrace(original_backtrace = nil, force: false, display_full_framework_backtraces: false)
@@ -219,7 +219,7 @@ module Roby
             end
         end
 
-	if (Roby.app.filter_backtraces? || force) && original_backtrace
+        if (Roby.app.filter_backtraces? || force) && original_backtrace
             app_dir = Roby.app.app_dir
 
             original_backtrace = original_backtrace.dup
@@ -278,8 +278,8 @@ module Roby
                 # The backtrace is only within the framework, make it empty
                 backtrace = []
             end
-	end
-	backtrace || original_backtrace || []
+        end
+        backtrace || original_backtrace || []
     end
 
     def self.pretty_print_backtrace(pp, backtrace, **options)

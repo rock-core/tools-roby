@@ -12,19 +12,19 @@ module Roby
     class UntilGenerator < Roby::EventGenerator
         # Creates a until generator for the given source and limit event
         # generators
-	def initialize(source = nil, limit = nil)
-	    super() do |context|
+        def initialize(source = nil, limit = nil)
+            super() do |context|
                 forwarded_generators = each_parent_object(EventStructure::Forwarding).to_a
                 forwarded_generators.each do |g|
                     g.remove_forwarding self
                 end
-	    end
+            end
 
-	    if source && limit
-		source.forward_to(self)
-		limit.signals(self)
-	    end
-	end
+            if source && limit
+                source.forward_to(self)
+                limit.signals(self)
+            end
+        end
     end
 end
 

@@ -9,7 +9,7 @@ puts "==== Iteration"
 [(1..10_000), (1..10_000).to_a, (1..10_000).to_value_set, (1..10_000).enum_for, (1..10_000).to_set].each do |set|
     before = ObjectSpace.live_objects
     for obj in set
-	10
+        10
     end
     after  = ObjectSpace.live_objects
     puts "#{set.class} for: #{after - before}"
@@ -48,7 +48,7 @@ class Test
 end
 class Foo < Test
     def bla
-	super
+        super
     end
 end
 

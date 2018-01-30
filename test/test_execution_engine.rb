@@ -1800,18 +1800,18 @@ end
 
 class TC_ExecutionEngine < Minitest::Test
     def test_gather_propagation
-	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
-	plan.add [e1, e2, e3]
+        e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
+        plan.add [e1, e2, e3]
 
-	set = execution_engine.gather_propagation do
-	    e1.call(1)
-	    e1.call(4)
-	    e2.emit(2)
-	    e2.emit(3)
-	    e3.call(5)
-	    e3.emit(6)
-	end
-	assert_equal(
+        set = execution_engine.gather_propagation do
+            e1.call(1)
+            e1.call(4)
+            e2.emit(2)
+            e2.emit(3)
+            e3.call(5)
+            e3.emit(6)
+        end
+        assert_equal(
             { e1 => [1, [], [nil, [1], nil, nil, [4], nil]],
               e2 => [3, [nil, [2], nil, nil, [3], nil], []],
               e3 => [5, [nil, [6], nil], [nil, [5], nil]] }, set)
@@ -1819,43 +1819,43 @@ class TC_ExecutionEngine < Minitest::Test
 
 
     def test_prepare_propagation
-	g1, g2 = EventGenerator.new(true), EventGenerator.new(true)
-	ev = Event.new(g2, 0, nil)
+        g1, g2 = EventGenerator.new(true), EventGenerator.new(true)
+        ev = Event.new(g2, 0, nil)
 
-	step = [nil, [1], nil, nil, [4], nil]
-	source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
-	assert_equal(Set.new, source_events)
-	assert_equal(Set.new, source_generators)
-	assert_equal([1, 4], context)
+        step = [nil, [1], nil, nil, [4], nil]
+        source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
+        assert_equal(Set.new, source_events)
+        assert_equal(Set.new, source_generators)
+        assert_equal([1, 4], context)
 
-	step = [nil, [], nil, nil, [4], nil]
-	source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
-	assert_equal(Set.new, source_events)
-	assert_equal(Set.new, source_generators)
-	assert_equal([4], context)
+        step = [nil, [], nil, nil, [4], nil]
+        source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
+        assert_equal(Set.new, source_events)
+        assert_equal(Set.new, source_generators)
+        assert_equal([4], context)
 
-	step = [g1, [], nil, ev, [], nil]
-	source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
-	assert_equal([g1, g2].to_set, source_generators)
-	assert_equal([ev].to_set, source_events)
-	assert_equal([], context)
+        step = [g1, [], nil, ev, [], nil]
+        source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
+        assert_equal([g1, g2].to_set, source_generators)
+        assert_equal([ev].to_set, source_events)
+        assert_equal([], context)
 
-	step = [g2, [], nil, ev, [], nil]
-	source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
-	assert_equal([g2].to_set, source_generators)
-	assert_equal([ev].to_set, source_events)
-	assert_equal([], context)
+        step = [g2, [], nil, ev, [], nil]
+        source_events, source_generators, context = execution_engine.prepare_propagation(nil, false, step)
+        assert_equal([g2].to_set, source_generators)
+        assert_equal([ev].to_set, source_events)
+        assert_equal([], context)
     end
 
     def test_next_step
-	# For the test to be valid, we need +pending+ to have a deterministic ordering
-	# Fix that here
-	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
-	plan.add [e1, e2, e3]
+        # For the test to be valid, we need +pending+ to have a deterministic ordering
+        # Fix that here
+        e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
+        plan.add [e1, e2, e3]
 
         pending = Array.new
-	def pending.each_key; each { |(k, v)| yield(k) } end
-	def pending.delete(ev)
+        def pending.each_key; each { |(k, v)| yield(k) } end
+        def pending.delete(ev)
             value = find { |(k, v)| k == ev }.last
             delete_if { |(k, v)| k == ev }
             value
@@ -1864,21 +1864,21 @@ class TC_ExecutionEngine < Minitest::Test
         # If there is no precedence, the order is determined by
         # forwarding/signalling and/or step_id
         pending.clear
-	pending << [e1, [0, [], [flexmock]]] << [e2, [1, [flexmock], []]]
-	assert_equal(e2, execution_engine.next_event(pending).first)
+        pending << [e1, [0, [], [flexmock]]] << [e2, [1, [flexmock], []]]
+        assert_equal(e2, execution_engine.next_event(pending).first)
         pending.clear
-	pending << [e1, [1, [flexmock], []]] << [e2, [0, [flexmock], []]]
-	assert_equal(e2, execution_engine.next_event(pending).first)
+        pending << [e1, [1, [flexmock], []]] << [e2, [0, [flexmock], []]]
+        assert_equal(e2, execution_engine.next_event(pending).first)
 
         # If there *is* a precedence relation, we must follow it
         pending.clear
-	pending << [e1, [0, [flexmock], []]] << [e2, [1, [flexmock], []]]
+        pending << [e1, [0, [flexmock], []]] << [e2, [1, [flexmock], []]]
 
-	e1.add_precedence e2
-	assert_equal(e1, execution_engine.next_event(pending).first)
-	e1.remove_precedence e2
-	e2.add_precedence e1
-	assert_equal(e2, execution_engine.next_event(pending).first)
+        e1.add_precedence e2
+        assert_equal(e1, execution_engine.next_event(pending).first)
+        e1.remove_precedence e2
+        e2.add_precedence e1
+        assert_equal(e2, execution_engine.next_event(pending).first)
     end
 
     def test_delayed_signal
@@ -1924,103 +1924,103 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_duplicate_signals
-	plan.add_mission_task(t = Tasks::Simple.new)
-	
-	FlexMock.use do |mock|
+        plan.add_mission_task(t = Tasks::Simple.new)
+        
+        FlexMock.use do |mock|
             t.start_event.on   { |event| t.success_event.emit(*event.context) }
-	    t.start_event.on   { |event| t.success_event.emit(*event.context) }
+            t.start_event.on   { |event| t.success_event.emit(*event.context) }
 
-	    t.success_event.on { |event| mock.success(event.context) }
-	    t.stop_event.on    { |event| mock.stop(event.context) }
-	    mock.should_receive(:success).with([42, 42]).once.ordered
-	    mock.should_receive(:stop).with([42, 42]).once.ordered
-	    execute { t.start!(42) }
-	end
+            t.success_event.on { |event| mock.success(event.context) }
+            t.stop_event.on    { |event| mock.stop(event.context) }
+            mock.should_receive(:success).with([42, 42]).once.ordered
+            mock.should_receive(:stop).with([42, 42]).once.ordered
+            execute { t.start!(42) }
+        end
     end
 
     def test_default_task_ordering
-	a = Tasks::Simple.new_submodel do
-	    event :intermediate
-	end.new(id: 'a')
+        a = Tasks::Simple.new_submodel do
+            event :intermediate
+        end.new(id: 'a')
 
-	plan.add_mission_task(a)
-	a.depends_on(b = Tasks::Simple.new(id: 'b'))
+        plan.add_mission_task(a)
+        a.depends_on(b = Tasks::Simple.new(id: 'b'))
 
-	b.success_event.forward_to a.intermediate_event
-	b.success_event.forward_to a.success_event
+        b.success_event.forward_to a.intermediate_event
+        b.success_event.forward_to a.success_event
 
-	FlexMock.use do |mock|
+        FlexMock.use do |mock|
             b.success_event.on { |ev| mock.child_success }
-	    a.intermediate_event.on { |ev| mock.parent_intermediate }
-	    a.success_event.on { |ev| mock.parent_success }
-	    mock.should_receive(:child_success).once.ordered
-	    mock.should_receive(:parent_intermediate).once.ordered
-	    mock.should_receive(:parent_success).once.ordered
+            a.intermediate_event.on { |ev| mock.parent_intermediate }
+            a.success_event.on { |ev| mock.parent_success }
+            mock.should_receive(:child_success).once.ordered
+            mock.should_receive(:parent_intermediate).once.ordered
+            mock.should_receive(:parent_success).once.ordered
             execute do
                 a.start!
                 b.start!
                 b.success!
             end
-	end
+        end
     end
 
     def test_process_events_diamond_structure
-	a = Tasks::Simple.new_submodel do
-	    event :child_success
-	    event :child_stop
-	    forward child_success: :child_stop
-	end.new(id: 'a')
+        a = Tasks::Simple.new_submodel do
+            event :child_success
+            event :child_stop
+            forward child_success: :child_stop
+        end.new(id: 'a')
 
-	plan.add_mission_task(a)
-	a.depends_on(b = Tasks::Simple.new(id: 'b'))
+        plan.add_mission_task(a)
+        a.depends_on(b = Tasks::Simple.new(id: 'b'))
 
-	b.success_event.forward_to a.child_success_event
-	b.stop_event.forward_to a.child_stop_event
+        b.success_event.forward_to a.child_success_event
+        b.stop_event.forward_to a.child_stop_event
 
-	FlexMock.use do |mock|
-	    a.child_stop_event.on { |ev| mock.stopped }
-	    mock.should_receive(:stopped).once.ordered
+        FlexMock.use do |mock|
+            a.child_stop_event.on { |ev| mock.stopped }
+            mock.should_receive(:stopped).once.ordered
             execute do
                 a.start!
                 b.start!
                 b.success!
             end
-	end
+        end
     end
 
     def test_signal_forward
-	forward = EventGenerator.new(true)
-	signal  = EventGenerator.new(true)
-	plan.add [forward, signal]
+        forward = EventGenerator.new(true)
+        signal  = EventGenerator.new(true)
+        plan.add [forward, signal]
 
-	FlexMock.use do |mock|
-	    sink = EventGenerator.new do |context|
-		mock.command_called(context)
-		sink.emit(42)
-	    end
-	    sink.on { |event| mock.handler_called(event.context) }
+        FlexMock.use do |mock|
+            sink = EventGenerator.new do |context|
+                mock.command_called(context)
+                sink.emit(42)
+            end
+            sink.on { |event| mock.handler_called(event.context) }
 
-	    forward.forward_to sink
-	    signal.signals   sink
+            forward.forward_to sink
+            signal.signals   sink
 
-	    seeds = execution_engine.gather_propagation do
-		forward.call(24)
-		signal.call(42)
-	    end
-	    mock.should_receive(:command_called).with([42]).once.ordered
-	    mock.should_receive(:handler_called).with([42, 24]).once.ordered
+            seeds = execution_engine.gather_propagation do
+                forward.call(24)
+                signal.call(42)
+            end
+            mock.should_receive(:command_called).with([42]).once.ordered
+            mock.should_receive(:handler_called).with([42, 24]).once.ordered
             execution_engine.event_propagation_phase(seeds, ExecutionEngine::PropagationInfo.new)
-	end
+        end
     end
 
     def test_every
         Timecop.freeze(base_time = Time.now)
 
-	# Check that every(cycle_length) works fine
-	samples = []
-	handler_id = execution_engine.every(0.1) do
-	    samples << execution_engine.cycle_start
-	end
+        # Check that every(cycle_length) works fine
+        samples = []
+        handler_id = execution_engine.every(0.1) do
+            samples << execution_engine.cycle_start
+        end
 
 
         execute_one_cycle
@@ -2030,7 +2030,7 @@ class TC_ExecutionEngine < Minitest::Test
         Timecop.freeze(base_time + 0.22)
         execute_one_cycle
         execute_one_cycle
-	execution_engine.remove_periodic_handler(handler_id)
+        execution_engine.remove_periodic_handler(handler_id)
         execute_one_cycle
         execute_one_cycle
 
@@ -2042,17 +2042,17 @@ class TC_ExecutionEngine < Minitest::Test
     class SpecificException < RuntimeError; end
 
     def apply_check_structure(&block)
-	Plan.structure_checks.clear
-	Plan.structure_checks << lambda(&block)
-	execute_one_cycle
+        Plan.structure_checks.clear
+        Plan.structure_checks << lambda(&block)
+        execute_one_cycle
     ensure
-	Plan.structure_checks.clear
+        Plan.structure_checks.clear
     end
 
     def test_inside_outside_control
-	# First, no control thread
-	assert(execution_engine.inside_control?)
-	assert(!execution_engine.outside_control?)
+        # First, no control thread
+        assert(execution_engine.inside_control?)
+        assert(!execution_engine.outside_control?)
 
         t = Thread.new do
             assert(!execution_engine.inside_control?)
@@ -2062,65 +2062,65 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_execute
-	FlexMock.use do |mock|
-	    mock.should_receive(:thread_before).once.ordered
-	    mock.should_receive(:main_before).once.ordered
-	    mock.should_receive(:execute).once.ordered.with(Thread.current).and_return(42)
-	    mock.should_receive(:main_after).once.ordered(:finish)
-	    mock.should_receive(:thread_after).once.ordered(:finish)
+        FlexMock.use do |mock|
+            mock.should_receive(:thread_before).once.ordered
+            mock.should_receive(:main_before).once.ordered
+            mock.should_receive(:execute).once.ordered.with(Thread.current).and_return(42)
+            mock.should_receive(:main_after).once.ordered(:finish)
+            mock.should_receive(:thread_after).once.ordered(:finish)
 
-	    returned_value = nil
-	    t = Thread.new do
-		mock.thread_before
-		returned_value = execution_engine.execute do
-		    mock.execute(Thread.current)
-		end
-		mock.thread_after
-	    end
+            returned_value = nil
+            t = Thread.new do
+                mock.thread_before
+                returned_value = execution_engine.execute do
+                    mock.execute(Thread.current)
+                end
+                mock.thread_after
+            end
 
-	    # Wait for the thread to block
-	    while !t.stop?; sleep(0.01) end
-	    mock.main_before
-	    assert(t.alive?)
+            # Wait for the thread to block
+            while !t.stop?; sleep(0.01) end
+            mock.main_before
+            assert(t.alive?)
             # We use execution_engine.process_events as we are making the execution_engine
             # believe that it is running while it is not
-	    execution_engine.process_events
-	    mock.main_after
-	    t.join
+            execution_engine.process_events
+            mock.main_after
+            t.join
 
-	    assert_equal(42, returned_value)
-	end
+            assert_equal(42, returned_value)
+        end
     end
 
     def test_execute_error
-	assert(!execution_engine.quitting?)
+        assert(!execution_engine.quitting?)
 
-	returned_value = nil
-	t = Thread.new do
-	    returned_value = begin
-				 execution_engine.execute do
-				     raise ArgumentError
-				 end
-			     rescue ArgumentError => e
-				 e
-			     end
-	end
+        returned_value = nil
+        t = Thread.new do
+            returned_value = begin
+                                 execution_engine.execute do
+                                     raise ArgumentError
+                                 end
+                             rescue ArgumentError => e
+                                 e
+                             end
+        end
 
-	# Wait for the thread to block
-	while !t.stop?; sleep(0.01) end
+        # Wait for the thread to block
+        while !t.stop?; sleep(0.01) end
         assert(t.alive?)
         # We use execution_engine.process_events as we are making the execution_engine
         # believe that it is running while it is not
-	execution_engine.process_events
-	t.join
+        execution_engine.process_events
+        t.join
 
-	assert_kind_of(ArgumentError, returned_value)
-	assert(!execution_engine.quitting?)
+        assert_kind_of(ArgumentError, returned_value)
+        assert(!execution_engine.quitting?)
     end
     
     def test_stats
-	time_events = [:actual_start, :events, :structure_check, :exception_propagation, :exception_fatal, :garbage_collect, :application_errors, :ruby_gc, :sleep, :end]
-	10.times do
+        time_events = [:actual_start, :events, :structure_check, :exception_propagation, :exception_fatal, :garbage_collect, :application_errors, :ruby_gc, :sleep, :end]
+        10.times do
             FlexMock.use(execution_engine) do |mock|
                 mock.should_receive(:cycle_end).and_return do |stats|
                     timepoints = stats.slice(*time_events)
@@ -2134,7 +2134,7 @@ class TC_ExecutionEngine < Minitest::Test
                 end
                 execution_engine.process_events
             end
-	end
+        end
     end
 
     def assert_finalizes(plan, finalized, unneeded = nil)
@@ -2165,18 +2165,18 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_garbage_collect_tasks
-	klass = Task.new_submodel do
-	    attr_accessor :delays
+        klass = Task.new_submodel do
+            attr_accessor :delays
 
-	    event(:start, command: true)
-	    event(:stop) do |context|
-		if delays
-		    return
-		else
-		    stop_event.emit
-		end
+            event(:start, command: true)
+            event(:stop) do |context|
+                if delays
+                    return
+                else
+                    stop_event.emit
+                end
             end
-	end
+        end
 
         (m1, m2, m3), (t1, t2, t3, t4, t5, p1) =
             prepare_plan missions: 3, add: 6, model: klass
@@ -2186,48 +2186,48 @@ class TC_ExecutionEngine < Minitest::Test
         m3.depends_on t2
         m3.planned_by p1
         p1.depends_on t3
-	t4.depends_on t5
+        t4.depends_on t5
 
-	plan.add_permanent_task(t4)
+        plan.add_permanent_task(t4)
 
-	assert_finalizes(plan, [])
-	assert_finalizes(plan, [m1]) { plan.unmark_mission_task(m1) }
-	assert_finalizes(plan, [m2, t1]) do
-	    m2.start!
-	    plan.unmark_mission_task(m2)
-	end
+        assert_finalizes(plan, [])
+        assert_finalizes(plan, [m1]) { plan.unmark_mission_task(m1) }
+        assert_finalizes(plan, [m2, t1]) do
+            m2.start!
+            plan.unmark_mission_task(m2)
+        end
 
-	assert_finalizes(plan, [], [m3, p1, t3, t2]) do
-	    m3.delays = true
-	    m3.start!
-	    plan.unmark_mission_task(m3)
-	end
-	assert(m3.event(:stop).pending?)
-	assert_finalizes(plan, [m3, p1, t3, t2]) do
-	    m3.stop_event.emit
-	end
+        assert_finalizes(plan, [], [m3, p1, t3, t2]) do
+            m3.delays = true
+            m3.start!
+            plan.unmark_mission_task(m3)
+        end
+        assert(m3.event(:stop).pending?)
+        assert_finalizes(plan, [m3, p1, t3, t2]) do
+            m3.stop_event.emit
+        end
     ensure
         t5.stop_event.emit if t5.delays && t5.running?
     end
     
     def test_force_garbage_collect_tasks
-	t1 = Task.new_submodel do
-	    event(:stop) { |context| }
-	end.new
-	t2 = Task.new
-	t1.depends_on t2
+        t1 = Task.new_submodel do
+            event(:stop) { |context| }
+        end.new
+        t2 = Task.new
+        t1.depends_on t2
 
-	plan.add_mission_task(t1)
-	execute { t1.start! }
-	assert_finalizes(plan, []) do
-	    execution_engine.garbage_collect([t1])
-	end
-	assert(t1.event(:stop).pending?)
+        plan.add_mission_task(t1)
+        execute { t1.start! }
+        assert_finalizes(plan, []) do
+            execution_engine.garbage_collect([t1])
+        end
+        assert(t1.event(:stop).pending?)
 
-	assert_finalizes(plan, [t1, t2]) do
-	    # This stops the mission, which will be automatically discarded
+        assert_finalizes(plan, [t1, t2]) do
+            # This stops the mission, which will be automatically discarded
             t1.stop_event.emit
-	end
+        end
     end
 
     # Test a setup where there is both pending tasks and running tasks. This
@@ -2236,32 +2236,32 @@ class TC_ExecutionEngine < Minitest::Test
     # the killed task bound to the Roby.once block must remain the same.
 
     def test_garbage_collect_events
-	t  = Tasks::Simple.new
-	e1 = EventGenerator.new(true)
+        t  = Tasks::Simple.new
+        e1 = EventGenerator.new(true)
 
-	plan.add_mission_task(t)
-	plan.add(e1)
-	assert_equal([e1], plan.unneeded_events.to_a)
-	t.event(:start).signals e1
-	assert_equal([], plan.unneeded_events.to_a)
+        plan.add_mission_task(t)
+        plan.add(e1)
+        assert_equal([e1], plan.unneeded_events.to_a)
+        t.event(:start).signals e1
+        assert_equal([], plan.unneeded_events.to_a)
 
-	e2 = EventGenerator.new(true)
-	plan.add(e2)
-	assert_equal([e2], plan.unneeded_events.to_a)
-	e1.forward_to e2
-	assert_equal([], plan.unneeded_events.to_a)
+        e2 = EventGenerator.new(true)
+        plan.add(e2)
+        assert_equal([e2], plan.unneeded_events.to_a)
+        e1.forward_to e2
+        assert_equal([], plan.unneeded_events.to_a)
 
         execute { plan.remove_task(t) }
-	assert_equal([e1, e2].to_set, plan.unneeded_events)
+        assert_equal([e1, e2].to_set, plan.unneeded_events)
 
         plan.add_permanent_event(e1)
-	assert_equal([], plan.unneeded_events.to_a)
+        assert_equal([], plan.unneeded_events.to_a)
         plan.unmark_permanent_event(e1)
-	assert_equal([e1, e2].to_set, plan.unneeded_events)
+        assert_equal([e1, e2].to_set, plan.unneeded_events)
         plan.add_permanent_event(e2)
-	assert_equal([], plan.unneeded_events.to_a)
+        assert_equal([], plan.unneeded_events.to_a)
         plan.unmark_permanent_event(e2)
-	assert_equal([e1, e2].to_set, plan.unneeded_events)
+        assert_equal([e1, e2].to_set, plan.unneeded_events)
     end
 
     Roby::TaskStructure.relation :WeakTest, weak: true

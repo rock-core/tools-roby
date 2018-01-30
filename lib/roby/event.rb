@@ -5,19 +5,19 @@ module Roby
     # functionalities related to propagation as well.
     class Event
         # The generator which emitted this event
-	attr_reader :generator
+        attr_reader :generator
 
-	def initialize(generator, propagation_id, context, time = Time.now)
-	    @generator, @propagation_id, @context, @time = generator, propagation_id, context.freeze, time
+        def initialize(generator, propagation_id, context, time = Time.now)
+            @generator, @propagation_id, @context, @time = generator, propagation_id, context.freeze, time
             @sources = Set.new
-	end
+        end
 
         def plan
             generator.plan
         end
 
-	attr_accessor :propagation_id, :context, :time
-	protected :propagation_id=, :context=, :time=
+        attr_accessor :propagation_id, :context, :time
+        protected :propagation_id=, :context=, :time=
 
         # The events whose emission directly triggered this event during the
         # propagation. The events in this set are subject to Ruby's own
@@ -80,23 +80,23 @@ module Roby
             end
         end
 
-	# To be used in the event generators ::new methods, when we need to reemit
-	# an event while changing its 
-	def reemit(new_id, new_context = nil)
-	    if propagation_id != new_id || (new_context && new_context != context)
-		new_event = self.dup
-		new_event.propagation_id = new_id
-		new_event.context = new_context
-		new_event.time = Time.now
-		new_event
-	    else
-		self
-	    end
-	end
+        # To be used in the event generators ::new methods, when we need to reemit
+        # an event while changing its 
+        def reemit(new_id, new_context = nil)
+            if propagation_id != new_id || (new_context && new_context != context)
+                new_event = self.dup
+                new_event.propagation_id = new_id
+                new_event.context = new_context
+                new_event.time = Time.now
+                new_event
+            else
+                self
+            end
+        end
 
-	def name; model.name end
-	def model; self.class end
-	def inspect # :nodoc:
+        def name; model.name end
+        def model; self.class end
+        def inspect # :nodoc:
             "#<#{model.to_s}:0x#{address.to_s(16)} generator=#{generator} model=#{model}"
         end
 
@@ -106,9 +106,9 @@ module Roby
             State.at t: (self.time + time)
         end
 
-	def to_s # :nodoc:
-	    "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class.to_s}: #{context}"
-	end
+        def to_s # :nodoc:
+            "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class.to_s}: #{context}"
+        end
 
         def pretty_print(pp, with_context = true) # :nodoc:
             pp.text "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class}"

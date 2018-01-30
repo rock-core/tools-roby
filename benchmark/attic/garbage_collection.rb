@@ -21,21 +21,21 @@ RELATION_COUNT.times do
     next if parent == child
 
     if parent.kind_of?(EventGenerator)
-	if !child.kind_of?(EventGenerator)
-	    child = child.bound_events.random_element.last
-	end
+        if !child.kind_of?(EventGenerator)
+            child = child.bound_events.random_element.last
+        end
     elsif child.kind_of?(EventGenerator)
-	parent = parent.bound_events.random_element.last
+        parent = parent.bound_events.random_element.last
     end
 
     relation = if parent.kind_of?(EventGenerator)
-		   EventStructure.relations.random_element
-	       else
-		   TaskStructure.relations.random_element
-	       end
+                   EventStructure.relations.random_element
+               else
+                   TaskStructure.relations.random_element
+               end
 
     begin
-	parent.add_child_object(child, relation, success: [], failure: [])
+        parent.add_child_object(child, relation, success: [], failure: [])
     rescue CycleFoundError
     end
 end

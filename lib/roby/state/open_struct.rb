@@ -10,25 +10,25 @@ module Roby
     # For instance
     #
     # @example create an openstruct and assign a value in the hierarchy
-    #	root = Roby::OpenStruct.new
-    #	root.child.value = 42
+    #   root = Roby::OpenStruct.new
+    #   root.child.value = 42
     #
     # However, you *cannot* check if a value is defined or not with
     #
-    #	if (root.child)
-    #	    <do something>
-    #	end
+    #   if (root.child)
+    #       <do something>
+    #   end
     #
     # You'll have to test with respond_to? or field_name?. The second one will
     # return true only if the attribute is defined <b>and</b> it is not false
     #
     # @example test for the presence of a value in the hierarchy
-    #	if root.respond_to?(:child)
-    #	    <do something if child has been set>
-    #	end
-    #	if root.child?
-    #	    <do something if child has been set and is non-nil>
-    #	end
+    #   if root.respond_to?(:child)
+    #       <do something if child has been set>
+    #   end
+    #   if root.child?
+    #       <do something if child has been set and is non-nil>
+    #   end
     #
     # == Handling of methods defined on parents
     #
@@ -40,30 +40,30 @@ module Roby
     class OpenStruct
         attr_reader :model
 
-	# +attach_to+ and +attach_name+
-	# are used so that
-	#   root = OpenStruct.new
-	#   root.bla
-	# does *not* add a +bla+ attribute to root, while the following constructs
-	#   root.bla.test = 20
-	#   bla = root.bla
-	#   bla.test = 20
-	# does
-	#
-	# Note, however that
-	#   bla = root.bla
-	#   root.bla = 10
-	#   bla.test = 20
-	#   
-	# will *not* make root.bla be the +bla+ object. And that
-	# 
-	#   bla = root.bla
-	#   root.stable!
-	#   bla.test = 20
-	#
-	# will not fail
-	def initialize(model = nil, attach_to = nil, attach_name = nil) # :nodoc
-	    clear
+        # +attach_to+ and +attach_name+
+        # are used so that
+        #   root = OpenStruct.new
+        #   root.bla
+        # does *not* add a +bla+ attribute to root, while the following constructs
+        #   root.bla.test = 20
+        #   bla = root.bla
+        #   bla.test = 20
+        # does
+        #
+        # Note, however that
+        #   bla = root.bla
+        #   root.bla = 10
+        #   bla.test = 20
+        #   
+        # will *not* make root.bla be the +bla+ object. And that
+        # 
+        #   bla = root.bla
+        #   root.stable!
+        #   bla.test = 20
+        #
+        # will not fail
+        def initialize(model = nil, attach_to = nil, attach_name = nil) # :nodoc
+            clear
 
             @model = model
             @observers       = Hash.new { |h, k| h[k] = [] }
@@ -79,13 +79,13 @@ module Roby
             end
         end
 
-	def clear
-	    @attach_as	     = nil
+        def clear
+            @attach_as       = nil
             @stable          = false
             @members         = Hash.new
             @pending         = Hash.new
             @aliases         = Hash.new
-	end
+        end
 
         def clear_model
             @model = nil
@@ -129,15 +129,15 @@ module Roby
             raise
         end
 
-	def _dump(lvl = -1)
-	    marshalled_members = @members.map do |name, value|
-		[name, Marshal.dump(value)] rescue nil
-	    end
-	    marshalled_members.compact!
-	    Marshal.dump([marshalled_members, @aliases])
-	end
+        def _dump(lvl = -1)
+            marshalled_members = @members.map do |name, value|
+                [name, Marshal.dump(value)] rescue nil
+            end
+            marshalled_members.compact!
+            Marshal.dump([marshalled_members, @aliases])
+        end
 
-	attr_reader :attach_as, :__parent_struct, :__parent_name
+        attr_reader :attach_as, :__parent_struct, :__parent_name
 
         # Create a model structure and associate it with this openstruct
         def new_model
@@ -187,14 +187,14 @@ module Roby
         # This method does the attachment. It calls #attach_child on the parent
         # to notify it
         def attach
-	    if @attach_as
-		@__parent_struct, @__parent_name = @attach_as
-		@attach_as = nil
-		__parent_struct.attach_child(__parent_name, self)
+            if @attach_as
+                @__parent_struct, @__parent_name = @attach_as
+                @attach_as = nil
+                __parent_struct.attach_child(__parent_name, self)
                 if @model
                     @model.attach
                 end
-	    end
+            end
         end
 
         # When a field is dynamically created by #method_missing, it is created
@@ -203,15 +203,15 @@ module Roby
         #
         # This method makes sure that the field will never be attached to the
         # parent. It has no effect once #attach has been called
-	def detach
-	    @attach_as = nil
-	end
+        def detach
+            @attach_as = nil
+        end
         # Called by a child when #attach is called
-	def attach_child(name, obj)
-	    @members[name.to_s] = obj
+        def attach_child(name, obj)
+            @members[name.to_s] = obj
             updated(name, obj)
-	end
-	protected :detach, :attach_as
+        end
+        protected :detach, :attach_as
 
         def __root?
             !__parent
@@ -246,55 +246,55 @@ module Roby
             end
         end
 
-	# Call +block+ with the new value if +name+ changes
+        # Call +block+ with the new value if +name+ changes
         #
         # If name is not given, it will be called for any change
-	def on_change(name = nil, recursive = false, &block)
+        def on_change(name = nil, recursive = false, &block)
             attach
-	    name = name.to_s if name
-	    @observers[name] << Observer.new(recursive, block)
+            name = name.to_s if name
+            @observers[name] << Observer.new(recursive, block)
             self
-	end
+        end
 
-	# Converts this OpenStruct into a corresponding hash, where all
-	# keys are symbols. If +recursive+ is true, any member which responds
-	# to #to_hash will be converted as well
-	def to_hash(recursive = true)
-	    result = Hash.new
-	    @members.each do |k, v|
-		result[k.to_sym] = if recursive && v.respond_to?(:to_hash)
-				       v.to_hash
-				   else v
-				   end
-	    end
-	    result
-	end
+        # Converts this OpenStruct into a corresponding hash, where all
+        # keys are symbols. If +recursive+ is true, any member which responds
+        # to #to_hash will be converted as well
+        def to_hash(recursive = true)
+            result = Hash.new
+            @members.each do |k, v|
+                result[k.to_sym] = if recursive && v.respond_to?(:to_hash)
+                                       v.to_hash
+                                   else v
+                                   end
+            end
+            result
+        end
 
-	# Iterates on all defined members of this object
-	def each_member(&block)
-	    @members.each(&block)
-	end
+        # Iterates on all defined members of this object
+        def each_member(&block)
+            @members.each(&block)
+        end
         
-	# Update a set of values on this struct
-	# If a hash is given, it is an name => value hash of attribute
-	# values. A given block is yield with self, so that the construct
-	#
-	#   my.extendable.struct.very.deep.update do |deep|
-	#     <update deep>
-	#   end
-	#
-	# can be used 
+        # Update a set of values on this struct
+        # If a hash is given, it is an name => value hash of attribute
+        # values. A given block is yield with self, so that the construct
+        #
+        #   my.extendable.struct.very.deep.update do |deep|
+        #     <update deep>
+        #   end
+        #
+        # can be used 
         def update(hash = nil)
-	    attach
+            attach
             hash.each { |k, v| send("#{k}=", v) } if hash
             yield(self) if block_given?
             self
         end
 
-	def delete(name = nil)
-	    raise TypeError, "#{self} is stable" if stable?
-	    if name
-		name = name.to_s
+        def delete(name = nil)
+            raise TypeError, "#{self} is stable" if stable?
+            if name
+                name = name.to_s
                 child = @members.delete(name) ||
                     @pending.delete(name)
                 if child && child.respond_to?(:detached!)
@@ -303,21 +303,21 @@ module Roby
 
                 # We don't detach aliases
                 if !child && !@aliases.delete(name)
-		    raise ArgumentError, "no such child #{name}"
+                    raise ArgumentError, "no such child #{name}"
                 end
 
-		# and remove aliases that point to +name+
-		@aliases.delete_if { |_, pointed_to| pointed_to == name }
-	    else
-		if __parent_struct
-		    __parent_struct.delete(__parent_name)
-		elsif @attach_as
-		    @attach_as.first.delete(@attach_as.last)
-		else
-		    raise ArgumentError, "#{self} is attached to nothing"
-		end
-	    end
-	end
+                # and remove aliases that point to +name+
+                @aliases.delete_if { |_, pointed_to| pointed_to == name }
+            else
+                if __parent_struct
+                    __parent_struct.delete(__parent_name)
+                elsif @attach_as
+                    @attach_as.first.delete(@attach_as.last)
+                else
+                    raise ArgumentError, "#{self} is attached to nothing"
+                end
+            end
+        end
 
         def detached!
             @__parent_struct, @__parent_name, @attach_as = nil
@@ -327,9 +327,9 @@ module Roby
         # called when the attribute is written with both the attribute name and
         # value. It should return the value that should actually be written, and
         # raise an exception if the new value is invalid.
-	def filter(name, &block)
-	    @filters[name.to_s] = block
-	end
+        def filter(name, &block)
+            @filters[name.to_s] = block
+        end
 
         # Define a filter for the +name+ attribute on self. The given block is
         # called when the attribute is written with both the attribute name and
@@ -338,9 +338,9 @@ module Roby
         def global_filter(&block)
             @filters[nil] = block
         end
-	
-	# If self is stable, it cannot be updated. That is, calling a setter method
-	# raises NoMethodError
+        
+        # If self is stable, it cannot be updated. That is, calling a setter method
+        # raises NoMethodError
         def stable?; @stable end
 
         def freeze
@@ -350,9 +350,9 @@ module Roby
             end
         end
 
-	# Sets the stable attribute of +self+ to +is_stable+. If +recursive+ is true,
-	# set it on the child struct as well. 
-	#
+        # Sets the stable attribute of +self+ to +is_stable+. If +recursive+ is true,
+        # set it on the child struct as well. 
+        #
         def stable!(recursive = false, is_stable = true)
             @stable = is_stable
             if recursive
@@ -360,14 +360,14 @@ module Roby
             end
         end
 
-	def updated(name, value, recursive = false)
-	    if @observers.has_key?(name)
+        def updated(name, value, recursive = false)
+            if @observers.has_key?(name)
                 @observers[name].each do |ob|
                     if ob.recursive? || !recursive
                         ob.call(name, value)
                     end
                 end
-	    end
+            end
 
             @observers[nil].each do |ob|
                 if ob.recursive? || !recursive
@@ -375,13 +375,13 @@ module Roby
                 end
             end
 
-	    if __parent_struct
-		__parent_struct.updated(__parent_name, self, true)
-	    end
-	end
+            if __parent_struct
+                __parent_struct.updated(__parent_name, self, true)
+            end
+        end
 
-	# Returns true if this object has no member
-	def empty?; @members.empty? end
+        # Returns true if this object has no member
+        def empty?; @members.empty? end
 
         if RUBY_VERSION >= "1.8.7"
             # has_method? will be used to know if a given method is already defined
@@ -540,7 +540,7 @@ module Roby
                 end
             end
 
-	    name = name.to_s
+            name = name.to_s
 
             if name =~ FORBIDDEN_NAMES_RX
                 super(name.to_sym, *args, &update) 
@@ -550,29 +550,29 @@ module Roby
                 ret = set($1, *args)
                 return ret
 
-	    elsif name =~ /^(\w+)\?$/
-		# Test
-		name = @aliases[$1] || $1
-		respond_to?(name) && get(name) && send(name)
+            elsif name =~ /^(\w+)\?$/
+                # Test
+                name = @aliases[$1] || $1
+                respond_to?(name) && get(name) && send(name)
 
             elsif args.empty? # getter
-		attach
+                attach
                 return __get(name, &update)
 
-	    else
-		super(name.to_sym, *args, &update)
+            else
+                super(name.to_sym, *args, &update)
             end
         end
 
-	def alias(from, to)
-	    @aliases[to.to_s] = from.to_s
-	end
+        def alias(from, to)
+            @aliases[to.to_s] = from.to_s
+        end
 
-	FORBIDDEN_NAMES=%w{marshal each enum to}.map { |str| "^#{str}_" }
-	FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join("|")})/
+        FORBIDDEN_NAMES=%w{marshal each enum to}.map { |str| "^#{str}_" }
+        FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join("|")})/
 
-	NOT_OVERRIDABLE = %w{class} + instance_methods(false)
-	NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/
+        NOT_OVERRIDABLE = %w{class} + instance_methods(false)
+        NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/
 
         def __merge(other)
             @members.merge(other) do |k, v1, v2|

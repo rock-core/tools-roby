@@ -86,7 +86,7 @@ module Roby
         # information about the plan, such as e.g. MissionFailedError
         def propagated?; true end
         # The object describing the point of failure
-	attr_reader :failure_point
+        attr_reader :failure_point
         
         # The objects of the given categories which are related to #failure_point
         attr_reader :failed_event, :failed_generator, :failed_task
@@ -94,36 +94,36 @@ module Roby
         # Create a LocalizedError object with the given failure point
         def initialize(failure_point)
             super()
-	    @failure_point = failure_point
+            @failure_point = failure_point
 
             @failed_task, @failed_event, @failed_generator = nil
-	    if failure_point.kind_of?(Event)
-		@failed_event = failure_point
-		@failed_generator = failure_point.generator
-	    elsif failure_point.kind_of?(EventGenerator)
-		@failed_generator = failure_point
-	    elsif failure_point.kind_of?(Task)
-		@failed_task = failure_point
-	    end
+            if failure_point.kind_of?(Event)
+                @failed_event = failure_point
+                @failed_generator = failure_point.generator
+            elsif failure_point.kind_of?(EventGenerator)
+                @failed_generator = failure_point
+            elsif failure_point.kind_of?(Task)
+                @failed_task = failure_point
+            end
 
-	    if !@failed_task && @failed_generator && @failed_generator.respond_to?(:task)
-		@failed_task = failed_generator.task
-	    end
-	    if !@failed_task && !@failed_generator
-		raise ArgumentError, "cannot deduce a task and/or a generator from #{failure_point}"
-	    end
+            if !@failed_task && @failed_generator && @failed_generator.respond_to?(:task)
+                @failed_task = failed_generator.task
+            end
+            if !@failed_task && !@failed_generator
+                raise ArgumentError, "cannot deduce a task and/or a generator from #{failure_point}"
+            end
 
             if failed_event
                 failed_event.protect_all_sources
             end
-	end
+        end
 
         def to_execution_exception
             ExecutionException.new(self)
         end
 
         def pretty_print(pp)
-	    pp.text "#{self.class.name}"
+            pp.text "#{self.class.name}"
             if !message.empty?
                 pp.text ": #{message}"
             end
@@ -268,13 +268,13 @@ module Roby
         def error; original_exception end
         # Create a CodeError object from the given original exception object, and
         # with the given failure point
-	def initialize(error, *args)
-	    if error && !error.kind_of?(Exception)
-		raise TypeError, "#{error} should be an exception"
-	    end
-	    super(*args)
+        def initialize(error, *args)
+            if error && !error.kind_of?(Exception)
+                raise TypeError, "#{error} should be an exception"
+            end
+            super(*args)
             report_exceptions_from(error)
-	end
+        end
 
         def pretty_print(pp)
             pp.text "#{self.class.name}: user code raised an exception "
@@ -324,11 +324,11 @@ module Roby
             end
         end
 
-	def pretty_print(pp) # :nodoc:
+        def pretty_print(pp) # :nodoc:
             pp.text "failed emission of the "
             failed_generator.pretty_print(pp)
             pp.text " (#{self.class})"
-	end
+        end
     end
     # Raised when an event handler has raised.
     class EventHandlerError < CodeError
@@ -344,14 +344,14 @@ module Roby
 
     # Raised when an exception handler has raised.
     class FailedExceptionHandler < CodeError
-	attr_reader :handled_exception
+        attr_reader :handled_exception
         attr_reader :handler
 
-	def initialize(error, object, handled_exception, handler)
-	    super(error, object)
-	    @handled_exception = handled_exception
+        def initialize(error, object, handled_exception, handler)
+            super(error, object)
+            @handled_exception = handled_exception
             @handler = handler
-	end
+        end
 
         def pretty_print(pp)
             pp.text "exception handler #{handler} failed while processing"
@@ -369,22 +369,22 @@ module Roby
         # Create an UnreachableEvent error for the given +generator+. +reason+
         # is supposed to be either nil or a plan object which is the reason why
         # +generator+ has become unreachable.
-	def initialize(generator, reason)
-	    super(generator)
+        def initialize(generator, reason)
+            super(generator)
             @reason    = reason
             report_exceptions_from(reason)
-	end
+        end
 
-	def pretty_print(pp) # :nodoc:
+        def pretty_print(pp) # :nodoc:
             pp.text "#{failed_generator} has become unreachable"
-	    if reason
+            if reason
                 reason = [*reason]
                 reason.each do |e|
                     pp.breakable
                     e.pretty_print(pp)
                 end
             end
-	end
+        end
     end
     
     # Exception raised when the event loop aborts because of an unhandled
@@ -393,7 +393,7 @@ module Roby
         def pretty_print(pp) # :nodoc:
             pp.text "control loop aborting because of unhandled exceptions"
         end
-	def backtrace # :nodoc:
+        def backtrace # :nodoc:
             [] 
         end
     end
@@ -401,14 +401,14 @@ module Roby
     # Raised by Plan#replace when the new task cannot replace the older one.
     class InvalidReplace < RuntimeError
         # The task being replaced
-	attr_reader :from
+        attr_reader :from
         # The task which should have replaced #from
         attr_reader :to
 
         # Create a new InvalidReplace object
-	def initialize(from, to)
-	    @from, @to = from, to
-	end
+        def initialize(from, to)
+            @from, @to = from, to
+        end
         def pretty_print(pp) # :nodoc:
             pp.text "invalid replacement: #{message}"
             pp.breakable
@@ -433,7 +433,7 @@ module Roby
             super(task.failure_event || task)
             @reason = reason || task.failure_reason
             report_exceptions_from(@reason)
-	end
+        end
 
         def pretty_print(pp)
             if reason
