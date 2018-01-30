@@ -30,6 +30,9 @@ scripts/controllers/ and/or some explicitly given actions
     opt.on '--port=PORT', Integer, 'the interface port' do |port|
         app.shell_interface_port = port
     end
+    opt.on '--no-interface', "disable the shell interface" do
+        app.public_shell_interface = false
+    end
     opt.on '--rest[=SOCKET_OR_PORT]', String, 'enable the experimental REST API' do |socket|
         app.public_rest_interface = true
         if socket =~ /^\d+$/
