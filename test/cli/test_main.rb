@@ -62,6 +62,13 @@ module Roby
                         run_command_and_stop "roby quit --retry"
                         assert_command_stops @run_cmd
                     end
+                    it "starts the API on a Unix socket if one is given" do
+                        dir = make_tmpdir
+                        socket = File.join(dir, "rest-socket")
+                        run_command "roby run --rest=#{socket}"
+                        assert_eventually { File.exist?(socket) }
+                        run_command_and_stop "roby quit --retry"
+                    end
                 end
             end
 
