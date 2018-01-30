@@ -60,7 +60,7 @@ module Roby
                 end
             end
 
-            def assert_roby_app_is_running(pid, timeout: 2, host: 'localhost', port: Roby::Interface::DEFAULT_PORT)
+            def assert_roby_app_is_running(pid, timeout: 10, host: 'localhost', port: Roby::Interface::DEFAULT_PORT)
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
                     begin
