@@ -125,8 +125,12 @@ module Roby
                 return dir
             end
 
-            def roby_app_spawn(*args, **options)
-                pid = spawn(roby_bin, *args, **options)
+            def roby_app_spawn(*args, silent: false, **options)
+                if silent
+                    options[:out] ||= '/dev/null'
+                    options[:err] ||= '/dev/null'
+                end
+                pid = spawn(roby_bin, *args, chdir: app_dir, **options)
                 @spawned_pids << pid
                 return pid
             end
