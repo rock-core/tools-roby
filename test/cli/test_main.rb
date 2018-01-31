@@ -10,11 +10,7 @@ module Roby
 
             describe "run" do
                 before do
-                    run_command "roby gen app"
-                end
-
-                after do
-                    FileUtils.rm_f "/tmp/roby-cli-main-rest-test"
+                    run_command_and_stop "roby gen app"
                 end
 
                 def wait_for_file(path)
