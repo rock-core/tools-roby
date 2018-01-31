@@ -3,6 +3,10 @@
 require 'roby'
 require 'roby/cli/main'
 
+# Reset the interrupt handler to the default. An ignored handler is inherited,
+# so this makes sure that the Roby app is based on the handler's expected state
+trap('INT', 'DEFAULT')
+
 if ARGV.first
     command_name = ARGV.first.tr('-', '_')
     if Roby::CLI::Main.instance_methods.include?(command_name.to_sym)
