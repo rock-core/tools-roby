@@ -818,9 +818,6 @@ module Roby
             setup_handlers.each(&:call)
 
             require_models
-            call_plugins(:require_config, self, deprecated: "define 'require_models' instead")
-            call_plugins(:require_models, self)
-            plan.refresh_relations
 
             # Main is always included in the planner list
             self.planners << app_module::Actions::Main
@@ -1522,6 +1519,7 @@ module Roby
             # Loads the models, based on the given robot name and robot type
         def require_models
             # Set up the loaded plugins
+            call_plugins(:require_config, self, deprecated: "define 'require_models' instead")
             call_plugins(:require_models, self)
 
             require_handlers.each do |handler|
@@ -1542,7 +1540,6 @@ module Roby
                 end
             end
 
-
             additional_model_files.each do |path|
                 require File.expand_path(path)
             end
@@ -1553,6 +1550,8 @@ module Roby
 
             # Set up the loaded plugins
             call_plugins(:finalize_model_loading, self)
+
+            plan.refresh_relations
         end
 
         def load_all_model_files_in(prefix_name, ignored_exceptions: Array.new)
