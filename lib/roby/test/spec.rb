@@ -187,9 +187,7 @@ module Roby
                         super
                     end
                 end
-                self
             end
-
         end
     end
 
