@@ -131,7 +131,7 @@ module Roby
         #
         # Some expensive tests are disabled when not in development mode. This
         # is the default
-        attr_predicate :development_mode?
+        attr_predicate :development_mode?, true
 
         # The --set options passed on the command line
         attr_reader :argv_set

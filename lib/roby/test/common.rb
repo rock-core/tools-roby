@@ -122,6 +122,7 @@ module Roby
 
         def setup
             @app = Roby.app
+            @app.development_mode = false
             Roby.app.reload_config
             @log_levels = Hash.new
             @transactions = Array.new
