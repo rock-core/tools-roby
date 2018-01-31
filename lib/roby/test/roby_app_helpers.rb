@@ -177,6 +177,16 @@ module Roby
             ensure
                 client.close if client
             end
+
+            def app_helpers_source_dir(source_dir)
+                @helpers_source_dir = source_dir
+            end
+
+            def copy_into_app(template, target = template)
+                FileUtils.mkdir_p File.join(app_dir, File.dirname(target))
+                FileUtils.cp File.join(@helpers_source_dir, template),
+                    File.join(app_dir, target)
+            end
         end
     end
 end
