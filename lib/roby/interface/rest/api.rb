@@ -17,6 +17,11 @@ module Roby
                     end
                     params[:value]
                 end
+
+                # Quits the Roby app
+                post 'quit' do
+                    interface.quit
+                end
             end
         end
     end
