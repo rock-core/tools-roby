@@ -37,6 +37,9 @@ scripts/controllers/ and/or some explicitly given actions
     opt.on '--no-interface', "disable the shell interface" do
         app.public_shell_interface = false
     end
+    opt.on '--no-logs', "treat the log directory as ephemeral" do
+       app.public_logs = false
+    end
     opt.on '--rest[=SOCKET_OR_PORT]', String, 'enable the experimental REST API' do |socket|
         app.public_rest_interface = true
         if socket =~ /^\d+$/
