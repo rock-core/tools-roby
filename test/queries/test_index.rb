@@ -12,16 +12,16 @@ module Roby
             describe "#add" do
                 it "registers the model-to-task mapping" do
                     index.add(task = task_m.new)
-                    assert_equal Set[task], index.by_model[task.model]
+                    assert_equal [task], index.by_model[task.model].to_a
                 end
 
                 it "registers for the whole model ancestry" do
                     flexmock(task = task_m.new).should_receive(model: task.singleton_class)
                     index.add(task)
-                    assert_equal Set[task], index.by_model[task.singleton_class]
-                    assert_equal Set[task], index.by_model[task.model]
-                    assert_equal Set[task], index.by_model[Task]
-                    assert_equal Set[task], index.by_model[TaskService]
+                    assert_equal [task], index.by_model[task.singleton_class].to_a
+                    assert_equal [task], index.by_model[task.model].to_a
+                    assert_equal [task], index.by_model[Task].to_a
+                    assert_equal [task], index.by_model[TaskService].to_a
                 end
             end
 
@@ -30,9 +30,9 @@ module Roby
                     index.add(task = task_m.new)
                     index.add(other = task_m.new)
                     index.remove(task)
-                    assert_equal Set[other], index.by_model[task_m]
-                    assert_equal Set[other], index.by_model[Task]
-                    assert_equal Set[other], index.by_model[TaskService]
+                    assert_equal [other], index.by_model[task_m].to_a
+                    assert_equal [other], index.by_model[Task].to_a
+                    assert_equal [other], index.by_model[TaskService].to_a
                 end
 
                 it "removes a by_model entry when it refers to no tasks anymore" do
