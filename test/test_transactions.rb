@@ -1472,3 +1472,15 @@ class TC_RecursiveTransaction < Minitest::Test
     end
 end
  
+module Roby
+    describe Transaction do
+        before do
+            @plan = Plan.new
+            @transaction = Transaction.new(@plan)
+        end
+
+        it "is not root" do
+            refute @transaction.root_plan?
+        end
+    end
+end
