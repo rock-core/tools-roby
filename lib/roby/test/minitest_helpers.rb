@@ -111,6 +111,15 @@ module Roby
                 end
             end
 
+            def register_failure(e)
+                case e
+                when Assertion
+                    self.failures << e
+                else
+                    self.failures << Minitest::UnexpectedError.new(e)
+                end
+            end
+
             def capture_exceptions
                 super do
                     begin
@@ -121,7 +130,7 @@ module Roby
                         end
 
                         exceptions = root_e.each_original_exception
-                        self.failures << root_e
+                        register_failure(root_e)
 
                         # Try to be smart and to only keep the toplevel
                         # exceptions
@@ -129,12 +138,7 @@ module Roby
                             if !e.backtrace
                                 e.set_backtrace(root_e.backtrace)
                             end
-                            case e
-                            when Assertion
-                                self.failures << e
-                            else
-                                self.failures << Minitest::UnexpectedError.new(e)
-                            end
+                            register_failure(e)
                         end
                     end
                 end

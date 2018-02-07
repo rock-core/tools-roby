@@ -52,11 +52,17 @@ module Roby
             # This method is part of the minitest API ... cannot change its name
             def record(result)
                 r = result
-                c = r.class
-                file, = c.instance_method(r.name).source_location
+                if r.respond_to?(:source_location) # Minitest 3.11+
+                    class_name = r.klass
+                    file, = r.source_location
+                else
+                    c = r.class
+                    file, = c.instance_method(r.name).source_location
+                    class_name = c.name
+                end
                 failures = manager.dump(r.failures)
                 @has_failures ||= r.failures.any? { |e| !e.kind_of?(Minitest::Skip) }
-                server.test_result(pid, file, c.name, r.name, failures, r.assertions, r.time)
+                server.test_result(pid, file, class_name, r.name, failures, r.assertions, r.time)
             end
 
             def test_finished
