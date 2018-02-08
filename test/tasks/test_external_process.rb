@@ -173,13 +173,13 @@ module Roby
 
                 it "accepts a command line with a single command argument" do
                     plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
-                    task.redirect_output 'close'
+                    task.redirect_output :close
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
                 it "accepts a single command as string" do
                     plan.add(task = Tasks::ExternalProcess.new(command_line: MOCKUP))
-                    task.redirect_output 'close'
+                    task.redirect_output :close
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
