@@ -148,16 +148,6 @@ module Roby
         # @see each_event_relation_graph
         attr_reader :event_relation_graphs
 
-        # Enumerate the graph objects that contain this plan's relation
-        # information
-        #
-        # @yieldparam [Relations::Graph] graph
-        def each_relation_graph(&block)
-            return enum_for(__method__) if !block_given?
-            each_event_relation_graph(&block)
-            each_task_relation_graph(&block)
-        end
-
         # Enumerate all graphs (event and tasks) that form this plan
         def each_relation_graph
             return enum_for(__method__) if !block_given?
@@ -850,13 +840,11 @@ module Roby
         # Register a new plan service on this plan
         def add_plan_service(service)
             if service.task.plan != self
-                raise "trying to register a plan service on #{self} for #{service.task}, which is included in #{service.task.plan}"
+                raise ArgumentError, "trying to register a plan service on #{self} for #{service.task}, which is included in #{service.task.plan}"
             end
 
             set = (plan_services[service.task] ||= Set.new)
-            if !set.include?(service)
-                set << service
-            end
+            set << service
             self
         end
 
@@ -868,6 +856,11 @@ module Roby
                     plan_services.delete(service.task)
                 end
             end
+        end
+
+        # Whether there are services registered for the given task
+        def registered_plan_services_for(task)
+            @plan_services[task] || Set.new
         end
 
         # Change the actual task a given plan service is representing
@@ -1420,27 +1413,22 @@ module Roby
                 raise ArgumentError, "cannot remove #{object} which is a non-root object"
             elsif object.plan != self
                 if !object.plan
-                    if object.removed_at
-                        if PlanObject.debug_finalization_place?
-                            raise ArgumentError, "#{object} has already been removed from its plan\n" +
-                                "Removed at\n  #{object.removed_at.join("\n  ")}"
-                        else
-                            raise ArgumentError, "#{object} has already been removed from its plan. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
-                        end
+                    if object.removed_at && !object.removed_at.empty?
+                        raise ArgumentError, "#{object} has already been removed from its plan\n" +
+                            "Removed at\n  #{object.removed_at.join("\n  ")}"
                     else
-                        raise ArgumentError, "#{object} has never been included in this plan"
+                        raise ArgumentError, "#{object} has already been removed from its plan. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
                     end
+                elsif object.plan.template?
+                    raise ArgumentError, "#{object} has never been included in this plan"
+                else
+                    raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
                 end
-                raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
             end
         end
 
         def finalize_task(task, timestamp = nil)
             verify_plan_object_finalization_sanity(task)
-            if (task.plan != self) && has_task?(task)
-                raise ArgumentError, "#{task} is included in #{self} but #plan == #{task.plan}"
-            end
-
             if services = plan_services.delete(task)
                 services.each(&:finalized!)
             end
@@ -1464,9 +1452,6 @@ module Roby
 
         def finalize_event(event, timestamp = nil)
             verify_plan_object_finalization_sanity(event)
-            if (event.plan != self) && has_free_event?(event)
-                raise ArgumentError, "#{event} is included in #{self} but #plan == #{event.plan}"
-            end
 
             # Remove relations first. This is needed by transaction since
             # removing relations may need wrapping some new event, and in
@@ -1477,9 +1462,7 @@ module Roby
         end
 
         def remove_task(task, timestamp = Time.now)
-            if !@tasks.delete?(task)
-                raise ArgumentError, "#{task} is not a task of #{self}"
-            end
+            verify_plan_object_finalization_sanity(task)
             remove_task!(task, timestamp)
         end
 
@@ -1497,9 +1480,7 @@ module Roby
         end
 
         def remove_free_event(event, timestamp = Time.now)
-            if !@free_events.delete?(event)
-                raise ArgumentError, "#{event} is not a free event of #{self}"
-            end
+            verify_plan_object_finalization_sanity(event)
             remove_free_event!(event, timestamp)
         end
 
@@ -1546,7 +1527,7 @@ module Roby
             clear!
 
             remaining = tasks.find_all do |t|
-                if executable? && t.running?
+                if t.running?
                     true
                 else
                     finalize_task(t)
@@ -1924,7 +1905,7 @@ module Roby
                 current_plan = current_plan.plan
                 object = object.__getobj__
             end
-            nil
+            # Never reached
         end
     end
 end

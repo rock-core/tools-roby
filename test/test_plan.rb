@@ -109,6 +109,28 @@ module Roby
             end
         end
 
+        describe "#locally_useful_roots" do
+            before do
+                plan.add_mission_task(@mission = Task.new)
+                plan.add_permanent_task(@permanent = Task.new)
+                plan.add(@task = Task.new)
+            end
+
+            it "adds the proxied tasks if with_transactions is true" do
+                plan.in_transaction do |trsc|
+                    trsc[@task]
+                    assert_equal Set[@mission, @permanent, @task], plan.locally_useful_roots
+                end
+            end
+
+            it "does not add the proxied tasks if with_transactions is false" do
+                plan.in_transaction do |trsc|
+                    trsc[@task]
+                    assert_equal Set[@mission, @permanent], plan.locally_useful_roots(with_transactions: false)
+                end
+            end
+        end
+
         describe "#add_trigger" do
             attr_reader :task_m, :task, :recorder
             before do
@@ -293,20 +315,52 @@ module Roby
                 ev.forward_to t.start_event
                 assert plan.unneeded_events.empty?
             end
+            it "does not return free events while they are used in a transaction" do
+                plan.add(ev = Roby::EventGenerator.new)
+                plan.in_transaction do |trsc|
+                    trsc[ev]
+                    assert plan.unneeded_events.empty?
+                end
+                assert_equal [ev], plan.unneeded_events.to_a
+            end
         end
         
         describe "deep_copy" do
+            before do
+                @parent, @child, @planner = prepare_plan add: 3, model: Roby::Tasks::Simple
+                plan.add(@ev = Roby::EventGenerator.new)
+
+                @child.success_event.forward_to @ev
+                @parent.depends_on @child
+                @child.planned_by @planner
+            end
+
             it "copies the plan objects and their structure" do
-                parent, (child, planner) = prepare_plan missions: 1, add: 2, model: Roby::Tasks::Simple
-                plan.add(ev = Roby::EventGenerator.new)
-
-                child.success_event.forward_to ev
-                parent.depends_on child
-                child.planned_by planner
-
                 copy, mappings = plan.deep_copy
-                assert_equal (plan.tasks | plan.free_events | plan.task_events), mappings.keys.to_set
+                assert_equal (@plan.tasks | @plan.free_events | @plan.task_events), mappings.keys.to_set
                 assert plan.same_plan?(copy, mappings)
+            end
+
+            it "copies a task's mission status" do
+                plan.add_mission_task(@parent)
+                copy, mappings = plan.deep_copy
+                task_copy = mappings[@parent]
+                assert task_copy.mission?
+                assert copy.mission_task?(task_copy)
+            end
+
+            it "copies a task's permanent status" do
+                plan.add_permanent_task(@parent)
+                copy, mappings = plan.deep_copy
+                task_copy = mappings[@parent]
+                assert copy.permanent_task?(task_copy)
+            end
+
+            it "copies an event's permanent status" do
+                plan.add_permanent_event(@ev)
+                copy, mappings = plan.deep_copy
+                ev_copy = mappings[@ev]
+                assert copy.permanent_event?(ev_copy)
             end
         end
 
@@ -511,6 +565,431 @@ module Roby
                 assert plan.in_useful_subplan?(@reference_task, @tested_task)
             end
         end
+
+        describe "#merge" do
+            it "merges the receiver with itself" do
+                plan = make_random_plan
+                reference, mappings = plan.deep_copy
+                plan.merge(plan)
+                plan.same_plan?(reference, mappings)
+            end
+        end
+
+        describe "#merge!" do
+            it "merges the receiver with itself" do
+                plan = make_random_plan
+                reference, mappings = plan.deep_copy
+                plan.merge!(plan)
+                plan.same_plan?(reference, mappings)
+            end
+        end
+
+        describe "#add_plan_service" do
+            before do
+                plan.add(@task = Task.new)
+            end
+            it "registers the plan service" do
+                # Note that PlanService#initialize already calls add_plan_service ...
+                service = PlanService.new(@task)
+                assert_equal Set[service], plan.registered_plan_services_for(@task)
+            end
+            it "raises if the service's underlying task is not in the plan" do
+                other_plan = Plan.new
+                other_plan.add(t = Task.new)
+                assert_raises(ArgumentError) do
+                    plan.add_plan_service(PlanService.new(t))
+                end
+            end
+        end
+
+        describe "#remove_plan_service" do
+            before do
+                plan.add(@task = Task.new)
+                @service = PlanService.new(@task)
+            end
+            it "deregisters the service" do
+                plan.remove_plan_service(@service)
+                assert_equal Set.new, plan.registered_plan_services_for(@task)
+            end
+            it "leaves other services registered for the same task" do
+                other = PlanService.new(@task)
+                plan.remove_plan_service(@service)
+                assert_equal Set[other], plan.registered_plan_services_for(@task)
+            end
+            it "ignores services that are have been already removed" do
+                plan.remove_plan_service(@service)
+                plan.remove_plan_service(@service)
+                assert_equal Set[], plan.registered_plan_services_for(@task)
+            end
+        end
+
+        describe "#move_plan_service" do
+            before do
+                plan.add(@task = Task.new)
+                @service = PlanService.new(@task)
+                plan.add(@new_task = Task.new)
+            end
+            it "moves the service's registration" do
+                plan.move_plan_service(@service, @new_task)
+                assert_equal Set.new, plan.registered_plan_services_for(@task)
+                assert_equal @new_task, @service.task
+                assert_equal Set[@service], plan.registered_plan_services_for(@new_task)
+            end
+            it "handles moving to the same task" do
+                plan.move_plan_service(@service, @task)
+                assert_equal Set[@service], plan.registered_plan_services_for(@task)
+                assert_equal @task, @service.task
+            end
+        end
+
+        describe "#in_transaction" do
+            it "yields a new transaction on the plan" do
+                plan.in_transaction do |t|
+                    assert_kind_of Transaction, t
+                    assert_equal plan, t.plan
+                end
+            end
+            it "handles an exception during transaction creation" do
+                error = Class.new(RuntimeError)
+                flexmock(Transaction).should_receive(:new).and_raise(error)
+                assert_raises(error) do
+                    plan.in_transaction { }
+                end
+            end
+            it "leaves the transaction alone if it has been committed" do
+                plan.in_transaction do |trsc|
+                    flexmock(trsc).should_receive(:discard_transaction).never
+                    trsc.commit_transaction
+                end
+            end
+            it "returns the block's value" do
+                obj = flexmock
+                ret = plan.in_transaction do |trsc|
+                    obj
+                end
+                assert_equal obj, ret
+            end
+            it "discards the transaction if it has not been commited in the block" do
+                plan.in_transaction do |trsc|
+                    flexmock(trsc).should_receive(:discard_transaction).once
+                end
+            end
+        end
+
+        describe "#num_events" do
+            it "returns the sum of free and task events" do
+                plan.add(t = Task.new)
+                plan.add(ev = EventGenerator.new)
+                assert_equal (t.each_event.to_a.size + 1), plan.num_events
+            end
+        end
+
+        describe "#num_tasks" do
+            it "returns the sum of tasks" do
+                plan.add(t = Task.new)
+                assert_equal 1, plan.num_tasks
+            end
+        end
+
+        describe "#each_task" do
+            it "returns an enumerator if not given a block" do
+                plan.add(t = Task.new)
+                assert_equal [t], plan.each_task.to_a
+            end
+        end
+
+        describe "#[]" do
+            it "returns its argument if it is from the plan" do
+                plan.add(task = Task.new)
+                assert_equal task, plan[task]
+            end
+            it "auto-adds the argument if it is not yet included in any plan" do
+                task = Task.new
+                assert_equal task, plan[task]
+                assert plan.has_task?(task)
+            end
+            it "raises if the argument is finalized" do
+                plan.add(task = Task.new)
+                plan.remove_task(task)
+                assert_raises(ArgumentError) { plan[task] }
+            end
+            it "raises if the argument is from a different plan" do
+                Plan.new.add(task = Task.new)
+                assert_raises(ArgumentError) { plan[task] }
+            end
+        end
+
+        describe "#verify_plan_object_finalization_sanity" do
+            it "raises if attempting to finalize a non-root object" do
+                plan.add(task = Task.new)
+                assert_raises(ArgumentError) do
+                    plan.verify_plan_object_finalization_sanity(task.start_event)
+                end
+            end
+            it "raises if attempting to finalize an already finalized object" do
+                plan.add(task = Task.new)
+                plan.remove_task(task)
+                assert_raises(ArgumentError) do
+                    plan.verify_plan_object_finalization_sanity(task)
+                end
+            end
+            it "raises if attempting to finalize a never-added object" do
+                task = Task.new
+                assert_raises(ArgumentError) do
+                    plan.verify_plan_object_finalization_sanity(task)
+                end
+            end
+            it "raises if attempting to finalize an object from a different plan" do
+                Plan.new.add(task = Task.new)
+                assert_raises(ArgumentError) do
+                    plan.verify_plan_object_finalization_sanity(task)
+                end
+            end
+        end
+
+        describe "#remove_task" do
+            before do
+                plan.add(@task = Roby::Task.new)
+            end
+            it "validates its argument once first" do
+                flexmock(plan).should_receive(:verify_plan_object_finalization_sanity).with(@task).once.globally.ordered
+                flexmock(plan).should_receive(:remove_task!).with(@task, Time).once.globally.ordered
+                plan.remove_task(@task)
+            end
+            it "passes the timestamp to remove_task!" do
+                timestamp = Time.at(2)
+                flexmock(plan).should_receive(:remove_task!).with(@task, timestamp).once
+                plan.remove_task(@task, timestamp)
+            end
+        end
+
+        describe "#remove_task!" do
+            before do
+                plan.add(@task = Roby::Task.new)
+                flexmock(plan)
+            end
+            it "removes the task from the set of tasks" do
+                plan.remove_task(@task)
+                refute plan.has_task?(@task)
+            end
+            it "removes the task from the set of mission tasks" do
+                plan.add_mission_task(@task)
+                plan.remove_task(@task)
+                refute plan.mission_task?(@task)
+            end
+            it "removes the task from the set of permanent tasks" do
+                plan.add_permanent_task(@task)
+                plan.remove_task(@task)
+                refute plan.permanent_task?(@task)
+            end
+            it "removes the task from the task index" do
+                flexmock(plan.task_index).should_receive(:remove).with(@task).once.pass_thru
+                plan.remove_task(@task)
+            end
+            it "removes the task's own events from the set of task events" do
+                plan.remove_task(@task)
+                @task.each_event { |ev| !plan.has_task_event?(ev) }
+            end
+            it "finalizes the task" do
+                plan.should_receive(:finalize_task).with(@task, Time).once
+                plan.remove_task(@task)
+            end
+            it "passes an explicit timestamp to the finalization" do
+                time = Time.at(2)
+                plan.should_receive(:finalize_task).with(@task, time).once
+                plan.remove_task(@task, time)
+            end
+            it "calls the finalized_plan_task hook on active transactions that have a proxy" do
+                plan.in_transaction do |trsc|
+                    proxy = trsc[@task]
+                    flexmock(trsc).should_receive(:finalized_plan_task).with(proxy).once
+                    plan.remove_task(@task)
+                end
+            end
+            it "does not call the finalized_plan_task hook on disabled transactions" do
+                plan.in_transaction do |trsc|
+                    proxy = trsc[@task]
+                    flexmock(trsc).should_receive(:finalized_plan_task).never
+                    trsc.disable_proxying do
+                        plan.remove_task(@task)
+                    end
+                end
+            end
+            it "does not call the finalized_plan_task hook on active transactions that do not have a proxy" do
+                plan.in_transaction do |trsc|
+                    flexmock(trsc).should_receive(:finalized_plan_task).never
+                    plan.remove_task(@task)
+                end
+            end
+        end
+        
+        describe "#finalize_task" do
+            before do
+                plan.add(@task = Roby::Task.new)
+                flexmock(plan)
+            end
+            it "resets a task's mission flag" do
+                @task.mission = true
+                plan.finalize_task(@task)
+                refute @task.mission?
+            end
+            it "calls the finalized_event hook for its own events" do
+                @task.each_event { |ev| plan.should_receive(:finalized_event).with(ev).once }
+                plan.finalize_task(@task)
+            end
+            it "calls the finalized_task hook for itself, after the events" do
+                plan.should_receive(:finalized_event).globally.ordered
+                plan.should_receive(:finalized_task).with(@task).once.globally.ordered
+                plan.finalize_task(@task)
+            end
+            it "calls the event's own finalized! hook" do
+                timestamp = Time.at(2)
+                @task.each_event { |ev| flexmock(ev).should_receive(:finalized!).with(timestamp).once }
+                plan.finalize_task(@task, timestamp)
+            end
+            it "calls the tasks's own finalized! hook" do
+                timestamp = Time.at(2)
+                flexmock(@task).should_receive(:finalized!).with(timestamp).once
+                plan.finalize_task(@task, timestamp)
+            end
+        end
+
+        describe "#remove_free_event" do
+            before do
+                plan.add(@event = EventGenerator.new)
+            end
+            it "validates its argument once first" do
+                flexmock(plan).should_receive(:verify_plan_object_finalization_sanity).with(@event).once.globally.ordered
+                flexmock(plan).should_receive(:remove_free_event!).with(@event, Time).once.globally.ordered
+                plan.remove_free_event(@event)
+            end
+            it "passes the timestamp to remove_free_event!" do
+                timestamp = Time.at(2)
+                flexmock(plan).should_receive(:remove_free_event!).with(@event, timestamp).once
+                plan.remove_free_event(@event, timestamp)
+            end
+        end
+
+        describe "#remove_free_event!" do
+            before do
+                plan.add(@event = EventGenerator.new)
+                flexmock(plan)
+            end
+            it "removes the event from the set of events" do
+                plan.remove_free_event(@event)
+                refute plan.has_free_event?(@event)
+            end
+            it "removes the event from the set of permanent events" do
+                plan.add_permanent_event(@event)
+                plan.remove_free_event(@event)
+                refute plan.permanent_event?(@event)
+            end
+            it "finalizes the event" do
+                plan.should_receive(:finalize_event).with(@event, Time).once
+                plan.remove_free_event!(@event)
+            end
+            it "passes an explicit timestamp to the finalization" do
+                time = Time.at(2)
+                plan.should_receive(:finalize_event).with(@event, time).once
+                plan.remove_free_event!(@event, time)
+            end
+            it "calls the finalized_plan_event hook on active transactions that have a proxy" do
+                plan.in_transaction do |trsc|
+                    proxy = trsc[@event]
+                    flexmock(trsc).should_receive(:finalized_plan_event).with(proxy).once
+                    plan.remove_free_event!(@event)
+                end
+            end
+            it "does not call the finalized_plan_event hook on disabled transactions" do
+                plan.in_transaction do |trsc|
+                    proxy = trsc[@event]
+                    flexmock(trsc).should_receive(:finalized_plan_event).never
+                    trsc.disable_proxying do
+                        plan.remove_free_event!(@event)
+                    end
+                end
+            end
+            it "does not call the finalized_plan_event hook on transactions that do not have a proxy" do
+                plan.in_transaction do |trsc|
+                    flexmock(trsc).should_receive(:finalized_plan_event).never
+                    plan.remove_free_event!(@event)
+                end
+            end
+        end
+        
+        describe "#finalize_event" do
+            before do
+                plan.add(@event = EventGenerator.new)
+                flexmock(plan)
+            end
+            it "calls the finalized_event hook" do
+                plan.should_receive(:finalized_event).with(@event).once
+                plan.finalize_event(@event)
+            end
+            it "calls the event's own finalized! hook" do
+                timestamp = Time.at(2)
+                flexmock(@event).should_receive(:finalized!).with(timestamp).once
+                plan.finalize_event(@event, timestamp)
+            end
+        end
+
+        describe "#remove_object" do
+            before do
+                flexmock(Roby).should_receive(:warn_deprecated).once
+                flexmock(plan)
+            end
+            it "dispatches for a task included in the plan" do
+                plan.add(task = Task.new)
+                plan.should_receive(:remove_task).with(task, Time).once
+                plan.remove_object(task)
+            end
+            it "dispatches for an event included in the plan" do
+                plan.add(event = EventGenerator.new)
+                plan.should_receive(:remove_free_event).with(event, Time).once
+                plan.remove_object(event)
+            end
+            it "raises for anything else" do
+                event = EventGenerator.new
+                assert_raises(ArgumentError) do
+                    plan.remove_object(event)
+                end
+            end
+        end
+
+        describe "#clear" do
+            it "finalizes the tasks that can be" do
+                plan.add(task = Task.new)
+                flexmock(plan).should_receive(:finalize_task).with(task).once
+                plan.clear
+            end
+            it "finalizes the free events" do
+                plan.add(event = EventGenerator.new)
+                flexmock(plan).should_receive(:finalize_event).with(event).once
+                plan.clear
+            end
+            it "warns about running tasks" do
+                plan.add_permanent_task(task = Task.new)
+                flexmock(task).should_receive(running?: true)
+                flexmock(Roby).should_receive(:warn).with("1 tasks remaining after clearing the plan as they are still running").once
+                flexmock(Roby).should_receive(:warn).with("  #{task}").once
+                plan.clear
+            end
+        end
+        
+        describe "#find_tasks" do
+            it "sets up a query with global scope" do
+                query = plan.find_tasks
+                assert_same plan, query.plan
+                assert query.global_scope?
+            end
+        end
+        
+        describe "#find_local_tasks" do
+            it "sets up a query with local scope" do
+                query = plan.find_local_tasks
+                assert_same plan, query.plan
+                assert query.local_scope?
+            end
+        end
     end
 end
-

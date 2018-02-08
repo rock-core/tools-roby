@@ -1450,46 +1450,6 @@ module Roby
         end
 
         # @api private
-        def compute_object_replacement_operation(object)
-            edges = []
-            plan.each_task_relation_graph do |g|
-                next if g.strong?
-
-                g.each_in_neighbour(self) do |parent|
-                    if parent != object
-                        edges << [g, parent, self, parent, object]
-                    end
-                end
-                g.each_out_neighbour(self) do |child|
-                    if object != child
-                        edges << [g, self, child, object, child]
-                    end
-                end
-            end
-
-            plan.each_event_relation_graph do |g|
-                next if g.strong?
-
-                each_event do |event|
-                    object_event = nil
-                    g.each_in_neighbour(event) do |parent|
-                        if !parent.respond_to?(:task) || (parent.task != self && parent.task != object)
-                            object_event ||= object.event(event.symbol)
-                            edges << [g, parent, event, parent, object_event]
-                        end
-                    end
-                    g.each_out_neighbour(event) do |child|
-                        if !child.respond_to?(:task) || (child.task != self && child.task != object)
-                            object_event ||= object.event(event.symbol)
-                            edges << [g, event, child, object_event, child]
-                        end
-                    end
-                end
-            end
-            edges
-        end
-
-        # @api private
         def initialize_replacement(task)
             super
 

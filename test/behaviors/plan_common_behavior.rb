@@ -56,6 +56,35 @@ module Roby
             assert_same t.relation_graphs, plan.task_relation_graphs
         end
 
+        def test_add_accepts_an_object_that_responds_to_to_task
+            t = Task.new
+            plan.add(flexmock(to_task: t))
+            assert plan.has_task?(t)
+        end
+
+        def test_add_accepts_an_object_that_responds_to_to_event
+            e = EventGenerator.new
+            plan.add(flexmock(to_event: e))
+            assert plan.has_free_event?(e)
+        end
+
+        def test_add_raises_if_an_object_is_neither_a_task_nor_an_event
+            obj = flexmock
+            e = assert_raises(ArgumentError) do
+                plan.add(obj)
+            end
+            assert_equal "found #{obj} which is neither a task nor an event",
+                e.message
+        end
+
+        def test_add_explicitly_displays_a_nil_value
+            e = assert_raises(ArgumentError) do
+                plan.add(nil)
+            end
+            assert_equal "found nil which is neither a task nor an event",
+                e.message
+        end
+
         def test_add_plan
             t1, t2, t3 = (1..3).map { Task.new }
             ev = EventGenerator.new
@@ -86,6 +115,13 @@ module Roby
             plan.add_mission_task(t = Task.new)
             assert_task_state(t, :mission)
         end
+
+        def test_add_mission_task_does_not_set_the_mission_flag_if_the_task_is_not_owned
+            t = Task.new
+            flexmock(t, self_owned?: false)
+            plan.add_mission_task(t)
+            assert !t.mission?
+        end
         
         def test_unmark_mission_task
             plan.add_mission_task(t = Task.new)
@@ -96,6 +132,68 @@ module Roby
             plan.add_mission_task(t = Task.new)
             plan.remove_task(t)
             assert_task_state(t, :removed)
+        end
+
+        def test_add_permanent_dispatches_a_task
+            flexmock(Roby).should_receive(:warn_deprecated).once
+            task = Roby::Task.new
+            flexmock(plan).should_receive(:add_permanent_task).with(task).once
+            assert_same task, plan.add_permanent(flexmock(to_task: task))
+        end
+
+        def test_add_permanent_dispatches_an_event
+            flexmock(Roby).should_receive(:warn_deprecated).once
+            event = Roby::EventGenerator.new
+            flexmock(plan).should_receive(:add_permanent_event).with(event).once
+            assert_same event, plan.add_permanent(flexmock(to_event: event))
+        end
+
+        def test_unmark_permanent_dispatches_a_task
+            flexmock(Roby).should_receive(:warn_deprecated).once
+            task = Roby::Task.new
+            flexmock(plan).should_receive(:unmark_permanent_task).with(task).once
+            plan.unmark_permanent(task)
+        end
+
+        def test_unmark_permanent_dispatches_an_event
+            flexmock(Roby).should_receive(:warn_deprecated).once
+            event = Roby::EventGenerator.new
+            flexmock(plan).should_receive(:unmark_permanent_event).with(event).once
+            plan.unmark_permanent(event)
+        end
+
+        def test_unmark_permanent_raises_if_given_neither_a_task_nor_an_event
+            flexmock(Roby).should_receive(:warn_deprecated).once
+            flexmock(plan).should_receive(:unmark_permanent_task).never
+            flexmock(plan).should_receive(:unmark_permanent_event).never
+            assert_raises(ArgumentError) do
+                plan.unmark_permanent(flexmock)
+            end
+        end
+
+        def test_permanent_p_dispatches_a_task
+            flexmock(Roby).should_receive(:warn_deprecated).once
+            task = Roby::Task.new
+            flexmock(plan).should_receive(:permanent_task?).with(task).once.
+                and_return(ret = flexmock)
+            assert_equal ret, plan.permanent?(task)
+        end
+
+        def test_permanent_p_dispatches_an_event
+            flexmock(Roby).should_receive(:warn_deprecated).once
+            event = Roby::EventGenerator.new
+            flexmock(plan).should_receive(:permanent_event?).with(event).once.
+                and_return(ret = flexmock)
+            assert_equal ret, plan.permanent?(event)
+        end
+
+        def test_permanent_p_raises_if_given_neither_a_task_nor_an_event
+            flexmock(Roby).should_receive(:warn_deprecated).once
+            flexmock(plan).should_receive(:permanent_task?).never
+            flexmock(plan).should_receive(:permanent_event?).never
+            assert_raises(ArgumentError) do
+                plan.unmark_permanent(flexmock)
+            end
         end
 
         def test_add_permanent_task
@@ -126,8 +224,32 @@ module Roby
             plan.add_permanent_event(ev = EventGenerator.new)
             assert_event_state(ev, :permanent)
         end
+        def test_add_permanent_event_notifies_the_state_change
+            ev = EventGenerator.new
+            flexmock(plan).should_receive(:notify_event_status_change).
+                with(ev, :permanent).once
+            plan.add_permanent_event(ev)
+        end
+        def test_add_permanent_event_does_not_notify_for_an_already_permanent_event
+            plan.add_permanent_event(ev = EventGenerator.new)
+            flexmock(plan).should_receive(:notify_task_status_change).never
+            plan.add_permanent_event(ev)
+        end
         def test_unmark_permanent_event
             plan.add_permanent_event(ev = EventGenerator.new)
+            plan.unmark_permanent_event(ev)
+            assert_event_state(ev, :normal)
+        end
+        def test_unmark_permanent_event_notifies_the_status_change
+            plan.add_permanent_event(ev = EventGenerator.new)
+            flexmock(plan).should_receive(:notify_event_status_change).
+                with(ev, :normal).once
+            plan.unmark_permanent_event(ev)
+            assert_event_state(ev, :normal)
+        end
+        def test_unmark_permanent_event_does_not_notify_the_status_change_for_an_already_normal_event
+            plan.add(ev = EventGenerator.new)
+            flexmock(plan).should_receive(:notify_event_status_change).never
             plan.unmark_permanent_event(ev)
             assert_event_state(ev, :normal)
         end

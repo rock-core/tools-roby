@@ -35,6 +35,35 @@ module Roby
             end
         end
 
+        def self.validation(context)
+            context.it "does nothing if the source and target are the same" do
+                @replacing_task = @replaced_task
+                flexmock(@replaced_task).should_receive(:replace_by).never
+                flexmock(@replaced_task).should_receive(:replace_subplan_by).never
+                perform_replacement
+            end
+
+            context.it "raises ArgumentError if the replacing task is not in the same plan than the receiver" do
+                flexmock(@replacing_task).should_receive(:plan).and_return(Plan.new)
+                assert_raises(ArgumentError) { perform_replacement }
+            end
+
+            context.it "raises ArgumentError if the replaced task is not in the same plan than the receiver" do
+                flexmock(@replaced_task).should_receive(:plan).and_return(Plan.new)
+                assert_raises(ArgumentError) { perform_replacement }
+            end
+
+            context.it "raises ArgumentError if the replaced task is finalized" do
+                plan.remove_task(@replaced_task)
+                assert_raises(ArgumentError) { perform_replacement }
+            end
+
+            context.it "raises ArgumentError if the replacing task is finalized" do
+                plan.remove_task(@replacing_task)
+                assert_raises(ArgumentError) { perform_replacement }
+            end
+        end
+
         def self.replace_task_common(context)
             context.it "calls the replaced hook" do
                 flexmock(replacement_plan).should_receive(:replaced).
@@ -120,6 +149,8 @@ module Roby
         end
 
         def self.replace_task(context)
+            validation(context)
+
             context.send(:describe, "copy_on_replace: false") do
                 PlanReplaceBehaviors.replace_task_common(self)
 
@@ -202,16 +233,6 @@ module Roby
                 perform_replacement
                 refute plan.mission_task?(@replaced_task)
                 assert plan.mission_task?(@replacing_task)
-            end
-
-            context.it "raises ArgumentError if the replaced task is finalized" do
-                plan.remove_task(@replaced_task)
-                assert_raises(ArgumentError) { perform_replacement }
-            end
-
-            context.it "raises ArgumentError if the replacing task is finalized" do
-                plan.remove_task(@replacing_task)
-                assert_raises(ArgumentError) { perform_replacement }
             end
         end
 
@@ -374,6 +395,8 @@ module Roby
         end
 
         def self.replace(context)
+            validation(context)
+
             context.send(:describe, "copy_on_replace: false") do
                 PlanReplaceBehaviors.replace_common(self)
 
