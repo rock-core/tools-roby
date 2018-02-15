@@ -724,7 +724,7 @@ module Roby
         # It also calls the plugin's 'load' method
         def load_base_config
             load_config_yaml
-            setup_loggers(redirections: false)
+            setup_loggers(ignore_missing: true, redirections: false)
 
             setup_robot_names_from_config_dir
 
@@ -1434,17 +1434,30 @@ module Roby
             final_path
         end
 
+        class InvalidLoggerName < ArgumentError; end
+
         # Sets up all the default loggers. It creates the logger for the Robot
         # module (accessible through Robot.logger), and sets up log levels as
         # specified in the <tt>config/app.yml</tt> file.
-        def setup_loggers(redirections: true)
+        def setup_loggers(ignore_missing: false, redirections: true)
             Robot.logger.progname = robot_name || 'Robot'
             return if !log['levels']
 
             # Set up log levels
             log['levels'].each do |name, value|
-                name = name.modulize
-                mod = Kernel.constant(name)
+                const_name = name.modulize
+                mod =
+                    begin Kernel.constant(const_name)
+                    rescue NameError => e
+                        if ignore_missing
+                            next
+                        elsif name != const_name
+                            raise InvalidLoggerName, "cannot resolve logger #{name} (resolved as #{const_name}): #{e.message}"
+                        else
+                            raise InvalidLoggerName, "cannot resolve logger #{name}: #{e.message}"
+                        end
+                    end
+
                 if value =~ /^(\w+):(.+)$/
                     value, file = $1, $2
                     file = file.gsub('ROBOT', robot_name) if robot_name
@@ -1454,7 +1467,9 @@ module Roby
                 io = if redirections && file
                          path = File.expand_path(file, log_dir)
                          Robot.info "redirected logger for #{mod} to #{path} (level #{level})"
-                         log_files[path] ||= File.open(path, 'w')
+                         io = File.open(path, 'w')
+                         io.sync = true
+                         log_files[path] ||= io
                      else 
                          STDOUT
                      end

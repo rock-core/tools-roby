@@ -34,7 +34,7 @@ module Roby
                 end
             end
 
-            def gen_app
+            def gen_app(app_dir = self.app_dir)
                 require 'roby/cli/gen_main'
                 Dir.chdir(app_dir) { CLI::GenMain.start(['app', '--quiet']) }
             end
@@ -177,7 +177,7 @@ module Roby
                 while !client.init_done?
                     client.read_and_process_pending
                 end
-            rescue Exception => e
+            rescue Exception
                 # Give time to the log server to report errors before we
                 # terminate it with SIGINT
                 sleep 0.1

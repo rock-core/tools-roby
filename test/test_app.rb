@@ -5,6 +5,22 @@ require 'roby/droby/logfile/client'
 require 'roby/cli/gen_main'
 
 module Roby
+    class LoggerContext
+        class LoggerMock
+            attr_accessor :formatter
+
+            def initialize(formatter)
+                @formatter = formatter
+            end
+        end
+
+        attr_accessor :logger
+
+        def initialize(formatter)
+            @logger = LoggerMock.new(formatter)
+        end
+    end
+
     describe Application do
         include Test::RobyAppHelpers
 
@@ -377,14 +393,12 @@ module Roby
                 assert_equal before.merge('interface' => 'test'), app.load_config_yaml
             end
             it "does a recursive merge for hash entries" do
-                before = app.options.dup
                 app.options['test'] = Hash['kept' => 10, 'overriden' => 20]
                 app.robot 'test'
                 create_app_yml('robots' => Hash['test' => Hash['test' => Hash['overriden' => 30]]])
                 assert_equal Hash['kept' => 10, 'overriden' => 30], app.load_config_yaml['test']
             end
             it "simply overrides non-hash entries" do
-                before = app.options.dup
                 app.options['overriden'] = 10
                 app.robot 'test'
                 create_app_yml('robots' => Hash['test' => Hash['overriden' => 30]])
@@ -755,6 +769,94 @@ module Roby
                 returned_value = RestClient.
                     get("http://localhost:#{server.port}/api/extended")
                 assert_equal 42, Integer(returned_value)
+            end
+        end
+
+        describe "setup of loggers" do
+            before do
+                @app = Roby::Application.new
+                @app.plugins_enabled = false
+                @app.app_dir = make_tmpdir
+                gen_app(@app.app_dir)
+            end
+
+            after do
+                if Roby.const_defined?(:LoggerSetupTests)
+                    Roby.module_eval do
+                        remove_const :LoggerSetupTests
+                    end
+                end
+            end
+
+            describe "during base configuration loading" do
+                before do
+                    Roby.const_set :LoggerSetupTests,
+                        LoggerContext.new(@formatter = flexmock)
+                end
+
+                it "sets up the log levels" do
+                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG'
+                    @app.load_base_config
+                    assert_equal Logger::DEBUG, Roby::LoggerSetupTests.logger.level
+                end
+                it "ignores absent contexts" do
+                    @app.log_setup 'roby/does_not_exist', 'DEBUG'
+                    @app.load_base_config
+                end
+                it "does not redirect to files" do
+                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG:file'
+                    @app.load_base_config
+                    flexmock(STDOUT).should_receive(:write).once
+                    LoggerSetupTests.logger << "bla"
+                end
+            end
+
+            describe "during base_setup" do
+                def assert_handles_plugin_hook(hook_name)
+                    plugin = Module.new
+                    plugin.singleton_class.class_eval do
+                        define_method(hook_name) do |app|
+                            Roby.const_set :LoggerSetupTests,
+                                LoggerContext.new(@formatter = ->(s) { "" })
+                        end
+                    end
+                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG'
+                    @app.add_plugin 'test', plugin
+                    @app.base_setup
+                    assert_equal Logger::DEBUG, Roby::LoggerSetupTests.logger.level
+                end
+                it "sets up contexts that are created during plugin's load_base_config" do
+                    assert_handles_plugin_hook :load_base_config
+                end
+
+                def assert_handles_robot_hook(hook_name)
+                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG'
+                    @app.send(hook_name) do
+                        Roby.const_set :LoggerSetupTests,
+                            LoggerContext.new(@formatter = flexmock)
+                    end
+                    @app.base_setup
+                    assert_equal Logger::DEBUG, Roby::LoggerSetupTests.logger.level
+                end
+                it "sets up contexts that are created during robot init" do
+                    assert_handles_robot_hook :on_init
+                end
+                it "raises for missing contexts" do
+                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG'
+                    assert_raises(Application::InvalidLoggerName) do
+                        @app.setup
+                    end
+                end
+                it "sets up redirections to files" do
+                    Roby.const_set :LoggerSetupTests,
+                        LoggerContext.new(@formatter = ->(s) { s })
+                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG:file.txt'
+                    @app.log_dir = make_tmpdir
+                    flexmock(Robot).should_receive(:info).with(/^redirected logger for #{Roby::LoggerSetupTests} to #{File.join(@app.log_dir, 'file.txt')}/)
+                    @app.setup
+                    Roby::LoggerSetupTests.logger << "TEST"
+                    assert_equal "TEST", File.read(File.join(@app.log_dir, 'file.txt'))
+                end
             end
         end
     end
