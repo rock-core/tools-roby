@@ -22,6 +22,7 @@ module Roby
 end
 
 require 'concurrent'
+require 'backports/2.4.0/regexp/match'
 require 'roby/backports'
 
 require 'pp'
