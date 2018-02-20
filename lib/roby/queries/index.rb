@@ -19,13 +19,22 @@ module Roby
         PREDICATES = STATE_PREDICATES.dup
 
         def initialize
-            @by_model = Hash.new { |h, k| h[k] = Set.new }
+            @by_model = Hash.new do |h, k|
+                set = Set.new
+                set.compare_by_identity
+                h[k] = set
+            end
             @by_predicate = Hash.new
+            @by_predicate.compare_by_identity
             STATE_PREDICATES.each do |state_name|
-                by_predicate[state_name] = Set.new
+                set = Set.new
+                set.compare_by_identity
+                by_predicate[state_name] = set
             end
             @self_owned = Set.new
+            @self_owned.compare_by_identity
             @by_owner = Hash.new
+            @by_owner.compare_by_identity
         end
 
         def merge(source)

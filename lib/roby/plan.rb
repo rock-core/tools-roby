@@ -449,7 +449,7 @@ module Roby
 
         # True if this plan is root in the plan hierarchy
         def root_plan?
-            !respond_to?(:plan)
+            true
         end
 
         # Returns the set of stacked transaction

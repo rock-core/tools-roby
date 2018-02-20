@@ -461,6 +461,14 @@ module Roby
             def silent(be_silent)
                 @silent = be_silent
             end
+
+            # Make the remote app quit
+            #
+            # This is defined explicitely because otherwise IRB "hooks" on quit
+            # to terminate the shell instead
+            def quit
+                call(Hash.new, [], :quit)
+            end
         end
     end
 end

@@ -114,6 +114,7 @@ module Roby
             pp.text "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class}"
             if with_context && context
                 pp.breakable
+                pp.text "with context"
                 pp.nest(2) do
                     pp.text "  "
                     pp.seplist(context) do |v|

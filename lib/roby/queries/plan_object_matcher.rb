@@ -351,6 +351,7 @@ module Roby
             positive_sets = positive_sets.sort_by(&:size)
 
             result = Set.new
+            result.compare_by_identity
             positive_sets.shift.each do |obj|
                 result.add(obj) if !negative.include?(obj) && positive_sets.all? { |set| set.include?(obj) }
             end

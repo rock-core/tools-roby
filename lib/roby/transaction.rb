@@ -28,6 +28,11 @@ module Roby
         # @see #committed?
         def finalized?; !plan end
 
+        # (see Plan#root_plan?)
+        def root_plan?
+            false
+        end
+
         def extend_proxy_object(proxy, object, klass = object.class)
             proxy.extend Roby::Transaction::Proxying.proxying_module_for(klass)
         end

@@ -1,12 +1,13 @@
 
 # simplecov must be loaded FIRST. Only the files required after it gets loaded
 # will be profiled !!!
-if ENV['TEST_ENABLE_COVERAGE'] == '1'
+if ENV['TEST_ENABLE_COVERAGE'] == '1' || ENV['TEST_COVERAGE_MODE']
+    mode = ENV['TEST_COVERAGE_MODE'] || 'simplecov'
     begin
-        require 'simplecov'
-    rescue LoadError
+        require mode
+    rescue LoadError => e
         require 'roby'
-        Roby.warn "coverage is disabled because the 'simplecov' gem cannot be loaded"
+        Roby.warn "coverage is disabled because the code coverage gem cannot be loaded: #{e.message}"
     rescue Exception => e
         require 'roby'
         Roby.warn "coverage is disabled: #{e.message}"

@@ -390,6 +390,10 @@ module Roby
             @plan = Plan.new
         end
 
+        it "is root" do
+            assert @plan.root_plan?
+        end
+
         describe "#initialize" do
             it "instanciates graphs for all the relation graphs registered on Roby::Task" do
                 space = flexmock(instanciate: Hash[1 => 2])

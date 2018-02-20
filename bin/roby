@@ -9,7 +9,7 @@ trap('INT', 'DEFAULT')
 
 if ARGV.first
     command_name = ARGV.first.tr('-', '_')
-    if Roby::CLI::Main.instance_methods.include?(command_name.to_sym)
+    if Roby::CLI::Main.commands.has_key?(command_name)
         begin
             Roby::CLI::Main.start(ARGV)
             exit 0

@@ -102,6 +102,20 @@ module Roby
                     assert (Time.now - before) > 1
                 end
             end
+
+            describe "shell" do
+                before do
+                    run_command_and_stop "roby gen app"
+                end
+                it "connects and sends commands" do
+                    run_cmd = run_command "roby run --port 9999"
+                    shell_cmd = run_command "roby shell --host localhost:9999"
+                    shell_cmd.write "quit\n"
+                    assert_command_stops run_cmd
+                    shell_cmd.write "exit\n"
+                    assert_command_stops shell_cmd
+                end
+            end
         end
     end
 end
