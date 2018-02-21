@@ -5,12 +5,16 @@ require 'yard/rake/yardoc_task'
 
 task :default
 
-has_gui = begin
-              require 'Qt'
-              true
-          rescue LoadError
-              false
-          end
+if ENV['TEST_DISABLE_GUI'] == '1'
+    has_gui = false
+else
+    has_gui = begin
+                  require 'Qt'
+                  true
+              rescue LoadError
+                  false
+              end
+end
 
 Rake::TestTask.new(:test) do |t|
     t.libs << "."
