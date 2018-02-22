@@ -49,6 +49,8 @@ Roby.
   s.add_runtime_dependency "timecop"
   s.add_runtime_dependency "simplecov"
 
+  s.add_development_dependency "aruba"
+
   # NOTE: stackprof and rbtrace are linux- and MRI-specific
   # Only in Gemfile !
 end
