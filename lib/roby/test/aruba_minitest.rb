@@ -15,10 +15,13 @@ module Roby
                 include ::Aruba::Api
             end
 
+            attr_reader :roby_bin
+
             def setup
                 super
                 @aruba_api = API.new
                 @aruba_api.setup_aruba
+                @roby_bin = File.join(Roby::BIN_DIR, "roby")
             end
 
             def teardown
@@ -37,6 +40,14 @@ module Roby
 
             def run_command(*args)
                 @aruba_api.run(*args)
+            end
+
+            def run_roby_and_stop(cmd, *args, fail_on_error: true)
+                run_command_and_stop("#{Gem.ruby} #{roby_bin} #{cmd}", *args, fail_on_error: fail_on_error)
+            end
+
+            def run_roby(cmd, *args, fail_on_error: true)
+                run_command("#{Gem.ruby} #{roby_bin} #{cmd}", *args, fail_on_error: fail_on_error)
             end
 
             def method_missing(m, *args, &block)

@@ -18,7 +18,9 @@ Roby.
   s.homepage = "http://rock-robotics.org"
   s.licenses = ["BSD"]
 
+  s.bindir = 'bin'
   s.require_paths = ["lib"]
+  s.executables << "roby"
   s.extra_rdoc_files = ["README.md"]
   s.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }
 

@@ -2025,7 +2025,9 @@ module Roby
             end
 
             @log_server_port = tcp_server.local_address.ip_port
-            @log_server_pid = Kernel.spawn("roby-display", 'server', *server_flags, redirect_flags)
+            @log_server_pid = Kernel.spawn(
+                Gem.ruby, File.join(Roby::BIN_DIR, "roby-display"),
+                'server', *server_flags, redirect_flags)
         ensure
             tcp_server.close if tcp_server
         end

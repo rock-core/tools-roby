@@ -126,3 +126,7 @@ require 'roby/coordination'
 
 require 'roby/droby/enable'
 
+module Roby
+    BIN_DIR = File.expand_path(File.join("..", "bin"), __dir__)
+end
+

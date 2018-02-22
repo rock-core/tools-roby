@@ -88,7 +88,7 @@ module Roby
                     if log_dir
                         options << "--log-dir=#{log_dir}"
                     end
-                    @roby_pid = spawn Gem.ruby, '-S', 'roby', 'run',
+                    @roby_pid = spawn Gem.ruby, File.join(Roby::BIN_DIR, "roby"), 'run',
                         "--robot=#{robot_name},#{robot_type}",
                         '--controller',
                         '--quiet',
