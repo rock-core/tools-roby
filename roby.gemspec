@@ -52,6 +52,7 @@ Roby.
   s.add_runtime_dependency "simplecov"
 
   s.add_development_dependency "aruba"
+  s.add_development_dependency "cucumber"
 
   # NOTE: stackprof and rbtrace are linux- and MRI-specific
   # Only in Gemfile !
