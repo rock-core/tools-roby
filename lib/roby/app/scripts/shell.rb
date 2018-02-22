@@ -101,24 +101,76 @@ Readline.completion_proc = lambda do |string|
     return Array.new
 end
 
+class ShellEvalContext < BasicObject
+    include ::Kernel
+
+    def initialize(interface)
+        @__interface = interface
+        @__send = ::Queue.new
+        @__results = ::Queue.new
+    end
+
+    def respond_to_missing?(m, include_private)
+        @__interface.respond_to?(m, include_private)
+    end
+
+    def method_missing(m, *args, &block)
+        @__send.push(::Kernel.lambda { @__interface.send(m, *args, &block) })
+        result, error = @__results.pop
+        if error
+            raise error
+        else result
+        end
+    end
+
+    def process_pending
+        while true
+            begin
+                command = @__send.pop(true)
+                begin
+                    result = command.call
+                    @__results.push([result, nil])
+                rescue ::Exception => e
+                    @__results.push([nil, e])
+                end
+            rescue ::ThreadError
+                break
+            end
+        end
+    end
+end
+
 begin
     # Make __main_remote_interface__ the top-level object
-    bind = __main_remote_interface__.instance_eval { binding }
-    ws  = IRB::WorkSpace.new(bind)
+    __shell_context__ = ShellEvalContext.new(__main_remote_interface__)
+    ws  = IRB::WorkSpace.new(__shell_context__.instance_eval { binding })
     irb = IRB::Irb.new(ws)
 
-    context = IRB::Context.new(irb, ws, SynchronizedReadlineInput.new(__main_remote_interface__.mutex))
+    output_sync = Mutex.new
+    context = IRB::Context.new(irb, ws, SynchronizedReadlineInput.new(output_sync))
     context.save_history = 100
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
+    to_process, process_result = Queue.new, Queue.new
     Thread.new do
         begin
-            __main_remote_interface__.notification_loop(0.1) do |msg|
-                if !__main_remote_interface__.silent?
-                    RbReadline.puts(msg)
+            __main_remote_interface__.notification_loop(0.1) do |connected, messages|
+                __shell_context__.process_pending
+
+                begin
+                    if !__main_remote_interface__.silent?
+                        output_sync.synchronize do
+                            messages.each { |msg| RbReadline.puts(msg) }
+                        end
+                    end
+                rescue Exception => e
+                    puts "Shell notification thread error:"
+                    puts e
+                    puts e.backtrace.join("\n")
                 end
             end
         rescue Exception => e
+            puts "Shell notification thread TERMINATED because of exception"
             puts e
             puts e.backtrace.join("\n")
         end

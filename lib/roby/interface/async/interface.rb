@@ -193,6 +193,7 @@ module Roby
                     when NilClass
                         Interface.info "successfully connected"
                         @client, jobs = connection_future.value
+                        @client.io.reset_thread_guard
                         @connection_future = nil
                         jobs = jobs.map do |job_id, (job_state, placeholder_task, job_task)|
                             JobMonitor.new(self, job_id, state: job_state, placeholder_task: placeholder_task, task: job_task)
