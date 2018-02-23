@@ -127,13 +127,17 @@ module Roby
             end
 
             desc 'check', 'verifies that the configuration is valid'
-            long_desc 'This loads the specified robot configuration, but does not start the app itself. Use this to validate the current configuration'
+            long_desc 'This loads the specified robot configuration,'\
+                ' but does not start the app itself.'\
+                ' Use this to validate the current configuration'
+            option :robot, aliases: 'r', desc: 'the robot name', default: 'default'
             def check(app_dir = nil, *extra_files)
                 app = Roby.app
                 if app_dir
                     app.app_dir = app_dir
                 end
                 app.require_app_dir
+                app.robot(options[:robot])
                 begin app.setup
                 ensure app.cleanup
                 end
