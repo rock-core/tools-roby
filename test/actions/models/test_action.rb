@@ -27,6 +27,29 @@ describe Roby::Actions::Models::Action do
         end
     end
 
+    describe "#returned_task_type" do
+        before do
+            interface_m = Roby::Actions::Interface.new_submodel
+            @action_m   = Roby::Actions::Models::Action.new(interface_m)
+        end
+        it "returns the specified returned type if it is a task model" do
+            @action_m.returns(task_m = Roby::Task.new_submodel)
+            assert_same task_m, @action_m.returned_task_type
+        end
+        it "returns a new anonymous model if it is a service model" do
+            srv_m = Roby::TaskService.new_submodel
+            @action_m.returns(srv_m)
+            task_m = @action_m.returned_task_type
+            assert(task_m <= srv_m)
+        end
+        it "returns always the same anonymous model" do
+            srv_m = Roby::TaskService.new_submodel
+            @action_m.returns(srv_m)
+            task_m = @action_m.returned_task_type
+            assert_same task_m, @action_m.returned_task_type
+        end
+    end
+
     describe "#update" do
         attr_reader :action_m, :updated_m
         before do

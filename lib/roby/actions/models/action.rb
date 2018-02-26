@@ -62,7 +62,8 @@ module Roby
 
                 if returned_type.kind_of?(Roby::Models::TaskServiceModel)
                     model = Class.new(Roby::Task)
-                    model.provides m.returned_type
+                    model.provides returned_type
+                    model.fullfilled_model = [returned_type]
                     @returned_task_type = model
                 else
                     # Create an abstract task which will be planned
