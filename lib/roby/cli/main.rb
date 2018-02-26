@@ -6,12 +6,14 @@ require 'roby/cli/gen_main'
 module Roby
     module CLI
         class Main < Thor
-            desc 'add_robot ROBOT_NAME', "Deprecated, use 'gen robot' instead"
+            desc 'add_robot ROBOT_NAME', "Deprecated, use 'gen robot' instead",
+                hide: true # backward-compatibility only
             def add_robot(robot_name)
                 gen('robot', robot_name)
             end
 
-            desc 'init [DIR]', "Deprecated, use 'gen app' instead"
+            desc 'init [DIR]', "Deprecated, use 'gen app' instead",
+                hide: true # backward-compatibility only
             def init(*dir)
                 gen('app', *dir)
             end
@@ -126,7 +128,8 @@ module Roby
                 interface.close if interface && !interface.closed?
             end
 
-            desc 'check', 'verifies that the configuration is valid'
+            desc 'check', 'verifies that the configuration is valid',
+                hide: true
             long_desc 'This loads the specified robot configuration,'\
                 ' but does not start the app itself.'\
                 ' Use this to validate the current configuration'
