@@ -23,6 +23,13 @@ Rake::TestTask.new(:test) do |t|
     if RUBY_ENGINE != 'ruby'
         test_files = test_files.exclude("test/app/test_debug.rb")
     end
+    if ENV['TEST_FAST'] == '1'
+        test_files = test_files.
+            exclude('test/cli/**/*.rb').
+            exclude('test/app/cucumber/test_controller.rb').
+            exclude('test/app/test_run.rb').
+            exclude('test/interface/async/test_interface.rb')
+    end
     if !has_gui
         test_files = test_files.exclude("test/test_gui.rb")
     end
