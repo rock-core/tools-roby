@@ -44,6 +44,7 @@ module Roby
             Roby.app.auto_load_models = false
             Roby.app.plugins_enabled = false
             Roby.app.testing = true
+            Roby.app.public_logs = false
             Roby.app.log_base_dir = make_tmpdir
             Roby.app.reset_log_dir
             Roby.app.setup
@@ -51,8 +52,6 @@ module Roby
 
             @plan    = ExecutablePlan.new(event_logger: EventReporter.new(STDOUT))
             @control = DecisionControl.new
-
-            Roby.app.public_logs = false
 
             super
 
