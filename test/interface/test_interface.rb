@@ -97,6 +97,19 @@ describe Roby::Interface::Interface do
             interface.remove_job_listener(job_listener)
         end
 
+        def assert_queued_notifications(*expected_notifications)
+            expected_notifications.each_with_index do |expected, i|
+                queued = interface.job_notifications[i]
+                if !queued
+                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
+                        "but there was none"
+                elsif !expected.each_with_index.all? { |v, v_i| v === queued[v_i] }
+                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
+                        "but got #{queued.inspect}"
+                end
+            end
+        end
+
         def assert_received_notifications(*expected)
             expected.each_with_index do |expected, i|
                 if !recorder[i]
@@ -105,6 +118,12 @@ describe Roby::Interface::Interface do
                     flunk "expected notification #{i} to be #{expected.inspect}\nbut got #{recorder[i].inspect}"
                 end
             end
+        end
+
+        def assert_queued_and_received_notifications(*expected)
+            assert_queued_notifications(*expected)
+            interface.push_pending_job_notifications
+            assert_received_notifications(*expected)
         end
 
         it "starts notifications when starting a job" do
@@ -116,8 +135,19 @@ describe Roby::Interface::Interface do
                 [nil, flexmock(plan_pattern: task)]
             end
             interface.start_job(:whatever)
-            interface.push_pending_job_notifications
-            assert_received_notifications \
+            assert_queued_and_received_notifications \
+                [Roby::Interface::JOB_MONITORED, 11, any, any, any],
+                [Roby::Interface::JOB_PLANNING_READY, 11, any]
+        end
+
+        it "starts notifications when added from within a transaction" do
+            task = Roby::Tasks::Simple.new
+            task.planned_by(job_task_m.new(job_id: 11))
+            plan.in_transaction do |trsc|
+                trsc.add_mission_task(task)
+                trsc.commit_transaction
+            end
+            assert_queued_and_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 11, any, any, any],
                 [Roby::Interface::JOB_PLANNING_READY, 11, any]
         end

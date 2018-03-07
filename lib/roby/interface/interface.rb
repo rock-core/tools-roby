@@ -364,11 +364,14 @@ module Roby
                 job_name = planning_task.job_name
 
                 service = PlanService.new(task)
-                service.on_plan_status_change(initial: !new_task) do |status|
+                need_initial_event = !new_task ||
+                    plan.mission_task?(task)
+                service.on_plan_status_change(initial: need_initial_event) do |status|
                     if status == :mission
-                        job_notify(JOB_MONITORED, job_id, job_name, service.task, service.task.planning_task)
+                        job_notify(JOB_MONITORED, job_id, job_name, service.task,
+                            service.task.planning_task)
                         job_notify(job_state(service.task), job_id, job_name)
-                    elsif (status != :mission)
+                    elsif status != :mission
                         job_notify(JOB_DROPPED, job_id, job_name)
                     end
                 end
@@ -378,12 +381,13 @@ module Roby
                         job_notify(JOB_PLANNING, job_id, job_name)
                     end
                     planner.success_event.on do |ev|
-                        if (job_task = planner.planned_task) && (job_task.pending? || job_task.starting?)
+                        job_task = planner.planned_task
+                        if job_task && (job_task.pending? || job_task.starting?)
                             job_notify(JOB_READY, job_id, job_name)
                         end
                     end
                     planner.stop_event.on do |ev|
-                        if !ev.task.success?
+                        unless ev.task.success?
                             job_notify(JOB_PLANNING_FAILED, job_id, job_name)
                         end
                     end
