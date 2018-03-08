@@ -204,6 +204,24 @@ describe Roby::Interface::Interface do
                 [Roby::Interface::JOB_PLANNING_READY, 10, "the job"]
         end
 
+        it "does not send a MONITORED if replaced within a transaction" do
+            interface.monitor_job(job_task, task)
+
+            new_task = Roby::Tasks::Simple.new(id: task.id)
+            plan.in_transaction do |trsc|
+                new_task.planned_by trsc[job_task]
+                trsc.replace_task(trsc[task], new_task)
+                trsc.commit_transaction
+            end
+            interface.push_pending_job_notifications
+
+            assert_received_notifications \
+                [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
+                [Roby::Interface::JOB_PLANNING_READY, 10, "the job"],
+                [Roby::Interface::JOB_REPLACED, 10, "the job", new_task],
+                [Roby::Interface::JOB_PLANNING_READY, 10, "the job"]
+        end
+
 
         it "notifies the current state of the new placeholder task" do
             plan.add(new_task = Roby::Tasks::Simple.new(id: task.id))
