@@ -790,12 +790,14 @@ module Roby
         # The inverse of #base_setup
         def base_cleanup
             if !public_logs?
-                created_log_dirs.each do |dir|
+                created_log_dirs.delete_if do |dir|
                     FileUtils.rm_rf dir
+                    true
                 end
                 created_log_base_dirs.sort_by(&:length).reverse_each do |dir|
                     # .rmdir will ignore nonempty / nonexistent directories
                     FileUtils.rmdir(dir)
+                    created_log_base_dirs.delete(dir)
                 end
             end
         end
