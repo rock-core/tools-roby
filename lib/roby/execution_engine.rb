@@ -2383,20 +2383,45 @@ module Roby
         # Block until the given block is executed by the execution thread, at
         # the beginning of the event loop, in propagation context. If the block
         # raises, the exception is raised back in the calling thread.
-        def execute(type: :external_events)
+        def execute(catch: [], type: :external_events)
             if inside_control?
                 return yield
+            end
+
+            capture_catch = lambda do |symbol, *other|
+                caught = catch(symbol) do
+                    if other.empty?
+                        return [:ret, yield]
+                    else
+                        return capture_catch(block, *other)
+                    end
+                end
+                [:throw, [symbol, caught]]
             end
 
             ivar = Concurrent::IVar.new
             once(sync: ivar, type: type) do
                 begin
-                    ivar.set(yield)
-                rescue ::Exception => e
-                    ivar.fail(e)
+                    if !catch.empty?
+                        result = capture_catch.call(*catch) { yield }
+                        ivar.set(result)
+                    else
+                        ivar.set([:ret, yield])
+                    end
+                rescue ::Exception => e # rubocop:disable Lint/RescueException
+                    ivar.set([:raise, e])
                 end
             end
-            ivar.value!
+
+            mode, value = ivar.value!
+            case mode
+            when :ret
+                return value
+            when :throw
+                throw *value
+            else
+                raise value
+            end
         end
 
         # Stops the current thread until the given even is emitted. If the event

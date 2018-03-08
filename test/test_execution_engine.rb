@@ -1422,6 +1422,65 @@ module Roby
             end
         end
 
+        describe "#execute" do
+            def setup_test_thread(&block)
+                t = Thread.new(&block)
+                until t.stop?
+                    Thread.pass
+                end
+                t
+            end
+            it "executes the block in the engine's thread" do
+                thread = setup_test_thread do
+                    execution_engine.execute { Thread.current }
+                end
+                expect_execution.to_run
+                assert_equal Thread.current, thread.value
+            end
+            it "returns the block's return value" do
+                thread = setup_test_thread do
+                    execution_engine.execute { 42 }
+                end
+                expect_execution.to_run
+                assert_equal 42, thread.value
+            end
+            it "handles multiple return values properly" do
+                thread = setup_test_thread do
+                    execution_engine.execute { [42, 84] }
+                end
+                expect_execution.to_run
+                assert_equal [42, 84], thread.value
+            end
+            it "passes raised exceptions" do
+                error_e = Class.new(Exception)
+                thread = setup_test_thread do
+                    execution_engine.execute { raise error_e }
+                end
+                expect_execution.to_run
+                assert_raises(error_e) { thread.value }
+            end
+            it "re-throws symbols that are explicitely listed" do
+                thread = setup_test_thread do
+                    catch(:test) do
+                        execution_engine.execute(catch: [:test]) { throw :test, true }
+                        false
+                    end
+                end
+                expect_execution.to_run
+                assert thread.value
+            end
+            it "handles values thrown along with the symbol" do
+                thread = setup_test_thread do
+                    catch(:test) do
+                        execution_engine.execute(catch: [:test]) { throw :test, 42 }
+                        nil
+                    end
+                end
+                expect_execution.to_run
+                assert_equal 42, thread.value
+            end
+        end
+
         describe "#has_waiting_work?" do
             it "returns false if there are no promises" do
                 refute execution_engine.has_waiting_work?
