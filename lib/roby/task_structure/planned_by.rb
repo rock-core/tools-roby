@@ -10,7 +10,9 @@ module Roby::TaskStructure
             # Returns the first child enumerated by planned_tasks. This is a
             # convenience method that can be used if it is known that the planning
             # task is only planning for one single task (a pretty common case)
-            def planned_task; planned_tasks.find { true } end
+            def planned_task
+                each_in_neighbour_merged(PlannedBy, intrusive: true).first
+            end
             # The set of tasks which are planned by this one
             def planned_tasks; parent_objects(PlannedBy) end
             # Set +task+ as the planning task of +self+

@@ -46,7 +46,7 @@ module Roby
                 end
             end
 
-            def planned_task
+            def planning_result_task
                 if success? || result
                     result
                 elsif task = planned_tasks.find { true }
@@ -91,7 +91,7 @@ module Roby
                     result_task.planned_by transaction[self]
                 end
 
-                if placeholder = planned_task
+                if placeholder = planning_result_task
                     placeholder = transaction[placeholder]
                     transaction.replace(placeholder, result_task)
                     placeholder.remove_planning_task transaction[self]

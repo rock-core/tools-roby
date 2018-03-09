@@ -46,7 +46,7 @@ module Roby
                     planner = Roby::Actions::Task.new(
                         Hash[action_model: self,
                              action_arguments: arguments].merge(job_id))
-                    planner.planned_task
+                    planner.planning_result_task
                 end
 
                 def to_s
