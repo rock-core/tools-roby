@@ -125,7 +125,14 @@ module Roby
                 @tracked_jobs = Set.new
                 @job_notifications = Array.new
                 @job_listeners = Array.new
+                @job_monitoring_state = Hash.new
                 @cycle_end_listeners = Array.new
+            end
+
+            State = Struct.new :service, :monitored, :job_id, :job_name do
+                def monitored?
+                    monitored
+                end
             end
 
             # Returns the port of the log server
@@ -363,38 +370,39 @@ module Roby
                 job_id   = planning_task.job_id
                 job_name = planning_task.job_name
 
+                # This happens when a placeholder/planning pair is replaced by
+                # another, but the job ID is inherited. We do this when e.g.
+                # running an action that returns another planning pair
+                if (state = @job_monitoring_state[job_id])
+                    track_planning_state(
+                        state.job_id, state.job_name, state.service, planning_task)
+                    return
+                end
+
                 service = PlanService.new(task)
-                need_initial_event = !new_task ||
-                    plan.mission_task?(task)
-                service.on_plan_status_change(initial: need_initial_event) do |status|
-                    if status == :mission
+                @job_monitoring_state[job_id] =
+                    State.new(service, false, job_id, job_name)
+                service.when_finalized do
+                    @job_monitoring_state.delete(job_id)
+                end
+
+                service.on_plan_status_change(initial: true) do |status|
+                    state = @job_monitoring_state[job_id]
+                    if !state.monitored? && (status == :mission)
                         job_notify(JOB_MONITORED, job_id, job_name, service.task,
                             service.task.planning_task)
                         job_notify(job_state(service.task), job_id, job_name)
-                    elsif status != :mission
+                        state.monitored = true
+                    elsif state.monitored? && (status != :mission)
                         job_notify(JOB_DROPPED, job_id, job_name)
+                        state.monitored = false
                     end
                 end
 
-                if planner = task.planning_task
-                    planner.start_event.on do |ev|
-                        job_notify(JOB_PLANNING, job_id, job_name)
-                    end
-                    planner.success_event.on do |ev|
-                        job_task = planner.planned_task
-                        if job_task && (job_task.pending? || job_task.starting?)
-                            job_notify(JOB_READY, job_id, job_name)
-                        end
-                    end
-                    planner.stop_event.on do |ev|
-                        unless ev.task.success?
-                            job_notify(JOB_PLANNING_FAILED, job_id, job_name)
-                        end
-                    end
-                end
+                track_planning_state(job_id, job_name, service, planning_task)
 
-                service.on_replacement do |current, new|
-                    if job_ids_of_task(new).include?(job_id)
+                service.on_replacement do |_current, new|
+                    if plan.mission_task?(new) && job_ids_of_task(new).include?(job_id)
                         job_notify(JOB_REPLACED, job_id, job_name, new)
                         job_notify(job_state(new), job_id, job_name)
                     else
@@ -413,9 +421,35 @@ module Roby
                 service.when_finalized do 
                     job_notify(JOB_FINALIZED, job_id, job_name)
                 end
+            end
+
+            private def track_planning_state(job_id, job_name, service, planning_task)
+                planning_task.start_event.on do |ev|
+                    job_task = planning_task.planned_task
+                    if job_task == service.task
+                        job_notify(JOB_PLANNING, job_id, job_name)
+                    end
+                end
+                planning_task.success_event.on do |ev|
+                    job_task = planning_task.planned_task
+                    if job_task == service.task
+                        if job_task.pending? || job_task.starting?
+                            job_notify(JOB_READY, job_id, job_name)
+                        end
+                    end
+                end
+                planning_task.stop_event.on do |ev|
+                    job_task = planning_task.planned_task
+                    if job_task == service.task && !ev.task.success?
+                        job_notify(JOB_PLANNING_FAILED, job_id, job_name)
+                    end
+                end
 
                 PlanService.new(planning_task).when_finalized do
-                    job_notify(JOB_FINALIZED, job_id, job_name)
+                    job_task = planning_task.planned_task
+                    if job_task == service.task
+                        job_notify(JOB_FINALIZED, job_id, job_name)
+                    end
                 end
             end
 
