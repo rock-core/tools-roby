@@ -70,6 +70,18 @@ module Roby
                 end
             end
 
+            it "wraps the planned_task within a transaction on first access" do
+                # Note: we only check #planned_task. #planning_task is provided
+                # by the single_child support in relations, and tested there.
+                plan = Roby::Plan.new
+                plan.add(planned_task = Roby::Task.new)
+                planned_task.planned_by(planning_task = Roby::Task.new)
+                plan.in_transaction do |trsc|
+                    assert_equal planned_task, trsc[planning_task].
+                        planned_task.__getobj__
+                end
+            end
+
             def test_as_plan
                 model = Tasks::Simple.new_submodel do
                     def self.as_plan

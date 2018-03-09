@@ -137,6 +137,66 @@ module Roby
                         parent.relation_graph_for(space::R).remove_vertex(other_child)
                         assert_equal child, parent.child
                     end
+
+                    describe "within a transaction" do
+                        before do
+                            @plan = Roby::Plan.new
+                            @plan.add(@planned_task = Roby::Task.new)
+                            @plan.add(@planning_task = Roby::Task.new)
+                            @trsc = Roby::Transaction.new(@plan)
+                        end
+
+                        it "has nil accessors if the real task has nil accessors" do
+                            assert_nil @trsc[@planning_task].planned_task
+                            assert_nil @trsc[@planned_task].planning_task
+                        end
+
+                        it "wraps the child on first access" do
+                            @planned_task.planned_by(@planning_task)
+                            assert_equal @planning_task, @trsc[@planned_task].
+                                planning_task.__getobj__
+                        end
+
+                        it "sets the accessors to nil if the relation is removed" do
+                            @planned_task.planned_by(@planning_task)
+                            @trsc[@planned_task].remove_planning_task(
+                                @trsc[@planning_task])
+                            @trsc.commit_transaction
+                            assert_nil @planned_task.planning_task
+                        end
+
+                        it "updates the accessors if updated in the transaction" do
+                            @planned_task.planned_by(@planning_task)
+                            @trsc[@planned_task].remove_planning_task(
+                                @trsc[@planning_task])
+                            @trsc[@planned_task].planned_by(
+                                new_planning_task = Roby::Task.new)
+                            @trsc.commit_transaction
+                            assert_equal new_planning_task, @planned_task.planning_task
+                        end
+
+                        it "updates the parent on commit if updated in the transaction" do
+                            @planned_task.planned_by(@planning_task)
+                            new_planned_task = Roby::Task.new
+                            @trsc[@planned_task].remove_planning_task(
+                                @trsc[@planning_task])
+                            new_planned_task.planned_by(
+                                @trsc[@planning_task])
+                            @trsc.commit_transaction
+                            assert_equal @planning_task, new_planned_task.planning_task
+                        end
+
+                        it "handles relations modified between transactions" do
+                            @planned_task.planned_by(@planning_task)
+                            @plan.add(new_planned_task = Roby::Task.new)
+                            @trsc[@planned_task].remove_planning_task(
+                                @trsc[@planning_task])
+                            @trsc[new_planned_task].planned_by(
+                                @trsc[@planning_task])
+                            @trsc.commit_transaction
+                            assert_equal @planning_task, new_planned_task.planning_task
+                        end
+                    end
                 end
 
                 describe "#each_PARENT" do
