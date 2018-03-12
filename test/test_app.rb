@@ -111,10 +111,10 @@ module Roby
                 it "registers the created paths for later cleanup" do
                     existing_dirs = app.created_log_dirs.to_set
                     app.find_and_create_log_dir('tag')
-                    assert_equal [File.dirname(app.log_base_dir), app.log_base_dir].to_set,
-                        app.created_log_base_dirs.to_set
-                    assert_equal existing_dirs | Set[File.join(app.log_base_dir, 'tag')],
-                        app.created_log_dirs.to_set
+                    assert_equal [File.dirname(app.log_base_dir), app.log_base_dir].sort,
+                        app.created_log_base_dirs.to_a.sort
+                    assert_equal (existing_dirs | Set[File.join(app.log_base_dir, 'tag')]).sort,
+                        app.created_log_dirs.to_a.sort
                 end
                 it "handles concurrent path creation properly" do
                     FileUtils.mkdir_p app.log_base_dir
@@ -127,9 +127,9 @@ module Roby
                     existing_dirs = app.created_log_dirs.to_set
                     created = app.find_and_create_log_dir('tag')
                     assert_equal File.join(app.log_base_dir, 'tag.1'), created
-                    assert_equal [].to_set, app.created_log_base_dirs.to_set
-                    assert_equal existing_dirs | Set[File.join(app.log_base_dir, 'tag.1')],
-                        app.created_log_dirs.to_set
+                    assert_equal [], app.created_log_base_dirs.to_a
+                    assert_equal (existing_dirs | Set[File.join(app.log_base_dir, 'tag.1')]).to_a.sort,
+                        app.created_log_dirs.sort
                 end
                 it "sets app#time_tag to the provided time tag" do
                     app.find_and_create_log_dir('tag')

@@ -59,10 +59,9 @@ module Roby
             it "provides a way to declare interruption points in the threaded computation" do
                 task, sync = start_task_synchronized { |task| task.interruption_point }
 
-                expect_execution do
-                    task.stop!
-                    sync.wait
-                end.to { emit task.failed_event }
+                expect_execution { task.stop! }.to_run
+                sync.wait
+                expect_execution.to { emit task.failed_event }
 
                 assert_kind_of Interrupt, task.failed_event.last.context.first
                 assert_nil task.result

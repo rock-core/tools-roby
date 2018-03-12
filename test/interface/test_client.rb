@@ -12,7 +12,6 @@ module Roby
             attr_reader :plan
             attr_reader :app
             attr_reader :interface
-            attr_reader :client
             attr_reader :server
 
             def stub_action(name)
@@ -39,47 +38,69 @@ module Roby
 
                 flexmock(@interface = interface_class.new(app))
                 server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0) 
-                @server    = Server.new(DRobyChannel.new(server_socket, false), interface)
-                @server_thread = Thread.new do
-                    plan.execution_engine.thread = Thread.current
-                    begin
-                        while true
-                            server.poll
-                            sleep 0.01
-                        end
-                    rescue ComError
-                    end
-                end
-                @server_thread.abort_on_exception = true
+                @server_channel = DRobyChannel.new(server_socket, false)
+                @server    = Server.new(@server_channel, interface)
             end
 
-            let :client do
-                Client.new(DRobyChannel.new(@client_socket, true), 'test')
+            def open_client
+                @client = while_polling_server do
+                    Client.new(DRobyChannel.new(@client_socket, true), 'test')
+                end
+            end
+
+            def connect
+                client = open_client
+                while_polling_server do
+                    yield(client)
+                end
+            ensure
+                client.close if client
+            end
+
+            def while_polling_server(&block)
+                raise "recursive call to #while_polling_server" if @poller
+                @server_channel.reset_thread_guard
+                quit = Concurrent::Event.new
+                @poller = Thread.new do
+                    execution_engine.thread = Thread.current
+                    while !quit.set?
+                        @server.poll
+                        sleep 0.01
+                    end
+                end
+                yield
+            ensure
+                quit.set
+                @poller.join
+                @poller = nil
+                execution_engine.thread = Thread.current
+                @server_channel.reset_thread_guard
             end
 
             after do
                 plan.execution_engine.display_exceptions = true
                 InterfaceClientTestInterface.clear_model
-                client.close if !client.closed?
+                @client.close if @client && !@client.closed?
                 server.close if !server.closed?
-                begin @server_thread.join
-                rescue Interrupt
-                end
             end
 
             it "discovers actions and commands on connection" do
                 interface.should_receive(actions:  [stub_action("Test")])
                 commands = CommandLibrary::InterfaceCommands.new('', nil, Hash[test: stub_command(:test)])
                 interface.should_receive(commands: Hash['' => commands])
-                assert_equal [:test], client.commands[''].commands.values.map(&:name)
-                assert_equal interface.actions, client.actions
+
+                commands, actions = connect do |client|
+                    [client.commands, client.actions]
+                end
+                assert_equal [:test], commands[''].commands.values.map(&:name)
+                assert_equal interface.actions, actions
             end
 
             it "dispatches an action call as a start_job message" do
                 interface.should_receive(actions:  [stub_action("Test")])
                 interface.should_receive(:start_job).with('Test', arg0: 10).once.
                     and_return(10)
-                assert_equal 10, client.Test!(arg0: 10)
+                assert_equal 10, connect { |client| client.Test!(arg0: 10) }
             end
 
             describe "job handling" do
@@ -94,33 +115,40 @@ module Roby
                 end
 
                 describe "#each_job" do
-                    attr_reader :test_id, :other_test_id
+                    attr_reader :client, :first_job, :second_job
                     before do
-                        @test_id = client.test!
-                        @other_test_id = client.other_test!
+                        @client = open_client
+                        while_polling_server do
+                            @first_job = client.test!
+                            @second_job = client.other_test!
+                        end
                     end
 
                     it "enumerates the jobs" do
-                        jobs = client.each_job.to_a
+                        jobs = while_polling_server { client.each_job.to_a }
                         assert_equal 2, jobs.size
-                        assert_equal test_id, jobs[0].job_id
+                        assert_equal first_job, jobs[0].job_id
                         assert_equal 'test', jobs[0].action_model.name
-                        assert_equal other_test_id, jobs[1].job_id
+                        assert_equal second_job, jobs[1].job_id
                         assert_equal 'other_test', jobs[1].action_model.name
                     end
 
                     it "allows to filter them by action name" do
-                        jobs = client.find_all_jobs_by_action_name('test')
+                        jobs = while_polling_server do
+                            client.find_all_jobs_by_action_name('test')
+                        end
                         assert_equal 1, jobs.size
                         job = jobs.first
-                        assert_equal test_id, job.job_id
+                        assert_equal first_job, job.job_id
                         assert_equal 'test', job.action_model.name
                     end
                 end
 
                 it "gets notified of the new jobs on creation" do
-                    job_id = client.test!
+                    client = open_client
+                    job_id = while_polling_server { client.test! }
                     interface.push_pending_job_notifications
+                    server.poll
                     client.poll
                     assert client.has_job_progress?
                     assert_equal [:monitored, job_id], client.pop_job_progress[1][0, 2]
@@ -129,31 +157,41 @@ module Roby
             end
 
             it "raises NoSuchAction on invalid actions without accessing the network" do
+                client = open_client
                 flexmock(client.io).should_receive(:write_packet).never
-                assert_raises(Client::NoSuchAction) { client.start_job(:Bla, arg0: 10) }
-                assert_raises(Client::NoSuchAction) { client.Bla!(arg0: 10) }
+                assert_raises(Client::NoSuchAction) do
+                    while_polling_server { client.start_job(:Bla, arg0: 10) }
+                end
+                assert_raises(Client::NoSuchAction) do
+                    while_polling_server { client.Bla!(arg0: 10) }
+                end
             end
 
             it "raises NoMethodError on an unknown call" do
-                e = assert_raises(Exception::DRoby) { client.does_not_exist(arg0: 10) }
+                e = assert_raises(Exception::DRoby) do
+                    connect { |client| client.does_not_exist(arg0: 10) }
+                end
                 assert_kind_of NoMethodError, e
                 assert(/does_not_exist/ === e.message)
             end
 
             it "appends the local client's backtrace to the remote's" do
-                e = assert_raises(Exception::DRoby) { client.does_not_exist(arg0: 10) }
+                e = assert_raises(Exception::DRoby) do
+                    connect { |client| client.does_not_exist(arg0: 10) }
+                end
                 assert(remote = e.backtrace.index { |l| l =~ /interface\/server.rb.*process_call/ })
-                assert(local  = e.backtrace.index { |l| l =~ /#{__FILE__}:#{__LINE__-2}/ })
+                assert(local  = e.backtrace.index { |l| l =~ /#{__FILE__}:#{__LINE__-3}/ })
                 assert(remote < local)
             end
 
             describe "#find_action_by_name" do
                 it "returns a matching action" do
                     interface.should_receive(actions:  [stub_action("Test")])
-                    assert_equal interface.actions.first, client.find_action_by_name('Test')
+                    assert_equal interface.actions.first,
+                        connect { |client| client.find_action_by_name('Test') }
                 end
                 it "returns nil for an unknown action" do
-                    assert !client.find_action_by_name('bla')
+                    refute connect { |client| client.find_action_by_name('bla') }
                 end
             end
 
@@ -161,10 +199,10 @@ module Roby
                 it "returns a matching action" do
                     interface.should_receive(actions:  [stub_action("Test")])
                     assert_equal [interface.actions.first],
-                        client.find_all_actions_matching(/Te/)
+                        connect { |client| client.find_all_actions_matching(/Te/) }
                 end
                 it "returns an empty array for an unknown action" do
-                    assert_equal [], client.find_all_actions_matching(/bla/)
+                    assert_equal [], connect { |client| client.find_all_actions_matching(/bla/) }
                 end
             end
 
@@ -178,98 +216,109 @@ module Roby
                     end
 
                     it "gathers commands and executes them all at once" do
+                        client = open_client
                         batch = client.create_batch
                         batch.Test!(arg: 10)
                         batch.kill_job 1
                         batch.Test!(arg: 20)
-                        client.process_batch(batch)
+                        while_polling_server { client.process_batch(batch) }
                     end
 
                     it "returns a Return object which contains the calls associated with their return values" do
+                        client = open_client
                         batch = client.create_batch
                         batch.Test!(arg: 10)
                         batch.kill_job 1
                         batch.Test!(arg: 20)
-                        ret = client.process_batch(batch)
+                        ret = while_polling_server { client.process_batch(batch) }
                         assert_kind_of Client::BatchContext::Return, ret
                         expected = [[[[], :start_job, 'Test', Hash[arg: 10]], 1],
                                     [[[], :kill_job, 1], 2],
                                     [[[], :start_job, 'Test', Hash[arg: 20]], 3]].
-                            map do |call, ret|
-                                Client::BatchContext::Return::Element.new(call, ret)
+                            map do |call, call_ret|
+                                Client::BatchContext::Return::Element.new(call, call_ret)
                             end
                         assert_equal expected, ret.each_element.to_a
                     end
 
                     it "the Return object behaves as an enumeration on the return values" do
+                        client = open_client
                         batch = client.create_batch
                         batch.Test!(arg: 10)
                         batch.kill_job 1
                         batch.Test!(arg: 20)
-                        ret = client.process_batch(batch)
+                        ret = while_polling_server { client.process_batch(batch) }
                         assert_equal [1, 2, 3], ret.to_a
                         assert_equal [1, 2, 3], ret.each.to_a
                         assert_equal 2, ret[1]
                     end
 
                     it "the Return may filter on the call name" do
+                        client = open_client
                         batch = client.create_batch
                         batch.Test!(arg: 10)
                         batch.kill_job 1
                         batch.Test!(arg: 20)
-                        ret = client.process_batch(batch)
+                        ret = while_polling_server { client.process_batch(batch) }
                         expected = [[[[], :start_job, 'Test', Hash[arg: 10]], 1],
                                     [[[], :start_job, 'Test', Hash[arg: 20]], 3]].
-                            map do |call, ret|
-                                Client::BatchContext::Return::Element.new(call, ret)
+                            map do |call, call_ret|
+                                Client::BatchContext::Return::Element.new(call, call_ret)
                             end
                         assert_equal expected, ret.filter(call: :start_job).each_element.to_a
                     end
 
                     it "the Return provides a shortcut to return the started job IDs" do
+                        client = open_client
                         batch = client.create_batch
                         batch.Test!(arg: 10)
                         batch.kill_job 1
                         batch.Test!(arg: 20)
-                        ret = client.process_batch(batch)
+                        ret = while_polling_server { client.process_batch(batch) }
                         assert_equal [1, 3], ret.started_jobs_id
                     end
 
                     it "the Return provides a shortcut to return the killed job IDs" do
+                        client = open_client
                         batch = client.create_batch
                         batch.Test!(arg: 10)
                         batch.kill_job 1
                         batch.Test!(arg: 20)
-                        ret = client.process_batch(batch)
+                        ret = while_polling_server { client.process_batch(batch) }
                         assert_equal [1], ret.killed_jobs_id
                     end
 
                     it "the Return provides a shortcut to return the dropped job IDs" do
                         interface.should_receive(:drop_job).with(2).and_return(4).ordered.once
+                        client = open_client
                         batch = client.create_batch
                         batch.Test!(arg: 10)
                         batch.kill_job 1
                         batch.Test!(arg: 20)
                         batch.drop_job 2
-                        ret = client.process_batch(batch)
+                        ret = while_polling_server { client.process_batch(batch) }
                         assert_equal [2], ret.dropped_jobs_id
                     end
                 end
 
                 it "raises NoSuchAction if trying to queue an unknown action" do
+                    client = open_client
                     batch = client.create_batch
                     assert_raises(Client::NoSuchAction) { batch.does_not_exist! }
                 end
 
                 it "raises NoMethodError if trying to queue a command that is not kill_job" do
+                    client = open_client
                     batch = client.create_batch
                     assert_raises(NoMethodError) { batch.actions }
                 end
             end
 
             it "queues app notifications and allows to retrieve the notifications in FIFO order" do
+                client = open_client
                 app.notify('WARN', 'obj', 'message 0')
                 app.notify('FATAL', 'obj', 'message 1')
+                server.poll
                 client.poll
                 assert client.has_notifications?
                 assert_equal ['WARN', 'obj', 'message 0'], client.pop_notification.last
@@ -278,8 +327,10 @@ module Roby
             end
 
             it "queues ui events and allows to retrieve the notifications in FIFO order" do
+                client = open_client
                 app.ui_event('test-event', 42)
                 app.ui_event('test-event', 84)
+                server.poll
                 client.poll
                 assert client.has_ui_event?
                 assert_equal ['test-event', 42], client.pop_ui_event.last
@@ -288,11 +339,13 @@ module Roby
             end
 
             it "queues exceptions and allows to retrieve the notifications in FIFO order" do
+                client = open_client
                 plan.execution_engine.display_exceptions = false
                 plan.add(t0 = Tasks::Simple.new(id: 1))
                 plan.add(t1 = Tasks::Simple.new(id: 2))
                 plan.execution_engine.notify_exception :fatal, Exception.new, [t0]
                 plan.execution_engine.notify_exception :warn, Exception.new, [t1]
+                server.poll
                 client.poll
                 assert client.has_exceptions?
 
@@ -304,17 +357,23 @@ module Roby
             end
 
             it "computes and queues the IDs of the jobs that are involved in the exception" do
+                client = open_client
                 plan.execution_engine.display_exceptions = false
                 task = Class.new(Tasks::Simple) do
                     provides Job
                 end.new(job_id: 1)
                 plan.execution_engine.notify_exception :fatal, Exception.new, [task]
+                server.poll
                 client.poll
                 *_, jobs = client.pop_exception.last
                 assert_equal [1], jobs.to_a
             end
 
             describe "#poll" do
+                attr_reader :client
+                before do
+                    @client = open_client
+                end
                 describe "the cycle_end returned value" do
                     it "is false if there was nothing to process" do
                         assert_equal false, client.poll.last
@@ -324,18 +383,13 @@ module Roby
                         assert_equal false, client.poll.last
                     end
                     it "is true if a cycle_end message is received first, and does not do any more message processing" do
-                        # 'client' is lazily loaded, create it now to avoid
-                        # interference
-                        client
                         interface.notify_cycle_end
+                        server.poll
                         assert_equal true, client.poll.last
                         assert !client.has_notifications?
                     end
 
                     it "stops processing at the cycle_end message" do
-                        # 'client' is lazily loaded, create it now to avoid
-                        # interference
-                        client
                         app.notify '1', '2', '3'
                         app.plan.execution_engine.cycle_end(Hash.new)
                         app.notify '1', '2', '3'
@@ -368,13 +422,13 @@ module Roby
 
             describe "subcommands" do
                 it "returns a SubcommandClient object for a known subcommand" do
-                    subcommand = client.sublib
+                    subcommand = connect { |client| client.sublib }
                     assert_kind_of SubcommandClient, subcommand
                     assert_equal 'sublib', subcommand.name
                 end
                 it "the returned object allows to call the subcommand's command" do
                     flexmock(@interface.sublib).should_receive(:subcommand_test_call).explicitly.with(42).and_return(20)
-                    assert_equal 20, client.sublib.subcommand_test_call(42)
+                    assert_equal 20, connect { |client| client.sublib.subcommand_test_call(42) }
                 end
             end
 
@@ -386,7 +440,7 @@ module Roby
                     @async_calls_count = 0
                 end
 
-                def async_call_and_expect_ordered(exp_error, exp_result, seq, path, m, *args)
+                def async_call_and_expect_ordered(client, exp_error, exp_result, seq, path, m, *args)
                     client.async_call(path, m, *args) do |error, result|
                         if !exp_error.nil?
                             assert_kind_of exp_error.class, error
@@ -406,39 +460,46 @@ module Roby
                     interface.should_receive(:start_job).with('Test', arg0: 10).once.
                         and_return(15)
 
-                    async_call_and_expect_ordered(nil, 15, 0, [], 'Test!', arg0: 10)
-                    loop do
-                        client.poll
-                        break if async_calls_count == 1
+                    connect do |client|
+                        async_call_and_expect_ordered(client, nil, 15, 0, [], 'Test!', arg0: 10)
+                        loop do
+                            client.poll
+                            break if async_calls_count == 1
+                        end
                     end
                 end
 
                 it "raises RuntimeError if no callback block is given" do
+                    client = open_client
                     assert_raises(RuntimeError) { client.async_call([], 'Test!', arg0: 10) }
                 end
 
                 it "raises NoSuchAction on invalid actions without accessing the network" do
+                    client = open_client
                     flexmock(client.io).should_receive(:write_packet).never
                     assert_raises(Client::NoSuchAction) { client.async_call([], 'Test!', arg0: 10) { } }
                 end
 
                 it "dispatches a method call and yields the result" do
-                    async_call_and_expect_ordered(nil, "foo", 0, [], 'test', 0, 1)
+                    client = open_client
+                    async_call_and_expect_ordered(client, nil, "foo", 0, [], 'test', 0, 1)
                     server.io.write_packet [:reply, "foo"]
                     client.poll
                 end
 
                 it "dispatches a method call and yields an exception on error" do
+                    client = open_client
                     e = RuntimeError.new('test')
-                    async_call_and_expect_ordered(e, nil, 0, [], 'test', 0, 1)
+                    async_call_and_expect_ordered(client, e, nil, 0, [], 'test', 0, 1)
                     server.io.write_packet [:bad_call, e]
                     client.poll
                 end
 
                 it "processes async calls and its responses as a FIFO" do
+                    client = open_client
                     e = RuntimeError.new('test')
-                    async_call_and_expect_ordered(nil, "foo", 0, [], 'test', 0, 1)
-                    async_call_and_expect_ordered(e, nil, 1, [], 'method', 1, 2)
+                    async_call_and_expect_ordered(client, nil, "foo", 0, [], 'test', 0, 1)
+                    async_call_and_expect_ordered(client, e, nil, 1, [], 'method', 1, 2)
                     server.io.write_packet [:reply, "foo"]
                     server.io.write_packet [:bad_call, e]
                     server.io.write_packet [:reply, [10, "test"]]
@@ -446,6 +507,7 @@ module Roby
                 end
 
                 it "returns true if the async call is still pending" do
+                    client = open_client
                     callback = proc { }
 
                     first_call = client.async_call([], 'some_method', 'foo', &callback)

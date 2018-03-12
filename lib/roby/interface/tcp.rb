@@ -1,3 +1,5 @@
+require 'socket'
+
 module Roby
     module Interface
         # An object that publishes a Roby interface using a TCP server

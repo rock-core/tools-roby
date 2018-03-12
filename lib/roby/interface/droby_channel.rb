@@ -29,6 +29,7 @@ module Roby
                 @max_write_buffer_size = max_write_buffer_size
                 @read_buffer  = String.new
                 @write_buffer = String.new
+                @write_thread = nil
             end
 
             def write_buffer_size
@@ -70,6 +71,11 @@ module Roby
             # @return [Object,nil] returns the unmarshalled object, or nil if no
             #   full object can be found in the data received so far
             def read_packet(timeout = 0)
+                @read_thread ||= Thread.current
+                if @read_thread != Thread.current
+                    raise InternalError, "cross-thread access to droby channel: from #{@read_thread} to #{Thread.current}"
+                end
+
                 deadline       = Time.now + timeout if timeout
                 remaining_time = timeout
 
@@ -126,9 +132,27 @@ module Roby
                 push_write_data(packet.to_s)
             end
 
+            def reset_thread_guard
+                @write_thread = nil
+                @read_thread = nil
+            end
+
+            # Push queued data
+            #
+            # The write I/O is buffered. This method pushes data stored within
+            # the internal buffer and/or appends new data to it.
+            #
+            # @return [Boolean] true if there is still data left in the buffe,
+            #   false otherwise
             def push_write_data(new_bytes = nil)
+                @write_thread ||= Thread.current
+                if @write_thread != Thread.current
+                    raise InternalError, "cross-thread access to droby channel: from #{@write_thread} to #{Thread.current}"
+                end
+
                 @write_buffer.concat(new_bytes) if new_bytes
                 written_bytes = io.syswrite(@write_buffer)
+
                 @write_buffer = @write_buffer[written_bytes..-1]
                 !@write_buffer.empty?
             rescue Errno::EWOULDBLOCK, Errno::EAGAIN

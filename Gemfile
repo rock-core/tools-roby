@@ -1,8 +1,7 @@
 source 'https://rubygems.org'
 
-gem 'activesupport', '< 5.0.0', platform: [:ruby_20, :ruby_21]
-
-gem 'metaruby', github: 'rock-core/tools-metaruby', branch: 'syskit2'
+gem 'metaruby', git: 'https://github.com/rock-core/tools-metaruby', branch: 'syskit2'
+gem 'utilrb', git: 'https://github.com/orocos-toolchain/utilrb'
 
 platform :mri do
     gem 'stackprof'

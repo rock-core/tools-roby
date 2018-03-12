@@ -14,35 +14,42 @@ module Roby
                 @interface = flexmock(Interface.new(@app))
 
                 server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0) 
-                @server    = Server.new(DRobyChannel.new(server_socket, false), @interface)
-                @server_thread = Thread.new do
-                    plan.execution_engine.thread = Thread.current
-                    begin
-                        while true
-                            @server.poll
-                            sleep 0.01
-                        end
-                    rescue ComError
+                @server_channel = DRobyChannel.new(server_socket, false)
+                @server    = Server.new(@server_channel, @interface)
+            end
+
+            def with_polling_server(&block)
+                @server_channel.reset_thread_guard
+                quit = Concurrent::Event.new
+                poller = Thread.new do
+                    while !quit.set?
+                        @server.poll
+                        sleep 0.01
                     end
                 end
-                @server_thread.abort_on_exception = true
+                result = yield
+                quit.set
+                poller.join
+                @server_channel.reset_thread_guard
+                result
             end
 
             let :shell_client do
-                ShellClient.new 'remote' do
-                    Client.new(DRobyChannel.new(@client_socket, true), 'test')
+                with_polling_server do
+                    ShellClient.new 'remote' do
+                        Client.new(DRobyChannel.new(@client_socket, true), 'test')
+                    end
                 end
             end
 
             after do
                 @plan.execution_engine.display_exceptions = true
-                if @shell_client
-                    @shell_client.close if !@shell_client.closed?
+                if @shell_client && !@shell_client.closed?
+                    with_polling_server do
+                        @shell_client.close 
+                    end
                 end
                 @server.close if !@server.closed?
-                begin @server_thread.join
-                rescue Interrupt
-                end
             end
 
             describe "#summarize_pending_messages" do
@@ -57,25 +64,18 @@ module Roby
                     end
 
                     it "displays them and returns their IDs" do
-                        validator = flexmock
-                        validator.should_receive(:call).once.
-                            with(/#1 \[INFO\] test: test message/)
-                        msg_ids = @shell_client.summarize_pending_messages do |msg|
-                            validator.call(msg)
-                        end
+                        msg_ids, messages = @shell_client.summarize_pending_messages
+                        assert_equal 1, messages.size
+                        assert_match /#1 \[INFO\] test: test message/, messages[0]
                         assert_equal [1], msg_ids.to_a
                     end
                     it "removes notification messages from the queue" do
-                        @shell_client.summarize_pending_messages do |msg|
-                        end
+                        @shell_client.summarize_pending_messages
                         assert @shell_client.client.notification_queue.empty?
                     end
                     it "hides messages that are given to it as \"already summarized\"" do
-                        validator = flexmock
-                        validator.should_receive(:call).never
-                        @shell_client.summarize_pending_messages([1]) do |msg|
-                            validator.call
-                        end
+                        _, messages = @shell_client.summarize_pending_messages([1])
+                        assert messages.empty?
                     end
                 end
             end

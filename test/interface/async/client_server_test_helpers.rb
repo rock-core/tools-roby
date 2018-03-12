@@ -52,8 +52,18 @@ module Roby
                 end
 
                 def process_call(&block)
-                    futures = [Concurrent::Future.new(&block),
-                               Concurrent::Future.new { @interfaces.each(&:poll) }]
+                    poll_async_interfaces = Concurrent::Future.new do
+                        @interfaces.each do |async_interface|
+                            if async_interface.client
+                                async_interface.client.io.reset_thread_guard
+                            end
+                            async_interface.poll
+                            if async_interface.client
+                                async_interface.client.io.reset_thread_guard
+                            end
+                        end
+                    end
+                    futures = [Concurrent::Future.new(&block), poll_async_interfaces]
                     result = futures.map do |future|
                         future.execute
                         while !future.complete?

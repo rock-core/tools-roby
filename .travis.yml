@@ -1,10 +1,12 @@
 sudo: false
 language: ruby
 rvm:
-  - 2.0.0
-  - 2.1.9
-  - 2.2.5
-  - 2.3.1
+  - 2.3.6
+  - 2.4.3
+  - 2.5.0
+matrix:
+    allow_failures:
+        - rvm: 2.5.0
 script:
     - bundle exec rake test
     - bundle exec rake coveralls:push
@@ -12,3 +14,4 @@ bundler_args: --without gui
 env:
     global:
         - TEST_ENABLE_COVERAGE=1
+        - TEST_DISABLE_GUI=1

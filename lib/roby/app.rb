@@ -790,12 +790,14 @@ module Roby
         # The inverse of #base_setup
         def base_cleanup
             if !public_logs?
-                created_log_dirs.each do |dir|
+                created_log_dirs.delete_if do |dir|
                     FileUtils.rm_rf dir
+                    true
                 end
                 created_log_base_dirs.sort_by(&:length).reverse_each do |dir|
                     # .rmdir will ignore nonempty / nonexistent directories
                     FileUtils.rmdir(dir)
+                    created_log_base_dirs.delete(dir)
                 end
             end
         end
@@ -2025,7 +2027,9 @@ module Roby
             end
 
             @log_server_port = tcp_server.local_address.ip_port
-            @log_server_pid = Kernel.spawn("roby-display", 'server', *server_flags, redirect_flags)
+            @log_server_pid = Kernel.spawn(
+                Gem.ruby, File.join(Roby::BIN_DIR, "roby-display"),
+                'server', *server_flags, redirect_flags)
         ensure
             tcp_server.close if tcp_server
         end

@@ -10,16 +10,12 @@ module Roby
             # @return [Client,nil] the socket used to communicate to the server,
             #   or nil if we have not managed to connect yet
             attr_reader :client
-            # @return [Mutex] the shell requires multi-threading access, this is
-            #   the mutex to protect when required
-            attr_reader :mutex
 
             attr_predicate :silent?, false
 
             def initialize(remote_name, &connection_method)
                 @connection_method = connection_method
                 @remote_name = remote_name
-                @mutex = Mutex.new
                 @silent = false
                 connect
             end
@@ -45,6 +41,10 @@ module Roby
                     else raise
                     end
                 end
+            end
+
+            def closed?
+                client.closed?
             end
 
             def close
@@ -155,9 +155,7 @@ module Roby
                         return call options, path, m, *args
                     end
                 else
-                    @mutex.synchronize do
-                        client.call(path, m, *args)
-                    end
+                    client.call(path, m, *args)
                 end
             rescue Exception => e
                 msg = Roby.format_exception(e)
@@ -208,26 +206,24 @@ module Roby
 
             def wtf?
                 msg = []
-                @mutex.synchronize do
-                    client.notification_queue.each do |id, (source, level, message)|
-                        msg << Roby.color("-- ##{id} (notification) --", :bold)
-                        msg.concat format_notification(source, level, message)
-                        msg << "\n"
-                    end
-                    client.job_progress_queue.each do |id, (kind, job_id, job_name, *args)|
-                        msg << Roby.color("-- ##{id} (job progress) --", :bold)
-                        msg.concat format_job_progress(kind, job_id, job_name, *args)
-                        msg << "\n"
-                    end
-                    client.exception_queue.each do |id, (kind, exception, tasks)|
-                        msg << Roby.color("-- ##{id} (#{kind} exception) --", :bold)
-                        msg.concat format_exception(kind, exception, tasks)
-                        msg << "\n"
-                    end
-                    client.job_progress_queue.clear
-                    client.exception_queue.clear
-                    client.notification_queue.clear
+                client.notification_queue.each do |id, (source, level, message)|
+                    msg << Roby.color("-- ##{id} (notification) --", :bold)
+                    msg.concat format_notification(source, level, message)
+                    msg << "\n"
                 end
+                client.job_progress_queue.each do |id, (kind, job_id, job_name, *args)|
+                    msg << Roby.color("-- ##{id} (job progress) --", :bold)
+                    msg.concat format_job_progress(kind, job_id, job_name, *args)
+                    msg << "\n"
+                end
+                client.exception_queue.each do |id, (kind, exception, tasks)|
+                    msg << Roby.color("-- ##{id} (#{kind} exception) --", :bold)
+                    msg.concat format_exception(kind, exception, tasks)
+                    msg << "\n"
+                end
+                client.job_progress_queue.clear
+                client.exception_queue.clear
+                client.notification_queue.clear
                 puts msg.join("\n")
                 nil
             end
@@ -338,9 +334,7 @@ module Roby
                 end
             rescue ComError
                 Roby::Interface.warn "Lost communication with remote, will not retry the command after reconnection"
-                mutex.synchronize do
-                    connect
-                end
+                connect
             rescue Interrupt
                 Roby::Interface.warn "Interrupted"
             end
@@ -398,6 +392,7 @@ module Roby
             #   {#summarize_exception}
             def summarize_pending_messages(already_summarized = Set.new)
                 summarized = Set.new
+                messages = []
                 queues = {exception: client.exception_queue,
                           job_progress: client.job_progress_queue,
                           notification: client.notification_queue}
@@ -406,12 +401,12 @@ module Roby
                         summarized << id
                         if !already_summarized.include?(id)
                             msg, complete = send("summarize_#{type}", *args)
-                            yield "##{id} #{msg}"
+                            messages << "##{id} #{msg}"
                             complete
                         end
                     end
                 end
-                summarized
+                return summarized, messages
             end
 
             # Polls for messages from the remote interface and yields them. It
@@ -425,34 +420,33 @@ module Roby
                 already_summarized = Set.new
                 was_connected = nil
                 while true
-                    mutex.synchronize do
-                        has_valid_connection =
+                    has_valid_connection =
+                        begin
+                            client.poll
+                            true
+                        rescue Exception
                             begin
-                                client.poll
+                                connect(nil)
+                                client.io.reset_thread_guard
                                 true
                             rescue Exception
-                                begin
-                                    connect(nil)
-                                    true
-                                rescue Exception
-                                end
                             end
-
-                        already_summarized = 
-                            summarize_pending_messages(already_summarized) do |msg|
-                                yield msg
-                            end
-                        if has_valid_connection
-                            was_connected = true
                         end
 
-                        if has_valid_connection && !was_connected
-                            RbReadline.puts "reconnected"
-                        elsif !has_valid_connection && was_connected
-                            RbReadline.puts "lost connection, reconnecting ..."
-                        end
-                        was_connected = has_valid_connection
+                    already_summarized, messages = 
+                        summarize_pending_messages(already_summarized)
+                    yield(has_valid_connection, messages)
+                    if has_valid_connection
+                        was_connected = true
                     end
+
+                    if has_valid_connection && !was_connected
+                        RbReadline.puts "reconnected"
+                    elsif !has_valid_connection && was_connected
+                        RbReadline.puts "lost connection, reconnecting ..."
+                    end
+                    was_connected = has_valid_connection
+
                     sleep period
                 end
             end
