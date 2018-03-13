@@ -10,20 +10,27 @@ module Roby
             attr_reader :server
             # @return [Array<Client>] set of currently active clients
             attr_reader :clients
-            # @return [String] the address this interface is bound to
-            def ip_address; server.local_address.ip_address end
-            # @return [Integer] the port on which this interface runs
-            def ip_port; server.local_address.ip_port end
             # Whether the server handler should warn about disconnections
             attr_predicate :warn_about_disconnection?, true
             # Whether a non-comm-related failure will cause the whole Roby app
             # to quit
             attr_predicate :abort_on_exception?, true
 
+            # @return [String] the address this interface is bound to
+            def ip_address
+                server.local_address.ip_address
+            end
+
+            # @return [Integer] the port on which this interface runs
+            def ip_port
+                server.local_address.ip_port
+            end
+
             # Creates a new interface server on the given port
             #
             # @param [Integer] port
             def initialize(app, host: nil, port: Roby::Interface::DEFAULT_PORT)
+                @app = app
                 @interface = Interface.new(app)
                 @server =
                     begin ::TCPServer.new(host, port)
@@ -34,9 +41,12 @@ module Roby
                 @abort_on_exception = true
                 @accept_executor = Concurrent::CachedThreadPool.new
                 @accept_future = queue_accept_future
-                @propagation_handler_id = interface.execution_engine.add_propagation_handler(description: 'TCPServer#process_pending_requests', on_error: :ignore) do
-                    process_pending_requests
-                end
+                @propagation_handler_id = interface.execution_engine.
+                    add_propagation_handler(
+                        description: 'TCPServer#process_pending_requests',
+                        on_error: :ignore) do
+                            process_pending_requests
+                        end
                 @warn_about_disconnection = false
             end
 
@@ -52,7 +62,8 @@ module Roby
             #
             # @return [Integer]
             def port
-                Roby.warn_deprecated "Interface::TCPServer#port is deprecated in favor of #ip_port to match ruby's Addrinfo API"
+                Roby.warn_deprecated "Interface::TCPServer#port is deprecated in favor "\
+                    "of #ip_port to match ruby's Addrinfo API"
                 ip_port
             end
 
@@ -61,9 +72,7 @@ module Roby
             #
             # @return [Server]
             def create_server(socket)
-                server = Server.new(DRobyChannel.new(socket, false), interface)
-                server.abort_on_exception = abort_on_exception?
-                server
+                Server.new(DRobyChannel.new(socket, false), interface)
             end
 
             # Process all incoming connection requests
@@ -77,23 +86,42 @@ module Roby
                     @accept_future = queue_accept_future
                 end
 
-                clients.each do |client|
+                exceptions = []
+                clients.delete_if do |client|
                     begin
                         client.poll
-                    rescue ComError => e
-                        if warn_about_disconnection?
-                            Roby::Interface.warn "disconnecting from #{client.client_id}: #{e}"
-                        end
+                    rescue Exception => e
                         client.close
-                        clients.delete(client)
+
+                        if warn_about_disconnection?
+                            Roby::Interface.warn "disconnecting from #{client.client_id}"
+                        end
+
+                        next(true) if e.kind_of?(ComError)
+
+                        if abort_on_exception?
+                            exceptions << e
+                        else
+                            Roby.log_exception_with_backtrace(e, Roby::Interface, :warn)
+                        end
+                        true
                     end
+                end
+
+                raise exceptions.first unless exceptions.empty?
+            rescue Exception => e
+                if abort_on_exception?
+                    @app.execution_engine.
+                        add_framework_error(e, "Interface::TCPServer")
+                else
+                    Roby.log_exception_with_backtrace(e, Roby, :warn)
                 end
             end
 
             # Closes this server
             def close
                 clients.each do |c|
-                    if !c.closed?
+                    unless c.closed?
                         c.close
                     end
                 end
@@ -102,24 +130,34 @@ module Roby
                     server.close
                 end
                 @accept_executor.shutdown
-                interface.execution_engine.remove_propagation_handler(@propagation_handler_id)
+                interface.execution_engine.
+                    remove_propagation_handler(@propagation_handler_id)
+            end
+
+            # Whether the given client is handled by this server
+            def has_client?(client)
+                @clients.include?(client)
             end
         end
 
         # Connect to a Roby controller interface at this host and port
         #
         # @return [Client] the client object that gives access
-        def self.connect_with_tcp_to(host, port = DEFAULT_PORT, marshaller: DRoby::Marshal.new(auto_create_plans: true))
+        def self.connect_with_tcp_to(host, port = DEFAULT_PORT,
+                marshaller: DRoby::Marshal.new(auto_create_plans: true))
             require 'socket'
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
-            Client.new(DRobyChannel.new(socket, true, marshaller: DRoby::Marshal.new(auto_create_plans: true)),
-                       "#{addr[2]}:#{addr[1]}")
+            Client.new(DRobyChannel.new(socket, true,
+                marshaller: DRoby::Marshal.new(auto_create_plans: true)),
+                "#{addr[2]}:#{addr[1]}")
 
         rescue Errno::ECONNREFUSED => e
-            raise ConnectionError, "failed to connect to #{host}:#{port}: #{e.message}", e.backtrace
+            raise ConnectionError, "failed to connect to #{host}:#{port}: #{e.message}",
+                e.backtrace
         rescue SocketError => e
-            raise e, "cannot connect to host '#{host}' port '#{port}': #{e.message}", e.backtrace
+            raise e, "cannot connect to host '#{host}' port '#{port}': #{e.message}",
+                e.backtrace
         rescue ::Exception
             if socket && !socket.closed?
                 socket.close
@@ -128,4 +166,3 @@ module Roby
         end
     end
 end
-
