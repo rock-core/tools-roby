@@ -2119,12 +2119,14 @@ module Roby
             t = thread
             !t || t != Thread.current
         end
+        
+        class AlreadyRunning < RuntimeError; end
 
         # Main event loop. Valid options are
         # cycle::   the cycle duration in seconds (default: 0.1)
         def run(cycle: 0.1)
             if running?
-                raise "#run has already been called"
+                raise AlreadyRunning, "#run has already been called"
             end
             self.running = true
 
@@ -2138,14 +2140,31 @@ module Roby
             event_loop
 
         ensure
+            self.running = false
             @thread = nil
-            waiting_work.each do |w|
-                if !w.complete?
+            waiting_work.delete_if do |w|
+                next(true) if w.complete?
+
+                # rubocop:disable Lint/HandleExceptions
+                begin
                     w.fail ExecutionQuitError
+                    Roby.warn "forcefully terminated #{w} on quit"
+                rescue Concurrent::MultipleAssignmentError
+                    # Race condition: something completed the promise while
+                    # we were trying to make it fail
+                end
+                # rubocop:enable Lint/HandleExceptions
+
+                true
+            end
+            finalizers.each do |blk|
+                begin
+                    blk.call
+                rescue Exception => e
+                    Roby.warn "finalizer #{blk} failed"
+                    Roby.log_exception_with_backtrace(e, Roby, :warn)
                 end
             end
-            waiting_work.clear
-            finalizers.each { |blk| blk.call rescue nil }
             @quit = 0
             @allow_propagation = true
         end
@@ -2241,7 +2260,7 @@ module Roby
                             end
                         rescue Exception => e
                             warn "Execution thread failed to clean up"
-                                        Roby.log_exception_with_backtrace(e, self, :warn, filter: false)
+                            Roby.log_exception_with_backtrace(e, self, :warn, filter: false)
                             return
                         end
                     end

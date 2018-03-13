@@ -150,6 +150,7 @@ error = Roby.display_exception(STDERR) do
             end
 
             Robot.info "done initialization"
+            Robot.info "ready"
         end
         app.run(thread_priority: -1)
     ensure

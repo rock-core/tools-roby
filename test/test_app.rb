@@ -859,6 +859,69 @@ module Roby
                 end
             end
         end
+
+        describe "#run" do
+            after do
+                if @run_thread
+                    join_run_thread
+                end
+            end
+
+            def start_run_thread
+                @run_sync = Concurrent::CyclicBarrier.new(2)
+                @app.execution_engine.once do
+                    @run_sync.wait
+                    @run_sync.wait
+                    yield if block_given?
+                end
+                @run_thread = Thread.new do
+                    @app.run
+                end
+                Thread.pass until @run_thread.stop?
+                @run_sync.wait
+            end
+
+            def join_run_thread
+                @app.execution_engine.quit
+                @run_sync.wait
+                @run_thread.join
+            ensure
+                @run_thread = nil
+            end
+
+            it "quits the engine on exception" do
+                start_run_thread do
+                    assert @app.execution_engine.quitting?
+                end
+                @run_thread.raise Interrupt
+                join_run_thread
+            end
+
+            it "handles properly if the engine's run method raises unexpectedly" do
+                error = Class.new(RuntimeError).exception("test")
+                flexmock(@app.execution_engine).should_receive(:run).
+                    and_raise(error)
+                run_thread = Thread.new { @app.run }
+                assert_raises(error.class) do
+                    run_thread.join
+                end
+            end
+
+            it "handles properly if the engine quits with a framework error" do
+                error = Class.new(RuntimeError).exception("test")
+                fatal_log = capture_log(@app.execution_engine, :fatal) do
+                    start_run_thread do
+                        @app.execution_engine.add_framework_error(error, "test")
+                    end
+                    assert_raises(error.class) do
+                        join_run_thread
+                    end
+                end
+                assert fatal_log.grep(/Application error in test/)
+                assert fatal_log.grep(/test ()/)
+                assert fatal_log.grep(/Exefcution thread FORCEFULLY quitting/)
+                assert fatal_log.grep(/in test: test ()/)
+            end
+        end
     end
 end
-

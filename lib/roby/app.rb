@@ -1936,7 +1936,7 @@ module Roby
             @thread.join
 
         rescue Exception => e
-            if execution_engine.running?
+            if @thread.alive? && execution_engine.running?
                 if execution_engine.forced_exit?
                     raise
                 else
@@ -1990,10 +1990,8 @@ module Roby
         # Note that the cleanup we talk about here is related to running.
         # Cleanup required after #setup must be done in #cleanup
         def run_plugins(mods, &block)
-            engine = plan.execution_engine
             if mods.empty?
                 yield if block_given?
-                Robot.info "ready"
             else
                 mod = mods.shift
                 if mod.respond_to?(:start)
