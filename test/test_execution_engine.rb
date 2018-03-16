@@ -4,6 +4,12 @@ require 'utilrb/hash/slice'
 
 module Roby
     describe ExecutionEngine do
+        after do
+            if @engine_thread && @engine_thread.alive?
+                stop_engine_in_thread
+            end
+        end
+
         describe "#scheduler=" do
             it "refuses to be set to nil" do
                 e = assert_raises(ArgumentError) do
@@ -1495,8 +1501,8 @@ module Roby
             end
         end
 
-
-        def assert_exception_and_object_set_matches(expected, actual, message = "failed to match propagation result exception and/or involved objects")
+        def assert_exception_and_object_set_matches(expected, actual,
+                message = "failed to match propagation result exception and/or involved objects")
             expected = expected.each_slice(2).flat_map do |match_e, tasks_e|
                 if match_e.respond_to?(:to_execution_exception_matcher)
                     match_e = match_e.to_execution_exception_matcher
@@ -1538,8 +1544,150 @@ module Roby
                     handled, result[1], "unhandled set mismatches")
             end
         end
-    end
 
+        def start_engine_in_thread
+            @engine_sync = Concurrent::CyclicBarrier.new(2)
+            flexmock(execution_engine).should_receive(:event_loop).and_return do
+                @engine_sync.wait
+                @engine_sync.wait
+            end
+            @engine_thread = Thread.new { execution_engine.run }
+            @engine_sync.wait
+        end
+
+        def stop_engine_in_thread
+            @engine_sync.wait
+            @engine_thread.join
+        end
+
+        describe "#run" do
+            before do
+                flexmock(execution_engine)
+                execution_engine.should_receive(:event_loop).by_default
+            end
+
+            it "sets running? to true before calling the event loop" do
+                execution_engine.should_receive(:event_loop).once.
+                    and_return { assert execution_engine.running? }
+                execution_engine.run
+            end
+
+            it "resets running? to false on quit" do
+                refute execution_engine.running?
+                execution_engine.run
+            end
+
+            it "raises on start if the engine is already running" do
+                start_engine_in_thread
+                assert_raises(ExecutionEngine::AlreadyRunning) { execution_engine.run }
+            end
+
+            it "sets the engine's thread to the calling thread" do
+                start_engine_in_thread
+                assert_equal @engine_thread, execution_engine.thread
+            end
+
+            it "terminates all waiting work on teardown and warns about it" do
+                ivar = Concurrent::IVar.new
+                flexmock(Roby).should_receive(:warn).
+                    with("forcefully terminated #{ivar} on quit")
+                execution_engine.should_receive(:event_loop).
+                    and_return do
+                        execution_engine.once(sync: ivar) {}
+                    end
+                execution_engine.run
+                assert ivar.complete?
+            end
+
+            it "ignores already terminated waiting work" do
+                ivar = Concurrent::IVar.new
+                ivar.set nil
+                flexmock(Roby).should_receive(:warn).never
+                execution_engine.should_receive(:event_loop).
+                    and_return do
+                        execution_engine.once(sync: ivar) {}
+                    end
+                execution_engine.run
+            end
+
+            it "handles the race condition that arises due to the waiting work"\
+                "terminating concurrently with the attempt to terminate it" do
+
+                ivar = Concurrent::IVar.new
+                ivar.set nil
+                flexmock(ivar).should_receive(complete?: false)
+                flexmock(Roby).should_receive(:warn).never
+                execution_engine.should_receive(:event_loop).
+                    and_return do
+                        execution_engine.once(sync: ivar) {}
+                    end
+                execution_engine.run
+            end
+
+            it "runs the registered finalizers" do
+                checker = flexmock
+                checker.should_receive(:call).once
+                execution_engine.finalizers << checker
+                execution_engine.run
+            end
+
+            it "ignores exceptions during finalizer call, but warns about them" do
+                error_e = Class.new(RuntimeError).exception("test")
+                failed_finalizer = flexmock
+                failed_finalizer.should_receive(:call).once.
+                    and_raise(error_e)
+                successful_finalizer = flexmock
+                successful_finalizer.should_receive(:call).once
+
+                execution_engine.finalizers <<
+                    failed_finalizer <<
+                    successful_finalizer
+                log = capture_log(Roby, :warn) do
+                    execution_engine.run
+                end
+                assert_equal "finalizer #{failed_finalizer} failed", log[0]
+                assert_match(/test/, log[1])
+            end
+        end
+
+        describe "#inside_control?" do
+            it "returns false if called from a different thread than the run thread" do
+                start_engine_in_thread
+                refute execution_engine.inside_control?
+            end
+
+            it "returns true if called from within #run" do
+                flexmock(execution_engine).should_receive(:event_loop).
+                    and_return { assert execution_engine.inside_control? }
+                execution_engine.run
+            end
+
+            it "returns true after the engine quit" do
+                flexmock(execution_engine).should_receive(:event_loop)
+                execution_engine.run
+                assert execution_engine.inside_control?
+            end
+        end
+
+        describe "#outside_control?" do
+            it "returns true if called from a different thread than the run thread" do
+                start_engine_in_thread
+                assert execution_engine.outside_control?
+            end
+
+            it "returns false if called from within #run" do
+                flexmock(execution_engine).should_receive(:event_loop).
+                    and_return { refute execution_engine.outside_control? }
+                execution_engine.run
+            end
+
+            it "returns true after the engine quit" do
+                flexmock(execution_engine).should_receive(:event_loop)
+                execution_engine.run
+                assert execution_engine.outside_control?
+            end
+        end
+    end
 
     describe "#wait_until" do
         # Helper that provides a context in which the tests can call #wait_until
@@ -1876,7 +2024,6 @@ class TC_ExecutionEngine < Minitest::Test
               e3 => [5, [nil, [6], nil], [nil, [5], nil]] }, set)
     end
 
-
     def test_prepare_propagation
         g1, g2 = EventGenerator.new(true), EventGenerator.new(true)
         ev = Event.new(g2, 0, nil)
@@ -2097,7 +2244,6 @@ class TC_ExecutionEngine < Minitest::Test
         assert_equal expected_samples, samples, "expected #{expected_samples.map { |t| Roby.format_time(t) }}, got #{samples.map { |t| Roby.format_time(t) }}"
     end
 
-
     class SpecificException < RuntimeError; end
 
     def apply_check_structure(&block)
@@ -2176,7 +2322,7 @@ class TC_ExecutionEngine < Minitest::Test
         assert_kind_of(ArgumentError, returned_value)
         assert(!execution_engine.quitting?)
     end
-    
+
     def test_stats
         time_events = [:actual_start, :events, :structure_check, :exception_propagation, :exception_fatal, :garbage_collect, :application_errors, :ruby_gc, :sleep, :end]
         10.times do
@@ -2268,7 +2414,7 @@ class TC_ExecutionEngine < Minitest::Test
     ensure
         t5.stop_event.emit if t5.delays && t5.running?
     end
-    
+
     def test_force_garbage_collect_tasks
         t1 = Task.new_submodel do
             event(:stop) { |context| }
@@ -2380,7 +2526,6 @@ class TC_ExecutionEngine < Minitest::Test
         end
         assert_equal base_time + 5, trigger_time
     end
-
 
     def test_garbage_collection_calls_are_propagated_first_while_quitting
         obj = Class.new do

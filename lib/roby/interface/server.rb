@@ -9,14 +9,6 @@ module Roby
             attr_reader :interface
             # @return [String] a string that allows the user to identify the client
             attr_reader :client_id
-            # Controls whether non-communication-related errors should cause the
-            # whole Roby engine to terminate
-            #
-            # This is true by default, as for most systems the Roby interface is
-            # the only mean of communication. Turn this off only if you have
-            # other ways to control your system, or if having it running without
-            # human control is safer than shutting it down.
-            attr_predicate :abort_on_exception?, true
             # @return [Boolean] whether the messages should be
             #   forwarded to our clients
             attr_predicate :notifications_enabled?, true
@@ -26,17 +18,18 @@ module Roby
             #   access to
             def initialize(io, interface, main_thread: Thread.current)
                 @notifications_enabled = true
-                @abort_on_exception = true
-                @io, @interface = io, interface
+                @io = io
+                @interface = interface
                 @main_thread = main_thread
                 @pending_notifications = Queue.new
 
                 interface.on_cycle_end do
-                    write_packet([
-                        :cycle_end,
-                        interface.execution_engine.cycle_index,
-                        interface.execution_engine.cycle_start],
-                        defer_exceptions: true)
+                    write_packet(
+                        [
+                            :cycle_end,
+                            interface.execution_engine.cycle_index,
+                            interface.execution_engine.cycle_start
+                        ], defer_exceptions: true)
                 end
                 interface.on_notification do |*args|
                     if notifications_enabled?
@@ -58,8 +51,11 @@ module Roby
             end
 
             def flush_pending_notifications
-                while !@pending_notifications.empty?
-                    args = @pending_notifications.pop
+                notifications = []
+                until @pending_notifications.empty?
+                    notifications << @pending_notifications.pop
+                end
+                notifications.each do |args|
                     write_packet([:notification, *args], defer_exceptions: true)
                 end
             end
@@ -71,11 +67,11 @@ module Roby
             def handshake(id)
                 @client_id = id
                 Roby::Interface.info "new interface client: #{id}"
-                return interface.actions, interface.commands
+                [interface.actions, interface.commands]
             end
 
             def enable_notifications
-                self.notifications_enabled = false
+                self.notifications_enabled = true
             end
 
             def disable_notifications
@@ -90,19 +86,25 @@ module Roby
                 io.close
             end
 
-            def process_call(path, m, *args)
-                if path.empty? && respond_to?(m)
-                    send(m, *args)
+            def process_batch(path, calls)
+                calls.map do |p, m, *a|
+                    process_call(path + p, m, *a)
+                end
+            end
+
+            def process_call(path, name, *args)
+                if path.empty? && respond_to?(name)
+                    send(name, *args)
                 else
                     receiver = path.inject(interface) do |obj, subcommand|
                         obj.send(subcommand)
                     end
-                    receiver.send(m, *args)
+                    receiver.send(name, *args)
                 end
             end
 
             def has_deferred_exception?
-                !!@deferred_exception
+                @deferred_exception
             end
 
             def write_packet(call, defer_exceptions: false)
@@ -119,43 +121,34 @@ module Roby
 
             # Process one command from the client, and send the reply
             def poll
-                if has_deferred_exception?
-                    raise @deferred_exception
-                end
+                raise @deferred_exception if has_deferred_exception?
 
                 path, m, *args = io.read_packet
-                return if !m
+                return unless m
 
-                if m == :process_batch
-                    begin
-                        reply = Array.new
-                        args.first.each do |p, m, *a|
-                            reply << process_call(path + p, m, *a)
+                begin
+                    reply =
+                        if m == :process_batch
+                            process_batch(path, args.first)
+                        else
+                            process_call(path, m, *args)
                         end
-                    rescue Exception => e
-                        write_packet([:bad_call, e])
-                        return
-                    end
-                    write_packet([:reply, reply])
-                else
-                    begin
-                        reply = process_call(path, m, *args)
-                    rescue Exception => e
-                        write_packet([:bad_call, e])
-                        return
-                    end
-                    write_packet([:reply, reply])
+
+                    true
+                rescue Exception => e
+                    write_packet([:bad_call, e])
+                    return
                 end
 
-            rescue ComError
-                raise
-            rescue Exception => e
-                if abort_on_exception?
+                begin
+                    write_packet([:reply, reply])
+                rescue ComError
                     raise
-                else raise ComError, "error while doing I/O processing: #{e.message}"
+                rescue Exception => e
+                    write_packet([:protocol_error, e])
+                    raise
                 end
             end
         end
     end
 end
-
