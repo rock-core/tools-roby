@@ -115,7 +115,8 @@ exception = Roby.display_exception do
             next if excluded_patterns.any? { |pattern| File.fnmatch?(pattern, arg) }
             require arg
         end
-        Minitest.run testrb_args
+        passed = Minitest.run(testrb_args)
+        exit(1) unless passed
     ensure
         Roby.app.shutdown
         Roby.app.cleanup
