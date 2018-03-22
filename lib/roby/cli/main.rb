@@ -142,6 +142,9 @@ module Roby
                 app.require_app_dir
                 app.robot(options[:robot])
                 begin app.setup
+                    extra_files.each do |path|
+                        app.require(File.expand_path(path))
+                    end
                 ensure app.cleanup
                 end
             end
