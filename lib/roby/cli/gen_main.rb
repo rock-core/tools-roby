@@ -22,7 +22,9 @@ module Roby
                 end
 
                 directory 'app/', dir, verbose: !options[:quiet]
-                copy_file File.join(init_path, 'config' , 'init.rb'), File.join(dir, 'config', 'init.rb'), verbose: !options[:quiet]
+                copy_file File.join(init_path, 'config' , 'init.rb'),
+                    File.join(dir, 'config', 'init.rb'),
+                    verbose: !options[:quiet]
                 template File.join(robot_path, 'config', "robots", "robot.rb"),
                     File.join(dir, "config", "robots", "default.rb"),
                     context: Gen.make_context('robot_name' => 'default'),
