@@ -21,7 +21,7 @@ module Roby
                 @io = io
                 @interface = interface
                 @main_thread = main_thread
-                @pending_notifications = Queue.new
+                @pending_packets = Queue.new
 
                 interface.on_cycle_end do
                     write_packet(
@@ -33,14 +33,13 @@ module Roby
                 end
                 interface.on_notification do |*args|
                     if notifications_enabled?
-                        @pending_notifications << args
-                    end
-                    if Thread.current == @main_thread
-                        flush_pending_notifications
+                        queue_packet([:notification, *args])
+                    elsif Thread.current == @main_thread
+                        flush_pending_packets
                     end
                 end
                 interface.on_ui_event do |*args|
-                    write_packet([:ui_event, *args], defer_exceptions: true)
+                    queue_packet([:ui_event, *args])
                 end
                 interface.on_job_notification do |*args|
                     write_packet([:job_progress, *args], defer_exceptions: true)
@@ -50,13 +49,27 @@ module Roby
                 end
             end
 
-            def flush_pending_notifications
-                notifications = []
-                until @pending_notifications.empty?
-                    notifications << @pending_notifications.pop
+            # Write or queue a call, depending on whether the current thread is the main
+            # thread
+            #
+            # Time ordering between out-of-thread and in-thread packets is not
+            # guaranteed, so this can only be used in cases where it does not matter.
+            def queue_packet(call)
+                if Thread.current == @main_thread
+                    write_packet(call, defer_exceptions: true)
+                else
+                    @pending_packets << call
                 end
-                notifications.each do |args|
-                    write_packet([:notification, *args], defer_exceptions: true)
+            end
+
+            # Flush packets queued from {#queue_packet}
+            def flush_pending_packets
+                packets = []
+                until @pending_packets.empty?
+                    packets << @pending_packets.pop
+                end
+                packets.each do |p|
+                    write_packet(p, defer_exceptions: true)
                 end
             end
 
@@ -110,7 +123,7 @@ module Roby
             def write_packet(call, defer_exceptions: false)
                 return if has_deferred_exception?
 
-                flush_pending_notifications
+                flush_pending_packets
                 io.write_packet(call)
             rescue Exception => e
                 if defer_exceptions

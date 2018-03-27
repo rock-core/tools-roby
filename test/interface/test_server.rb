@@ -3,21 +3,28 @@ require 'roby/test/self'
 module Roby
     module Interface
         describe Server do
-            describe "notification handling" do
+            describe "notification and UI event handling" do
                 before do
                     @notify_app = Roby::Application.new
                     @interface = Interface.new(@notify_app)
                     @notify_app.execution_engine.display_exceptions = false
 
+                    main_thread = Thread.current
                     client_io, server_io = Socket.pair(:UNIX, :STREAM, 0)
                     server_channel = DRobyChannel.new(server_io, false)
+                    server_channel.reset_thread_guard(Thread.current, Thread.current)
                     client_channel = DRobyChannel.new(client_io, true)
                     @server = Server.new(server_channel, @interface)
                     flexmock(@server)
 
                     @written_packets = Array.new
                     flexmock(server_channel).should_receive(:write_packet).
-                        and_return { |pkt| @written_packets << pkt }
+                        and_return do |pkt|
+                            if Thread.current != main_thread
+                                raise "write_packet called in invalid thread"
+                            end
+                            @written_packets << pkt
+                        end
                     client_channel.close
                 end
 
@@ -71,6 +78,18 @@ module Roby
                     assert @server.notifications_enabled?
                     @notify_app.notify('main', :warn, 'some_message')
                     assert_equal [[:notification, 'main', :warn, 'some_message']],
+                        @written_packets
+                end
+                it "forwards UI events" do
+                    @notify_app.ui_event(:test, 42)
+                    assert_equal [[:ui_event, :test, 42]], @written_packets
+                end
+                it "queues UI events that come from a different thread" do
+                    Thread.new { @notify_app.ui_event(:test, 42) }.join
+                    assert_equal [], @written_packets
+                    @server.write_packet([:cycle_end, Hash.new])
+                    refute @server.has_deferred_exception?
+                    assert_equal [[:ui_event, :test, 42], [:cycle_end, Hash.new]],
                         @written_packets
                 end
             end
