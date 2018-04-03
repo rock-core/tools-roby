@@ -553,6 +553,16 @@ module Roby
                 plan.task_relation_graph_for(Dependency)
             end
 
+            it "handles replacement of tasks with unset delayed arguments" do
+                task_m = Roby::Task.new_submodel do
+                    argument :arg
+                end
+                delayed_arg = flexmock(evaluate_delayed_argument: nil)
+                plan.add(original = task_m.new(arg: delayed_arg))
+                plan.add(replacing = task_m.new(arg: 10))
+                plan.replace(original, replacing)
+            end
+
             describe "#remove_roles" do
                 attr_reader :parent
                 attr_reader :child

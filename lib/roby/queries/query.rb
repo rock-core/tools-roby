@@ -30,18 +30,35 @@ module Roby
         #
         # The default is :global.
         #
-        # See #local_scope and #global_scope
+        # @see #local_scope #local_scope? #global_scope #global_scope?
         attr_reader :scope
 
-        # Changes the scope of this query. See #scope.
+        # Changes the scope of this query
+        #
+        # @see #scope.
         def local_scope
             @scope = :local
             self
         end
-        # Changes the scope of this query. See #scope.
+
+        # Whether this query is limited to its plan
+        #
+        # @see #scope
+        def local_scope?
+            @scope == :local
+        end
+
+        # Changes the scope of this query
+        #
+        # @see #scope
         def global_scope
             @scope = :global
             self
+        end
+
+        # Whether this query is using the global scope
+        def global_scope?
+            @scope == :global
         end
 
         # Changes the plan this query works on. This calls #reset (obviously)

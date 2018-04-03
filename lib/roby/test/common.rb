@@ -369,6 +369,45 @@ module Roby
             return *result
         end
 
+        def make_random_plan(plan = Plan.new, tasks: 5, free_events: 5, task_relations: 5, event_relations: 5)
+            tasks = (0...tasks).map do
+                plan.add(t = Roby::Task.new)
+                t
+            end
+            free_events = (0...free_events).map do
+                plan.add(e = Roby::EventGenerator.new)
+                e
+            end
+            events = (free_events + plan.task_events.to_a)
+
+            task_relations.times do
+                a = rand(tasks.size)
+                b = rand(tasks.size)
+                while true
+                    begin
+                        tasks[a].depends_on tasks[b]
+                        break
+                    rescue Exception
+                        b = rand(tasks.size)
+                    end
+                end
+            end
+
+            event_relations.times do
+                a = rand(events.size)
+                b = rand(events.size)
+                while true
+                    begin
+                        events[a].forward_to events[b]
+                        break
+                    rescue Exception
+                        b = rand(events.size)
+                    end
+                end
+            end
+            plan
+        end
+
         # Start a new process and saves its PID in #remote_processes. If a block is
         # given, it is called in the new child. #remote_process returns only after
         # this block has returned.

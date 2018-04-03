@@ -148,16 +148,6 @@ module Roby
         # @see each_event_relation_graph
         attr_reader :event_relation_graphs
 
-        # Enumerate the graph objects that contain this plan's relation
-        # information
-        #
-        # @yieldparam [Relations::Graph] graph
-        def each_relation_graph(&block)
-            return enum_for(__method__) if !block_given?
-            each_event_relation_graph(&block)
-            each_task_relation_graph(&block)
-        end
-
         # Enumerate all graphs (event and tasks) that form this plan
         def each_relation_graph
             return enum_for(__method__) if !block_given?
@@ -717,11 +707,16 @@ module Roby
                     end
                     if missing.empty?
                         mismatching_argument = from.fullfilled_model.last.find do |key, expected_value|
-                            (value = to.arguments[key]) && (expected_value != value)
+                            to.arguments.set?(key) && (to.arguments[key] != expected_value)
                         end
+                    end
+
+                    if mismatching_argument
                         raise InvalidReplace.new(from, to), "argument mismatch for #{mismatching_argument.first}"
-                    else
+                    elsif !missing.empty?
                         raise InvalidReplace.new(from, to), "missing provided models #{missing.map(&:name).join(", ")}"
+                    else
+                        raise InvalidReplace.new(from, to), "#{to} does not fullfill #{from}"
                     end
                 end
 
@@ -730,13 +725,102 @@ module Roby
             end
         end
 
+        # Representation for a filter used to exclude tasks or graphs from a replacement
+        #
+        # Relations to excluded tasks are not moved to the replacing task.
+        # Edges from excluded relations or graphs are not moved.
+        #
+        # It is a fluid interface, i.e. meant to be used as in:
+        #
+        #     ReplacementFilter.new.exclude_task(excluded).exclude_graph(graph)
+        #
+        # @see Plan#replace Plan#replace_task
+        class ReplacementFilter
+            # A {ReplacementFilter} that excludes nothing
+            class Null
+                def excluded_task?(task); end
+                def excluded_graph?(graph); end
+                def excluded_relation?(relation); end
+            end
+
+            def initialize
+                @tasks = Set.new
+                @tasks.compare_by_identity
+                @graphs = []
+                @relations = []
+            end
+
+            # Exclude a set of tasks
+            #
+            # @param [#each] tasks a set of task
+            # @return self
+            def exclude_tasks(tasks)
+                @tasks.merge(tasks)
+                self
+            end
+            
+            # Exclude a single task
+            #
+            # @param [Task] task the task to be excluded
+            # @return self
+            def exclude_task(task)
+                @tasks << task
+                self
+            end
+            
+            # Tests whether a task is to be excluded
+            #
+            # @param [Task] task
+            def excluded_task?(task)
+                @tasks.include?(task)
+            end
+
+            # Excludes a graph
+            #
+            # None of this graph's edges will be moved during the replacement
+            #
+            # @param [Relations::BidirectionalDirectedAdjacencyGraph] graph
+            # @return self
+            def exclude_graph(graph)
+                @graphs << graph
+                self
+            end
+
+            # Whether a graph is excluded
+            #
+            # No edge from an excluded graph will be excluded
+            #
+            # @param [Relations::Graph] graph
+            # @return self
+            def excluded_graph?(graph)
+                @graphs.include?(graph)
+            end
+
+            # Excludes a relation
+            #
+            # @param [Relations::Models::Graph] graph the graph model
+            # @return self
+            def exclude_relation(relation)
+                @relations << relation
+                self
+            end
+
+            # Whether a relation is excluded
+            #
+            # @param [Relations::Models::Graph] graph the graph model
+            # @return self
+            def excluded_relation?(relation)
+                @relations.include?(relation)
+            end
+        end
+
         # Replace the task +from+ by +to+ in all relations +from+ is part of
         # (including events).
         #
         # See also #replace
-        def replace_task(from, to)
+        def replace_task(from, to, filter: ReplacementFilter::Null.new)
             handle_replace(from, to) do
-                from.replace_by(to)
+                from.replace_by(to, filter: filter)
             end
         end
 
@@ -747,22 +831,20 @@ module Roby
         # generated by +to+.
         #
         # See also #replace_task
-        def replace(from, to)
+        def replace(from, to, filter: ReplacementFilter::Null.new)
             handle_replace(from, to) do
-                from.replace_subplan_by(to)
+                from.replace_subplan_by(to, filter: filter)
             end
         end
 
         # Register a new plan service on this plan
         def add_plan_service(service)
             if service.task.plan != self
-                raise "trying to register a plan service on #{self} for #{service.task}, which is included in #{service.task.plan}"
+                raise ArgumentError, "trying to register a plan service on #{self} for #{service.task}, which is included in #{service.task.plan}"
             end
 
             set = (plan_services[service.task] ||= Set.new)
-            if !set.include?(service)
-                set << service
-            end
+            set << service
             self
         end
 
@@ -774,6 +856,11 @@ module Roby
                     plan_services.delete(service.task)
                 end
             end
+        end
+
+        # Whether there are services registered for the given task
+        def registered_plan_services_for(task)
+            @plan_services[task] || Set.new
         end
 
         # Change the actual task a given plan service is representing
@@ -823,12 +910,16 @@ module Roby
             apply_replacement_operations(new_relations, removed_relations)
         end
 
+        # @api private
         def compute_subplan_replacement(mappings, relation_graphs, child_objects: true)
+            mappings = mappings.dup
+            mappings.compare_by_identity
             new_relations, removed_relations = Array.new, Array.new
             relation_graphs.each do |graph|
                 next if graph.strong?
 
                 resolved_mappings = Hash.new
+                resolved_mappings.compare_by_identity
                 mappings.each do |obj, (mapped_obj, mapped_obj_resolver)|
                     next if !mapped_obj && !mapped_obj_resolver
 
@@ -1322,27 +1413,22 @@ module Roby
                 raise ArgumentError, "cannot remove #{object} which is a non-root object"
             elsif object.plan != self
                 if !object.plan
-                    if object.removed_at
-                        if PlanObject.debug_finalization_place?
-                            raise ArgumentError, "#{object} has already been removed from its plan\n" +
-                                "Removed at\n  #{object.removed_at.join("\n  ")}"
-                        else
-                            raise ArgumentError, "#{object} has already been removed from its plan. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
-                        end
+                    if object.removed_at && !object.removed_at.empty?
+                        raise ArgumentError, "#{object} has already been removed from its plan\n" +
+                            "Removed at\n  #{object.removed_at.join("\n  ")}"
                     else
-                        raise ArgumentError, "#{object} has never been included in this plan"
+                        raise ArgumentError, "#{object} has already been removed from its plan. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
                     end
+                elsif object.plan.template?
+                    raise ArgumentError, "#{object} has never been included in this plan"
+                else
+                    raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
                 end
-                raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
             end
         end
 
         def finalize_task(task, timestamp = nil)
             verify_plan_object_finalization_sanity(task)
-            if (task.plan != self) && has_task?(task)
-                raise ArgumentError, "#{task} is included in #{self} but #plan == #{task.plan}"
-            end
-
             if services = plan_services.delete(task)
                 services.each(&:finalized!)
             end
@@ -1366,9 +1452,6 @@ module Roby
 
         def finalize_event(event, timestamp = nil)
             verify_plan_object_finalization_sanity(event)
-            if (event.plan != self) && has_free_event?(event)
-                raise ArgumentError, "#{event} is included in #{self} but #plan == #{event.plan}"
-            end
 
             # Remove relations first. This is needed by transaction since
             # removing relations may need wrapping some new event, and in
@@ -1379,9 +1462,7 @@ module Roby
         end
 
         def remove_task(task, timestamp = Time.now)
-            if !@tasks.delete?(task)
-                raise ArgumentError, "#{task} is not a task of #{self}"
-            end
+            verify_plan_object_finalization_sanity(task)
             remove_task!(task, timestamp)
         end
 
@@ -1399,9 +1480,7 @@ module Roby
         end
 
         def remove_free_event(event, timestamp = Time.now)
-            if !@free_events.delete?(event)
-                raise ArgumentError, "#{event} is not a free event of #{self}"
-            end
+            verify_plan_object_finalization_sanity(event)
             remove_free_event!(event, timestamp)
         end
 
@@ -1448,7 +1527,7 @@ module Roby
             clear!
 
             remaining = tasks.find_all do |t|
-                if executable? && t.running?
+                if t.running?
                     true
                 else
                     finalize_task(t)
@@ -1789,7 +1868,7 @@ module Roby
             end
         end
 
-        # Tests whether a task is useful for another one task
+        # Tests whether a task is useful from the point of view of a reference task
         #
         # It is O(N) where N is the number of edges in the combined task
         # relation graphs. If you have to do a lot of tests with the same task,
@@ -1798,9 +1877,9 @@ module Roby
         # @param reference_task the reference task
         # @param task the task whose usefulness is being tested
         # @return [Boolean]
-        def in_useful_subplan?(reference_task, task)
-            compute_useful_tasks([task]) do |useful_t|
-                if useful_t == self
+        def in_useful_subplan?(reference_task, tested_task)
+            compute_useful_tasks([reference_task]) do |useful_t|
+                if useful_t == tested_task
                     return true
                 end
             end
@@ -1826,7 +1905,7 @@ module Roby
                 current_plan = current_plan.plan
                 object = object.__getobj__
             end
-            nil
+            # Never reached
         end
     end
 end

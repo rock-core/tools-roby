@@ -1276,23 +1276,34 @@ module Roby
         end
 
         # @api private
-        def compute_subplan_replacement_operation(object)
+        #
+        # Computes the list of edge replacements that might be necessary to
+        # perform a replacement in a transaction-aware way
+        #
+        # At this stage, we make little difference between subplan and task
+        # replacement
+        #
+        # @param [Boolean] with_subplan whether the subplan should be includede
+        #   in edge discovery
+        def compute_replacement_candidates(object, filter, with_subplan)
             edges, edges_candidates = [], []
             subplan_tasks = Set[self, object]
+            subplan_tasks.compare_by_identity
             parent_tasks  = Set.new
+            parent_tasks.compare_by_identity
             plan.each_task_relation_graph do |g|
-                next if g.strong?
+                next if g.strong? || filter.excluded_graph?(g)
                 rel = g.class
+                next if filter.excluded_relation?(rel)
 
                 each_in_neighbour_merged(rel, intrusive: true) do |parent|
                     parent_tasks << parent
-                    edges << [g, parent, self, parent, object]
-                end
-                object.each_in_neighbour_merged(rel, intrusive: true) do |parent|
-                    parent_tasks << parent
+                    if !filter.excluded_task?(parent)
+                        edges << [g, parent, self, parent, object]
+                    end
                 end
 
-                if g.weak?
+                if with_subplan || g.weak?
                     each_out_neighbour_merged(rel, intrusive: true) do |child|
                         edges_candidates << [child, [g, self, child, object, child]]
                     end
@@ -1306,26 +1317,33 @@ module Roby
                 end
             end
 
+            transaction_stack = plan.each_object_in_transaction_stack(self).to_a
+            object_transaction_stack = plan.each_object_in_transaction_stack(object).to_a
+            event_pairs = Array.new
+            model.each_event do |_, event|
+                event = transaction_stack.
+                    find { |_, o| o.find_event(event.symbol) }.
+                    last.event(event.symbol)
+                object_event = object_transaction_stack.
+                    find { |_, o| o.find_event(event.symbol) }.
+                    last.event(event.symbol)
+                event_pairs << [event, object_event]
+            end
+
             plan.each_event_relation_graph do |g|
-                next if g.strong?
+                next if g.strong? || filter.excluded_graph?(g)
                 rel = g.class
+                next if filter.excluded_relation?(rel)
 
-                model.each_event do |_, event|
-                    event = plan.each_object_in_transaction_stack(self).
-                        find { |_, o| o.find_event(event.symbol) }.
-                        last.event(event.symbol)
-                    object_event = plan.each_object_in_transaction_stack(object).
-                        find { |_, o| o.find_event(event.symbol) }.
-                        last.event(event.symbol)
-
+                event_pairs.each do |event, object_event|
                     event.each_in_neighbour_merged(rel, intrusive: false) do |_, parent|
-                        if parent.respond_to?(:task)
+                        if parent.respond_to?(:task) && !transaction_stack.include?(parent.task)
                             edges_candidates <<
                                 [plan[parent.task], [g, parent, event, parent, object_event]]
                         end
                     end
                     event.each_out_neighbour_merged(rel, intrusive: false) do |_, child|
-                        if child.respond_to?(:task)
+                        if child.respond_to?(:task) && !transaction_stack.include?(child.task)
                             edges_candidates <<
                                 [plan[child.task], [g, event, child, object_event, child]]
                         end
@@ -1333,8 +1351,56 @@ module Roby
                 end
             end
 
+            return edges, edges_candidates, subplan_tasks, parent_tasks
+        end
+
+        # @api private
+        #
+        # The compute_ methods work on a edge set that looks like this:
+        #    [graph, [add_parent, add_child, remove_parent, remove_child]]
+        # while Plan#apply_replacement_operations works on two sets
+        #    [[graph, add_parent, add_child, info], ...]
+        #    [[graph, remove_parent, remove_child], ...]
+        # This transforms the first form into the second
+        def transform_candidates_into_operations(edges)
+            added, removed = [], []
+            edges.each do |g, removed_parent, removed_child, added_parent, added_child|
+                added_parent   = plan[added_parent]
+                added_child    = plan[added_child]
+                removed_parent = plan[removed_parent]
+                removed_child  = plan[removed_child]
+                info = g.edge_info(removed_parent, removed_child)
+
+                added << [g, added_parent, added_child, info]
+                if !g.copy_on_replace?
+                    removed << [g, removed_parent, removed_child]
+                end
+            end
+            return added, removed
+        end
+
+        def compute_task_replacement_operation(object, filter)
+            edges, edges_candidates, _ = compute_replacement_candidates(object, filter, true)
             edges_candidates.each do |reference_task, op|
-                if subplan_tasks.include?(reference_task)
+                if filter.excluded_task?(reference_task)
+                    next
+                elsif reference_task == object || reference_task == self
+                    next
+                else
+                    edges << op
+                end
+            end
+            return transform_candidates_into_operations(edges)
+        end
+
+        # @api private
+        def compute_subplan_replacement_operation(object, filter)
+            edges, edges_candidates, subplan_tasks, parent_tasks =
+                compute_replacement_candidates(object, filter, false)
+            edges_candidates.each do |reference_task, op|
+                if filter.excluded_task?(reference_task)
+                    next
+                elsif subplan_tasks.include?(reference_task)
                     next
                 elsif parent_tasks.include?(reference_task)
                     edges << op
@@ -1344,23 +1410,22 @@ module Roby
                     edges << op
                 end
             end
-
-            edges = edges.map do |g, removed_parent, removed_child, added_parent, added_child|
-                [g, plan[removed_parent], plan[removed_child], plan[added_parent], plan[added_child]]
-            end
-            edges
+            return transform_candidates_into_operations(edges)
         end
 
-        # @api private
-        def apply_replacement_operations(edges)
-            edges.each do |g, removed_parent, removed_child, added_parent, added_child|
-                info = g.edge_info(removed_parent, removed_child)
-                g.add_relation(plan[added_parent], plan[added_child], info)
-            end
-            edges.each do |g, removed_parent, removed_child, added_parent, added_child|
-                if !g.copy_on_replace?
-                    g.remove_relation(plan[removed_parent], plan[removed_child])
-                end
+        # Replaces self by object
+        #
+        # It replaces self by object in all relations +self+ is part of, and do
+        # the same for the task's event generators.
+        #
+        # @see replace_subplan_by
+        def replace_by(object, filter: Plan::ReplacementFilter::Null.new)
+            added, removed = compute_task_replacement_operation(object, filter)
+            plan.apply_replacement_operations(added, removed)
+
+            initialize_replacement(object)
+            each_event do |event|
+                event.initialize_replacement(nil) { object.event(event.symbol) }
             end
         end
 
@@ -1374,76 +1439,13 @@ module Roby
         # Relations to free events are not copied during replacement
         #
         # @see replace_by
-        def replace_subplan_by(object)
-            edges = compute_subplan_replacement_operation(object)
-            apply_replacement_operations(edges)
+        def replace_subplan_by(object, filter: Plan::ReplacementFilter::Null.new)
+            added, removed = compute_subplan_replacement_operation(object, filter)
+            plan.apply_replacement_operations(added, removed)
 
             initialize_replacement(object)
             each_event do |event|
                 event.initialize_replacement(object.event(event.symbol))
-            end
-        end
-
-        # @api private
-        def compute_object_replacement_operation(object)
-            edges = []
-            plan.each_task_relation_graph do |g|
-                next if g.strong?
-
-                g.each_in_neighbour(self) do |parent|
-                    if parent != object
-                        edges << [g, parent, self, parent, object]
-                    end
-                end
-                g.each_out_neighbour(self) do |child|
-                    if object != child
-                        edges << [g, self, child, object, child]
-                    end
-                end
-            end
-
-            plan.each_event_relation_graph do |g|
-                next if g.strong?
-
-                each_event do |event|
-                    object_event = nil
-                    g.each_in_neighbour(event) do |parent|
-                        if !parent.respond_to?(:task) || (parent.task != self && parent.task != object)
-                            object_event ||= object.event(event.symbol)
-                            edges << [g, parent, event, parent, object_event]
-                        end
-                    end
-                    g.each_out_neighbour(event) do |child|
-                        if !child.respond_to?(:task) || (child.task != self && child.task != object)
-                            object_event ||= object.event(event.symbol)
-                            edges << [g, event, child, object_event, child]
-                        end
-                    end
-                end
-            end
-            edges
-        end
-
-        # Replaces self by object
-        #
-        # It replaces self by object in all relations +self+ is part of, and do
-        # the same for the task's event generators.
-        #
-        # @see replace_subplan_by
-        def replace_by(object)
-            event_mappings = Hash.new
-            event_resolver = ->(e) { object.event(e.symbol) }
-            each_event do |ev|
-                event_mappings[ev] = [nil, event_resolver]
-            end
-            object.each_event do |ev|
-                event_mappings[ev] = nil
-            end
-            plan.replace_subplan(Hash[self => object, object => nil], event_mappings)
-
-            initialize_replacement(object)
-            each_event do |event|
-                event.initialize_replacement(nil) { object.event(event.symbol) }
             end
         end
 

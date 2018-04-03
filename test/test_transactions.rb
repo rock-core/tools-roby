@@ -5,7 +5,7 @@ require './test/test_plan'
 
 # Check that a transaction behaves like a plan
 class TC_TransactionAsPlan < Minitest::Test
-    include TC_PlanStatic
+    include Roby::PlanCommonBehavior
     include Roby::SelfTest
 
     attr_reader :real_plan
@@ -960,18 +960,6 @@ module TC_TransactionBehaviour
         assert(!parent.depends_on?(child, recursive: false))
     end
 
-    def test_replace_with_parents_non_included_in_transaction_does_not_touch_parents
-        root, t1 = prepare_plan add: 2
-        root.depends_on t1
-        t2 = Roby::Task.new
-        transaction_commit(plan, t1) do |trsc, p1|
-            trsc.add(t2)
-            trsc.replace_task(p1, t2)
-        end
-        assert !root.child_object?(t2, Dependency)
-        assert root.child_object?(t1, Dependency)
-    end
-
     def test_query_roots_finds_a_path_in_plan
         parent, child = prepare_plan add: 2
         parent.depends_on child
@@ -1479,8 +1467,65 @@ module Roby
             @transaction = Transaction.new(@plan)
         end
 
-        it "is not root" do
-            refute @transaction.root_plan?
+        describe "first level transaction" do
+            it "is not root" do
+                refute @transaction.root_plan?
+            end
+
+            it "includes itself and the plan in the stack" do
+                assert_equal [@transaction, @plan], @transaction.transaction_stack
+            end
+
+            describe "replace plan tasks within a transaction" do
+                describe "#replace" do
+                    before do
+                        plan.add(@task = Roby::Task.new)
+                        plan.add(@replaced_task = Roby::Task.new)
+                        plan.add(@replacing_task = Roby::Task.new)
+                    end
+
+                    PlanReplaceBehaviors.in_transaction_context(self, :replace)
+                    PlanReplaceBehaviors.replace(self)
+
+                    it "does not wrap events that are not needed" do
+                        @replacing_task.depends_on(intermediate = Roby::Task.new)
+                        intermediate.depends_on(other = Roby::Task.new)
+                        @replaced_task.start_event.forward_to other.start_event
+                        other.stop_event.forward_to @replaced_task.stop_event
+                        replaced_proxy  = @transaction[@replaced_task]
+                        replacing_proxy = @transaction[@replacing_task]
+                        # transactions do wrap task events if they are involved
+                        # in relations with other task's events. Moreover, a
+                        # replacing task event is instanciated in order to call
+                        # #initialize_replacement, so we get both start and
+                        # stop on both sides
+                        @transaction.replace(replaced_proxy, replacing_proxy)
+                        assert_equal [:start, :stop], replaced_proxy.each_event.map(&:symbol)
+                        assert_equal [:start, :stop], replacing_proxy.each_event.map(&:symbol)
+                    end
+
+                    it "does not wrap events that are not needed" do
+                        @replaced_task.start_event.forward_to @replacing_task.start_event
+                        @replacing_task.stop_event.forward_to @replaced_task.stop_event
+                        replaced_proxy  = @transaction[@replaced_task]
+                        replacing_proxy = @transaction[@replacing_task]
+                        @transaction.replace(replaced_proxy, replacing_proxy)
+                        assert_equal [:start, :stop], replaced_proxy.each_event.map(&:symbol)
+                        assert_equal [:start, :stop], replacing_proxy.each_event.map(&:symbol)
+                    end
+                end
+
+                describe "#replace_task" do
+                    before do
+                        plan.add(@task = Roby::Task.new)
+                        plan.add(@replaced_task = Roby::Task.new)
+                        plan.add(@replacing_task = Roby::Task.new)
+                    end
+
+                    PlanReplaceBehaviors.in_transaction_context(self, :replace_task)
+                    PlanReplaceBehaviors.replace_task(self)
+                end
+            end
         end
     end
 end
