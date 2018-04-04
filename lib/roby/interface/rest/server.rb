@@ -1,3 +1,10 @@
+require 'eventmachine'
+require 'rack'
+require 'thin'
+require 'rest-client'
+require 'grape'
+require 'roby/interface/rest/helpers'
+
 module Roby
     module Interface
         module REST
