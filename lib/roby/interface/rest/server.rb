@@ -18,15 +18,6 @@ module Roby
                 # @return [String]
                 attr_reader :host
 
-                # The port the server is bound to
-                #
-                # If zero is originally given to {#initialize} for a TCP server
-                # setup, this will be changed to the actual port number when it
-                # is known
-                #
-                # @return [Integer]
-                attr_reader :port
-
                 # Create a new server
                 #
                 # @param [Roby::Application] the application this server will
@@ -216,4 +207,3 @@ module Roby
         end
     end
 end
-
