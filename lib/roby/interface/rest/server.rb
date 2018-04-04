@@ -88,7 +88,7 @@ module Roby
 
                 # Whether the server is running
                 def running?
-                    @server_thead && @server_thread.alive?
+                    @server_thread && @server_thread.alive?
                 end
 
                 # @api private
