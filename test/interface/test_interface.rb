@@ -17,6 +17,19 @@ describe Roby::Interface::Interface do
         job_task_m.provides Roby::Interface::Job
     end
 
+    describe "#initialize" do
+        it "can be created on a plan that contains jobs already" do
+            app = Roby::Application.new
+            task = Roby::Task.new
+            task.planned_by(job = @job_task_m.new(job_id: 10))
+            app.plan.add(task)
+            flexmock(Roby::Interface::Interface).new_instances.
+                should_receive(:monitor_job).with(job, task, new_task: true).
+                once.pass_thru
+            Roby::Interface::Interface.new(app)
+        end
+    end
+
     describe "#actions" do
         it "should list existing actions" do
             actions = Roby::Actions::Interface.new_submodel do
@@ -535,7 +548,7 @@ describe Roby::Interface::Interface do
             interface.drop_job 10
             assert task.running?
         end
-        
+
         describe "multiple planning tasks" do
             before do
                 @other_job_task = job_task_m.new(job_id: 20)
@@ -668,4 +681,3 @@ describe Roby::Interface::Interface do
         end
     end
 end
-
