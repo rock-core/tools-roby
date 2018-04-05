@@ -132,9 +132,9 @@ module Roby
                 push_write_data(packet.to_s)
             end
 
-            def reset_thread_guard
-                @write_thread = nil
-                @read_thread = nil
+            def reset_thread_guard(read_thread = nil, write_thread = nil)
+                @write_thread = read_thread
+                @read_thread = write_thread
             end
 
             # Push queued data
