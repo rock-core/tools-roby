@@ -112,6 +112,13 @@ module Roby
             # @param [Roby::Application] app the application
             def initialize(app)
                 super(app)
+
+                @tracked_jobs = Set.new
+                @job_notifications = Array.new
+                @job_listeners = Array.new
+                @job_monitoring_state = Hash.new
+                @cycle_end_listeners = Array.new
+
                 app.plan.add_trigger Roby::Interface::Job do |task|
                     if task.job_id && (planned_task = task.planned_task)
                         monitor_job(task, planned_task, new_task: true)
@@ -121,12 +128,6 @@ module Roby
                     push_pending_job_notifications
                     notify_cycle_end
                 end
-
-                @tracked_jobs = Set.new
-                @job_notifications = Array.new
-                @job_listeners = Array.new
-                @job_monitoring_state = Hash.new
-                @cycle_end_listeners = Array.new
             end
 
             State = Struct.new :service, :monitored, :job_id, :job_name do
@@ -297,7 +298,7 @@ module Roby
             #   @yieldparam [String] job_name the job name (non-unique)
             #
             #   Generic interface. Some of the notifications, detailed below,
-            #   have additional parameters (after the job_name argument) 
+            #   have additional parameters (after the job_name argument)
             #
             # @overload on_job_notification
             #   @yieldparam JOB_MONITORED
@@ -418,7 +419,7 @@ module Roby
                 service.on(:failed) do |ev|
                     job_notify(JOB_FAILED, job_id, job_name)
                 end
-                service.when_finalized do 
+                service.when_finalized do
                     job_notify(JOB_FINALIZED, job_id, job_name)
                 end
             end
@@ -651,5 +652,3 @@ module Roby
         end
     end
 end
-
-

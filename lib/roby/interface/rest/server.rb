@@ -1,3 +1,10 @@
+require 'eventmachine'
+require 'rack'
+require 'thin'
+require 'rest-client'
+require 'grape'
+require 'roby/interface/rest/helpers'
+
 module Roby
     module Interface
         module REST
@@ -10,15 +17,6 @@ module Roby
                 #
                 # @return [String]
                 attr_reader :host
-
-                # The port the server is bound to
-                #
-                # If zero is originally given to {#initialize} for a TCP server
-                # setup, this will be changed to the actual port number when it
-                # is known
-                #
-                # @return [Integer]
-                attr_reader :port
 
                 # Create a new server
                 #
@@ -88,7 +86,7 @@ module Roby
 
                 # Whether the server is running
                 def running?
-                    @server_thead && @server_thread.alive?
+                    @server_thread && @server_thread.alive?
                 end
 
                 # @api private
@@ -209,4 +207,3 @@ module Roby
         end
     end
 end
-

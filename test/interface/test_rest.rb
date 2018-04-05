@@ -18,6 +18,24 @@ module Roby
                 end
             end
 
+            describe "#running?" do
+                before do
+                    @server = REST::Server.new(@app, port: 0)
+                end
+                it "returns false before the call to #start" do
+                    refute @server.running?
+                end
+                it "returns true just after #start" do
+                    @server.start(wait_timeout: 0)
+                    assert @server.running?
+                end
+                it "returns false after being stopped and joined" do
+                    @server.start(wait_timeout: 0)
+                    @server.stop
+                    refute @server.running?
+                end
+            end
+
             describe "the start timeout behavior" do
                 it "does not wait at all if the start timeout is zero" do
                     @server = REST::Server.new(@app, port: 0)
