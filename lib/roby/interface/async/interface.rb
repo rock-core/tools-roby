@@ -222,6 +222,7 @@ module Roby
                     end
                     client.ui_event_queue.clear
 
+                    finalized_jobs = []
                     client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
                         new_job_listeners.each do |listener|
                             next if listener.seen_job_with_id?(job_id)
@@ -242,6 +243,8 @@ module Roby
                                 listener.ignored(job)
                             end
                         end
+
+                        finalized_jobs << job_id if job_state == JOB_FINALIZED
 
                         if monitors = job_monitors[job_id]
                             monitors.delete_if do |m|
@@ -271,6 +274,10 @@ module Roby
                         run_hook :on_exception, kind, exception, tasks, job_ids
                     end
                     client.exception_queue.clear
+
+                    finalized_jobs.each do |job_id|
+                        new_job_listeners.each { |l| l.clear_job_id(job_id) }
+                    end
                 end
 
                 def connecting?
