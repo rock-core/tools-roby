@@ -321,7 +321,7 @@ module Roby
             #   {#remove_job_listener}
             def on_job_notification(&block)
                 job_listeners << block
-                block
+                Roby.disposable { job_listeners.delete(block) }
             end
 
             # Remove a job listener added with {#on_job_notification}
@@ -329,7 +329,7 @@ module Roby
             # @param [Object] listener the listener ID returned by
             #   {#on_job_notification}
             def remove_job_listener(listener)
-                job_listeners.delete(listener)
+                listener.dispose if listener.respond_to?(:dispose)
             end
 
             # Returns all the job IDs of this task
@@ -580,7 +580,7 @@ module Roby
             # @return [Object] and ID that can be passed to {#remove_cycle_end}
             def on_cycle_end(&block)
                 cycle_end_listeners << block
-                block
+                Roby.disposable { cycle_end_listeners.delete(block) }
             end
 
             # @api private
@@ -595,7 +595,7 @@ module Roby
 
             # Remove a handler that has been added to {#on_cycle_end}
             def remove_cycle_end(listener)
-                cycle_end_listeners.delete(listener)
+                listener.dispose if listener.respond_to?(:dispose)
             end
 
             # Requests for the Roby application to quit

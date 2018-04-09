@@ -149,7 +149,6 @@ module Roby
             plan.execution_engine.gc_warning = false
 
             @watched_events = nil
-            @handler_ids = Array.new
         end
 
         # @deprecated use {Assertions#capture_log} instead
@@ -205,12 +204,6 @@ module Roby
                 end
             end
             teardown_registered_plans
-
-            if @handler_ids && execution_engine
-                @handler_ids.each do |handler_id|
-                    execution_engine.remove_propagation_handler(handler_id)
-                end
-            end
 
             # Plan teardown would have disconnected the peers already
             stop_remote_processes

@@ -26,7 +26,8 @@ module Roby
 
             # Listen to notifications on the underlying interface
             def listen_to_notifications
-                interface.on_cycle_end do |*args|
+                listeners = []
+                listeners << @interface.on_cycle_end do
                     write_packet(
                         [
                             :cycle_end,
@@ -34,22 +35,23 @@ module Roby
                             @interface.execution_engine.cycle_start
                         ], defer_exceptions: true)
                 end
-                interface.on_notification do |*args|
+                listeners << @interface.on_notification do |*args|
                     if notifications_enabled?
                         queue_packet([:notification, *args])
                     elsif Thread.current == @main_thread
                         flush_pending_packets
                     end
                 end
-                interface.on_ui_event do |*args|
+                listeners << @interface.on_ui_event do |*args|
                     queue_packet([:ui_event, *args])
                 end
-                interface.on_job_notification do |*args|
+                listeners << @interface.on_job_notification do |*args|
                     write_packet([:job_progress, *args], defer_exceptions: true)
                 end
-                interface.on_exception do |*args|
+                listeners << @interface.on_exception do |*args|
                     write_packet([:exception, *args], defer_exceptions: true)
                 end
+                @listeners = Roby.disposable(*listeners)
             end
 
             # Write or queue a call, depending on whether the current thread is the main
@@ -104,6 +106,7 @@ module Roby
 
             def close
                 io.close
+                @listeners.dispose if @listeners
             end
 
             def process_batch(path, calls)

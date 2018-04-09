@@ -1766,7 +1766,7 @@ module Roby
         it "registers the exception in the application exceptions set" do
             expected_error = Class.new(RuntimeError).exception("test error message")
             errors = execution_engine.gather_framework_errors("test", raise_caught_exceptions: false) do
-                execution_engine.add_framework_error(expected_error, :exceptions) 
+                execution_engine.add_framework_error(expected_error, :exceptions)
             end
             assert_equal 1, errors.size
             error, context = errors.first
@@ -2001,6 +2001,43 @@ module Roby
             end
         end
 
+        describe "#delay" do
+            before do
+                Timecop.freeze(@base_time = Time.now)
+            end
+
+            it "executes the block after the delay expired" do
+                trigger_time = nil
+                execution_engine.delayed(5) { trigger_time = Time.now }
+                expect_execution.timeout(10).to do
+                    achieve do
+                        Timecop.freeze(Time.now + 1)
+                        trigger_time
+                    end
+                end
+                assert_equal @base_time + 5, trigger_time
+            end
+
+            it "executes the block only once" do
+                recorder = flexmock
+                recorder.should_receive(:call).once
+                execution_engine.delayed(5) { recorder.call }
+                execute_one_cycle
+                Timecop.freeze(@base_time + 6)
+                execute_one_cycle
+                execute_one_cycle
+            end
+
+            it "does not execute the block if removed" do
+                recorder = flexmock
+                recorder.should_receive(:call).never
+                handler = execution_engine.delayed(5) { recorder.call }
+                execute_one_cycle
+                Timecop.freeze(@base_time + 6)
+                handler.dispose
+                execute_one_cycle
+            end
+        end
     end
 end
 
@@ -2131,7 +2168,7 @@ class TC_ExecutionEngine < Minitest::Test
 
     def test_duplicate_signals
         plan.add_mission_task(t = Tasks::Simple.new)
-        
+
         FlexMock.use do |mock|
             t.start_event.on   { |event| t.success_event.emit(*event.context) }
             t.start_event.on   { |event| t.success_event.emit(*event.context) }
@@ -2513,20 +2550,6 @@ class TC_ExecutionEngine < Minitest::Test
         end
     end
 
-    def test_delayed_block
-        Timecop.freeze(base_time = Time.now)
-
-        trigger_time = nil
-        execution_engine.delayed(5) { trigger_time = Time.now }
-        expect_execution.timeout(10).to do
-            achieve do
-                Timecop.freeze(Time.now + 1)
-                trigger_time
-            end
-        end
-        assert_equal base_time + 5, trigger_time
-    end
-
     def test_garbage_collection_calls_are_propagated_first_while_quitting
         obj = Class.new do
             def stopped?; @stop end
@@ -2555,4 +2578,3 @@ class TC_ExecutionEngine < Minitest::Test
         expect_execution.to { achieve { !task.running? } }
     end
 end
-

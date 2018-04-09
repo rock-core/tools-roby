@@ -30,6 +30,12 @@ module Roby
                     result = @server.handshake("42", [:commands, :jobs])
                     assert_equal Hash[commands: 42, jobs: 84], result
                 end
+                it "does not listen to notifications once closed" do
+                    @server.handshake("42", [])
+                    @server.close
+                    flexmock(@server).should_receive(:write_packet).never
+                    @notify_app.ui_event(:test)
+                end
             end
 
             describe "notification and UI event handling" do

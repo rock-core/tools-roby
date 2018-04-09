@@ -50,6 +50,7 @@ require 'roby/droby/marshallable'
 require 'roby/droby/event_logging'
 
 require 'roby/support'
+require 'roby/disposable'
 require 'roby/promise'
 require 'roby/hooks'
 require 'roby/distributed_object'
@@ -129,4 +130,3 @@ require 'roby/droby/enable'
 module Roby
     BIN_DIR = File.expand_path(File.join("..", "bin"), __dir__)
 end
-
