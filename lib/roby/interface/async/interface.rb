@@ -222,6 +222,7 @@ module Roby
                     end
                     client.ui_event_queue.clear
 
+                    finalized_monitors = Hash.new
                     finalized_jobs = []
                     client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
                         new_job_listeners.each do |listener|
@@ -247,15 +248,14 @@ module Roby
                         finalized_jobs << job_id if job_state == JOB_FINALIZED
 
                         if monitors = job_monitors[job_id]
-                            monitors.delete_if do |m|
+                            monitors.each do |m|
                                 m.update_state(job_state)
                                 if job_state == JOB_REPLACED
                                     m.replaced(args.first)
                                 end
-                                m.finalized?
-                            end
-                            if monitors.empty?
-                                job_monitors.delete(job_id)
+                                if m.finalized?
+                                    (finalized_monitors[job_id] ||= Array.new) << m
+                                end
                             end
                         end
                         run_hook :on_job_progress, job_state, job_id, job_name, args
@@ -274,6 +274,14 @@ module Roby
                         run_hook :on_exception, kind, exception, tasks, job_ids
                     end
                     client.exception_queue.clear
+
+                    finalized_monitors.each do |job_id, monitors|
+                        active_monitors = job_monitors[job_id]
+                        monitors.each { |m| active_monitors.delete(m) }
+                        if active_monitors.empty?
+                            job_monitors.delete(job_id)
+                        end
+                    end
 
                     finalized_jobs.each do |job_id|
                         new_job_listeners.each { |l| l.clear_job_id(job_id) }

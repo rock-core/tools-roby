@@ -213,7 +213,7 @@ module Roby
                         client = create_client(connect: false)
                         recorder.should_receive(:job).
                             once.
-                            with(lambda { |job| 
+                            with(lambda { |job|
                                    job.job_id == 1 &&
                                    job.state == 'a' &&
                                    job.task == 'c' })
@@ -239,7 +239,7 @@ module Roby
                             recorder.should_receive(:job).
                                 by_default.
                                 once.
-                                with(lambda { |job| 
+                                with(lambda { |job|
                                        job.job_id == 1 &&
                                        job.state == 'a' &&
                                        job.task == 'c' })
@@ -322,11 +322,38 @@ module Roby
                     it "calls notify_exception for the exceptions that involve the job" do
                         monitor = flexmock(:on, JobMonitor, job_id: 42, finalized?: false)
                         client.add_job_monitor(monitor)
-                        monitor.should_receive(:notify_exception).with(:fatal, 'exception_object')
+                        monitor.should_receive(:notify_exception).
+                            with(:fatal, 'exception_object').once
                         client.client.queue_exception(:fatal, 'exception_object', [], [42])
                         process_call do
                             client.poll
                         end
+                    end
+
+                    it "notifies of exceptions for jobs that are finalized in the same cycle" do
+                        monitor = JobMonitor.new(client, 42)
+                        monitor.start
+                        flexmock(monitor).should_receive(:notify_exception).
+                            with(:fatal, 'exception_object').once
+                        interface.job_notify(Roby::Interface::JOB_MONITORED, 42, 'name')
+                        client.client.queue_exception(:fatal, 'exception_object', [], [42])
+                        interface.job_notify(Roby::Interface::JOB_FINALIZED, 42, 'name')
+                        interface.push_pending_job_notifications
+                        process_call do
+                            client.poll
+                        end
+                    end
+
+                    it "deregisters job handlers once the job is finalized" do
+                        monitor = JobMonitor.new(client, 42)
+                        monitor.start
+                        interface.job_notify(Roby::Interface::JOB_MONITORED, 42, 'name')
+                        interface.job_notify(Roby::Interface::JOB_FINALIZED, 42, 'name')
+                        interface.push_pending_job_notifications
+                        process_call do
+                            client.poll
+                        end
+                        refute monitor.active?
                     end
                 end
 
@@ -354,4 +381,3 @@ module Roby
         end
     end
 end
-
