@@ -22,13 +22,16 @@ module Roby
                 @interface = interface
                 @main_thread = main_thread
                 @pending_packets = Queue.new
+            end
 
-                interface.on_cycle_end do
+            # Listen to notifications on the underlying interface
+            def listen_to_notifications
+                interface.on_cycle_end do |*args|
                     write_packet(
                         [
                             :cycle_end,
-                            interface.execution_engine.cycle_index,
-                            interface.execution_engine.cycle_start
+                            @interface.execution_engine.cycle_index,
+                            @interface.execution_engine.cycle_start
                         ], defer_exceptions: true)
                 end
                 interface.on_notification do |*args|
@@ -77,10 +80,14 @@ module Roby
                 io.to_io
             end
 
-            def handshake(id)
+            def handshake(id, commands)
                 @client_id = id
                 Roby::Interface.info "new interface client: #{id}"
-                [interface.actions, interface.commands]
+                result = commands.each_with_object(Hash.new) do |s, result|
+                    result[s] = interface.send(s)
+                end
+                listen_to_notifications
+                result
             end
 
             def enable_notifications

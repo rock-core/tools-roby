@@ -163,10 +163,9 @@ module Roby
             #
             # @return [Integer] the job ID
             def start_job(m, arguments = Hash.new)
-                execution_engine.execute do
-                    task, planning_task = app.prepare_action(m, mission: true, job_id: Job.allocate_job_id, **arguments)
-                    planning_task.job_id
-                end
+                _task, planning_task = app.prepare_action(m, mission: true,
+                    job_id: Job.allocate_job_id, **arguments)
+                planning_task.job_id
             end
 
             # Kill a job
@@ -490,25 +489,21 @@ module Roby
             #   placeholder job task and the job task itself
             def jobs
                 result = Hash.new
-                execution_engine.execute do
-                    planning_tasks = plan.find_tasks(Job).to_a
-                    planning_tasks.each do |job_task|
-                        job_id = job_task.job_id
-                        next if !job_id
-                        placeholder_job_task = job_task.planned_task || job_task
-                        result[job_id] = [job_state(placeholder_job_task), placeholder_job_task, job_task]
-                    end
+                planning_tasks = plan.find_tasks(Job).to_a
+                planning_tasks.each do |job_task|
+                    job_id = job_task.job_id
+                    next if !job_id
+                    placeholder_job_task = job_task.planned_task || job_task
+                    result[job_id] = [job_state(placeholder_job_task), placeholder_job_task, job_task]
                 end
                 result
             end
             command :jobs, 'returns the list of non-finished jobs'
 
             def find_job_info_by_id(id)
-                execution_engine.execute do
-                    if planning_task = plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
-                        task = planning_task.planned_task || planning_task
-                        return job_state(task), task, planning_task
-                    end
+                if planning_task = plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
+                    task = planning_task.planned_task || planning_task
+                    return job_state(task), task, planning_task
                 end
             end
 
@@ -517,9 +512,7 @@ module Roby
             # @param [Integer] id
             # @return [Roby::Task,nil]
             def find_job_by_id(id)
-                execution_engine.execute do
-                    return plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
-                end
+                plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
             end
 
             # Finds the task that represents the given job ID
@@ -536,9 +529,7 @@ module Roby
             #
             # Do NOT do this while the robot does critical things
             def reload_models
-                execution_engine.execute do
-                    app.reload_models
-                end
+                app.reload_models
                 nil
             end
 
@@ -549,9 +540,7 @@ module Roby
 
             # Reload the actions defined under the actions/ subfolder
             def reload_actions
-                execution_engine.execute do
-                    app.reload_actions
-                end
+                app.reload_actions
                 actions
             end
             command :reload_actions, 'reloads the files in models/actions/'
@@ -566,21 +555,17 @@ module Roby
             #
             # @see ExecutionEngine#on_exception
             def on_exception(&block)
-                execution_engine.execute do
-                    execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
-                        involved_job_ids = tasks.flat_map do |t|
-                            job_ids_of_task(t) if t.plan
-                        end.compact.to_set
-                        block.call(kind, exception, tasks, involved_job_ids)
-                    end
+                execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
+                    involved_job_ids = tasks.flat_map do |t|
+                        job_ids_of_task(t) if t.plan
+                    end.compact.to_set
+                    block.call(kind, exception, tasks, involved_job_ids)
                 end
             end
 
             # @see ExecutionEngine#remove_exception_listener
             def remove_exception_listener(listener)
-                execution_engine.execute do
-                    execution_engine.remove_exception_listener(listener)
-                end
+                execution_engine.remove_exception_listener(listener)
             end
 
             # Add a handler called at each end of cycle
@@ -594,10 +579,8 @@ module Roby
             # @yieldparam [ExecutionEngine] the underlying execution execution_engine
             # @return [Object] and ID that can be passed to {#remove_cycle_end}
             def on_cycle_end(&block)
-                execution_engine.execute do
-                    cycle_end_listeners << block
-                    block
-                end
+                cycle_end_listeners << block
+                block
             end
 
             # @api private
