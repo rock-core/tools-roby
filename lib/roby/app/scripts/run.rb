@@ -13,6 +13,7 @@ trap 'INT', 'DEFAULT'
 MetaRuby.keep_definition_location = false
 
 run_controller = false
+wait_shell_connection = false
 options = OptionParser.new do |opt|
     opt.banner = <<-EOD
 roby run [-r ROBOT] [-c] action action action...
@@ -38,7 +39,10 @@ scripts/controllers/ and/or some explicitly given actions
         app.public_shell_interface = false
     end
     opt.on '--no-logs', "treat the log directory as ephemeral" do
-       app.public_logs = false
+        app.public_logs = false
+    end
+    opt.on '--wait-shell-connection', 'wait for a shell connection before running' do
+        wait_shell_connection = true
     end
     opt.on '--rest[=SOCKET_OR_PORT]', String, 'enable the experimental REST API' do |socket|
         app.public_rest_interface = true
@@ -116,8 +120,16 @@ error = Roby.display_exception(STDERR) do
             action
         end
 
-        Roby.plan.execution_engine.once(description: 'roby run bootup') do
+        engine = Roby.plan.execution_engine
+
+        engine.once do
             Robot.info "loaded Roby on #{RUBY_DESCRIPTION}"
+        end
+
+        handler = Roby.plan.execution_engine.each_cycle(description: 'roby run bootup') do
+            if wait_shell_connection
+                next if Roby.app.shell_interface.client_count(handshake: true) == 0
+            end
 
             # Start the requested actions
             actions.each do |act|
@@ -151,6 +163,7 @@ error = Roby.display_exception(STDERR) do
 
             Robot.info "done initialization"
             Robot.info "ready"
+            handler.dispose
         end
         app.run(thread_priority: -1)
     ensure

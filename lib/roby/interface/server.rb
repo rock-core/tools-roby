@@ -22,6 +22,7 @@ module Roby
                 @interface = interface
                 @main_thread = main_thread
                 @pending_packets = Queue.new
+                @performed_handshake = false
             end
 
             # Listen to notifications on the underlying interface
@@ -88,8 +89,14 @@ module Roby
                 result = commands.each_with_object(Hash.new) do |s, result|
                     result[s] = interface.send(s)
                 end
+                @performed_handshake = true
                 listen_to_notifications
                 result
+            end
+
+            # Whether the remote side already called {#handshake?}
+            def performed_handshake?
+                @performed_handshake
             end
 
             def enable_notifications

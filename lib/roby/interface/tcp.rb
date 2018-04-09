@@ -75,6 +75,17 @@ module Roby
                 Server.new(DRobyChannel.new(socket, false), interface)
             end
 
+            # Number of clients connected to this server
+            #
+            # @param [Boolean] handshake if true, return only the clients that
+            #   have performed their handshake
+            # @return [Integer]
+            def client_count(handshake: true)
+                @clients.count do |c|
+                    !handshake || c.performed_handshake?
+                end
+            end
+
             # Process all incoming connection requests
             #
             # The new clients are added into the Roby event loop

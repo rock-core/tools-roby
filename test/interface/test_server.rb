@@ -16,9 +16,16 @@ module Roby
                     flexmock(@server)
                 end
 
+                it "returns false in performed_handshake? before the handshake" do
+                    refute @server.performed_handshake?
+                end
                 it "does not listen to notifications before the handshake" do
                     flexmock(@server).should_receive(:write_packet).never
                     @notify_app.ui_event(:test)
+                end
+                it "returns true in performed_handshake? after the handshake" do
+                    @server.handshake("42", [])
+                    assert @server.performed_handshake?
                 end
                 it "listens to notifications after the handshake" do
                     @server.handshake("42", [])
