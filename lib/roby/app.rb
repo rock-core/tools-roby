@@ -1927,9 +1927,6 @@ module Roby
         ensure
             shutdown
             @thread = nil
-            if restarting?
-                Kernel.exec *@restart_cmdline
-            end
         end
 
         def join
@@ -1953,7 +1950,15 @@ module Roby
             !!@thread
         end
 
-        # Whether {#run} should exec a new process on quit or not
+        # Restarts the same app
+        # 
+        # Simply execs the same command line
+        def restart!
+            Kernel.exec *@restart_cmdline
+        end
+
+        # Indicates to whomever is managing this app that {#restart} should be
+        # called
         def restarting?
             !!@restarting
         end
