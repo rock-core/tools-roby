@@ -75,6 +75,17 @@ module Roby
                 Server.new(DRobyChannel.new(socket, false), interface)
             end
 
+            # Number of clients connected to this server
+            #
+            # @param [Boolean] handshake if true, return only the clients that
+            #   have performed their handshake
+            # @return [Integer]
+            def client_count(handshake: true)
+                @clients.count do |c|
+                    !handshake || c.performed_handshake?
+                end
+            end
+
             # Process all incoming connection requests
             #
             # The new clients are added into the Roby event loop
@@ -142,15 +153,16 @@ module Roby
 
         # Connect to a Roby controller interface at this host and port
         #
-        # @return [Client] the client object that gives access
+        # @param [Array<Symbol>] handshake see {Client#initialize}
+        # @return [Client] the connected {Client} object
         def self.connect_with_tcp_to(host, port = DEFAULT_PORT,
-                marshaller: DRoby::Marshal.new(auto_create_plans: true))
+                marshaller: DRoby::Marshal.new(auto_create_plans: true),
+                handshake: [:actions, :commands])
             require 'socket'
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
-            Client.new(DRobyChannel.new(socket, true,
-                marshaller: DRoby::Marshal.new(auto_create_plans: true)),
-                "#{addr[2]}:#{addr[1]}")
+            channel    = DRobyChannel.new(socket, true, marshaller: marshaller)
+            Client.new(channel, "#{addr[2]}:#{addr[1]}", handshake: handshake)
 
         rescue Errno::ECONNREFUSED => e
             raise ConnectionError, "failed to connect to #{host}:#{port}: #{e.message}",

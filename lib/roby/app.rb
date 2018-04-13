@@ -104,9 +104,9 @@ module Roby
         #
         # @return [ExecutionEngine,nil]
         def execution_engine; plan.execution_engine if plan end
-        
+
         # A set of planners declared in this application
-        # 
+        #
         # @return [Array]
         attr_reader :planners
 
@@ -114,7 +114,7 @@ module Roby
         # config/app.yml. The options are saved in a hash.
         #
         # This attribute contains the raw hash as read from the file. It is
-        # overlaid 
+        # overlaid
         attr_reader :options
 
         # A set of exceptions that have been encountered by the application
@@ -404,12 +404,12 @@ module Roby
         # Logging options.
         # events:: save a log of all events in the system. This log can be read using scripts/replay
         #          If this value is 'stats', only the data necessary for timing statistics is saved.
-        # levels:: a component => level hash of the minimum level of the messages that 
+        # levels:: a component => level hash of the minimum level of the messages that
         #          should be displayed on the console. The levels are DEBUG, INFO, WARN and FATAL.
         #            Roby: FATAL
         #            Roby::Interface: INFO
         # dir:: the log directory. Uses $app_dir/log if not set
-        # results:: the 
+        # results:: the
         # filter_backtraces:: true if the framework code should be removed from the error backtraces
         attr_config :log
 
@@ -823,7 +823,7 @@ module Roby
 
             # Main is always included in the planner list
             self.planners << app_module::Actions::Main
-           
+
             # Attach the global fault tables to the plan
             self.planners.each do |planner|
                 if planner.respond_to?(:each_fault_response_table)
@@ -1063,7 +1063,7 @@ module Roby
                 yield(mod) if mod.respond_to?(method)
             end
         end
-        
+
         # Call +method+ on each loaded extension module which define it, with
         # arguments +args+
         def call_plugins(method, *args, deprecated: nil)
@@ -1472,7 +1472,7 @@ module Roby
                          io = File.open(path, 'w')
                          io.sync = true
                          log_files[path] ||= io
-                     else 
+                     else
                          STDOUT
                      end
                 new_logger = Logger.new(io)
@@ -1605,13 +1605,13 @@ module Roby
                 end
             end
         end
-        
+
         def auto_require_models
             # Require all common task models and the task models specific to
             # this robot
             if auto_load_models?
                 load_all_model_files_in('tasks')
-                
+
                 if backward_compatible_naming?
                     search_path = self.auto_load_search_path
                     all_files = find_files_in_dirs('tasks', 'ROBOT', path: search_path, all: true, order: :specific_last, pattern: /\.rb$/)
@@ -1642,7 +1642,7 @@ module Roby
         # Returns the downmost app file that was involved in the given model's
         # definition
         def definition_file_for(model)
-            return if !model.respond_to?(:definition_location) || !model.definition_location 
+            return if !model.respond_to?(:definition_location) || !model.definition_location
             model.definition_location.each do |location|
                 file = location.absolute_path
                 next if !(base_path = find_base_path_for(file))
@@ -1657,7 +1657,7 @@ module Roby
         # Given a model class, returns the full path of an existing test file
         # that is meant to verify this model
         def test_files_for(model)
-            return [] if !model.respond_to?(:definition_location) || !model.definition_location 
+            return [] if !model.respond_to?(:definition_location) || !model.definition_location
 
             test_files = Array.new
             model.definition_location.each do |location|
@@ -1795,7 +1795,7 @@ module Roby
         end
 
         def setup_robot_names_from_config_dir
-            robot_config_files = find_files_in_dirs 'config', 'robots', 
+            robot_config_files = find_files_in_dirs 'config', 'robots',
                 all: true,
                 order: :specific_first,
                 pattern: lambda { |p| File.extname(p) == ".rb" }
@@ -2125,7 +2125,7 @@ module Roby
                     Application.debug { "  absolute path: #{abs_path}" }
                     if File.directory?(abs_path)
                         Application.debug { "    selected" }
-                        result << abs_path 
+                        result << abs_path
                     end
                 end
             end
@@ -2362,7 +2362,7 @@ module Roby
 
         # @!method auto_load_models?
         # @!method auto_load_models=(flag)
-        # 
+        #
         # Controls whether Roby should load the available the model files
         # automatically in {#require_models}
         #
@@ -2592,7 +2592,7 @@ module Roby
                 end
             end
             candidates = candidates.uniq
-                
+
             if candidates.empty?
                 raise ActionResolutionError, "cannot find an action to produce #{model}"
             elsif candidates.size > 1
@@ -2601,7 +2601,7 @@ module Roby
                 candidates.first
             end
         end
-        
+
         # Find an action with the given name on the action interfaces registered on
         # {#planners}
         #
@@ -2700,7 +2700,7 @@ module Roby
                 raise ArgumentError, "missing expected block argument"
             end
             ui_event_listeners << block
-            block
+            Roby.disposable { ui_event_listeners.delete(block) }
         end
 
         # Removes a notification listener added with {#on_ui_event}
@@ -2708,7 +2708,7 @@ module Roby
         # @param [Object] listener the listener ID returned by
         #   {#on_ui_event}
         def remove_ui_event_listener(listener)
-            ui_event_listeners.delete(listener)
+            listener.dispose if listener.respond_to?(:dispose)
         end
 
         # @return [#call] the blocks that listen to notifications. They are
@@ -2740,11 +2740,10 @@ module Roby
         # @return [Object] the listener ID that can be given to
         #   {#remove_notification_listener}
         def on_notification(&block)
-            if !block
-                raise ArgumentError, "missing expected block argument"
-            end
+            raise ArgumentError, "missing expected block argument" unless block
+
             notification_listeners << block
-            block
+            Roby.disposable { notification_listeners.delete(block) }
         end
 
         # Removes a notification listener added with {#on_notification}
@@ -2752,7 +2751,7 @@ module Roby
         # @param [Object] listener the listener ID returned by
         #   {#on_notification}
         def remove_notification_listener(listener)
-            notification_listeners.delete(listener)
+            listener.dispose if listener.respond_to?(:dispose)
         end
 
         # Discover which tests should be run, and require them
@@ -2853,4 +2852,3 @@ module Roby
         end
     end
 end
-

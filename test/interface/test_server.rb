@@ -3,6 +3,48 @@ require 'roby/test/self'
 module Roby
     module Interface
         describe Server do
+            describe "handshake" do
+                before do
+                    @notify_app = Roby::Application.new
+                    @interface = Interface.new(@notify_app)
+                    @notify_app.execution_engine.display_exceptions = false
+
+                    _client_io, server_io = Socket.pair(:UNIX, :STREAM, 0)
+                    server_channel = DRobyChannel.new(server_io, false)
+                    server_channel.reset_thread_guard(Thread.current, Thread.current)
+                    @server = Server.new(server_channel, @interface)
+                    flexmock(@server)
+                end
+
+                it "returns false in performed_handshake? before the handshake" do
+                    refute @server.performed_handshake?
+                end
+                it "does not listen to notifications before the handshake" do
+                    flexmock(@server).should_receive(:write_packet).never
+                    @notify_app.ui_event(:test)
+                end
+                it "returns true in performed_handshake? after the handshake" do
+                    @server.handshake("42", [])
+                    assert @server.performed_handshake?
+                end
+                it "listens to notifications after the handshake" do
+                    @server.handshake("42", [])
+                    flexmock(@server).should_receive(:write_packet).once
+                    @notify_app.ui_event(:test)
+                end
+                it "returns a hash of the requested commands" do
+                    flexmock(@interface, commands: 42, jobs: 84)
+                    result = @server.handshake("42", [:commands, :jobs])
+                    assert_equal Hash[commands: 42, jobs: 84], result
+                end
+                it "does not listen to notifications once closed" do
+                    @server.handshake("42", [])
+                    @server.close
+                    flexmock(@server).should_receive(:write_packet).never
+                    @notify_app.ui_event(:test)
+                end
+            end
+
             describe "notification and UI event handling" do
                 before do
                     @notify_app = Roby::Application.new
@@ -16,6 +58,7 @@ module Roby
                     client_channel = DRobyChannel.new(client_io, true)
                     @server = Server.new(server_channel, @interface)
                     flexmock(@server)
+                    @server.listen_to_notifications
 
                     @written_packets = Array.new
                     flexmock(server_channel).should_receive(:write_packet).
@@ -104,6 +147,7 @@ module Roby
                     server_channel = DRobyChannel.new(server_io, false)
                     @client_channel = DRobyChannel.new(client_io, true)
                     @server = Server.new(server_channel, interface)
+                    @server.listen_to_notifications
                     flexmock(@server)
                 end
 
@@ -221,6 +265,7 @@ module Roby
                     @server_io = flexmock
                     @server = Server.new(@server_io, interface)
                     flexmock(@server)
+                    @server.listen_to_notifications
                     @com_error_m = Class.new(ComError)
                     @error_m = Class.new(Exception)
                 end

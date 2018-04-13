@@ -1,7 +1,7 @@
 module Roby
     # Exception wrapper used to report that multiple errors have been raised
     # during a synchronous event processing call.
-    # 
+    #
     # See ExecutionEngine#process_events_synchronous for more information
     class SynchronousEventProcessingMultipleErrors < RuntimeError
         # Exceptions as gathered during propagation with {ExecutionEngine#task_m}
@@ -101,7 +101,6 @@ module Roby
             @process_every   = Array.new
             @waiting_work = Concurrent::Array.new
             @emitted_events  = Array.new
-            @disabled_handlers = Set.new
             @exception_listeners = Array.new
 
             @worker_threads_mtx = Mutex.new
@@ -123,6 +122,7 @@ module Roby
 
             refresh_relations
 
+            @exception_display_handler = Roby.null_disposable
             self.display_exceptions = true
         end
 
@@ -198,7 +198,7 @@ module Roby
         attr_reader :once_blocks
 
         # @api private
-        # 
+        #
         # Internal structure used to store a poll block definition provided to
         # #every or #add_propagation_handler
         #
@@ -226,9 +226,19 @@ module Roby
                 @description, @handler, @on_error, @late, @once =
                     description, handler, on_error, late, once
                 @disabled = false
+                @disposed = false
             end
-        
+
             def to_s; "#<PollBlockDefinition: #{description} #{handler} on_error:#{on_error}>" end
+
+            def disposed?
+                @disposed
+            end
+
+            def dispose
+                @disabled = true
+                @disposed = true
+            end
 
             def call(engine, *args)
                 handler.call(*args)
@@ -311,8 +321,8 @@ module Roby
             #   :ignore, it is completely ignored. If :disable, the handler
             #   will be disabled, i.e. not called anymore until #disabled?
             #
-            # @return [Object] an ID object that can be passed to
-            #   {#remove_propagation_handler}
+            # @return [#dispose] an object whose {#dispose} method deregisters
+            #   the handler
             def add_propagation_handler(type: :external_events, description: 'propagation handler', **poll_options, &block)
                 type, handler = create_propagation_handler(type: type, description: description, **poll_options, &block)
                 if type == :propagation
@@ -320,17 +330,19 @@ module Roby
                 elsif type == :external_events
                     external_events_handlers << handler
                 end
-                handler.id
+                handler
             end
-            
+
             # This method removes a propagation handler which has been added by
             # {#add_propagation_handler}.
             #
             # @param [Object] id the block ID as returned by
             #   {#add_propagation_handler}
             def remove_propagation_handler(id)
-                propagation_handlers.delete_if { |p| p.id == id }
-                external_events_handlers.delete_if { |p| p.id == id }
+                # Some code relied on remove_propagation_handler being a no-op
+                # if id is nil. Keep this, especially since
+                # remove_propagation_handler will in-fine completely be removed
+                id.dispose if id
                 nil
             end
 
@@ -348,22 +360,11 @@ module Roby
                 add_propagation_handler(description: description, &block)
             end
         end
-        
+
         @propagation_handlers = Array.new
         @external_events_handlers = Array.new
         extend PropagationHandlerMethods
         include PropagationHandlerMethods
-
-        # Poll blocks that have been disabled because they raised an exception
-        #
-        # @return [Array<PollBlockDefinition>]
-        attr_reader :disabled_handlers
-
-        def remove_propagation_handler(id)
-            disabled_handlers.delete_if { |p| p.id == id }
-            super
-            nil
-        end
 
         class JoinAllWaitingWorkTimeout < RuntimeError
             attr_reader :waiting_work
@@ -526,7 +527,7 @@ module Roby
                 @propagation.delete(event)
             end
             event.unreachable!("finalized", plan)
-            # since the event is already finalized, 
+            # since the event is already finalized,
         end
 
         # Returns true if some events are queued
@@ -539,7 +540,7 @@ module Roby
         # internal hash of the form:
         #   target => [forward_sources, signal_sources]
         #
-        # where the two +_sources+ are arrays of the form 
+        # where the two +_sources+ are arrays of the form
         #   [[source, context], ...]
         #
         # The method returns the resulting hash. Use #in_propagation_context? to know if the
@@ -740,7 +741,7 @@ module Roby
         def call_poll_blocks(blocks, late = false)
             blocks.delete_if do |handler|
                 if handler.disabled? || (handler.late? ^ late)
-                    next
+                    next(handler.disposed?)
                 end
 
                 log_timepoint_group handler.description do
@@ -748,7 +749,7 @@ module Roby
                         handler.disabled = true
                     end
                 end
-                handler.once?
+                handler.once? || handler.disposed?
             end
         end
 
@@ -831,12 +832,12 @@ module Roby
                 while !next_steps.empty?
                     while !next_steps.empty?
                         next_steps = event_propagation_step(next_steps, propagation_info)
-                    end        
+                    end
                     next_steps = gather_propagation { call_propagation_handlers }
                 end
             end
         end
-        
+
         # Compute errors in plan and handle the results
         def error_handling_phase(events_errors)
             # Do the exception handling phase
@@ -1022,7 +1023,7 @@ module Roby
                 # can both call #emit, and two signals are set up
                 if src
                     if src.respond_to?(:generator)
-                        source_events << src 
+                        source_events << src
                         source_generators << src.generator
                     else
                         source_generators << src
@@ -1037,12 +1038,12 @@ module Roby
                 [source_events, source_generators, context]
             end
         end
-       
+
 
         # Propagate one step
         #
         # +current_step+ describes all pending emissions and calls.
-        # 
+        #
         # This method calls ExecutionEngine.next_event to get the description of the
         # next event to call. If there are signals going to this event, they are
         # processed and the forwardings will be treated in the next step.
@@ -1065,7 +1066,7 @@ module Roby
                             propagation_context(source_events | source_generators) do
                                 begin
                                     propagation_info.add_generator_call(signalled)
-                                    signalled.call_without_propagation(context) 
+                                    signalled.call_without_propagation(context)
                                 rescue Roby::LocalizedError => e
                                     if signalled.command_emitted?
                                         add_error(e)
@@ -1368,7 +1369,7 @@ module Roby
             once do
                 process_every << [handler, cycle_start, delay]
             end
-            handler.id
+            handler
         end
 
         # The set of errors which have been generated outside of the plan's
@@ -1383,7 +1384,7 @@ module Roby
             result, @application_exceptions = @application_exceptions, nil
             result
         end
-        
+
         # Used during exception propagation to inject new errors in the process
         #
         # It shall not be accessed directly. Instead, Plan#add_error should be
@@ -1637,7 +1638,7 @@ module Roby
         # Some methods require to be called within a gather_* block. This
         # exception is raised when they're called outside of it
         class NotPropagationContext < RuntimeError; end
-        
+
         # The inside part of the event loop
         #
         # It gathers initial events and errors and propagate them
@@ -1661,7 +1662,7 @@ module Roby
             next_steps = gather_propagation do
                 events_errors = gather_errors do
                     if caller_block
-                        yield 
+                        yield
                         caller_block = nil
                     end
 
@@ -1850,7 +1851,7 @@ module Roby
                 end
             end
         end
-        
+
         # Kills and removes all unneeded tasks. +force_on+ is a set of task
         # whose garbage-collection must be performed, even though those tasks
         # are actually useful for the system. This is used to properly kill
@@ -2001,17 +2002,21 @@ module Roby
             engine = plan.execution_engine
             now        = engine.cycle_start
             length     = engine.cycle_length
-            engine.process_every.map! do |block, last_call, duration|
+            engine.process_every.map! do |handler, last_call, duration|
+                next if handler.disposed?
+
                 # Check if the nearest timepoint is the beginning of
                 # this cycle or of the next cycle
                 if !last_call || (duration - (now - last_call)) < length / 2
-                    if !block.call(engine, engine.plan)
+                    if !handler.call(engine, engine.plan)
                         next
                     end
 
                     last_call = now
                 end
-                [block, last_call, duration]
+                unless handler.disposed?
+                    [handler, last_call, duration]
+                end
             end.compact!
         end
 
@@ -2038,14 +2043,14 @@ module Roby
         def at_cycle_end(description: 'at_cycle_end', **options, &block)
             handler = PollBlockDefinition.new(description, block, **options)
             at_cycle_end_handlers << handler
-            handler.object_id
+            handler
         end
 
         # Removes a handler added by {#at_cycle_end}
         #
         # @param [Object] handler_id the value returned by {#at_cycle_end}
         def remove_at_cycle_end(handler_id)
-            at_cycle_end_handlers.delete_if { |h| h.object_id == handler_id }
+            handler_id.dispose
         end
 
         # A set of blocks which are called every cycle
@@ -2054,25 +2059,23 @@ module Roby
         # Call +block+ every +duration+ seconds. Note that +duration+ is round
         # up to the cycle size (time between calls is *at least* duration)
         #
-        # The returned value is the periodic handler ID. It can be passed to
-        # #remove_periodic_handler to undefine it.
+        # @return [#dispose] an object whose dispose method deregisters
+        #   the handler
         def every(duration, description: 'periodic handler', **options, &block)
             handler = PollBlockDefinition.new(description, block, **options)
-
             once do
                 if handler.call(self, plan)
                     process_every << [handler, cycle_start, duration]
                 end
             end
-            handler.id
+            handler
         end
 
         # Removes a periodic handler defined by #every. +id+ is the value
         # returned by #every.
         def remove_periodic_handler(id)
-            execute do
-                process_every.delete_if { |spec| spec[0].id == id }
-            end
+            id.dispose
+            nil
         end
 
         # The execution thread if there is one running
@@ -2088,7 +2091,7 @@ module Roby
 
         # The number of this cycle since the beginning
         attr_reader :cycle_index
-            
+
         # True if the current thread is the execution thread of this engine
         #
         # See #outside_control? for a discussion of the use of #inside_control?
@@ -2119,7 +2122,7 @@ module Roby
             t = thread
             !t || t != Thread.current
         end
-        
+
         class AlreadyRunning < RuntimeError; end
 
         # Main event loop. Valid options are
@@ -2286,10 +2289,10 @@ module Roby
                         stats[:pre_oob_gc] = GC.stat
                         GC::OOB.run
                     end
-                    
+
                     # Sleep if there is enough time for it
                     if remaining_cycle_time > SLEEP_MIN_TIME
-                        sleep(remaining_cycle_time) 
+                        sleep(remaining_cycle_time)
                     end
                     log_timepoint 'sleep'
 
@@ -2537,46 +2540,9 @@ module Roby
         #
         # @return [Object] an ID that can be used as argument to {#remove_exception_listener}
         def on_exception(description: 'exception listener', on_error: :disable, &block)
-                handler = PollBlockDefinition.new(description, block, on_error: on_error)
+            handler = PollBlockDefinition.new(description, block, on_error: on_error)
             exception_listeners << handler
-            handler
-        end
-
-        # Controls whether this engine should indiscriminately display all fatal
-        # exceptions
-        #
-        # This is on by default
-        def display_exceptions=(flag)
-            if flag
-                @exception_display_handler ||= on_exception do |kind, error, tasks|
-                    level = if kind == EXCEPTION_HANDLED then :debug
-                            else :warn
-                            end
-
-                    send(level) do
-                        send(level, "encountered a #{kind} exception")
-                        Roby.log_exception_with_backtrace(error.exception, self, level)
-                        if kind == EXCEPTION_HANDLED
-                            send(level, "the exception was handled by")
-                        else
-                            send(level, "the exception involved")
-                        end
-                        tasks.each do |t|
-                            send(level, "  #{t}")
-                        end
-                        break
-                    end
-                end
-            else
-                remove_exception_listener(@exception_display_handler)
-                @exception_display_handler = nil
-            end
-        end
-
-        # whether this engine should indiscriminately display all fatal
-        # exceptions
-        def display_exceptions?
-            !!@exception_display_handler
+            Roby.disposable { exception_listeners.delete(handler) }
         end
 
         # Removes an exception listener registered with {#on_exception}
@@ -2584,7 +2550,42 @@ module Roby
         # @param [Object] the value returned by {#on_exception}
         # @return [void]
         def remove_exception_listener(handler)
-            exception_listeners.delete(handler)
+            handler.dispose if handler.respond_to?(:dispose)
+        end
+
+        # Controls whether this engine should indiscriminately display all fatal
+        # exceptions
+        #
+        # This is on by default
+        def display_exceptions=(flag)
+            return @exception_display_handler.dispose unless flag
+            return unless @exception_display_handler.disposed?
+
+            @exception_display_handler = on_exception do |kind, error, tasks|
+                level = if kind == EXCEPTION_HANDLED then :debug
+                        else :warn
+                        end
+
+                send(level) do
+                    send(level, "encountered a #{kind} exception")
+                    Roby.log_exception_with_backtrace(error.exception, self, level)
+                    if kind == EXCEPTION_HANDLED
+                        send(level, "the exception was handled by")
+                    else
+                        send(level, "the exception involved")
+                    end
+                    tasks.each do |t|
+                        send(level, "  #{t}")
+                    end
+                    break
+                end
+            end
+        end
+
+        # whether this engine should indiscriminately display all fatal
+        # exceptions
+        def display_exceptions?
+            !@exception_display_handler.disposed?
         end
 
         # Call to notify the listeners registered with {#on_exception} of the
@@ -2647,5 +2648,3 @@ module Roby
     # See ExecutionEngine#wait_until
     def self.wait_until(ev, &block); execution_engine.wait_until(ev, &block) end
 end
-
-

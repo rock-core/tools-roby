@@ -11,34 +11,27 @@ module Roby
                 # @return [#call] the notification callback
                 attr_reader :block
 
-                # The last ID of the jobs received by this listener.
-                #
-                # This is used to avoid double-notifications of new jobs. The
-                # assumption is that the job IDs are ever-increasing and that
-                # they are fed in-order to {#call}.
-                attr_reader :last_job_id
+                # The set of job IDs that have already been processed
+                attr_reader :processed_job_ids
 
                 def initialize(interface, action_name, block)
                     @interface = interface
                     @action_name = action_name
                     @block = block
-                    @last_job_id = -1
+                    @processed_job_ids = Set.new
                 end
 
                 # Resets the listener so that it can be used on a new connection
-                #
-                # This currently only resets {#last_job_id}
                 def reset
-                    @last_job_id = -1
+                    @processed_job_ids = Set.new
                 end
 
                 # Tests whether this listener has already seen the job with the
                 # given ID
                 #
                 # @param [Integer] job_id
-                # @see last_job_id
                 def seen_job_with_id?(job_id)
-                    last_job_id >= job_id
+                    @processed_job_ids.include?(job_id)
                 end
 
                 # Tests whether the provided job matches what this listener
@@ -51,8 +44,16 @@ module Roby
                 #
                 # @param [JobMonitor] job
                 def call(job)
-                    @last_job_id = job.job_id
+                    @processed_job_ids << job.job_id
                     block.call(job)
+                end
+
+                # Tell the listener that the given job has been
+                #
+                # This is needed so that the processed_job_ids does not grow
+                # forever
+                def clear_job_id(job_id)
+                    @processed_job_ids.delete(job_id)
                 end
 
                 # Tell this listener that the given job was received, but
@@ -61,7 +62,7 @@ module Roby
                 # This is an optimization to avoid re-considering this listener
                 # for the given job
                 def ignored(job)
-                    @last_job_id = job.job_id
+                    @processed_job_ids << job.job_id
                 end
 
                 # Start listening for jobs

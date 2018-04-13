@@ -38,6 +38,10 @@ module Roby
             end
 
             module ModelDumper
+                def droby_marshallable?
+                    true
+                end
+
                 def droby_dump(peer)
                     DRobyModel.new(
                         name,

@@ -59,6 +59,10 @@ module Roby
                             raise MismatchingLocalConstant, "got DRobyConstant whose name '#{name}' resolves to #{local_constant}(#{local_constant.class}), not itself (#{self})"
                         end
                     end
+
+                    def droby_marshallable?
+                        true
+                    end
                 end
 
                 attr_reader :remote_siblings

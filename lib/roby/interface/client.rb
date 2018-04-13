@@ -34,15 +34,24 @@ module Roby
             # @return [Array<Hash>] list of the pending async calls
             attr_reader :pending_async_calls
 
+            # Result of the calls done during the handshake
+            #
+            # @return [Hash<Symbol,Object>]
+            attr_reader :handshake_results
+
             # Create a client endpoint to a Roby interface [Server]
             #
             # @param [DRobyChannel] io a channel to the server
             # @param [String] id a unique identifier for this client
             #   (e.g. host:port of the local endpoint when using TCP). It is
             #   passed to the server through {Server#handshake}
+            # @param [Array<Symbol>] handshake commands executed on the server side
+            #   during the handshake and stored in the {handshake_results} attribute.
+            #   Include :actions and :commands if you pass this explicitely, unless
+            #   you know what you are doing
             #
             # @see Interface.connect_with_tcp_to
-            def initialize(io, id)
+            def initialize(io, id, handshake: [:actions, :commands])
                 @pending_async_calls = Array.new
                 @io = io
                 @message_id = 0
@@ -51,7 +60,9 @@ module Roby
                 @exception_queue = Array.new
                 @ui_event_queue = Array.new
 
-                @actions, @commands = call([], :handshake, id)
+                @handshake_results = call([], :handshake, id, handshake)
+                @actions  = @handshake_results[:actions]
+                @commands = @handshake_results[:commands]
             end
 
             # Whether the communication channel to the server is closed
@@ -550,4 +561,3 @@ module Roby
         end
     end
 end
-

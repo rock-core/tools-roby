@@ -127,7 +127,8 @@ module Roby
 
                 def initialize(remote_name = DEFAULT_REMOTE_NAME, port: Roby::Interface::DEFAULT_PORT, connect: true, &connection_method)
                     @connection_method = connection_method || lambda {
-                        Roby::Interface.connect_with_tcp_to(remote_name, port)
+                        Roby::Interface.connect_with_tcp_to(remote_name, port,
+                            handshake: [:actions, :commands, :jobs])
                     }
 
                     @remote_name = remote_name
@@ -158,8 +159,7 @@ module Roby
                 # Start a connection attempt
                 def attempt_connection
                     @connection_future = Concurrent::Future.new do
-                        client = connection_method.call
-                        [client, client.jobs]
+                        connection_method.call
                     end
                     connection_future.execute
                 end
@@ -192,12 +192,14 @@ module Roby
                         nil
                     when NilClass
                         Interface.info "successfully connected"
-                        @client, jobs = connection_future.value
+                        @client = connection_future.value
                         @client.io.reset_thread_guard
                         @connection_future = nil
-                        jobs = jobs.map do |job_id, (job_state, placeholder_task, job_task)|
-                            JobMonitor.new(self, job_id, state: job_state, placeholder_task: placeholder_task, task: job_task)
-                        end
+                        jobs = @client.handshake_results[:jobs].
+                            map do |job_id, (job_state, placeholder_task, job_task)|
+                                JobMonitor.new(self, job_id, state: job_state,
+                                    placeholder_task: placeholder_task, task: job_task)
+                            end
                         run_hook :on_reachable, jobs
                         new_job_listeners.each do |listener|
                             listener.reset
@@ -222,6 +224,8 @@ module Roby
                     end
                     client.ui_event_queue.clear
 
+                    finalized_monitors = Hash.new
+                    finalized_jobs = []
                     client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
                         new_job_listeners.each do |listener|
                             next if listener.seen_job_with_id?(job_id)
@@ -243,16 +247,17 @@ module Roby
                             end
                         end
 
+                        finalized_jobs << job_id if job_state == JOB_FINALIZED
+
                         if monitors = job_monitors[job_id]
-                            monitors.delete_if do |m|
+                            monitors.each do |m|
                                 m.update_state(job_state)
                                 if job_state == JOB_REPLACED
                                     m.replaced(args.first)
                                 end
-                                m.finalized?
-                            end
-                            if monitors.empty?
-                                job_monitors.delete(job_id)
+                                if m.finalized?
+                                    (finalized_monitors[job_id] ||= Array.new) << m
+                                end
                             end
                         end
                         run_hook :on_job_progress, job_state, job_id, job_name, args
@@ -271,6 +276,18 @@ module Roby
                         run_hook :on_exception, kind, exception, tasks, job_ids
                     end
                     client.exception_queue.clear
+
+                    finalized_monitors.each do |job_id, monitors|
+                        active_monitors = job_monitors[job_id]
+                        monitors.each { |m| active_monitors.delete(m) }
+                        if active_monitors.empty?
+                            job_monitors.delete(job_id)
+                        end
+                    end
+
+                    finalized_jobs.each do |job_id|
+                        new_job_listeners.each { |l| l.clear_job_id(job_id) }
+                    end
                 end
 
                 def connecting?
@@ -495,4 +512,3 @@ module Roby
         end
     end
 end
-
