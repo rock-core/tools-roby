@@ -551,6 +551,19 @@ module Roby
                 commands[name]
             end
 
+            # Tests whether the remote interface has a given subcommand
+            def has_subcommand?(name)
+                commands.has_key?(name)
+            end
+
+            # Returns a shell object
+            def subcommand(name)
+                if !(sub = find_subcommand_by_name(name))
+                    raise ArgumentError, "#{name} is not a known subcommand on #{self}"
+                end
+                SubcommandClient.new(self, name, sub.description, sub.commands)
+            end
+
             def method_missing(m, *args)
                 if sub = find_subcommand_by_name(m.to_s)
                     SubcommandClient.new(self, m.to_s, sub.description, sub.commands)
