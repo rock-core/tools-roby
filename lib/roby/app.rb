@@ -789,7 +789,7 @@ module Roby
 
         # The inverse of #base_setup
         def base_cleanup
-            if !public_logs?
+            unless public_logs?
                 created_log_dirs.delete_if do |dir|
                     FileUtils.rm_rf dir
                     true
@@ -799,6 +799,7 @@ module Roby
                     FileUtils.rmdir(dir)
                     created_log_base_dirs.delete(dir)
                 end
+                @log_dir = nil
             end
         end
 
@@ -847,6 +848,14 @@ module Roby
             # Run the cleanup handlers first, we want the plugins to still be
             # active
             cleanup_handlers.each(&:call)
+
+            cleanup_user_lifecycle_hooks(init_handlers)
+            cleanup_user_lifecycle_hooks(setup_handlers)
+            cleanup_user_lifecycle_hooks(require_handlers)
+            cleanup_user_lifecycle_hooks(controllers)
+            cleanup_user_lifecycle_hooks(action_handlers)
+            cleanup_user_lifecycle_hooks(clear_models_handlers)
+            cleanup_user_lifecycle_hooks(cleanup_handlers)
 
             call_plugins(:cleanup, self)
             # Deprecated version of #cleanup
@@ -937,64 +946,64 @@ module Roby
 
         # Declares a block that should be executed when the Roby app gets
         # initialized (i.e. just after init.rb gets loaded)
-        def on_init(&block)
+        def on_init(user: false, &block)
             if !block
                 raise ArgumentError, "missing expected block argument"
             end
-            init_handlers << block
+            add_lifecyle_hook(init_handlers, block, user: user)
         end
 
         # Declares a block that should be executed when the Roby app is begin
         # setup
-        def on_setup(&block)
+        def on_setup(user: false, &block)
             if !block
                 raise ArgumentError, "missing expected block argument"
             end
-            setup_handlers << block
+            add_lifecyle_hook(setup_handlers, block, user: user)
         end
 
         # Declares a block that should be executed when the Roby app loads
         # models (i.e. in {#require_models})
-        def on_require(&block)
+        def on_require(user: false, &block)
             if !block
                 raise ArgumentError, "missing expected block argument"
             end
-            require_handlers << block
+            add_lifecyle_hook(require_handlers, block, user: user)
         end
 
         # @deprecated use {#on_setup} instead
-        def on_config(&block)
-            on_setup(&block)
+        def on_config(user: false, &block)
+            on_setup(user: user, &block)
         end
 
         # Declares that the following block should be used as the robot
         # controller
-        def controller(&block)
-            controllers << block
+        def controller(user: false, &block)
+            add_lifecyle_hook(controllers, block, user: user)
         end
 
         # Declares that the following block should be used to setup the main
         # action interface
-        def actions(&block)
-            action_handlers << block
+        def actions(user: false, &block)
+            add_lifecyle_hook(action_handlers, block, user: user)
         end
 
         # Declares that the following block should be called when
         # {#clear_models} is called
-        def on_clear_models(&block)
+        def on_clear_models(user: false, &block)
             if !block
                 raise ArgumentError, "missing expected block argument"
             end
-            clear_models_handlers << block
+            add_lifecyle_hook(clear_models_handlers, block, user: user)
         end
 
         # Declares that the following block should be called when
         # {#clear_models} is called
-        def on_cleanup(&block)
+        def on_cleanup(user: false, &block)
             if !block
                 raise ArgumentError, "missing expected block argument"
             end
-            cleanup_handlers << block
+            add_lifecyle_hook(cleanup_handlers, block, user: user)
         end
 
         # Looks into subdirectories of +dir+ for files called app.rb and
@@ -2010,6 +2019,13 @@ module Roby
             end
         end
 
+        # @api private
+        #
+        # Removes all lifecycle hooks that are marked as user hooks
+        def cleanup_user_lifecycle_hooks(hook_set)
+            hook_set.delete_if(&:user?)
+        end
+
         def stop; call_plugins(:stop, self) end
 
         def start_log_server(logfile, options = Hash.new)
@@ -2475,12 +2491,13 @@ module Roby
             call_plugins(:clear_config, self)
             # Deprecated name for clear_config
             call_plugins(:reload_config, self)
+            unload_features("config", ".*\.rb$")
+            unload_features("config", 'robot', ".*\.rb$")
         end
 
         # Reload files in config/
         def reload_config
             clear_config
-            unload_features("config", ".*\.rb$")
             if has_app?
                 require_robot_file
             end
@@ -2556,19 +2573,22 @@ module Roby
             DRoby::V5::DRobyConstant.clear_cache
             clear_models_handlers.each { |b| b.call }
             call_plugins(:clear_models, self)
+
+            unload_features("models", ".*\.rb$")
+            additional_model_files.each do |path|
+                unload_features(path)
+            end
         end
 
         # Reload model files in models/
         def reload_models
             clear_models
-            unload_features("models", ".*\.rb$")
-            additional_model_files.each do |path|
-                unload_features(path)
-            end
             require_models
         end
 
         # Reload action models defined in models/actions/
+        #
+        # It is a subset of {#reload_models}
         def reload_actions
             unload_features("actions", ".*\.rb$")
             unload_features("models", "actions", ".*\.rb$")
@@ -2742,6 +2762,32 @@ module Roby
             end
         end
 
+        # @api private
+        #
+        # Internal representation of the app's lifecycle hooks
+        class LifecycleHook
+            attr_reader :block
+            attr_predicate :user?
+            def initialize(block, user: false)
+                @block = block
+                @user = user
+            end
+            def call(*args)
+                block.call(*args)
+            end
+            def to_proc
+                block
+            end
+        end
+
+        # @api private
+        #
+        # Registers a lifecycle hook in the provided list of hooks
+        def add_lifecyle_hook(hook_set, block, **options)
+            hook_set << (hook = LifecycleHook.new(block, **options))
+            Roby.disposable { hook_set.delete(hook) }
+        end
+
         # Registers a block to be called when a message needs to be
         # dispatched from {#notify}
         #
@@ -2750,11 +2796,10 @@ module Roby
         # @yieldparam [String] message the message itself
         # @return [Object] the listener ID that can be given to
         #   {#remove_notification_listener}
-        def on_notification(&block)
+        def on_notification(user: false, &block)
             raise ArgumentError, "missing expected block argument" unless block
 
-            notification_listeners << block
-            Roby.disposable { notification_listeners.delete(block) }
+            add_lifecyle_hook(notification_listeners, block, user: user)
         end
 
         # Removes a notification listener added with {#on_notification}
