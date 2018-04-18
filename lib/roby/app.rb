@@ -2078,6 +2078,8 @@ module Roby
         #   find_dirs('tasks', 'ROBOT', all: false, order: :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb]
         def find_dirs(*dir_path)
+            return [] if search_path.empty?
+
             Application.debug { "find_dirs(#{dir_path.map(&:inspect).join(", ")})" }
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
@@ -2175,6 +2177,8 @@ module Roby
         #   find_files_in_dirs('tasks', 'ROBOT', all: false, order: :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb,
         def find_files_in_dirs(*dir_path)
+            return [] if search_path.empty?
+
             Application.debug { "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})" }
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
@@ -2235,6 +2239,8 @@ module Roby
         #   # returns [app1/config/v3.rb]
         #
         def find_files(*file_path)
+            return [] if search_path.empty?
+
             if file_path.last.kind_of?(Hash)
                 options = file_path.pop
             end
