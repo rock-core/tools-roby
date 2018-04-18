@@ -258,7 +258,9 @@ module Roby
                 end
 
                 job_notifications = self.job_notifications.find_all do |event, job_id, *|
-                    if event == JOB_DROPPED
+                    if event == JOB_FINALIZED
+                        true
+                    elsif event == JOB_DROPPED
                         !final_tracked_jobs.include?(job_id)
                     else
                         tracked_jobs.include?(job_id)

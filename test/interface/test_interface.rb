@@ -404,7 +404,7 @@ describe Roby::Interface::Interface do
                 [Roby::Interface::JOB_DROPPED, 10, "the job"]
         end
 
-        it "does not send further notifications if a job has been dropped" do
+        it "does not send non-FINALIZED notifications if a job has been dropped" do
             interface.monitor_job(job_task, task)
             plan.unmark_mission_task(task)
             interface.push_pending_notifications
@@ -418,6 +418,24 @@ describe Roby::Interface::Interface do
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
                 [Roby::Interface::JOB_PLANNING_READY, 10, "the job"],
                 [Roby::Interface::JOB_DROPPED, 10, "the job"]
+        end
+
+        it "does send FINALIZED even if a job has been dropped" do
+            interface.monitor_job(job_task, task)
+            plan.unmark_mission_task(task)
+            interface.push_pending_notifications
+            execute do
+                job_task.start!
+                job_task.success_event.emit
+            end
+            interface.push_pending_notifications
+            execute { plan.remove_task(job_task) }
+
+            assert_received_notifications \
+                [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
+                [Roby::Interface::JOB_PLANNING_READY, 10, "the job"],
+                [Roby::Interface::JOB_DROPPED, 10, "the job"],
+                [Roby::Interface::JOB_FINALIZED, 10, "the job"]
         end
 
         it "recaptures a job" do
