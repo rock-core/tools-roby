@@ -149,7 +149,7 @@ describe Roby::Interface::Interface do
 
         def assert_queued_and_received_notifications(*expected, strict: false)
             assert_queued_notifications(*expected, strict: strict)
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
             assert_received_notifications(*expected, strict: strict)
         end
 
@@ -190,7 +190,7 @@ describe Roby::Interface::Interface do
                 task.success_event.emit
             end.to_run
             expect_execution { plan.remove_task(task) }.to_run
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
 
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -207,7 +207,7 @@ describe Roby::Interface::Interface do
             expect_execution { job_task.start! }.to_run
             expect_execution { job_task.failed_event.emit }.
                 garbage_collect(true).to { have_error_matching Roby::PlanningFailedError }
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
                 [Roby::Interface::JOB_PLANNING_READY, 10, "the job"],
@@ -222,7 +222,7 @@ describe Roby::Interface::Interface do
 
             interface.monitor_job(job_task, task)
             plan.replace_task(task, new_task)
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
 
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -240,7 +240,7 @@ describe Roby::Interface::Interface do
                 trsc.replace_task(trsc[task], new_task)
                 trsc.commit_transaction
             end
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
 
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -268,7 +268,7 @@ describe Roby::Interface::Interface do
                     trsc.replace_task(trsc[task], new_task)
                     trsc.commit_transaction
                 end
-                interface.push_pending_job_notifications
+                interface.push_pending_notifications
 
                 assert_received_notifications \
                     [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -292,7 +292,7 @@ describe Roby::Interface::Interface do
                 expect_execution { job_task.success_event.emit }.
                     garbage_collect(true).
                     to { finalize job_task }
-                interface.push_pending_job_notifications
+                interface.push_pending_notifications
 
                 assert_received_notifications \
                     [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -353,7 +353,7 @@ describe Roby::Interface::Interface do
 
             interface.monitor_job(job_task, task)
             plan.replace_task(task, new_task)
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
 
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -369,7 +369,7 @@ describe Roby::Interface::Interface do
 
             interface.monitor_job(job_task, task)
             plan.replace_task(task, new_task)
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
 
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -386,7 +386,7 @@ describe Roby::Interface::Interface do
                 t.replace(t[task], new_task)
                 t.commit_transaction
             end
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
                 [Roby::Interface::JOB_PLANNING_READY, 10, "the job"],
@@ -396,7 +396,7 @@ describe Roby::Interface::Interface do
         it "notifies if a job is dropped" do
             interface.monitor_job(job_task, task)
             plan.unmark_mission_task(task)
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
 
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -407,12 +407,12 @@ describe Roby::Interface::Interface do
         it "does not send further notifications if a job has been dropped" do
             interface.monitor_job(job_task, task)
             plan.unmark_mission_task(task)
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
             expect_execution do
                 job_task.start!
                 job_task.success_event.emit
             end.to_run
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
 
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -423,14 +423,14 @@ describe Roby::Interface::Interface do
         it "recaptures a job" do
             interface.monitor_job(job_task, task)
             plan.unmark_mission_task(task)
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
             expect_execution do
                 job_task.start!
                 job_task.success_event.emit
             end.to_run
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
             plan.add_mission_task(task)
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
 
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -444,12 +444,12 @@ describe Roby::Interface::Interface do
             plan.add(new_task = Roby::Tasks::Simple.new(id: task.id))
             interface.monitor_job(job_task, task)
             plan.replace(task, new_task)
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
             expect_execution do
                 task.start!
                 new_task.start!
             end.to_run
-            interface.push_pending_job_notifications
+            interface.push_pending_notifications
 
             assert_received_notifications \
                 [Roby::Interface::JOB_MONITORED, 10, "the job", task, job_task],
@@ -470,9 +470,9 @@ describe Roby::Interface::Interface do
         before do
             plan.add(@parent_task = Roby::Tasks::Simple.new)
             plan.add(@child_task = Roby::Tasks::Simple.new)
-            @recorder = flexmock
+            @messages = []
             @exception_listener = interface.on_exception do |*args|
-                recorder.called(*args)
+                @messages << args
             end
             execution_engine.display_exceptions = false
         end
@@ -484,17 +484,48 @@ describe Roby::Interface::Interface do
         it "calls the notification handlers when the engine notifies about an exception" do
             localized_error_m = Class.new(Roby::LocalizedError)
             exception = localized_error_m.new(child_task).to_execution_exception
-            recorder.should_receive(:called).once.
-                with(Roby::ExecutionEngine::EXCEPTION_FATAL, exception, Set[child_task, parent_task], Set.new)
-            execution_engine.notify_exception(Roby::ExecutionEngine::EXCEPTION_FATAL, exception, Set[parent_task, child_task])
+            execution_engine.notify_exception(Roby::ExecutionEngine::EXCEPTION_FATAL,
+                exception, Set[parent_task, child_task])
+            interface.push_pending_notifications
+            assert_equal [[Roby::ExecutionEngine::EXCEPTION_FATAL,
+                     exception, Set[child_task, parent_task], Set.new]], @messages
+        end
+
+        it "queues the exception notifications and sends them after the job" do
+            localized_error_m = Class.new(Roby::LocalizedError)
+            exception = localized_error_m.new(child_task).to_execution_exception
+            interface.on_job_notification do |*args|
+                @messages << args
+            end
+            interface.job_notify(Roby::Interface::JOB_MONITORED, 42, 'name')
+            interface.job_notify(Roby::Interface::JOB_READY, 42, 'name')
+            interface.job_notify(Roby::Interface::JOB_STARTED, 42, 'name')
+            interface.job_notify(Roby::Interface::JOB_FAILED, 42, 'name')
+            execution_engine.notify_exception(Roby::ExecutionEngine::EXCEPTION_FATAL,
+                exception, Set[parent_task, child_task])
+            interface.job_notify(Roby::Interface::JOB_FINALIZED, 42, 'name')
+            interface.push_pending_notifications
+
+            expected = [
+                [Roby::Interface::JOB_MONITORED, 42, 'name'],
+                [Roby::Interface::JOB_READY, 42, 'name'],
+                [Roby::Interface::JOB_STARTED, 42, 'name'],
+                [Roby::Interface::JOB_FAILED, 42, 'name'],
+                [Roby::Interface::JOB_FINALIZED, 42, 'name'],
+                [Roby::ExecutionEngine::EXCEPTION_FATAL,
+                     exception, Set[child_task, parent_task], Set.new]
+            ]
+            assert_equal expected, @messages
         end
 
         it "allows to remove a listener" do
             localized_error_m = Class.new(Roby::LocalizedError)
             exception = localized_error_m.new(child_task).to_execution_exception
             interface.remove_exception_listener(exception_listener)
-            recorder.should_receive(:called).never
-            execution_engine.notify_exception(Roby::ExecutionEngine::EXCEPTION_FATAL, exception, Set[parent_task, child_task])
+            execution_engine.notify_exception(Roby::ExecutionEngine::EXCEPTION_FATAL,
+                exception, Set[parent_task, child_task])
+            interface.push_pending_notifications
+            assert_equal [], @messages
         end
     end
 
@@ -645,11 +676,11 @@ describe Roby::Interface::Interface do
             recorder.should_receive(:called).once
             app.plan.execution_engine.cycle_end(Hash.new)
         end
-        it "calls #push_pending_job_notifications before the handler" do
+        it "calls #push_pending_notifications before the handler" do
             recorder = flexmock
             interface.on_cycle_end { recorder.called }
 
-            flexmock(interface).should_receive(:push_pending_job_notifications).once.globally.ordered
+            flexmock(interface).should_receive(:push_pending_notifications).once.globally.ordered
             recorder.should_receive(:called).once.globally.ordered
             app.plan.execution_engine.cycle_end(Hash.new)
         end

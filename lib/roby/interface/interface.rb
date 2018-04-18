@@ -116,6 +116,8 @@ module Roby
                 @tracked_jobs = Set.new
                 @job_notifications = Array.new
                 @job_listeners = Array.new
+                @exception_notifications = Array.new
+                @exception_listeners = Array.new
                 @job_monitoring_state = Hash.new
                 @cycle_end_listeners = Array.new
 
@@ -124,8 +126,14 @@ module Roby
                         monitor_job(task, planned_task, new_task: true)
                     end
                 end
+                execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
+                    involved_job_ids = tasks.
+                        flat_map { |t| job_ids_of_task(t) if t.plan }.
+                        compact.to_set
+                    @exception_notifications << [kind, exception, tasks, involved_job_ids]
+                end
                 execution_engine.at_cycle_end do
-                    push_pending_job_notifications
+                    push_pending_notifications
                     notify_cycle_end
                 end
             end
@@ -236,7 +244,7 @@ module Roby
             # @api private
             #
             # Called in at_cycle_end to push job notifications
-            def push_pending_job_notifications
+            def push_pending_notifications
                 final_tracked_jobs = tracked_jobs.dup
 
                 # Re-track jobs for which we have a recapture event
@@ -261,6 +269,14 @@ module Roby
                 each_job_listener do |listener|
                     job_notifications.each do |kind, job_id, job_name, args|
                         listener.call(kind, job_id, job_name, *args)
+                    end
+                end
+
+                exception_notifications = @exception_notifications
+                @exception_notifications = Array.new
+                exception_notifications.each do |kind, exception, tasks, involved_job_ids|
+                    @exception_listeners.each do |block|
+                        block.call(kind, exception, tasks, involved_job_ids)
                     end
                 end
 
@@ -365,7 +381,7 @@ module Roby
             def monitor_job(planning_task, task, new_task: false)
                 # NOTE: this method MUST queue job notifications
                 # UNCONDITIONALLY. Job tracking is done on a per-cycle basis (in
-                # at_cycle_end) by {#push_pending_job_notifications}
+                # at_cycle_end) by {#push_pending_notifications}
 
                 job_id   = planning_task.job_id
                 job_name = planning_task.job_name
@@ -555,17 +571,13 @@ module Roby
             #
             # @see ExecutionEngine#on_exception
             def on_exception(&block)
-                execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
-                    involved_job_ids = tasks.flat_map do |t|
-                        job_ids_of_task(t) if t.plan
-                    end.compact.to_set
-                    block.call(kind, exception, tasks, involved_job_ids)
-                end
+                @exception_listeners << block
+                Roby.disposable { @exception_listeners.delete(block) }
             end
 
             # @see ExecutionEngine#remove_exception_listener
             def remove_exception_listener(listener)
-                execution_engine.remove_exception_listener(listener)
+                listener.dispose
             end
 
             # Add a handler called at each end of cycle
@@ -573,7 +585,7 @@ module Roby
             # Interface-related objects that need to be notified must use this
             # method instead of using {ExecutionEngine#at_cycle_end} on
             # {#execution_engine}, because the listener is guaranteed to be ordered
-            # properly w.r.t. {#push_pending_job_notifications}
+            # properly w.r.t. {#push_pending_notifications}
             #
             # @param [#call] block the listener
             # @yieldparam [ExecutionEngine] the underlying execution execution_engine

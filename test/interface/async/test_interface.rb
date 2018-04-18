@@ -254,23 +254,23 @@ module Roby
 
                         it "calls the hook on jobs created by a third party" do
                             interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            interface.push_pending_job_notifications
+                            interface.push_pending_notifications
                             process_call { client.poll }
                         end
                         it "does not repeatedly call a listener that already ignored a job" do
                             interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            interface.push_pending_job_notifications
+                            interface.push_pending_notifications
                             interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            interface.push_pending_job_notifications
+                            interface.push_pending_notifications
                             flexmock(listener).should_receive(:matches?).once.and_return(false)
                             recorder.should_receive(:job).never
                             process_call { client.poll }
                         end
                         it "does not call the hook on jobs that have already been seen" do
                             interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            interface.push_pending_job_notifications
+                            interface.push_pending_notifications
                             interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            interface.push_pending_job_notifications
+                            interface.push_pending_notifications
                             process_call { client.poll }
                         end
                         it "calls the hook only once on jobs created by the interface" do
@@ -278,7 +278,7 @@ module Roby
                             flexmock(interface).should_receive(:start_job).once.and_return(1)
                             process_call { client.client.action! }
                             interface.job_notify(Roby::Interface::JOB_READY, 1, 'name')
-                            interface.push_pending_job_notifications
+                            interface.push_pending_notifications
                             process_call { client.poll }
                         end
                     end
@@ -299,7 +299,7 @@ module Roby
                         monitor.should_receive(:update_state).with(Roby::Interface::JOB_READY).once.ordered
                         interface.job_notify(Roby::Interface::JOB_MONITORED, 42, 'name')
                         interface.job_notify(Roby::Interface::JOB_READY, 42, 'name')
-                        interface.push_pending_job_notifications
+                        interface.push_pending_notifications
                         process_call do
                             client.poll
                         end
@@ -313,7 +313,7 @@ module Roby
                         monitor.should_receive(:replaced).with('new task').once.ordered
                         interface.job_notify(Roby::Interface::JOB_MONITORED, 42, 'name')
                         interface.job_notify(Roby::Interface::JOB_REPLACED, 42, 'name', 'new task')
-                        interface.push_pending_job_notifications
+                        interface.push_pending_notifications
                         process_call do
                             client.poll
                         end
@@ -338,7 +338,7 @@ module Roby
                         interface.job_notify(Roby::Interface::JOB_MONITORED, 42, 'name')
                         client.client.queue_exception(:fatal, 'exception_object', [], [42])
                         interface.job_notify(Roby::Interface::JOB_FINALIZED, 42, 'name')
-                        interface.push_pending_job_notifications
+                        interface.push_pending_notifications
                         process_call do
                             client.poll
                         end
@@ -349,7 +349,7 @@ module Roby
                         monitor.start
                         interface.job_notify(Roby::Interface::JOB_MONITORED, 42, 'name')
                         interface.job_notify(Roby::Interface::JOB_FINALIZED, 42, 'name')
-                        interface.push_pending_job_notifications
+                        interface.push_pending_notifications
                         process_call do
                             client.poll
                         end
