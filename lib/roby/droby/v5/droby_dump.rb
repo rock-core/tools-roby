@@ -246,7 +246,7 @@ module Roby
                             @arguments.each do |name, has_default, default, doc|
                                 if !local_object.has_argument?(name)
                                     if !has_default
-                                        default = Roby::Models::Task::NO_DEFAULT_ARGUMENT 
+                                        default = Roby::Models::Task::NO_DEFAULT_ARGUMENT
                                     end
                                     local_object.argument name, default: peer.local_object(default), doc: doc
                                 end
@@ -346,7 +346,7 @@ module Roby
                     def proxy(peer)
                         local_object = peer.local_object(model).new(plan: local_plan(peer))
                         if controlable
-                            local_object.command = lambda { } 
+                            local_object.command = lambda { }
                         end
                         local_object
                     end
@@ -469,7 +469,7 @@ module Roby
                             delayed_arg.send(m)
                         end
                     end
-                end      
+                end
             end
 
             module TaskArgumentsDumper
@@ -509,7 +509,7 @@ module Roby
                     DRoby.new(peer.known_siblings_for(self),
                               peer.dump(owners),
                               d_model,
-                              plan.droby_id, 
+                              plan.droby_id,
                               d_arguments,
                               d_data,
                               mission: mission?, started: started?,
@@ -804,7 +804,7 @@ module Roby
                             Roby::Queries::AndMatcher.new(*peer.local_object(ops))
                         end
                     end
-                    
+
                     # Returns an intermediate representation of +self+ suitable to be sent
                     # to the +dest+ peer.
                     def droby_dump(peer)
@@ -823,7 +823,7 @@ module Roby
                             Roby::Queries::NotMatcher.new(peer.local_object(@op))
                         end
                     end
-                    
+
                     # Returns an intermediate representation of +self+ suitable to be sent
                     # to the +dest+ peer.
                     def droby_dump(peer)
@@ -843,7 +843,7 @@ module Roby
                             Roby::Queries::OrMatcher.new(*peer.local_object(ops))
                         end
                     end
-                    
+
                     # Returns an intermediate representation of +self+ suitable to be sent
                     # to the +dest+ peer.
                     def droby_dump(dest)
@@ -869,7 +869,7 @@ module Roby
                             matcher
                         end
                     end
-                    
+
                     # Returns an intermediate representation of +self+ suitable to be sent
                     # to the +dest+ peer.
                     def droby_dump(peer)
@@ -895,7 +895,7 @@ module Roby
                             matcher
                         end
                     end
-                    
+
                     # Returns an intermediate representation of +self+ suitable to be sent
                     # to the +dest+ peer.
                     def droby_dump(peer)
@@ -1012,7 +1012,7 @@ module Roby
                             query
                         end
                     end
-                    
+
                     # Returns an intermediate representation of +self+ suitable to be sent
                     # to the +dest+ peer.
                     def droby_dump(peer)

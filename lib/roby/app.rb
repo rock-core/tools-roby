@@ -1960,7 +1960,7 @@ module Roby
         end
 
         # Restarts the same app
-        # 
+        #
         # Simply execs the same command line
         def restart!
             Kernel.exec *@restart_cmdline

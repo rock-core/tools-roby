@@ -31,7 +31,7 @@ module Roby
             end
         end
 
-        # See PlanObject::child_plan_object. 
+        # See PlanObject::child_plan_object.
         child_plan_object :task
 
         # The event plan. It is the same as task.plan and is actually updated
@@ -209,7 +209,7 @@ module Roby
 
             if child_task
                 unless task.depends_on?(child_task)
-                    task.depends_on child_task, 
+                    task.depends_on child_task,
                         success: [child_event.symbol],
                         remove_when_done: true
                 end
@@ -278,7 +278,7 @@ module Roby
         def refine_call_exception (e) # :nodoc:
             if task.partially_instanciated?
                 TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.call on #{task} which is partially instanciated\n" + 
+                    exception("#{symbol}_event.call on #{task} which is partially instanciated\n" +
                         "The following arguments were not set:\n" +
                         task.list_unset_arguments.map {|n| "  #{n}"}.join("\n"))
             elsif !plan
@@ -303,7 +303,7 @@ module Roby
         def refine_emit_exception (e) # :nodoc:
             if task.partially_instanciated?
                 TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.emit on #{task} which is partially instanciated\n" + 
+                    exception("#{symbol}_event.emit on #{task} which is partially instanciated\n" +
                         "The following arguments were not set:\n" +
                         task.list_unset_arguments.map {|n| "  #{n}"}.join("\n"))
             elsif !plan

@@ -40,7 +40,7 @@ class TC_Dependency < Minitest::Test
         plan.add(simple_task = Tasks::Simple.new)
         assert_raises(ArgumentError) { t1.depends_on simple_task, model: [Roby::Task.new_submodel, {}] }
         assert_raises(ArgumentError) { t1.depends_on simple_task, model: TaskService.new_submodel }
-        
+
         # Check validation of the arguments
         plan.add(model_task = klass.new)
         assert_raises(ArgumentError) { t1.depends_on model_task, model: [Tasks::Simple, {id: 'bad'}] }
@@ -114,7 +114,7 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_it_keeps_the_relation_on_success_if_remove_when_done_is_false
-        parent, child = create_pair success: [:first], 
+        parent, child = create_pair success: [:first],
             failure: [:stop],
             remove_when_done: false
 
@@ -125,7 +125,7 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_it_removes_the_relation_on_success_if_remove_when_done_is_true
-        parent, child = create_pair success: [:first], 
+        parent, child = create_pair success: [:first],
             failure: [:stop],
             remove_when_done: true
 
@@ -334,7 +334,7 @@ class TC_Dependency < Minitest::Test
         info[:failure] = :stop.to_unbound_task_predicate
         assert_equal info, parent[child, Dependency]
     end
-    
+
     def test_merging_remove_when_done_cannot_change
         parent, child, info, _ = setup_merging_test
         assert_raises(ModelViolation) { parent.depends_on child, remove_when_done: false }
@@ -466,7 +466,7 @@ class TC_Dependency < Minitest::Test
 
         plan.in_transaction do |trsc|
             parent = trsc[parent]
-            
+
             child = parent.child_from_role('child0')
             assert_equal trsc[child], child
 
@@ -866,7 +866,7 @@ module Roby
                             with_trace(child => parent)
                     end
                 end
-                
+
                 it "reports a ChildFailedError if a positive intermediate event becomes unreachable" do
                     parent.depends_on(child = child_m.new, success: :intermediate)
                     expect_execution { child.start!; child.stop_event.emit }.to do
