@@ -170,6 +170,10 @@ error = Roby.display_exception(STDERR) do
         app.cleanup
     end
 end
-if error
+
+if app.restarting?
+    app.restart!
+elsif error
     exit 1
 end
+

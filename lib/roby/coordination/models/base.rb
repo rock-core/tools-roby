@@ -173,4 +173,3 @@ module Roby
         end
     end
 end
-
