@@ -484,7 +484,25 @@ module Roby
                 end
                 state_machine_task.current_task_child
             end
+
+            # Checks the result of pretty-printing an object
+            #
+            # The method will ignore non-empty blank lines as output of the
+            # pretty-print, and an empty line at the end. The reason is that
+            # pretty-print will add spaces at the nest level after a breakable,
+            # which is hard (if not impossible) to represent when using an
+            # editor that cleans trailing whitespaces
+            def assert_pp(expected, object)
+                actual = PP.pp(object, '').chomp
+                actual = actual.split("\n").map do |line|
+                    if line =~ /^\s+$/
+                        ""
+                    else
+                        line
+                    end
+                end.join("\n")
+                assert_equal expected, actual
+            end
         end
     end
 end
-

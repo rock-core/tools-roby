@@ -189,8 +189,15 @@ module Roby
         def inspect # :nodoc:
             "#{task.inspect}/#{symbol}: #{history.to_s}"
         end
-        def pretty_print(pp) # :nodoc:
-            pp.text "#{symbol} event of #{task.class}:0x#{task.address.to_s(16)}"
+        def pretty_print(pp, context_task: nil) # :nodoc:
+            pp.text "event '#{symbol}'"
+            if !context_task || context_task != task
+                pp.text " of"
+                pp.nest(2) do
+                    pp.breakable
+                    task.pretty_print(pp)
+                end
+            end
         end
 
         # See EventGenerator#achieve_with

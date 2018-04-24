@@ -110,14 +110,14 @@ module Roby
             "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class.to_s}: #{context}"
         end
 
-        def pretty_print(pp, with_context = true) # :nodoc:
+        def pretty_print(pp, context: true, context_task: nil) # :nodoc:
             pp.text "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class}"
-            if with_context && context
+            if context && !self.context.empty?
                 pp.breakable
                 pp.text "with context"
                 pp.nest(2) do
                     pp.text "  "
-                    pp.seplist(context) do |v|
+                    pp.seplist(self.context) do |v|
                         v.pretty_print(pp)
                     end
                 end

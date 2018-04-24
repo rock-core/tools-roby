@@ -898,28 +898,18 @@ module Roby
         end
 
         def pretty_print(pp) # :nodoc:
-            pp.text "#{child} failed"
+            child.pretty_print(pp)
             pp.breakable
-            pp.text "child #{relation[:roles].to_a.join(", ")} of #{parent}"
+            pp.text "child '#{relation[:roles].to_a.join(", ")}' of "
+            parent.pretty_print(pp)
+            pp.breakable
             pp.breakable
             if mode == :failed_event
-                pp.text "triggered the failure predicate '#{relation[:failure]}': "
+                pp.text "Child triggered the failure predicate '#{relation[:failure]}': "
             elsif mode == :unreachable_success
-                pp.text "cannot reach the success condition '#{relation[:success]}': "
+                pp.text "Child cannot reach the success condition '#{relation[:success]}': "
             end
-            explanation.pretty_print(pp)
-
-            pp.breakable
-            pp.text "The failed relation is"
-            pp.breakable
-            pp.nest(2) do
-                pp.text "  "
-                parent.pretty_print pp
-                pp.breakable
-                pp.text "depends_on "
-                child.pretty_print pp
-            end
-            pp.breakable
+            explanation.pretty_print(pp, context_task: child)
         end
         def backtrace; [] end
 

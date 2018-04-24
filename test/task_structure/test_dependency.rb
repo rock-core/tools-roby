@@ -934,9 +934,80 @@ module Roby
                         child.stop_event.emit
                     end
                 end
+            end
 
+            describe "pretty-printing ChildFailedError" do
+                before do
+                    parent_m = Roby::Task.new_submodel(name: 'Parent') { terminates }
+                    @child_m = Roby::Task.new_submodel(name: 'Child') { terminates }
+                    plan.add(@parent = parent_m.new)
+                end
+                it "pretty-prints when caused by the emission of an event" do
+                    @parent.depends_on(@child = @child_m.new,
+                        role: 'test', success: [], failure: [:stop])
+                    execute do
+                        @parent.start!
+                        @child.start!
+                    end
+                    exception = expect_execution do
+                        @child.success_event.emit
+                    end.to { have_error_matching ChildFailedError }
+
+                    stop_event = @child.stop_event.last
+                    stop_to_s = "[#{Roby.format_time(stop_event.time)} "\
+                        "@#{stop_event.propagation_id}]"
+                    success_event = @child.success_event.last
+                    success_to_s = "[#{Roby.format_time(success_event.time)} "\
+                        "@#{success_event.propagation_id}]"
+                    expected = <<~MESSAGE.chomp
+                    Child:0x#{@child.address.to_s(16)}
+                      no owners
+                      no arguments
+                    child 'test' of Parent:0x#{@parent.address.to_s(16)}
+                      no owners
+                      no arguments
+
+                    Child triggered the failure predicate '(never(start?)) || (stop?)': stop? is true
+                      the following event has been emitted:
+                      event 'stop' emitted at #{stop_to_s}
+
+                      The emission was caused by the following events
+                      < event 'success' emitted at #{success_to_s}
+                    MESSAGE
+                    assert_pp expected, exception.exception
+                end
+
+                it "pretty-prints when caused by the unreachability of an event" do
+                    @parent.depends_on(@child = @child_m.new,
+                        role: 'test', success: [:start])
+                    execute do
+                        @parent.start!
+                    end
+                    exception = expect_execution do
+                        @child.start_event.emit_failed
+                    end.to { have_error_matching ChildFailedError }
+
+                    expected = <<~MESSAGE.chomp
+                    Child:0x#{@child.address.to_s(16)}
+                      no owners
+                      no arguments
+                    child 'test' of Parent:0x#{@parent.address.to_s(16)}
+                      no owners
+                      no arguments
+
+                    Child cannot reach the success condition 'start?': the value of start? will not change anymore
+                      the following event is unreachable:
+                      event 'start'
+
+                      The unreachability was caused by
+                        failed emission of the event 'start' of
+                          Child:0x#{@child.address.to_s(16)}
+                            no owners
+                            no arguments (Roby::EmissionFailed)
+                    MESSAGE
+                    assert_pp expected, exception.exception
+                end
             end
         end
     end
 end
-

@@ -316,7 +316,7 @@ end
                 end
             end
 
-            def pretty_print(pp)
+            def pretty_print(pp, context_task: nil)
                 if value == false
                     predicate.pretty_print(pp)
                     pp.text " is false"
@@ -345,24 +345,29 @@ end
                             end
                         end
 
-                        explanation.pretty_print(pp)
+                        pp.breakable
+                        explanation.pretty_print(
+                            pp, context_task: context_task)
                         case explanation
                         when Event
                             sources = explanation.all_sources
                             if !sources.empty?
                                 pp.breakable
+                                pp.breakable
                                 pp.text "The emission was caused by the following events"
                                 sources.each do |ev|
                                     pp.breakable
                                     pp.text "< "
-                                    ev.pretty_print(pp, false)
+                                    ev.pretty_print(pp,
+                                        context: false, context_task: context_task)
                                 end
                             end
 
                         when EventGenerator
                             if value == nil && explanation.unreachability_reason
                                 pp.breakable
-                                pp.text "The unreachability was caused by "
+                                pp.breakable
+                                pp.text "The unreachability was caused by"
                                 pp.nest(2) do
                                     pp.breakable
                                     explanation.unreachability_reason.pretty_print(pp)
@@ -371,7 +376,6 @@ end
                         else
                             explanation.pretty_print(pp)
                         end
-                        pp.breakable
                     end
                 end
             end
