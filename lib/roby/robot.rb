@@ -66,35 +66,35 @@ module Robot
     end
 
     def self.init(&block)
-        Roby.app.on_init(&block)
+        Roby.app.on_init(user: true, &block)
     end
 
     def self.setup(&block)
-        Roby.app.on_setup(&block)
+        Roby.app.on_setup(user: true, &block)
     end
 
     def self.requires(&block)
-        Roby.app.on_require(&block)
+        Roby.app.on_require(user: true, &block)
     end
 
     def self.clear_models(&block)
-        Roby.app.on_clear_models(&block)
+        Roby.app.on_clear_models(user: true, &block)
     end
 
     def self.cleanup(&block)
-        Roby.app.on_cleanup(&block)
+        Roby.app.on_cleanup(user: true, &block)
     end
 
     def self.config(&block)
-        Roby.app.on_config(&block)
+        Roby.app.on_config(user: true, &block)
     end
 
     def self.controller(&block)
-        Roby.app.controller(&block)
+        Roby.app.controller(user: true, &block)
     end
 
     def self.actions(&block)
-        Roby.app.actions(&block)
+        Roby.app.actions(user: true, &block)
     end
 end
 
