@@ -1988,6 +1988,11 @@ module Roby
                     end
                 else cmdline
                 end
+            quit
+        end
+
+        # Quit the application
+        def quit
             plan.execution_engine.quit
         end
 
