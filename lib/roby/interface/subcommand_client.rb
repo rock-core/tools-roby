@@ -10,7 +10,7 @@ module Roby
             attr_reader :name
             # @return [String] the subcommand description
             attr_reader :description
-            # @return [String] the set of commands on this subcommand
+            # @return [Hash<String,Command>] the set of commands on this subcommand
             attr_reader :commands
 
             def initialize(parent, name, description, commands)
@@ -26,10 +26,27 @@ module Roby
                 parent.path + [name]
             end
 
-            def method_missing(m, *args)
-                parent.call([name], m, *args)
+            def async_call(path, m, *args, &block)
+                parent.async_call([name] + path, m, *args, &block)
+            end
+
+            def find_subcommand_by_name(m)
+                @commands[m.to_s]
+            end
+
+            def has_command?(m)
+                @commands.has_key?(m.to_s)
+            end
+
+            def method_missing(m, *args, &block)
+                if (sub = find_subcommand_by_name(m))
+                    SubcommandClient.new(self, m, sub.description, sub.commands)
+                elsif (match = /^async_(.*)$/.match(m.to_s))
+                    async_call([], match[1].to_sym, *args, &block)
+                else
+                    call([], m, *args)
+                end
             end
         end
     end
 end
-

@@ -30,11 +30,16 @@ module Roby
                 register_plan(plan)
 
                 interface_class = Class.new(Interface)
+                subsublib = Class.new(CommandLibrary) do
+                    def subcommand_test_call(val)
+                    end
+                end
                 sublib = Class.new(CommandLibrary) do
                     def subcommand_test_call(val)
                     end
                 end
                 interface_class.subcommand 'sublib', sublib, 'test subcommand'
+                sublib.subcommand 'subsublib', subsublib, 'test subcommand'
 
                 flexmock(@interface = interface_class.new(app))
                 server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0) 
@@ -345,6 +350,7 @@ module Roby
                 plan.add(t1 = Tasks::Simple.new(id: 2))
                 plan.execution_engine.notify_exception :fatal, Exception.new, [t0]
                 plan.execution_engine.notify_exception :warn, Exception.new, [t1]
+                interface.push_pending_job_notifications
                 server.poll
                 client.poll
                 assert client.has_exceptions?
@@ -363,6 +369,7 @@ module Roby
                     provides Job
                 end.new(job_id: 1)
                 plan.execution_engine.notify_exception :fatal, Exception.new, [task]
+                interface.push_pending_job_notifications
                 server.poll
                 client.poll
                 *_, jobs = client.pop_exception.last
@@ -427,8 +434,17 @@ module Roby
                     assert_equal 'sublib', subcommand.name
                 end
                 it "the returned object allows to call the subcommand's command" do
-                    flexmock(@interface.sublib).should_receive(:subcommand_test_call).explicitly.with(42).and_return(20)
+                    flexmock(@interface.sublib).
+                        should_receive(:subcommand_test_call).explicitly.
+                        with(42).and_return(20)
                     assert_equal 20, connect { |client| client.sublib.subcommand_test_call(42) }
+                end
+                it "returns subcommands recursively" do
+                    flexmock(@interface.sublib.subsublib).
+                        should_receive(:subcommand_test_call).explicitly.
+                        with(42).and_return(20)
+                    result = connect { |client| client.sublib.subsublib.subcommand_test_call(42) }
+                    assert_equal 20, result
                 end
             end
 
@@ -523,6 +539,25 @@ module Roby
                     client.poll
                     assert_equal client.async_call_pending?(first_call), false
                     assert_equal client.async_call_pending?(second_call), false
+                end
+
+                it "is called when prefixing a method name with async_" do
+                    client = open_client
+                    callback = proc { }
+                    flexmock(client).should_receive(:async_call).
+                        with([], :test, 'some', 'foo', callback).
+                        once.and_return(ret = flexmock)
+                    assert_equal ret, client.async_test('some', 'foo', &callback)
+                end
+
+                it "is called with the proper path when prefixing a method name with async_ on a subcommand" do
+                    client = open_client
+                    subcommand = SubcommandClient.new(client, 'sub', '', Hash.new)
+                    callback = proc { }
+                    flexmock(client).should_receive(:async_call).
+                        with(['sub'], :test, 'some', 'foo', callback).
+                        once.and_return(ret = flexmock)
+                    assert_equal ret, subcommand.async_test('some', 'foo', &callback)
                 end
             end
         end
