@@ -31,6 +31,12 @@ module Roby
                 # The future used to connect to the remote process without blocking
                 # the main event loop
                 attr_reader :connection_future
+                # The port to the log server
+                #
+                # This can be used to create a plan rebuilder on this interface's
+                # underlying remote plan. It is queried at connection time, so
+                # it can be used locally without requiring to query the remote.
+                attr_reader :log_server_port
 
                 # @!group Hooks
 
@@ -125,11 +131,14 @@ module Roby
 
                 DEFAULT_REMOTE_NAME = "localhost"
 
-                def initialize(remote_name = DEFAULT_REMOTE_NAME, port: Roby::Interface::DEFAULT_PORT, connect: true, &connection_method)
+                def initialize(remote_name = DEFAULT_REMOTE_NAME,
+                    port: Roby::Interface::DEFAULT_PORT, connect: true, &connection_method)
+
                     @connection_method = connection_method || lambda {
                         Roby::Interface.connect_with_tcp_to(remote_name, port,
-                            handshake: [:actions, :commands, :jobs])
+                            handshake: [:actions, :commands, :jobs, :log_server_port])
                     }
+                    @log_server_port = nil
 
                     @remote_name = remote_name
                     @first_connection_attempt = true
@@ -195,6 +204,7 @@ module Roby
                         @client = connection_future.value
                         @client.io.reset_thread_guard
                         @connection_future = nil
+                        @log_server_port = @client.handshake_results[:log_server_port]
                         jobs = @client.handshake_results[:jobs].
                             map do |job_id, (job_state, placeholder_task, job_task)|
                                 JobMonitor.new(self, job_id, state: job_state,
@@ -378,6 +388,7 @@ module Roby
                     if client
                         client.close if !client.closed?
                         @client = nil
+                        @log_server_port = nil
                         run_hook :on_unreachable
                     end
                 end
