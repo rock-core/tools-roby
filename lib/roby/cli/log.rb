@@ -1,23 +1,26 @@
 require 'roby'
 require 'thor'
 
-Roby.app.guess_app_dir
-
 module Roby
     module CLI
         class Log < Thor
             no_commands do
                 def handle_file_argument(file = nil)
+                    return file if file && File.file?(file)
 
+                    # If the argument is not a file, we assume it is a robot name
+                    # and that the user wants the current log file for this particular
+                    # robot configuration
                     if file
-                        return file if File.file?(file)
-                        Roby.app.setup_robot_names_from_config_dir
-                        if !Roby.app.robot_name?(file)
+                        app = Roby::Application.new
+                        app.guess_app_dir
+                        app.setup_robot_names_from_config_dir
+                        if !app.robot_name?(file)
                             raise ArgumentError, "expected #{file} to either the path to a log file, or a robot name to get the last log file from this robot configuration"
                         end
-                        Roby.app.robot(file)
+                        app.robot(file)
                     end
-                    Roby.app.log_current_file
+                    app.log_current_file
                 end
             end
 
@@ -218,7 +221,7 @@ module Roby
                     end
                 end
             end
-            
+
             desc 'repair', 'attempt to repair a broken log file'
             def repair(file)
                 require 'roby/droby/logfile/reader'
@@ -253,6 +256,7 @@ module Roby
             desc 'current', 'full path to the current log file'
             option :dir, aliases: 'd', type: :boolean
             def current(robot_name = nil)
+                Roby.app.require_app_dir
                 if robot_name
                     Roby.app.setup_robot_names_from_config_dir
                     Roby.app.robot(robot_name)
@@ -273,4 +277,3 @@ module Roby
         end
     end
 end
-
