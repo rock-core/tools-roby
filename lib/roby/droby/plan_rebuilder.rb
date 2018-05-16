@@ -252,7 +252,9 @@ module Roby
             def garbage_task(time, plan, task, can_finalize)
                 plan = local_object(plan)
                 task = local_object(task)
-                plan.garbaged_tasks << task
+                if can_finalize
+                    plan.garbaged_tasks << task
+                end
                 task
             end
 
