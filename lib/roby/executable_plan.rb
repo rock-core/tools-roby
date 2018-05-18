@@ -186,9 +186,9 @@ module Roby
             end
 
             relations.each do |rel|
-                if name = rel.child_name
-                    parent.send("adding_#{rel.child_name}", child, info)
-                    child.send("adding_#{rel.child_name}_parent", parent, info)
+                if (name = rel.child_name)
+                    parent.send("adding_#{name}", child, info)
+                    child.send("adding_#{name}_parent", parent, info)
                 end
             end
 
@@ -216,9 +216,9 @@ module Roby
                     execution_engine.event_ordering.clear
                 end
 
-                if name = rel.child_name
-                    parent.send("added_#{rel.child_name}", child, info)
-                    child.send("added_#{rel.child_name}_parent", parent, info)
+                if (name = rel.child_name)
+                    parent.send("added_#{name}", child, info)
+                    child.send("added_#{name}_parent", parent, info)
                 end
             end
 
@@ -268,9 +268,9 @@ module Roby
             end
 
             relations.each do |rel|
-                if name = rel.child_name
-                    parent.send("removing_#{rel.child_name}", child)
-                    child.send("removing_#{rel.child_name}_parent", parent)
+                if (name = rel.child_name)
+                    parent.send("removing_#{name}", child)
+                    child.send("removing_#{name}_parent", parent)
                 end
             end
 
@@ -292,9 +292,9 @@ module Roby
         #   has been removed
         def removed_edge(parent, child, relations)
             relations.each do |rel|
-                if name = rel.child_name
-                    parent.send("removed_#{rel.child_name}", child)
-                    child.send("removed_#{rel.child_name}_parent", parent)
+                if (name = rel.child_name)
+                    parent.send("removed_#{name}", child)
+                    child.send("removed_#{name}_parent", parent)
                 end
             end
 
@@ -305,9 +305,9 @@ module Roby
         #
         # Helper for {#updating_edge_info} and {#updated_edge_info}
         def emit_relation_change_hook(parent, child, rel, *args, prefix: nil)
-            if name = rel.child_name
-                parent.send("#{prefix}_#{rel.child_name}", child, *args)
-                child.send("#{prefix}_#{rel.child_name}_parent", parent, *args)
+            if (name = rel.child_name)
+                parent.send("#{prefix}_#{name}", child, *args)
+                child.send("#{prefix}_#{name}_parent", parent, *args)
             end
         end
 
@@ -318,8 +318,8 @@ module Roby
         # It is a helper for {#merged_plan}
         def emit_relation_graph_merge_hooks(graph, prefix: nil)
             rel = graph.class
-            if rel.child_name
-                added_child_hook  = "#{prefix}_#{rel.child_name}"
+            if (name = rel.child_name)
+                added_child_hook  = "#{prefix}_#{name}"
                 added_parent_hook = "#{added_child_hook}_parent"
                 graph.each_edge do |parent, child, info|
                     parent.send(added_child_hook, child, info)
@@ -337,8 +337,8 @@ module Roby
             list.each do |graph, parent, child, *args|
                 if !hooks.has_key?(graph)
                     rel = graph.class
-                    if rel.child_name
-                        parent_hook = "#{prefix}_#{rel.child_name}"
+                    if (name = rel.child_name)
+                        parent_hook = "#{prefix}_#{name}"
                         child_hook  = "#{parent_hook}_parent"
                         hooks[graph] = [parent_hook, child_hook]
                     else
