@@ -43,7 +43,7 @@ IRB.conf[:PROMPT][:ROBY] = {
     :RETURN => "=> %s\n"
 }
 
-__main_remote_interface__ = 
+__main_remote_interface__ =
     begin
         Roby::Interface::ShellClient.new("#{host}:#{port}") do
             Roby::Interface.connect_with_tcp_to(host, port)
@@ -104,10 +104,10 @@ end
 class ShellEvalContext < BasicObject
     include ::Kernel
 
-    def initialize(interface)
+    def initialize(interface, send_q: ::Queue.new, results_q: ::Queue.new)
         @__interface = interface
-        @__send = ::Queue.new
-        @__results = ::Queue.new
+        @__send = send_q
+        @__results = results_q
     end
 
     def respond_to_missing?(m, include_private)
@@ -115,11 +115,20 @@ class ShellEvalContext < BasicObject
     end
 
     def method_missing(m, *args, &block)
-        @__send.push(::Kernel.lambda { @__interface.send(m, *args, &block) })
+        if @__interface.class.method_defined?(m)
+            return @__interface.send(m, *args, &block)
+        end
+
+        @__send.push(::Kernel.lambda do
+            @__interface.send(m, *args, &block)
+        end)
         result, error = @__results.pop
         if error
             raise error
-        else result
+        elsif result.kind_of?(::Roby::Interface::ShellSubcommand)
+            ::ShellEvalContext.new(result, send_q: @__send, results_q: @__results)
+        else
+            result
         end
     end
 
@@ -151,7 +160,6 @@ begin
     context.save_history = 100
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
-    to_process, process_result = Queue.new, Queue.new
     Thread.new do
         begin
             __main_remote_interface__.notification_loop(0.1) do |connected, messages|
@@ -183,4 +191,3 @@ begin
         irb.eval_input
     end
 end
-
