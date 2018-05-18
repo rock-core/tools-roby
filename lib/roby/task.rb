@@ -1186,23 +1186,14 @@ module Roby
         # common to all tasks that would forbid a merge 
         def can_merge?(target)
             if defined?(super) && !super
-                return
-            end
-
-            if finished? || target.finished?
+                return false
+            elsif finished? || target.finished?
+                return false
+            elsif !model.can_merge?(target.model)
                 return false
             end
 
-            if !model.can_merge?(target.model)
-                return false
-            end
-
-            target.arguments.each_assigned_argument do |key, val|
-                if arguments.set?(key) && arguments[key] != val
-                    return false
-                end
-            end
-            true
+            target.arguments.can_semantic_merge?(arguments)
         end
 
         # "Simply" mark this task as terminated. This is meant to be used on
