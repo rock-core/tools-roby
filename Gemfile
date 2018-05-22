@@ -8,5 +8,6 @@ platform :mri do
     end
 end
 gem 'coveralls'
+gem 'yard'
 
 gemspec
