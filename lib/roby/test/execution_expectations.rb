@@ -59,7 +59,7 @@ module Roby
             #     expect_execution.to do
             #       emit find_tasks(MyTask).start_event
             #     end
-            # 
+            #
             def emit(*generators, backtrace: caller(1))
                 return_values = generators.map do |generator|
                     if generator.kind_of?(EventGenerator)
@@ -142,7 +142,7 @@ module Roby
             # @param [Task] task
             # @return [Event] the task's start event
             def start(task, backtrace: caller(1))
-                emit task.start_event, backtrace: backtrace 
+                emit task.start_event, backtrace: backtrace
             end
 
             # Expect that the given task either starts or is running, and does not stop
@@ -161,7 +161,7 @@ module Roby
             # @return [nil]
             def have_running(task, backtrace: caller(1))
                 if !task.running?
-                    emit task.start_event, backtrace: backtrace 
+                    emit task.start_event, backtrace: backtrace
                 end
                 not_emit task.stop_event
                 nil
@@ -295,6 +295,7 @@ module Roby
 
                 @expectations = Array.new
                 @execute_blocks = Array.new
+                @poll_blocks = Array.new
 
                 @scheduler = false
                 @timeout = 5
@@ -493,6 +494,12 @@ module Roby
             # @param [Boolean] enable
             dsl_attribute :display_exceptions
 
+            # Setups a block that should be called at each execution cycle
+            def poll(&block)
+                @poll_blocks << block
+                self
+            end
+
             # @!endgroup Setup
 
             # Add a new expectation to be run during {#verify}
@@ -564,6 +571,9 @@ module Roby
                             @execute_blocks.delete_if do |block|
                                 block.call
                                 true
+                            end
+                            @poll_blocks.each do |block|
+                                block.call
                             end
                         end
                         all_propagation_info.merge(propagation_info)
@@ -678,7 +688,7 @@ module Roby
 
                 # Verifies whether the expectation is met at this point
                 #
-                # This method is meant to update 
+                # This method is meant to update
                 def update_match(propagation_info)
                     true
                 end
@@ -1131,4 +1141,3 @@ module Roby
         end
     end
 end
-

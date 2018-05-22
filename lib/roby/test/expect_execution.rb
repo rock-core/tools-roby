@@ -46,14 +46,15 @@ module Roby
                     :scheduler,
                     :garbage_collect,
                     :validate_unexpected_errors,
-                    :display_exceptions]
+                    :display_exceptions,
+                    :poll]
 
                 def respond_to_missing?(m, include_private)
                     SETUP_METHODS.include?(m)
                 end
 
-                def method_missing(m, *args)
-                    expectations.public_send(m, *args)
+                def method_missing(m, *args, &block)
+                    expectations.public_send(m, *args, &block)
                     self
                 end
 
@@ -148,4 +149,3 @@ module Roby
         end
     end
 end
-
