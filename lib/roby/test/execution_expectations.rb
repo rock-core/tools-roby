@@ -567,13 +567,15 @@ module Roby
                     engine = @plan.execution_engine
                     engine.start_new_cycle
                     with_execution_engine_setup do
-                        propagation_info = engine.process_events(raise_framework_errors: false, garbage_collect_pass: @garbage_collect) do
-                            @execute_blocks.delete_if do |block|
-                                block.call
+                        propagation_info = engine.process_events(
+                            raise_framework_errors: false,
+                            garbage_collect_pass: @garbage_collect) do
+                            @execute_blocks.delete_if do |b|
+                                b.call
                                 true
                             end
-                            @poll_blocks.each do |block|
-                                block.call
+                            @poll_blocks.each do |b|
+                                b.call
                             end
                         end
                         all_propagation_info.merge(propagation_info)

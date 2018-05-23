@@ -2009,13 +2009,12 @@ module Roby
             it "executes the block after the delay expired" do
                 trigger_time = nil
                 execution_engine.delayed(5) { trigger_time = Time.now }
-                expect_execution.timeout(10).to do
-                    achieve do
-                        Timecop.freeze(Time.now + 1)
-                        trigger_time
-                    end
-                end
-                assert_equal @base_time + 5, trigger_time
+                expect_execution.timeout(10).poll { Timecop.freeze(Time.now + 1) }.
+                    to { achieve { trigger_time } }
+                # NOTE: the delayed blocks are added within a once { } context
+                # NOTE: the usage of #poll above makes it so that the delay is
+                # NOTE: added only at base_time + 1, hence the base_time + 6
+                assert_equal @base_time + 6, trigger_time
             end
 
             it "executes the block only once" do
@@ -2023,8 +2022,9 @@ module Roby
                 recorder.should_receive(:call).once
                 execution_engine.delayed(5) { recorder.call }
                 execute_one_cycle
-                Timecop.freeze(@base_time + 6)
+                Timecop.freeze(Time.now + 6)
                 execute_one_cycle
+                Timecop.freeze(Time.now + 6)
                 execute_one_cycle
             end
 
@@ -2033,7 +2033,7 @@ module Roby
                 recorder.should_receive(:call).never
                 handler = execution_engine.delayed(5) { recorder.call }
                 execute_one_cycle
-                Timecop.freeze(@base_time + 6)
+                Timecop.freeze(Time.now + 6)
                 handler.dispose
                 execute_one_cycle
             end

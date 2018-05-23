@@ -2008,15 +2008,15 @@ module Roby
                 # Check if the nearest timepoint is the beginning of
                 # this cycle or of the next cycle
                 if !last_call || (duration - (now - last_call)) < length / 2
-                    if !handler.call(engine, engine.plan)
+                    unless handler.call(engine, engine.plan)
                         next
                     end
 
+                    next if handler.once?
+                    next if handler.disposed?
                     last_call = now
                 end
-                unless handler.disposed?
-                    [handler, last_call, duration]
-                end
+                [handler, last_call, duration]
             end.compact!
         end
 
