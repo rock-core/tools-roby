@@ -36,9 +36,9 @@ module Roby
         #       stand = state move(speed: 0)
         #       # This monitor triggers each time the system moves more than
         #       # 0.1 meters
-        #       d_monitor = task monitor_movement_threshold(d: 0.1) 
+        #       d_monitor = task monitor_movement_threshold(d: 0.1)
         #       # This monitor triggers after 20 seconds
-        #       t_monitor = task monitor_time_threshold(t: 20) 
+        #       t_monitor = task monitor_time_threshold(t: 20)
         #       # Make the distance monitor run in the move state
         #       move.depends_on d_monitor
         #       # Make the time monitor run in the stand state
@@ -127,7 +127,7 @@ module Roby
                     if block
                         lambda(&block)
                     else
-                        lambda { |event| event.context.first }
+                        lambda { |ev| ev.context.first }
                     end
 
                 capture = Capture.new(filter)
@@ -224,5 +224,3 @@ module Roby
         end
     end
 end
-
-

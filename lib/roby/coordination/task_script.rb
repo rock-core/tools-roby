@@ -88,7 +88,7 @@ module Roby
                         raise ArgumentError, "#{model.root} has no event called #{symbol}"
                     end
                 end
-                script_task, model_task = resolve_task(event.task)
+                _, model_task = resolve_task(event.task)
                 model_event  = model_task.find_event(event.symbol)
                 script_event = instance_for(model_event)
                 return script_event, model_event
@@ -191,7 +191,7 @@ module Roby
             # emit an event (and quit the block)
             #
             # @param [Hash] options
-            # @option options [Event] :event (nil) if set, the given event will
+            # @option options [Event] :emit (nil) if set, the given event will
             #   be emitted when the timeout is reached. Otherwise, a
             #   Script::TimedOut exception is generated with the script's
             #   supporting task as origin
@@ -207,7 +207,7 @@ module Roby
             def timeout_start(seconds, options = Hash.new)
                 options, timeout_options  = Kernel.filter_options options, emit: nil
                 if event = options[:emit]
-                    script_event, model_event = resolve_event(event)
+                    _, model_event = resolve_event(event)
                 end
                 model.timeout_start(seconds, timeout_options.merge(emit: model_event))
             end
@@ -288,6 +288,3 @@ module Roby
         end
     end
 end
-
-
-

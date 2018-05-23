@@ -108,7 +108,6 @@ module Roby
 
                     it "adds the child as a dependency" do
                         event_source_task = self.event_source_task
-                        recorder = flexmock
                         root.script do
                             wait event_source_task.start_event
                         end
@@ -497,7 +496,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         model = Roby::Task.new_submodel { terminates }
         old, new = prepare_plan add: 2, model: model
         old.abstract = true
-        script = old.script do
+        old.script do
             emit success_event
         end
         plan.replace_task(old, new)

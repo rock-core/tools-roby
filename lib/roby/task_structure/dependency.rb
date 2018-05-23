@@ -69,7 +69,7 @@ module Roby
                     end
                 end
 
-                arguments = arguments.merge(required_arguments) do |name, old, new| 
+                arguments = arguments.merge(required_arguments) do |name, old, new|
                     if old != new
                         raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
                     end
@@ -434,7 +434,7 @@ module Roby
                 # +self+.
                 #
                 # I.e. if ['role1', 'role2', 'role3'] is a role path from +self+ to
-                # +task, it means that 
+                # +task, it means that
                 #
                 #    task1 = self.child_from_role('role1')
                 #    task2 = task1.child_from_role('role2')
@@ -479,7 +479,7 @@ module Roby
                 #
                 # success:: the list of success events. The default is [:success]
                 # failure:: the list of failing events. The default is [:failed]
-                # model:: 
+                # model::
                 #   a <tt>[task_model, arguments]</tt> pair which defines the task
                 #   model the parent is expecting.  The default value is to get these
                 #   parameters from +task+
@@ -504,9 +504,9 @@ module Roby
                         raise ArgumentError, "cannot add a dependency of a task to itself"
                     end
 
-                    options = Dependency.validate_options options, 
-                        model: [task.provided_models, task.meaningful_arguments], 
-                        success: :success.to_unbound_task_predicate, 
+                    options = Dependency.validate_options options,
+                        model: [task.provided_models, task.meaningful_arguments],
+                        success: :success.to_unbound_task_predicate,
                         failure: false.to_unbound_task_predicate,
                         remove_when_done: true,
                         consider_in_pending: true,
@@ -639,7 +639,7 @@ module Roby
                 # However, this fails in case +self+ is a root task in the dependency
                 # relation. Moreover, it might be handy to over-constrain the model
                 # computed through the dependency relation.
-                # 
+                #
                 # In both cases, a model can be specified explicitely by setting the
                 # fullfilled_model attribute. The value has to be
                 #
@@ -826,7 +826,7 @@ module Roby
                 def fullfilled_model
                     explicit_fullfilled_model || implicit_fullfilled_model
                 end
-                
+
                 # Enumerates the models that all instances of this task model fullfill
                 #
                 # @yieldparam [Model<Task>,Model<TaskService>] model
@@ -919,4 +919,3 @@ module Roby
         end
     end
 end
-

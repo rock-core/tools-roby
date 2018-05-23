@@ -559,7 +559,6 @@ module Roby
                 @propagation_sources = nil
                 @propagation_step_id = 0
 
-                before = @propagation
                 propagation_context([]) do
                     yield
                 end
@@ -855,7 +854,7 @@ module Roby
 
         # Compute the set of unhandled fatal exceptions
         def compute_kill_tasks_for_unhandled_fatal_errors(fatal_errors)
-            kill_tasks = fatal_errors.inject(Set.new) do |tasks, (exception, affected_tasks)|
+            kill_tasks = fatal_errors.inject(Set.new) do |tasks, (_exception, affected_tasks)|
                 tasks.merge(affected_tasks)
             end
             # Tasks might have been finalized during exception handling, filter
@@ -1052,7 +1051,7 @@ module Roby
         # the forwardings and signals that the propagation of the considered event
         # have added.
         def event_propagation_step(current_step, propagation_info)
-            signalled, step_id, forward_info, call_info = next_event(current_step)
+            signalled, _step_id, forward_info, call_info = next_event(current_step)
 
             next_step = nil
             if !call_info.empty?
@@ -2440,7 +2439,7 @@ module Roby
             when :ret
                 return value
             when :throw
-                throw *value
+                throw(*value)
             else
                 raise value
             end
