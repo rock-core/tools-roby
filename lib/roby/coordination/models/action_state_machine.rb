@@ -89,6 +89,10 @@ module Roby
             # Declares the starting state
             def start(state)
                 parse_names
+                if @starting_state
+                    raise ArgumentError, "this state machine already has a starting "\
+                        "state, use #depends_on to run more than one task at startup"
+                end
                 @starting_state = validate_task(state)
             end
 

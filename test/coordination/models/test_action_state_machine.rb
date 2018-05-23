@@ -46,6 +46,15 @@ describe Roby::Coordination::Models::ActionStateMachine do
         assert action_m.find_action_by_name('state_machine_action')
     end
 
+    it "raises if attempting to set two start states" do
+        assert_raises(ArgumentError) do
+            state_machine('state_machine_action') do
+                start(state(Roby::Task))
+                start(state(Roby::Task))
+            end
+        end
+    end
+
     it "defines the 'start_state' argument" do
         state_machine('state_machine_action') do
             start(state(Roby::Task))
