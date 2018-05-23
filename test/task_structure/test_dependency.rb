@@ -995,7 +995,7 @@ module Roby
                       no owners
                       no arguments
 
-                    Child cannot reach the success condition 'start?': the value of start? will not change anymore
+                    success condition can no longer be reached 'start?': the value of start? will not change anymore
                       the following event is unreachable:
                       event 'start'
 

@@ -907,7 +907,7 @@ module Roby
             if mode == :failed_event
                 pp.text "Child triggered the failure predicate '#{relation[:failure]}': "
             elsif mode == :unreachable_success
-                pp.text "Child cannot reach the success condition '#{relation[:success]}': "
+                pp.text "success condition can no longer be reached '#{relation[:success]}': "
             end
             explanation.pretty_print(pp, context_task: child)
         end
