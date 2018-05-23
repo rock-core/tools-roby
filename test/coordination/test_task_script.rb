@@ -197,27 +197,59 @@ module Roby
                         event :timeout
                     end
                     plan.add(@task = task_m.new)
+                end
 
-                    task.script do
-                        timeout 1, emit: timeout_event do
-                            wait intermediate_event
+                describe "with an event" do
+                    before do
+                        task.script do
+                            timeout 1, emit: timeout_event do
+                                wait intermediate_event
+                            end
+                            emit success_event
                         end
-                        emit success_event
+                    end
+
+                    it "passes if the sub-script finished before the timeout" do
+                        Timecop.freeze(Time.now)
+                        expect_execution { task.start! }.to { not_emit task.stop_event }
+                        expect_execution { task.intermediate_event.emit }.
+                            to { emit task.stop_event }
+                    end
+
+                    it "emits the timeout event and moves on if the sub-script has "\
+                        "not finished in time" do
+                        Timecop.freeze(base_time = Time.now)
+                        execute { task.start! }
+
+                        expect_execution { Timecop.freeze(base_time + 1.1) }.
+                            to { emit task.timeout_event }
                     end
                 end
 
-                it "passes if the sub-script finished before the timeout" do
-                    Timecop.freeze(base_time = Time.now)
-                    expect_execution { task.start! }.to { not_emit task.stop_event }
-                    expect_execution { task.intermediate_event.emit }.to { emit task.stop_event }
-                end
+                describe "without an event" do
+                    before do
+                        task.script do
+                            timeout 1 do
+                                wait intermediate_event
+                            end
+                            emit success_event
+                        end
+                    end
 
-                it "fails if the sub-script has not finished before the timeout" do
-                    Timecop.freeze(base_time = Time.now)
-                    execute { task.start! }
+                    it "passes if the sub-script finished before the timeout" do
+                        Timecop.freeze(Time.now)
+                        expect_execution { task.start! }.to { not_emit task.stop_event }
+                        expect_execution { task.intermediate_event.emit }.
+                            to { emit task.stop_event }
+                    end
 
-                    expect_execution { Timecop.freeze(base_time + 1.1) }.
-                        to { emit task.timeout_event }
+                    it "raises TimedOut if the sub-script has not finished in time" do
+                        Timecop.freeze(Time.now)
+                        execute { task.start! }
+
+                        expect_execution.poll { Timecop.freeze(Time.now + 0.3) }.
+                            to { have_error_matching Script::TimedOut }
+                    end
                 end
             end
         end
@@ -524,4 +556,3 @@ class TC_Coordination_TaskScript < Minitest::Test
         expect_execution.to { achieve { executed } }
     end
 end
-
