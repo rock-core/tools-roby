@@ -206,7 +206,7 @@ module Roby
                 else 0
                 end
             end
-            
+
             def replace(g)
                 @forward_edges_with_info.replace(g.instance_variable_get(:@forward_edges_with_info))
                 @backward_edges.replace(g.instance_variable_get(:@backward_edges))
@@ -416,7 +416,7 @@ module Roby
             # graphs.
             #
             # Each set is a Set of pairs
-            #  
+            #
             #   [source_vertex, sink_vertex]
             #
             # The vertices are vertices of +self+ for +new+ and +updated+, and
@@ -484,7 +484,7 @@ module Roby
                     end
                     seen_vertices[other_v] = nil
                 end
-            
+
                 return new, removed, updated
             end
         end
