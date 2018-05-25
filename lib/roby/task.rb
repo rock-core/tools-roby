@@ -1,6 +1,6 @@
 module Roby
-    # In a plan, Task objects represent the system's activities. 
-    # 
+    # In a plan, Task objects represent the system's activities.
+    #
     # === Task models
     #
     # A task model is mainly described by:
@@ -53,7 +53,7 @@ module Roby
     # has been inserted in a Plan object. Note that forcing executability with
     # #executable= is only useful for testing. When the Roby controller manages
     # a real systems, the executability property enforces the constraint that a
-    # task cannot be executed outside of the plan supervision. 
+    # task cannot be executed outside of the plan supervision.
     #
     # Finally, it is possible to describe _abstract_ task models: tasks which
     # do represent an action, but for which the _means_ to perform that action
@@ -96,7 +96,7 @@ module Roby
         #
         # @return [TaskArguments]
         attr_reader :arguments
-        
+
         # The accumulated history of this task
         #
         # This is the list of events that this task ever emitted, sorted by
@@ -141,7 +141,7 @@ module Roby
             end
             name
         end
-        
+
         # Whether the task is a mission for its owners.
         #
         # If you want to know if it a mission for the local system, use
@@ -164,7 +164,7 @@ module Roby
         # Helper to assign multiple argument values at once
         #
         # It differs from calling assign_argument in a loop in two ways:
-        # 
+        #
         # - it is common for subclasses to define a high-level argument that is,
         #   in the end, propagated to lower-level arguments. This method handles
         #   the fact that, when doing this, one will get parallel assignment of
@@ -213,7 +213,7 @@ module Roby
             end
         end
 
-        
+
         # Create a new task object
         #
         # @param [Plan] plan the plan this task should be added two. The default
@@ -225,7 +225,7 @@ module Roby
 
             @model   = self.class
             @abstract = @model.abstract?
-            
+
             @failed_to_start = false
             @pending = true
             @started = false
@@ -273,8 +273,8 @@ module Roby
                 @state_machine = TaskStateMachine.new(self.model.state_machine)
             end
         end
-        
-        # Retrieve the current state of the task 
+
+        # Retrieve the current state of the task
         #
         # Can be one of the core states: pending, failed_to_start, starting,
         # started, running, finishing, succeeded or failed
@@ -286,7 +286,7 @@ module Roby
         # @return [Symbol]
         def current_state
             # Started and not finished
-            if running? 
+            if running?
                 if respond_to?("state_machine")
                     # state_machine.status # => String
                     # state_machine.status_name # => Symbol
@@ -295,22 +295,22 @@ module Roby
                     return :running
                 end
             end
-        
+
             # True, when task has never been started
-            if pending? 
-                return :pending 
-            elsif failed_to_start? 
+            if pending?
+                return :pending
+            elsif failed_to_start?
                 return :failed_to_start
             elsif starting?
                 return :starting
             # True, when terminal event is pending
-            elsif finishing? 
+            elsif finishing?
                 return :finishing
             # Terminated with success or failure
-            elsif success? 
+            elsif success?
                 return :succeeded
-            elsif failed? 
-                return :failed 
+            elsif failed?
+                return :failed
             end
         end
 
@@ -318,7 +318,7 @@ module Roby
         #
         # @param [Symbol] state
         # @return [Boolean]
-        def current_state?(state) 
+        def current_state?(state)
             return state == current_state.to_sym
         end
 
@@ -436,7 +436,7 @@ module Roby
         #   task.abstract = <value>
         #
         attr_predicate :abstract?, true
-        
+
         # True if this task is executable. A task is not executable if it is
         # abstract or partially instanciated.
         #
@@ -451,12 +451,12 @@ module Roby
 
         # Returns true if this task's stop event is controlable
         def interruptible?; stop_event.controlable? end
-        # Set the executable flag. executable cannot be set to +false+ if the 
+        # Set the executable flag. executable cannot be set to +false+ if the
         # task is running, and cannot be set to true on a finished task.
         def executable=(flag)
             return if flag == @executable
             return unless self_owned?
-            if flag && !pending? 
+            if flag && !pending?
                 raise ModelViolation, "cannot set the executable flag of #{self} since it is not pending"
             elsif !flag && running?
                 raise ModelViolation, "cannot unset the executable flag of #{self} since it is running"
@@ -464,7 +464,7 @@ module Roby
             super
         end
 
-        # Lists all arguments, that are set to be needed via the :argument 
+        # Lists all arguments, that are set to be needed via the :argument
         # syntax but are not set.
         #
         # This is needed for debugging purposes.
@@ -480,7 +480,7 @@ module Roby
                 !actual_arguments.has_key?(name)
             end
         end
-        
+
         # True if all arguments defined by Task.argument on the task model are
         # either explicitely set or have a default value.
         def fully_instanciated?
@@ -500,7 +500,7 @@ module Roby
         def has_event?(event_model)
             bound_events.has_key?(event_model)
         end
-        
+
         # True if this task is starting, i.e. if its start event is pending
         # (has been called, but is not emitted yet)
         attr_predicate :starting?, true
@@ -663,7 +663,7 @@ module Roby
 
             result
         end
-        
+
         # Returns the set of events directly related to this task
         def related_events(result = Set.new)
             each_event do |ev|
@@ -673,7 +673,7 @@ module Roby
             result.reject { |ev| ev.respond_to?(:task) && ev.task == self }.
                 to_set
         end
-            
+
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
         def check_emission_validity(event) # :nodoc:
@@ -695,7 +695,7 @@ module Roby
             history << event
             update_task_status(event)
         end
-    
+
         # The most specialized event that caused this task to end
         attr_reader :terminal_event
 
@@ -719,7 +719,7 @@ module Roby
         #
         # It is only much more efficient
         attr_reader :failure_event
-        
+
         # Call to update the task status because of +event+
         def update_task_status(event) # :nodoc:
             if event.symbol == :start
@@ -744,7 +744,7 @@ module Roby
             if event.terminal?
                 @terminal_event ||= event
             end
-            
+
             if event.symbol == :stop
                 plan.task_index.remove_state(self, :running?)
                 plan.task_index.add_state(self, :finished?)
@@ -754,7 +754,7 @@ module Roby
                 @executable = false
             end
         end
-        
+
         # List of EventGenerator objects bound to this task
         attr_reader :bound_events
 
@@ -896,16 +896,23 @@ module Roby
             if with_owners
                 pp.nest(2) do
                     pp.breakable
-                    pp.text "owners: "
-                    pp.nest(2) do
-                        pp.seplist(owners) { |r| pp.text r.to_s }
+                    if owners.empty?
+                        pp.text "no owners"
+                    else
+                        pp.text "owners: "
+                        pp.nest(2) do
+                            pp.seplist(owners) { |r| pp.text r.to_s }
+                        end
                     end
                 end
             end
+
             pp.nest(2) do
                 pp.breakable
-                pp.text "arguments: "
-                if !arguments.empty?
+                if arguments.empty?
+                    pp.text "no arguments"
+                else
+                    pp.text "arguments: "
                     pp.nest(2) do
                         pp.breakable
                         arguments.pretty_print(pp)
@@ -918,7 +925,7 @@ module Roby
         def null?; false end
         # Converts this object into a task object
         def to_task; self end
-        
+
         # Event emitted when the task is started
         #
         # It is controlable by default, its command simply emitting the start
@@ -1047,7 +1054,7 @@ module Roby
         def poll(options = Hash.new, &block)
             default_on_replace = if abstract? then :copy else :drop end
             options = InstanceHandler.validate_options(options, on_replace: default_on_replace)
-            
+
             check_arity(block, 1)
             @poll_handlers << (handler = InstanceHandler.new(block, (options[:on_replace] == :copy)))
             ensure_poll_handler_called
@@ -1091,7 +1098,7 @@ module Roby
                 if respond_to?(:poll_handler)
                     poll_handler
                 end
-                
+
                 if machine = state_machine
                    machine.do_poll(self)
                 end
@@ -1144,7 +1151,7 @@ module Roby
         # to fullfill the need of the given model and arguments
         # The default is to check if
         #   * the needed task model is an ancestor of this task
-        #   * the task 
+        #   * the task
         #   * +args+ is included in the task arguments
         def fullfills?(models, args = nil)
             if models.kind_of?(Roby::Task)
@@ -1183,7 +1190,7 @@ module Roby
         # both its current role and the target's role. Roby has no built-in
         # merge logic (no merge method). This method is a helper for Roby
         # extensions that implement such a scheme, to check for attributes
-        # common to all tasks that would forbid a merge 
+        # common to all tasks that would forbid a merge
         def can_merge?(target)
             if defined?(super) && !super
                 return false
@@ -1541,9 +1548,9 @@ module Roby
         #
         # will create 3 Sequence instances. If more than two tasks should be
         # organized in a sequence, one should instead use Sequence#<<:
-        #   
+        #
         #   Sequence.new << a << b << c << d
-        #  
+        #
         def +(task)
             # !!!! + is NOT commutative
             if task.null?
@@ -1566,9 +1573,9 @@ module Roby
         #
         # will create three instances of Parallel. If more than two tasks should
         # be organized that way, one should instead use Parallel#<<:
-        #   
+        #
         #   Parallel.new << a << b << c << d
-        #  
+        #
         def |(task)
             if self.null?
                 task
@@ -1627,4 +1634,3 @@ module Roby
         TaskStructure.default_graph_class = Relations::TaskRelationGraph
     end
 end
-

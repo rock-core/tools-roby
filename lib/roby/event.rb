@@ -27,7 +27,7 @@ module Roby
         def sources
             result = Set.new
             @sources.delete_if do |ref|
-                begin 
+                begin
                     result << ref.__getobj__
                     false
                 rescue WeakRef::RefError
@@ -81,7 +81,7 @@ module Roby
         end
 
         # To be used in the event generators ::new methods, when we need to reemit
-        # an event while changing its 
+        # an event while changing its
         def reemit(new_id, new_context = nil)
             if propagation_id != new_id || (new_context && new_context != context)
                 new_event = self.dup
@@ -110,14 +110,14 @@ module Roby
             "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class.to_s}: #{context}"
         end
 
-        def pretty_print(pp, with_context = true) # :nodoc:
+        def pretty_print(pp, context: true, context_task: nil) # :nodoc:
             pp.text "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class}"
-            if with_context && context
+            if context && !self.context.empty?
                 pp.breakable
                 pp.text "with context"
                 pp.nest(2) do
                     pp.text "  "
-                    pp.seplist(context) do |v|
+                    pp.seplist(self.context) do |v|
                         v.pretty_print(pp)
                     end
                 end
@@ -133,4 +133,3 @@ module Roby
         end
     end
 end
-

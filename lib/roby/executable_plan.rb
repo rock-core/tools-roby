@@ -35,7 +35,7 @@ module Roby
         # @return [Set<Roby::Task>]
         attr_reader :force_gc
 
-        # The list of plan-wide exception handlers 
+        # The list of plan-wide exception handlers
         #
         # @return [Array<(#===, #call)>]
         attr_reader :exception_handlers
@@ -195,7 +195,7 @@ module Roby
             for trsc in transactions
                 next unless trsc.proxying?
                 if (parent_proxy = trsc[parent, create: false]) && (child_proxy = trsc[child, create: false])
-                    trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info) 
+                    trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info)
                 end
             end
         end
@@ -277,7 +277,7 @@ module Roby
             for trsc in transactions
                 next unless trsc.proxying?
                 if (parent_proxy = trsc[parent, create: false]) && (child_proxy = trsc[child, create: false])
-                    trsc.removing_plan_relation(parent_proxy, child_proxy, relations) 
+                    trsc.removing_plan_relation(parent_proxy, child_proxy, relations)
                 end
             end
         end
@@ -546,4 +546,3 @@ module Roby
         end
     end
 end
-

@@ -42,7 +42,7 @@ module Roby
                 sublib.subcommand 'subsublib', subsublib, 'test subcommand'
 
                 flexmock(@interface = interface_class.new(app))
-                server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0) 
+                server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0)
                 @server_channel = DRobyChannel.new(server_socket, false)
                 @server    = Server.new(@server_channel, interface)
             end
@@ -152,7 +152,7 @@ module Roby
                 it "gets notified of the new jobs on creation" do
                     client = open_client
                     job_id = while_polling_server { client.test! }
-                    interface.push_pending_job_notifications
+                    interface.push_pending_notifications
                     server.poll
                     client.poll
                     assert client.has_job_progress?
@@ -350,7 +350,7 @@ module Roby
                 plan.add(t1 = Tasks::Simple.new(id: 2))
                 plan.execution_engine.notify_exception :fatal, Exception.new, [t0]
                 plan.execution_engine.notify_exception :warn, Exception.new, [t1]
-                interface.push_pending_job_notifications
+                interface.push_pending_notifications
                 server.poll
                 client.poll
                 assert client.has_exceptions?
@@ -369,7 +369,7 @@ module Roby
                     provides Job
                 end.new(job_id: 1)
                 plan.execution_engine.notify_exception :fatal, Exception.new, [task]
-                interface.push_pending_job_notifications
+                interface.push_pending_notifications
                 server.poll
                 client.poll
                 *_, jobs = client.pop_exception.last
@@ -563,4 +563,3 @@ module Roby
         end
     end
 end
-

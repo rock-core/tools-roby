@@ -175,7 +175,7 @@ module Roby
                 def terminated?
                     Roby::Interface.terminal_state?(state)
                 end
-                
+
                 # Tests whether this job has been finalized
                 def finalized?
                     Roby::Interface.finalized_state?(state)
@@ -206,8 +206,23 @@ module Roby
                 def kill
                     interface.client.kill_job(job_id)
                 end
+
+                def pretty_print(pp)
+                    pp.text "##{job_id} #{action_name}"
+                    unless action_arguments.empty?
+                        pp.nest(2) do
+                            action_arguments.each do |k, v|
+                                pp.breakable
+                                pp.text "#{k}: "
+                                pp.nest(2) { v.pretty_print(pp) }
+                            end
+                        end
+                    end
+                    pp.breakable
+                    pp.breakable
+                    placeholder_task.pretty_print(pp)
+                end
             end
         end
     end
 end
-

@@ -11,7 +11,7 @@ module Robot
     def self.action_from_model(model)
         return Roby.app.action_from_model(model)
     end
-    
+
     # @deprecated use Roby.app.find_action_from_name instead
     def self.find_action_from_name(name)
         return Roby.app.find_action_from_name(name)
@@ -97,4 +97,3 @@ module Robot
         Roby.app.actions(user: true, &block)
     end
 end
-

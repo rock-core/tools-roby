@@ -95,18 +95,21 @@ module Roby
             result
         end
 
-        def pretty_print(pp, with_context = true)
-            pp.text "event '#{symbol}' emitted at [#{Roby.format_time(time)} @#{propagation_id}] from "
-            pp.nest(2) do
-                pp.breakable
-                task.pretty_print(pp)
+        def pretty_print(pp, context: true, context_task: nil)
+            pp.text "event '#{symbol}' emitted at [#{Roby.format_time(time)} @#{propagation_id}]"
+            if !context_task || context_task != task
+                pp.text " from"
+                pp.nest(2) do
+                    pp.breakable
+                    task.pretty_print(pp)
+                end
             end
 
-            if with_context && context
+            if context && !self.context.empty?
                 pp.breakable
                 pp.nest(2) do
                     pp.text "  "
-                    pp.seplist(context) do |v|
+                    pp.seplist(self.context) do |v|
                         v.pretty_print(pp)
                     end
                 end

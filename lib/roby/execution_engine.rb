@@ -2591,9 +2591,9 @@ module Roby
         # Call to notify the listeners registered with {#on_exception} of the
         # occurence of an exception
         def notify_exception(kind, error, involved_objects)
-                log(:exception_notification, plan.droby_id, kind, error, involved_objects)
+            log(:exception_notification, plan.droby_id, kind, error, involved_objects)
             exception_listeners.each do |listener|
-            listener.call(self, kind, error, involved_objects)
+                listener.call(self, kind, error, involved_objects)
             end
         end
 

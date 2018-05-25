@@ -13,7 +13,7 @@ class Exception
     def pretty_print(pp)
         pp.text "#{message} (#{self.class.name})"
     end
-    
+
     # True if +obj+ is involved in this error
     def involved_plan_object?(obj)
         false
@@ -87,7 +87,7 @@ module Roby
         def propagated?; true end
         # The object describing the point of failure
         attr_reader :failure_point
-        
+
         # The objects of the given categories which are related to #failure_point
         attr_reader :failed_event, :failed_generator, :failed_task
 
@@ -133,7 +133,7 @@ module Roby
 
         # True if +obj+ is involved in this error
         def involved_plan_object?(obj)
-            obj.kind_of?(PlanObject) && 
+            obj.kind_of?(PlanObject) &&
                 (obj == failed_event ||
                  obj == failed_generator ||
                  obj == failed_task)
@@ -386,7 +386,7 @@ module Roby
             end
         end
     end
-    
+
     # Exception raised when the event loop aborts because of an unhandled
     # exception
     class Aborting < ExceptionBase
@@ -394,7 +394,7 @@ module Roby
             pp.text "control loop aborting because of unhandled exceptions"
         end
         def backtrace # :nodoc:
-            [] 
+            []
         end
     end
 
@@ -419,7 +419,7 @@ module Roby
             to.pretty_print(pp)
         end
     end
-    
+
     # Exception raised when a mission has failed
     class ToplevelTaskError < LocalizedError
         include UserExceptionWrapper
@@ -544,4 +544,3 @@ module Roby
         end
     end
 end
-

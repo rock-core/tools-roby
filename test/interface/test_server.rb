@@ -297,14 +297,7 @@ module Roby
                 describe "the job handler" do
                     handler_error_behaviour do
                         interface.job_notify JOB_MONITORED, 10, 'test'
-                        interface.push_pending_job_notifications
-                    end
-                end
-
-                describe "the exception handler" do
-                    handler_error_behaviour do
-                        interface.app.execution_engine.notify_exception \
-                            "test", error_m, []
+                        interface.push_pending_notifications
                     end
                 end
 

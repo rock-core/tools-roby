@@ -216,7 +216,7 @@ module Roby
                 execution_engine.add_error(error)
                 return
             end
-            
+
             calling(context)
 
             if (error = check_call_validity) || (error = check_call_validity_after_calling)
@@ -252,7 +252,7 @@ module Roby
         # whether the command has emitted or not. This can be used to determine
         # in which context errors should be raised
         attr_predicate :command_emitted?, false
-        
+
         # Call the command associated with self. Note that an event might be
         # non-controlable and respond to the :call message. Controlability must
         # be checked using #controlable?
@@ -283,7 +283,7 @@ module Roby
         # Class used to register event handler blocks along with their options
         class EventHandler
             attr_reader :block
-            
+
             def initialize(block, copy_on_replace, once)
                 @block, @copy_on_replace, @once = block, copy_on_replace, once
             end
@@ -581,11 +581,11 @@ module Roby
                 call_handlers(event)
             end
         end
-        
+
         # Call the event handlers defined for this event generator
         def call_handlers(event)
             # Since we are in a gathering context, call
-            # to other objects are not done, but gathered in the 
+            # to other objects are not done, but gathered in the
             # :propagation TLS
             all_handlers = enum_for(:each_handler).to_a
             processed_once_handlers = all_handlers.find_all do |h|
@@ -624,7 +624,7 @@ module Roby
                 else "failed to emit #{self}"
                 end
 
-            if Class === error 
+            if Class === error
                 error = error.new(nil, self)
                 error.set_backtrace caller(1)
             end
@@ -705,7 +705,7 @@ module Roby
         # @overload achieve_with(generator)
         #   Emit self next time generator is emitted, and mark it as unreachable
         #   if generator is. The event context is propagated through.
-        #   
+        #
         #   @param [EventGenerator] generator
         #
         # @overload achieve_with(generator) { |event| ... }
@@ -714,7 +714,7 @@ module Roby
         #   event context
         #
         #   An exception raised by the filter will be localized on self.
-        #   
+        #
         #   @param [EventGenerator] generator
         #   @yieldparam [Event] event the event emitted by 'generator'
         #   @yieldreturn [Object] the context to be used for self's event
@@ -752,9 +752,9 @@ module Roby
         #   {ExecutionEngine#promise} to create this promise.
         # @param [Proc,nil] block a block from which the method will create a
         #   promise. This promise is *not* returned as it would give a false
-        #   sense of security. 
+        #   sense of security.
         # @param [Symbol] on_failure controls what happens if the promise fails.
-        #   With the default of :fail, the event generator's emit_failed is 
+        #   With the default of :fail, the event generator's emit_failed is
         #   called. If it is :emit, it gets emitted. If it is :nothing,
         #   nothing's done
         #
@@ -812,7 +812,7 @@ module Roby
 
         # Yields all precondition handlers defined for this generator
         def each_precondition # :yield:reason, block
-            @preconditions.each { |o| yield(o) } 
+            @preconditions.each { |o| yield(o) }
         end
 
         # Call this method in the #calling hook to cancel calling the event
@@ -853,7 +853,7 @@ module Roby
         # Hook called just after the event command has been called
         def called(context)
         end
-        
+
         # Hook called when this event will be emitted
         def emitting(context)
         end
@@ -917,9 +917,9 @@ module Roby
         #   source.call # => target is emitted
         #   until.call
         #   source.call # => target is not emitted anymore
-        #   
+        #
         def until(limit); UntilGenerator.new(self, limit) end
-        
+
         # Checks that ownership allows to add the self => child relation
         def add_child_object(child, type, info) # :nodoc:
             if !child.read_write?
@@ -1003,7 +1003,7 @@ module Roby
             end
         end
 
-        def pretty_print(pp) # :nodoc:
+        def pretty_print(pp, context_task: nil) # :nodoc:
             pp.text to_s
             pp.group(2, ' {', '}') do
                 pp.breakable
@@ -1044,4 +1044,3 @@ module Roby
         EventStructure.default_graph_class = Relations::EventRelationGraph
     end
 end
-

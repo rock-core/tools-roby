@@ -180,6 +180,7 @@ module Roby
             def register_executable_plan(time, plan_id)
                 @plan = RebuiltPlan.new
                 object_manager.register_object(plan, nil => plan_id)
+                @plan
             end
 
             def merged_plan(time, plan_id, merged_plan)
@@ -188,10 +189,12 @@ module Roby
                     merged_plan.free_events.to_a +
                     merged_plan.task_events.to_a
 
-                local_object(plan).merge(merged_plan)
+                plan = local_object(plan_id)
+                plan.merge(merged_plan)
                 tasks_and_events.each do |obj|
                     obj.addition_time = time
                 end
+                [plan, merged_plan]
             end
 
             def added_edge(time, parent, child, relations, info)
@@ -201,6 +204,7 @@ module Roby
                 info   = local_object(info)
                 g = parent.relation_graph_for(rel)
                 g.add_edge(parent, child, info)
+                [parent, child, rel, info]
             end
 
             def updated_edge_info(time, parent, child, relation, info)
@@ -210,6 +214,7 @@ module Roby
                 info   = local_object(info)
                 g = parent.relation_graph_for(rel)
                 g.set_edge_info(parent, child, info)
+                [parent, child, rel, info]
             end
 
             def removed_edge(time, parent, child, relations)
@@ -218,6 +223,7 @@ module Roby
                 rel    = local_object(relations.first)
                 g = parent.relation_graph_for(rel)
                 g.remove_edge(parent, child)
+                [parent, child, rel]
             end
 
             def task_status_change(time, task, status)
@@ -230,6 +236,7 @@ module Roby
                 elsif status == :mission
                     plan.add_mission_task(task)
                 end
+                task
             end
 
             def event_status_change(time, event, status)
@@ -239,18 +246,23 @@ module Roby
                 elsif status == :permanent
                     plan.add_permanent_event(event)
                 end
+                event
             end
 
-            def garbage_task(time, plan, object, can_finalize)
+            def garbage_task(time, plan, task, can_finalize)
                 plan = local_object(plan)
-                object = local_object(object)
-                plan.garbaged_tasks << object
+                task = local_object(task)
+                if can_finalize
+                    plan.garbaged_tasks << task
+                end
+                task
             end
 
-            def garbage_event(time, plan, object)
+            def garbage_event(time, plan, event)
                 plan = local_object(plan)
-                object = local_object(object)
-                plan.garbaged_events << object
+                event = local_object(event)
+                plan.garbaged_events << event
+                event
             end
 
             def finalized_event(time, plan_id, event)
@@ -263,6 +275,7 @@ module Roby
                     announce_structure_update
                 end
                 object_manager.deregister_object(event)
+                [plan, event]
             end
             def finalized_task(time, plan_id, task)
                 plan = local_object(plan_id)
@@ -274,12 +287,14 @@ module Roby
                     announce_structure_update
                 end
                 object_manager.deregister_object(task)
+                [plan, task]
             end
 
             def task_arguments_updated(time, task, key, value)
                 task  = local_object(task)
                 value = local_object(value)
                 task.arguments.force_merge!(key => value)
+                [task, value]
             end
 
             def task_failed_to_start(time, task, reason)
@@ -288,12 +303,12 @@ module Roby
                 task.plan.failed_to_start << [task, reason]
                 task.mark_failed_to_start(reason, time)
                 announce_event_propagation_update
+                [task, reason]
             end
 
             def generator_fired(time, event)
                 event     = local_object(event)
                 generator = event.generator
-                plan      = event.plan
 
                 generator.history << event
                 generator.instance_eval { @emitted = true }
@@ -302,6 +317,7 @@ module Roby
                 end
                 generator.plan.emitted_events << event
                 announce_event_propagation_update
+                event
             end
 
             def generator_emit_failed(time, generator, error)
@@ -309,6 +325,7 @@ module Roby
                 error = local_object(error)
                 generator.plan.failed_emissions << [generator, error]
                 announce_event_propagation_update
+                [generator, error]
             end
 
             def generator_propagate_events(time, is_forwarding, events, generator)
@@ -316,30 +333,49 @@ module Roby
                 generator = local_object(generator)
                 generator.plan.propagated_events << [is_forwarding, events, generator]
                 announce_event_propagation_update
+                [events, generator]
             end
 
             def generator_unreachable(time, generator, reason)
-                local_object(generator).mark_unreachable!(local_object(reason))
+                generator = local_object(generator)
+                reason    = local_object(reason)
+                generator.mark_unreachable!(reason)
+                [generator, reason]
             end
 
             def exception_notification(time, plan_id, mode, error, involved_objects)
-                local_object(plan_id).propagated_exceptions << [mode, local_object(error), local_object(involved_objects)]
+                error = local_object(error)
+                involved_objects = local_object(involved_objects)
+                plan = local_object(plan_id)
+                plan.propagated_exceptions <<
+                    [mode, error, involved_objects]
+                [plan, error, involved_objects]
             end
 
-            def scheduler_report_pending_non_executable_task(time, msg, task, *args)
-                scheduler_state.report_pending_non_executable_task(msg, local_object(task), *local_object(args))
+            def scheduler_report_pending_non_executable_task(time, msg, *args)
+                args = local_object(args)
+                scheduler_state.report_pending_non_executable_task(msg, *args)
+                [msg, *args]
             end
 
             def scheduler_report_trigger(time, generator)
-                scheduler_state.report_trigger(local_object(generator))
+                generator = local_object(generator)
+                scheduler_state.report_trigger(generator)
+                generator
             end
 
             def scheduler_report_holdoff(time, msg, task, *args)
-                scheduler_state.report_holdoff(msg, local_object(task), *local_object(args))
+                task = local_object(task)
+                args = local_object(args)
+                scheduler_state.report_holdoff(msg, task, *args)
+                [msg, task, *args]
             end
 
             def scheduler_report_action(time, msg, task, *args)
-                scheduler_state.report_action(msg, local_object(task), *local_object(args))
+                task = local_object(task)
+                args = local_object(args)
+                scheduler_state.report_action(msg, task, *args)
+                [msg, task, args]
             end
 
             def cycle_end(time, timings)
@@ -351,13 +387,13 @@ module Roby
                 announce_state_update
             end
 
-            def timepoint_group_start(time, *name)
+            def timepoint_group_start(time, *)
             end
 
-            def timepoint_group_end(time, *name)
+            def timepoint_group_end(time, *)
             end
 
-            def timepoint(time, *name)
+            def timepoint(time, *)
             end
 
             def pretty_print(pp)
@@ -370,4 +406,3 @@ module Roby
         end
     end
 end
-
