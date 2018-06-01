@@ -795,8 +795,12 @@ module Roby
                     true
                 end
                 created_log_base_dirs.sort_by(&:length).reverse_each do |dir|
-                    # .rmdir will ignore nonempty / nonexistent directories
-                    FileUtils.rmdir(dir)
+                    # .rmdir will ignore nonempty / nonexistent directories on
+                    # 2.3 but on 2.5 you have to rescue.
+                    begin
+                        FileUtils.rmdir(dir)
+                    rescue Errno::ENOTEMPTY
+                    end
                     created_log_base_dirs.delete(dir)
                 end
                 @log_dir = nil
