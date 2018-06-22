@@ -40,6 +40,12 @@ module Roby
                 end
 
                 def self.common_behavior_on_poll_exception
+                    it "does not disconnect a client based on the return value of #poll" do
+                        @client.should_receive(:poll).and_return(true)
+                        @server.process_pending_requests
+                        refute @client.closed?
+                        assert @server.has_client?(@client)
+                    end
                     it "disconnects a client that raises within #poll" do
                         @client.should_receive(:poll).and_raise(ComError)
                         @server.process_pending_requests

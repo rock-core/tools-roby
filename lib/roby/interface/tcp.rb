@@ -101,6 +101,7 @@ module Roby
                 clients.delete_if do |client|
                     begin
                         client.poll
+                        false
                     rescue Exception => e
                         client.close
 
