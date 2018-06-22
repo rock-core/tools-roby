@@ -104,6 +104,9 @@ end
 class ShellEvalContext < BasicObject
     include ::Kernel
 
+    WHITELISTED_METHODS = [:actions, :wtf?, :cancel, :safe, :unsafe, :safe?, :help].
+        freeze
+
     def initialize(interface, send_q: ::Queue.new, results_q: ::Queue.new)
         @__interface = interface
         @__send = send_q
@@ -115,7 +118,7 @@ class ShellEvalContext < BasicObject
     end
 
     def method_missing(m, *args, &block)
-        if @__interface.class.method_defined?(m)
+        if WHITELISTED_METHODS.include?(m)
             return @__interface.send(m, *args, &block)
         end
 

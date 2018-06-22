@@ -137,7 +137,7 @@ module Roby
             def describe(matcher)
                 if matcher.kind_of?(Roby::Actions::Action)
                     pp matcher.model
-                elsif matcher.kind_of?(Roby::Actions::Model::Action)
+                elsif matcher.kind_of?(Roby::Actions::Models::Action)
                     pp matcher
                 else
                     client.find_all_actions_matching(matcher).each do |act|
@@ -433,7 +433,7 @@ module Roby
                             end
                         end
 
-                    already_summarized, messages = 
+                    already_summarized, messages =
                         summarize_pending_messages(already_summarized)
                     yield(has_valid_connection, messages)
                     if has_valid_connection
