@@ -155,7 +155,7 @@ module Roby
         describe "#propagation_context" do
             it "sets the sources to the given set" do
                 execution_engine.gather_propagation do
-                    execution_engine.propagation_context(sources = [event = flexmock]) do
+                    execution_engine.propagation_context([event = flexmock]) do
                         assert_equal [event], execution_engine.propagation_sources
                     end
                 end
@@ -175,7 +175,7 @@ module Roby
                     execution_engine.gather_propagation do
                         execution_engine.propagation_context(original_sources = [flexmock]) do
                             begin
-                                execution_engine.propagation_context(sources = [flexmock]) do
+                                execution_engine.propagation_context([flexmock]) do
                                     raise
                                 end
                             ensure
@@ -772,11 +772,14 @@ module Roby
                         unhandled: [full_trace, Set[root, child]],
                         handled: [])
                 end
-                assert_match /some parents specified for.*are actually not parents of #{Regexp.quote(child.to_s)}, they got filtered out/, messages[0]
+                rx = Regexp.new("some parents specified for.*are actually not parents "\
+                    "of #{Regexp.quote(child.to_s)}, they got filtered out")
+                assert_match rx, messages[0]
                 assert_equal "  #{task}", messages[1]
             end
 
-            it "will propagate through all parents if filtering out non-existing parents results in an empty set" do
+            it "will propagate through all parents if filtering out "\
+                "non-existing parents results in an empty set" do
                 plan.add(task = task_m.new(name: 'task'))
 
                 exception = localized_error_m.new(child).to_execution_exception
@@ -794,7 +797,9 @@ module Roby
                         unhandled: [full_trace, Set[root, child]],
                         handled: [])
                 end
-                assert_match /some parents specified for.*are actually not parents of #{Regexp.quote(child.to_s)}, they got filtered out/, messages[0]
+                rx = Regexp.new("some parents specified for.*are actually not parents "\
+                    "of #{Regexp.quote(child.to_s)}, they got filtered out")
+                assert_match rx, messages[0]
                 assert_equal "  #{task}", messages[1]
             end
 
@@ -1223,7 +1228,7 @@ module Roby
                     mock_compute_errors :fatal_errors
                     Roby.app.filter_backtraces = false
                     assert_receives_notification ExecutionEngine::EXCEPTION_FATAL
-                    messages = capture_log(execution_engine, :warn) do
+                    capture_log(execution_engine, :warn) do
                         execution_engine.process_events
                     end
                 end
@@ -1732,7 +1737,7 @@ module Roby
 
         it "passes an exception raised within the block to the thread" do
             error = Class.new(RuntimeError)
-            thread = wait_until_in_thread task.start_event do
+            wait_until_in_thread task.start_event do
                 raise error
             end
             execute { task.start! }
@@ -2009,13 +2014,12 @@ module Roby
             it "executes the block after the delay expired" do
                 trigger_time = nil
                 execution_engine.delayed(5) { trigger_time = Time.now }
-                expect_execution.timeout(10).to do
-                    achieve do
-                        Timecop.freeze(Time.now + 1)
-                        trigger_time
-                    end
-                end
-                assert_equal @base_time + 5, trigger_time
+                expect_execution.timeout(10).poll { Timecop.freeze(Time.now + 1) }.
+                    to { achieve { trigger_time } }
+                # NOTE: the delayed blocks are added within a once { } context
+                # NOTE: the usage of #poll above makes it so that the delay is
+                # NOTE: added only at base_time + 1, hence the base_time + 6
+                assert_equal @base_time + 6, trigger_time
             end
 
             it "executes the block only once" do
@@ -2023,8 +2027,9 @@ module Roby
                 recorder.should_receive(:call).once
                 execution_engine.delayed(5) { recorder.call }
                 execute_one_cycle
-                Timecop.freeze(@base_time + 6)
+                Timecop.freeze(Time.now + 6)
                 execute_one_cycle
+                Timecop.freeze(Time.now + 6)
                 execute_one_cycle
             end
 
@@ -2033,7 +2038,7 @@ module Roby
                 recorder.should_receive(:call).never
                 handler = execution_engine.delayed(5) { recorder.call }
                 execute_one_cycle
-                Timecop.freeze(@base_time + 6)
+                Timecop.freeze(Time.now + 6)
                 handler.dispose
                 execute_one_cycle
             end
@@ -2097,10 +2102,10 @@ class TC_ExecutionEngine < Minitest::Test
         plan.add [e1, e2, e3]
 
         pending = Array.new
-        def pending.each_key; each { |(k, v)| yield(k) } end
+        def pending.each_key; each { |(k, _)| yield(k) } end
         def pending.delete(ev)
-            value = find { |(k, v)| k == ev }.last
-            delete_if { |(k, v)| k == ev }
+            value = find { |(k, _)| k == ev }.last
+            delete_if { |(k, _)| k == ev }
             value
         end
 
@@ -2125,7 +2130,7 @@ class TC_ExecutionEngine < Minitest::Test
     end
 
     def test_delayed_signal
-        Timecop.freeze(base_time = Time.now)
+        Timecop.freeze(Time.now)
 
         plan.add_mission_task(t = Tasks::Simple.new)
         e = EventGenerator.new(true)
@@ -2370,7 +2375,7 @@ class TC_ExecutionEngine < Minitest::Test
 
                     sorted_by_time = timepoints.sort_by { |name, d| d }
                     sorted_by_name = timepoints.sort_by { |name, d| time_events.index(name) }
-                    sorted_by_time.each_with_index do |(name, d), i|
+                    sorted_by_time.each_with_index do |(_name, d), i|
                         assert(sorted_by_name[i][1] == d)
                     end
                 end

@@ -50,7 +50,7 @@ describe ActionScript do
         end
 
         it "fails if asked to wait for an unreachable event" do
-            script = start_script
+            start_script
             expect_execution { action_task.intermediate_event.unreachable! }.
                 to { have_error_matching Models::Script::DeadInstruction.match.with_origin(root_task) }
         end
@@ -58,7 +58,7 @@ describe ActionScript do
         it "fails if the event it is waiting for becomes unreachable" do
             task_model.event :second
             script_model.wait script_task.second_event
-            script = start_script
+            start_script
             execute { action_task.second_event.unreachable! }
             expect_execution { action_task.intermediate_event.unreachable! }.
                 to { have_error_matching Models::Script::DeadInstruction.match.with_origin(root_task) }
@@ -135,7 +135,7 @@ describe ActionScript do
                 and_return(action_task = task_model.new)
             script_model.forward script_task.intermediate_event, script_model.success_event
             script_model.start script_task
-            script = script_model.new(root_task)
+            script_model.new(root_task)
             execute { root_task.start! }
             expect_execution do
                 action_task.start!
@@ -148,4 +148,3 @@ describe ActionScript do
 end
     end
 end
-

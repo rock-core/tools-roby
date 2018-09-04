@@ -4,7 +4,7 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
         include DRoby::EventLogging
-        
+
         # The Peer ID of the local owner (i.e. of the local process / execution
         # engine)
         attr_accessor :local_owner
@@ -219,7 +219,7 @@ module Roby
             task_index.merge(plan.task_index)
             task_events.merge(plan.task_events)
         end
-        
+
         def merge_relation_graphs(plan)
             # Now merge the relation graphs
             #
@@ -607,7 +607,7 @@ module Roby
 
         # True if the given event is registered as a permanent event on self
         def permanent_event?(generator)
-            @permanent_events.include?(generator) 
+            @permanent_events.include?(generator)
         end
 
         # Removes a task from the set of permanent tasks
@@ -677,7 +677,7 @@ module Roby
             elsif to.plan != self
                 raise ArgumentError, "trying to replace #{to} but its plan is #{to.plan}, expected #{self}"
             elsif from == to
-                return 
+                return
             end
 
             # Swap the subplans of +from+ and +to+
@@ -758,7 +758,7 @@ module Roby
                 @tasks.merge(tasks)
                 self
             end
-            
+
             # Exclude a single task
             #
             # @param [Task] task the task to be excluded
@@ -767,7 +767,7 @@ module Roby
                 @tasks << task
                 self
             end
-            
+
             # Tests whether a task is to be excluded
             #
             # @param [Task] task
@@ -1378,7 +1378,7 @@ module Roby
             return enum_for(__method__) if !block_given?
             @tasks.each { |t| yield(t) }
         end
- 
+
         # Returns +object+ if object is a plan object from this plan, or if
         # it has no plan yet (in which case it is added to the plan first).
         # Otherwise, raises ArgumentError.
@@ -1592,7 +1592,7 @@ module Roby
                 return task.create_fresh_copy
             end
 
-            planner = replan(old_planner = task.planning_task)
+            planner = replan(task.planning_task)
             planned = task.create_fresh_copy
             planned.abstract = true
             planned.planned_by planner
@@ -1600,7 +1600,7 @@ module Roby
             planned
         end
 
-        
+
         # The set of blocks that should be called to check the structure of the
         # plan.
         #
@@ -1635,7 +1635,7 @@ module Roby
             result
         end
         structure_checks << method(:check_failed_missions)
-        
+
         # @api private
         #
         # Normalize the value returned by one of the {#structure_checks}, by
@@ -1909,4 +1909,3 @@ module Roby
         end
     end
 end
-

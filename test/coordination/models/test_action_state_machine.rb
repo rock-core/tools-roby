@@ -46,6 +46,15 @@ describe Roby::Coordination::Models::ActionStateMachine do
         assert action_m.find_action_by_name('state_machine_action')
     end
 
+    it "raises if attempting to set two start states" do
+        assert_raises(ArgumentError) do
+            state_machine('state_machine_action') do
+                start(state(Roby::Task))
+                start(state(Roby::Task))
+            end
+        end
+    end
+
     it "defines the 'start_state' argument" do
         state_machine('state_machine_action') do
             start(state(Roby::Task))
@@ -143,7 +152,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
         it "raises if attempting to specify a state that is not a toplevel state" do
             monitoring = state_machine.state(action_m.monitoring_task)
             start.depends_on(monitoring)
-            
+
             assert_raises(Roby::Coordination::Models::NotToplevelState) do
                 state_machine.forward monitoring, monitoring.success_event,
                     state_machine.success_event
@@ -152,7 +161,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
         it "raises if attempting to specify an event that is not active in the state" do
             monitoring = state_machine.state(action_m.monitoring_task)
             state_machine.transition start.success_event, monitoring
-            
+
             assert_raises(Roby::Coordination::Models::EventNotActiveInState) do
                 state_machine.forward start, monitoring.success_event,
                     state_machine.success_event
@@ -197,7 +206,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
     describe "#state" do
         it "can use any object that responds to #to_action_state" do
             obj = flexmock
-            obj.should_receive(:to_action_state).and_return(task = Roby::Task.new)
+            obj.should_receive(:to_action_state).and_return(Roby::Task.new)
             task_m = self.task_m
             assert_raises(ArgumentError) do
                 Roby::Actions::Interface.new_submodel do
@@ -283,10 +292,9 @@ describe Roby::Coordination::Models::ActionStateMachine do
                 coordination_model
 
             assert_equal 1, rebound.forwards.size
-            source_event, target_event = rebound.forwards.first
-
             assert_equal [[new_action_m.monitoring_task, 'task_dependency']],
-                rebound.find_state_by_name('start_task').dependencies.map { |task, role| [task.action, role] }
+                rebound.find_state_by_name('start_task').dependencies.
+                    map { |task, role| [task.action, role] }
         end
     end
 
@@ -343,7 +351,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
                 # task model can be transferred afterwards
                 test_task_m = Roby::Task.new_submodel
                 start_task_m = Roby::Task.new_submodel
-                description = action_m.describe("with_arguments").
+                action_m.describe("with_arguments").
                     optional_arg('test', 'test', test_task_m)
                 action_m.action_state_machine 'with_arguments' do
                     start state(start_task_m)

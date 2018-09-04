@@ -12,6 +12,61 @@ module Roby
                     interface_m.register_action 'test', action_m
                 end
 
+                describe "validation of the returned value" do
+                    before do
+                        @parent_task_m = Roby::Task.new_submodel
+                        @task_m = @parent_task_m.new_submodel
+                        flexmock(interface_m).new_instances.should_receive(:test).
+                            explicitly.
+                            and_return(@task = @task_m.new)
+                    end
+                    it "accepts a task of the expected returned task model" do
+                        @action_m.returns(@task_m)
+                        @action_m.instanciate(plan)
+                    end
+                    it "accepts a task as a submodel of the expected returned task model" do
+                        @action_m.returns(@parent_task_m)
+                        @action_m.instanciate(plan)
+                    end
+                    it "rejects a task of an unexpected task model" do
+                        @action_m.returns(expected_m = Roby::Task.new_submodel)
+                        assert_raises(MethodAction::InvalidReturnedType) do
+                            @action_m.instanciate(plan)
+                        end
+                    end
+
+                    it "provides raw and pretty-printed messages" do
+                        @action_m.returns(expected_m = Roby::Task.new_submodel)
+                        e = assert_raises(MethodAction::InvalidReturnedType) do
+                            @action_m.instanciate(plan)
+                        end
+                        assert_equal "method 'test' of #{@interface_m} was expected "\
+                            "to return a task of type #{expected_m}, "\
+                            "but returned #{@task}", e.message
+                        pp_message = <<~MESSAGE
+                        method 'test' of #{@interface_m}
+                        was expected to return a task of type #{expected_m},
+                        but returned #{PP.pp(@task, '', 0)}
+                        MESSAGE
+                        assert_equal pp_message.chomp, PP.pp(e, '')
+                    end
+
+                    it "accepts a task providing the expected returned service model" do
+                        srv_m = Roby::TaskService.new_submodel
+                        @action_m.returns(srv_m)
+                        @task_m.provides srv_m
+                        @action_m.instanciate(plan)
+                    end
+
+                    it "rejects a task that does not provide the expected returned service" do
+                        srv_m = Roby::TaskService.new_submodel
+                        @action_m.returns(srv_m)
+                        assert_raises(MethodAction::InvalidReturnedType) do
+                            @action_m.instanciate(plan)
+                        end
+                    end
+                end
+
                 it "creates a placeholder task for services that can be replaced" do
                     srv_m = Roby::TaskService.new_submodel
                     @action_m.returns(srv_m)
@@ -57,4 +112,3 @@ module Roby
         end
     end
 end
-

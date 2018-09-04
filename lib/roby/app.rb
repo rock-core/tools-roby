@@ -1322,7 +1322,6 @@ module Roby
         def log_save_metadata(append: true)
             path = File.join(log_dir, 'info.yml')
 
-            info = Array.new
             current =
                 if File.file?(path)
                     YAML.load(File.read(path)) || Array.new
@@ -1716,7 +1715,7 @@ module Roby
         end
 
         def auto_require_planners
-            search_path = self.auto_load_search_path
+            self.auto_load_search_path
 
             prefixes = ['actions']
             if backward_compatible_naming?
@@ -1945,7 +1944,7 @@ module Roby
         def join
             @thread.join
 
-        rescue Exception => e
+        rescue Exception
             if @thread.alive? && execution_engine.running?
                 if execution_engine.forced_exit?
                     raise
@@ -1967,7 +1966,7 @@ module Roby
         #
         # Simply execs the same command line
         def restart!
-            Kernel.exec *@restart_cmdline
+            Kernel.exec(*@restart_cmdline)
         end
 
         # Indicates to whomever is managing this app that {#restart} should be

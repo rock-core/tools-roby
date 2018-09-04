@@ -283,7 +283,7 @@ describe ActionStateMachine do
             state_machine = task.each_coordination_object.first
             flexmock(state_machine).should_receive(:instanciate_state_transition).
                 and_raise(error_m = Class.new(Exception))
-            
+
             expect_execution do
                 task.current_task_child.start!
                 task.current_task_child.stop_event.emit
@@ -343,8 +343,6 @@ describe ActionStateMachine do
     end
 
     it "can be passed actual state models as arguments" do
-        task_m = self.task_m
-
         description.required_arg(:first_task, 'the first state')
         state_machine('test') do
             first_state = state(first_task)
@@ -568,7 +566,7 @@ describe ActionStateMachine do
             forward task.success_event, success_event
         end
         plan.add(task = task_m.new)
-        state_machine = state_machine_m.new(task)
+        state_machine_m.new(task)
 
         execute { task.start! }
         execute do

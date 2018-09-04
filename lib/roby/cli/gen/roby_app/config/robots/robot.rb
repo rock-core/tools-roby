@@ -25,7 +25,7 @@ end
 #
 # Add use statements here, as e.g.
 #
-#   use <%= Roby.app.module_name %>::Actions::MyActionInterface
+#   use_library <%= Roby.app.module_name %>::Actions::MyActionInterface
 #
 # or, if you're using syskit
 #

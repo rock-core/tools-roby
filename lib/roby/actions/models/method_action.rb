@@ -3,6 +3,27 @@ module Roby
         module Models
             # Action defined by a method on an {Interface}
             class MethodAction < Action
+                class InvalidReturnedType < RuntimeError
+                    def initialize(action_interface_model, method_name,
+                        returned_task, expected_type)
+                        @action_interface_model = action_interface_model
+                        @method_name = method_name
+                        @returned_task = returned_task
+                        @expected_type = expected_type
+                    end
+
+                    def pretty_print(pp)
+                        pp.text "method '#{@method_name}' of #{@action_interface_model}"
+                        pp.breakable
+                        pp.text "was expected to return a task of type "
+                        @expected_type.pretty_print(pp)
+                        pp.text ","
+                        pp.breakable
+                        pp.text "but returned "
+                        @returned_task.pretty_print(pp)
+                    end
+                end
+
                 # The action interface on which this action is defined
                 attr_accessor :action_interface_model
 
@@ -14,7 +35,7 @@ module Roby
                 def to_s
                     "#{super} of #{action_interface_model}"
                 end
-            
+
                 def ==(other)
                     other.kind_of?(self.class) &&
                         other.action_interface_model == action_interface_model &&
@@ -43,6 +64,15 @@ module Roby
                         end
                         result = action_interface.send(name, arguments).as_plan
                     end
+
+                    unless result.fullfills?(returned_task_type)
+                        raise InvalidReturnedType.new(
+                            action_interface_model, name, result, returned_task_type),
+                            "method '#{name}' of #{action_interface_model} was expected "\
+                            "to return a task of type #{returned_task_type}, but "\
+                            "returned #{result}"
+                    end
+
                     # Make the planning task inherit the model/argument flags
                     if planning_task = result.planning_task
                         if planning_task.respond_to?(:action_model=)
@@ -87,4 +117,3 @@ module Roby
         end
     end
 end
-
