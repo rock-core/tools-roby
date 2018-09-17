@@ -158,7 +158,7 @@ module Roby
                     it "marshals its elements with #dump" do
                         a = Set[1, 2, 3]
                         flexmock(marshaller) do |r|
-                            r.should_receive(:dump).with(a).pass_thru
+                            r.should_receive(:dump).with(eq(a)).pass_thru
                             r.should_receive(:dump).with(1).and_return('A')
                             r.should_receive(:dump).with(2).and_return('B')
                             r.should_receive(:dump).with(3).and_return('C')
@@ -169,7 +169,7 @@ module Roby
                     it "proxies its elements with #local_object" do
                         a = Set[1, 2, 3]
                         flexmock(marshaller) do |r|
-                            r.should_receive(:local_object).with(a).pass_thru
+                            r.should_receive(:local_object).with(eq(a)).pass_thru
                             r.should_receive(:local_object).with(1).and_return('A')
                             r.should_receive(:local_object).with(2).and_return('B')
                             r.should_receive(:local_object).with(3).and_return('C')
