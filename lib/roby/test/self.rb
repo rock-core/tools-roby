@@ -69,7 +69,6 @@ module Roby
         end
 
         def teardown
-            @temp_dirs.each { |p| FileUtils.rm_rf(p) }
             begin
                 super
             rescue Exception => e
@@ -84,6 +83,8 @@ module Roby
             State.clear_model
             Conf.clear
             Conf.clear_model
+
+            @temp_dirs.each { |p| FileUtils.rm_rf(p) }
 
         ensure
             if teardown_failure
