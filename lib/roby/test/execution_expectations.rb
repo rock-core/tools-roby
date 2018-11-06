@@ -347,8 +347,8 @@ module Roby
                         pp.breakable
                         exp.pretty_print(pp)
                         if explanation
-                            pp.text ", but did not because of "
-                            explanation.pretty_print(pp)
+                            pp.text ", "
+                            exp.format_unachievable_explanation(pp, explanation)
                         end
                     end
                     if !@propagation_info.empty?
@@ -702,6 +702,11 @@ module Roby
                 end
                 def relates_to_error?(error)
                     false
+                end
+
+                def format_unachievable_explanation(pp, explanation)
+                    pp.text "but it did not because of "
+                    explanation.pretty_print(pp)
                 end
             end
 
