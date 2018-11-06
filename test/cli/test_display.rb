@@ -106,7 +106,6 @@ module Roby
                     end
                     assert_roby_app_can_connect_to_log_server(
                         port: socket.local_address.ip_port)
-                    socket.close
                 end
             end
             describe "#parse_remote_host" do
