@@ -1434,12 +1434,17 @@ module Roby
         end
 
         describe "#execute" do
-            def setup_test_thread(&block)
-                t = Thread.new(&block)
-                until t.stop?
+            def setup_test_thread(report_on_exception: true)
+                thread = Thread.new do
+                    if (t = Thread.current).respond_to?(:report_on_exception=)
+                        t.report_on_exception = report_on_exception
+                    end
+                    yield
+                end
+                until thread.stop?
                     Thread.pass
                 end
-                t
+                thread
             end
             it "executes the block in the engine's thread" do
                 thread = setup_test_thread do
@@ -1464,7 +1469,7 @@ module Roby
             end
             it "passes raised exceptions" do
                 error_e = Class.new(Exception)
-                thread = setup_test_thread do
+                thread = setup_test_thread(report_on_exception: false) do
                     execution_engine.execute { raise error_e }
                 end
                 expect_execution.to_run
@@ -1696,8 +1701,12 @@ module Roby
 
     describe "#wait_until" do
         # Helper that provides a context in which the tests can call #wait_until
-        def wait_until_in_thread(generator)
+        def wait_until_in_thread(generator, report_on_exception: true)
             t = Thread.new do
+                t = Thread.current
+                if t.respond_to?(:report_on_exception=)
+                    t.report_on_exception = report_on_exception
+                end
                 execution_engine.wait_until(generator) do
                     yield if block_given?
                 end
@@ -1737,21 +1746,26 @@ module Roby
 
         it "passes an exception raised within the block to the thread" do
             error = Class.new(RuntimeError)
-            wait_until_in_thread task.start_event do
+            thread = wait_until_in_thread task.start_event, report_on_exception: false do
                 raise error
             end
             execute { task.start! }
+            assert_raises(error) do
+                thread.value
+            end
         end
 
         it "raises in the thread if the event is already unreachable" do
             execute { task.start_event.unreachable! }
-            thread = wait_until_in_thread task.start_event
+            thread = wait_until_in_thread task.start_event,
+                report_on_exception: false
+
             execute_one_cycle
             assert_raises(UnreachableEvent) { thread.value }
         end
 
         it "raises in the thread if the event becomes unreachable" do
-            thread = wait_until_in_thread task.start_event do
+            thread = wait_until_in_thread task.start_event, report_on_exception: false do
                 task.start_event.unreachable!
             end
             execute_one_cycle

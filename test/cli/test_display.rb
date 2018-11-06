@@ -61,11 +61,23 @@ module Roby
                     @logfile_path, writer = roby_app_create_logfile
                     writer.close
                 end
+                after do
+                    if @__display_thread
+                        if @__display_thread.respond_to?(:report_on_exception=)
+                            @__display_thread.report_on_exception = false
+                        end
+                        @__display_thread.raise Interrupt
+                        @__display_thread.join
+                    end
+                end
+                def start_log_server_thread(*args)
+                    @__display_thread = Thread.new { yield }
+                end
+
                 it "starts a log server on the default server port" do
-                    subprocess = Thread.new { Display.start(['server', logfile_path]) }
+                    start_log_server_thread { Display.start(['server', logfile_path]) }
                     assert_roby_app_can_connect_to_log_server(
                         port: Roby::DRoby::Logfile::Server::DEFAULT_PORT)
-                    subprocess.raise Interrupt
                 end
                 it "works around https://bugs.ruby-lang.org/issues/10203" do
                     flexmock(TCPServer).should_receive(:new).and_raise(TypeError)
@@ -74,25 +86,27 @@ module Roby
                     end
                 end
                 it "allows to override the port to a non-default one via the command line" do
-                    subprocess = Thread.new { Display.start(['server', logfile_path, "--port=20250"]) }
+                    start_log_server_thread do
+                        Display.start(['server', logfile_path, "--port=20250"])
+                    end
                     assert_roby_app_can_connect_to_log_server(port: 20250)
-                    subprocess.raise Interrupt
                 end
                 it "allows to override the port to a non-default one via method call" do
                     # Needed by #backward
-                    subprocess = Thread.new do
+                    start_log_server_thread do
                         cli = Display.new
                         cli.server(logfile_path, port: 20250)
                     end
                     assert_roby_app_can_connect_to_log_server(port: 20250)
-                    subprocess.raise Interrupt
                 end
                 it "can take over a server socket given with --fd" do
                     socket = TCPServer.new(0)
-                    subprocess = Thread.new { Display.start(['server', logfile_path, "--fd=#{socket.fileno}"]) }
-                    assert_roby_app_can_connect_to_log_server(port: socket.local_address.ip_port)
+                    start_log_server_thread do
+                        Display.start(['server', logfile_path, "--fd=#{socket.fileno}"])
+                    end
+                    assert_roby_app_can_connect_to_log_server(
+                        port: socket.local_address.ip_port)
                     socket.close
-                    subprocess.raise Interrupt
                 end
             end
             describe "#parse_remote_host" do

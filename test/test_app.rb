@@ -867,7 +867,7 @@ module Roby
                 end
             end
 
-            def start_run_thread
+            def start_run_thread(report_on_exception: true)
                 @run_sync = Concurrent::CyclicBarrier.new(2)
                 @app.execution_engine.once do
                     @run_sync.wait
@@ -875,7 +875,10 @@ module Roby
                     yield if block_given?
                 end
                 @run_thread = Thread.new do
-                    @app.run
+                    if (t = Thread.current).respond_to?(:report_on_exception=)
+                        t.report_on_exception = report_on_exception
+                    end
+                    @app.run(report_on_exception: report_on_exception)
                 end
                 Thread.pass until @run_thread.stop?
                 @run_sync.wait
@@ -901,7 +904,12 @@ module Roby
                 error = Class.new(RuntimeError).exception("test")
                 flexmock(@app.execution_engine).should_receive(:run).
                     and_raise(error)
-                run_thread = Thread.new { @app.run }
+                run_thread = Thread.new do
+                    if (t = Thread.current).respond_to?(:report_on_exception=)
+                        t.report_on_exception = false
+                    end
+                    @app.run(report_on_exception: false)
+                end
                 assert_raises(error.class) do
                     run_thread.join
                 end
@@ -910,7 +918,7 @@ module Roby
             it "handles properly if the engine quits with a framework error" do
                 error = Class.new(RuntimeError).exception("test")
                 fatal_log = capture_log(@app.execution_engine, :fatal) do
-                    start_run_thread do
+                    start_run_thread(report_on_exception: false) do
                         @app.execution_engine.add_framework_error(error, "test")
                     end
                     assert_raises(error.class) do
