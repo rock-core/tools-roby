@@ -1921,7 +1921,7 @@ module Roby
             end
         end
 
-        def run(thread_priority: 0, &block)
+        def run(report_on_exception: true, thread_priority: 0, &block)
             prepare
 
             engine_config = self.engine
@@ -1931,7 +1931,11 @@ module Roby
                 run_plugins(plugins, &block)
             end
             @thread = Thread.new do
-                Thread.current.priority = thread_priority
+                t = Thread.current
+                if t.respond_to?(:report_on_exception=)
+                    t.report_on_exception = report_on_exception
+                end
+                t.priority = thread_priority
                 engine.run cycle: engine_config['cycle'] || 0.1
             end
             join

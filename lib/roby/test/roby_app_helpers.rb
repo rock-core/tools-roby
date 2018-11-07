@@ -16,7 +16,6 @@ module Roby
             end
 
             def teardown
-                super
                 app.stop_log_server
                 app.stop_shell_interface
                 app.cleanup
@@ -31,6 +30,7 @@ module Roby
                 pending_children.each do |pid|
                     Process.waitpid2(pid)
                 end
+                super
             end
 
             def gen_app(app_dir = self.app_dir)
