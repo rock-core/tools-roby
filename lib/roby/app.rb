@@ -391,13 +391,11 @@ module Roby
         #
         # @return [Array<String>]
         def search_path
-            if !@search_path
-                if app_dir
-                    [app_dir]
-                else []
-                end
-            else
+            if @search_path
                 @search_path
+            elsif app_dir
+                [app_dir]
+            else []
             end
         end
 
