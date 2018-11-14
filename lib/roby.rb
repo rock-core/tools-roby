@@ -126,6 +126,7 @@ require 'roby/actions'
 require 'roby/coordination'
 
 require 'roby/droby/enable'
+require 'roby/custom_require'
 
 module Roby
     BIN_DIR = File.expand_path(File.join("..", "bin"), __dir__)
