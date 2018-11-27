@@ -399,6 +399,29 @@ module Roby
             end
         end
 
+        def register_app(path)
+            path = File.expand_path(path, app_dir)
+            app_name = File.basename(path)
+            @search_path ||= self.search_path
+            @search_path << path
+
+            libdir = File.join(path, 'lib')
+            $LOAD_PATH << libdir if File.directory?(libdir)
+            @registered_apps[app_name] = path
+        end
+
+        def has_registered_app?(app_name)
+            @registered_apps.has_key?(app_name)
+        end
+
+        def find_registered_app_path(app_name)
+            if app_name == self.app_name
+                app_dir
+            else
+                @registered_apps[app_name]
+            end
+        end
+
         # Logging options.
         # events:: save a log of all events in the system. This log can be read using scripts/replay
         #          If this value is 'stats', only the data necessary for timing statistics is saved.
@@ -658,6 +681,8 @@ module Roby
         def initialize(plan: ExecutablePlan.new)
             @plan = plan
             @argv_set = Array.new
+
+            @registered_apps = Hash.new
 
             @auto_load_all = false
             @default_auto_load = true
