@@ -198,8 +198,8 @@ module Roby
             end
 
             # Opens +filename+ and reads the data from there
-            def open(filename)
-                @logfile = DRoby::Logfile::Reader.open(filename)
+            def open(filename, index_path: nil)
+                @logfile = DRoby::Logfile::Reader.open(filename, index_path: index_path)
                 self.window_title = "roby-display: #{filename}"
                 emit sourceChanged
                 analyze
@@ -226,7 +226,7 @@ module Roby
                         needs_snapshot =
                             (plan_rebuilder.has_structure_updates? ||
                              plan_rebuilder.has_event_propagation_updates?)
-                        yield(needs_snapshot, data) 
+                        yield(needs_snapshot, data)
                     end
                     plan_rebuilder.clear_integrated
                     dialog.setValue(plan_rebuilder.cycle_start_time - start_time)
