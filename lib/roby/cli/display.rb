@@ -44,11 +44,11 @@ module Roby
 
             desc 'file PATH', 'inspect an existing log file'
             option :display, type: :string, desc: 'a display to open right away (relations, chronicle or all)'
-            def file(path)
+            def file(path, index_path: nil)
                 apply_common_options
 
                 with_display do |app, display|
-                    display.open(path)
+                    display.open(path, index_path: index_path)
                 end
             end
 

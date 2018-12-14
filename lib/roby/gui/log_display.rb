@@ -172,8 +172,8 @@ module Roby
             slots 'warn(QString)'
 
             # Opens +filename+ and reads the data from there
-            def open(filename)
-                history_widget.open(filename)
+            def open(filename, index_path: nil)
+                history_widget.open(filename, index_path: index_path)
             end
 
             # Displays the data incoming from +client+

@@ -11,8 +11,10 @@ module Roby
 
                 attr_reader :event_io
 
-                def initialize(event_io)
+                def initialize(event_io, index_path: nil)
                     @event_io = event_io
+                    @index_path = index_path ||
+                        event_io.path.gsub(/\.log$/, '') + ".idx"
                     event_io.rewind
                     options_hash = read_header
                     self.class.process_options_hash(options_hash)
@@ -82,7 +84,7 @@ module Roby
                 #
                 # @return [String]
                 def index_path
-                    event_io.path.gsub(/\.log$/, '') + ".idx"
+                    @index_path
                 end
 
                 def rebuild_index(path = index_path)
@@ -119,9 +121,9 @@ module Roby
                         @index = Index.read(path)
                     end
                 end
-                
-                def self.open(path)
-                    io = new(File.open(path))
+
+                def self.open(path, index_path: nil)
+                    io = new(File.open(path), index_path: index_path)
                     if block_given?
                         begin
                             yield(io)
