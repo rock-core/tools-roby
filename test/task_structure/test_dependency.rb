@@ -634,6 +634,40 @@ module Roby
                     assert_equal [task_m], task_m.new.provided_models
                 end
 
+                it "puts the task model first" do
+                    task_m = Task.new_submodel
+                    srv_m = TaskService.new_submodel
+                    task_m.singleton_class.class_eval do
+                        define_method :fullfilled_model do
+                            [srv_m, task_m]
+                        end
+                    end
+                    assert_equal [task_m, srv_m], task_m.new.provided_models
+                end
+
+                it "filters out services that the task model provides" do
+                    task_m = Task.new_submodel
+                    srv_m = TaskService.new_submodel
+                    task_m.provides srv_m
+                    task_m.singleton_class.class_eval do
+                        define_method :fullfilled_model do
+                            [srv_m, task_m]
+                        end
+                    end
+                    assert_equal [task_m], task_m.new.provided_models
+                end
+
+                it "deals with a provided model set that has no class" do
+                    task_m = Task.new_submodel
+                    srv_m = TaskService.new_submodel
+                    task_m.singleton_class.class_eval do
+                        define_method :fullfilled_model do
+                            [srv_m]
+                        end
+                    end
+                    assert_equal [srv_m], task_m.new.provided_models
+                end
+
                 it "falls back on the models' fullfilled model" do
                     task_m = Task.new_submodel
                     sub_m  = task_m.new_submodel
