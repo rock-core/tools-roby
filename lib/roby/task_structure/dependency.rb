@@ -735,8 +735,11 @@ module Roby
                         [model[0]] + model[1]
                     else
                         models = self.model.fullfilled_model
-                        task_class = models.find { |m| m.kind_of?(Class) }
-                        [task_class] + models.find_all { |m| !task_class.has_ancestor?(m) }
+                        if (task_class = models.find { |m| m.kind_of?(Class) })
+                            [task_class] + models.find_all { |m| !task_class.has_ancestor?(m) }
+                        else
+                            models
+                        end
                     end
                 end
 
