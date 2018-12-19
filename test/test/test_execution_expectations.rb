@@ -136,7 +136,9 @@ module Roby
                             execution_engine.should_receive(:has_waiting_work?).
                                 and_return(true)
                             expectations.add_expectation(
-                                flexmock(explain_unachievable: "", update_match: false, unachievable?: true))
+                                flexmock(format_unachievable_explanation: "",
+                                    explain_unachievable: "", update_match: false,
+                                    unachievable?: true))
                             assert_raises(ExecutionExpectations::Unmet) do
                                 expectations.timeout 0
                                 expectations.verify {}
@@ -160,12 +162,16 @@ module Roby
                         it "executes the block once in propagation context" do
                             recorder = flexmock
                             recorder.should_receive(:called).with(true).once
-                            expectations.verify { recorder.called(execution_engine.in_propagation_context?) }
+                            expectations.verify do
+                                recorder.called(execution_engine.in_propagation_context?)
+                            end
                         end
 
                         it "raises if there are unachievable expectations" do
                             expectations.add_expectation(
-                                flexmock(explain_unachievable: "", update_match: false, unachievable?: true))
+                                flexmock(format_unachievable_explanation: "",
+                                    explain_unachievable: "", update_match: false,
+                                    unachievable?: true))
                             assert_raises(ExecutionExpectations::Unmet) do
                                 expectations.timeout 0
                                 expectations.verify {}
@@ -197,7 +203,8 @@ module Roby
                             expect_execution.timeout(0).
                                 to { emit generator }
                         end
-                        assert_equal "1 unmet expectations\n#{generator} should be emitted", e.message
+                        assert_equal "1 unmet expectations\n#{generator} "\
+                            "should be emitted", e.message
                     end
                     it "fails if the event becomes unreachable" do
                         plan.add(generator = EventGenerator.new)
@@ -205,7 +212,8 @@ module Roby
                             expect_execution { generator.unreachable! }.
                                 timeout(0).to { emit generator }
                         end
-                        assert_equal "1 unmet expectations\n#{generator} should be emitted", e.message
+                        assert_equal "1 unmet expectations\n#{generator} "\
+                            "should be emitted", e.message
                     end
                     it "reports unreachability reason if there is one" do
                         plan.add(generator = EventGenerator.new)
@@ -214,7 +222,9 @@ module Roby
                             expect_execution { generator.unreachable!(cause) }.
                                 timeout(0).to { emit generator }
                         end
-                        assert_equal "1 unmet expectations\n#{generator} should be emitted, but did not because of #{PP.pp(cause, "", 0).chomp}", e.message
+                        assert_equal "1 unmet expectations\n#{generator} "\
+                            "should be emitted, but it did not because of "\
+                            "#{PP.pp(cause, "", 0).chomp}", e.message
                     end
                     it "validates if the event's emission caused exceptions" do
                         plan.add(generator = EventGenerator.new)
