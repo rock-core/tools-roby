@@ -1200,7 +1200,7 @@ module Roby
                 return false
             end
 
-            target.arguments.can_semantic_merge?(arguments)
+            arguments.can_semantic_merge?(target.arguments)
         end
 
         # "Simply" mark this task as terminated. This is meant to be used on
