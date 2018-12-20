@@ -121,8 +121,12 @@ module Roby
         end
 
         # Enumerates the arguments that have been explicitly assigned
+        #
+        # @yieldparam [Symbol] name the argument name
+        # @yieldparam [Object] arg the argument value
         def each_assigned_argument
-            return assigned_arguments if !block_given?
+            return assigned_arguments unless block_given?
+
             each do |key, value|
                 if !TaskArguments.delayed_argument?(value)
                     yield(key, value)
@@ -140,39 +144,51 @@ module Roby
             end
         end
 
-        def can_semantic_merge?(other_args)
-            values.all? do |name, arg|
-                next(true) unless other_args.has_key?(name)
+        # Return the set of arguments that would forbid merging
+        #
+        # @param [TaskArguments] other_args
+        # @return [{Symbol => [Object, Object]}] the arguments that
+        #   can't be merged
+        def semantic_merge_blockers(other_args)
+            blockers = values.find_all do |name, arg|
+                next(false) unless other_args.has_key?(name)
 
                 other_arg = other_args.values[name]
 
                 self_delayed  = TaskArguments.delayed_argument?(arg)
                 other_delayed = TaskArguments.delayed_argument?(other_arg)
-                next(arg == other_arg) unless self_delayed || other_delayed
+                next(arg != other_arg) unless self_delayed || other_delayed
 
                 if self_delayed && other_delayed
                     if !(arg.strong? ^ other_arg.strong?)
-                        arg.can_merge?(task, other_args.task,
+                        !arg.can_merge?(task, other_args.task,
                             other_arg)
                     else
-                        true
+                        false
                     end
                 elsif self_delayed
                     if arg.strong?
-                        arg.can_merge?(task, other_args.task,
+                        !arg.can_merge?(task, other_args.task,
                             StaticArgumentWrapper.new(other_arg))
                     else
-                        true
+                        false
                     end
                 elsif other_delayed
                     if other_arg.strong?
-                        other_arg.can_merge?(other_args.task, task,
+                        !other_arg.can_merge?(other_args.task, task,
                             StaticArgumentWrapper.new(arg))
                     else
-                        true
+                        false
                     end
                 end
             end
+            blockers.each_with_object(Hash.new) do |(name, self_obj), h|
+                h[name] = [self_obj, other_args[name]]
+            end
+        end
+
+        def can_semantic_merge?(other_args)
+            semantic_merge_blockers(other_args).empty?
         end
 
         def semantic_merge!(other_args)
@@ -411,8 +427,9 @@ module Roby
             catch(:no_value) do
                 this_evaluated  = evaluate_delayed_argument(task)
                 other_evaluated = other_arg.evaluate_delayed_argument(other_task)
-                other_evaluated == this_evaluated
+                return other_evaluated == this_evaluated
             end
+            false
         end
 
         def merge(task, other_task, other_arg)
