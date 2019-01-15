@@ -1,7 +1,40 @@
 module Roby
-    # Class that handles task arguments. They are handled specially as the
-    # arguments cannot be overwritten and can not be changed by a task that is
-    # not owned.
+    # Management of task arguments
+    #
+    # This class essentially behaves like a Hash, but with two important
+    # caveats:
+    # - already set values cannot be modified
+    # - some special values ("delayed arguments") allow to provide arguments
+    #   whose evaluation is delayed until the value is needed.
+    #
+    # Write-Once Values
+    # =================
+    #
+    # Once set to a plain object (not a delayed argument, see below), a value
+    # cannot be changed. Some methods allow to bypass the relevant checks,
+    # but these methods must be considered internal
+    #
+    # Delayed Arguments
+    # =================
+    #
+    # Objects that respond to a #evaluate_delayed_argument method are handled
+    # differently by {TaskArguments}. They are considered "delayed arguments",
+    # that is arguments that are essentially not set _yet_, but can be evaluated
+    # later (usually at execution time) to determine the argument value.
+    #
+    # These objects must follow the {DelayedArgument} interface
+    #
+    # These delayed arguments are handled differently than "plain" arguments in
+    # a few ways:
+    # - standard hash access methods such as {#[]} will "hide" them, that is
+    #   return nil instead of the object
+    # - they can be overriden once set using e.g. {#[]=} or {#merge!}, unlike
+    #   "plain arguments"
+    #
+    # In addition, Roby provides a mechanism to fine-tune the way delayed
+    # arguments are merged. The {#semantic_merge} call delegates the merge
+    # to the delayed arguments, allowing for instance two default argument
+    # to be merged if they have the same value.
     class TaskArguments
         attr_reader :task
         attr_reader :values
@@ -13,16 +46,19 @@ module Roby
             super()
         end
 
+        # Checks whether the given object is a delayed argument object
+        #
+        # @return true if the object has an evaluate_delayed_argument method
         def self.delayed_argument?(obj)
             obj.respond_to?(:evaluate_delayed_argument)
         end
 
-        # True if none of the argument values are delayed objects
+        # True if all the set arguments are plain (not delayed) arguments
         def static?
             @static
         end
 
-        def warn_deprecated_non_symbol_key(key)
+        private def warn_deprecated_non_symbol_key(key)
             if !key.kind_of?(Symbol)
                 Roby.warn_deprecated "accessing arguments using anything else than a symbol is deprecated", 2
                 key.to_sym
@@ -31,6 +67,8 @@ module Roby
         end
 
         # Return the value stored for the given key as-is
+        #
+        # Unlike {#[]}, it does not filter out delayed arguments
         def raw_get(key)
             values[key]
         end
@@ -112,6 +150,7 @@ module Roby
         # assigned
         #
         # @return [Hash]
+        # @see each_assigned_argument
         def assigned_arguments
             result = Hash.new
             each_assigned_argument do |k, v|
@@ -120,10 +159,11 @@ module Roby
             result
         end
 
-        # Enumerates the arguments that have been explicitly assigned
+        # Enumerates assigned arguments that are not delayed arguments
         #
         # @yieldparam [Symbol] name the argument name
         # @yieldparam [Object] arg the argument value
+        # @see assigned_arguments
         def each_assigned_argument
             return assigned_arguments unless block_given?
 
@@ -138,13 +178,14 @@ module Roby
             values.each(&block)
         end
 
+        # @api private
         StaticArgumentWrapper = Struct.new :value do
             def evaluate_delayed_argument(task)
                 value
             end
         end
 
-        # Return the set of arguments that would forbid merging
+        # Return the set of arguments that won't be merged by {#semantic_merge}
         #
         # @param [TaskArguments] other_args
         # @return [{Symbol => [Object, Object]}] the arguments that
@@ -187,10 +228,22 @@ module Roby
             end
         end
 
+        # Checks whether self can be merged with other_args through{#semantic_merge}
+        #
+        # @param [TaskArguments] other_args
+        # @see semantic_merge semantic_merge_blockers
         def can_semantic_merge?(other_args)
             semantic_merge_blockers(other_args).empty?
         end
 
+        # Merging method that takes delayed arguments into account
+        #
+        # Unlike {#merge}, this method will let delayed arguments "merge
+        # themselves", by delegating to their {#merge} method. It allows to
+        # e.g. propagating default arguments in the merge chain if they are
+        # the same.
+        #
+        # @see can_semantic_merge? semantic_merge_blockers
         def semantic_merge!(other_args)
             current_values = values.dup
             other_task = other_args.task
@@ -263,17 +316,25 @@ module Roby
 
         # Assigns a value to a given argument name
         #
-        # The method validates that writing this argument value is allowed
+        # The method validates that writing this argument value is allowed. Only
+        # values that have not been set, or have been set with a delayed
+        # argument, canb e updated
         #
+        # @raise NotMarshallable if the new values cannot be marshalled with
+        #   DRoby. All task arguments must be marshallable
         # @raise OwnershipError if we don't own the task
         # @raise ArgumentError if the argument is already set
         def []=(key, value)
             key = warn_deprecated_non_symbol_key(key)
             if writable?(key, value)
                 if !value.droby_marshallable?
-                    raise NotMarshallable, "values used as task arguments must be marshallable, attempting to set #{key} to #{value} of class #{value.class}, which is not"
+                    raise NotMarshallable, "values used as task arguments must be "\
+                        "marshallable, attempting to set #{key} to #{value} of "\
+                        "class #{value.class}, which is not"
                 elsif !task.read_write?
-                    raise OwnershipError, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
+                    raise OwnershipError, "cannot change the argument set of a task "\
+                        "which is not owned #{task} is owned by #{task.owners} and "\
+                        "#{task.plan} by #{task.plan.owners}"
                 end
 
                 if TaskArguments.delayed_argument?(value)
@@ -290,16 +351,21 @@ module Roby
                 end
                 value
             else
-                raise ArgumentError, "cannot override task argument #{key} as it is already set to #{values[key]}"
+                raise ArgumentError, "cannot override task argument #{key} as it is "\
+                    "already set to #{values[key]}"
             end
         end
 
+        # Return a set value for the given key
+        #
+        # @param [Symbol] key
+        # @return [Object,nil] return the set value for key, or nil if the
+        #   value is either a delayed argument object (e.g. a default value) or
+        #   if no value is set at all
         def [](key)
             key = warn_deprecated_non_symbol_key(key)
             value = values[key]
-            if !TaskArguments.delayed_argument?(value)
-                value
-            end
+            value unless TaskArguments.delayed_argument?(value)
         end
 
         # Returns this argument set, but with the delayed arguments evaluated
@@ -319,7 +385,22 @@ module Roby
             result
         end
 
+        # Merge a hash into the arguments, updating existing values
+        #
+        # Unlike {#merge!}, this will update existing values. You should not do
+        # it, unless you know what you're doing.
+        #
+        # @raise NotMarshallable if the new values cannot be marshalled with
+        #   DRoby. All task arguments must be marshallable
         def force_merge!(hash)
+            hash.each do |key, value|
+                unless value.droby_marshallable?
+                    raise NotMarshallable, "values used as task arguments must "\
+                        "be marshallable, attempting to set #{key} to #{value}, "\
+                        "which is not"
+                end
+            end
+
             if task.plan && task.plan.executable?
                 values.merge!(hash) do |k, _, v|
                     task.plan.log(:task_arguments_updated, task, k, v)
@@ -331,9 +412,18 @@ module Roby
             @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }
         end
 
+        # Merge a hash into the arguments
+        #
+        # Only arguments that are unset or are currently delayed arguments (such
+        # as default arguments) can be updated. If the caller tries ot update
+        # other arguments, the method will raise
+        #
+        # @raise NotMarshallable if the new values cannot be marshalled with
+        #   DRoby. All task arguments must be marshallable
+        # @raise ArgumentError if the merge would modify an existing value
         def merge!(**hash)
             hash.each do |key, value|
-                if !value.droby_marshallable?
+                unless value.droby_marshallable?
                     raise NotMarshallable, "values used as task arguments must "\
                         "be marshallable, attempting to set #{key} to #{value}, "\
                         "which is not"
@@ -355,6 +445,54 @@ module Roby
         end
 
         include Enumerable
+    end
+
+    # Documentation of the delayed argument interface
+    #
+    # This is not meant to be used directly
+    class DelayedArgument
+        # Pretty-print this delayed argument
+        #
+        # Roby uses the pretty-print mechanism to build most of its error
+        # messages, so it is better to implement the {#pretty_print} method
+        # for custom delayed arguments
+        def pretty_print(pp)
+        end
+
+        # Evaluate this delayed argument in the context of the given task
+        #
+        # It should either return a plain object (which may be nil) or
+        # throw :no_value to indicate that it cannot be evaluated (yet)
+        def evaluate_delayed_argument(task)
+            raise NotImplementedError
+        end
+
+        # Tests the possibility to merge this with another delayed argument
+        #
+        # This tests whether this arguemnt, in the context of task, could
+        # be merged with another argument when evaluated in the context of
+        # another task
+        def can_merge?(task, other_task, other_arg)
+            raise NotImplementedError
+        end
+
+        # Merge this argument with another
+        #
+        # The method may assume that {#can_merge?} has been called and returned
+        # true
+        #
+        # @return [Object] the merged argument, which may be a delayed argument
+        #   itself.
+        def merge(task, other_task, other_arg)
+            raise NotImplementedError
+        end
+
+        # Whether the argument represents a default (weak) or a real value (strong)
+        #
+        # Strong arguments automatically override weak ones during merge
+        def strong?
+            raise NotImplementedError
+        end
     end
 
     # Placeholder that can be used as an argument to represent a default value
