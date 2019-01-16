@@ -181,12 +181,15 @@ module Roby
             # Filters out the test suites that are not enabled by the current
             # Roby configuration
             def run
-                time_it do
-                    capture_exceptions do
+                begin
+                    time_it do
                         self.class.roby_should_run(self, app)
-                        super
                     end
+                rescue Minitest::Skip
+                    return Minitest::Result.from(self)
                 end
+
+                super
             end
         end
     end
