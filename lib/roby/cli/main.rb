@@ -136,16 +136,34 @@ module Roby
             option :robot, aliases: 'r', desc: 'the robot name', default: 'default'
             def check(app_dir = nil, *extra_files)
                 app = Roby.app
-                if app_dir
-                    app.app_dir = app_dir
-                end
+                app.app_dir = app_dir if app_dir
                 app.require_app_dir
+                app.base_setup
                 app.robot(options[:robot])
                 begin app.setup
                     extra_files.each do |path|
                         app.require(File.expand_path(path))
                     end
                 ensure app.cleanup
+                end
+            end
+
+            desc 'console', 'open a pry console after the app code has been loaded'
+            option :robot, aliases: 'r', desc: 'the robot name', default: 'default'
+            def console(*extra_files)
+                require 'pry'
+                app = Roby.app
+                app.require_app_dir
+                app.base_setup
+                app.robot(options[:robot])
+                begin
+                    app.setup
+                    extra_files.each do |path|
+                        app.require(File.expand_path(path))
+                    end
+                    pry
+                ensure
+                    app.cleanup
                 end
             end
         end
