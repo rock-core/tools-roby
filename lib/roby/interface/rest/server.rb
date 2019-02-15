@@ -18,7 +18,7 @@ module Roby
                 # @return [String]
                 attr_reader :host
 
-                # The host the server routes through
+                # The path under which this API will be available, e.g. /api
                 #
                 # @return [String]
                 attr_reader :main_route
