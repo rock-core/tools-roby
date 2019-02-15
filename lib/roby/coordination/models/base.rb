@@ -113,12 +113,11 @@ module Roby
                 return if !definition_context
 
                 # Assign names to tasks using the local variables
-                vars = definition_context.eval "local_variables"
-                values = definition_context.eval "[#{vars.map { |n| "#{n}" }.join(", ")}]"
-                vars.zip(values).each do |name, object|
+                definition_context.local_variables.each do |var|
+                    object = definition_context.local_variable_get(var)
                     suffixes.each do |klass, suffix|
                         if object.kind_of?(klass)
-                            object.name = "#{name}#{suffix}"
+                            object.name = "#{var}#{suffix}"
                         end
                     end
                 end
