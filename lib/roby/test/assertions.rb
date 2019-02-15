@@ -503,6 +503,63 @@ module Roby
                 end.join("\n")
                 assert_equal expected, actual
             end
+
+            # Run a capture block and return the result
+            #
+            # This is typically used in an action interface spec this way:
+            #
+            #    task = my_action(**arguments)
+            #    task = run_planners(task)
+            #    result = run_capture(task, 'capture_name', context: current_pose)
+            #
+            # Note that a capture's name is the name of the local variable it is
+            # assigned to. For instance, in the following example, the capture's
+            # name is 'c'
+            #
+            #    action_state_machine 'test' do
+            #       task = state(something)
+            #       c = capture(task.success_event) do |e|
+            #       end
+            #
+            # @param [Roby::Task] task the roby task that is supporting the capture
+            # @param [String] capture_name the name of the capture, which is the
+            #    name of the local variable it is assigned to
+            # @param [Object] context the context of the event passed to the
+            #    capture, in the common case where the capture only reads the
+            #    event context. Use either 'context' or 'event', but not both.
+            # @param [Roby::Event] event the event that should be passed to the
+            #    capture. Use either 'context' or 'event', but not both
+            def run_state_machine_capture(task, capture_name, context: [], event: nil)
+                if event && (!context.kind_of?(Array) || !context.empty?)
+                    raise ArgumentError, "cannot pass both context and event"
+                end
+
+                (capture, state_machine) = find_state_machine_capture(task, capture_name)
+                unless capture
+                    raise ArgumentError, "no capture named '#{capture_name}' in any "\
+                        "state machine associated with #{task}"
+                end
+
+                event ||= Struct.new(:context).new(Array(context))
+                capture.filter(state_machine, event)
+            end
+
+            # @api private
+            #
+            # Finds a capture with the given name in the state machine(s)
+            # attached to a task
+            #
+            # @return [(Coordination::Models::Capture, Coordination::ActionStateMachine)]
+            def find_state_machine_capture(task, capture_name)
+                task.each_coordination_object do |object|
+                    next unless object.model.respond_to?(:each_capture)
+
+                    object.model.each_capture do |c, _|
+                        return c if c.name == capture_name
+                    end
+                end
+                nil
+            end
         end
     end
 end
