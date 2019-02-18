@@ -194,7 +194,7 @@ module Roby
                     if !@wait_start.complete?
                         return false
                     else
-                        self.class.server_alive?('localhost', port, main_route)
+                        self.class.server_alive?('localhost', port, main_route: main_route)
                     end
                 end
 
@@ -204,7 +204,7 @@ module Roby
                 #
                 # @raise InvalidServer if there is a server at the expected
                 #   host and port, but not a Roby REST server
-                def self.server_alive?(host, port: Roby::Interface::DEFAULT_REST_PORT, main_route: '/api' )
+                def self.server_alive?(host, port, main_route: '/api' )
                     test_value = rand(10)
                     returned_value = RestClient.
                         get("http://#{host}:#{port}#{main_route}/ping", params: { value: test_value })
