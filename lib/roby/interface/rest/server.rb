@@ -18,6 +18,11 @@ module Roby
                 # @return [String]
                 attr_reader :host
 
+                # The path under which this API will be available, e.g. /api
+                #
+                # @return [String]
+                attr_reader :main_route
+
                 # Create a new server
                 #
                 # @param [Roby::Application] the application this server will
@@ -27,13 +32,18 @@ module Roby
                 # @param [Integer] port the port the server should bind to if it
                 #   is a TCP server. Set to zero to auto-allocate. Ignored if 'host'
                 #   is the path to a UNIX socket.
+                # @param [Grape::API] api used to route requests.
+                # @param [String] prefix for routes. e.g. host:port/main_route/ping
                 def initialize(app,
                     host: '0.0.0.0',
                     port: Roby::Interface::DEFAULT_REST_PORT,
-                    api: REST::API, **thin_options)
+                    api: REST::API,
+                    main_route: '/api',
+                    **thin_options)
 
                     @app = app
                     @host = host
+                    @main_route = main_route
                     @interface = Interface.new(app)
                     @wait_start = Concurrent::IVar.new
 
@@ -41,7 +51,7 @@ module Roby
                     rack_app = Rack::Builder.new do
                         yield(self) if block_given?
 
-                        map '/api' do
+                        map main_route do
                             run api
                         end
                     end
@@ -184,7 +194,7 @@ module Roby
                     if !@wait_start.complete?
                         return false
                     else
-                        self.class.server_alive?('localhost', port)
+                        self.class.server_alive?('localhost', port, main_route: main_route)
                     end
                 end
 
@@ -194,10 +204,10 @@ module Roby
                 #
                 # @raise InvalidServer if there is a server at the expected
                 #   host and port, but not a Roby REST server
-                def self.server_alive?(host, port)
+                def self.server_alive?(host, port, main_route: '/api' )
                     test_value = rand(10)
                     returned_value = RestClient.
-                        get("http://#{host}:#{port}/api/ping", params: { value: test_value })
+                        get("http://#{host}:#{port}#{main_route}/ping", params: { value: test_value })
                     if test_value != Integer(returned_value)
                         raise InvalidServer, "unexpected server answer to 'ping', expected #{test_value} but got #{returned_value}"
                     end
