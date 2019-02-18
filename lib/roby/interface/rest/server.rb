@@ -204,10 +204,10 @@ module Roby
                 #
                 # @raise InvalidServer if there is a server at the expected
                 #   host and port, but not a Roby REST server
-                def self.server_alive?(host, port, main_route)
+                def self.server_alive?(host, port: Roby::Interface::DEFAULT_REST_PORT, main_route: '/api' )
                     test_value = rand(10)
                     returned_value = RestClient.
-                        get("http://#{host}:#{port}/#{main_route}/ping", params: { value: test_value })
+                        get("http://#{host}:#{port}#{main_route}/ping", params: { value: test_value })
                     if test_value != Integer(returned_value)
                         raise InvalidServer, "unexpected server answer to 'ping', expected #{test_value} but got #{returned_value}"
                     end
