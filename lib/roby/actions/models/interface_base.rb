@@ -73,18 +73,35 @@ module Roby
             # @return Action
             def describe(doc = nil)
                 if @current_description
-                    Actions::Interface.warn "the last #describe call was not followed by an action definition. Did you forget to add a method to your action interface ?"
+                    Actions::Interface.warn "the last #describe call was not followed by "\
+                    "an action definition. Did you forget to add a method to your action interface ?"
                 end
                 @current_description = Models::Action.new(doc)
             end
 
             # Registers a new action on this model
+            # This function is meant to be used to share actions across action interfaces
             #
             # If no specific return type has been specified, one is created
             # automatically and registered as a constant on this action
             # interface. For instance, the start_all_devices action would create
             # a simple StartAllDevices task model.
             def register_action(name, action_model)
+                unless action_model.respond_to?(:to_action_model)
+                    raise ArgumentError, "register_action expects an action model, "\
+                        "got #{action_model.class} instead"
+                end
+
+                #Copy is performed to avoid changing the original models and really only 
+                #share the action to another interface
+                action_model = action_model.to_action_model.dup
+                register_action!(name, action_model)
+            end
+
+            # @api private
+            #
+            # Internal, no-check version of {#register_action}
+            def register_action!(name, action_model)
                 name = name.to_s
                 create_default_action_return_type(name, action_model)
                 action_model.name = name
@@ -141,7 +158,7 @@ module Roby
                             raise ArgumentCountMismatch, "action #{name} has been declared to have arguments, the #{name} method must be callable with a single Hash argument"
                         end
                     end
-                    register_action(name, description)
+                    register_action!(name, description)
                 end
             end
 
@@ -191,7 +208,7 @@ module Roby
                 create_default_action_return_type(name, action_model)
                 action_model, coordination_model =
                     create_coordination_action(action_model, coordination_class, &block)
-                register_action(name, action_model)
+                register_action!(name, action_model)
                 coordination_model.name = name
 
                 define_method(name) do |**arguments|

@@ -285,6 +285,18 @@ module Roby
                     end
                 end
 
+                describe '#register_action' do
+                    it "raises ArgumentError if an action_model argument is not given" do
+                        not_action = 1
+                        e = assert_raises(ArgumentError) do
+                            interface_m.register_action('name', not_action)
+                        end
+                        assert_equal "register_action expects an action model, "\
+                            "got #{not_action.class} instead", e.message
+                    end
+                end
+
+                        
                 describe "#use_library" do
                     it "imports the actions of an interface" do
                         library = Actions::Interface.new_submodel do
