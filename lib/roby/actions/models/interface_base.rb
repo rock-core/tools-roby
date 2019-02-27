@@ -79,21 +79,28 @@ module Roby
                 @current_description = Models::Action.new(doc)
             end
 
-            # Registers a new action on this model
-            # This function is meant to be used to share actions across action interfaces
+            # Registers an action on this model
             #
-            # If no specific return type has been specified, one is created
-            # automatically and registered as a constant on this action
-            # interface. For instance, the start_all_devices action would create
-            # a simple StartAllDevices task model.
+            # This is used to selectively reuse an action from a different
+            # action interface, for instance:
+            #
+            #     class Navigation < Roby::Actions::Interface
+            #         action_state_machine 'go_to' do
+            #         end
+            #     end
+            #
+            #     class UI < Roby::Actions::Interface
+            #         register_action 'go_to', Navigation.go_to.model
+            #     end
+            #
             def register_action(name, action_model)
                 unless action_model.respond_to?(:to_action_model)
                     raise ArgumentError, "register_action expects an action model, "\
                         "got #{action_model.class} instead"
                 end
 
-                #Copy is performed to avoid changing the original models and really only 
-                #share the action to another interface
+                # Copy is performed to avoid changing the original models and
+                # really only share the action to another interface
                 action_model = action_model.to_action_model.dup
                 register_action!(name, action_model)
             end
@@ -101,6 +108,11 @@ module Roby
             # @api private
             #
             # Internal, no-check version of {#register_action}
+            #
+            # If no specific return type has been specified, one is created
+            # automatically and registered as a constant on this action
+            # interface. For instance, the start_all_devices action would create
+            # a simple StartAllDevices task model.
             def register_action!(name, action_model)
                 name = name.to_s
                 create_default_action_return_type(name, action_model)
