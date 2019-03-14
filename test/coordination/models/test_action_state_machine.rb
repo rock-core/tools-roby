@@ -222,6 +222,49 @@ describe Roby::Coordination::Models::ActionStateMachine do
         end
     end
 
+    describe "#capture" do
+        before do
+            state = nil
+            _, @machine = @action_m.action_state_machine 'test' do
+                state = state(start_task)
+                start(state)
+                c = capture(state.success_event) do |ev|
+                end
+                state.success_event.forward_to success_event
+            end
+            @state = state
+        end
+
+        it "defines a capture stored on the state machine" do
+            capture, (state, event) = @machine.each_capture.first
+            assert_equal @state, state
+            assert_equal @state.success_event, event
+            assert_kind_of Roby::Coordination::Models::Capture, capture
+        end
+        it "allows separating the state and the event" do
+            monitor, state = nil
+            @action_m.describe "another_machine"
+            _, machine = @action_m.action_state_machine 'another_test' do
+                monitor = state(monitoring_task)
+                state = state(start_task).
+                    depends_on(monitor)
+                start(state)
+
+                c = capture(state, monitor.start_event) do |ev|
+                end
+                state.success_event.forward_to success_event
+            end
+
+            capture, (state, event) = machine.each_capture.first
+            assert_equal state, state
+            assert_equal monitor.start_event, event
+            assert_kind_of Roby::Coordination::Models::Capture, capture
+        end
+        it "is given a name if assigned to a local variable" do
+            assert @machine.each_capture.find { |c, _| c.name == 'c' }
+        end
+    end
+
     describe "#rebind" do
         attr_reader :state_machine_action, :action_m, :new_action_m
         before do

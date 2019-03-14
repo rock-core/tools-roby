@@ -29,6 +29,7 @@ module Roby
                     if !root_event.task.respond_to?(:coordination_model)
                         raise NotRootEvent, "can only forward to a root event"
                     end
+                    root_event.task.coordination_model.parse_names
                     root_event.task.coordination_model.
                         forward task, self, root_event
                 end

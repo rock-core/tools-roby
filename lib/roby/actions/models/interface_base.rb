@@ -215,6 +215,11 @@ module Roby
                 end
             end
 
+            # @api private
+            #
+            # Create an action that will instanciate a coordination model
+            #
+            # @return [(CoordinationAction,Action)]
             def create_and_register_coordination_action(name, coordination_class, action_model: require_current_description, &block)
                 name = name.to_s
                 create_default_action_return_type(name, action_model)
@@ -258,7 +263,7 @@ module Roby
             #
             # @param [String] name the name of the new action
             # @yield the action state machine definition
-            # @return [Action,Coordination::Models::ActionStateMachine]
+            # @return [(CoordinationAction,ActionStateMachine)]
             #
             # The action state machine model can later be retrieved using
             # {Action#coordination_model}
