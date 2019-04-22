@@ -6,24 +6,24 @@ module Roby
                 @test = test
                 @toplevel_task = @test.roby_run_planner(task_or_action)
 
-                @state_machines = @toplevel_task.each_coordination_object.
-                    find_all { |obj| obj.kind_of?(Coordination::ActionStateMachine) }
+                @state_machines =
+                    @toplevel_task
+                    .each_coordination_object
+                    .find_all { |obj| obj.kind_of?(Coordination::ActionStateMachine) }
+
                 if @state_machines.empty?
                     raise ArgumentError, "#{task_or_action} has no state machines"
                 end
             end
 
             def assert_transitions_to_state(state_name, timeout: 5, start: true)
-                if state_name.respond_to?(:to_str) && !state_name.end_with?('_state')
-                    state_name = "#{state_name}_state"
-                end
+                state_name = state_name.to_str
+                state_name = "#{state_name}_state" unless state_name.end_with?('_state')
 
                 done = false
                 @state_machines.each do |m|
                     m.on_transition do |_, new_state|
-                        if state_name === new_state.name
-                            done = true
-                        end
+                        done ||= (state_name === new_state.name)
                     end
                 end
                 yield if block_given?
@@ -32,9 +32,7 @@ module Roby
                 end
                 @test.roby_run_planner(@toplevel_task)
                 state_task = @toplevel_task.current_task_child
-                if start
-                    expect_execution.to { emit state_task.start_event }
-                end
+                expect_execution.to { emit state_task.start_event } if start
                 state_task
             end
 

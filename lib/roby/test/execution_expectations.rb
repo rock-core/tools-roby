@@ -6,12 +6,14 @@ module Roby
         # by the method itself, but the value that the user can expect out of
         # the expectation run.
         #
-        # @example execute until a block returns true. The call returns the block's return value
+        # @example execute until a block returns true. The call returns the
+        #     block's return value
         #   expect_execution.to do
         #     achieve { plan.num_tasks }
         #   end # => the number of tasks from the plan
         #
-        # @example execute until an event was emitted and an error raised. The call will in this case return the error object and the emitted event
+        # @example execute until an event was emitted and an error raised. The
+        #     call will in this case return the error object and the emitted event
         #   expect_execution.to do
         #     event = emit task.start_event
         #     error = have_error_matching CodeError
@@ -55,7 +57,9 @@ module Roby
             #   @return [[Event]] all the events whose generator match the
             #     query
             #
-            #   @example wait for the emission of the start event of any task of model MyTask. The call will return the emitted events that match this.
+            #   @example wait for the emission of the start event of any task of
+            #       model MyTask. The call will return the emitted events that match
+            #       this.
             #     expect_execution.to do
             #       emit find_tasks(MyTask).start_event
             #     end
@@ -114,7 +118,8 @@ module Roby
             #   since the beginning of expect_execution block. It contains event
             #   emissions and raised/caught errors.
             # @yieldreturn [Boolean] expected to be true over duration seconds
-            def maintain(at_least_during: 0, description: nil, backtrace: caller(1), &block)
+            def maintain(at_least_during: 0, description: nil,
+                         backtrace: caller(1), &block)
                 add_expectation(Maintain.new(at_least_during, block, description, backtrace))
             end
 
@@ -691,21 +696,21 @@ module Roby
                 # Verifies whether the expectation is met at this point
                 #
                 # This method is meant to update
-                def update_match(propagation_info)
+                def update_match(_propagation_info)
                     true
                 end
-                def unachievable?(propagation_info)
+                def unachievable?(_propagation_info)
                     false
                 end
-                def explain_unachievable(propagation_info)
+                def explain_unachievable(_propagation_info)
                     nil
                 end
-                def relates_to_error?(error)
+                def relates_to_error?(_error)
                     false
                 end
 
                 def format_unachievable_explanation(pp, explanation)
-                    pp.text "but it did not because of "
+                    pp.text 'but it did not because of '
                     explanation.pretty_print(pp)
                 end
             end
@@ -724,16 +729,18 @@ module Roby
                 end
 
                 def update_match(propagation_info)
-                    @emitted_events = propagation_info.emitted_events.
-                        find_all { |ev| ev.generator == @generator }
+                    @emitted_events =
+                        propagation_info
+                        .emitted_events
+                        .find_all { |ev| ev.generator == @generator }
                     @emitted_events.empty?
                 end
 
-                def unachievable?(propagation_info)
+                def unachievable?(_propagation_info)
                     !@emitted_events.empty?
                 end
 
-                def explain_unachievable(propagation_info)
+                def explain_unachievable(_propagation_info)
                     @emitted_events.first
                 end
 
@@ -770,11 +777,11 @@ module Roby
                     @emitted_events.empty?
                 end
 
-                def unachievable?(propagation_info)
+                def unachievable?(_propagation_info)
                     !@emitted_events.empty?
                 end
 
-                def explain_unachievable(propagation_info)
+                def explain_unachievable(_propagation_info)
                     @emitted_events.first
                 end
 
@@ -845,11 +852,11 @@ module Roby
                     @emitted_events.first
                 end
 
-                def unachievable?(propagation_info)
+                def unachievable?(_propagation_info)
                     @generator.unreachable?
                 end
 
-                def explain_unachievable(propagation_info)
+                def explain_unachievable(_propagation_info)
                     @generator.unreachability_reason
                 end
 
@@ -926,7 +933,7 @@ module Roby
                     @task = task
                 end
 
-                def update_match(propagation_info)
+                def update_match(_propagation_info)
                     @task.quarantined?
                 end
 
@@ -941,7 +948,7 @@ module Roby
                     @generator = generator
                 end
 
-                def update_match(propagation_info)
+                def update_match(_propagation_info)
                     @generator.unreachable?
                 end
 
@@ -960,11 +967,11 @@ module Roby
                     @generator = generator
                 end
 
-                def update_match(propagation_info)
+                def update_match(_propagation_info)
                     !@generator.unreachable?
                 end
 
-                def unachievable?(propagation_info)
+                def unachievable?(_propagation_info)
                     @generator.unreachable?
                 end
 
@@ -985,7 +992,7 @@ module Roby
                     end
                 end
 
-                def update_match(propagation_info)
+                def update_match(_propagation_info)
                     if !@task.failed_to_start?
                         false
                     elsif !@reason
@@ -995,7 +1002,7 @@ module Roby
                     end
                 end
 
-                def unachievable?(propagation_info)
+                def unachievable?(_propagation_info)
                     if @reason && @task.failed_to_start?
                         !(@reason === @task.failure_reason)
                     end
@@ -1007,7 +1014,7 @@ module Roby
                     end
                 end
 
-                def explain_unachievable(propagation_info)
+                def explain_unachievable(_propagation_info)
                     "#{@task.failure_reason} does not match #{@reason}"
                 end
 
@@ -1026,7 +1033,7 @@ module Roby
                     @promise = promise
                 end
 
-                def update_match(propagation_info)
+                def update_match(_propagation_info)
                     @promise.complete?
                 end
 
@@ -1075,11 +1082,11 @@ module Roby
                     end
                 end
 
-                def unachievable?(propagation_info)
+                def unachievable?(_propagation_info)
                     @failed
                 end
 
-                def explain_unachievable(propagation_info)
+                def explain_unachievable(_propagation_info)
                     "#{self} returned false"
                 end
 
@@ -1122,7 +1129,7 @@ module Roby
                     @plan_object = plan_object
                 end
 
-                def update_match(propagation_info)
+                def update_match(_propagation_info)
                     @plan_object.plan
                 end
 
@@ -1137,7 +1144,7 @@ module Roby
                     @plan_object = plan_object
                 end
 
-                def update_match(propagation_info)
+                def update_match(_propagation_info)
                     !@plan_object.plan
                 end
 

@@ -21,37 +21,44 @@ all = true
 testrb_args = []
 excluded_patterns = []
 parser = OptionParser.new do |opt|
-    opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- [MINITEST_OPTIONS] [TEST_FILES]"
+    opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- "\
+                 '[MINITEST_OPTIONS] [TEST_FILES]'
     opt.on('--self', 'only run tests that are present in this bundle') do |val|
         only_self = true
     end
-    opt.on('--not-all', 'run all the tests found in the bundle, regardless of whether they are loaded by the robot configuration') do |val|
+    opt.on('--not-all', 'run all the tests found in the bundle, regardless of whether '\
+                        'they are loaded by the robot configuration') do |val|
         all = false
     end
-    opt.on('--really-all', 'load all models, and run all the tests found in the bundle') do |val|
+    opt.on('--really-all', 'load all models, and run all the tests '\
+                           'found in the bundle') do |val|
         app.auto_load_models = true
         all = true
     end
-
-    opt.on('--exclude PATTERN', String, 'do not run files matching this pattern') do |pattern|
+    opt.on('--exclude PATTERN', String, 'do not run files '\
+           'matching this pattern') do |pattern|
         excluded_patterns << File.expand_path(pattern, Roby.app.app_dir)
     end
-    opt.on("--distributed", "access remote systems while setting up or running the tests") do |val|
+    opt.on('--distributed', 'access remote systems while setting up '\
+                            'or running the tests') do |val|
         Roby.app.single = !val
     end
-    opt.on('--list', 'lists the test files that are executed, but does not execute them') do
+    opt.on('--list', 'lists the test files that are executed, '\
+                     'but does not execute them') do
         list_tests = true
     end
-    opt.on("-l", "--live", "run tests in live mode") do |val|
+    opt.on('-l', '--live', 'run tests in live mode') do |val|
         Roby.app.simulation = !val
     end
-    opt.on("-k", "--keep-logs", "keep all logs") do |val|
+    opt.on('-k', '--keep-logs', 'keep all logs') do
         Roby.app.public_logs = true
     end
-    opt.on("-i", "--interactive", "allow user interaction during tests") do |val|
+    opt.on('-i', '--interactive', 'allow user interaction during tests') do
         Roby.app.automatic_testing = false
     end
-    opt.on("--coverage", "generate code coverage information. This autoloads all files and task context models to get a full coverage information") do |name|
+    opt.on('--coverage', 'generate code coverage information. This autoloads '\
+                         'all files and task context models to get '\
+                         'a full coverage information') do |name|
         coverage_mode = true
     end
     opt.on '--help' do
@@ -88,8 +95,11 @@ exception = Roby.display_exception do
         Roby.app.prepare
 
         if test_files.empty?
-            test_files = app.discover_test_files(all: all, only_self: only_self).map(&:first)
-            self_files, dependent_files = test_files.partition { |f| app.self_file?(f) }
+            test_files = app.discover_test_files(
+                all: all, only_self: only_self
+            ).map(&:first)
+            self_files, dependent_files =
+                test_files.partition { |f| app.self_file?(f) }
             test_files = self_files.sort + dependent_files.sort
             if list_tests
                 puts "Would load #{test_files.size} test files"
