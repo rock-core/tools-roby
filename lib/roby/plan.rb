@@ -1183,7 +1183,7 @@ module Roby
             # Create the set of tasks which must be kept as-is
             seeds = @mission_tasks | @permanent_tasks
             if with_transactions
-                for trsc in transactions
+                transactions.each do |trsc|
                     seeds.merge trsc.proxy_tasks.keys.to_set
                 end
             end
@@ -1194,12 +1194,15 @@ module Roby
             compute_useful_tasks(locally_useful_roots)
         end
 
-        def useful_tasks(with_transactions: true)
-            compute_useful_tasks(locally_useful_roots(with_transactions: with_transactions))
+        def useful_tasks(additional_roots: Set.new, with_transactions: true)
+            compute_useful_tasks(
+                locally_useful_roots(with_transactions: with_transactions) |
+                additional_roots
+            )
         end
 
-        def unneeded_tasks
-            tasks - useful_tasks
+        def unneeded_tasks(additional_useful_roots: Set.new)
+            tasks - useful_tasks(additional_roots: additional_useful_roots)
         end
 
         def local_tasks
@@ -1684,15 +1687,12 @@ module Roby
         # This is mainly useful for static tests, and for transactions
         #
         # Do *not* use it on executed plans.
-        def static_garbage_collect
+        def static_garbage_collect(protected_roots: Set.new)
+            unneeded = unneeded_tasks(additional_useful_roots: protected_roots)
             if block_given?
-                for t in unneeded_tasks
-                    yield(t)
-                end
+                unneeded.each { |t| yield(t) }
             else
-                for t in unneeded_tasks
-                    remove_task(t)
-                end
+                unneeded.each { |t| remove_task(t) }
             end
         end
 
