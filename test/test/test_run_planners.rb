@@ -4,7 +4,7 @@ module Roby
     module Test
         describe RunPlanners do
             before do
-                task_m = Roby::Task.new_submodel { terminates }
+                task_m = @task_m = Roby::Task.new_submodel { terminates }
                 planned_task = @planned_task = task_m.new
                 @action_m = Roby::Actions::Interface.new_submodel do
                     describe('the test action').returns(task_m)
@@ -23,8 +23,40 @@ module Roby
                 end
             end
 
-            describe "recursive: false" do
-                it "runs the planner of the toplevel task and returns the planned task" do
+            after do
+                if @handler_class
+                    RunPlanners.deregister_planning_handler(@handler_class)
+                end
+            end
+
+            it "calls the handler's start and finished? methods under propagation" do
+                @handler_class = Class.new(RunPlanners::PlanningHandler) do
+                    def start(tasks)
+                        tasks.each { |t| t.abstract = false }
+                        @@start_propagation =
+                            @test.plan.execution_engine.in_propagation_context?
+                    end
+
+                    @@called = false
+
+                    def self.valid?
+                        @@end_propagation && @@start_propagation
+                    end
+
+                    def finished?
+                        @@end_propagation =
+                            @test.plan.execution_engine.in_propagation_context?
+                    end
+                end
+
+                RunPlanners.roby_plan_with(@task_m.match.abstract, @handler_class)
+                plan.add(root_task = @action_m.test_action.as_plan)
+                run_planners(root_task)
+                assert @handler_class.valid?
+            end
+
+            describe 'recursive: false' do
+                it 'runs the planner of the toplevel task and returns the planned task' do
                     plan.add(root_task = @action_m.test_action.as_plan)
                     assert_equal @planned_task, run_planners(root_task, recursive: false)
                 end

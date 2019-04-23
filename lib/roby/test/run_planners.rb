@@ -67,8 +67,12 @@ module Roby
                 return root_task_service if by_handler.empty?
 
                 add_expectations do
-                    achieve(description: "expected all planning handlers to finish") do
-                        if by_handler && !by_handler.empty? && by_handler.all? { |handler, tasks| handler.finished? }
+                    all_handlers_finished = false
+                    achieve(description: 'expected all planning handlers to finish') do
+                        # by_handler == nil is used to indicate that an execute
+                        # block is pending
+                        if all_handlers_finished
+                            all_handlers_finished = false
                             if recursive
                                 by_handler = nil
                                 execute do
@@ -80,6 +84,11 @@ module Roby
                                 end
                             else
                                 by_handler = []
+                            end
+                        elsif by_handler && !by_handler.empty?
+                            execute do
+                                all_handlers_finished =
+                                    by_handler.all? { |handler, _| handler.finished? }
                             end
                         end
 
@@ -146,6 +155,11 @@ module Roby
             # @param [PlanningHandler] a planning handler
             def self.roby_plan_with(matcher, handler)
                 @@roby_planner_handlers.unshift [matcher, handler]
+            end
+
+            # Remove a planning handler added with roby_plan_with
+            def self.deregister_planning_handler(handler)
+                @@roby_planner_handlers.delete_if { |_, h| h == handler }
             end
 
             # Planning handler for {#roby_run_planner} that handles roby action tasks
