@@ -1,10 +1,41 @@
+# frozen_string_literal: true
+
 module Roby
     module Test
-        # Implementation of the #validate_state_machine context
+        # DSL-like way to test an action state machine
+        #
+        # {ValidateStateMachine} objects are not created directly. Use
+        # {Assertions#validate_state_machine} to create them
+        #
+        # The goal of state machine validation is to verify that state
+        # transitions happen when they should in complex state machines and in
+        # state machine generators (i.e. methods that create state machines)
+        #
+        # The general workflow is to verify some properties on the start state,
+        # and then cause state machine transitions using
+        # {#assert_transitions_to_state} based on e.g. event emissions. Do not
+        # fall into the trap of testing the state's own behaviors. This should
+        # be done within separate unit tests for the state's actions and/or
+        # task implementations.
         class ValidateStateMachine
+            # The task that holds the state machine
+            #
+            # @return [Roby::Task]
+            attr_reader :toplevel_task
+
+            # The toplevel task of the current state
+            #
+            # It raises if the toplevel task (and thus, the state machine) are
+            # not running
+            #
+            # @return [Roby::Task]
+            def current_state_task
+                @toplevel_task.current_task_child
+            end
+
             def initialize(test, task_or_action)
                 @test = test
-                @toplevel_task = @test.roby_run_planner(task_or_action)
+                @toplevel_task = @test.run_planners(task_or_action)
 
                 @state_machines =
                     @toplevel_task
@@ -16,7 +47,31 @@ module Roby
                 end
             end
 
-            def assert_transitions_to_state(state_name, timeout: 5, start: true)
+            # Start the toplevel task
+            #
+            # This is done automatically by {Assertions#validate_state_machine}
+            def start
+                toplevel_task = @toplevel_task
+                expect_execution { toplevel_task.start! }
+                    .to { emit toplevel_task.start_event }
+                @toplevel_task = @test.run_planners(@toplevel_task)
+                @toplevel_task.current_task_child
+            end
+
+            # Verifies that some operations cause the state machine to transition
+            #
+            # Note that one assertion may wait for more than one state transition.
+            # The given block should cause the expected transition(s) to fire, and
+            # should use normal Roby testing tools, such as e.g.
+            # {ExpectExecution#expect_execution}
+            #
+            # The toplevel task **MUST** be active at the point of call, that
+            # is the toplevel task has been started
+            #
+            # @yieldparam [Roby::Task] the current state's task
+            # @param [String,Symbol] state_name the name of the target state
+            # @param [Numeric] timeout
+            def assert_transitions_to_state(state_name, timeout: 5)
                 state_name = state_name.to_str
                 state_name = "#{state_name}_state" unless state_name.end_with?('_state')
 
@@ -26,14 +81,10 @@ module Roby
                         done ||= (state_name === new_state.name)
                     end
                 end
-                yield if block_given?
-                @test.process_events_until(timeout: timeout, garbage_collect_pass: false) do
-                    done
-                end
-                @test.roby_run_planner(@toplevel_task)
-                state_task = @toplevel_task.current_task_child
-                expect_execution.to { emit state_task.start_event } if start
-                state_task
+                yield(current_state_task) if block_given?
+                expect_execution.timeout(timeout).to { achieve { done } }
+                @test.run_planners(@toplevel_task)
+                @toplevel_task.current_task_child
             end
 
             def evaluate(&block)
@@ -42,16 +93,18 @@ module Roby
 
             def find_through_method_missing(m, args)
                 MetaRuby::DSLs.find_through_method_missing(
-                    @toplevel_task, m, args,
+                    current_state_task, m, args,
                     '_event' => :find_event,
-                    '_child' => :find_child_from_role) || super
+                    '_child' => :find_child_from_role
+                ) || super
             end
 
             def has_through_method_missing?(m)
                 MetaRuby::DSLs.has_through_method_missing?(
-                    @toplevel_task, m,
+                    current_state_task, m,
                     '_event' => :has_event?,
-                    '_child' => :has_role?) || super
+                    '_child' => :has_role?
+                ) || super
             end
 
             include MetaRuby::DSLs::FindThroughMethodMissing
@@ -70,4 +123,3 @@ module Roby
         end
     end
 end
-
