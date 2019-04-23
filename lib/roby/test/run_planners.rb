@@ -10,7 +10,7 @@ module Roby
             # @api private
             #
             # Helper that sets up the planning handlers for {#run_planners}
-            def self.setup_planning_handlers(plan, root_task, recursive: true)
+            def self.setup_planning_handlers(test, plan, root_task, recursive: true)
                 if root_task.respond_to?(:as_plan)
                     root_task = root_task.as_plan
                     plan.add(root_task)
@@ -23,9 +23,10 @@ module Roby
                             [root_task]
                         end
 
-                by_handler = tasks.find_all { |t| t.abstract? && t.planning_task }.
-                    group_by { |t| RunPlanners.planner_handler_for(t) }.
-                    map { |handler_class, tasks| [handler_class.new, tasks] }
+                by_handler = tasks
+                             .find_all { |t| t.abstract? && t.planning_task }
+                             .group_by { |t| RunPlanners.planner_handler_for(t) }
+                             .map { |h_class, h_tasks| [h_class.new(test), h_tasks] }
                 return root_task.as_service, [] if by_handler.empty?
 
                 placeholder_tasks = {}
@@ -59,7 +60,10 @@ module Roby
                     return service&.to_task
                 end
 
-                root_task_service, by_handler = RunPlanners.setup_planning_handlers(plan, root_task, recursive: recursive)
+                root_task_service, by_handler =
+                    RunPlanners.setup_planning_handlers(
+                        self, plan, root_task, recursive: recursive
+                    )
                 return root_task_service if by_handler.empty?
 
                 add_expectations do
@@ -69,7 +73,10 @@ module Roby
                                 by_handler = nil
                                 execute do
                                     new_root = root_task_service.to_task
-                                    root_task_service, by_handler = RunPlanners.setup_planning_handlers(plan, new_root, recursive: true)
+                                    root_task_service, by_handler =
+                                        RunPlanners.setup_planning_handlers(
+                                            self, plan, new_root, recursive: true
+                                        )
                                 end
                             else
                                 by_handler = []
@@ -89,6 +96,11 @@ module Roby
             # This class is only used to describe the required interface. See
             # {ActionPlanningHandler} for an example
             class PlanningHandler
+                # Create a handler based on the given test case
+                def initialize(test)
+                    @test = test
+                end
+
                 # Start planning these tasks
                 #
                 # This is called within a propagation context
@@ -136,9 +148,12 @@ module Roby
                 @@roby_planner_handlers.unshift [matcher, handler]
             end
 
-
             # Planning handler for {#roby_run_planner} that handles roby action tasks
             class ActionPlanningHandler
+                def initialize(test)
+                    @test = test
+                end
+
                 # (see PlanningHandler#start)
                 def start(tasks)
                     @planning_tasks = tasks.map do |planned_task|
@@ -148,7 +163,7 @@ module Roby
                         planning_task
                     end
                 end
-                
+
                 # (see PlanningHandler#finished?)
                 def finished?
                     @planning_tasks.all?(&:success?)
@@ -159,5 +174,3 @@ module Roby
         end
     end
 end
-
-
