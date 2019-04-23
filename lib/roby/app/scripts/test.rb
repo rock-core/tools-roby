@@ -53,6 +53,10 @@ parser = OptionParser.new do |opt|
     opt.on('-k', '--keep-logs', 'keep all logs') do
         Roby.app.public_logs = true
     end
+    opt.on('--ui', 'tell plugins and/or robot configurations to load their '\
+                   'UI frameworks of choice. This does not imply --interactive') do
+        Conf.ui = true
+    end
     opt.on('-i', '--interactive', 'allow user interaction during tests') do
         Roby.app.automatic_testing = false
     end
