@@ -19,8 +19,15 @@ module Roby
                 super
             end
 
+            # Perform tests on an action state machine
+            #
+            # @param [Roby::Task,Roby::Actions::Action] task_or_action a task that holds
+            #   a state machine, or a state machine action
+            # @param block a block evaluated in a {ValidateStateMachine} context
             def validate_state_machine(task_or_action, &block)
-                ValidateStateMachine.new(self, task_or_action).evaluate(&block)
+                machine = ValidateStateMachine.new(self, task_or_action)
+                machine.start unless task_or_action.running?
+                machine.evaluate(&block)
             end
 
             # Checks that an exception's #pretty_print method passes without
@@ -555,7 +562,7 @@ module Roby
                     next unless object.model.respond_to?(:each_capture)
 
                     object.model.each_capture do |c, _|
-                        return c if c.name == capture_name
+                        return [c, object] if c.name == capture_name
                     end
                 end
                 nil
