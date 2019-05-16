@@ -6,11 +6,19 @@ module Roby
         class GenMain < Thor
             include Thor::Actions
 
-
             namespace :gen
             source_paths << File.join(__dir__, 'gen')
 
-            desc "app [DIR]", "creates a new app scaffold in the current directory, or DIR if given"
+            no_commands do
+                def template(template_path, *args, **kw)
+                    super(template_path + '.erb', *args, **kw)
+                rescue Thor::Error
+                    super(template_path, *args, **kw)
+                end
+            end
+
+            desc 'app [DIR]', 'creates a new app scaffold in the current directory, '\
+                              'or DIR if given'
             option :quiet, type: :boolean, default: false
             def app(dir = nil, init_path: 'roby_app', robot_path: 'roby_app')
                 if dir

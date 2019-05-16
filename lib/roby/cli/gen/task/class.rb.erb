@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 <% indent, open_code, close_code = ::Roby::CLI::Gen.in_module(*class_name[0..-2]) %>
 <%= open_code %>
 <%= indent %>class <%= class_name.last %> < Roby::Task
@@ -7,7 +9,7 @@
 <%= indent %>    # Declare an argument to the task. Use default: VALUE to set up a default
 <%= indent %>    # value. The default can be nil
 <%= indent %>    # argument :arg[, default: 1]
-<%= indent %>    
+<%= indent %>
 <%= indent %>    # Declare a new event. This defines updated_event which returns a
 <%= indent %>    # Roby::EventGenerator
 <%= indent %>    # event :updated
