@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 <% if robot_name != 'default' %>## A common pattern is to load the 'default' robot configuration
 require_relative './default'<% end %>
 
@@ -8,8 +10,9 @@ require_relative './default'<% end %>
 
 # Block evaluated at the very beginning of the Roby app initialization
 Robot.init do
-    ## You could also change the Roby search path
-    # Roby.app.search_path << "separate path"
+    ## Make models from another Roby app accessible
+    # Relative paths are resolved from the root of this app
+    # Roby.app.register_app('../separate_path')
 end
 
 # Block evaluated to load the models this robot requires
