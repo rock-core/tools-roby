@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         module REST
@@ -12,8 +14,10 @@ module Roby
                     optional :value, type: Integer, default: 20
                 end
                 get 'ping' do
-                    if !interface
-                        error!({error: 'Internal Error', details: 'no attached Roby interface'}, 500)
+                    unless interface
+                        error!({ error: 'Internal Error',
+                                 details: 'no attached Roby interface' },
+                               500)
                     end
                     params[:value]
                 end
@@ -26,4 +30,3 @@ module Roby
         end
     end
 end
-
