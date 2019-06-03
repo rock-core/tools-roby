@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'eventmachine'
 require 'rack'
 require 'thin'
@@ -35,11 +37,11 @@ module Roby
                 # @param [Grape::API] api used to route requests.
                 # @param [String] prefix for routes. e.g. host:port/main_route/ping
                 def initialize(app,
-                    host: '0.0.0.0',
-                    port: Roby::Interface::DEFAULT_REST_PORT,
-                    api: REST::API,
-                    main_route: '/api',
-                    **thin_options)
+                               host: '0.0.0.0',
+                               port: Roby::Interface::DEFAULT_REST_PORT,
+                               api: REST::API,
+                               main_route: '/api',
+                               **thin_options)
 
                     @app = app
                     @host = host
@@ -56,13 +58,11 @@ module Roby
                         end
                     end
                     @server = Thin::Server.new(host, port, rack_app,
-                        signals: false, **thin_options)
+                                               signals: false, **thin_options)
                     @server.silent = true
                     if @server.backend.respond_to?(:port)
                         @original_port = port
-                        if port != 0
-                            @port = port
-                        end
+                        @port = port if port != 0
                     else
                         @original_port = @port = nil
                     end
@@ -74,7 +74,7 @@ module Roby
                 # gets an #interface accessor that provides the interface
                 # object the API is meant to work on
                 def self.attach_api_to_interface(api, interface)
-                    storage = Hash.new
+                    storage = {}
                     Class.new do
                         define_method(:call) do |env|
                             env['roby.interface'] = interface
@@ -93,14 +93,12 @@ module Roby
                 #   was reached while waiting for the server to start
                 def start(wait_timeout: 5)
                     @server_thread = create_thin_thread(@server, @wait_start)
-                    if wait_timeout != 0
-                        wait_start(timeout: wait_timeout)
-                    end
+                    wait_start(timeout: wait_timeout) if wait_timeout != 0
                 end
 
                 # Whether the server is running
                 def running?
-                    @server_thread && @server_thread.alive?
+                    @server_thread&.alive?
                 end
 
                 # @api private
@@ -130,14 +128,11 @@ module Roby
                 #   was set to zero
                 # @raise [Timeout]
                 def port(timeout: 0)
-                    if @port
-                        return @port
-                    elsif !@original_port
-                        return nil
-                    else
-                        wait_start(timeout: timeout)
-                        @port = @wait_start.value!
-                    end
+                    return @port if @port
+                    return unless @original_port
+
+                    wait_start(timeout: timeout)
+                    @port = @wait_start.value!
                 end
 
                 # Exception raised by the methods that could time out
@@ -151,9 +146,9 @@ module Roby
                 # @raise [Timeout]
                 def wait_start(timeout: 10)
                     @wait_start.wait(timeout)
-                    if !@wait_start.complete?
-                        raise Timeout, "timed out while waiting for the server to start"
-                    end
+                    return if @wait_start.complete?
+
+                    raise Timeout, 'timed out while waiting for the server to start'
                 end
 
                 # Asks the server to stop
@@ -164,9 +159,7 @@ module Roby
                 # @raise [Timeout]
                 def stop(join_timeout: 10)
                     EventMachine.next_tick { @server.stop! }
-                    if join_timeout != 0
-                        join(timeout: join_timeout)
-                    end
+                    join(timeout: join_timeout) if join_timeout != 0
                 end
 
                 # Waits for the server to stop
@@ -177,8 +170,9 @@ module Roby
                 # @raise [Timeout]
                 def join(timeout: nil)
                     if timeout
-                        if !@server_thread.join(timeout)
-                            raise Timeout, "timed out while waiting for the server to stop"
+                        unless @server_thread.join(timeout)
+                            raise Timeout, 'timed out while waiting for '\
+                                           'the server to stop'
                         end
                     else
                         @server_thread.join
@@ -191,11 +185,9 @@ module Roby
 
                 # (see Server.server_alive?)
                 def server_alive?
-                    if !@wait_start.complete?
-                        return false
-                    else
-                        self.class.server_alive?('localhost', port, main_route: main_route)
-                    end
+                    return false unless @wait_start.complete?
+
+                    self.class.server_alive?('localhost', port, main_route: main_route)
                 end
 
                 # Tests whether the server is actually alive
@@ -204,15 +196,19 @@ module Roby
                 #
                 # @raise InvalidServer if there is a server at the expected
                 #   host and port, but not a Roby REST server
-                def self.server_alive?(host, port, main_route: '/api' )
+                def self.server_alive?(host, port, main_route: '/api')
                     test_value = rand(10)
-                    returned_value = RestClient.
-                        get("http://#{host}:#{port}#{main_route}/ping", params: { value: test_value })
+                    returned_value = RestClient.get(
+                        "http://#{host}:#{port}#{main_route}/ping",
+                        params: { value: test_value }
+                    )
                     if test_value != Integer(returned_value)
-                        raise InvalidServer, "unexpected server answer to 'ping', expected #{test_value} but got #{returned_value}"
+                        raise InvalidServer, "unexpected server answer to 'ping', "\
+                                             "expected #{test_value} but got "\
+                                             "#{returned_value}"
                     end
                     true
-                rescue Errno::ECONNREFUSED => e
+                rescue Errno::ECONNREFUSED
                     false
                 rescue RestClient::Exception => e
                     raise InvalidServer, "unexpected server answer to 'ping': #{e}"
