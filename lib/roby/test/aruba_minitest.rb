@@ -39,7 +39,7 @@ module Roby
             end
 
             def run_command(*args)
-                @aruba_api.run(*args)
+                @aruba_api.run_command(*args)
             end
 
             def run_roby_and_stop(cmd, *args, fail_on_error: true)
