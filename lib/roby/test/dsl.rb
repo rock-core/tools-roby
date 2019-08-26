@@ -107,6 +107,7 @@ module Roby
             def roby_should_run(test, app)
                 run_modes = all_run_mode
                 enabled_robots = all_enabled_robot
+
                 if !run_modes.empty? && run_modes.all? { |blk| !blk.call(app) }
                     test.skip("#{test.name} cannot run in this roby test configuration")
                 elsif !enabled_robots.empty? && !enabled_robots.include?(app.robot_name)
@@ -127,6 +128,30 @@ module Roby
                     @__describe_blocks ||= Array.new
                     @__describe_blocks << [desc, behaviour]
                 end
+            end
+
+            module InstanceExtension
+                def app
+                    Roby.app
+                end
+
+                # Filters out the test suites that are not enabled by the current
+                # Roby configuration
+                def run
+                    begin
+                        time_it do
+                            self.class.roby_should_run(self, app)
+                        end
+                    rescue Minitest::Skip
+                        return Minitest::Result.from(self)
+                    end
+
+                    super
+                end
+            end
+
+            def self.extended(mod)
+                mod.include InstanceExtension
             end
 
             def included(target)
