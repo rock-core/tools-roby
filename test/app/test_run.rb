@@ -63,6 +63,17 @@ module Roby
                 assert_match /is_running: false/, out
             end
 
+            it 'allows files given as argument to define new actions' do
+                dir = roby_app_setup_single_script 'define_action.rb'
+                capture_subprocess_io do
+                    pid = roby_app_spawn('run', 'scripts/define_action.rb', chdir: dir)
+                    assert_roby_app_is_running(pid)
+                    actions = roby_app_call_remote_interface(&:actions)
+                    assert_equal ['action_defined_in_script'], actions.map(&:name)
+                    assert_roby_app_quits(pid)
+                end
+            end
+
             it "loads the file just after a double dash as a controller file" do
                 dir = roby_app_setup_single_script 'is_running.rb'
                 out, _ = capture_subprocess_io do

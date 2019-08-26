@@ -1586,14 +1586,14 @@ module Roby
             end
             define_main_planner_if_needed
 
+            additional_model_files.each do |path|
+                require File.expand_path(path)
+            end
+
             action_handlers.each do |act|
                 isolate_load_errors("error in #{act}") do
                     app_module::Actions::Main.class_eval(&act)
                 end
-            end
-
-            additional_model_files.each do |path|
-                require File.expand_path(path)
             end
 
             if auto_load_models?

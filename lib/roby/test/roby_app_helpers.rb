@@ -142,28 +142,45 @@ module Roby
                 return logfile_path, writer
             end
 
+            # Contact a remote interface and perform some action(s)
+            #
+            # The method disconnects from the interface before returning
+            #
+            # @yieldparam [Roby::Interface::Client] client the interface client
+            # @yieldreturn [Object] object returned by the method
+            def roby_app_call_remote_interface(host: 'localhost',
+                                               port: Interface::DEFAULT_PORT)
+                interface = Interface.connect_with_tcp_to(host, port)
+                yield(interface) if block_given?
+            ensure
+                interface&.close
+            end
+
+            # Create a client to the interface running in the test's current app
+            #
+            # The method disconnects from the interface before returning
+            #
+            # @yieldparam [Roby::Interface::Client] client the interface client
+            # @yieldreturn [Object] object returned by the method
             def roby_app_call_interface(host: 'localhost', port: Interface::DEFAULT_PORT)
                 client_thread = Thread.new do
                     begin
                         interface = Interface.connect_with_tcp_to(host, port)
-                        if block_given?
-                            result = yield(interface)
-                        end
-                    rescue Exception => e
+                        result = yield(interface) if block_given?
+                    rescue Exception => e # rubocop:disable Lint/RescueException
                         error = e
                     end
                     [interface, result, error]
                 end
-                while client_thread.alive?
-                    app.shell_interface.process_pending_requests
-                end
-                begin 
+                app.shell_interface.process_pending_requests while client_thread.alive?
+                begin
                     interface, result, error = client_thread.value
-                rescue Exception => e
+                rescue Exception => e # rubocop:disable Lint/RescueException
                     raise e, e.message, e.backtrace + caller
                 end
                 interface.close
                 raise error if error
+
                 result
             end
 
