@@ -3,6 +3,11 @@ module Roby
         # The client-side object that allows to access an interface (e.g. a Roby
         # app) from another process than the Roby controller
         class Client
+            # Default value for {#call_timeout}
+            DEFAULT_CALL_TIMEOUT = 10
+
+            class TimeoutError < RuntimeError; end
+
             # @return [DRobyChannel] the IO to the server
             attr_reader :io
             # @return [Array<Roby::Actions::Model::Action>] set of known actions
@@ -39,6 +44,13 @@ module Roby
             # @return [Hash<Symbol,Object>]
             attr_reader :handshake_results
 
+            # Timeout, in seconds, in blocking remote calls
+            #
+            # Defaults to {DEFAULT_CALL_TIMEOUT}
+            #
+            # @return [Float]
+            attr_accessor :call_timeout
+
             # Create a client endpoint to a Roby interface [Server]
             #
             # @param [DRobyChannel] io a channel to the server
@@ -59,6 +71,7 @@ module Roby
                 @job_progress_queue = Array.new
                 @exception_queue = Array.new
                 @ui_event_queue = Array.new
+                @call_timeout = DEFAULT_CALL_TIMEOUT
 
                 @handshake_results = call([], :handshake, id, handshake)
                 @actions  = @handshake_results[:actions]
@@ -167,9 +180,9 @@ module Roby
             # @raise [ComError] if the link seem to be broken
             # @raise [ProtocolError] if some errors happened when validating the
             #   protocol
-            def poll(expected_count = 0)
+            def poll(expected_count = 0, timeout: nil)
                 result = nil
-                timeout = if expected_count > 0 then nil
+                timeout = if expected_count > 0 then timeout
                           else 0
                           end
 
@@ -188,6 +201,11 @@ module Roby
                         timeout = 0
                     end
                 end
+                if expected_count != 0
+                    within_s = " within #{timeout}s" if timeout
+                    raise TimeoutError, "failed to receive expected reply#{within_s}"
+                end
+
                 return result, has_cycle_end
             end
 
@@ -320,7 +338,7 @@ module Roby
                     start_job(action_name, *args)
                 else
                     io.write_packet([path, m, *args])
-                    result, _ = poll(1)
+                    result, = poll(1, timeout: @call_timeout)
                     result
                 end
             end
