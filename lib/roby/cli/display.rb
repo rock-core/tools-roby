@@ -63,36 +63,44 @@ module Roby
                 end
             end
 
-            desc 'server PATH', "serve the given log file"
+            desc 'server PATH', 'serve the given log file'
             option :fd, desc: 'the file descriptor of the TCP server socket',
-                type: :numeric
+                        type: :numeric
             option :port, desc: 'port number on which to create the server',
-                type: :numeric, default: Server::DEFAULT_PORT
+                          type: :numeric, default: Server::DEFAULT_PORT
             option :sampling, type: :numeric,
-                default: Server::DEFAULT_SAMPLING_PERIOD,
-                desc: 'period in seconds at which the server should poll the log file'
+                              default: Server::DEFAULT_SAMPLING_PERIOD,
+                              desc: 'period in seconds at which the server '\
+                                    'should poll the log file'
             def server(path, port: options[:port])
                 # NOTE: the 'port' argument is here so that it can be overriden
                 # in {#backward}
                 apply_common_options
 
-                if server_fd = options[:fd]
+                if (server_fd = options[:fd])
                     server_io = TCPServer.for_fd(server_fd)
                 else
                     server_io =
-                        begin TCPServer.new(port)
-                        rescue TypeError # Workaround for https://bugs.ruby-lang.org/issues/10203
-                            raise Errno::EADDRINUSE, "Address already in use - bind(2) for \"0.0.0.0\" port #{port}"
+                        begin
+                            TCPServer.new(port)
+                        # Workaround for https://bugs.ruby-lang.org/issues/10203
+                        rescue TypeError
+                            raise Errno::EADDRINUSE,
+                                  'Address already in use - bind(2) for '\
+                                  "\"0.0.0.0\" port #{port}"
                         end
                 end
 
-                server = Roby::DRoby::Logfile::Server.new(path, options[:sampling], server_io)
+                server = Roby::DRoby::Logfile::Server.new(
+                    path, options[:sampling], server_io
+                )
                 port = server_io.local_address.ip_port
-                Server.info "Roby log server listening on port #{port}, sampling period=#{options[:sampling]}"
+                Server.info "Roby log server listening on port #{port}, "\
+                            "sampling period=#{options[:sampling]}"
                 Server.info "watching #{path}"
                 server.exec
             ensure
-                server_io.close if server_io
+                server_io&.close
             end
 
             attr_reader :config_path

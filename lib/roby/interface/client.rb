@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # The client-side object that allows to access an interface (e.g. a Roby
@@ -63,18 +65,18 @@ module Roby
             #   you know what you are doing
             #
             # @see Interface.connect_with_tcp_to
-            def initialize(io, id, handshake: [:actions, :commands])
-                @pending_async_calls = Array.new
+            def initialize(io, id, handshake: %i[actions commands])
+                @pending_async_calls = []
                 @io = io
                 @message_id = 0
-                @notification_queue = Array.new
-                @job_progress_queue = Array.new
-                @exception_queue = Array.new
-                @ui_event_queue = Array.new
+                @notification_queue = []
+                @job_progress_queue = []
+                @exception_queue = []
+                @ui_event_queue = []
                 @call_timeout = DEFAULT_CALL_TIMEOUT
 
                 @handshake_results = call([], :handshake, id, handshake)
-                @actions  = @handshake_results[:actions]
+                @actions = @handshake_results[:actions]
                 @commands = @handshake_results[:commands]
             end
 
@@ -95,7 +97,7 @@ module Roby
 
             # Tests whether the interface has an action with that name
             def has_action?(name)
-                !!find_action_by_name(name)
+                find_action_by_name(name)
             end
 
             # Find an action by its name
@@ -151,7 +153,9 @@ module Roby
                 elsif m == :exception
                     queue_exception(*args)
                 else
-                    raise ProtocolError, "unexpected reply from #{io}: #{m} (#{args.map(&:to_s).join(",")})"
+                    raise ProtocolError,
+                          "unexpected reply from #{io}: #{m} "\
+                          "(#{args.map(&:to_s).join(',')})"
                 end
                 false
             end
@@ -187,10 +191,11 @@ module Roby
                           end
 
                 has_cycle_end = false
-                while packet = io.read_packet(timeout)
+                while (packet = io.read_packet(timeout))
                     has_cycle_end = process_packet(*packet) do |reply_value|
                         if result
-                            raise ProtocolError, "got more than one sync reply in a single poll call"
+                            raise ProtocolError,
+                                  'got more than one sync reply in a single poll call'
                         end
                         result = reply_value
                         expected_count -= 1
@@ -198,6 +203,7 @@ module Roby
 
                     if expected_count <= 0
                         break if has_cycle_end
+
                         timeout = 0
                     end
                 end
@@ -206,7 +212,7 @@ module Roby
                     raise TimeoutError, "failed to receive expected reply#{within_s}"
                 end
 
-                return result, has_cycle_end
+                [result, has_cycle_end]
             end
 
             # @api private
@@ -223,7 +229,9 @@ module Roby
             # See the yield parameters of {Interface#on_job_notification} for
             # the overall argument format.
             def queue_job_progress(kind, job_id, job_name, *args)
-                job_progress_queue.push [allocate_message_id, [kind, job_id, job_name, *args]]
+                job_progress_queue.push(
+                    [allocate_message_id, [kind, job_id, job_name, *args]]
+                )
             end
 
             # Whether some job progress information is currently queued
@@ -314,10 +322,12 @@ module Roby
             #
             # @raise [NoSuchAction] if the requested action does not exist
             def start_job(action_name, **arguments)
-                if find_action_by_name(action_name)
-                    call([], :start_job, action_name, arguments)
-                else raise NoSuchAction, "there is no action called #{action_name} on #{self}"
+                unless find_action_by_name(action_name)
+                    raise NoSuchAction,
+                          "there is no action called #{action_name} on #{self}"
                 end
+
+                call([], :start_job, action_name, arguments)
             end
 
             # @api private
@@ -333,9 +343,8 @@ module Roby
             # @return [Object] the command result, or -- in the case of an
             #   action -- the job ID for the newly created action
             def call(path, m, *args)
-                if m.to_s =~ /(.*)!$/
-                    action_name = $1
-                    start_job(action_name, *args)
+                if (action_match = /(.*)!$/.match(m.to_s))
+                    start_job(action_match[1], *args)
                 else
                     io.write_packet([path, m, *args])
                     result, = poll(1, timeout: @call_timeout)
@@ -355,15 +364,18 @@ module Roby
             # @param [Object] args the command or action arguments
             # @return [Object] an Object associated with the call @see async_call_pending?
             def async_call(path, m, *args, &block)
-                raise RuntimeError, "no callback block given" unless block_given?
-                if m.to_s =~ /(.*)!$/
-                    action_name = $1
-                    if find_action_by_name(action_name)
-                        path = []
-                        m = :start_job
-                        args = [action_name, *args]
-                    else raise NoSuchAction, "there is no action called #{action_name} on #{self}"
+                raise 'no callback block given' unless block_given?
+
+                if (action_match = /(.*)!$/.match(m.to_s))
+                    action_name = action_match[1]
+                    unless find_action_by_name(action_name)
+                        raise NoSuchAction,
+                              "there is no action called #{action_name} on #{self}"
                     end
+
+                    path = []
+                    m = :start_job
+                    args = [action_name, *args]
                 end
                 io.write_packet([path, m, *args])
                 pending_async_calls << { block: block, path: path, m: m, args: args }
@@ -417,7 +429,9 @@ module Roby
                     if @context.has_action?(action_name)
                         __push([], :start_job, action_name, *args)
                     else
-                        ::Kernel.raise ::Roby::Interface::Client::NoSuchAction, "there is no action called #{action_name} on #{@context}"
+                        ::Kernel.raise ::Roby::Interface::Client::NoSuchAction,
+                                       "there is no action called #{action_name} "\
+                                       "on #{@context}"
                     end
                 end
 
@@ -442,12 +456,15 @@ module Roby
                 # @api private
                 #
                 # Provides the action_name! syntax to start jobs
-                def method_missing(m, *args)
-                    if m =~ /(.*)!$/
-                        start_job($1, *args)
-                    else
-                        ::Kernel.raise ::NoMethodError.new(m), "#{m} either does not exist, or is not supported in batch context (only starting and killing jobs is)"
+                def method_missing(m, *args) # rubocop:disable Style/MethodMissingSuper
+                    if (action_match = /(.*)!$/.match(m.to_s))
+                        return start_job(action_match[1], *args)
                     end
+
+                    ::Kernel.raise ::NoMethodError.new(m),
+                                   "#{m} either does not exist, or is not "\
+                                   'supported in batch context (only '\
+                                   'starting and killing jobs is)'
                 end
 
                 # Process the batch and return the list of return values for all
@@ -472,8 +489,9 @@ module Roby
                         @elements = elements
                     end
 
-                    def each(&block)
-                        return enum_for(__method__) if !block_given?
+                    def each
+                        return enum_for(__method__) unless block_given?
+
                         @elements.each { |e| yield(e.return_value) }
                     end
 
@@ -505,13 +523,15 @@ module Roby
                     end
 
                     def killed_jobs_id
-                        filter(call: :kill_job).each_element.
-                            map { |e| e.call[2] }
+                        filter(call: :kill_job)
+                            .each_element
+                            .map { |e| e.call[2] }
                     end
 
                     def dropped_jobs_id
-                        filter(call: :drop_job).each_element.
-                            map { |e| e.call[2] }
+                        filter(call: :drop_job)
+                            .each_element
+                            .map { |e| e.call[2] }
                     end
                 end
             end
@@ -524,7 +544,8 @@ module Roby
 
             # Enumerate the current jobs
             def each_job
-                return enum_for(__method__) if !block_given?
+                return enum_for(__method__) unless block_given?
+
                 jobs.each do |job_id, (job_state, placeholder_task, job_task)|
                     yield(Job.new(job_id, job_state, placeholder_task, job_task))
                 end
@@ -571,22 +592,23 @@ module Roby
 
             # Tests whether the remote interface has a given subcommand
             def has_subcommand?(name)
-                commands.has_key?(name)
+                commands.key?(name)
             end
 
             # Returns a shell object
             def subcommand(name)
-                if !(sub = find_subcommand_by_name(name))
+                unless (sub = find_subcommand_by_name(name))
                     raise ArgumentError, "#{name} is not a known subcommand on #{self}"
                 end
+
                 SubcommandClient.new(self, name, sub.description, sub.commands)
             end
 
-            def method_missing(m, *args, &block)
-                if sub = find_subcommand_by_name(m.to_s)
+            def method_missing(m, *args, &b) # rubocop:disable Style/MethodMissingSuper
+                if (sub = find_subcommand_by_name(m.to_s))
                     SubcommandClient.new(self, m.to_s, sub.description, sub.commands)
                 elsif (match = /^async_(.*)$/.match(m.to_s))
-                    async_call([], match[1].to_sym, *args, &block)
+                    async_call([], match[1].to_sym, *args, &b)
                 else
                     call([], m, *args)
                 end

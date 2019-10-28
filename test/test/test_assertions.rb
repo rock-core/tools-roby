@@ -92,17 +92,17 @@ module Roby
                         plan.add_mission_task(task = @interface.new(plan).test_machine)
                         assert_nil find_state_machine_capture(task, 'does_not_exist')
                     end
-                    it "handles a task without coordination objects" do
+                    it 'handles a task without coordination objects' do
                         plan.add_mission_task(task = Roby::Task.new)
                         assert_nil find_state_machine_capture(task, 'does_not_exist')
                     end
                 end
 
-                describe "#run_state_machine_capture" do
+                describe '#run_state_machine_capture' do
                     before do
                         @task = @interface.new(plan).test_machine
                     end
-                    it "runs the capture with the provided context and returns its result" do
+                    it 'runs the capture with the provided context and returns its result' do
                         result = run_state_machine_capture(@task, 'value', context: [42])
                         assert_equal 84, result
                     end
@@ -115,31 +115,35 @@ module Roby
                         result = run_state_machine_capture(@task, 'value', context: 42)
                         assert_equal 84, result
                     end
-                    it "can pass a raw event object" do
+                    it 'can pass a raw event object' do
                         event = flexmock(context: [42])
                         result = run_state_machine_capture(@task, 'value', event: event)
                         assert_equal 84, result
                     end
-                    it "raises if given both event and context" do
+                    it 'raises if given both event and context' do
                         e = assert_raises(ArgumentError) do
-                            run_state_machine_capture(@task, "value",
-                                event: Object.new, context: 42)
+                            run_state_machine_capture(
+                                @task, 'value',
+                                event: Object.new, context: 42
+                            )
                         end
-                        assert_equal "cannot pass both context and event", e.message
+                        assert_equal 'cannot pass both context and event', e.message
                     end
-                    it "raises if given both event and context" do
+                    it 'raises if given both event and context' do
                         e = assert_raises(ArgumentError) do
-                            run_state_machine_capture(@task, "value",
-                                event: Object.new, context: [42])
+                            run_state_machine_capture(
+                                @task, 'value',
+                                event: Object.new, context: [42]
+                            )
                         end
-                        assert_equal "cannot pass both context and event", e.message
+                        assert_equal 'cannot pass both context and event', e.message
                     end
-                    it "raises if the capture does not exist" do
+                    it 'raises if the capture does not exist' do
                         e = assert_raises(ArgumentError) do
-                            run_state_machine_capture(@task, "does_not_exist")
+                            run_state_machine_capture(@task, 'does_not_exist')
                         end
                         assert_equal "no capture named 'does_not_exist' in any state "\
-                            "machine associated with #{@task}", e.message
+                                     "machine associated with #{@task}", e.message
                     end
                 end
             end

@@ -38,7 +38,7 @@ module Roby
         include Test::RunPlanners
 
         def setup
-            @temp_dirs = Array.new
+            @temp_dirs = []
 
             Roby.app.log['server'] = false
             Roby.app.auto_load_models = false

@@ -42,9 +42,9 @@ module Roby
                     .each_coordination_object
                     .find_all { |obj| obj.kind_of?(Coordination::ActionStateMachine) }
 
-                if @state_machines.empty?
-                    raise ArgumentError, "#{task_or_action} has no state machines"
-                end
+                return unless @state_machines.empty?
+
+                raise ArgumentError, "#{task_or_action} has no state machines"
             end
 
             # Start the toplevel task

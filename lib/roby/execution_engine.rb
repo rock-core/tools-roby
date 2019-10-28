@@ -1682,13 +1682,18 @@ module Roby
         #
         # @return [PropagationInfo] what happened during the propagation
         # @raise RecursivePropagationContext if called recursively
-        def process_events(raise_framework_errors: Roby.app.abort_on_application_exception?, garbage_collect_pass: true, &caller_block)
+        def process_events(
+            raise_framework_errors: Roby.app.abort_on_application_exception?,
+            garbage_collect_pass: true, &caller_block
+        )
             if @application_exceptions
-                raise RecursivePropagationContext, "recursive call to process_events"
+                raise RecursivePropagationContext, 'recursive call to process_events'
             end
-            passed_recursive_check = true # to avoid having a almost-method-global ensure block
+
+            # to avoid having a almost-method-global ensure block
+            passed_recursive_check = true
             @application_exceptions = []
-            @emitted_events = Array.new
+            @emitted_events = []
 
             @thread_pool.send :synchronize do
                 @thread_pool.send(:ns_prune_pool)
@@ -1714,13 +1719,14 @@ module Roby
                 end
             end
 
-            propagation_info = propagate_events_and_errors(next_steps, events_errors, garbage_collect_pass: garbage_collect_pass)
+            propagation_info = propagate_events_and_errors(
+                next_steps, events_errors, garbage_collect_pass: garbage_collect_pass
+            )
             if Roby.app.abort_on_exception? && !all_errors.fatal_errors.empty?
                 raise Aborting.new(propagation_info.each_fatal_error.map(&:exception))
             end
             propagation_info.framework_errors.concat(@application_exceptions)
             propagation_info
-
         ensure
             if passed_recursive_check
                 process_pending_application_exceptions(raise_framework_errors: raise_framework_errors)
@@ -2421,14 +2427,21 @@ module Roby
         attr_reader :finalizers
 
         # True if the control thread is currently quitting
-        def quitting?; @quit > 0 end
+        def quitting?
+            @quit > 0
+        end
         # True if the control thread is currently quitting
-        def forced_exit?; @quit > 1 end
+        def forced_exit?
+            @quit > 1
+        end
         # Make control quit properly
-        def quit; @quit = 1 end
+        def quit
+            @quit = 1
+        end
         # Force quitting, without cleaning up
-        def force_quit; @quit = 2 end
-
+        def force_quit
+            @quit = 2
+        end
         # Make a quit EE ready for reuse
         def reset
             @quit = 0

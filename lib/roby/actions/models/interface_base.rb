@@ -73,8 +73,11 @@ module Roby
             # @return Action
             def describe(doc = nil)
                 if @current_description
-                    Actions::Interface.warn "the last #describe call was not followed by "\
-                    "an action definition. Did you forget to add a method to your action interface ?"
+                    Actions::Interface.warn(
+                        'the last #describe call was not followed by an action '\
+                        'definition. Did you forget to add a method to your '\
+                        'action interface ?'
+                    )
                 end
                 @current_description = Models::Action.new(doc)
             end
@@ -95,8 +98,8 @@ module Roby
             #
             def register_action(name, action_model)
                 unless action_model.respond_to?(:to_action_model)
-                    raise ArgumentError, "register_action expects an action model, "\
-                        "got #{action_model.class} instead"
+                    raise ArgumentError, 'register_action expects an action model, '\
+                                         "got #{action_model.class} instead"
                 end
 
                 # Copy is performed to avoid changing the original models and

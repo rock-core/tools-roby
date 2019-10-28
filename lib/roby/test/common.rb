@@ -125,12 +125,10 @@ module Roby
             @app = Roby.app
             @app.development_mode = false
             Roby.app.reload_config
-            @log_levels = Hash.new
-            @transactions = Array.new
+            @log_levels = {}
+            @transactions = []
 
-            if !@plan
-                @plan = Roby.app.plan
-            end
+            @plan ||= Roby.app.plan
             register_plan(@plan)
 
             super
@@ -225,7 +223,7 @@ module Roby
                 Roby.logger.level = @original_roby_logger_level
             end
         end
-        
+
         # Process pending events
         def process_events(timeout: 2, enable_scheduler: nil, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true, &caller_block)
             Roby.warn_deprecated "Test#process_events is deprecated, use #expect_execution instead"
@@ -319,7 +317,7 @@ module Roby
         #
         # If a set is a singleton, the only object of this singleton is returned
         #   t1, (t6, t7) = prepare_plan missions: 1, tasks: 2
-        #    
+        #
         def prepare_plan(options)
             options = validate_options options,
                 missions: 0, add: 0, discover: 0, tasks: 0,
@@ -432,7 +430,7 @@ module Roby
         def stop_remote_processes
             remote_processes.reverse.each do |pid, quit_w|
                 begin
-                    quit_w.write('OK') 
+                    quit_w.write('OK')
                 rescue Errno::EPIPE
                 end
                 begin

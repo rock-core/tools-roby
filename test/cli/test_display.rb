@@ -53,7 +53,7 @@ module Roby
                     end
                 end
             end
-            describe "#server" do
+            describe '#server' do
                 include Test::RobyAppHelpers
 
                 attr_reader :logfile_path
@@ -70,34 +70,36 @@ module Roby
                         @__display_thread.join
                     end
                 end
-                def start_log_server_thread(*args)
+                def start_log_server_thread
                     @__display_thread = Thread.new { yield }
                 end
 
-                it "starts a log server on the default server port" do
-                    start_log_server_thread { Display.start(['server', logfile_path]) }
+                it 'starts a log server on the default server port' do
+                    start_log_server_thread do
+                        Display.start(['server', logfile_path])
+                    end
                     assert_roby_app_can_connect_to_log_server(
                         port: Roby::DRoby::Logfile::Server::DEFAULT_PORT)
                 end
-                it "works around https://bugs.ruby-lang.org/issues/10203" do
+                it 'works around https://bugs.ruby-lang.org/issues/10203' do
                     flexmock(TCPServer).should_receive(:new).and_raise(TypeError)
                     assert_raises(Errno::EADDRINUSE) do
                         Display.start(['server', logfile_path])
                     end
                 end
-                it "allows to override the port to a non-default one via the command line" do
+                it 'allows to override the port to a non-default one via the command line' do
                     start_log_server_thread do
-                        Display.start(['server', logfile_path, "--port=20250"])
+                        Display.start(['server', logfile_path, '--port=20250'])
                     end
-                    assert_roby_app_can_connect_to_log_server(port: 20250)
+                    assert_roby_app_can_connect_to_log_server(port: 20_250)
                 end
-                it "allows to override the port to a non-default one via method call" do
+                it 'allows to override the port to a non-default one via method call' do
                     # Needed by #backward
                     start_log_server_thread do
                         cli = Display.new
-                        cli.server(logfile_path, port: 20250)
+                        cli.server(logfile_path, port: 20_250)
                     end
-                    assert_roby_app_can_connect_to_log_server(port: 20250)
+                    assert_roby_app_can_connect_to_log_server(port: 20_250)
                 end
                 it "can take over a server socket given with --fd" do
                     socket = TCPServer.new(0)
