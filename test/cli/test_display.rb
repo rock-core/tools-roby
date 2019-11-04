@@ -63,11 +63,7 @@ module Roby
                 end
                 after do
                     if @__display_thread
-                        if @__display_thread.respond_to?(:report_on_exception=)
-                            @__display_thread.report_on_exception = false
-                        end
-                        @__display_thread.raise Interrupt
-                        @__display_thread.join
+                        stop_log_server_thread
                         begin
                             # Ruby does not seem to like having a "hidden" IO
                             # duplicate of a given file descriptor the way the
@@ -79,6 +75,7 @@ module Roby
                         end
                     end
                 end
+
                 def start_log_server_thread
                     raise 'cannot start more than one display thread' if @__display_thread
 
@@ -88,6 +85,15 @@ module Roby
                         rescue Interrupt # rubocop:disable HandleExceptions
                         end
                     end
+                end
+
+                def stop_log_server_thread
+                    if @__display_thread.respond_to?(:report_on_exception=)
+                        @__display_thread.report_on_exception = false
+                    end
+                    @__display_thread.raise Interrupt
+                    @__display_thread.join
+                    @__display_thread = nil
                 end
 
                 it 'starts a log server on the default server port' do
@@ -117,7 +123,7 @@ module Roby
                     end
                     assert_roby_app_can_connect_to_log_server(port: 20_250)
                 end
-                it "can take over a server socket given with --fd" do
+                it 'can take over a server socket given with --fd' do
                     @__socket_fd = TCPServer.new(0)
                     start_log_server_thread do
                         Display.start(['server', logfile_path,
@@ -126,6 +132,19 @@ module Roby
                     assert_roby_app_can_connect_to_log_server(
                         port: @__socket_fd.local_address.ip_port
                     )
+                end
+                it 'closes the client connections on stop' do
+                    start_log_server_thread do
+                        Display.start(['server', logfile_path])
+                    end
+                    assert_roby_app_can_connect_to_log_server(
+                        port: Roby::DRoby::Logfile::Server::DEFAULT_PORT
+                    )
+                    client = DRoby::Logfile::Client.new('localhost')
+                    stop_log_server_thread
+                    assert_raises(Errno::ECONNRESET) do
+                        client.socket.read
+                    end
                 end
             end
             describe "#parse_remote_host" do

@@ -48,6 +48,11 @@ module Roby
                     @found_header
                 end
 
+                def close_client_connections
+                    @pending_data.each_key(&:close)
+                    @pending_data.clear
+                end
+
                 def exec
                     loop do
                         sockets_with_pending_data = pending_data.find_all do |socket, chunks|
