@@ -68,6 +68,15 @@ module Roby
                         end
                         @__display_thread.raise Interrupt
                         @__display_thread.join
+                        begin
+                            # Ruby does not seem to like having a "hidden" IO
+                            # duplicate of a given file descriptor the way the
+                            # --fd test does. Explicitely close the underlying
+                            # I/O object, and ignore the error that is caused
+                            # by the fact CLI::Display already closed it
+                            @__socket_fd&.close
+                        rescue Errno::EBADF # rubocop:disable Lint/HandleExceptions
+                        end
                     end
                 end
                 def start_log_server_thread
@@ -102,12 +111,14 @@ module Roby
                     assert_roby_app_can_connect_to_log_server(port: 20_250)
                 end
                 it "can take over a server socket given with --fd" do
-                    socket = TCPServer.new(0)
+                    @__socket_fd = TCPServer.new(0)
                     start_log_server_thread do
-                        Display.start(['server', logfile_path, "--fd=#{socket.fileno}"])
+                        Display.start(['server', logfile_path,
+                                       "--fd=#{@__socket_fd.fileno}"])
                     end
                     assert_roby_app_can_connect_to_log_server(
-                        port: socket.local_address.ip_port)
+                        port: @__socket_fd.local_address.ip_port
+                    )
                 end
             end
             describe "#parse_remote_host" do
