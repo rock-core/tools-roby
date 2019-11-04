@@ -80,7 +80,14 @@ module Roby
                     end
                 end
                 def start_log_server_thread
-                    @__display_thread = Thread.new { yield }
+                    raise 'cannot start more than one display thread' if @__display_thread
+
+                    @__display_thread = Thread.new do
+                        begin
+                            yield
+                        rescue Interrupt # rubocop:disable HandleExceptions
+                        end
+                    end
                 end
 
                 it 'starts a log server on the default server port' do
