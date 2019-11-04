@@ -9,7 +9,7 @@ module Roby
                     @interface_m = Actions::Interface.new_submodel(name: 'Actions')
                     @action_m = MethodAction.new(interface_m)
                     action_m.name = 'test'
-                    interface_m.register_action 'test', action_m
+                    interface_m.register_action! 'test', action_m
                 end
 
                 describe "validation of the returned value" do
@@ -90,7 +90,7 @@ module Roby
 
                             @remote_action_m = MethodAction.new(@remote_interface_m)
                             @remote_action_m.name = 'test'
-                            @remote_interface_m.register_action 'test', @remote_action_m
+                            @remote_interface_m.register_action! 'test', @remote_action_m
                         end
 
                         it "unmarshals to the existing action" do

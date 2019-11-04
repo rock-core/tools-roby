@@ -106,6 +106,7 @@ module Roby
                 # really only share the action to another interface
                 action_model = action_model.to_action_model.dup
                 register_action!(name, action_model)
+                action_model
             end
 
             # @api private

@@ -19,7 +19,6 @@ module Roby
             def stub_action(name)
                 action = Actions::Models::Action.new(InterfaceClientTestInterface)
                 InterfaceClientTestInterface.register_action(name, action)
-                action
             end
 
             def stub_command(name)
