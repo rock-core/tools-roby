@@ -200,9 +200,16 @@ module Roby
                 super
             end
         end
-    end
 
-    Minitest::Spec.register_spec_type Roby::Test::Spec do |desc|
-        desc.kind_of?(Class) && (desc <= Roby::Task)
+        def self.register_spec_type(spec_type)
+            Minitest::Spec.register_spec_type spec_type do |desc, roby_spec: nil|
+                (roby_spec == true || (roby_spec.nil? && !Roby::Test.self_test?)) &&
+                    yield(desc)
+            end
+        end
+
+        register_spec_type Spec do |desc|
+            desc.kind_of?(Class) && (desc <= Roby::Task)
+        end
     end
 end

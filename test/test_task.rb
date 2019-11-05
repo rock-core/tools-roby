@@ -3,7 +3,9 @@ require 'roby/tasks/group'
 require 'roby/schedulers/basic'
 
 module Roby
-    describe Task do
+    class TaskTest
+        include Minitest::Spec::DSL
+
         describe "state flags" do
             def state_predicates
                 [:pending?, :failed_to_start?, :starting?, :started?, :running?, :success?, :failed?, :finishing?, :finished?]
@@ -667,99 +669,101 @@ module Roby
             end
         end
 
-        def self.it_matches_common_replace_transaction_behaviour_for_handler(handler_type, &create_handler)
-            it "does not wrap the target event if the source event does not have a copy_on_replace #{handler_type}" do
-                task0, task1 = prepare_plan add: 2
-                create_handler.call(task0.start_event, on_replace: :drop) { }
-                plan.in_transaction do |trsc|
-                    p_task0, p_task1 = trsc[task0], trsc[task1]
-                    replace_op(p_task0, p_task1)
-                    assert_equal [], p_task0.each_event.map(&:symbol)
-                    assert_equal [], p_task1.each_event.map(&:symbol)
-                    trsc.commit_transaction
+        describe "replace behaviors" do
+            def self.it_matches_common_replace_transaction_behaviour_for_handler(handler_type, &create_handler)
+                it "does not wrap the target event if the source event does not have a copy_on_replace #{handler_type}" do
+                    task0, task1 = prepare_plan add: 2
+                    create_handler.call(task0.start_event, on_replace: :drop) { }
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        replace_op(p_task0, p_task1)
+                        assert_equal [], p_task0.each_event.map(&:symbol)
+                        assert_equal [], p_task1.each_event.map(&:symbol)
+                        trsc.commit_transaction
+                    end
+                    assert_equal [], task1.start_event.send(handler_type).to_a
                 end
-                assert_equal [], task1.start_event.send(handler_type).to_a
-            end
 
-            it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the plan level" do
-                task0, task1 = prepare_plan add: 2
-                create_handler.call(task0.start_event, on_replace: :copy) { }
-                plan.in_transaction do |trsc|
-                    p_task0, p_task1 = trsc[task0], trsc[task1]
-                    replace_op(p_task0, p_task1)
-                    assert_equal [], p_task0.each_event.map(&:symbol)
-                    assert_equal [:start], p_task1.each_event.map(&:symbol)
-                    trsc.commit_transaction
+                it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the plan level" do
+                    task0, task1 = prepare_plan add: 2
+                    create_handler.call(task0.start_event, on_replace: :copy) { }
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        replace_op(p_task0, p_task1)
+                        assert_equal [], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start], p_task1.each_event.map(&:symbol)
+                        trsc.commit_transaction
+                    end
+                    assert_equal 1, task0.start_event.send(handler_type).size
+                    assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
                 end
-                assert_equal 1, task0.start_event.send(handler_type).size
-                assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
-            end
 
-            it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the transaction level" do
-                task0, task1 = prepare_plan add: 2
+                it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the transaction level" do
+                    task0, task1 = prepare_plan add: 2
 
-                plan.in_transaction do |trsc|
-                    p_task0, p_task1 = trsc[task0], trsc[task1]
-                    create_handler.call(p_task0.start_event, on_replace: :copy) { }
-                    replace_op(p_task0, p_task1)
-                    assert_equal [:start], p_task0.each_event.map(&:symbol)
-                    assert_equal [:start], p_task1.each_event.map(&:symbol)
-                    trsc.commit_transaction
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        create_handler.call(p_task0.start_event, on_replace: :copy) { }
+                        replace_op(p_task0, p_task1)
+                        assert_equal [:start], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start], p_task1.each_event.map(&:symbol)
+                        trsc.commit_transaction
+                    end
+                    assert_equal 1, task0.start_event.send(handler_type).size
+                    assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
                 end
-                assert_equal 1, task0.start_event.send(handler_type).size
-                assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
-            end
-        end
-
-        def self.it_matches_common_replace_transaction_behaviour
-            it_matches_common_replace_transaction_behaviour_for_handler(:finalization_handlers) do |event, args|
-                event.when_finalized(args) {}
-            end
-            it_matches_common_replace_transaction_behaviour_for_handler(:handlers) do |event, args|
-                event.on(args) {}
-            end
-            it_matches_common_replace_transaction_behaviour_for_handler(:unreachable_handlers) do |event, args|
-                event.if_unreachable(args) {}
-            end
-        end
-
-        describe "#replace_subplan_by" do
-            def replace(task0, task1)
-                task0.replace_subplan_by(task1)
             end
 
-            describe "in a transaction" do
-                def replace_op(task0, task1)
+            def self.it_matches_common_replace_transaction_behaviour
+                it_matches_common_replace_transaction_behaviour_for_handler(:finalization_handlers) do |event, args|
+                    event.when_finalized(args) {}
+                end
+                it_matches_common_replace_transaction_behaviour_for_handler(:handlers) do |event, args|
+                    event.on(args) {}
+                end
+                it_matches_common_replace_transaction_behaviour_for_handler(:unreachable_handlers) do |event, args|
+                    event.if_unreachable(args) {}
+                end
+            end
+
+            describe "#replace_subplan_by" do
+                def replace(task0, task1)
                     task0.replace_subplan_by(task1)
                 end
 
-                def replace(task0, task1)
-                    plan.in_transaction do |trsc|
-                        p_task0, p_task1 = trsc[task0], trsc[task1]
-                        p_task0.replace_subplan_by p_task1
-                        trsc.commit_transaction
+                describe "in a transaction" do
+                    def replace_op(task0, task1)
+                        task0.replace_subplan_by(task1)
                     end
-                end
 
-                it_matches_common_replace_transaction_behaviour
+                    def replace(task0, task1)
+                        plan.in_transaction do |trsc|
+                            p_task0, p_task1 = trsc[task0], trsc[task1]
+                            p_task0.replace_subplan_by p_task1
+                            trsc.commit_transaction
+                        end
+                    end
+
+                    it_matches_common_replace_transaction_behaviour
+                end
             end
-        end
 
-        describe "#replace_by" do
-            describe "in a transaction" do
-                def replace_op(task0, task1)
-                    task0.replace_by(task1)
-                end
-
-                def replace(task0, task1)
-                    plan.in_transaction do |trsc|
-                        p_task0, p_task1 = trsc[task0], trsc[task1]
-                        p_task0.replace_by p_task1
-                        trsc.commit_transaction
+            describe "#replace_by" do
+                describe "in a transaction" do
+                    def replace_op(task0, task1)
+                        task0.replace_by(task1)
                     end
-                end
 
-                it_matches_common_replace_transaction_behaviour
+                    def replace(task0, task1)
+                        plan.in_transaction do |trsc|
+                            p_task0, p_task1 = trsc[task0], trsc[task1]
+                            p_task0.replace_by p_task1
+                            trsc.commit_transaction
+                        end
+                    end
+
+                    it_matches_common_replace_transaction_behaviour
+                end
             end
         end
 

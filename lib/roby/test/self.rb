@@ -26,6 +26,9 @@ require 'roby/test/tasks/empty_task'
 
 module Roby
     module Test
+
+    self.self_test = true
+
     # This module is extending Test to be able to run tests using the normal
     # testrb command. It is meant to be used to test libraries (e.g. Roby
     # itself) as, in complex Roby applications, the setup and teardown steps

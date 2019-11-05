@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'minitest/spec'
 require 'roby/test/assertions'
 require 'flexmock/minitest'
@@ -53,7 +55,7 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
 
-        BASE_PORT     = 21000
+        BASE_PORT = 21_000
         DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
         REMOTE_PORT    = BASE_PORT + 1
         LOCAL_PORT     = BASE_PORT + 2
@@ -65,8 +67,23 @@ module Roby
         # The decision control component used by the tests
         attr_reader :control
 
+        @self_test = false
+
+        # Whether we are running Roby's own test suite or not
+        #
+        # This is used for instance in test/spec to avoid using the Spec
+        # classes designed for `roby test` when running Roby's own test suite
+        def self.self_test?
+            @self_test
+        end
+
+        # Set {#self_test?}
+        def self.self_test=(flag)
+            @self_test = flag
+        end
+
         def execution_engine
-            plan.execution_engine if plan && plan.executable?
+            plan.execution_engine if plan&.executable?
         end
 
         def execute(&block)
