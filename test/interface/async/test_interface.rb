@@ -61,7 +61,8 @@ module Roby
                             assert interface.wait
                             refute interface.client.cycle_index
                             interface.poll
-                            assert_equal execution_engine.cycle_index, interface.client.cycle_index
+                            assert_equal @app.execution_engine.cycle_index,
+                                         interface.client.cycle_index
                         end
                         it "times out if no data is received on the channel" do
                             refute interface.wait(timeout: 0.1)
