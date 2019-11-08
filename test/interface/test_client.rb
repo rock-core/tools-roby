@@ -448,6 +448,27 @@ module Roby
                 end
             end
 
+            describe '#call' do
+                it 'returns the remote method call value' do
+                    client = open_client
+                    @interface.should_receive(:foobar).explicitly.and_return(42)
+                    result = while_polling_server do
+                        client.call([], :foobar)
+                    end
+                    assert_equal 42, result
+                end
+
+                it 'times out with the configured call timeout' do
+                    client = open_client
+                    client.call_timeout = 0.01
+                    e = assert_raises(Client::TimeoutError) do
+                        client.call([], :foobar)
+                    end
+                    assert_equal 'failed to receive expected reply within 0.01s',
+                                 e.message
+                end
+            end
+
             describe "#async_call" do
                 attr_reader :watch
                 attr_reader :async_calls_count
