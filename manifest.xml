@@ -42,5 +42,6 @@
   <depend_optional package="rbtrace" />
 
   <test_depend package="aruba" />
+  <test_depend package="rack-test" />
 </package>
 

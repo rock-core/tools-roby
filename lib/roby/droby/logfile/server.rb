@@ -48,16 +48,22 @@ module Roby
                     @found_header
                 end
 
+                def close_client_connections
+                    @pending_data.each_key(&:close)
+                    @pending_data.clear
+                end
+
                 def exec
-                    while true
+                    loop do
                         sockets_with_pending_data = pending_data.find_all do |socket, chunks|
                             !chunks.empty?
                         end.map(&:first)
-                        if !sockets_with_pending_data.empty?
+
+                        unless sockets_with_pending_data.empty?
                             Server.debug "#{sockets_with_pending_data.size} sockets have pending data"
                         end
 
-                        readable_sockets, _ =
+                        readable_sockets, =
                             select([server], sockets_with_pending_data, nil, sampling_period)
 
                         # Incoming connections
@@ -68,15 +74,15 @@ module Roby
 
                             Server.debug "new connection: #{socket}"
                             if found_header?
-                                all_data = File.binread(event_file_path, 
+                                all_data = File.binread(event_file_path,
                                                         event_file.tell - Logfile::PROLOGUE_SIZE,
                                                         Logfile::PROLOGUE_SIZE)
 
                                 Server.debug "  queueing #{all_data.size} bytes of data"
                                 chunks = split_in_chunks(all_data)
                             else
-                                Server.debug "  log file is empty, not queueing any data"
-                                chunks = Array.new
+                                Server.debug '  log file is empty, not queueing any data'
+                                chunks = []
                             end
                             connection_init      = ::Marshal.dump([CONNECTION_INIT, chunks.inject(0) { |s, c| s + c.size }])
                             connection_init_done = ::Marshal.dump(CONNECTION_INIT_DONE)

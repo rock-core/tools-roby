@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'minitest/spec'
 require 'roby/test/assertions'
 require 'flexmock/minitest'
@@ -53,7 +55,7 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
 
-        BASE_PORT     = 21000
+        BASE_PORT = 21_000
         DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
         REMOTE_PORT    = BASE_PORT + 1
         LOCAL_PORT     = BASE_PORT + 2
@@ -65,8 +67,23 @@ module Roby
         # The decision control component used by the tests
         attr_reader :control
 
+        @self_test = false
+
+        # Whether we are running Roby's own test suite or not
+        #
+        # This is used for instance in test/spec to avoid using the Spec
+        # classes designed for `roby test` when running Roby's own test suite
+        def self.self_test?
+            @self_test
+        end
+
+        # Set {#self_test?}
+        def self.self_test=(flag)
+            @self_test = flag
+        end
+
         def execution_engine
-            plan.execution_engine if plan && plan.executable?
+            plan.execution_engine if plan&.executable?
         end
 
         def execute(&block)
@@ -125,12 +142,10 @@ module Roby
             @app = Roby.app
             @app.development_mode = false
             Roby.app.reload_config
-            @log_levels = Hash.new
-            @transactions = Array.new
+            @log_levels = {}
+            @transactions = []
 
-            if !@plan
-                @plan = Roby.app.plan
-            end
+            @plan ||= Roby.app.plan
             register_plan(@plan)
 
             super
@@ -225,7 +240,7 @@ module Roby
                 Roby.logger.level = @original_roby_logger_level
             end
         end
-        
+
         # Process pending events
         def process_events(timeout: 2, enable_scheduler: nil, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true, &caller_block)
             Roby.warn_deprecated "Test#process_events is deprecated, use #expect_execution instead"
@@ -319,7 +334,7 @@ module Roby
         #
         # If a set is a singleton, the only object of this singleton is returned
         #   t1, (t6, t7) = prepare_plan missions: 1, tasks: 2
-        #    
+        #
         def prepare_plan(options)
             options = validate_options options,
                 missions: 0, add: 0, discover: 0, tasks: 0,
@@ -432,7 +447,7 @@ module Roby
         def stop_remote_processes
             remote_processes.reverse.each do |pid, quit_w|
                 begin
-                    quit_w.write('OK') 
+                    quit_w.write('OK')
                 rescue Errno::EPIPE
                 end
                 begin

@@ -3,7 +3,9 @@ require 'roby/tasks/group'
 require 'roby/schedulers/basic'
 
 module Roby
-    describe Task do
+    class TaskTest
+        include Minitest::Spec::DSL
+
         describe "state flags" do
             def state_predicates
                 [:pending?, :failed_to_start?, :starting?, :started?, :running?, :success?, :failed?, :finishing?, :finished?]
@@ -555,7 +557,7 @@ module Roby
                 end
             end
         end
-        
+
         describe "#instanciate_model_event_relations" do
             def self.common_instanciate_model_event_relations_behaviour
                 it "adds a precedence link between the start event and all root intermediate events" do
@@ -667,99 +669,101 @@ module Roby
             end
         end
 
-        def self.it_matches_common_replace_transaction_behaviour_for_handler(handler_type, &create_handler)
-            it "does not wrap the target event if the source event does not have a copy_on_replace #{handler_type}" do
-                task0, task1 = prepare_plan add: 2
-                create_handler.call(task0.start_event, on_replace: :drop) { }
-                plan.in_transaction do |trsc|
-                    p_task0, p_task1 = trsc[task0], trsc[task1]
-                    replace_op(p_task0, p_task1)
-                    assert_equal [], p_task0.each_event.map(&:symbol)
-                    assert_equal [], p_task1.each_event.map(&:symbol)
-                    trsc.commit_transaction
+        describe "replace behaviors" do
+            def self.it_matches_common_replace_transaction_behaviour_for_handler(handler_type, &create_handler)
+                it "does not wrap the target event if the source event does not have a copy_on_replace #{handler_type}" do
+                    task0, task1 = prepare_plan add: 2
+                    create_handler.call(task0.start_event, on_replace: :drop) { }
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        replace_op(p_task0, p_task1)
+                        assert_equal [], p_task0.each_event.map(&:symbol)
+                        assert_equal [], p_task1.each_event.map(&:symbol)
+                        trsc.commit_transaction
+                    end
+                    assert_equal [], task1.start_event.send(handler_type).to_a
                 end
-                assert_equal [], task1.start_event.send(handler_type).to_a
-            end
 
-            it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the plan level" do
-                task0, task1 = prepare_plan add: 2
-                create_handler.call(task0.start_event, on_replace: :copy) { }
-                plan.in_transaction do |trsc|
-                    p_task0, p_task1 = trsc[task0], trsc[task1]
-                    replace_op(p_task0, p_task1)
-                    assert_equal [], p_task0.each_event.map(&:symbol)
-                    assert_equal [:start], p_task1.each_event.map(&:symbol)
-                    trsc.commit_transaction
+                it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the plan level" do
+                    task0, task1 = prepare_plan add: 2
+                    create_handler.call(task0.start_event, on_replace: :copy) { }
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        replace_op(p_task0, p_task1)
+                        assert_equal [], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start], p_task1.each_event.map(&:symbol)
+                        trsc.commit_transaction
+                    end
+                    assert_equal 1, task0.start_event.send(handler_type).size
+                    assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
                 end
-                assert_equal 1, task0.start_event.send(handler_type).size
-                assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
-            end
 
-            it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the transaction level" do
-                task0, task1 = prepare_plan add: 2
-                
-                plan.in_transaction do |trsc|
-                    p_task0, p_task1 = trsc[task0], trsc[task1]
-                    create_handler.call(p_task0.start_event, on_replace: :copy) { }
-                    replace_op(p_task0, p_task1)
-                    assert_equal [:start], p_task0.each_event.map(&:symbol)
-                    assert_equal [:start], p_task1.each_event.map(&:symbol)
-                    trsc.commit_transaction
+                it "wraps the target event if the source event has a copy_on_replace #{handler_type} at the transaction level" do
+                    task0, task1 = prepare_plan add: 2
+
+                    plan.in_transaction do |trsc|
+                        p_task0, p_task1 = trsc[task0], trsc[task1]
+                        create_handler.call(p_task0.start_event, on_replace: :copy) { }
+                        replace_op(p_task0, p_task1)
+                        assert_equal [:start], p_task0.each_event.map(&:symbol)
+                        assert_equal [:start], p_task1.each_event.map(&:symbol)
+                        trsc.commit_transaction
+                    end
+                    assert_equal 1, task0.start_event.send(handler_type).size
+                    assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
                 end
-                assert_equal 1, task0.start_event.send(handler_type).size
-                assert_equal task0.start_event.send(handler_type), task1.start_event.send(handler_type)
-            end
-        end
-
-        def self.it_matches_common_replace_transaction_behaviour
-            it_matches_common_replace_transaction_behaviour_for_handler(:finalization_handlers) do |event, args|
-                event.when_finalized(args) {}
-            end
-            it_matches_common_replace_transaction_behaviour_for_handler(:handlers) do |event, args|
-                event.on(args) {}
-            end
-            it_matches_common_replace_transaction_behaviour_for_handler(:unreachable_handlers) do |event, args|
-                event.if_unreachable(args) {}
-            end
-        end
-
-        describe "#replace_subplan_by" do
-            def replace(task0, task1)
-                task0.replace_subplan_by(task1)
             end
 
-            describe "in a transaction" do
-                def replace_op(task0, task1)
+            def self.it_matches_common_replace_transaction_behaviour
+                it_matches_common_replace_transaction_behaviour_for_handler(:finalization_handlers) do |event, args|
+                    event.when_finalized(args) {}
+                end
+                it_matches_common_replace_transaction_behaviour_for_handler(:handlers) do |event, args|
+                    event.on(args) {}
+                end
+                it_matches_common_replace_transaction_behaviour_for_handler(:unreachable_handlers) do |event, args|
+                    event.if_unreachable(args) {}
+                end
+            end
+
+            describe "#replace_subplan_by" do
+                def replace(task0, task1)
                     task0.replace_subplan_by(task1)
                 end
 
-                def replace(task0, task1)
-                    plan.in_transaction do |trsc|
-                        p_task0, p_task1 = trsc[task0], trsc[task1]
-                        p_task0.replace_subplan_by p_task1
-                        trsc.commit_transaction
+                describe "in a transaction" do
+                    def replace_op(task0, task1)
+                        task0.replace_subplan_by(task1)
                     end
-                end
 
-                it_matches_common_replace_transaction_behaviour
+                    def replace(task0, task1)
+                        plan.in_transaction do |trsc|
+                            p_task0, p_task1 = trsc[task0], trsc[task1]
+                            p_task0.replace_subplan_by p_task1
+                            trsc.commit_transaction
+                        end
+                    end
+
+                    it_matches_common_replace_transaction_behaviour
+                end
             end
-        end
 
-        describe "#replace_by" do
-            describe "in a transaction" do
-                def replace_op(task0, task1)
-                    task0.replace_by(task1)
-                end
-
-                def replace(task0, task1)
-                    plan.in_transaction do |trsc|
-                        p_task0, p_task1 = trsc[task0], trsc[task1]
-                        p_task0.replace_by p_task1
-                        trsc.commit_transaction
+            describe "#replace_by" do
+                describe "in a transaction" do
+                    def replace_op(task0, task1)
+                        task0.replace_by(task1)
                     end
-                end
 
-                it_matches_common_replace_transaction_behaviour
+                    def replace(task0, task1)
+                        plan.in_transaction do |trsc|
+                            p_task0, p_task1 = trsc[task0], trsc[task1]
+                            p_task0.replace_by p_task1
+                            trsc.commit_transaction
+                        end
+                    end
+
+                    it_matches_common_replace_transaction_behaviour
+                end
             end
         end
 
@@ -1363,7 +1367,7 @@ module Roby
     end
 end
 
-class TC_Task < Minitest::Test 
+class TC_Task < Minitest::Test
     def test_arguments_declaration
         model = Task.new_submodel { argument :from; argument :to }
         assert_equal([], Task.arguments.to_a)
@@ -1419,7 +1423,7 @@ class TC_Task < Minitest::Test
 
     def test_command_block
         FlexMock.use do |mock|
-            model = Tasks::Simple.new_submodel do 
+            model = Tasks::Simple.new_submodel do
                 event :start do |context|
                     mock.start(self, context)
                     start_event.emit
@@ -1477,7 +1481,7 @@ class TC_Task < Minitest::Test
 
         plan.add(task = klass.new)
         expected_links = Hash[e1: [:e2, :e3], e4: :stop]
-        
+
         assert_task_relation_set task, relation, expected_links.merge(additional_links)
     end
     def test_instantiate_model_signals
@@ -1492,7 +1496,7 @@ class TC_Task < Minitest::Test
                            internal_error: :stop, success: :stop, aborted: :failed, failed: :stop)
     end
 
-    
+
     def do_test_inherit_model_relations(method, relation, additional_links = Hash.new)
         base = Roby::Tasks::Simple.new_submodel do
             4.times { |i| event "e#{i + 1}", command: true }
@@ -1594,7 +1598,7 @@ class TC_Task < Minitest::Test
     def test_instance_forward_to_plain_events
         FlexMock.use do |mock|
             t1 = prepare_plan missions: 1, model: Tasks::Simple
-            ev = EventGenerator.new do 
+            ev = EventGenerator.new do
                 mock.called
                 ev.emit
             end
@@ -1812,7 +1816,7 @@ class TC_Task < Minitest::Test
         assert_equal( TaskEvent, my_event.superclass )
         assert_equal( :ev_contingent, my_event.symbol )
         assert( klass.has_event?(:ev_contingent) )
-    
+
         my_event = klass.const_get(:EvTerminal)
         assert_equal( :ev_terminal, my_event.symbol )
 
@@ -1832,7 +1836,7 @@ class TC_Task < Minitest::Test
 
         # Check controlable: [proc] behaviour
         assert( klass::EvRedirected.controlable? )
-        
+
         # Check that command: false disables controlable?
         assert( !klass::EvNotControlable.controlable? )
 
@@ -1859,7 +1863,7 @@ class TC_Task < Minitest::Test
                     mock.starting(context)
                     start_event.emit(*context)
                 end
-                on(:start) do |event| 
+                on(:start) do |event|
                     mock.started(event.context)
                 end
 
@@ -1970,7 +1974,7 @@ class TC_Task < Minitest::Test
     end
 
     def test_cannot_start_if_not_executable
-        model = Tasks::Simple.new_submodel do 
+        model = Tasks::Simple.new_submodel do
             event(:inter, command: true)
             def executable?; false end
         end
@@ -1985,7 +1989,7 @@ class TC_Task < Minitest::Test
     end
 
     def test_executable
-        model = Tasks::Simple.new_submodel do 
+        model = Tasks::Simple.new_submodel do
             event(:inter, command: true)
         end
         task = model.new
@@ -2014,8 +2018,8 @@ class TC_Task < Minitest::Test
         execute { task.start! }
         assert_raises(ModelViolation) { task.executable = false }
     end
-        
-    
+
+
 
     def test_task_success_failure
         FlexMock.use do |mock|
@@ -2050,7 +2054,7 @@ class TC_Task < Minitest::Test
     end
 
     def task_tuple(count)
-        tasks = (1..count).map do 
+        tasks = (1..count).map do
             t = EmptyTask.new
             t.executable = true
             t
@@ -2060,7 +2064,7 @@ class TC_Task < Minitest::Test
 
     def test_sequence
         task_tuple(2) { |t1, t2| aggregator_test( (t1 + t2), t1, t2 ) }
-        task_tuple(2) do |t1, t2| 
+        task_tuple(2) do |t1, t2|
             s = t1 + t2
             aggregator_test( s.to_task, t1, t2 )
             assert(! t1.stop_event.related_object?(s.stop_event, EventStructure::Precedence))
@@ -2071,7 +2075,7 @@ class TC_Task < Minitest::Test
             s.unshift t1
             aggregator_test(s, t1, t2, t3)
         end
-        
+
         task_tuple(3) do |t1, t2, t3|
             s = t2 + t3
             s.unshift t1
@@ -2130,7 +2134,7 @@ class TC_Task < Minitest::Test
         assert(t1.fullfills?(t1.model))
         assert(t1.fullfills?(t2))
         assert(t1.fullfills?(abstract_task_model))
-        
+
         plan.add(t2 = task_model.new(index: 2))
         assert(!t1.fullfills?(t2))
 
@@ -2357,7 +2361,7 @@ class TC_Task < Minitest::Test
             have_handled_error_matching EmissionFailed.match.
                 with_origin(task.intermediate_event).
                 with_ruby_exception(nil)
-            emit task.internal_error_event 
+            emit task.internal_error_event
         end
         assert task.internal_error?
         assert task.failed?

@@ -61,20 +61,20 @@ module Roby
                     assert_equal @planned_task, run_planners(root_task, recursive: false)
                 end
 
-                it "does not run existing planners in the hierarchy" do
+                it 'does not run existing planners in the hierarchy' do
                     plan.add(root_task = @action_m.test_action.as_plan)
                     root_task.depends_on(child = @action_m.test_child.as_plan)
                     run_planners(root_task, recursive: false)
                     assert child.abstract?
                 end
 
-                it "does not run planners added by the action" do
+                it 'does not run planners added by the action' do
                     plan.add(root_task = @action_m.test_action_with_child.as_plan)
                     root_task = run_planners(root_task, recursive: false)
                     assert root_task.test_child.abstract?
                 end
 
-                it "can be executed in expect_execution context as well" do
+                it 'can be executed in expect_execution context as well' do
                     service = nil
                     expect_execution do
                         plan.add(root_task = @action_m.test_action.as_plan)
@@ -83,8 +83,9 @@ module Roby
                     assert_equal @planned_task, service.to_task
                 end
             end
-            describe "recursive: true" do
-                it "runs the planner of all tasks that require it in the root task's subplan" do
+            describe 'recursive: true' do
+                it 'runs the planner of all tasks that require '\
+                   "it in the root task's subplan" do
                     plan.add(root_task = @action_m.test_action.as_plan)
                     root_task.depends_on(child = @action_m.test_child.as_plan)
                     child_planner = child.planning_task
@@ -92,7 +93,7 @@ module Roby
                     run_planners(root_task, recursive: true)
                     assert child_planner.finished?
                 end
-                it "re-runs planners that have been added in the first pass " do
+                it 're-runs planners that have been added in the first pass' do
                     plan.add(root_task = @action_m.test_action_with_child.as_plan)
                     root_task = run_planners(root_task, recursive: true)
                     refute root_task.test_child.abstract?

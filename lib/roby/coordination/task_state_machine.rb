@@ -48,7 +48,7 @@ module Roby
     end
 
     # The state machine that can be associate with a task
-    # 
+    #
     class TaskStateMachine
         # The proxy object class the state machine is working on
         attr_accessor :proxy
@@ -96,7 +96,7 @@ module Roby
         end
 
         def initialize_copy(other)
-            other.name = name 
+            other.name = name
             other.proxy = name.new
             other.machine = machine.dup
             other.update
@@ -118,7 +118,7 @@ module Roby
 
         # Define general poll handler
         def do_poll(task)
-            begin 
+            begin
                 proxy.poll(task)
             rescue NoMethodError => e
                 # poll only if the state has a poll handler defined
@@ -127,7 +127,7 @@ module Roby
 
         # Identifies the current state given a list of subsequent events
         # Provides a list with the most recent event being last in the list
-        # 
+        #
         def identify_state(event_list)
             # initalize with all transitions possible
             paths = {}
@@ -139,7 +139,7 @@ module Roby
             new_paths = []
             initialized = false
 
-            while event_list.size > 0 
+            while event_list.size > 0
                 current_event = event_list.first
                 # expand path
                 @transitions.each do |transition|
@@ -153,7 +153,7 @@ module Roby
                             paths.each do |path|
                                 if path.last.from_name == transition.to_name
                                     path << transition
-                                    new_paths << path 
+                                    new_paths << path
                                 end
                             end
                         end
@@ -176,14 +176,14 @@ module Roby
         end
     end # module TaskStateHelper
 
-    # The TaskStateHelper allows to add a statemachine to 
+    # The TaskStateHelper allows to add a statemachine to
     # a Roby::Task and allows the tracking of events within
     # the 'running' state
     module TaskStateHelper
-        # The default namespace that is added to statemachine methods, e.g. 
+        # The default namespace that is added to statemachine methods, e.g.
         # when action for transitions are defined
         def namespace
-            @namespace ||= nil 
+            @namespace ||= nil
         end
 
         def namespace=(name)
@@ -210,16 +210,16 @@ module Roby
         # using a state machine description. The initial
         # state of the machine is set to 'running' by default.
         #
-        # Example: 
+        # Example:
         #     refine_running_state do
         #         on :pause do
         #             transition [:running] => paused
         #         end
-        #         
+        #
         #         on :resume do
         #             transition [:paused] => :running
         #         end
-        #         
+        #
         #         state :paused do
         #             def poll(task)
         #                 sleep 4
@@ -228,18 +228,18 @@ module Roby
         #         end
         #     end
         #
-        # Events are translated into roby events 
+        # Events are translated into roby events
         # and the statemachine in hooked into the
         # on(:yourevent) {|context| ... }
         # You can add additional event handlers as ususal
         # using on(:yourevent) .. syntax
-        # 
+        #
         # The current status (substate of the running state)
-        # can be retrieved via 
-        #     yourtask.state_machine.status 
-        # 
+        # can be retrieved via
+        #     yourtask.state_machine.status
+        #
         def refine_running_state (*args, &block)
-            if args.last.kind_of?(Hash) 
+            if args.last.kind_of?(Hash)
                 options = args.pop
             end
             options = Kernel.validate_options(options || Hash.new, namespace: nil)
@@ -251,7 +251,7 @@ module Roby
             # Check if a model of a class ancestor already exists
             # If a parent_model exists, prepare the proxy class accordingly
             # The proxy allows us to use the state_machine library even
-            # with instances 
+            # with instances
             if parent_model = self.superclass.state_machine
                 proxy_model = Class.new(parent_model.owner_class)
             else
@@ -269,7 +269,7 @@ module Roby
             # meta programming approach of the underlying library, e.g.
             # status_transitions(from: ..., to: ...)
 
-            if self.namespace 
+            if self.namespace
                 machine = StateMachine::Machine.find_or_create(proxy_model, :status, initial: :running, namespace: self.namespace)
             else
                 machine = StateMachine::Machine.find_or_create(proxy_model, :status, initial: :running)
