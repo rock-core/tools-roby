@@ -107,12 +107,18 @@ module Roby
                 raise "roby app with PID #{pid} exited with nonzero status"
             end
 
+            # Path to the app test fixtures, that is test/app/fixtures
             def roby_app_fixture_path
                 File.expand_path(
                     File.join('..', '..', '..', 'test', 'app', 'fixtures'),
                     __dir__)
             end
 
+            # Create a minimal Roby application with a given list of scripts copied
+            # in scripts/
+            #
+            # @param [String] scripts list of scripts, relative to {#roby_app_fixture_path}
+            # @return [String] the path to the app root
             def roby_app_setup_single_script(*scripts)
                 dir = make_tmpdir
                 FileUtils.mkdir_p File.join(dir, 'config', 'robots')
@@ -123,7 +129,7 @@ module Roby
                     p = File.expand_path(p, roby_app_fixture_path)
                     FileUtils.cp p, File.join(dir, 'scripts')
                 end
-                return dir
+                dir
             end
 
             def roby_app_spawn(*args, silent: false, **options)
@@ -134,6 +140,12 @@ module Roby
                 pid = spawn(roby_bin, *args, chdir: app_dir, **options)
                 @spawned_pids << pid
                 pid
+            end
+
+            def roby_app_run(*args, silent: false, **options)
+                pid = roby_app_spawn(*args, silent: silent, **options)
+                _, status = Process.waitpid2(pid)
+                status
             end
 
             def roby_app_create_logfile
