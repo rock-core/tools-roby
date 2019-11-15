@@ -323,7 +323,7 @@ module Roby
         #   directory is not within an app
         def self.guess_app_dir
             if test_dir = ENV['ROBY_APP_DIR']
-                if !Application.is_app_dir?(test_dir)
+                unless Application.is_app_dir?(test_dir)
                     raise InvalidRobyAppDirEnv, "the ROBY_APP_DIR envvar is set to #{test_dir}, but this is not a valid Roby application path"
                 end
                 return test_dir
@@ -359,7 +359,7 @@ module Roby
         # It tries to guess the app directory. If none is found, it raises.
         def require_app_dir(needs_current: false, allowed_outside: true)
             guess_app_dir
-            if !@app_dir
+            unless app_dir
                 raise ArgumentError, "your current directory does not seem to be a Roby application directory; did you forget to run 'roby init'?"
             end
             if needs_current
@@ -789,7 +789,7 @@ module Roby
                 rescue NameError
                     Object.const_set(module_name, Module.new)
                 end
-            if !app_module.respond_to?(:logger)
+            unless app_module.respond_to?(:logger)
                 module_name = self.module_name
                 app_module.class_eval do
                     extend ::Logger::Root(module_name, Logger::INFO)
@@ -801,7 +801,7 @@ module Roby
             STDOUT.sync = true
 
             load_base_config
-            if !@log_dir
+            unless @log_dir
                 find_and_create_log_dir
             end
             setup_loggers(redirections: true)
@@ -934,7 +934,7 @@ module Roby
                 # Start a log server if needed, and poll the log directory for new
                 # data sources
                 if log_server_options = (log.has_key?('server') ? log['server'] : Hash.new)
-                    if !log_server_options.kind_of?(Hash)
+                    unless log_server_options.kind_of?(Hash)
                         log_server_options = Hash.new
                     end
                     plan.event_logger.sync = true
@@ -963,7 +963,7 @@ module Roby
         #
         # @return [App::RobotNames]
         def robots
-            if !@robots
+            unless @robots
                 robots = App::RobotNames.new(options['robots'] || Hash.new)
                 robots.strict = !!options['robots']
                 @robots = robots
@@ -974,7 +974,7 @@ module Roby
         # Declares a block that should be executed when the Roby app gets
         # initialized (i.e. just after init.rb gets loaded)
         def on_init(user: false, &block)
-            if !block
+            unless block
                 raise ArgumentError, "missing expected block argument"
             end
             add_lifecyle_hook(init_handlers, block, user: user)
@@ -983,7 +983,7 @@ module Roby
         # Declares a block that should be executed when the Roby app is begin
         # setup
         def on_setup(user: false, &block)
-            if !block
+            unless block
                 raise ArgumentError, "missing expected block argument"
             end
             add_lifecyle_hook(setup_handlers, block, user: user)
@@ -992,7 +992,7 @@ module Roby
         # Declares a block that should be executed when the Roby app loads
         # models (i.e. in {#require_models})
         def on_require(user: false, &block)
-            if !block
+            unless block
                 raise ArgumentError, "missing expected block argument"
             end
             add_lifecyle_hook(require_handlers, block, user: user)
@@ -1018,7 +1018,7 @@ module Roby
         # Declares that the following block should be called when
         # {#clear_models} is called
         def on_clear_models(user: false, &block)
-            if !block
+            unless block
                 raise ArgumentError, "missing expected block argument"
             end
             add_lifecyle_hook(clear_models_handlers, block, user: user)
@@ -1027,7 +1027,7 @@ module Roby
         # Declares that the following block should be called when
         # {#clear_models} is called
         def on_cleanup(user: false, &block)
-            if !block
+            unless block
                 raise ArgumentError, "missing expected block argument"
             end
             add_lifecyle_hook(cleanup_handlers, block, user: user)
@@ -1105,7 +1105,8 @@ module Roby
         def call_plugins(method, *args, deprecated: nil)
             each_responding_plugin(method) do |config_extension|
                 if deprecated
-                    Roby.warn "#{config_extension} uses the deprecated .#{method} hook during setup and teardown, #{deprecated}"
+                    Roby.warn "#{config_extension} uses the deprecated .#{method} "\
+                              "hook during setup and teardown, #{deprecated}"
                 end
                 config_extension.send(method, *args)
             end
@@ -1113,17 +1114,18 @@ module Roby
 
         def register_plugins(force: false)
             if !plugins_enabled? && !force
-                raise PluginsDisabled, "cannot call #register_plugins while the plugins are disabled"
+                raise PluginsDisabled,
+                      'cannot call #register_plugins while the plugins are disabled'
             end
 
             # Load the plugins 'main' files
-            if plugin_path = ENV['ROBY_PLUGIN_PATH']
-                plugin_path.split(':').each do |plugin|
-                    if File.directory?(plugin)
-                        load_plugins_from_prefix plugin
-                    elsif File.file?(plugin)
-                        load_plugin_file plugin
-                    end
+            return unless (plugin_path = ENV['ROBY_PLUGIN_PATH'])
+
+            plugin_path.split(':').each do |plugin|
+                if File.directory?(plugin)
+                    load_plugins_from_prefix plugin
+                elsif File.file?(plugin)
+                    load_plugin_file plugin
                 end
             end
         end
@@ -1131,23 +1133,25 @@ module Roby
         # Loads the plugins whose name are listed in +names+
         def using(*names, force: false)
             if !plugins_enabled? && !force
-                raise PluginsDisabled, "plugins are disabled, cannot load #{names.join(", ")}"
+                raise PluginsDisabled,
+                      "plugins are disabled, cannot load #{names.join(', ')}"
             end
 
             register_plugins(force: true)
             names.map do |name|
                 name = name.to_s
                 unless plugin = plugin_definition(name)
-                    raise ArgumentError, "#{name} is not a known plugin (available plugins: #{available_plugins.map { |n, *_| n }.join(", ")})"
+                    raise ArgumentError,
+                          "#{name} is not a known plugin (available plugins: "\
+                          "#{available_plugins.map { |n, *_| n }.join(', ')})"
                 end
+
                 name, dir, mod, init = *plugin
-                if already_loaded = plugins.find { |n, m| n == name && m == mod }
+                if (already_loaded = plugins.find { |n, m| n == name && m == mod })
                     next(already_loaded[1])
                 end
 
-                if dir
-                    filter_out_patterns.push(/#{Regexp.quote(dir)}/)
-                end
+                filter_out_patterns.push(/#{Regexp.quote(dir)}/) if dir
 
                 if init
                     begin
@@ -1185,18 +1189,14 @@ module Roby
         #
         # @return [String,nil]
         def robot_name
-            if @robot_name then @robot_name
-            else robots.default_robot_name
-            end
+            @robot_name || robots.default_robot_name
         end
 
         # The robot type
         #
         # @return [String,nil]
         def robot_type
-            if @robot_type then @robot_type
-            else robots.default_robot_type
-            end
+            @robot_type || robots.default_robot_type
         end
 
         # Sets up the name and type of the robot. This can be called only once
@@ -1229,9 +1229,7 @@ module Roby
         # Sets the directory under which logs should be created
         #
         # This cannot be called after log_dir has been set
-        def log_base_dir=(dir)
-            @log_base_dir = dir
-        end
+        attr_writer :log_base_dir
 
         # Create a log directory for the given time tag, and make it this app's
         # log directory
@@ -1244,12 +1242,12 @@ module Roby
             base_dir  = log_base_dir
             @time_tag = time_tag
 
-            while true
+            loop do
                 log_dir  = Roby::Application.unique_dirname(base_dir, '', time_tag)
-                new_dirs = Array.new
+                new_dirs = []
 
                 dir = log_dir
-                while !File.directory?(dir)
+                until File.directory?(dir)
                     new_dirs << dir
                     dir = File.dirname(dir)
                 end
@@ -1258,14 +1256,15 @@ module Roby
                 # issues with other Roby-based tools creating a log dir with the
                 # same name
                 failed = new_dirs.reverse.any? do |dir|
-                    begin FileUtils.mkdir(dir)
+                    begin
+                        FileUtils.mkdir(dir)
                         false
                     rescue Errno::EEXIST
                         true
                     end
                 end
 
-                if !failed
+                unless failed
                     new_dirs.delete(log_dir)
                     created_log_dirs << log_dir
                     created_log_base_dirs.concat(new_dirs)
@@ -1279,8 +1278,9 @@ module Roby
         # The directory in which logs are to be saved
         # Defaults to app_dir/data/$time_tag
         def log_dir
-            if !@log_dir
-                raise LogDirNotInitialized, "the log directory has not been initialized yet"
+            unless @log_dir
+                raise LogDirNotInitialized,
+                      'the log directory has not been initialized yet'
             end
             @log_dir
         end
@@ -1300,9 +1300,10 @@ module Roby
         # It is usually automatically created under {#log_base_dir} during
         # {#base_setup}
         def log_dir=(dir)
-            if !File.directory?(dir)
+            unless File.directory?(dir)
                 raise ArgumentError, "log directory #{dir} does not exist"
             end
+
             @log_dir = dir
         end
 
@@ -1327,7 +1328,7 @@ module Roby
         #
         # @see add_app_metadata
         def app_metadata
-            Hash['time' => time_tag, 'cmdline' => "#{$0} #{ARGV.join(" ")}",
+            Hash['time' => time_tag, 'cmdline' => "#{$0} #{ARGV.join(' ')}",
                  'robot_name' => robot_name, 'robot_type' => robot_type,
                  'app_name' => app_name, 'app_dir' => app_dir].merge(app_extra_metadata)
         end
@@ -1347,8 +1348,8 @@ module Roby
 
             current =
                 if File.file?(path)
-                    YAML.load(File.read(path)) || Array.new
-                else Array.new
+                    YAML.load(File.read(path)) || []
+                else []
                 end
 
             if append || current.empty?
@@ -1368,10 +1369,10 @@ module Roby
                   rescue ArgumentError
                   end
 
-            if dir && File.exists?(File.join(dir, 'info.yml'))
-                YAML.load(File.read(File.join(dir, 'info.yml')))
+            if dir && File.exist?(File.join(dir, 'info.yml'))
+                YAML.safe_load(File.read(File.join(dir, 'info.yml')))
             else
-                Array.new
+                []
             end
         end
 
@@ -1388,7 +1389,7 @@ module Roby
             if @log_dir
                 @log_dir
             else
-                current_path = File.join(log_base_dir, "current")
+                current_path = File.join(log_base_dir, 'current')
                 self.class.read_current_dir(current_path)
             end
         end
@@ -1400,15 +1401,21 @@ module Roby
             log_current_dir = self.log_current_dir
             metadata = log_read_metadata
             if metadata.empty?
-                raise NoCurrentLog, "#{log_current_dir} is not a valid Roby log dir, it does not have an info.yml metadata file"
+                raise NoCurrentLog,
+                      "#{log_current_dir} is not a valid Roby log dir, "\
+                      'it does not have an info.yml metadata file'
             elsif !(robot_name = metadata.map { |h| h['robot_name'] }.compact.last)
-                raise NoCurrentLog, "#{log_current_dir}'s metadata does not specify the robot name"
+                raise NoCurrentLog,
+                      "#{log_current_dir}'s metadata does not specify the robot name"
             end
 
             full_path = File.join(log_current_dir, "#{robot_name}-events.log")
-            if !File.file?(full_path)
-                raise NoCurrentLog, "inferred log file #{full_path} for #{log_current_dir}, but that file does not exist"
+            unless File.file?(full_path)
+                raise NoCurrentLog,
+                      "inferred log file #{full_path} for #{log_current_dir}, "\
+                      'but that file does not exist'
             end
+
             full_path
         end
 
@@ -1419,21 +1426,26 @@ module Roby
         #
         # @param [String] current_path the path to the 'current' symlink
         def self.read_current_dir(current_path)
-            if !File.symlink?(current_path)
-                raise ArgumentError, "#{current_path} does not exist or is not a symbolic link"
+            unless File.symlink?(current_path)
+                raise ArgumentError,
+                      "#{current_path} does not exist or is not a symbolic link"
             end
+
             resolved_path = File.readlink(current_path)
             if !File.exist?(resolved_path)
-                raise ArgumentError, "#{current_path} points to #{resolved_path}, which does not exist"
+                raise ArgumentError,
+                      "#{current_path} points to #{resolved_path}, which does not exist"
             elsif !File.directory?(resolved_path)
-                raise ArgumentError, "#{current_path} points to #{resolved_path}, which is not a directory"
+                raise ArgumentError,
+                      "#{current_path} points to #{resolved_path}, "\
+                      'which is not a directory'
             end
             resolved_path
         end
 
         # A path => File hash, to re-use the same file object for different
         # logs
-        attribute(:log_files) { Hash.new }
+        attribute(:log_files) { {} }
 
         # Returns a unique directory name as a subdirectory of
         # +base_dir+, based on +path_spec+. The generated name
@@ -1442,8 +1454,8 @@ module Roby
         # if <tt>path_spec = "a/b/c/basename"</tt>. A .<number> suffix
         # is appended if the path already exists.
         def self.unique_dirname(base_dir, path_spec, date_tag = nil)
-            if path_spec =~ /\/$/
-                basename = ""
+            if path_spec =~ %r{/$}
+                basename = ''
                 dirname = path_spec
             else
                 basename = File.basename(path_spec)
@@ -1451,19 +1463,19 @@ module Roby
             end
 
             date_tag ||= Time.now.strftime('%Y%m%d-%H%M')
-            if basename && !basename.empty?
-                basename = date_tag + "-" + basename
-            else
-                basename = date_tag
-            end
+            basename =
+                if basename && !basename.empty?
+                    date_tag + '-' + basename
+                else
+                    date_tag
+                end
 
             # Check if +basename+ already exists, and if it is the case add a
             # .x suffix to it
             full_path = File.expand_path(File.join(dirname, basename), base_dir)
-            base_dir  = File.dirname(full_path)
-
-            final_path, i = full_path, 0
-            while File.exists?(final_path)
+            final_path = full_path
+            i = 0
+            while File.exist?(final_path)
                 i += 1
                 final_path = full_path + ".#{i}"
             end
@@ -1478,7 +1490,7 @@ module Roby
         # specified in the <tt>config/app.yml</tt> file.
         def setup_loggers(ignore_missing: false, redirections: true)
             Robot.logger.progname = robot_name || 'Robot'
-            return if !log['levels']
+            return unless log['levels']
 
             # Set up log levels
             log['levels'].each do |name, value|
@@ -2463,7 +2475,7 @@ module Roby
 
         def self.register_plugin(name, mod, &init)
             caller(1)[0] =~ /^([^:]+):\d/
-            dir  = File.expand_path(File.dirname($1))
+            dir = File.expand_path(File.dirname($1))
             Roby.app.available_plugins.delete_if { |n| n == name }
             Roby.app.available_plugins << [name, dir, mod, init]
         end
@@ -2554,7 +2566,8 @@ module Roby
         # @return [Array<#each_submodel>]
         def root_models
             models = [Task, TaskService, TaskEvent, Actions::Interface, Actions::Library,
-             Coordination::ActionScript, Coordination::ActionStateMachine, Coordination::TaskScript]
+                      Coordination::ActionScript, Coordination::ActionStateMachine,
+                      Coordination::TaskScript]
 
             each_responding_plugin(:root_models) do |config_extension|
                 models.concat(config_extension.root_models)
@@ -2569,11 +2582,11 @@ module Roby
         # @param [nil,#each_submodel] root_model if non-nil, limit the
         #   enumeration to the submodels of this root
         # @yieldparam [#each_submodel]
-        def each_model(root_model = nil)
-            return enum_for(__method__, root_model) if !block_given?
+        def each_model(root_model = nil, &block)
+            return enum_for(__method__, root_model) unless block_given?
 
-            if !root_model
-                self.root_models.each { |m| each_model(m, &Proc.new) }
+            unless root_model
+                root_models.each { |m| each_model(m, &block) }
                 return
             end
 
@@ -2699,7 +2712,7 @@ module Roby
         #   interface provide an action with this name
         def action_from_name(name)
             action = find_action_from_name(name)
-            if !action
+            unless action
                 available_actions = planners.map do |planner_model|
                     planner_model.each_action.map(&:name)
                 end.flatten
@@ -2762,7 +2775,7 @@ module Roby
         # @return [Object] the listener ID that can be given to
         #   {#remove_ui_event_listener}
         def on_ui_event(&block)
-            if !block
+            unless block
                 raise ArgumentError, "missing expected block argument"
             end
             ui_event_listeners << block
@@ -2859,7 +2872,7 @@ module Roby
                     h[k] = Array.new
                     h
                 end
-                if !only_self
+                unless only_self
                     test_files.merge!(Hash[each_test_file_for_loaded_models.to_a])
                 end
             else
@@ -2890,16 +2903,16 @@ module Roby
         # Enumerate all the test files in this app and for this robot
         # configuration
         def each_test_file_in_app
-            return enum_for(__method__) if !block_given?
+            return enum_for(__method__) unless block_given?
 
             dir = File.join(app_dir, 'test')
-            return if !File.directory?(dir)
+            return unless File.directory?(dir)
 
             Find.find(dir) do |path|
                 # Skip the robot-specific bits that don't apply on the
                 # selected robot
                 if File.directory?(path)
-                    Find.prune if !autodiscover_tests_in?(path)
+                    Find.prune unless autodiscover_tests_in?(path)
                 end
 
                 if File.file?(path) && path =~ /test_.*\.rb$/
@@ -2920,7 +2933,7 @@ module Roby
             each_model do |m|
                 next if m.respond_to?(:has_ancestor?) && m.has_ancestor?(Roby::Event)
                 next if m.respond_to?(:private_specialization?) && m.private_specialization?
-                next if !m.name
+                next unless m.name
 
                 test_files_for(m).each do |test_path|
                     models_per_file[test_path] << m

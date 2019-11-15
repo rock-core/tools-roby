@@ -58,7 +58,7 @@ module Roby
 
         # The description element being currently executed
         #
-        # @return [String,nil] 
+        # @return [String,nil]
         def current_element
             @current_element.get
         end
@@ -73,13 +73,14 @@ module Roby
         # steps in the pipeline, given how the promises are used in Roby (to
         # avoid freezing due to blocking calls)
         def run_pipeline(*state)
-            Thread.current.name = "run_promises"
+            Thread.current.name = 'run_promises'
 
             execution_engine.log_timepoint_group "#{description}" do
                 begin
-                    run_pipeline_elements(self.pipeline, state)
+                    run_pipeline_elements(pipeline, state)
                 rescue Exception => exception
-                    run_pipeline_elements(self.error_pipeline, exception, propagate_state: false)
+                    run_pipeline_elements(error_pipeline, exception,
+                                          propagate_state: false)
                     raise Failure.new(exception)
                 end
             end
@@ -126,7 +127,7 @@ module Roby
         # @api private
         #
         # Helper method for {#run_pipeline_elements}, to run a sequence of
-        # elements in a pipeline that have the same run_in_engine? 
+        # elements in a pipeline that have the same run_in_engine?
         def run_one_pipeline_segment(pipeline, state, in_engine, propagate_state: true)
             while (element = pipeline.first) && !(in_engine ^ element.run_in_engine)
                 pipeline.shift

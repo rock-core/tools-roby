@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 module Roby
     module Test
-        # A event-logging compatible object that is used to 
+        # A event-logging compatible object that is used to
         class EventReporter
             # Whether the reporter should report anything
             attr_predicate :enabled?, true
@@ -10,9 +12,9 @@ module Roby
             def initialize(io, enabled: false)
                 @io = io
                 @enabled = enabled
-                @filters = Array.new
-                @filters_out = Array.new
-                @received_events = Array.new
+                @filters = []
+                @filters_out = []
+                @received_events = []
             end
 
             def dump_time
@@ -48,9 +50,13 @@ module Roby
             #
             # It returns a match if no filters have been added
             def matches_filter?(event)
-                if @filters.empty? || @filters.any? { |pattern| pattern === event.to_s }
-                    @filters_out.empty? || @filters_out.none? { |pattern| pattern === event.to_s }
-                end
+                included = @filters.empty? ||
+                           @filters.any? { |pattern| pattern === event.to_s }
+                return unless included
+
+                excluded = @filters_out.empty? ||
+                           @filters_out.none? { |pattern| pattern === event.to_s }
+                !excluded
             end
 
             def dump_timepoint(event, time, *args)
@@ -60,13 +66,13 @@ module Roby
             # This is the API used by Roby to actually log events
             def dump(m, time, *args)
                 received_events << [m, time, *args]
-                if enabled? && matches_filter?(m)
-                    @io.puts "#{time.to_hms} #{m}(#{args.map(&:to_s).join(", ")})"
-                end
+                return unless enabled? && matches_filter?(m)
+
+                @io.puts "#{time.to_hms} #{m}(#{args.map(&:to_s).join(', ')})"
             end
 
             def has_received_event?(expected_m, *expected_args)
-                received_events.any? do |m, time, args|
+                received_events.any? do |m, _, args|
                     if args.size == expected_args.size
                         [m, *args].zip([expected_m, *expected_args]).all? do |v, expected|
                             expected === v
@@ -75,9 +81,7 @@ module Roby
                 end
             end
 
-            def flush_cycle(m, *args)
-            end
+            def flush_cycle(m, *args); end
         end
     end
 end
-

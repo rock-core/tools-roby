@@ -1,4 +1,5 @@
-require 'thread'
+# frozen_string_literal: true
+
 require 'facets/string/camelcase'
 require 'facets/string/snakecase'
 require 'facets/string/modulize'
@@ -14,6 +15,7 @@ class IO
         output_io.flush
         loop do
             answer = readline.chomp.downcase
+
             if answer.empty?
                 return default
             elsif answer == 'y'
@@ -30,24 +32,23 @@ end
 
 class Module
     def each_fullfilled_model
-        return enum_for(__method__) if !block_given?
+        return enum_for(__method__) unless block_given?
+
         yield self
     end
 end
 
 class Object
     def inspect
-        guard = (Thread.current[:ROBY_SUPPORT_INSPECT_RECURSION_GUARD] ||= Hash.new)
+        guard = (Thread.current[:ROBY_SUPPORT_INSPECT_RECURSION_GUARD] ||= {})
         guard.compare_by_identity
-        if guard.has_key?(self)
-            return "..."
-        else
-            begin
-                guard[self] = self
-                to_s
-            ensure
-                guard.delete(self)
-            end
+        return '...' if guard.key?(self)
+
+        begin
+            guard[self] = self
+            to_s
+        ensure
+            guard.delete(self)
         end
     end
 end
@@ -57,9 +58,10 @@ class Set
         to_s
     end
 
-    if !method_defined?(:intersect?)
+    unless method_defined?(:intersect?)
         def intersect?(set)
-            set.is_a?(Set) or raise ArgumentError, "value must be a set"
+            raise ArgumentError, 'value must be a set' unless set.kind_of?(Set)
+
             if size < set.size
                 any? { |o| set.include?(o) }
             else
@@ -71,9 +73,7 @@ end
 
 module Enumerable
     def empty?
-        for i in self
-            return false
-        end
+        each { return false }
         true
     end
 end
@@ -84,16 +84,17 @@ class Thread
             object.send(name, *args, &prc)
         else
             @msg_queue ||= Queue.new
-            @msg_queue << [ object, name, args, prc ]
+            @msg_queue << [object, name, args, prc]
         end
     end
+
     def process_events
         @msg_queue ||= Queue.new
         loop do
             object, name, args, block = *@msg_queue.deq(true)
             object.send(name, *args, &block)
         end
-    rescue ThreadError
+    rescue ThreadError # rubocop:disable Lint/HandleExceptions
     end
 end
 
@@ -102,13 +103,16 @@ module Roby
         if format == 'sec'
             time.to_f.to_s
         elsif format == 'hms'
-            "#{time.strftime('%H:%M:%S.%3N')}"
+            time.strftime('%H:%M:%S.%3N')
         else
-            "#{time.strftime(format)}"
+            time.strftime(format)
         end
     end
 
-    extend Logger::Root('Roby', Logger::WARN) { |severity, time, progname, msg| "#{Roby.format_time(time)} (#{progname}) #{msg}\n" }
+    logger_m = Logger::Root('Roby', Logger::WARN) do |_severity, time, progname, msg|
+        "#{Roby.format_time(time)} (#{progname}) #{msg}\n"
+    end
+    extend logger_m
 
     class << self
         attr_accessor :enable_deprecation_warnings
@@ -121,7 +125,8 @@ module Roby
         if deprecation_warnings_are_errors
             error_deprecated(msg, caller_depth)
         elsif enable_deprecation_warnings
-            Roby.warn "Deprecation Warning: #{msg} at #{caller[1, caller_depth].join("\n")}"
+            Roby.warn "Deprecation Warning: #{msg} "\
+                      "at #{caller[1, caller_depth].join("\n")}"
         end
     end
 
@@ -130,4 +135,3 @@ module Roby
         raise NotImplementedError
     end
 end
-

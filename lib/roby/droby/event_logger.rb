@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         # Object that acts as an observer for ExecutablePlan, handling
@@ -56,14 +58,14 @@ module Roby
                 @logfile = logfile
                 @object_manager = ObjectManager.new(nil)
                 @marshal = Marshal.new(object_manager, nil)
-                @current_cycle = Array.new
+                @current_cycle = []
                 @sync = true
                 @dump_time = 0
                 @mutex = Mutex.new
-                if queue_size > 0
-                    @dump_queue  = SizedQueue.new(queue_size)
-                    @dump_thread = Thread.new(&method(:dump_loop))
-                end
+                return unless queue_size > 0
+
+                @dump_queue  = SizedQueue.new(queue_size)
+                @dump_thread = Thread.new(&method(:dump_loop))
             end
 
             def synchronize(&block)
@@ -77,7 +79,7 @@ module Roby
             end
 
             def threaded?
-                !!@dump_queue
+                @dump_queue
             end
 
             def flush
@@ -93,12 +95,11 @@ module Roby
 
             # Close this logger, flushing the remaining data to I/O
             def close
-                dump(:cycle_end, Time.now, [Hash.new])
+                dump(:cycle_end, Time.now, [{}])
                 if threaded?
                     @dump_queue.push nil
                     @dump_thread.join
                 end
-
             ensure
                 logfile.close
             end
@@ -154,21 +155,17 @@ module Roby
             def flush_cycle(*last_message)
                 start = Time.now
                 if threaded?
-                    if !@dump_thread.alive?
-                        @dump_thread.value
-                    end
+                    @dump_thread.value unless @dump_thread.alive?
 
                     synchronize do
                         append_message(*last_message)
                         @dump_queue << @current_cycle
-                        @current_cycle = Array.new
+                        @current_cycle = []
                     end
                 else
                     append_message(*last_message)
                     logfile.dump(@current_cycle)
-                    if sync?
-                        logfile.flush
-                    end
+                    logfile.flush if sync?
                     @current_cycle.clear
                 end
             ensure @dump_time += (Time.now - start)
@@ -176,14 +173,11 @@ module Roby
 
             # Main dump loop if the logger is threaded
             def dump_loop
-                while cycle = @dump_queue.pop
+                while (cycle = @dump_queue.pop)
                     logfile.dump(cycle)
-                    if sync?
-                        logfile.flush
-                    end
+                    logfile.flush if sync?
                 end
             end
         end
     end
 end
-

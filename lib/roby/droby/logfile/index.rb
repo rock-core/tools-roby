@@ -1,3 +1,7 @@
+# frozen_string_literal: true
+
+require 'roby/droby/logfile/reader'
+
 module Roby
     module DRoby
         module Logfile
@@ -7,32 +11,31 @@ module Roby
                     stat = File.stat(event_io.path)
                     event_log = Reader.new(event_io)
 
-                    index_io.write [stat.size, stat.mtime.tv_sec, stat.mtime.tv_nsec].pack("Q<L<L<")
-                    dump_io     = StringIO.new("", 'w')
-                    while !event_log.eof?
+                    index_io.write(
+                        [stat.size, stat.mtime.tv_sec, stat.mtime.tv_nsec]
+                            .pack('Q<L<L<')
+                    )
+                    until event_log.eof?
                         current_pos = event_log.tell
                         cycle = event_log.load_one_cycle
                         info  = cycle.last.last
                         event_count = 0
                         cycle.each_slice(4) do |m, *|
-                            if m.to_s !~ /^timepoint/
-                                event_count += 1
-                            end
+                            event_count += 1 if m.to_s !~ /^timepoint/
                         end
                         info[:event_count] = event_count
                         info[:pos] = current_pos
 
-                        if block_given?
-                            yield(Float(event_io.tell) / end_pos)
-                        end
+                        yield(Float(event_io.tell) / end_pos) if block_given?
 
                         info = ::Marshal.dump(info)
-                        index_io.write [info.size].pack("L<")
+                        index_io.write [info.size].pack('L<')
                         index_io.write info
                     end
+                rescue EOFError # rubocop:disable Lint/HandleExceptions
+                ensure
+                    index_io&.flush
 
-                rescue EOFError
-                ensure index_io.flush if index_io
                 end
 
                 # The size in bytes of the file that has been indexed
@@ -87,10 +90,10 @@ module Roby
                 #
                 # @return [nil,(Time,Time)]
                 def range
-                    if !data.empty?
-                        [Time.at(*data.first[:start]), 
-                         Time.at(*data.last[:start]) + data.last[:end]]
-                    end
+                    return if data.empty?
+
+                    [Time.at(*data.first[:start]),
+                     Time.at(*data.last[:start]) + data.last[:end]]
                 end
 
                 # Read an index file
@@ -99,13 +102,11 @@ module Roby
                 def self.read(filename)
                     io = File.open(filename)
                     file_info = io.read(16)
-                    size, tv_sec, tv_nsec = file_info.unpack("Q<L<L<")
-                    data = Array.new
+                    size, tv_sec, tv_nsec = file_info.unpack('Q<L<L<')
+                    data = []
                     begin
-                        while !io.eof?
-                            data << ::Marshal.load(Logfile.read_one_chunk(io))
-                        end
-                    rescue EOFError
+                        data << ::Marshal.load(Logfile.read_one_chunk(io)) until io.eof?
+                    rescue EOFError # rubocop:disable Lint/HandleExceptions
                     end
 
                     new(size, Time.at(tv_sec, Rational(tv_nsec, 1000)), data)
