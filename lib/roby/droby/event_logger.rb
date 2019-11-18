@@ -95,7 +95,6 @@ module Roby
 
             # Close this logger, flushing the remaining data to I/O
             def close
-                dump(:cycle_end, Time.now, [{}])
                 if threaded?
                     @dump_queue.push nil
                     @dump_thread.join
