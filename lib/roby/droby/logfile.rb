@@ -32,17 +32,20 @@ module Roby
 
             class TruncatedFileError < InvalidFileError; end
 
-            def self.write_prologue(io)
+            # Write the file's prologue, specifying the file magic and format version
+            #
+            # The version ID can be specified here mostly for testing purposes.
+            def self.write_prologue(io, version: FORMAT_VERSION)
                 io.write(MAGIC_CODE)
-                io.write([FORMAT_VERSION].pack('L<'))
+                io.write([version].pack('L<'))
             end
 
             # Write a log file header
             #
             # The created log file will always have {FORMAT_VERSION} as its
             # version field
-            def self.write_header(io, options = {})
-                write_prologue(io)
+            def self.write_header(io, version: FORMAT_VERSION, **options)
+                write_prologue(io, version: version)
                 options = ::Marshal.dump(options)
                 io.write [options.size].pack('L<')
                 io.write options

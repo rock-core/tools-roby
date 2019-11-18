@@ -3,6 +3,7 @@
 require 'roby/test/self'
 require 'roby/droby/logfile/reader'
 require 'roby/droby/logfile/writer'
+require 'roby/test/droby_log_helpers'
 
 module Roby
     module DRoby
@@ -23,8 +24,30 @@ module Roby
                 assert !r.load_one_cycle
             end
 
-            it "loads the plugins registered in the log file" do
-                w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'), plugins: ['test'])
+            it 'writes the current file format by default' do
+                path = File.join(tmpdir, 'test-events.log')
+                File.open(path, 'w') do |io|
+                    Logfile.write_header(io)
+                end
+                File.open(path, 'r') do |io|
+                    assert_equal Logfile::FORMAT_VERSION, Logfile.guess_version(io)
+                end
+            end
+
+            it 'allows passing a version ID explicitely' do
+                path = File.join(tmpdir, 'test-events.log')
+                File.open(path, 'w') do |io|
+                    Logfile.write_header(io, version: 0)
+                end
+                File.open(path, 'r') do |io|
+                    assert_equal 0, Logfile.guess_version(io)
+                end
+            end
+
+            it 'loads the plugins registered in the log file' do
+                w = Logfile::Writer.open(
+                    File.join(tmpdir, 'test-events.log'), plugins: ['test']
+                )
                 w.close
 
                 flexmock(Roby.app).should_receive(:using).with('test').once
@@ -193,6 +216,31 @@ module Roby
                     end
                     assert_raises(TypeError) do
                         w.dump([:cycle_end, 0, 0, [Hash[test: klass]]])
+                    end
+                end
+            end
+
+            describe Logfile::Index do
+                describe '.valid_file?' do
+                    include Test::DRobyLogHelpers
+
+                    before do
+                        @log_path = droby_create_event_log('test.log') {}
+                        @index_path = @log_path + '.idx'
+                    end
+                    it 'returns true if the file exists and is valid' do
+                        Logfile::Index.rebuild_file(@log_path, @index_path)
+                        assert Logfile::Index.valid_file?(@log_path, @index_path)
+                    end
+                    it 'returns false if the file exists but is not compatible with the log file' do
+                        Logfile::Index.rebuild_file(@log_path, @index_path)
+                        droby_create_event_log(@log_path) do
+                            droby_write_event :test
+                        end
+                        refute Logfile::Index.valid_file?(@log_path, @index_path)
+                    end
+                    it 'returns false if the file does not exist' do
+                        refute Logfile::Index.valid_file?(@log_path, @index_path)
                     end
                 end
             end
