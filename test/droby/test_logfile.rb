@@ -221,6 +221,38 @@ module Roby
             end
 
             describe Logfile::Index do
+                describe '.rebuild' do
+                    include Test::DRobyLogHelpers
+
+                    it 'creates an index that describes the log file' do
+                        Timecop.freeze(Time.at(0))
+                        path = droby_create_event_log 'test.0.log' do
+                            10.times do |i|
+                                Timecop.freeze(Time.at(i + 1))
+                                droby_write_event :test, i
+                                droby_flush_cycle
+                            end
+                        end
+
+                        Logfile::Index.rebuild_file(path, "#{path}.idx")
+                        index = Logfile::Index.read("#{path}.idx")
+                        assert index.valid_for?(path)
+                        assert_equal 11, index.cycle_count
+                        assert_equal [Time.at(0), Time.at(10)], index.range
+
+                        File.open(path, 'r') do |io|
+                            index.each_with_index do |data, i|
+                                break if i == 10
+
+                                io.seek data[:pos]
+                                events = ::Marshal.load(Logfile.read_one_chunk(io))
+                                assert_equal [:test, 1 + i, 0, [i], :cycle_end],
+                                             events[0, 5]
+                            end
+                        end
+                    end
+                end
+
                 describe '.valid_file?' do
                     include Test::DRobyLogHelpers
 

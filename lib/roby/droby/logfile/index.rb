@@ -35,7 +35,18 @@ module Roby
                 rescue EOFError # rubocop:disable Lint/HandleExceptions
                 ensure
                     index_io&.flush
+                end
 
+                # Rebuild the index of a given log file
+                #
+                # @param [Pathname] log_path
+                # @param [Pathname] index_path
+                def self.rebuild_file(log_path, index_path)
+                    File.open(log_path, 'r') do |event_io|
+                        File.open(index_path, 'w') do |index_io|
+                            Index.rebuild(event_io, index_io)
+                        end
+                    end
                 end
 
                 # The size in bytes of the file that has been indexed
@@ -111,8 +122,16 @@ module Roby
 
                     new(size, Time.at(tv_sec, Rational(tv_nsec, 1000)), data)
                 end
+
+                # Returns whether an index file exists and is valid for a log file
+                #
+                # @param [String] path the path to the log file
+                # @param [String] index_path the path to the
+                def self.valid_file?(path, index_path)
+                    File.exist?(index_path) &&
+                        read(index_path).valid_for?(path)
+                end
             end
         end
     end
 end
-

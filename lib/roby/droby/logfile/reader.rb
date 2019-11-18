@@ -54,14 +54,15 @@ module Roby
                 end
 
                 def load_one_cycle
-                    if chunk = Logfile.read_one_chunk(event_io)
-                        begin ::Marshal.load_with_missing_constants(chunk)
-                        rescue ArgumentError => e
-                            if e.message == "marshal data too short"
-                                raise TruncatedFileError, "marshal data invalid"
-                            else raise
-                            end
+                    return unless (chunk = Logfile.read_one_chunk(event_io))
+
+                    begin ::Marshal.load_with_missing_constants(chunk)
+                    rescue ArgumentError => e
+                        if e.message == 'marshal data too short'
+                            raise TruncatedFileError, 'marshal data invalid'
                         end
+
+                        raise
                     end
                 rescue Exception => e
                     raise e, "#{e.message}, running roby-log repair might repair the file", e.backtrace
