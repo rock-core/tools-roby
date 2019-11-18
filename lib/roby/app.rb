@@ -2473,11 +2473,20 @@ module Roby
             raise Errno::ENOENT, "no file #{name} found in #{Roby::Conf.datadirs.join(":")}"
         end
 
+        def register_plugin(name, mod, path: nil, &init)
+            unless path
+                caller_m = /^([^:]+):\d/.match(caller(1)[0])
+                path = File.expand_path(File.dirname(caller_m[1]))
+            end
+
+            available_plugins.delete_if { |n| n == name }
+            available_plugins << [name, path, mod, init]
+        end
+
         def self.register_plugin(name, mod, &init)
-            caller(1)[0] =~ /^([^:]+):\d/
-            dir = File.expand_path(File.dirname($1))
-            Roby.app.available_plugins.delete_if { |n| n == name }
-            Roby.app.available_plugins << [name, dir, mod, init]
+            caller_m = /^([^:]+):\d/.match(caller(1)[0])
+            path = File.expand_path(File.dirname(caller_m[1]))
+            Roby.app.register_plugin(name, mod, path: path, &init)
         end
 
         # Returns the path in search_path that contains the given file or path
