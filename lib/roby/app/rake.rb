@@ -83,12 +83,21 @@ module Roby
                 # default) or the 'all tests' target (true)
                 attr_predicate :all_by_default?, true
 
+                # Sets whether the tests should be started with the --ui flag
+                attr_writer :ui
+
+                # Whether the tests should be started with the --ui flag
+                def ui?
+                    @ui
+                end
+
                 def initialize(task_name = 'test', all_by_default: false)
                     @task_name = task_name
                     @app = Roby.app
                     @all_by_default = all_by_default
                     @robot_names = discover_robot_names
                     @excludes = []
+                    @ui = false
                     yield self if block_given?
                     define
                 end
@@ -159,9 +168,10 @@ module Roby
                 end
 
                 def run_roby_test(*args)
-                    args = args + excludes.flat_map do |pattern|
-                        ["--exclude", pattern]
+                    args += excludes.flat_map do |pattern|
+                        ['--exclude', pattern]
                     end
+                    args << '--ui' if ui?
                     run_roby('test', *args)
                 end
 
