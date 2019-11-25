@@ -81,30 +81,27 @@ module Roby
                     @io_w.close
                     assert_raises(ComError) { channel.read_packet }
                 end
-                it "raises ComError on writing a socket whose other end is closed" do
-                    io_r, io_w = Socket.pair(:UNIX, :STREAM, 0)
-                    channel = DRobyChannel.new(io_w, true)
-                    io_r.close
-                    assert_raises(ComError) { channel.write_packet(Hash.new) }
+                it 'raises ComError on writing a socket whose other end is closed' do
+                    channel = DRobyChannel.new(@io_w, true)
+                    @io_r.close
+                    assert_raises(ComError) { channel.write_packet({}) }
                 end
-                it "raises ComError on reading a socket whose other end is closed" do
-                    io_r, io_w = Socket.pair(:UNIX, :STREAM, 0)
-                    channel = DRobyChannel.new(io_r, true)
-                    io_w.close
+                it 'raises ComError on reading a socket whose other end is closed' do
+                    channel = DRobyChannel.new(@io_r, true)
+                    @io_w.close
                     assert_raises(ComError) { channel.read_packet }
                 end
-                it "raises ComError if writing the socket raises SystemCallError a.k.a. any of the Errno constants" do
-                    io_r, io_w = Socket.pair(:UNIX, :STREAM, 0)
-                    flexmock(io_w).should_receive(:syswrite).and_raise(SystemCallError.new("test", 0))
-                    channel = DRobyChannel.new(io_w, true)
-                    io_r.close
+                it 'raises ComError if writing the socket raises SystemCallError a.k.a. any of the Errno constants' do
+                    flexmock(@io_w).should_receive(:syswrite)
+                                   .and_raise(SystemCallError.new("test", 0))
+                    channel = DRobyChannel.new(@io_w, true)
+                    @io_r.close
                     assert_raises(ComError) { channel.write_packet([]) }
                 end
-                it "raises ComError if reading the socket raises SystemCallError a.k.a. any of the Errno constants" do
-                    io_r, io_w = Socket.pair(:UNIX, :STREAM, 0)
-                    flexmock(io_r).should_receive(:sysread).and_raise(SystemCallError.new("test", 0))
-                    channel = DRobyChannel.new(io_r, true)
-                    io_w.close
+                it 'raises ComError if reading the socket raises SystemCallError a.k.a. any of the Errno constants' do
+                    flexmock(@io_r).should_receive(:sysread).and_raise(SystemCallError.new("test", 0))
+                    channel = DRobyChannel.new(@io_r, true)
+                    @io_w.close
                     assert_raises(ComError) { channel.read_packet }
                 end
             end

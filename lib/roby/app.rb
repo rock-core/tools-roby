@@ -828,6 +828,9 @@ module Roby
                 end
                 @log_dir = nil
             end
+
+            log_files.each_value(&:close)
+            log_files.clear
         end
 
         # Does basic setup of the Roby environment. It loads configuration files

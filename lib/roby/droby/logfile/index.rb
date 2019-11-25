@@ -121,6 +121,8 @@ module Roby
                     end
 
                     new(size, Time.at(tv_sec, Rational(tv_nsec, 1000)), data)
+                ensure
+                    io&.close
                 end
 
                 # Returns whether an index file exists and is valid for a log file

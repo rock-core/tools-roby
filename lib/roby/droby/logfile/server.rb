@@ -48,6 +48,19 @@ module Roby
                     @found_header
                 end
 
+                # Close all IOs managed by this instance
+                #
+                # This does NOT close the server IO, which is owned by the
+                # caller
+                def close
+                    close_client_connections
+                    @event_file.close
+                end
+
+                # Close all currently opened client connections
+                #
+                # This does NOT close the server IO, which is owned by the
+                # caller
                 def close_client_connections
                     @pending_data.each_key(&:close)
                     @pending_data.clear

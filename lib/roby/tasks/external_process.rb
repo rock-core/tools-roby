@@ -168,11 +168,12 @@ module Roby
 
                 @pid = Process.spawn *command_line, **spawn_options
                 opened_ios.each do |pattern, io|
-                    if pattern == :close
-                        io.close
-                    else
-                        FileUtils.mv io.path, File.join(working_directory, redirection_path(pattern, @pid))
+                    if pattern != :close
+                        target_path = File.join(working_directory,
+                                                redirection_path(pattern, @pid))
+                        FileUtils.mv io.path, target_path
                     end
+                    io.close
                 end
 
                 start_event.emit
@@ -264,10 +265,11 @@ module Roby
                 end
             end
 
-            on :stop do |event|
+            on :stop do |_|
                 read_pipes
+                @out_pipe&.close
+                @err_pipe&.close
             end
         end
     end
 end
-

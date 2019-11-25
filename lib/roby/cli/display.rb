@@ -100,7 +100,7 @@ module Roby
                 Server.info "watching #{path}"
                 server.exec
             ensure
-                server&.close_client_connections
+                server&.close
                 server_io&.close
             end
 
