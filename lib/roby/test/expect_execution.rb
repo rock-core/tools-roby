@@ -84,6 +84,8 @@ module Roby
             # that is not allowed
             class InvalidContext < RuntimeError; end
 
+            attr_accessor :expect_execution_default_timeout
+
             # Declare expectations about the execution of a code block
             #
             # See the documentation of {ExpectExecution} for more details
@@ -94,8 +96,13 @@ module Roby
                 if plan.execution_engine.in_propagation_context?
                     raise InvalidContext, "cannot recursively call #expect_execution"
                 end
+
                 expectations = ExecutionExpectations.new(self, plan)
-                Context.new(self, expectations, block)
+                context = Context.new(self, expectations, block)
+                if @expect_execution_default_timeout
+                    context.timeout(@expect_execution_default_timeout)
+                end
+                context
             end
 
             # @api private
