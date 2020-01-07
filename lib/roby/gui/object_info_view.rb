@@ -47,7 +47,7 @@ module Roby
                         text << ["Failed to start at #{Roby.format_time(obj.failed_to_start_time)}", obj.failed_to_start_time]
                         text.concat(Roby.format_exception(obj))
                     else
-                        text = obj.history.map do |event| 
+                        text = obj.history.map do |event|
                             time_as_text = "#{Roby.format_time(event.time)}"
                             ["#{time_as_text}: #{event.symbol}", event.time]
                         end

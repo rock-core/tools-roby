@@ -1775,10 +1775,10 @@ module Roby
 
         def load_config_yaml
             file = find_file('config', 'app.yml', order: :specific_first)
-            return if !file
+            return unless file
 
             Application.info "loading config file #{file}"
-            options = YAML.load(File.open(file)) || Hash.new
+            options = YAML.safe_load(File.read(file)) || {}
 
             if robot_name && (robot_config = options.delete('robots'))
                 options = options.recursive_merge(robot_config[robot_name] || Hash.new)

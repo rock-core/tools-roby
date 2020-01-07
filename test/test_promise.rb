@@ -298,7 +298,7 @@ Roby::Promise(the promise description).
                 refute_equal Thread.current, order[1]
             end
         end
-        
+
         describe "#has_error_handler?" do
             it "returns false if there are no error handlers" do
                 p = execution_engine.promise { raise "TEST" }

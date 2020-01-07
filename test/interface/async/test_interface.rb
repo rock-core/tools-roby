@@ -109,15 +109,17 @@ module Roby
                             interface.on_unreachable { recorder.unreachable }
                         end
                     end
-                    it "passes the current list of jobs as argument to #on_reachable" do
+                    it 'passes the current list of jobs as argument to #on_reachable' do
                         server = create_server
-                        flexmock(server.interface).should_receive(:jobs).and_return(1 => ['a', 'b', 'c'])
-                        recorder.should_receive(:called).
-                            once.
-                            with(lambda { |jobs| jobs.size == 1 &&
-                                   jobs.first.job_id == 1 &&
-                                   jobs.first.state == 'a' &&
-                                   jobs.first.task == 'c' })
+                        flexmock(server.interface).should_receive(:jobs)
+                                                  .and_return(1 => %w[a b c])
+                        recorder
+                            .should_receive(:called).once
+                            .with(lambda { |jobs|
+                                      jobs.size == 1 &&
+                                      jobs.first.job_id == 1 &&
+                                      jobs.first.state == 'a' &&
+                                      jobs.first.task == 'c' })
                         connect(server) do |c|
                             c.on_reachable { |jobs| recorder.called(jobs) }
                         end

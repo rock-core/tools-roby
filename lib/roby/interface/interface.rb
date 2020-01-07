@@ -506,13 +506,18 @@ module Roby
             #   from job ID to the job's state (as returned by {#job_state}), the
             #   placeholder job task and the job task itself
             def jobs
-                result = Hash.new
+                result = {}
                 planning_tasks = plan.find_tasks(Job).to_a
                 planning_tasks.each do |job_task|
                     job_id = job_task.job_id
-                    next if !job_id
+                    next unless job_id
+
                     placeholder_job_task = job_task.planned_task || job_task
-                    result[job_id] = [job_state(placeholder_job_task), placeholder_job_task, job_task]
+                    result[job_id] = [
+                        job_state(placeholder_job_task),
+                        placeholder_job_task,
+                        job_task
+                    ]
                 end
                 result
             end

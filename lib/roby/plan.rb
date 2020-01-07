@@ -1603,7 +1603,6 @@ module Roby
             planned
         end
 
-
         # The set of blocks that should be called to check the structure of the
         # plan.
         #

@@ -37,16 +37,17 @@ module Roby
                     rescue TypeError
                         raise Errno::EADDRINUSE, "#{port} already in use"
                     end
-                @clients = Array.new
+                @clients = []
                 @abort_on_exception = true
                 @accept_executor = Concurrent::CachedThreadPool.new
                 @accept_future = queue_accept_future
-                @propagation_handler_id = interface.execution_engine.
-                    add_propagation_handler(
+                @propagation_handler_id =
+                    interface
+                    .execution_engine
+                    .add_propagation_handler(
                         description: 'TCPServer#process_pending_requests',
-                        on_error: :ignore) do
-                            process_pending_requests
-                        end
+                        on_error: :ignore
+                    ) { process_pending_requests }
                 @warn_about_disconnection = false
             end
 
@@ -133,17 +134,13 @@ module Roby
             # Closes this server
             def close
                 clients.each do |c|
-                    unless c.closed?
-                        c.close
-                    end
+                    c.close unless c.closed?
                 end
                 clients.clear
-                if server && !server.closed?
-                    server.close
-                end
+                server.close if server && !server.closed?
                 @accept_executor.shutdown
-                interface.execution_engine.
-                    remove_propagation_handler(@propagation_handler_id)
+                interface.execution_engine
+                         .remove_propagation_handler(@propagation_handler_id)
             end
 
             # Whether the given client is handled by this server
@@ -162,19 +159,17 @@ module Roby
             require 'socket'
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
-            channel    = DRobyChannel.new(socket, true, marshaller: marshaller)
+            channel = DRobyChannel.new(socket, true, marshaller: marshaller)
             Client.new(channel, "#{addr[2]}:#{addr[1]}", handshake: handshake)
 
         rescue Errno::ECONNREFUSED => e
             raise ConnectionError, "failed to connect to #{host}:#{port}: #{e.message}",
-                e.backtrace
+                  e.backtrace
         rescue SocketError => e
             raise e, "cannot connect to host '#{host}' port '#{port}': #{e.message}",
-                e.backtrace
-        rescue ::Exception
-            if socket && !socket.closed?
-                socket.close
-            end
+                  e.backtrace
+        rescue ::Exception # rubocop:disable Lint/RescueException
+            socket.close if socket && !socket.closed?
             raise
         end
     end

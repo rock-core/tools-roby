@@ -157,10 +157,8 @@ module Roby
             # In addition to ID-based resolution, models can also be resolved by
             # name through {#find_model_by_name}. This registers the name
             # mapping and then calls {#register_object}
-            def register_model(local_object, known_siblings = Hash.new, name: local_object.name)
-                if name
-                    models_by_name[name] = local_object
-                end
+            def register_model(local_object, known_siblings = {}, name: local_object.name)
+                models_by_name[name] = local_object if name
                 register_object(local_object, known_siblings)
             end
 
@@ -181,7 +179,7 @@ module Roby
                 pp.text "Object manager with local ID=#{local_id}"
                 pp.nest(2) do
                     pp.breakable
-                    pp.text "Registered objects"
+                    pp.text 'Registered objects'
                     siblings_by_peer.each do |peer_id, siblings|
                         siblings.each do |peer_object_id, object|
                             pp.breakable
