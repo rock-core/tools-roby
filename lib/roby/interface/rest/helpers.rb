@@ -38,8 +38,17 @@ module Roby
                 end
 
                 # Execute a block in a context synchronzied with the engine
-                def execute(&block)
+                def roby_execute(&block)
                     execution_engine.execute(&block)
+                end
+
+                # @deprecated use {#roby_execute} instead
+                def execute(&block)
+                    return super unless block_given?
+
+                    Roby.warn_deprecated 'Helpers#execute is deprecated, '\
+                                         'use #roby_execute instead'
+                    roby_execute(&block)
                 end
             end
         end

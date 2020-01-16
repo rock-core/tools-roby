@@ -19,7 +19,7 @@ module Roby
                         helpers Helpers
 
                         get '/test' do
-                            execute { roby_plan.num_tasks }
+                            roby_execute { roby_plan.num_tasks }
                         end
                     end
                 end
