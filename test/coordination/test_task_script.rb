@@ -188,6 +188,31 @@ module Roby
                 end
             end
 
+            describe "#wait_until" do
+                it "transitions if the block returns true" do
+                    flag = false
+                    counter = 0
+                    transitioned = false
+                    task_m = Roby::Tasks::Simple.new_submodel do
+                        script do
+                            wait_until { counter += 1; flag }
+                            execute { transitioned = true }
+                        end
+                    end
+
+                    plan.add(task = task_m.new)
+                    execute { task.start! }
+                    execute_one_cycle
+
+                    assert counter > 0
+                    refute transitioned
+
+                    flag = true
+                    execute_one_cycle
+                    assert transitioned
+                end
+            end
+
             describe "#timeout" do
                 attr_reader :task
                 before do

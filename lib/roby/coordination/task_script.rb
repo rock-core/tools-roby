@@ -143,6 +143,13 @@ module Roby
                 event
             end
 
+            # Waits until the given block returns true
+            def wait_until
+                poll do
+                    transition! if yield
+                end
+            end
+
             # @deprecated
             #
             # Use wait(event after: Time.at(0)) instead
