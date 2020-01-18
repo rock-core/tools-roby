@@ -19,11 +19,15 @@ module Roby
                 # Use 0 for testing purposes, and discover the port using
                 # {#actual_port}
                 argument :port, default: DEFAULT_REST_PORT
+                # The path under which this API will be available, e.g. /api
+                #
+                # Default is '/api'
+                argument :main_route, default: '/api'
 
                 event :start do |_event|
                     @rest_server = Server.new(
                         roby_app, host: host, port: port,
-                                  api: rest_api
+                                  main_route: main_route, api: rest_api
                     )
                     start_event.achieve_asynchronously do
                         @rest_server.start
