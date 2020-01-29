@@ -2458,6 +2458,7 @@ module Roby
         # the beginning of the event loop, in propagation context. If the block
         # raises, the exception is raised back in the calling thread.
         def execute(catch: [], type: :external_events)
+            raise ArgumentError, "a block is required" unless block_given?
             if inside_control?
                 return yield
             end

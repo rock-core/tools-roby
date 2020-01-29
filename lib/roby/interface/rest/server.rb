@@ -54,6 +54,8 @@ module Roby
                         yield(self) if block_given?
 
                         map main_route do
+                            use Rack::CommonLogger
+                            use Rack::ShowExceptions
                             run api
                         end
                     end
