@@ -9,18 +9,18 @@ module Roby
         class Minitest::UnexpectedError
             def droby_dump(peer = nil)
                 result = dup
-                result.exception = exception.droby_dump(peer)
+                result.error = error.droby_dump(peer)
                 result
             end
 
             def proxy(manager)
                 result = dup
-                result.exception = manager.local_object(result.exception)
+                result.error = manager.local_object(result.error)
                 result
             end
 
             def pretty_print(pp)
-                exception.pretty_print(pp)
+                error.pretty_print(pp)
             end
         end
 
