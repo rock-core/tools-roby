@@ -21,7 +21,7 @@ module Roby
             signals 'selectedTime(QDateTime)'
 
             # Updates the view to display the information about +obj+
-            def display(obj)
+            def display(obj, plan)
                 sections = []
                 if obj.kind_of?(Array)
                     from, to, rel = obj
@@ -29,7 +29,7 @@ module Roby
                         "#{rel}",
                         [ "from: #{from}",
                           "to: #{to}",
-                          "info: #{from[to, rel]}"]
+                          "info: #{plan.task_relation_graph_for(rel).edge_info(from, to)}"]
                     ]
                     sections << section
 
