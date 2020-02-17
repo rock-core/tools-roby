@@ -1008,7 +1008,8 @@ module Roby
 
         # Declares that the following block should be used as the robot
         # controller
-        def controller(user: false, &block)
+        def controller(reset: false, user: false, &block)
+            controllers.clear if reset
             add_lifecyle_hook(controllers, block, user: user)
         end
 

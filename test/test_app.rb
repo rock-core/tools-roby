@@ -360,7 +360,7 @@ module Roby
                 end
                 assert_equal app.log_server_port, actual_port
                 # synchronize on the log server startup
-                assert_roby_app_can_connect_to_log_server 
+                assert_roby_app_can_connect_to_log_server
             end
         end
 
@@ -929,6 +929,30 @@ module Roby
                 assert fatal_log.grep(/test ()/)
                 assert fatal_log.grep(/Exefcution thread FORCEFULLY quitting/)
                 assert fatal_log.grep(/in test: test ()/)
+            end
+        end
+
+        describe '#controller' do
+            it 'registers the block into the "controllers" set' do
+                block = -> { true }
+                app.controller(&block)
+                assert_equal [block], app.controllers.map(&:block)
+            end
+
+            it 'appends new blocks to the existing list' do
+                block0 = -> { true }
+                block1 = -> { true }
+                app.controller(&block0)
+                app.controller(&block1)
+                assert_equal [block0, block1], app.controllers.map(&:block)
+            end
+
+            it 'removes existing blocks if reset is true' do
+                block0 = -> { true }
+                block1 = -> { true }
+                app.controller(&block0)
+                app.controller(reset: true, &block1)
+                assert_equal [block1], app.controllers.map(&:block)
             end
         end
     end
