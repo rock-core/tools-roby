@@ -26,10 +26,28 @@ module Roby
                     end
                 end
 
+                def proxy_model_for(model)
+                    TaskReplay if (model <= Roby::Task)
+                end
+
+                module TaskReplay
+                    def assign_arguments(**arguments)
+                        @arguments.merge!(arguments)
+                    end
+                end
+
+                def apply_replay_proxy_module(local_model)
+                    if (replay_proxy = proxy_model_for(local_model))
+                        local_model.include replay_proxy
+                    end
+                end
+
                 def create_new_proxy_model(peer)
                     local_model =
                         @unmarshalled_supermodel
                         .new_submodel(name: name || "#{@unmarshalled_supermodel.name}#")
+
+                    apply_replay_proxy_module(local_model)
                     peer.register_model(local_model, remote_siblings)
                     local_model
                 end
