@@ -1152,6 +1152,7 @@ module Roby
         # @param [Set<Roby::Task>] seeds the root "useful" tasks
         # @param [Array<Relations::BidirectionalDirectedAdjancencyGraph>] graphs the
         #   graphs through which "usefulness" is propagated
+        # @return [Set] the set of tasks reachable from 'seeds' through the union of graphs
         def compute_useful_tasks(seeds, graphs: default_useful_task_graphs)
             seeds = seeds.to_set
             visitors = graphs.map do |g|
