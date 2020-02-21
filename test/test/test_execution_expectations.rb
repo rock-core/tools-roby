@@ -522,14 +522,21 @@ module Roby
                             task.failed_to_start!(original_e)
                         end.to { fail_to_start task, reason: error_m }
                     end
-                    it "does not relate to the original failure reason if no reason matcher is given" do
-                        assert_raises(ExecutionExpectations::UnexpectedErrors) do
-                            expect_execution do
-                                original_e = CodeError.new(error_m.new, task)
-                                execution_engine.add_error(original_e)
-                                task.failed_to_start!(original_e)
-                            end.to { fail_to_start task }
-                        end
+                    it 'relates to the matched failure\'s reason if no reason matcher was given' do
+                        expect_execution do
+                            original_e = CodeError.new(error_m.new, task)
+                            execution_engine.add_error(original_e)
+                            task.failed_to_start!(original_e)
+                        end.to { fail_to_start task }
+                    end
+                    it 'relates to exceptions caused by the matched failure\'s reason if no reason matcher was given' do
+                        expect_execution do
+                            original_e = CodeError.new(error_m.new, task)
+                            execution_engine.add_error(
+                                MissionFailedError.new(task, original_e)
+                            )
+                            task.failed_to_start!(original_e)
+                        end.to { fail_to_start task }
                     end
                 end
 

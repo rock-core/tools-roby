@@ -1025,15 +1025,16 @@ module Roby
                 def initialize(task, reason, backtrace)
                     super(backtrace)
                     @task = task
-                    @reason = reason
-                    return unless @reason&.respond_to?(:to_execution_exception_matcher)
+                    return unless reason&.respond_to?(:to_execution_exception_matcher)
 
-                    @reason = @reason.to_execution_exception_matcher
-                    @related_error_matcher =
-                        LocalizedError
-                        .match
-                        .with_original_exception(@reason)
-                        .to_execution_exception_matcher
+                    @reason = reason.to_execution_exception_matcher
+                    @related_error_match = make_related_error_matcher(reason)
+                end
+
+                def make_related_error_matcher(reason)
+                    LocalizedError.match
+                                  .with_original_exception(reason)
+                                  .to_execution_exception_matcher
                 end
 
                 def update_match(_propagation_info)
@@ -1053,9 +1054,24 @@ module Roby
                 end
 
                 def relates_to_error?(exception)
-                    return unless @reason
+                    return unless @task.failed_to_start?
 
-                    (@reason === exception) || (@related_error_matcher === exception)
+                    reason =
+                        if @reason
+                            @reason
+                        elsif @task.failure_reason
+                            Queries::ExecutionExceptionMatcher
+                            .new
+                            .with_exception(@task.failure_reason)
+                        end
+
+                    return unless reason
+
+                    related_error_matcher =
+                        @related_error_matcher ||
+                        make_related_error_matcher(reason)
+
+                    (reason === exception) || (related_error_matcher === exception)
                 end
 
                 def explain_unachievable(_propagation_info)
