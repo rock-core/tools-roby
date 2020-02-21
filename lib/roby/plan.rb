@@ -1229,6 +1229,16 @@ module Roby
             end
         end
 
+        # Ensures that the given tasks will end up being processed without
+        # forcefully stopping anything
+        def make_useless(tasks)
+            all_tasks = compute_useful_tasks(
+                Array(tasks), graphs: default_useful_task_graphs.map(&:reverse)
+            ).to_set
+            (@mission_tasks & all_tasks).each { |t| unmark_mission_task(t) }
+            (@permanent_tasks & all_tasks).each { |t| unmark_permanent_task(t) }
+        end
+
         # Computes the set of useful tasks and checks that +task+ is in it.
         # This is quite slow. It is here for debugging purposes. Do not use it
         # in production code

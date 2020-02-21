@@ -1100,5 +1100,45 @@ module Roby
                 assert_equal 'action', job.action_model.name
             end
         end
+
+        describe '#make_useless' do
+            it 'marks a mission task as non-mission' do
+                plan.add_mission_task(task = Roby::Task.new)
+                plan.make_useless(task)
+                refute plan.mission_task?(task)
+            end
+
+            it 'marks a permanent task as non-permanent' do
+                plan.add_permanent_task(task = Roby::Task.new)
+                plan.make_useless(task)
+                refute plan.permanent_task?(task)
+            end
+
+            it 'looks at the parent tasks of the argument' do
+                plan.add_permanent_task(parent = Roby::Task.new)
+                parent.depends_on(child = Roby::Task.new)
+                plan.make_useless(child)
+                refute plan.permanent_task?(parent)
+            end
+
+            it 'goes through the whole useful graph chain' do
+                plan.add_permanent_task(parent = Roby::Task.new)
+                parent.planned_by(planning_task = Roby::Task.new)
+                planning_task.depends_on(child = Roby::Task.new)
+                plan.make_useless(child)
+                refute plan.permanent_task?(parent)
+            end
+
+            it 'iterates over all parents' do
+                plan.add_permanent_task(parent = Roby::Task.new)
+                parent.planned_by(planning_task = Roby::Task.new)
+                planning_task.depends_on(child = Roby::Task.new)
+                plan.add_mission_task(other_parent = Roby::Task.new)
+                other_parent.depends_on(child)
+                plan.make_useless(child)
+                refute plan.permanent_task?(parent)
+                refute plan.mission_task?(other_parent)
+            end
+        end
     end
 end
