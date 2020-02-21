@@ -493,11 +493,19 @@ module Roby
         def add_mission_task(task)
             task = normalize_add_arguments([task]).first
             return if mission_tasks.include?(task)
+
             add([task])
             mission_tasks << task
             task.mission = true if task.self_owned?
             notify_task_status_change(task, :mission)
             task
+        end
+
+        # Add an action as a job
+        def add_job_action(action)
+            add_mission_task(
+                action.as_plan(job_id: Roby::Interface::Job.allocate_job_id)
+            )
         end
 
         # Checks if a task is part of the plan's missions

@@ -1081,5 +1081,24 @@ module Roby
                 assert query.local_scope?
             end
         end
+
+        describe '#add_job_action' do
+            it 'adds an action in a way compatible with the job system' do
+                app = Roby::Application.new
+                action_m = Actions::Interface.new_submodel do
+                    describe 'action'
+                    def action; end
+                end
+                app.plan.add_job_action(action_m.action)
+
+                jobs = Interface::Interface.new(app).jobs
+                assert_equal 1, jobs.size
+                _, placeholder, job = jobs.values.first
+
+                assert_kind_of action_m::Action, placeholder
+                assert_equal action_m, job.action_model.action_interface_model
+                assert_equal 'action', job.action_model.name
+            end
+        end
     end
 end
