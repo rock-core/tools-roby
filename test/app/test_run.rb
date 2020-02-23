@@ -10,7 +10,7 @@ module Roby
                 out, _ = capture_subprocess_io do
                     dir = roby_app_setup_single_script
                     pid = roby_app_spawn('run', 'does_not_exist.rb', chdir: dir)
-                    roby_app_with_polling do
+                    roby_app_with_polling(timeout: 10, period: 0.1) do
                         _, status = Process.waitpid2(pid, Process::WNOHANG)
                         if status
                             assert status.exited?
@@ -26,7 +26,7 @@ module Roby
                 out, _ = capture_subprocess_io do
                     dir = roby_app_setup_single_script
                     pid = roby_app_spawn('run', 'does_not_exist', chdir: dir)
-                    roby_app_with_polling do
+                    roby_app_with_polling(timeout: 10, period: 0.1) do
                         _, status = Process.waitpid2(pid, Process::WNOHANG)
                         if status
                             assert status.exited?
@@ -42,7 +42,7 @@ module Roby
                 out, _ = capture_subprocess_io do
                     dir = roby_app_setup_single_script
                     pid = roby_app_spawn('run', '--', 'does_not_exist.rb', chdir: dir)
-                    roby_app_with_polling do
+                    roby_app_with_polling(timeout: 10, period: 0.1) do
                         _, status = Process.waitpid2(pid, Process::WNOHANG)
                         if status
                             assert status.exited?

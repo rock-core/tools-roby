@@ -359,7 +359,7 @@ Roby::Promise(the promise description).
             it "schedules the promise" do
                 p = execution_engine.promise { }
                 p.execute
-                assert p.pending?
+                assert(p.pending? || p.complete?)
             end
             it "returns self" do
                 p = execution_engine.promise { }
