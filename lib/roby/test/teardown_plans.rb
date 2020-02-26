@@ -29,8 +29,11 @@ module Roby
 
             attr_accessor :default_teardown_poll
 
+            class TeardownFailedError < RuntimeError
+            end
+
             def teardown_registered_plans(teardown_poll: default_teardown_poll,
-                                          teardown_warn: 5)
+                                          teardown_fail: 5)
                 old_gc_roby_logger_level = Roby.logger.level
                 return if registered_plans.all?(&:empty?)
 
@@ -39,11 +42,11 @@ module Roby
                 end.compact
 
                 counter = 0
-                teardown_warn_counter = teardown_warn / teardown_poll
+                teardown_fail_counter = teardown_fail / teardown_poll
                 until plans.empty?
                     plans = plans.map do |plan, engine, last_tasks, last_quarantine|
                         plan_quarantine = plan.quarantined_tasks
-                        if counter > teardown_warn_counter
+                        if counter > teardown_fail_counter
                             Roby.warn "more than #{counter} iterations while trying "\
                                       "to shut down #{plan} after #{self.class.name}#"\
                                       "#{name}, quarantine=#{plan_quarantine.size} "\
@@ -63,7 +66,6 @@ module Roby
                                 end
                                 last_quarantine = plan_quarantine.dup
                             end
-                            sleep 1
                         end
                         engine.killall
 
@@ -74,6 +76,10 @@ module Roby
                             [plan, engine, last_tasks, last_quarantine]
                         end
                     end.compact
+                    if counter > teardown_fail_counter
+                        break
+                    end
+
                     counter += 1
                     sleep teardown_poll
                 end
@@ -107,6 +113,10 @@ module Roby
                                   'attached to the plan'
                         plan.transactions.each(&:discard_transaction)
                     end
+                end
+
+                if counter > teardown_fail_counter
+                    raise TeardownFailedError, "failed to tear down plan"
                 end
             ensure
                 Roby.logger.level = old_gc_roby_logger_level
