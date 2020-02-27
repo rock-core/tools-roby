@@ -7,9 +7,8 @@ module Roby
         class Simple < Roby::Task
             argument :id
 
-            def initialize(arguments = {}) # :nodoc:
-                arguments = { id: object_id.to_s }.merge(arguments)
-                super(arguments)
+            def initialize(**arguments) # :nodoc:
+                super(id: object_id.to_s, **arguments)
             end
 
             event :start, command: true

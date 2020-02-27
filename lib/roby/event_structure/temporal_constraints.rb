@@ -259,7 +259,7 @@ module Roby
             # The graph of tasks related to each other by their events
             attr_reader :task_graph
 
-            def initialize(*args)
+            def initialize(**arguments)
                 super
                 @task_graph = Relations::BidirectionalDirectedAdjacencyGraph.new
             end
