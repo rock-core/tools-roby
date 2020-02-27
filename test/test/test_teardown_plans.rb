@@ -20,7 +20,9 @@ module Roby
 
                     execute { task.start_event.emit }
                     tic = Time.now
-                    teardown_registered_plans(teardown_warn: 0.1)
+                    assert_raises(TeardownFailedError) do
+                        teardown_registered_plans(teardown_fail: 0.1)
+                    end
                     assert((0.08..0.2).include?(warn_time - tic))
 
                     matcher = Regexp.new(

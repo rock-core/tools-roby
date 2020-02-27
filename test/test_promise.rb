@@ -298,7 +298,7 @@ Roby::Promise(the promise description).
                 refute_equal Thread.current, order[1]
             end
         end
-        
+
         describe "#has_error_handler?" do
             it "returns false if there are no error handlers" do
                 p = execution_engine.promise { raise "TEST" }
@@ -359,7 +359,7 @@ Roby::Promise(the promise description).
             it "schedules the promise" do
                 p = execution_engine.promise { }
                 p.execute
-                assert p.pending?
+                assert(p.pending? || p.complete?)
             end
             it "returns self" do
                 p = execution_engine.promise { }

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # An extension to {Concurrent::Promise} that is aware of the mixed thread/event
     # loop nature of Roby
@@ -32,18 +34,19 @@ module Roby
         # @return [Array<PipelineElement>]
         attr_reader :error_pipeline
 
-        def initialize(execution_engine, executor: execution_engine.thread_pool, description: "promise", &block)
+        def initialize(
+            execution_engine,
+            executor: execution_engine.thread_pool, description: 'promise', &block
+        )
             @execution_engine = execution_engine
             execution_engine.waiting_work << self
             @description = description
 
-            @pipeline = Array.new
-            @error_pipeline = Array.new
+            @pipeline = []
+            @error_pipeline = []
             @promise = Concurrent::Promise.new(executor: executor, &method(:run_pipeline))
             @current_element = Concurrent::AtomicReference.new
-            if block
-                self.then(&block)
-            end
+            self.then(&block) if block
         end
 
         # Whether this is a null promise
@@ -75,13 +78,12 @@ module Roby
         def run_pipeline(*state)
             Thread.current.name = 'run_promises'
 
-            execution_engine.log_timepoint_group "#{description}" do
+            execution_engine.log_timepoint_group description.to_s do
                 begin
                     run_pipeline_elements(pipeline, state)
-                rescue Exception => exception
-                    run_pipeline_elements(error_pipeline, exception,
-                                          propagate_state: false)
-                    raise Failure.new(exception)
+                rescue Exception => e
+                    run_pipeline_elements(error_pipeline, e, propagate_state: false)
+                    raise Failure.new(e)
                 end
             end
         ensure
@@ -93,13 +95,19 @@ module Roby
         # Run one of {#pipeline} or {#error_pipeline}
         def run_pipeline_elements(pipeline, state, propagate_state: true)
             pipeline = pipeline.dup
-            while !pipeline.empty?
-                state = run_one_pipeline_segment(pipeline, state, false, propagate_state: propagate_state)
-                if !pipeline.empty?
-                    state = execution_engine.log_timepoint_group "#{description}:execute_in_engine" do
-                        execution_engine.execute(type: :propagation) do
-                            run_one_pipeline_segment(pipeline, state, true, propagate_state: propagate_state)
-                        end
+            until pipeline.empty?
+                state = run_one_pipeline_segment(
+                    pipeline, state, false, propagate_state: propagate_state
+                )
+                break if pipeline.empty?
+
+                state = execution_engine.log_timepoint_group(
+                    "#{description}:execute_in_engine"
+                ) do
+                    execution_engine.execute(type: :propagation) do
+                        run_one_pipeline_segment(
+                            pipeline, state, true, propagate_state: propagate_state
+                        )
                     end
                 end
             end
@@ -132,7 +140,9 @@ module Roby
             while (element = pipeline.first) && !(in_engine ^ element.run_in_engine)
                 pipeline.shift
                 @current_element.set(element.description)
-                new_state = execution_engine.log_timepoint_group "#{element.description} in_engine=#{element.run_in_engine}" do
+                new_state = execution_engine.log_timepoint_group(
+                    "#{element.description} in_engine=#{element.run_in_engine}"
+                ) do
                     element.callback.call(state)
                 end
                 state = new_state if propagate_state
@@ -147,15 +157,15 @@ module Roby
         def pretty_print(pp)
             description = self.description
             pp.text "Roby::Promise(#{description}"
-            if current_element = self.current_element
+            if (current_element = self.current_element)
                 pp.text ", currently: #{current_element})"
             else
-                pp.text ")"
+                pp.text ')'
             end
 
             pipeline.each do |element|
                 pp.nest(2) do
-                    pp.text "."
+                    pp.text '.'
                     pp.breakable
                     if element.run_in_engine
                         pp.text "on_success(#{element.description})"
@@ -166,9 +176,10 @@ module Roby
             end
             error_pipeline.each do |element|
                 pp.nest(2) do
-                    pp.text "."
+                    pp.text '.'
                     pp.breakable
-                    pp.text "on_error(#{element.description}, in_engine: #{element.run_in_engine})"
+                    pp.text "on_error(#{element.description}, "\
+                            "in_engine: #{element.run_in_engine})"
                 end
             end
         end
@@ -193,7 +204,10 @@ module Roby
         # @param [Boolean] in_engine whether the block should be executed within
         #   the underlying {ExecutionEngine}, a.k.a. in the main thread, or
         #   scheduled in a separate thread.
-        def on_success(description: "#{self.description}.on_success[#{pipeline.size}]", in_engine: true, &block)
+        def on_success(
+            description: "#{self.description}.on_success[#{pipeline.size}]",
+            in_engine: true, &block
+        )
             pipeline << PipelineElement.new(description, in_engine, block)
             self
         end
@@ -251,28 +265,23 @@ module Roby
         end
 
         def value(timeout = nil)
-            if promise.complete?
-                promise.value(timeout)
-            else
-                raise NotComplete, "cannot call #value on a non-complete promise"
-            end
+            return promise.value(timeout) if promise.complete?
+
+            raise NotComplete, 'cannot call #value on a non-complete promise'
         end
 
         def value!(timeout = nil)
-            if promise.complete?
-                promise.value!(timeout)
-            else
-                raise NotComplete, "cannot call #value on a non-complete promise"
-            end
+            return promise.value!(timeout) if promise.complete?
+
+            raise NotComplete, 'cannot call #value on a non-complete promise'
         rescue Failure => e
             raise e.actual_exception
         end
 
         # Returns the exception that caused the promise to be rejected
         def reason
-            if failure = promise.reason
-                failure.actual_exception
-            end
+            failure = promise.reason
+            failure&.actual_exception
         end
 
         # The promise's execution state
@@ -302,27 +311,73 @@ module Roby
                 @value = value
             end
 
-            def null?; true end
-            def empty?; true end
+            def null?
+                true
+            end
 
-            def before(*); raise NullPromise, "attempting to add a step on a null promise" end
-            def on_success(*); raise NullPromise, "attempting to add a step on a null promise" end
-            def on_error(*); raise NullPromise, "attempting to add a step on a null promise" end
-            def then(*); raise NullPromise, "attempting to add a step on a null promise" end
+            def empty?
+                true
+            end
 
-            def fail(*); raise NullPromise, "a null promise cannot fail" end
-            def execute; self end
-            def unscheduled?; false end
-            def pending?; false end
-            def complete?; true end
-            def fulfilled?; true end
-            def rejected?; false end
+            def before(*)
+                raise NullPromise, 'attempting to add a step on a null promise'
+            end
+
+            def on_success(*)
+                raise NullPromise, 'attempting to add a step on a null promise'
+            end
+
+            def on_error(*)
+                raise NullPromise, 'attempting to add a step on a null promise'
+            end
+
+            def then(*)
+                raise NullPromise, 'attempting to add a step on a null promise'
+            end
+
+            def fail(*)
+                raise NullPromise, 'a null promise cannot fail'
+            end
+
+            def execute
+                self
+            end
+
+            def unscheduled?
+                false
+            end
+
+            def pending?
+                false
+            end
+
+            def complete?
+                true
+            end
+
+            def fulfilled?
+                true
+            end
+
+            def rejected?
+                false
+            end
+
             def wait; end
 
-            def value(*); @value end
-            def value!(*); @value end
+            def value(*)
+                @value
+            end
+
+            def value!(*)
+                @value
+            end
+
             def reason; end
-            def state; :fulfilled end
+
+            def state
+                :fulfilled
+            end
 
             def add_observer(&block)
                 block.call(@creation_time, value, nil)
@@ -330,4 +385,3 @@ module Roby
         end
     end
 end
-

@@ -4,7 +4,7 @@ require 'rake/tasklib'
 
 module Roby
     module App
-        # Rake task definitions for the Roby apps 
+        # Rake task definitions for the Roby apps
         module Rake
             # Rake task to run the Roby tests
             #
@@ -83,12 +83,21 @@ module Roby
                 # default) or the 'all tests' target (true)
                 attr_predicate :all_by_default?, true
 
+                # Sets whether the tests should be started with the --ui flag
+                attr_writer :ui
+
+                # Whether the tests should be started with the --ui flag
+                def ui?
+                    @ui
+                end
+
                 def initialize(task_name = 'test', all_by_default: false)
                     @task_name = task_name
                     @app = Roby.app
                     @all_by_default = all_by_default
                     @robot_names = discover_robot_names
                     @excludes = []
+                    @ui = false
                     yield self if block_given?
                     define
                 end
@@ -101,42 +110,51 @@ module Roby
 
                         desc "run the tests for configuration #{robot_name}:#{robot_type}"
                         task task_name do
-                            if !run_roby_test('-r', "#{robot_name},#{robot_type}")
-                                raise Failed.new("failed to run tests for #{robot_name}:#{robot_type}")
+                            unless run_roby_test('-r', "#{robot_name},#{robot_type}")
+                                raise Failed.new('failed to run tests for '\
+                                                 "#{robot_name}:#{robot_type}"),
+                                      'tests failed'
                             end
                         end
                     end
 
-                    desc "run tests for all known robots"
+                    desc 'run tests for all known robots'
                     task "#{task_name}:all-robots", [:keep_going] do |t, args|
-                        failures = Array.new
+                        failures = []
                         keep_going = args.fetch(:keep_going, '1') == '1'
                         each_robot do |robot_name, robot_type|
-                            if !run_roby_test('-r', "#{robot_name},#{robot_type}")
+                            unless run_roby_test('-r', "#{robot_name},#{robot_type}")
                                 if keep_going
                                     failures << [robot_name, robot_type]
                                 else
-                                    raise Failed.new("failed to run tests for #{robot_name}:#{robot_type}")
+                                    raise Failed.new('failed to run tests for '\
+                                                     "#{robot_name}:#{robot_type}"),
+                                          'tests failed'
                                 end
                             end
                         end
-                        if !failures.empty?
-                            raise Failed.new("failed to run the following test(s): #{failures.map { |name, type| "#{name}:#{type}" }.join(", ")}")
+                        unless failures.empty?
+                            msg = failures
+                                  .map { |name, type| "#{name}:#{type}" }
+                                  .join(', ')
+                            raise Failed.new('failed to run the following test(s): '\
+                                             "#{msg}"), 'failed ot run tests'
                         end
                     end
 
-                    desc "run all tests"
+                    desc 'run all tests'
                     task "#{task_name}:all" do
-                        if !run_roby_test
-                            raise Failed.new("failed to run tests")
+                        unless run_roby_test
+                            raise Failed.new('failed to run tests'),
+                                  'failed to run tests'
                         end
                     end
 
                     if all_by_default?
-                        desc "run all tests"
+                        desc 'run all tests'
                         task task_name => "#{task_name}:all"
                     else
-                        desc "run all robot tests"
+                        desc 'run all robot tests'
                         task task_name => "#{task_name}:all-robots"
                     end
                 end
@@ -145,20 +163,24 @@ module Roby
                     if robot_name == robot_type
                         "#{task_name}:#{robot_name}"
                     else
-                        "#{task_name}:#{robot_name}-#{robot_type}" 
+                        "#{task_name}:#{robot_name}-#{robot_type}"
                     end
                 end
 
                 def run_roby_test(*args)
-                    args = args + excludes.flat_map do |pattern|
-                        ["--exclude", pattern]
+                    args += excludes.flat_map do |pattern|
+                        ['--exclude', pattern]
                     end
+                    args << '--ui' if ui?
                     run_roby('test', *args)
                 end
 
                 def run_roby(*args)
-                    pid = spawn(Gem.ruby, File.expand_path(File.join('..', '..', '..', 'bin', 'roby'), __dir__),
-                           *args)
+                    roby_bin = File.expand_path(
+                        File.join('..', '..', '..', 'bin', 'roby'),
+                        __dir__
+                    )
+                    pid = spawn(Gem.ruby, roby_bin, *args)
                     begin
                         _, status = Process.waitpid2(pid)
                         status.success?
@@ -177,9 +199,7 @@ module Roby
                 #
                 # Discover which robots are available on the current app
                 def discover_robot_names
-                    if !app.app_dir
-                        app.guess_app_dir
-                    end
+                    app.guess_app_dir unless app.app_dir
                     app.setup_robot_names_from_config_dir
                     app.robots.each.to_a
                 end

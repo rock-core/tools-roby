@@ -89,8 +89,8 @@ module Robot
         Roby.app.on_config(user: true, &block)
     end
 
-    def self.controller(&block)
-        Roby.app.controller(user: true, &block)
+    def self.controller(reset: false, &block)
+        Roby.app.controller(reset: reset, user: true, &block)
     end
 
     def self.actions(&block)

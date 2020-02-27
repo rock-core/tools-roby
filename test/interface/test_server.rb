@@ -10,10 +10,14 @@ module Roby
                     @notify_app.execution_engine.display_exceptions = false
 
                     _client_io, server_io = Socket.pair(:UNIX, :STREAM, 0)
+                    _client_io.close
                     server_channel = DRobyChannel.new(server_io, false)
                     server_channel.reset_thread_guard(Thread.current, Thread.current)
                     @server = Server.new(server_channel, @interface)
                     flexmock(@server)
+                end
+                after do
+                    @server.close
                 end
 
                 it "returns false in performed_handshake? before the handshake" do

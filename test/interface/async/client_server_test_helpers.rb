@@ -3,12 +3,12 @@ module Roby
         module Async
             module ClientServerTestHelpers
                 attr_reader :recorder
-                
+
                 def setup
                     super
                     @recorder = flexmock
-                    @interfaces = Array.new
-                    @interface_servers = Array.new
+                    @interfaces = []
+                    @interface_servers = []
                 end
 
                 def teardown

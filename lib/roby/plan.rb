@@ -493,11 +493,19 @@ module Roby
         def add_mission_task(task)
             task = normalize_add_arguments([task]).first
             return if mission_tasks.include?(task)
+
             add([task])
             mission_tasks << task
             task.mission = true if task.self_owned?
             notify_task_status_change(task, :mission)
             task
+        end
+
+        # Add an action as a job
+        def add_job_action(action)
+            add_mission_task(
+                action.as_plan(job_id: Roby::Interface::Job.allocate_job_id)
+            )
         end
 
         # Checks if a task is part of the plan's missions
@@ -1144,6 +1152,7 @@ module Roby
         # @param [Set<Roby::Task>] seeds the root "useful" tasks
         # @param [Array<Relations::BidirectionalDirectedAdjancencyGraph>] graphs the
         #   graphs through which "usefulness" is propagated
+        # @return [Set] the set of tasks reachable from 'seeds' through the union of graphs
         def compute_useful_tasks(seeds, graphs: default_useful_task_graphs)
             seeds = seeds.to_set
             visitors = graphs.map do |g|
@@ -1219,6 +1228,16 @@ module Roby
             else
                 tasks
             end
+        end
+
+        # Ensures that the given tasks will end up being processed without
+        # forcefully stopping anything
+        def make_useless(tasks)
+            all_tasks = compute_useful_tasks(
+                Array(tasks), graphs: default_useful_task_graphs.map(&:reverse)
+            ).to_set
+            (@mission_tasks & all_tasks).each { |t| unmark_mission_task(t) }
+            (@permanent_tasks & all_tasks).each { |t| unmark_permanent_task(t) }
         end
 
         # Computes the set of useful tasks and checks that +task+ is in it.
@@ -1602,7 +1621,6 @@ module Roby
             replace(task, planned)
             planned
         end
-
 
         # The set of blocks that should be called to check the structure of the
         # plan.

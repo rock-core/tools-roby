@@ -93,13 +93,13 @@ module Roby
 
                 @redirection = Hash.new
                 if stdout
-                    @redirection[:stdout] = 
+                    @redirection[:stdout] =
                         if [:pipe, :close].include?(stdout) then stdout
                         else stdout.to_str
                         end
                 end
                 if stderr
-                    @redirection[:stderr] = 
+                    @redirection[:stderr] =
                         if [:pipe, :close].include?(stderr) then stderr
                         else stderr.to_str
                         end
@@ -111,23 +111,24 @@ module Roby
             # Handle redirection for a single stream (out or err)
             def create_redirection(redir_target)
                 if !redir_target
-                    return [], nil
+                    [[], nil]
                 elsif redir_target == :close
-                    return [], :close
+                    [[], :close]
                 elsif redir_target == :pipe
                     pipe, io = IO.pipe
-                    return [[:close, io]], io, pipe, String.new
+                    [[[:close, io]], io, pipe, ''.dup]
                 elsif redir_target !~ /%p/
                     # Assume no replacement in redirection, just open the file
-                    if redir_target[0, 1] == '+'
-                        io = File.open(redir_target[1..-1], 'a')
-                    else
-                        io = File.open(redir_target, 'w')
-                    end
-                    return [[:close, io]], io
+                    io =
+                        if redir_target[0, 1] == '+'
+                            File.open(redir_target[1..-1], 'a')
+                        else
+                            File.open(redir_target, 'w')
+                        end
+                    [[[:close, io]], io]
                 else
-                    io = open_redirection(working_directory) 
-                    return [[redir_target, io]], io
+                    io = open_redirection(working_directory)
+                    [[[redir_target, io]], io]
                 end
             end
 
@@ -136,9 +137,9 @@ module Roby
             # Setup redirections pre-spawn
             def handle_redirection
                 if !@redirection[:stdout] && !@redirection[:stderr]
-                    return [], Hash.new
+                    return [], {}
                 elsif (@redirection[:stdout] == @redirection[:stderr]) && ![:pipe, :close].include?(@redirection[:stdout])
-                    io = open_redirection(working_directory) 
+                    io = open_redirection(working_directory)
                     return [[@redirection[:stdout], io]], Hash[out: io, err: io]
                 end
 
@@ -147,14 +148,12 @@ module Roby
                 err_open, err_io, @err_pipe, @err_buffer =
                     create_redirection(@redirection[:stderr])
 
-                if @out_buffer || @err_buffer
-                    @read_buffer = String.new
-                end
+                @read_buffer = ''.dup if @out_buffer || @err_buffer
 
-                spawn_options = Hash.new
+                spawn_options = {}
                 spawn_options[:out] = out_io if out_io
                 spawn_options[:err] = err_io if err_io
-                return (out_open + err_open), spawn_options
+                [(out_open + err_open), spawn_options]
             end
 
             ##
@@ -162,19 +161,19 @@ module Roby
             #
             # Starts the child process. Emits +start+ when the process is actually
             # started.
-            event :start do |context|
+            event :start do |_|
                 working_directory = (self.working_directory || Dir.pwd)
-                options = Hash[pgroup: 0, chdir: working_directory]
 
                 opened_ios, spawn_options = handle_redirection
 
                 @pid = Process.spawn *command_line, **spawn_options
                 opened_ios.each do |pattern, io|
-                    if pattern == :close
-                        io.close
-                    else
-                        FileUtils.mv io.path, File.join(working_directory, redirection_path(pattern, @pid))
+                    if pattern != :close
+                        target_path = File.join(working_directory,
+                                                redirection_path(pattern, @pid))
+                        FileUtils.mv io.path, target_path
                     end
+                    io.close
                 end
 
                 start_event.emit
@@ -266,10 +265,11 @@ module Roby
                 end
             end
 
-            on :stop do |event|
+            on :stop do |_|
                 read_pipes
+                @out_pipe&.close
+                @err_pipe&.close
             end
         end
     end
 end
-

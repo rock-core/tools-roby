@@ -78,11 +78,14 @@ module Roby
             end
 
             def assert_roby_app_quits(pid, interface: nil)
+                interface_owned = !interface
                 interface ||= assert_roby_app_is_running(pid)
                 interface.quit
                 _, status = Process.waitpid2(pid)
                 assert status.exited?
                 assert_equal 0, status.exitstatus
+            ensure
+                interface&.close if interface_owned
             end
 
             def assert_roby_app_has_job(interface, action_name, timeout: 2,

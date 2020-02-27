@@ -156,7 +156,7 @@ module Roby
                     elsif finishing? then 'finishing'
                     else 'finished'
                     end
-            "#<#{to_s} executable=#{executable?} state=#{state} plan=#{plan.to_s}>"
+            "#<#{self} executable=#{executable?} state=#{state} plan=#{plan}>"
         end
 
         # @api private
@@ -212,7 +212,6 @@ module Roby
                 end
             end
         end
-
 
         # Create a new task object
         #

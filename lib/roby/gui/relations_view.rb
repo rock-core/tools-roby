@@ -91,15 +91,13 @@ class Ui::RelationsView
             item = itemAt(event.pos)
             if item
                 obj = display.object_of(item) ||
-                    display.relation_of(item)
+                      display.relation_of(item)
 
-                if !obj
-                    return super(event)
-                end
+                return super(event) unless obj
             end
 
             @object_info ||= Roby::GUI::ObjectInfoView.new
-            if @object_info.display(obj)
+            if @object_info.display(obj, display.plans[0])
                 @object_info.activate
             end
         end
@@ -215,7 +213,7 @@ class Ui::RelationsView
             end
             @configuration_widget.show
         end
-        
+
         #############################################################
         # Handle the other toolbar's buttons
         graphics.extend GraphicsViewBehaviour
@@ -228,7 +226,7 @@ class Ui::RelationsView
             display.update
         end
 
-        @actionZoom.connect(SIGNAL(:triggered)) do 
+        @actionZoom.connect(SIGNAL(:triggered)) do
             scale = graphics.matrix.m11
             if scale + ZOOM_STEP > 1
                 scale = 1 - ZOOM_STEP
@@ -245,7 +243,7 @@ class Ui::RelationsView
             graphics.fitInView(graphics.scene.items_bounding_rect, Qt::KeepAspectRatio)
         end
 
-        @actionKeepSignals.connect(SIGNAL(:triggered)) do 
+        @actionKeepSignals.connect(SIGNAL(:triggered)) do
             display.keep_signals = @actionKeepSignals.checked?
         end
 

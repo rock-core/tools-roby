@@ -99,7 +99,7 @@ module Roby
                 graphics_item = display[self]
 
                 width, height = 0, 0
-                events = self.each_event.map do |e| 
+                events = self.each_event.map do |e|
                     next unless display.displayed?(e)
                     next unless circle = display[e]
                     br = (circle.bounding_rect | circle.children_bounding_rect)
@@ -384,7 +384,7 @@ module Roby
                 [0, 0]
             end
         end
-        
+
         def self.correct_line(from, to, rect)
             intersect_rect(rect.width, rect.height, from, to)
         end
@@ -542,7 +542,7 @@ module Roby
                 return if !id
                 id = Integer(id)
 
-                obj, _ = graphics.find do |obj, obj_item| 
+                obj, _ = graphics.find do |obj, obj_item|
                     obj.object_id == id
                 end
                 obj
@@ -607,7 +607,7 @@ module Roby
                 return if objects.empty?
 
                 # Find the graphics items
-                bb = objects.inject(Qt::RectF.new) do |bb, object| 
+                bb = objects.inject(Qt::RectF.new) do |bb, object|
                     if item = self[object]
                         item.selected = true
                         bb | item.scene_bounding_rect | item.map_to_scene(item.children_bounding_rect).bounding_rect
@@ -648,7 +648,7 @@ module Roby
                 @enabled_relations << relation
                 arrows.each do |(_, _, rel), arrow|
                     if rel == relation
-                        arrow.visible = true 
+                        arrow.visible = true
                     end
                 end
             end
@@ -675,7 +675,7 @@ module Roby
                 @enabled_relations.delete(relation)
                 arrows.each do |(_, _, rel), arrow|
                     if rel == relation
-                        arrow.visible = false 
+                        arrow.visible = false
                     end
                 end
             end
@@ -805,16 +805,16 @@ module Roby
 
             # Sets the style on +arrow+ according to the event propagation type
             # provided in +flag+
-            # 
+            #
             # +arrow+ is the graphics item representing the relation and +flag+
             # is one of the PROPAG_ constant
             def propagation_style(arrow, flag)
                 unless defined? @@propagation_styles
                     @@propagation_styles = Hash.new
-                    @@propagation_styles[true] = 
+                    @@propagation_styles[true] =
                         [Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, (forward_pen = Qt::Pen.new)]
                     forward_pen.style = Qt::DotLine
-                    @@propagation_styles[false] = 
+                    @@propagation_styles[false] =
                         [Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, Qt::Pen.new]
                 end
                 arrow.brush, arrow.pen, arrow.line.pen = @@propagation_styles[flag]
@@ -893,7 +893,7 @@ module Roby
             attr_reader :current_time
 
             # Update the display with new data that has come from the data
-            # stream. 
+            # stream.
             #
             # It would be too complex at this stage to know if the plan has been
             # updated, so the method always returns true
@@ -980,7 +980,7 @@ module Roby
                         end
                     end
                 end
-                
+
                 plans.each do |p|
                     p.propagated_events.each do |_, sources, to, _|
                         sources.each do |from|
@@ -1007,7 +1007,7 @@ module Roby
 
                 # Layout the graph
                 layouts = plans.find_all { |p| p.root_plan? }.
-                    map do |p| 
+                    map do |p|
                         dot = PlanDotLayout.new
                         begin
                             dot.layout(self, p, layout_options)

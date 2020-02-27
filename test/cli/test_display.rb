@@ -145,6 +145,7 @@ module Roby
                     assert_raises(Errno::ECONNRESET) do
                         client.socket.read
                     end
+                    client.close
                 end
             end
             describe "#parse_remote_host" do

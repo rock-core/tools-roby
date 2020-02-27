@@ -21,7 +21,7 @@ module Roby
             signals 'selectedTime(QDateTime)'
 
             # Updates the view to display the information about +obj+
-            def display(obj)
+            def display(obj, plan)
                 sections = []
                 if obj.kind_of?(Array)
                     from, to, rel = obj
@@ -29,7 +29,7 @@ module Roby
                         "#{rel}",
                         [ "from: #{from}",
                           "to: #{to}",
-                          "info: #{from[to, rel]}"]
+                          "info: #{plan.task_relation_graph_for(rel).edge_info(from, to)}"]
                     ]
                     sections << section
 
@@ -47,7 +47,7 @@ module Roby
                         text << ["Failed to start at #{Roby.format_time(obj.failed_to_start_time)}", obj.failed_to_start_time]
                         text.concat(Roby.format_exception(obj))
                     else
-                        text = obj.history.map do |event| 
+                        text = obj.history.map do |event|
                             time_as_text = "#{Roby.format_time(event.time)}"
                             ["#{time_as_text}: #{event.symbol}", event.time]
                         end
