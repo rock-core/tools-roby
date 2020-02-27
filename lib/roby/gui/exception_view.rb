@@ -12,12 +12,12 @@ module Roby
                 @excluded_patterns = Regexp.union(excluded_patterns, rx)
             end
 
-            def each_exception_from(e)
+            def each_exception_from(e, &block)
                 super do |e|
                     yield e
                     if e.respond_to?(:original_exceptions)
                         e.original_exceptions.each do |original_e|
-                            each_exception_from(original_e, &Proc.new)
+                            each_exception_from(original_e, &block)
                         end
                     end
                 end

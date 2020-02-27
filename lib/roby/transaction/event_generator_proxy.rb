@@ -12,7 +12,7 @@ module Roby
                 end
             end
 
-            def initialize_replacement(event)
+            def initialize_replacement(event, &block)
                 # Apply recursively all event handlers of this (proxied) event to
                 # the new event
                 #
@@ -38,7 +38,7 @@ module Roby
 
                 if event
                     super(event)
-                else super(nil, &Proc.new)
+                else super(nil, &block)
                 end
             end
 

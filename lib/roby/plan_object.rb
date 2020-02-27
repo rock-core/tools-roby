@@ -277,7 +277,7 @@ module Roby
         #   end
         #
         # Will yield the same set of tasks, but included in +self.plan+.
-        def merged_relations(enumerator, intrusive)
+        def merged_relations(enumerator, intrusive, &block)
             return enum_for(__method__, enumerator, intrusive) if !block_given?
 
             plan_chain = self.transaction_stack
@@ -320,7 +320,7 @@ module Roby
             end
 
             if intrusive
-                enumerator.call(self, &Proc.new)
+                enumerator.call(self, &block)
                 for related_object in pending
                     yield(self.plan[related_object])
                 end

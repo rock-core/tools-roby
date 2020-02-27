@@ -70,9 +70,9 @@ module Roby
             #   one
             # @param [Symbol] level the name of the logging method (e.g. :warn)
             # @return [Array<String>]
-            def capture_log(object, level)
+            def capture_log(object, level, &block)
                 FlexMock.use(object) do |mock|
-                    __capture_log(mock, level, &proc)
+                    __capture_log(mock, level, &block)
                 end
             end
 
