@@ -261,23 +261,23 @@ module Roby
                         Roby.warn_deprecated "enum_#{child_name} is deprecated, use each_#{child_name} instead"
                         each_#{child_name}
                     end
-                    def each_#{child_name}(with_info = true)
-                        return enum_for(__method__, with_info) if !block_given?
+                    def each_#{child_name}(with_info = true, &block)
+                        return enum_for(__method__, with_info) unless block
                         if with_info
                             each_child_object(__r_#{relation_name}__) do |child|
                                 yield(child, self[child, __r_#{relation_name}__])
                             end
                         else
-                            each_child_object(__r_#{relation_name}__, &Proc.new)
+                            each_child_object(__r_#{relation_name}__, &block)
                         end
                     end
-                    def find_#{child_name}(with_info = true)
+                    def find_#{child_name}(with_info = true, &block)
                         if with_info
                             each_child_object(__r_#{relation_name}__) do |child|
                                 return child if yield(child, self[child, __r_#{relation_name}__])
                             end
                         else
-                            each_child_object(__r_#{relation_name}__).find(&Proc.new)
+                            each_child_object(__r_#{relation_name}__).find(&block)
                         end
                         nil
                     end

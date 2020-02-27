@@ -70,7 +70,7 @@ module Roby
                 end
             end
 
-            def initialize_replacement(object)
+            def initialize_replacement(object, &block)
                 # Apply recursively all finalization handlers of this (proxied)
                 # object to the object event
                 #
@@ -89,7 +89,7 @@ module Roby
 
                 if object
                     super(object)
-                else super(nil, &Proc.new)
+                else super(nil, &block)
                 end
             end
         end
