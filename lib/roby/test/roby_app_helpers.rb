@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Test
         # Helpers to test a full Roby app started as a subprocess
@@ -5,7 +7,7 @@ module Roby
             attr_reader :app, :app_dir
 
             def setup
-                @spawned_pids = Array.new
+                @spawned_pids = []
                 super
                 @app = Roby::Application.new
                 app.public_logs = false
@@ -23,7 +25,7 @@ module Roby
                     begin
                         Process.kill 'INT', pid
                         true
-                    rescue Errno::ESRCH
+                    rescue Errno::ESRCH # rubocop:disable Lint/SuppressedException
                     end
                 end
 
@@ -40,8 +42,9 @@ module Roby
 
             def roby_bin
                 File.expand_path(
-                    File.join("..", "..", "..", 'bin', 'roby'),
-                    __dir__)
+                    File.join('..', '..', '..', 'bin', 'roby'),
+                    __dir__
+                )
             end
 
             def roby_app_with_polling(timeout: 2, period: 0.01, message: nil)
@@ -60,8 +63,9 @@ module Roby
                 end
             end
 
-            def assert_roby_app_is_running(pid, timeout: 10, host: 'localhost',
-                                           port: Roby::Interface::DEFAULT_PORT)
+            def assert_roby_app_is_running(
+                pid, timeout: 10, host: 'localhost', port: Roby::Interface::DEFAULT_PORT
+            )
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
                     if ::Process.waitpid(pid, Process::WNOHANG)
@@ -70,7 +74,7 @@ module Roby
 
                     begin
                         return Roby::Interface.connect_with_tcp_to(host, port)
-                    rescue Roby::Interface::ConnectionError # rubocop:disable Lint/HandleExceptions
+                    rescue Roby::Interface::ConnectionError # rubocop:disable Lint/SuppressedException
                     end
                     sleep 0.01
                 end
@@ -88,8 +92,9 @@ module Roby
                 interface&.close if interface_owned
             end
 
-            def assert_roby_app_has_job(interface, action_name, timeout: 2,
-                                        state: Interface::JOB_STARTED)
+            def assert_roby_app_has_job(
+                interface, action_name, timeout: 2, state: Interface::JOB_STARTED
+            )
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
                     jobs = interface.find_all_jobs_by_action_name(action_name)
@@ -114,13 +119,15 @@ module Roby
             def roby_app_fixture_path
                 File.expand_path(
                     File.join('..', '..', '..', 'test', 'app', 'fixtures'),
-                    __dir__)
+                    __dir__
+                )
             end
 
             # Create a minimal Roby application with a given list of scripts copied
             # in scripts/
             #
-            # @param [String] scripts list of scripts, relative to {#roby_app_fixture_path}
+            # @param [String] scripts list of scripts, relative to
+            #    {#roby_app_fixture_path}
             # @return [String] the path to the app root
             def roby_app_setup_single_script(*scripts)
                 dir = make_tmpdir
@@ -145,6 +152,10 @@ module Roby
                 pid
             end
 
+            def register_pid(pid)
+                @spawned_pids << pid
+            end
+
             def roby_app_run(*args, silent: false, **options)
                 pid = roby_app_spawn(*args, silent: silent, **options)
                 _, status = Process.waitpid2(pid)
@@ -165,8 +176,9 @@ module Roby
             #
             # @yieldparam [Roby::Interface::Client] client the interface client
             # @yieldreturn [Object] object returned by the method
-            def roby_app_call_remote_interface(host: 'localhost',
-                                               port: Interface::DEFAULT_PORT)
+            def roby_app_call_remote_interface(
+                host: 'localhost', port: Interface::DEFAULT_PORT
+            )
                 interface = Interface.connect_with_tcp_to(host, port)
                 yield(interface) if block_given?
             ensure
@@ -201,15 +213,16 @@ module Roby
                 result
             end
 
-            def assert_roby_app_can_connect_to_log_server(timeout: 2,
-                                                          port: app.log_server_port)
+            def assert_roby_app_can_connect_to_log_server(
+                timeout: 2, port: app.log_server_port
+            )
                 client = roby_app_with_polling(
                     timeout: timeout,
                     message: "connecting to the log server on port #{port}"
                 ) do
                     begin
                         DRoby::Logfile::Client.new('localhost', port)
-                    rescue Interface::ConnectionError # rubocop:disable Lint/HandleExceptions
+                    rescue Interface::ConnectionError # rubocop:disable Lint/SuppressedException
                     end
                 end
                 client.read_and_process_pending until client.init_done?
@@ -229,9 +242,8 @@ module Roby
             def copy_into_app(template, target = template)
                 FileUtils.mkdir_p File.join(app_dir, File.dirname(target))
                 FileUtils.cp File.join(@helpers_source_dir, template),
-                    File.join(app_dir, target)
+                             File.join(app_dir, target)
             end
         end
     end
 end
-
