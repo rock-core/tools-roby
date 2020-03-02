@@ -169,6 +169,68 @@ module Roby
             end
         end
 
+        describe "inspect method" do
+            it "is pending on a new task" do
+                plan.add(task = Tasks::Simple.new)
+                assert task.inspect.include? 'pending'
+            end
+
+            it "has failed to start" do
+                task_m = Task.new_submodel do
+                    terminates
+                    event :start do |context|
+                    end
+                end
+                plan.add(task = task_m.new)
+                execute { task.start! }
+                execute do
+                    task.start_event.emit_failed RuntimeError.new
+                end
+                assert task.inspect.include? 'failed'
+            end
+
+            it "is starting" do
+                task_m = Task.new_submodel do
+                    terminates
+                    event :start do |context|
+                    end
+                end
+                plan.add(task = task_m.new)
+                execute { task.start! }
+                assert task.inspect.include? 'starting'
+                execute { task.start_event.emit }
+            end
+
+            it "is running" do
+                plan.add(task = Tasks::Simple.new)
+                execute { task.start! }
+                assert task.inspect.include? 'running'
+            end
+
+            it "is finishing" do
+                task_m = Task.new_submodel do
+                    event :stop do |_|
+                    end
+                end
+                plan.add(task = task_m.new)
+                execute do
+                    task.start!
+                    task.stop!
+                end
+                assert task.inspect.include? 'finishing'
+                execute { task.stop_event.emit }
+            end
+
+            it "has finished" do
+                plan.add(task = Tasks::Simple.new)
+                execute do
+                    task.start!
+                    task.stop_event.emit
+                end
+                assert task.inspect.include? 'finished'
+            end
+        end
+
         describe "handling of CodeError originating from the task" do
             describe "a pending task" do
                 it "passes the exception" do
