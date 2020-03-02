@@ -152,8 +152,8 @@ module Roby
             state = if pending? then 'pending'
                     elsif failed_to_start? then 'failed to start'
                     elsif starting? then 'starting'
-                    elsif running? then 'running'
                     elsif finishing? then 'finishing'
+                    elsif running? then 'running'
                     else 'finished'
                     end
             "#<#{self} executable=#{executable?} state=#{state} plan=#{plan}>"
