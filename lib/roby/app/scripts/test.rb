@@ -37,7 +37,8 @@ parser = OptionParser.new do |opt|
     end
     opt.on('--exclude PATTERN', String, 'do not run files '\
            'matching this pattern') do |pattern|
-        excluded_patterns << File.expand_path(pattern, Roby.app.app_dir)
+        pattern = "**/#{pattern}" if pattern[0, 1] != '/'
+        excluded_patterns << pattern
     end
     opt.on('--distributed', 'access remote systems while setting up '\
                             'or running the tests') do |val|
