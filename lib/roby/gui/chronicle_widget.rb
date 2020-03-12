@@ -911,7 +911,8 @@ module Roby
 
             def update_scroll_ranges
                 vertical_scroll_bar.setRange(0, current_tasks.size - 1)
-                @start_line = [current_tasks.size - 1, @start_line].compact.min
+                line_max = current_tasks.size == 0 ? 0 : current_tasks.size - 1
+                @start_line = [line_max, @start_line].compact.min
                 return if horizontal_scroll_bar_down?
 
                 if base_time && current_time && display_time
