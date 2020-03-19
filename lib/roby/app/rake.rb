@@ -172,6 +172,7 @@ module Roby
                         ['--exclude', pattern]
                     end
                     args << '--ui' if ui?
+                    puts "Running roby test #{args.join(' ')}"
                     run_roby('test', *args)
                 end
 
