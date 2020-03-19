@@ -56,7 +56,7 @@ module Roby
                     end
                     event = self.event.resolve
                     event.on do |ev|
-                        if ev.generator == self.event.resolve && !disabled?
+                        if !disabled? && (ev.generator == self.event.resolve)
                             cancel
                             script.step
                         end
