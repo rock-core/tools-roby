@@ -185,7 +185,7 @@ module Roby
                         _, status = Process.waitpid2(pid)
                         status.success?
                     rescue Interrupt
-                        Process.kill pid
+                        Process.kill 'TERM', pid
                         Process.waitpid(pid)
                     end
                 end
