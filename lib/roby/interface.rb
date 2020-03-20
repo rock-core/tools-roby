@@ -125,7 +125,6 @@ module Roby
 end
 
 require 'websocket'
-require 'utilrb/hash'
 require 'roby/interface/job'
 require 'roby/interface/exceptions'
 require 'roby/interface/command_argument'

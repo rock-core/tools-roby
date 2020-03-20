@@ -4,7 +4,7 @@ module Roby
         # action interface and/or tasks, such as state machines and scripts
         class Base
             extend Models::Base
-            
+
             # The parent coordination object
             #
             # @return [nil,Base]
@@ -70,7 +70,7 @@ module Roby
                     root_task.add_coordination_object(self)
 
                     attach_fault_response_tables_to(root_task)
-                    
+
                     if options[:on_replace] == :copy
                         root_task.as_service.on_replacement do |old_task, new_task|
                             old_task.remove_coordination_object(self)
@@ -81,9 +81,9 @@ module Roby
                 end
             end
 
-            def attach_fault_response_tables_to(task)
+            def attach_fault_response_tables_to(_task)
                 model.each_used_fault_response_table do |table, arguments|
-                    arguments = arguments.map_value do |key, val|
+                    arguments = arguments.transform_values do |val|
                         if val.kind_of?(Models::Variable)
                             self.arguments[val.name]
                         else val
