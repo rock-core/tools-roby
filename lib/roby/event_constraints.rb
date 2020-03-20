@@ -162,6 +162,10 @@ module Roby
         # events of a single task. As the events are represented by their name,
         # the predicate can be reused to be applied on different tasks.
         class UnboundTaskPredicate
+            def initialize
+                @compiled_predicate = CompiledPredicate.new
+            end
+
             def to_unbound_task_predicate
                 self
             end
@@ -235,6 +239,8 @@ module Roby
             class CompiledPredicate
                 def marshal_dump; nil end
                 def marshal_load(obj); nil end
+
+                attr_accessor :ready
             end
 
             # Predicates are first represented as an AST using the subclasses of
@@ -248,20 +254,21 @@ module Roby
                     "    task_#{event_name} = task_event_#{event_name}.last"
                 end.join("\n")
 
-                compiled_predicate = CompiledPredicate.new
-                eval <<-END, binding, __FILE__, __LINE__+1
-def compiled_predicate.evaluate(task)
+                @compiled_predicate
+                    .singleton_class
+                    .class_eval <<-CODE, __FILE__, __LINE__+1
+def evaluate(task)
 #{prelude}
     #{code}
 end
-                END
-                @compiled_predicate = compiled_predicate
+                    CODE
+                @compiled_predicate.ready = true
             end
 
             # Evaluates this predicate on +task+. It returns either true or
             # false.
             def evaluate(task)
-                compile if !@compiled_predicate || !@compiled_predicate.respond_to?(:evaluate)
+                compile unless @compiled_predicate.ready
                 @compiled_predicate.evaluate(task)
             end
         end
@@ -408,6 +415,7 @@ end
         class UnboundTaskPredicate::Negate < UnboundTaskPredicate
             attr_reader :predicate
             def initialize(pred)
+                super()
                 @predicate = pred
             end
 
@@ -431,6 +439,7 @@ end
         class UnboundTaskPredicate::Never < UnboundTaskPredicate
             attr_reader :predicate
             def initialize(pred)
+                super()
                 if !pred.kind_of?(UnboundTaskPredicate::SingleEvent)
                     raise ArgumentError, "can only create a Never predicate on top of a SingleEvent"
                 end
@@ -478,6 +487,7 @@ end
         class UnboundTaskPredicate::BinaryCommutativePredicate < UnboundTaskPredicate
             attr_reader :predicates
             def initialize(left, right)
+                super()
                 @predicates = [left, right]
             end
 
@@ -771,9 +781,9 @@ end
             attr_reader :required_events
 
             def initialize(event_name)
+                super()
                 @event_name = event_name
                 @required_events = [event_name].to_set
-                super()
             end
 
             def ==(pred); pred.kind_of?(SingleEvent) && pred.event_name == event_name end

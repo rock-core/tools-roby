@@ -55,15 +55,17 @@ module Roby
                         root_task.instance_eval(&block)
                     end
                     event = self.event.resolve
-                    event.on do |ev|
-                        if !disabled? && (ev.generator == self.event.resolve)
+                    event.once(on_replace: :copy) do |ev|
+                        if !disabled? && ev.generator == self.event.resolve
                             cancel
                             script.step
                         end
                     end
 
-                    if event.task != script.root_task
-                        script.root_task.depends_on event.task, success: event.symbol
+                    root_task = script.root_task
+                    event_task = event.task
+                    if (event_task != root_task) && !root_task.depends_on?(event_task)
+                        root_task.depends_on event_task, success: event.symbol
                     else
                         event.when_unreachable(true) do |reason, generator|
                             if !disabled?
