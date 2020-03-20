@@ -9,18 +9,18 @@ module Roby
         # event propagation context, and then some expectations can be matched
         # against the result using the .to call:
         #
-        #    expect_execution { ...code to be executed... }.
-        #       to { ... expectations ... }
+        #    expect_execution { ...code to be executed... }
+        #       .to { ... expectations ... }
         #
         # See the 'Expectations' section of {ExecutionExpectations} for an
         # exhaustive list of existing expectations. Additional setup
         # regarding the processing loop is documented in the Setup section
         # of the same page, and can be used like this:
         #
-        #    expect_execution { ...code to be executed... }.
-        #       timeout(10).
-        #       scheduler(true).
-        #       to { ... expectations ... }
+        #    expect_execution { ...code to be executed... }
+        #       .timeout(10)
+        #       .scheduler(true)
+        #       .to { ... expectations ... }
         #
         # The execution expectation object is actually executed when one of
         # the to_run or to { } methods is called. The former runs the block
@@ -30,8 +30,8 @@ module Roby
         #
         # @example emit an event and validate that it is emitted
         #    plan.add(task = MyTask.new)
-        #    expect_execution { task.start! }.
-        #       to { emit task.start_event }
+        #    expect_execution { task.start! }
+        #       .to { emit task.start_event }
         #
         # Note that the heavy-lifting is done in {ExecutionExpectations}. This
         # is really only the sugar-coating above the test harness itself.

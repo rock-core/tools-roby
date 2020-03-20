@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'roby/interface/async'
 
 module Roby
@@ -48,7 +50,7 @@ module Roby
 
                 # Whether this started a Roby controller
                 def roby_running?
-                    !!@roby_pid
+                    @roby_pid
                 end
 
                 # Whether we have a connection to the started Roby controller
@@ -56,20 +58,22 @@ module Roby
                     roby_interface.connected?
                 end
 
-                def initialize(port: Roby::Interface::DEFAULT_PORT,
-                               keep_running: (ENV['CUCUMBER_KEEP_RUNNING'] == '1'),
-                               validation_mode: (ENV['ROBY_VALIDATE_STEPS'] == '1'))
+                def initialize(
+                    port: Roby::Interface::DEFAULT_PORT,
+                    keep_running: (ENV['CUCUMBER_KEEP_RUNNING'] == '1'),
+                    validation_mode: (ENV['ROBY_VALIDATE_STEPS'] == '1')
+                )
                     @roby_pid = nil
-                    @roby_interface = Roby::Interface::Async::Interface.
-                        new('localhost', port: port)
-                    @background_jobs = Array.new
+                    @roby_interface = Roby::Interface::Async::Interface
+                                      .new('localhost', port: port)
+                    @background_jobs = []
                     @keep_running = keep_running
                     @validation_mode = validation_mode
                     @pending_actions = []
                 end
 
                 # Start a Roby controller
-                # 
+                #
                 # @param [String] robot_name the name of the robot configuration
                 # @param [String] robot_type the type of the robot configuration
                 # @param [Boolean] wait whether the method should wait for a
@@ -79,16 +83,21 @@ module Roby
                 # @param [Hash] state initial values for the state
                 #
                 # @raise InvalidState if a controller is already running
-                def roby_start(robot_name, robot_type, connect: true, controller: true, app_dir: Dir.pwd, log_dir: nil, state: Hash.new, **spawn_options)
+                def roby_start(
+                    robot_name, robot_type,
+                    connect: true, controller: true, app_dir: Dir.pwd,
+                    log_dir: nil, state: {}, **spawn_options
+                )
                     if roby_running?
-                        raise InvalidState, "a Roby controller is already running, call #roby_stop and #roby_join first"
+                        raise InvalidState,
+                              'a Roby controller is already running, '\
+                              'call #roby_stop and #roby_join first'
                     end
 
-                    options = Array.new
-                    if log_dir
-                        options << "--log-dir=#{log_dir}"
-                    end
-                    @roby_pid = spawn Gem.ruby, File.join(Roby::BIN_DIR, "roby"), 'run',
+                    options = []
+                    options << "--log-dir=#{log_dir}" if log_dir
+                    @roby_pid = spawn(
+                        Gem.ruby, File.join(Roby::BIN_DIR, 'roby'), 'run',
                         "--robot=#{robot_name},#{robot_type}",
                         '--controller',
                         '--quiet',
@@ -97,9 +106,8 @@ module Roby
                         chdir: app_dir,
                         pgroup: 0,
                         **spawn_options
-                    if connect
-                        roby_connect
-                    end
+                    )
+                    roby_connect if connect
                     roby_pid
                 end
 
@@ -120,15 +128,15 @@ module Roby
                 # Wait for the Roby controller started with {#roby_start} to be
                 # available
                 def roby_connect
-                    if roby_connected?
-                        raise InvalidState, "already connected"
-                    end
+                    raise InvalidState, 'already connected' if roby_connected?
 
-                    while !roby_connected?
+                    until roby_connected?
                         roby_try_connect
                         _, status = Process.waitpid2(roby_pid, Process::WNOHANG)
                         if status
-                            raise InvalidState, "remote Roby controller quit before we could get a connection"
+                            raise InvalidState,
+                                  'remote Roby controller quit before '\
+                                  'we could get a connection'
                         end
                         roby_interface.wait
                     end
@@ -138,9 +146,7 @@ module Roby
                 # Disconnect the interface to the controller, but does not stop
                 # the controller
                 def roby_disconnect
-                    if !roby_connected?
-                        raise InvalidState, "not connected"
-                    end
+                    raise InvalidState, 'not connected' unless roby_connected?
 
                     @roby_interface.close
                 end
@@ -150,9 +156,13 @@ module Roby
                 # @raise InvalidState if no controllers were started
                 def roby_stop(join: true)
                     if !roby_running?
-                        raise InvalidState, "cannot call #roby_stop if no controllers were started"
+                        raise InvalidState,
+                              'cannot call #roby_stop if no controllers were started'
                     elsif !roby_connected?
-                        raise InvalidState, "you need to successfully connect to the Roby controller with #roby_connect before you can call #roby_stop"
+                        raise InvalidState,
+                              'you need to successfully connect to the Roby '\
+                              'controller with #roby_connect before you can call '\
+                              '#roby_stop'
                     end
 
                     begin
@@ -174,7 +184,6 @@ module Roby
                     Process.kill('INT', roby_pid)
                     roby_join if join
                 end
-
 
                 # Wait for the remote process to quit
                 def roby_join
@@ -203,8 +212,11 @@ module Roby
 
                 # Enable or disable backtrace filtering on the Roby instance
                 def roby_enable_backtrace_filtering(enable: true)
-                    if !roby_connected?
-                        raise InvalidState, "you need to successfully connect to the Roby controller with #roby_connect before you can call #roby_enable_backtrace_filtering"
+                    unless roby_connected?
+                        raise InvalidState,
+                              'you need to successfully connect to the Roby '\
+                              'controller with #roby_connect before you can call '\
+                              '#roby_enable_backtrace_filtering'
                     end
                     roby_interface.client.enable_backtrace_filtering(enable: enable)
                 end
@@ -228,26 +240,27 @@ module Roby
                     def job_id
                         action_monitor.job_id
                     end
+
                     def success?
                         action_monitor.success?
                     end
+
                     def terminated?
                         action_monitor.terminated?
                     end
+
                     def monitoring?
                         monitoring
                     end
                 end
 
-                # The job ID of the last started 
+                # The job ID of the last started
                 #
                 # @return [nil,Integer] nil if the job has not yet been started,
                 #   and the ID otherwise. It's the caller responsibility to call
                 #   {#apply_current_batch}
                 def last_main_job_id
-                    if job = each_main_job.to_a.last
-                        job.job_id
-                    end
+                    each_main_job.to_a.last&.job_id
                 end
 
                 # Start a job in the background
@@ -255,9 +268,9 @@ module Roby
                 # Its failure will make the next #run_job step fail. Unlike a
                 # job created by {#start_monitoring_job}, it will not be stopped
                 # when {#run_job} is called.
-                def start_job(description, m, arguments = Hash.new)
+                def start_job(description, m, arguments = {})
                     if @has_run_job
-                        drop_all_jobs if !validation_mode?
+                        drop_all_jobs unless validation_mode?
                         @has_run_job = false
                     end
                     __start_job(description, m, arguments, false)
@@ -267,7 +280,7 @@ module Roby
                 # #run_job step fail
                 #
                 # This action will be stopped at the end of the next {#run_job}
-                def start_monitoring_job(description, m, arguments = Hash.new)
+                def start_monitoring_job(description, m, arguments = {})
                     __start_job(description, m, arguments, true)
                 end
 
@@ -280,7 +293,9 @@ module Roby
                         return
                     end
 
-                    action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
+                    action = Interface::Async::ActionMonitor.new(
+                        roby_interface, m, arguments
+                    )
                     action.restart(batch: current_batch)
                     pending_actions << action
                     background_jobs << BackgroundJob.new(action, description, monitoring)
@@ -289,7 +304,8 @@ module Roby
 
                 # Enumerate all jobs started with {#start_monitoring_job}
                 def each_monitoring_job
-                    return enum_for(__method__) if !block_given?
+                    return enum_for(__method__) unless block_given?
+
                     background_jobs.each do |job|
                         yield(job) if job.monitoring?
                     end
@@ -300,9 +316,10 @@ module Roby
                 # These jobs are usually the job-under-test, hence the 'main'
                 # moniker
                 def each_main_job
-                    return enum_for(__method__) if !block_given?
+                    return enum_for(__method__) unless block_given?
+
                     background_jobs.each do |job|
-                        yield(job) if !job.monitoring?
+                        yield(job) unless job.monitoring?
                     end
                 end
 
@@ -317,10 +334,11 @@ module Roby
                 #
                 # Poll the interface until the block returns a truthy value
                 def roby_poll_interface_until
-                    while !(result = yield)
+                    until (result = yield)
                         if defined?(::Cucumber) && ::Cucumber.wants_to_quit
-                            raise Interrupt, "Interrupted"
+                            raise Interrupt, 'Interrupted'
                         end
+
                         roby_interface.poll
                         roby_interface.wait
                     end
@@ -333,57 +351,59 @@ module Roby
                     batch_result = current_batch.__process
                     if sync
                         roby_poll_interface_until do
-                            (pending_actions + actions).all? { |act| act.async }
+                            (pending_actions + actions).all?(&:async)
                         end
                     end
                     batch_result
                 ensure
                     @current_batch = roby_interface.create_batch
-                    @pending_actions = Array.new
+                    @pending_actions = []
                 end
 
                 # Start an action
-                def run_job(m, arguments = Hash.new)
+                def run_job(m, arguments = {})
                     if validation_mode?
                         validate_job(m, arguments)
                         return
                     end
 
-                    action = Interface::Async::ActionMonitor.new(roby_interface, m, arguments)
+                    action = Interface::Async::ActionMonitor.new(
+                        roby_interface, m, arguments
+                    )
                     action.restart(batch: current_batch)
                     apply_current_batch(action)
                     @has_run_job = true
 
                     failed_monitor = roby_poll_interface_until do
-                        if action.terminated?
-                            break
-                        else
-                            find_failed_monitoring_job
-                        end
+                        break if action.terminated?
+
+                        find_failed_monitoring_job
                     end
 
-                    if action.success?
-                        return
-                    elsif failed_monitor
+                    return if action.success?
+
+                    if failed_monitor
                         if keep_running?
-                            STDERR.puts
-                            STDERR.puts "FAILED: monitoring job #{failed_monitor.description} failed"
-                            STDERR.puts "In 'keep running' mode. Interrupt with CTRL+C"
+                            STDERR.puts <<~MESSAGE
+
+                                FAILED: monitoring job #{failed_monitor.description} failed
+                                In 'keep running' mode. Interrupt with CTRL+C
+                            MESSAGE
                             roby_poll_interface_until { false }
                         else
-                            raise FailedBackgroundJob, "monitoring job #{failed_monitor.description} failed"
+                            raise FailedBackgroundJob,
+                                  "monitoring job #{failed_monitor.description} failed"
                         end
+                    elsif keep_running?
+                        STDERR.puts <<~MESSAGE
+
+                            FAILED: action #{m} failed"
+                            In 'keep running' mode. Interrupt with CTRL+C"
+                        MESSAGE
+                        roby_poll_interface_until { false }
                     else
-                        if keep_running?
-                            STDERR.puts
-                            STDERR.puts "FAILED: action #{m} failed"
-                            STDERR.puts "In 'keep running' mode. Interrupt with CTRL+C"
-                            roby_poll_interface_until { false }
-                        else
-                            raise FailedAction, "action #{m} failed"
-                        end
+                        raise FailedAction, "action #{m} failed"
                     end
-
                 ensure
                     # Kill the monitoring actions as well as the main actions
                     drop_monitoring_jobs(*Array(action))
@@ -397,40 +417,43 @@ module Roby
                 # Validate that the given action name and arguments match the
                 # interface's description
                 def validate_job(m, arguments)
-                    if !(action = roby_interface.client.find_action_by_name(m))
+                    unless (action = roby_interface.client.find_action_by_name(m))
                         raise InvalidJob, "no action is named '#{m}'"
                     end
+
                     arguments = arguments.dup
                     action.arguments.each do |arg|
                         arg_sym = arg.name.to_sym
-                        has_arg = arguments.has_key?(arg_sym)
+                        has_arg = arguments.key?(arg_sym)
                         if !has_arg && arg.required?
-                            raise InvalidJob, "#{m} requires an argument named #{arg.name} which is not provided"
+                            raise InvalidJob,
+                                  "#{m} requires an argument named #{arg.name} "\
+                                  'which is not provided'
                         end
                         arguments.delete(arg_sym)
                     end
-                    if !arguments.empty?
-                        raise InvalidJob, "arguments #{arguments.keys.map(&:to_s).sort.join(", ")} are not declared arguments of #{m}"
-                    end
+                    return if arguments.empty?
+
+                    raise InvalidJob,
+                          "arguments #{arguments.keys.map(&:to_s).sort.join(', ')} "\
+                          "are not declared arguments of #{m}"
                 end
 
                 def drop_all_jobs(*extra_jobs)
-                    jobs, @background_jobs =
-                        background_jobs, Array.new
+                    jobs = @background_jobs
+                    @background_jobs = []
                     drop_jobs(*extra_jobs, *jobs.map(&:action_monitor))
                 end
 
                 def drop_monitoring_jobs(*extra_jobs)
                     monitoring_jobs, @background_jobs =
-                        background_jobs.partition { |j| j.monitoring? }
+                        background_jobs.partition(&:monitoring?)
                     drop_jobs(*extra_jobs, *monitoring_jobs.map(&:action_monitor))
                 end
 
                 def drop_jobs(*jobs)
                     jobs.each do |act|
-                        if !act.terminated? && act.async
-                            act.drop(batch: current_batch)
-                        end
+                        act.drop(batch: current_batch) if !act.terminated? && act.async
                     end
                 end
             end

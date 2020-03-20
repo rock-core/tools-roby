@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'roby/test/self'
 
 module Roby
@@ -17,22 +19,23 @@ module Roby
                     end
                     describe('an action that adds a new planner').returns(task_m)
                     define_method :test_action_with_child do
-                        planned_task.depends_on self.class.test_child.as_plan, role: 'test'
+                        planned_task.depends_on(
+                            self.class.test_child.as_plan, role: 'test'
+                        )
                         planned_task
                     end
                 end
             end
 
             after do
-                if @handler_class
-                    RunPlanners.deregister_planning_handler(@handler_class)
-                end
+                RunPlanners.deregister_planning_handler(@handler_class) if @handler_class
             end
 
             it "calls the handler's start and finished? methods under propagation" do
                 @handler_class = Class.new(RunPlanners::PlanningHandler) do
                     def start(tasks)
                         tasks.each { |t| t.abstract = false }
+                        @@end_propagation = false
                         @@start_propagation =
                             @test.plan.execution_engine.in_propagation_context?
                     end

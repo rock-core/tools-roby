@@ -169,13 +169,13 @@ module Roby
             end
         end
 
-        describe "inspect method" do
-            it "is pending on a new task" do
+        describe 'inspect method' do
+            it 'is pending on a new task' do
                 plan.add(task = Tasks::Simple.new)
                 assert task.inspect.include? 'pending'
             end
 
-            it "has failed to start" do
+            it 'has failed to start' do
                 task_m = Task.new_submodel do
                     terminates
                     event :start do |context|
@@ -189,7 +189,7 @@ module Roby
                 assert task.inspect.include? 'failed'
             end
 
-            it "is starting" do
+            it 'is starting' do
                 task_m = Task.new_submodel do
                     terminates
                     event :start do |context|
@@ -201,13 +201,13 @@ module Roby
                 execute { task.start_event.emit }
             end
 
-            it "is running" do
+            it 'is running' do
                 plan.add(task = Tasks::Simple.new)
                 execute { task.start! }
                 assert task.inspect.include? 'running'
             end
 
-            it "is finishing" do
+            it 'is finishing' do
                 task_m = Task.new_submodel do
                     event :stop do |_|
                     end
@@ -221,7 +221,7 @@ module Roby
                 execute { task.stop_event.emit }
             end
 
-            it "has finished" do
+            it 'has finished' do
                 plan.add(task = Tasks::Simple.new)
                 execute do
                     task.start!
@@ -231,9 +231,9 @@ module Roby
             end
         end
 
-        describe "handling of CodeError originating from the task" do
-            describe "a pending task" do
-                it "passes the exception" do
+        describe 'handling of CodeError originating from the task' do
+            describe 'a pending task' do
+                it 'passes the exception' do
                     plan.add(task = Tasks::Simple.new)
                     expect_execution do
                         execution_engine.add_error(CodeError.new(ArgumentError.new, task))
@@ -244,8 +244,8 @@ module Roby
                     end
                 end
             end
-            describe "failed-to-start task" do
-                it "passes the exception" do
+            describe 'failed-to-start task' do
+                it 'passes the exception' do
                     plan.add(task = Tasks::Simple.new)
                     expect_execution do
                         task.failed_to_start!(ArgumentError.new)
@@ -257,8 +257,8 @@ module Roby
                     end
                 end
             end
-            describe "a finished task" do
-                it "passes the exception" do
+            describe 'a finished task' do
+                it 'passes the exception' do
                     plan.add(task = Tasks::Simple.new)
                     expect_execution do
                         task.start!
@@ -271,13 +271,12 @@ module Roby
                     end
                 end
             end
-            describe "a starting task" do
+            describe 'a starting task' do
                 after do
-                    if @task.starting?
-                        @task.start_event.emit
-                    end
+                    @task.start_event.emit if @task.starting?
                 end
-                it "marks the task as failed-to-start if the error's origin is the task's start_event" do
+                it 'marks the task as failed-to-start if the error\'s origin '\
+                   'is the task\'s start_event' do
                     task_m = Tasks::Simple.new_submodel do
                         event :start do |context|
                         end
@@ -285,7 +284,9 @@ module Roby
                     plan.add(@task = task = task_m.new)
                     expect_execution do
                         task.start!
-                        execution_engine.add_error(CodeError.new(ArgumentError.new, task.start_event))
+                        execution_engine.add_error(
+                            CodeError.new(ArgumentError.new, task.start_event)
+                        )
                     end.to do
                         fail_to_start task, reason: CodeError.match.
                             with_ruby_exception(ArgumentError).
@@ -293,18 +294,17 @@ module Roby
                     end
                 end
             end
-            describe "a running task" do
+            describe 'a running task' do
                 after do
-                    if @task && @task.stop_event.pending?
-                        execute { @task.stop_event.emit }
-                    end
+                    execute { @task.stop_event.emit } if @task&.stop_event&.pending?
                 end
 
-                it "handles the error and emits internal_error_event with the error as context" do
+                it 'handles the error and emits internal_error_event '\
+                   'with the error as context' do
                     plan.add(task = Tasks::Simple.new)
-                    error_matcher = CodeError.match.
-                        with_ruby_exception(ArgumentError).
-                        with_origin(task)
+                    error_matcher =
+                        CodeError
+                        .match.with_ruby_exception(ArgumentError).with_origin(task)
 
                     event = expect_execution do
                         task.start!
@@ -316,17 +316,19 @@ module Roby
                     assert error_matcher === event.context.first
                 end
 
-                it "does not emit internal_error_event twice" do
+                it 'does not emit internal_error_event twice' do
                     task_m = Task.new_submodel
                     task_m.event(:stop) { |context| }
                     plan.add(@task = task = task_m.new)
-                    error_matcher = CodeError.match.
-                        with_ruby_exception(ArgumentError).
-                        with_origin(task)
+                    error_matcher =
+                        CodeError
+                        .match.with_ruby_exception(ArgumentError).with_origin(task)
 
                     expect_execution do
                         task.start!
-                        execution_engine.add_error(CodeError.new(ArgumentError.exception("first error"), task))
+                        execution_engine.add_error(
+                            CodeError.new(ArgumentError.exception('first error'), task)
+                        )
                     end.to do
                         have_handled_error_matching error_matcher
                         emit task.internal_error_event
@@ -334,12 +336,16 @@ module Roby
                     assert task.stop_event.pending?
 
                     expect_execution do
-                        execution_engine.add_error(CodeError.new(ArgumentError.exception("second error"), task))
+                        execution_engine.add_error(
+                            CodeError.new(ArgumentError.exception('second error'), task)
+                        )
                     end.to do
                         have_handled_error_matching error_matcher
-                        have_error_matching TaskEmergencyTermination.match.
-                            with_origin(task).
-                            with_original_exception(error_matcher)
+                        have_error_matching(
+                            TaskEmergencyTermination
+                            .match.with_origin(task)
+                            .with_original_exception(error_matcher)
+                        )
                     end
                     assert task.quarantined?
                 end
@@ -1025,7 +1031,7 @@ module Roby
             end
 
             after do
-                task.start_event.emit if task.start_event.pending?
+                execute { task.start_event.emit } if task.start_event.pending?
             end
 
             def self.validity_checks_fail_at_toplevel(context, exception = TaskEventNotExecutable, *_)
@@ -1049,14 +1055,18 @@ module Roby
                 end
             end
 
-            def self.validity_checks_fail_during_propagation(context, exception = TaskEventNotExecutable, *_)
-                context.it "fails in #call_without_propagation" do
-                    execution_exception = expect_execution { task.start_event.call }.
-                        to { have_error_matching exception.match.with_origin(task.start_event) }
+            def self.validity_checks_fail_during_propagation(
+                context, exception = TaskEventNotExecutable, *
+            )
+                context.it 'fails in #call_without_propagation' do
+                    exception_matcher = exception.match.with_origin(task.start_event)
+                    execution_exception =
+                        expect_execution { task.start_event.call }
+                        .to { have_error_matching exception_matcher }
                     assert_equal yield(true, task), execution_exception.exception.message
                 end
 
-                context.it "fails in #emit" do
+                context.it 'fails in #emit' do
                     error = execute do
                         assert_raises(exception) { task.start_event.emit }
                     end
@@ -1065,13 +1075,14 @@ module Roby
                 end
             end
 
-            describe "reporting of a finalized task" do
+            describe 'reporting of a finalized task' do
                 before do
                     plan.add(@task = task_m.new)
                     execute { plan.remove_task(task) }
                 end
                 validity_checks_fail_at_toplevel(self, TaskEventNotExecutable) do |is_call, task|
-                    "start_event.#{is_call ? "call" : "emit"} on #{task} but the task has been removed from its plan"
+                    "start_event.#{is_call ? 'call' : 'emit'} on #{task} but the task "\
+                    'has been removed from its plan'
                 end
             end
 

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module App
         # Module with helpers to be used in cucumber specifications
@@ -31,28 +33,28 @@ module Roby
             # will be converted to
             #
             #   Hash[yaw: 0.1745] # 10 degrees in radians
-            def self.parse_arguments(raw_arguments, expected = Hash.new, strict: true)
+            def self.parse_arguments(raw_arguments, expected = {}, strict: true)
                 hash = parse_argument_text_to_hash(raw_arguments)
                 parse_hash_numerical_values(hash, expected, strict: strict)
             end
 
             def self.parse_hash_numerical_values(hash, expected = {}, strict: true)
                 hash.each_with_object({}) do |(key, value), h|
-                    h[name] = parse_hash_numerical_entry(
+                    h[key] = parse_hash_numerical_entry(
                         key, value, expected[key], strict: strict
                     )
                 end
             end
 
-            def self.parse_hash_numerical_entry(key, value, expected)
+            def self.parse_hash_numerical_entry(key, value, expected, strict: true)
                 if strict && !expected
                     raise UnexpectedArgument, "unexpected argument found #{key}"
                 end
 
                 if value.kind_of?(Hash)
                     parse_hash_numerical_values(value, expected || {}, strict: strict)
-                elsif value_with_unit = try_numerical_value_with_unit(value)
-                    validate_unit(key, *value_with_unit, expected_quantity) if expected
+                elsif (value_with_unit = try_numerical_value_with_unit(value))
+                    validate_unit(key, *value_with_unit, expected) if expected
                     apply_unit(*value_with_unit)
                 elsif expected
                     raise InvalidUnit,
@@ -74,50 +76,57 @@ module Roby
             class UnexpectedArgument < ArgumentError; end
             class InvalidSyntax < ArgumentError; end
 
+            KNOWN_UNITS = {
+                length: %w[m],
+                angle: %w[deg],
+                time: %w[h min s]
+            }.freeze
+
             def self.validate_unit(name, value, unit, quantity)
-                if quantity == :length
-                    if unit != 'm'
-                        raise InvalidUnit, "expected a length in place of #{name}=#{value}#{unit}"
-                    end
-                elsif quantity == :angle
-                    if unit != 'deg'
-                        raise InvalidUnit, "expected an angle in place of #{name}=#{value}#{unit}"
-                    end
-                elsif quantity == :time
-                    if !%w{h min s}.include?(unit)
-                        raise InvalidUnit, "expected a time in place of #{name}=#{value}#{unit}"
-                    end
-                else raise ArgumentError, "unknown quantity definition '#{quantity}', expected one of :length, :angle or :time"
+                unless (valid_units = KNOWN_UNITS[quantity])
+                    raise ArgumentError,
+                          "unknown quantity definition '#{quantity}', "\
+                          "expected one of #{KNOWN_UNITS.keys.map(&:inspect).join(', ')}"
                 end
+
+                unless valid_units.include?(unit)
+                    raise InvalidUnit,
+                          "expected a #{quantity} in place of #{name}=#{value}#{unit}"
+                end
+
+                nil
             end
 
             def self.parse_argument_text_to_hash(raw_arguments)
-                current = Hash.new
-                stack   = Array.new
+                current = {}
+                stack   = []
                 scanner = StringScanner.new(raw_arguments)
-                while !scanner.eos?
+                until scanner.eos?
                     arg_name = scanner.scan_until(/=/)
-                    if !arg_name
-                        raise InvalidSyntax, "expected to find '=' in #{raw_arguments}\n#{" " * (24 + scanner.pos)}^"
+                    unless arg_name
+                        raise InvalidSyntax,
+                              "expected to find '=' in #{raw_arguments}\n"\
+                              "#{' ' * (24 + scanner.pos)}^"
                     end
                     arg_name = arg_name[0, arg_name.size - 1].to_sym
 
                     if scanner.peek(1) == '{'
                         scanner.getch
                         stack << current
-                        current[arg_name] = (child = Hash.new)
+                        current[arg_name] = child = {}
                         current = child
                     else
                         match = scanner.scan_until(/(\s*,\s*|\s+and\s+|\s*}\s*)/)
                         if match && (scanner[1].strip == '}')
                             current[arg_name] = match[0, match.size - scanner[1].size]
 
-                            begin
+                            loop do
                                 current = stack.pop
-                                if !current
-                                    raise InvalidSyntax, "unbalanced closed hash"
+                                unless current
+                                    raise InvalidSyntax, 'unbalanced closed hash'
                                 end
-                            end while scanner.scan(/\s*}\s*/)
+                                break unless scanner.scan(/\s*}\s*/)
+                            end
 
                             if !scanner.eos? && !scanner.scan(/\s*,\s*|\s+and\s+/)
                                 raise InvalidSyntax, "expected comma or 'and' after }"
@@ -130,9 +139,11 @@ module Roby
                         end
                     end
                 end
-                if !stack.empty?
-                    raise InvalidSyntax, "expected closing } at the end of string"
+
+                unless stack.empty?
+                    raise InvalidSyntax, 'expected closing } at the end of string'
                 end
+
                 current
             end
 
@@ -142,10 +153,13 @@ module Roby
             # @example pose with tolerance
             #   the pose x=10m and y=20m with tolerance 1m and 1m
             #
-            def self.parse_arguments_respectively(reference, raw_arguments, expected = Hash.new, strict: true)
-                arguments = Hash.new
-                has_implicit, has_explicit = false, false
-                raw_arguments = raw_arguments.split(/(?:, | and )/)
+            def self.parse_arguments_respectively(
+                reference, raw_arguments, expected = {}, strict: true
+            )
+                arguments = {}
+                has_implicit = false
+                has_explicit = false
+                raw_arguments = raw_arguments.split(/(?:\s*,\s*|\s+and\s+)/)
 
                 # Same value for all keys
                 if raw_arguments.size == 1 && (raw_arguments.first !~ /=/)
@@ -153,15 +167,16 @@ module Roby
 
                     if strict
                         reference.each do |key|
-                            if !expected[key]
-                                raise UnexpectedArgument, "unexpected argument found #{key}"
+                            unless expected[key]
+                                raise UnexpectedArgument,
+                                      "unexpected argument found #{key}"
                             end
                         end
                     end
 
-                    if value_with_unit = try_numerical_value_with_unit(arg_value)
+                    if (value_with_unit = try_numerical_value_with_unit(arg_value))
                         reference.each do |key|
-                            if expectation = expected[key]
+                            if (expectation = expected[key])
                                 validate_unit(key, *value_with_unit, expectation)
                             end
                         end
@@ -169,13 +184,16 @@ module Roby
                     else
                         reference.each do |key|
                             is_numeric = Float(arg_value) rescue nil
-                            if expectation = expected[key]
-                                if is_numeric
-                                    raise InvalidUnit, "expected #{key}=#{arg_value} to be a #{expectation}, but it got no unit"
-                                else
-                                    raise InvalidUnit, "expected #{key}=#{arg_value} to be a #{expectation}, but it is not even a number"
-                                end
-                            end
+                            nest unless (expectation = expected[key])
+
+                            msg = if is_numeric
+                                      'but it got no unit'
+                                  else
+                                      'but it is not even a number'
+                                  end
+                            raise InvalidUnit,
+                                  "expected #{key}=#{arg_value} to be "\
+                                  "a #{expectation}, #{msg}"
                         end
                     end
                     reference.each do |key|
@@ -189,16 +207,21 @@ module Roby
 
                     if arg_value
                         if has_implicit
-                            raise MixingOrderAndNames, "cannot mix order-based syntax and explicit names"
+                            raise MixingOrderAndNames,
+                                  'cannot mix order-based syntax and explicit names'
                         end
                         has_explicit = true
                     else
                         if has_explicit
-                            raise MixingOrderAndNames, "cannot mix order-based syntax and explicit names"
+                            raise MixingOrderAndNames,
+                                  'cannot mix order-based syntax and explicit names'
                         end
-                        arg_name, arg_value = reference[arg_i], arg_name
-                        if !arg_name
-                            raise UnexpectedArgument, "too many implicit values given, expected #{reference.size} (#{reference.join(", ")})"
+                        arg_value = arg_name
+                        arg_name = reference[arg_i]
+                        unless arg_name
+                            raise UnexpectedArgument,
+                                  'too many implicit values given, expected '\
+                                  "#{reference.size} (#{reference.join(', ')})"
                         end
                         has_implicit = true
                     end
@@ -206,23 +229,30 @@ module Roby
                     expected_quantity = expected[arg_name.to_sym]
                     if strict && !expected_quantity
                         raise UnexpectedArgument, "unexpected argument found #{arg_name}"
-                    elsif value_with_unit = try_numerical_value_with_unit(arg_value)
+                    elsif (value_with_unit = try_numerical_value_with_unit(arg_value))
                         if expected_quantity
                             validate_unit(arg_name, *value_with_unit, expected_quantity)
                         end
                         arg_value = apply_unit(*value_with_unit)
                     elsif expected_quantity
-                        raise InvalidUnit, "expected #{arg_name}=#{arg_value} to be a #{expected_quantity}"
+                        raise InvalidUnit,
+                              "expected #{arg_name}=#{arg_value} to be "\
+                              "a #{expected_quantity}"
                     end
-                    if !reference.include?(arg_name.to_sym)
-                        raise UnexpectedArgument, "got '#{arg_name}' but was expecting one of #{reference.map(&:to_s).sort.join(", ")}"
+
+                    unless reference.include?(arg_name.to_sym)
+                        raise UnexpectedArgument,
+                              "got '#{arg_name}' but was expecting one of "\
+                              "#{reference.map(&:to_s).sort.join(', ')}"
                     end
                     arguments[arg_name.to_sym] = arg_value
                 end
 
                 if arguments.keys.to_set != reference.to_set
                     missing = reference.to_set - arguments.keys
-                    raise MissingArgument, "missing #{missing.size} argument(s) (for #{missing.map(&:to_s).sort.join(", ")})"
+                    raise MissingArgument,
+                          "missing #{missing.size} argument(s) "\
+                          "(for #{missing.map(&:to_s).sort.join(', ')})"
                 end
                 arguments
             end
@@ -238,7 +268,7 @@ module Roby
                     if expected_quantity
                         validate_unit(nil, value, unit, expected_quantity)
                     end
-                    return apply_unit(value, unit), unit
+                    [apply_unit(value, unit), unit]
                 elsif expected_quantity
                     raise InvalidUnit, "expected a #{expected_quantity}, but got #{text}"
                 else
@@ -253,9 +283,8 @@ module Roby
             #
             # @return [(Numeric,String),nil]
             def self.try_numerical_value_with_unit(string)
-                if string =~ /^(-?\.\d+|-?\d+(?:\.\d+)?)([^\d\.]\w*)$/
-                    return Float($1), $2
-                end
+                m = /^(-?\.\d+|-?\d+(?:\.\d+)?)([^\d\.]\w*)$/.match(string)
+                [Float(m[1]), m[2]] if m
             end
 
             # @api private
@@ -276,10 +305,11 @@ module Roby
                 elsif unit == 's'
                     value
                 else
-                    raise InvalidUnit, "unknown unit #{unit}, known units are deg, m (meters), h (hour), min (minute) and s (seconds)"
+                    raise InvalidUnit,
+                          'unknown unit #{unit}, known units are deg, m (meters), '\
+                          'h (hour), min (minute) and s (seconds)'
                 end
             end
         end
     end
 end
-

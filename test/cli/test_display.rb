@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'roby/test/self'
 require 'roby/cli/display'
 require 'roby/test/roby_app_helpers'
@@ -5,18 +7,23 @@ require 'roby/test/roby_app_helpers'
 module Roby
     module CLI
         describe Display do
-            describe "backward-compatible behaviour" do
+            describe 'backward-compatible behaviour' do
                 def create_cli(args = [], **options)
                     cli = CLI::Display.new(args, options)
                     flexmock(cli)
                     cli
                 end
 
-                describe "--client" do
+                describe '--client' do
                     before do
-                        flexmock(Roby).should_receive(:warn_deprecated).
-                            with('roby-display --client=HOST is now roby-display client HOST, run roby-display help for more information').
-                            once
+                        flexmock(Roby)
+                            .should_receive(:warn_deprecated)
+                            .once
+                            .with(
+                                'roby-display --client=HOST is now roby-display '\
+                                'client HOST, run roby-display help for more '\
+                                'information'
+                            )
                     end
 
                     it "calls the 'client' command" do
@@ -24,31 +31,43 @@ module Roby
                         cli.should_receive(:client).with('host:port').once
                         cli.backward
                     end
-                    it "passes the argument to --vagrant into the remote address" do
+
+                    it 'passes the argument to --vagrant into the remote address' do
                         cli = create_cli(vagrant: 'vagrant_id', client: ':port')
                         cli.should_receive(:client).with('vagrant:vagrant_id:port').once
                         cli.backward
                     end
                 end
-                describe "--host" do
-                    it "calls the 'client' command" do
+
+                describe '--host' do
+                    it 'calls the \'client\' command' do
                         cli = CLI::Display.new([], Hash[host: 'host:port'])
-                        flexmock(Roby).should_receive(:warn_deprecated).
-                            with("--host is deprecated, use 'roby-display client' instead, run roby-display help for more information").
-                            once
+                        flexmock(Roby)
+                            .should_receive(:warn_deprecated)
+                            .once
+                            .with(
+                                '--host is deprecated, use \'roby-display client\' '\
+                                'instead, run roby-display help for more information'
+                            )
                         flexmock(cli).should_receive(:client).with('host:port').once
                         cli.backward
                     end
                 end
                 describe '--server' do
                     before do
-                        flexmock(Roby).should_receive(:warn_deprecated).
-                            with('roby-display --server PATH is now roby-display server PATH, run roby-display help for more information').
-                            once
+                        flexmock(Roby)
+                            .should_receive(:warn_deprecated)
+                            .once
+                            .with(
+                                'roby-display --server PATH is now roby-display '\
+                                'server PATH, run roby-display help for more information'
+                            )
                     end
                     it "calls the 'server' command" do
                         cli = create_cli(server: 'port')
-                        cli.should_receive(:server).with('/path/to/file', port: 'port').once
+                        cli.should_receive(:server)
+                           .with('/path/to/file', port: 'port')
+                           .once
                         cli.backward('/path/to/file')
                     end
                 end
@@ -71,7 +90,7 @@ module Roby
                             # I/O object, and ignore the error that is caused
                             # by the fact CLI::Display already closed it
                             @__socket_fd&.close
-                        rescue Errno::EBADF # rubocop:disable Lint/HandleExceptions
+                        rescue Errno::EBADF # rubocop:disable Lint/SuppressedException
                         end
                     end
                 end
@@ -82,7 +101,7 @@ module Roby
                     @__display_thread = Thread.new do
                         begin
                             yield
-                        rescue Interrupt # rubocop:disable HandleExceptions
+                        rescue Interrupt # rubocop:disable Lint/SuppressedException
                         end
                     end
                 end
@@ -101,7 +120,8 @@ module Roby
                         Display.start(['server', logfile_path])
                     end
                     assert_roby_app_can_connect_to_log_server(
-                        port: Roby::DRoby::Logfile::Server::DEFAULT_PORT)
+                        port: Roby::DRoby::Logfile::Server::DEFAULT_PORT
+                    )
                 end
                 it 'works around https://bugs.ruby-lang.org/issues/10203' do
                     flexmock(TCPServer).should_receive(:new).and_raise(TypeError)
@@ -109,7 +129,8 @@ module Roby
                         Display.start(['server', logfile_path])
                     end
                 end
-                it 'allows to override the port to a non-default one via the command line' do
+                it 'allows to override the port to a non-default one '\
+                   'via the command line' do
                     start_log_server_thread do
                         Display.start(['server', logfile_path, '--port=20250'])
                     end
@@ -142,13 +163,14 @@ module Roby
                     )
                     client = DRoby::Logfile::Client.new('localhost')
                     stop_log_server_thread
+                    select([client.socket], nil, nil, 5)
                     assert_raises(Errno::ECONNRESET) do
-                        client.socket.read
+                        client.socket.read_nonblock(1)
                     end
                     client.close
                 end
             end
-            describe "#parse_remote_host" do
+            describe '#parse_remote_host' do
                 include Test::RobyAppHelpers
 
                 attr_reader :logfile_path, :cli
@@ -157,13 +179,13 @@ module Roby
                     writer.close
                     @cli = CLI::Display.new
                 end
-                it "uses a direct host and port syntax" do
+                it 'uses a direct host and port syntax' do
                     assert_equal ['host', 2356], cli.resolve_remote_host('host:!2356')
                 end
-                it "uses localhost as host by default" do
+                it 'uses localhost as host by default' do
                     assert_equal ['localhost', 2356], cli.resolve_remote_host(':!2356')
                 end
-                it "resolves the port by contacting the Roby instance" do
+                it 'resolves the port by contacting the Roby instance' do
                     app.setup_shell_interface
                     app.start_log_server(logfile_path, 'silent' => true)
                     resolve_thread = Thread.new { cli.resolve_remote_host }
@@ -175,24 +197,26 @@ module Roby
                     assert_roby_app_can_connect_to_log_server
                     assert_equal ['localhost', app.log_server_port], resolve_thread.value
                 end
-                it "resolves vagrant:ID into the corresponding vagrant IP" do
+                it 'resolves vagrant:ID into the corresponding vagrant IP' do
                     require 'roby/app/vagrant'
-                    flexmock(Roby::App::Vagrant).should_receive(:resolve_ip).
-                        with('vagrantid').once.
-                        and_return('resolved_host')
+                    flexmock(Roby::App::Vagrant)
+                        .should_receive(:resolve_ip)
+                        .with('vagrantid').once
+                        .and_return('resolved_host')
                     assert_equal ['resolved_host', 2356],
-                        cli.resolve_remote_host('vagrant:vagrantid:!2356')
+                                 cli.resolve_remote_host('vagrant:vagrantid:!2356')
                 end
-                it "uses the default shell port with a vagrant ID if none is provided" do
-                    flexmock(cli).should_receive(:discover_log_server_port).
-                        with('resolved_host', Interface::DEFAULT_PORT).
-                        once.and_return(2356)
+                it 'uses the default shell port with a vagrant ID if none is provided' do
+                    flexmock(cli)
+                        .should_receive(:discover_log_server_port)
+                        .with('resolved_host', Interface::DEFAULT_PORT).once
+                        .and_return(2356)
                     require 'roby/app/vagrant'
-                    flexmock(Roby::App::Vagrant).should_receive(:resolve_ip).
-                        with('vagrantid').once.
-                        and_return('resolved_host')
+                    flexmock(Roby::App::Vagrant)
+                        .should_receive(:resolve_ip).with('vagrantid').once
+                        .and_return('resolved_host')
                     assert_equal ['resolved_host', 2356],
-                        cli.resolve_remote_host('vagrant:vagrantid')
+                                 cli.resolve_remote_host('vagrant:vagrantid')
                 end
                 it "raises if 'vagrant' or 'vagrant:' are given" do
                     assert_raises(ArgumentError) do
@@ -206,4 +230,3 @@ module Roby
         end
     end
 end
-

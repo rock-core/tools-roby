@@ -28,7 +28,7 @@ module Roby
                 p.on_success(description: "first step")
                 p.then(description: "second step")
                 p.on_error(description: "if something fails")
-                text = PP.pp(p, "")
+                text = PP.pp(p, ''.dup)
                 assert_equal <<-EOD, text
 Roby::Promise(the promise description).
   on_success(first step).
@@ -39,7 +39,7 @@ Roby::Promise(the promise description).
 
             it "properly handles a promise without steps" do
                 p = execution_engine.promise(description: 'the promise description')
-                text = PP.pp(p, "")
+                text = PP.pp(p, ''.dup)
                 assert_equal <<-EOD, text
 Roby::Promise(the promise description)
                 EOD
@@ -49,7 +49,7 @@ Roby::Promise(the promise description)
                 p = execution_engine.promise(description: 'the promise description')
                 p.on_success(description: 'first step')
                 p.then(description: 'second step')
-                text = PP.pp(p, "")
+                text = PP.pp(p, ''.dup)
                 assert_equal <<-EOD, text
 Roby::Promise(the promise description).
   on_success(first step).
@@ -60,7 +60,7 @@ Roby::Promise(the promise description).
             it "properly handles a promise with only an error handler" do
                 p = execution_engine.promise(description: 'the promise description')
                 p.on_error(description: "error handler") { }
-                text = PP.pp(p, "")
+                text = PP.pp(p, ''.dup)
                 assert_equal <<-EOD, text
 Roby::Promise(the promise description).
   on_error(error handler, in_engine: true)

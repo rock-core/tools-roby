@@ -32,7 +32,7 @@ module Roby
                         index_io.write [info.size].pack('L<')
                         index_io.write info
                     end
-                rescue EOFError # rubocop:disable Lint/HandleExceptions
+                rescue EOFError # rubocop:disable Lint/SuppressedException
                 ensure
                     index_io&.flush
                 end
@@ -117,7 +117,7 @@ module Roby
                     data = []
                     begin
                         data << ::Marshal.load(Logfile.read_one_chunk(io)) until io.eof?
-                    rescue EOFError # rubocop:disable Lint/HandleExceptions
+                    rescue EOFError # rubocop:disable Lint/SuppressedException
                     end
 
                     new(size, Time.at(tv_sec, Rational(tv_nsec, 1000)), data)

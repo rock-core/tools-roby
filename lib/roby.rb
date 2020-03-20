@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'utilrb/logger'
 
 # The main namespace for the Roby library. The namespace is divided as follows:
@@ -29,7 +31,6 @@ require 'backports/2.5.0/hash/transform_keys'
 require 'roby/backports'
 
 require 'pp'
-require 'thread'
 require 'set'
 require 'yaml'
 require 'pastel'
@@ -71,11 +72,11 @@ require 'roby/transaction/proxying'
 require 'roby/models/plan_object'
 require 'roby/plan_object'
 require 'roby/event_generator'
-require "roby/event_structure/signal"
-require "roby/event_structure/forwarding"
-require "roby/event_structure/causal_link"
-require "roby/event_structure/precedence"
-require "roby/event_structure/temporal_constraints"
+require 'roby/event_structure/signal'
+require 'roby/event_structure/forwarding'
+require 'roby/event_structure/causal_link'
+require 'roby/event_structure/precedence'
+require 'roby/event_structure/temporal_constraints'
 
 require 'roby/queries'
 require 'roby/event'
@@ -92,11 +93,11 @@ require 'roby/task_event_generator'
 require 'roby/task_arguments'
 require 'roby/task_service'
 require 'roby/task'
-require "roby/task_structure/conflicts"
-require "roby/task_structure/dependency"
-require "roby/task_structure/error_handling"
-require "roby/task_structure/executed_by"
-require "roby/task_structure/planned_by"
+require 'roby/task_structure/conflicts'
+require 'roby/task_structure/dependency'
+require 'roby/task_structure/error_handling'
+require 'roby/task_structure/executed_by'
+require 'roby/task_structure/planned_by'
 
 require 'roby/tasks/aggregator'
 require 'roby/tasks/parallel'
@@ -117,7 +118,7 @@ require 'roby/execution_engine'
 begin
     require 'gctools/oobgc'
     Roby::ExecutionEngine.use_oob_gc = true
-rescue LoadError
+rescue LoadError # rubocop:disable Lint/SuppressedException
 end
 require 'roby/app'
 require 'roby/state'
@@ -132,5 +133,5 @@ require 'roby/droby/enable'
 require 'roby/custom_require'
 
 module Roby
-    BIN_DIR = File.expand_path(File.join("..", "bin"), __dir__)
+    BIN_DIR = File.expand_path(File.join('..', 'bin'), __dir__)
 end

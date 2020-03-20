@@ -46,9 +46,9 @@ module Roby
                         pp_message = <<~MESSAGE
                         method 'test' of #{@interface_m}
                         was expected to return a task of type #{expected_m},
-                        but returned #{PP.pp(@task, '', 0)}
+                        but returned #{PP.pp(@task, ''.dup, 0)}
                         MESSAGE
-                        assert_equal pp_message.chomp, PP.pp(e, '')
+                        assert_equal pp_message.chomp, PP.pp(e, ''.dup)
                     end
 
                     it "accepts a task providing the expected returned service model" do

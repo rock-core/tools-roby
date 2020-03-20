@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Models
         module PlanObject
@@ -8,7 +10,9 @@ module Roby
             # @return [Array<UnboundMethod>] set of finalization handlers
             #   defined at the model level
             # @see PlanObject.when_finalized
-            inherited_attribute(:finalization_handler, :finalization_handlers) { Array.new }
+            inherited_attribute(:finalization_handler, :finalization_handlers) do
+                []
+            end
 
             # Adds a model-level finalization handler, i.e. a handler that will be
             # called on every instance of the class
@@ -42,35 +46,35 @@ module Roby
             #       child_plan_object :task
             #   end
             def child_plan_object(attribute)
-                class_eval <<-EOD, __FILE__, __LINE__+1
-                def root_object; #{attribute} end
-                def root_object?; false end
-                def owners; #{attribute}.owners end
-                def distribute?; #{attribute}.distribute? end
-                def plan; #{attribute}.plan end
-                def executable?; #{attribute}.executable? end
+                class_eval <<~ATTRIBUTE_ACCESSORS, __FILE__, __LINE__ + 1
+                    def root_object; #{attribute} end
+                    def root_object?; false end
+                    def owners; #{attribute}.owners end
+                    def distribute?; #{attribute}.distribute? end
+                    def plan; #{attribute}.plan end
+                    def executable?; #{attribute}.executable? end
 
-                def subscribed?; #{attribute}.subscribed? end
-                def updated?; #{attribute}.updated? end
-                def updated_by?(peer); #{attribute}.updated_by?(peer) end
-                def update_on?(peer); #{attribute}.update_on?(peer) end
-                def updated_peers; #{attribute}.updated_peers end
-                def remotely_useful?; #{attribute}.remotely_useful? end
+                    def subscribed?; #{attribute}.subscribed? end
+                    def updated?; #{attribute}.updated? end
+                    def updated_by?(peer); #{attribute}.updated_by?(peer) end
+                    def update_on?(peer); #{attribute}.update_on?(peer) end
+                    def updated_peers; #{attribute}.updated_peers end
+                    def remotely_useful?; #{attribute}.remotely_useful? end
 
-                def forget_peer(peer)
-                    remove_sibling_for(peer)
-                end
-                def sibling_of(remote_object, peer)
-                    if !distribute?
-                        raise ArgumentError, "#{self} is local only"
+                    def forget_peer(peer)
+                        remove_sibling_for(peer)
+                    end
+                    def sibling_of(remote_object, peer)
+                        if !distribute?
+                            raise ArgumentError, "#{self} is local only"
+                        end
+
+                        add_sibling_for(peer, remote_object)
                     end
 
-                    add_sibling_for(peer, remote_object)
-                end
-            
-                private :plan=
-                private :executable=
-                EOD
+                    private :plan=
+                    private :executable=
+                ATTRIBUTE_ACCESSORS
             end
 
             # Create a {Queries::PlanObjectMatcher}
@@ -80,4 +84,3 @@ module Roby
         end
     end
 end
-

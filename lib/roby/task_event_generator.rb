@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Specialization of EventGenerator to represent task events
     #
@@ -15,7 +17,8 @@ module Roby
 
         def initialize(task, model)
             super(model.respond_to?(:call), plan: task.plan)
-            @task, @event_model = task, model
+            @task = task
+            @event_model = model
             @symbol = model.symbol
         end
 
@@ -42,22 +45,20 @@ module Roby
         # by task.plan=. It is redefined here for performance reasons.
         def plan=(plan)
             @plan = plan
-            @relation_graphs =
-                if plan then plan.event_relation_graphs
-                end
-            @execution_engine =
-                if plan && plan.executable? then plan.execution_engine
-                end
+            @relation_graphs = plan&.event_relation_graphs
+            @execution_engine = plan.execution_engine if plan&.executable?
         end
 
         def pending(sources)
             super
+
             if symbol == :start
                 task.freeze_delayed_arguments
                 plan.task_index.set_state(task, :starting?) if plan && !plan.template?
                 task.pending  = false
                 task.starting = true
             end
+            nil
         end
 
         def clear_pending
@@ -68,18 +69,19 @@ module Roby
                     task.starting = false
                 end
             end
+
             super
         end
 
         def called(context)
             super
-            if terminal? && pending?
-                task.finishing = true
-            end
+
+            task.finishing = true if terminal? && pending?
         end
 
         def fire(event)
             super
+
             if symbol == :start
                 task.do_poll(plan)
             elsif symbol == :stop
@@ -106,10 +108,7 @@ module Roby
 
         # See EventGenerator#each_handler
         def each_handler # :nodoc:
-            if self_owned?
-                task.model.each_handler(event_model.symbol) { |o| yield(o) }
-            end
-
+            task.model.each_handler(event_model.symbol) { |o| yield(o) } if self_owned?
             super
         end
 
@@ -129,18 +128,24 @@ module Roby
 
         # Returns the value for #terminal_flag, updating it if needed
         def terminal_flag # :nodoc:
-            if task.invalidated_terminal_flag?
-                task.update_terminal_flag
-            end
-            return @terminal_flag
+            task.update_terminal_flag if task.invalidated_terminal_flag?
+            @terminal_flag
         end
 
         # True if this event is either forwarded to or signals the task's :stop event
-        def terminal?; !!terminal_flag end
+        def terminal?
+            terminal_flag
+        end
+
         # True if this event is either forwarded to or signals the task's :success event
-        def success?; terminal_flag == :success end
+        def success?
+            terminal_flag == :success
+        end
+
         # True if this event is either forwarded to or signals the task's :failed event
-        def failure?; terminal_flag == :failure end
+        def failure?
+            terminal_flag == :failure
+        end
 
         # @api private
         #
@@ -150,6 +155,7 @@ module Roby
             if child.respond_to?(:task) && child.task == task
                 task.invalidate_terminal_flag
             end
+            nil
         end
 
         # Invalidates the task's terminal flag when the Forwarding and/or the
@@ -180,38 +186,45 @@ module Roby
 
         # See EventGenerator#new
         def new(context, propagation_id = nil, time = nil) # :nodoc:
-            event_model.new(task, self, propagation_id || execution_engine.propagation_id, context, time || Time.now)
+            event_model.new(task, self, propagation_id ||
+                execution_engine.propagation_id, context, time || Time.now)
         end
 
         def to_s # :nodoc:
             "#{task}/#{symbol}"
         end
+
         def inspect # :nodoc:
-            "#{task.inspect}/#{symbol}: #{history.to_s}"
+            "#{task.inspect}/#{symbol}: #{history}"
         end
+
         def pretty_print(pp, context_task: nil) # :nodoc:
             pp.text "event '#{symbol}'"
             if !context_task || context_task != task
-                pp.text " of"
+                pp.text ' of'
                 pp.nest(2) do
                     pp.breakable
                     task.pretty_print(pp)
                 end
             end
+            nil
         end
 
         # See EventGenerator#achieve_with
         def achieve_with(obj) # :nodoc:
-            child_task, child_event = case obj
-                                      when Roby::Task then [obj, obj.event(:success)]
-                                      when Roby::TaskEventGenerator then [obj.task, obj]
-                                      end
+            child_task, child_event =
+                case obj
+                when Roby::Task then [obj, obj.event(:success)]
+                when Roby::TaskEventGenerator then [obj.task, obj]
+                end
 
             if child_task
                 unless task.depends_on?(child_task)
-                    task.depends_on child_task,
+                    task.depends_on(
+                        child_task,
                         success: [child_event.symbol],
                         remove_when_done: true
+                    )
                 end
                 super(child_event)
             else
@@ -222,42 +235,55 @@ module Roby
         def emit_failed(error = nil, message = nil)
             exception = super
             if symbol == :start
-                if !task.failed_to_start?
-                    task.failed_to_start!(exception)
-                end
+                task.failed_to_start!(exception) unless task.failed_to_start?
             end
+            nil
         end
 
         # Checks that the event can be called. Raises various exception
         # when it is not the case.
-        def check_call_validity # :nodoc:
-            if error = super
-                if !error.kind_of?(UnreachableEvent)
+        def check_call_validity
+            if (error = super)
+                unless error.kind_of?(UnreachableEvent)
                     return refine_call_exception(error)
                 end
             end
 
             if task.failed_to_start?
-                CommandRejected.new(self).
-                    exception("#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task has failed to start: #{task.failure_reason}")
+                CommandRejected.new(self).exception(
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
+                    "but the task has failed to start: #{task.failure_reason}"
+                )
             elsif task.event(:stop).emitted?
-                CommandRejected.new(self).
-                    exception("#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources.to_a}.")
+                CommandRejected.new(self).exception(
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
+                    'but the task has finished. Task has been terminated by '\
+                    "#{task.event(:stop).history.first.sources.to_a}."
+                )
             elsif task.finished? && !terminal?
-                CommandRejected.new(self).
-                    exception("#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources.to_a}.")
+                CommandRejected.new(self).exception(
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
+                    'but the task has finished. Task has been terminated by '\
+                    "#{task.event(:stop).history.first.sources.to_a}."
+                )
             elsif task.pending? && symbol != :start
-                CommandRejected.new(self).
-                    exception("#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task has never been started")
+                CommandRejected.new(self).exception(
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
+                    'but the task has never been started'
+                )
             elsif task.running? && symbol == :start
-                CommandRejected.new(self).
-                    exception("#{symbol}! called by #{execution_engine.propagation_sources.to_a} but the task is already running. Task has been started by #{task.event(:start).history.first.sources.to_a}.")
-            else error
+                CommandRejected.new(self).exception(
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
+                    'but the task is already running. Task has been started by '\
+                    "#{task.event(:start).history.first.sources.to_a}."
+                )
+            else
+                error
             end
         end
 
         def check_call_validity_after_calling
-            if error = super
+            if (error = super)
                 refine_call_exception(error)
             end
         end
@@ -265,7 +291,7 @@ module Roby
         # Checks that the event can be emitted. Raises various exception
         # when it is not the case.
         def check_emission_validity # :nodoc:
-            if error = super
+            if (error = super)
                 refine_emit_exception(error)
             else
                 task.check_emission_validity(self)
@@ -275,50 +301,64 @@ module Roby
         # When an emissio and/or call exception is raised by the base
         # EventGenerator methods, this method is used to transform it to the
         # relevant task-related error.
-        def refine_call_exception (e) # :nodoc:
+        def refine_call_exception(e)
             if task.partially_instanciated?
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.call on #{task} which is partially instanciated\n" +
-                        "The following arguments were not set:\n" +
-                        task.list_unset_arguments.map {|n| "  #{n}"}.join("\n"))
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.call on #{task} which is partially instanciated\n"\
+                    "The following arguments were not set:\n  "\
+                    "#{task.list_unset_arguments.map(&:to_s).join('\n  ')}"
+                )
             elsif !plan
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.call on #{task} but the task has been removed from its plan")
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.call on #{task} but "\
+                    'the task has been removed from its plan'
+                )
             elsif !plan.executable?
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.call on #{task} but its plan is not executable")
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.call on #{task} but its plan is not executable"
+                )
             elsif task.abstract?
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.call on #{task} but the task is abstract")
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.call on #{task} but the task is abstract"
+                )
             elsif e.kind_of?(EventNotExecutable)
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.call on #{task} which is not executable")
-            else e
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.call on #{task} which is not executable"
+                )
+            else
+                e
             end
         end
 
         # When an emissio and/or call exception is raised by the base
         # EventGenerator methods, this method is used to transform it to the
         # relevant task-related error.
-        def refine_emit_exception (e) # :nodoc:
+        def refine_emit_exception(e) # :nodoc:
             if task.partially_instanciated?
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.emit on #{task} which is partially instanciated\n" +
-                        "The following arguments were not set:\n" +
-                        task.list_unset_arguments.map {|n| "  #{n}"}.join("\n"))
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.emit on #{task} which is partially instanciated\n"\
+                    "The following arguments were not set:\n  " +
+                    task.list_unset_arguments.map(&:to_s).join("\n")
+                )
             elsif !plan
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.emit on #{task} but the task has been removed from its plan")
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.emit on #{task} but "\
+                    'the task has been removed from its plan'
+                )
             elsif !plan.executable?
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.emit on #{task} but its plan is not executable")
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.emit on #{task} but its plan is not executable"
+                )
             elsif task.abstract?
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.emit on #{task} but the task is abstract")
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.emit on #{task} but the task is abstract"
+                )
             elsif e.kind_of?(EventNotExecutable)
-                TaskEventNotExecutable.new(self).
-                    exception("#{symbol}_event.emit on #{task} which is not executable")
-            else e
+                TaskEventNotExecutable.new(self).exception(
+                    "#{symbol}_event.emit on #{task} which is not executable"
+                )
+            else
+                e
             end
         end
 

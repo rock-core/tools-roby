@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Queries
         # Object that allows to describe a task's event generator and match it
@@ -16,9 +18,7 @@ module Roby
             attr_predicate :generalized?
 
             def initialize(task_matcher = Roby::Task.match, symbol = Queries.any)
-                if symbol.respond_to?(:to_sym) # Probably a symbol, convert to string
-                    symbol = symbol.to_s
-                end
+                symbol = symbol.to_s if symbol.respond_to?(:to_sym)
                 @symbol = symbol
                 @task_matcher = task_matcher
                 @generalized = false
@@ -48,7 +48,7 @@ module Roby
 
             # @raise [NotImplementedError] Cannot yet do plan queries on task
             #   event generators
-            def filter(initial_set, index)
+            def filter(_initial_set, _index)
                 raise NotImplementedError
             end
 
@@ -63,12 +63,14 @@ module Roby
             # @param [TaskEventGenerator] object
             # @return [Boolean]
             def ===(object)
-                return if !object.kind_of?(TaskEventGenerator)
+                return unless object.kind_of?(TaskEventGenerator)
 
                 if match_not_generalized(object)
                     true
                 elsif generalized? && object.plan
-                    forwarding_graph = object.relation_graph_for(EventStructure::Forwarding)
+                    forwarding_graph = object.relation_graph_for(
+                        EventStructure::Forwarding
+                    )
                     forwarding_graph.depth_first_visit(object) do |generator|
                         return true if match_not_generalized(generator)
                     end
@@ -83,4 +85,3 @@ module Roby
         end
     end
 end
-
