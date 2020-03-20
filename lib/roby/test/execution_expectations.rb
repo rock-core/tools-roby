@@ -330,7 +330,7 @@ module Roby
             end
 
             def self.format_propagation_info(propagation_info, indent: 0)
-                PP.pp(propagation_info).split("\n").join("\n" + ' ' * indent)
+                PP.pp(propagation_info, ''.dup).split("\n").join("\n" + ' ' * indent)
             end
 
             class Unmet < Minitest::Assertion

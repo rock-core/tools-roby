@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         # Common logic for script-based coordination models
@@ -28,25 +30,31 @@ module Roby
                 class PollUntil
                     attr_reader :event, :block
                     def initialize(event, block)
-                        @event, @block = event, block
+                        @event = event
+                        @block = block
                     end
 
                     def new(script)
-                        Script::PollUntil.new(script.root_task, script.instance_for(event), block)
+                        Script::PollUntil.new(
+                            script.root_task,
+                            script.instance_for(event),
+                            block
+                        )
                     end
                 end
             end
 
             class PollUntil < ScriptInstruction
                 attr_reader :root_task, :event, :block
+
                 def initialize(root_task, event, block)
-                    @root_task, @event, @block = root_task, event, block
+                    @root_task = root_task
+                    @event = event
+                    @block = block
                 end
 
                 def cancel
-                    if @poll_handler_id
-                        root_task.remove_poll_handler(@poll_handler_id)
-                    end
+                    root_task.remove_poll_handler(@poll_handler_id) if @poll_handler_id
                     super
                 end
 
@@ -67,9 +75,11 @@ module Roby
                     if (event_task != root_task) && !root_task.depends_on?(event_task)
                         root_task.depends_on event_task, success: event.symbol
                     else
-                        event.when_unreachable(true) do |reason, generator|
-                            if !disabled?
-                                raise Script::DeadInstruction.new(script.root_task), "the 'until' condition of #{self} will never be reached: #{reason}"
+                        event.when_unreachable(true) do |reason, _generator|
+                            unless disabled?
+                                raise Script::DeadInstruction.new(script.root_task),
+                                      "the 'until' condition of #{self} will "\
+                                      "never be reached: #{reason}"
                             end
                         end
                     end
@@ -101,7 +111,7 @@ module Roby
 
                 def execute(script)
                     script.root_task.execution_engine.delayed(model.seconds) do
-                        if !self.disabled?
+                        unless disabled?
                             # Remove all instructions that are within the
                             # timeout's scope
                             if event
@@ -109,8 +119,9 @@ module Roby
                                 script.jump_to(timeout_stop)
                             else
                                 e = TimedOut.new(
-                                    script.root_task, script.current_instruction).
-                                    exception("#{script.current_instruction} timed out")
+                                    script.root_task, script.current_instruction
+                                )
+                                e = e.exception("#{script.current_instruction} timed out")
                                 script.root_task.execution_engine.add_error(e)
                             end
                         end
@@ -127,7 +138,7 @@ module Roby
                     timeout_start.timeout_stop = self
                 end
 
-                def execute(script)
+                def execute(_script)
                     timeout_start.cancel
                     true
                 end
@@ -138,15 +149,13 @@ module Roby
             attr_reader :instructions
 
             def prepare
-                @instructions = Array.new
+                @instructions = []
                 resolve_instructions
                 @current_instruction = nil
 
-                root_task.stop_event.on do |context|
-                    current_instruction.cancel if current_instruction
-                    instructions.each do |ins|
-                        ins.cancel
-                    end
+                root_task.stop_event.on do |_context|
+                    current_instruction&.cancel
+                    instructions.each(&:cancel)
                 end
             end
 
@@ -158,42 +167,35 @@ module Roby
 
             def dependency_options_for(toplevel, task, roles)
                 options = super
-                if current_instruction.respond_to?(:task) && current_instruction.task == task
+                if current_instruction.respond_to?(:task) &&
+                   current_instruction.task == task
                     options = options.merge(current_instruction.dependency_options)
                 end
                 options
             end
 
             def step
-                if current_instruction && !current_instruction.disabled?
-                    return
-                end
+                return if current_instruction && !current_instruction.disabled?
 
-                while @current_instruction = instructions.shift
-                    if !current_instruction.disabled?
-                        if !current_instruction.execute(self)
-                            break
-                        end
+                while (@current_instruction = instructions.shift)
+                    unless current_instruction.disabled?
+                        break unless current_instruction.execute(self)
                     end
                 end
             rescue LocalizedError => e
                 raise e
-            rescue Exception => e
+            rescue Exception => e # rubocop:disable Lint/RescueException
                 raise CodeError.new(e, root_task), e.message, e.backtrace
             end
 
             def jump_to(target)
                 # Verify that the jump is valid
-                if current_instruction != target && !instructions.find { |ins| ins == target }
+                if current_instruction != target && !instructions.include?(target)
                     raise ArgumentError, "#{target} is not an instruction in #{self}"
                 end
 
-                if current_instruction != target
-                    current_instruction.cancel
-                end
-                while instructions.first != target
-                    instructions.shift
-                end
+                current_instruction.cancel if current_instruction != target
+                instructions.shift while instructions.first != target
                 step
             end
 

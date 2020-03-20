@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # A plan object manages a collection of tasks and events.
     class Plan < DistributedObject
@@ -55,11 +57,15 @@ module Roby
         # operation with plain plans causes an error
         #
         # @see TemplatePlan
-        def template?; false end
+        def template?
+            false
+        end
 
         # Check that this is an executable plan. This is always true for
         # plain Plan objects and false for transcations
-        def executable?; false end
+        def executable?
+            false
+        end
 
         # The event logger
         attr_accessor :event_logger
@@ -77,14 +83,14 @@ module Roby
             @free_events = Set.new
             @task_events = Set.new
             @transactions = Set.new
-            @fault_response_tables = Array.new
+            @fault_response_tables = []
             @triggers = []
 
-            @plan_services = Hash.new
+            @plan_services = {}
 
             self.event_logger = event_logger
-            @active_fault_response_tables = Array.new
-            @task_index  = Roby::Queries::Index.new
+            @active_fault_response_tables = []
+            @task_index = Roby::Queries::Index.new
 
             @graph_observer = graph_observer
             create_relations
@@ -96,7 +102,7 @@ module Roby
             @task_relation_graphs, @event_relation_graphs =
                 self.class.instanciate_relation_graphs(graph_observer: graph_observer)
 
-            @structure_checks = Array.new
+            @structure_checks = []
             each_relation_graph do |graph|
                 if graph.respond_to?(:check_structure)
                     structure_checks << graph.method(:check_structure)
@@ -109,18 +115,20 @@ module Roby
         end
 
         def self.instanciate_relation_graphs(graph_observer: nil)
-            task_relation_graphs  = Relations::Space.new_relation_graph_mapping
+            task_relation_graphs = Relations::Space.new_relation_graph_mapping
             Task.all_relation_spaces.each do |space|
                 task_relation_graphs.merge!(
-                    space.instanciate(observer: graph_observer))
+                    space.instanciate(observer: graph_observer)
+                )
             end
 
             event_relation_graphs = Relations::Space.new_relation_graph_mapping
             EventGenerator.all_relation_spaces.each do |space|
                 event_relation_graphs.merge!(
-                    space.instanciate(observer: graph_observer))
+                    space.instanciate(observer: graph_observer)
+                )
             end
-            return task_relation_graphs, event_relation_graphs
+            [task_relation_graphs, event_relation_graphs]
         end
 
         def dedupe(source)
@@ -150,7 +158,8 @@ module Roby
 
         # Enumerate all graphs (event and tasks) that form this plan
         def each_relation_graph
-            return enum_for(__method__) if !block_given?
+            return enum_for(__method__) unless block_given?
+
             each_task_relation_graph { |g| yield(g) }
             each_event_relation_graph { |g| yield(g) }
         end
@@ -160,7 +169,8 @@ module Roby
         #
         # @yieldparam [Relations::EventRelationGraph] graph
         def each_event_relation_graph
-            return enum_for(__method__) if !block_given?
+            return enum_for(__method__) unless block_given?
+
             event_relation_graphs.each do |k, v|
                 yield(v) if k == v
             end
@@ -176,7 +186,8 @@ module Roby
         #
         # @yieldparam [Relations::TaskRelationGraph] graph
         def each_task_relation_graph
-            return enum_for(__method__) if !block_given?
+            return enum_for(__method__) unless block_given?
+
             task_relation_graphs.each do |k, v|
                 yield(v) if k == v
             end
@@ -194,14 +205,15 @@ module Roby
         end
 
         def inspect # :nodoc:
-            "#<#{to_s}: mission_tasks=#{mission_tasks.to_s} tasks=#{tasks.to_s} events=#{free_events.to_s} transactions=#{transactions.to_s}>"
+            "#<#{self}: mission_tasks=#{mission_tasks} tasks=#{tasks} "\
+            "events=#{free_events} transactions=#{transactions}>"
         end
 
         # Calls the given block in the execution thread of this plan's engine.
         # If there is no engine attached to this plan, yields immediately
         #
         # See ExecutionEngine#execute
-        def execute(&block)
+        def execute
             yield
         end
 
@@ -229,12 +241,18 @@ module Roby
             # ignore the rest
             plan.task_relation_graphs.each do |rel_id, rel|
                 next if rel_id == rel
-                next if !(this_rel = task_relation_graphs.fetch(rel_id, nil))
+
+                this_rel = task_relation_graphs.fetch(rel_id, nil)
+                next unless this_rel
+
                 this_rel.merge(rel)
             end
             plan.event_relation_graphs.each do |rel_id, rel|
                 next if rel_id == rel
-                next if !(this_rel = event_relation_graphs.fetch(rel_id, nil))
+
+                this_rel = event_relation_graphs.fetch(rel_id, nil)
+                next unless this_rel
+
                 this_rel.merge(rel)
             end
         end
@@ -245,7 +263,7 @@ module Roby
             end
         end
 
-        def merge_transaction(transaction, merged_graphs, added, removed, updated)
+        def merge_transaction(transaction, merged_graphs, _added, _removed, _updated)
             merging_plan(transaction)
             merge_base(transaction)
             replace_relation_graphs(merged_graphs)
@@ -254,7 +272,8 @@ module Roby
 
         def merge_transaction!(transaction, merged_graphs, added, removed, updated)
             # Note: Task#plan= updates its bound events
-            tasks, events = transaction.tasks.dup, transaction.free_events.dup
+            tasks = transaction.tasks.dup
+            events = transaction.free_events.dup
             tasks.each { |t| t.plan = self }
             events.each { |e| e.plan = self }
 
@@ -305,24 +324,23 @@ module Roby
         def merge!(plan)
             return if plan == self
 
-            tasks, events = plan.tasks.dup, plan.free_events.dup
+            tasks = plan.tasks.dup
+            events = plan.free_events.dup
             tasks.each { |t| t.plan = self }
             events.each { |e| e.plan = self }
             merge(plan)
         end
 
         # Hook called just before performing a {#merge}
-        def merging_plan(plan)
-        end
+        def merging_plan(plan); end
 
         # Hook called when a {#merge} has been performed
-        def merged_plan(plan)
-        end
+        def merged_plan(plan); end
 
         def deep_copy
             plan = Roby::Plan.new
             mappings = deep_copy_to(plan)
-            return plan, mappings
+            [plan, mappings]
         end
 
         # Copies this plan's state (tasks, events and their relations) into the
@@ -334,11 +352,15 @@ module Roby
         #   mapping = plan.copy_to(copy)
         #   mapping[t] => corresponding task in +copy+
         def deep_copy_to(copy)
-            mappings = Hash.new do |h, k|
-                if !self.include?(k)
-                    raise InternalError, "#{k} is listed in a relation, but is not included in the corresponding plan #{self}"
+            mappings = Hash.new do |_, k|
+                if !include?(k)
+                    raise InternalError,
+                          "#{k} is listed in a relation, but is not included "\
+                          "in the corresponding plan #{self}"
                 else
-                    raise InternalError, "#{k} is an object in #{self} for which no mapping has been created in #{copy}"
+                    raise InternalError,
+                          "#{k} is an object in #{self} for which no mapping "\
+                          "has been created in #{copy}"
                 end
             end
 
@@ -378,7 +400,8 @@ module Roby
                 target_graph = copy.task_relation_graph_for(graph.class)
                 graph.each_edge do |parent, child|
                     target_graph.add_edge(
-                        mappings[parent], mappings[child], graph.edge_info(parent, child))
+                        mappings[parent], mappings[child], graph.edge_info(parent, child)
+                    )
                 end
             end
 
@@ -386,7 +409,8 @@ module Roby
                 target_graph = copy.event_relation_graph_for(graph.class)
                 graph.each_edge do |parent, child|
                     target_graph.add_edge(
-                        mappings[parent], mappings[child], graph.edge_info(parent, child))
+                        mappings[parent], mappings[child], graph.edge_info(parent, child)
+                    )
                 end
             end
         end
@@ -396,15 +420,12 @@ module Roby
             # Make a topological sort of the graphs
             seen = Set.new
             Relations.each_graph_topologically(graphs) do |g|
-                if seen.include?(g)
-                    next
-                elsif !g.dag?
-                    next
-                end
-
-                if !g.acyclic?
+                next if seen.include?(g)
+                next unless g.dag?
+                unless g.acyclic?
                     raise Relations::CycleFoundError, "#{g.class} has cycles"
                 end
+
                 seen << g
                 seen.merge(g.recursive_subsets)
             end
@@ -414,15 +435,14 @@ module Roby
         #
         # Normalize an validate the arguments to {#add} into a list of plan objects
         def normalize_add_arguments(objects)
-            if !objects.respond_to?(:each)
-                objects = [objects]
-            end
+            objects = [objects] unless objects.respond_to?(:each)
 
             objects.map do |o|
                 if o.respond_to?(:as_plan) then o.as_plan
                 elsif o.respond_to?(:to_event) then o.to_event
                 elsif o.respond_to?(:to_task) then o.to_task
-                else raise ArgumentError, "found #{o || 'nil'} which is neither a task nor an event"
+                else raise ArgumentError,
+                           "found #{o || 'nil'} which is neither a task nor an event"
                 end
             end
         end
@@ -431,9 +451,7 @@ module Roby
         # transaction, returns the underlying plan
         def real_plan
             ret = self
-            while ret.respond_to?(:plan)
-                ret = ret.plan
-            end
+            ret = ret.plan while ret.respond_to?(:plan)
             ret
         end
 
@@ -449,33 +467,30 @@ module Roby
         #   underlying real plan (equal to {#real_plan})
         def transaction_stack
             plan_chain = [self]
-            while plan_chain.last.respond_to?(:plan)
-                plan_chain << plan_chain.last.plan
-            end
+            plan_chain << plan_chain.last.plan while plan_chain.last.respond_to?(:plan)
             plan_chain
         end
 
         # @deprecated use {#add_mission_task} instead
         def add_mission(task)
-            Roby.warn_deprecated "#add_mission is deprecated, use #add_mission_task instead"
+            Roby.warn_deprecated(
+                '#add_mission is deprecated, use #add_mission_task instead'
+            )
             add_mission_task(task)
         end
 
         # @deprecated use {#mission_task?} instead
         def mission?(task)
-            Roby.warn_deprecated "#mission? is deprecated, use #mission_task? instead"
+            Roby.warn_deprecated '#mission? is deprecated, use #mission_task? instead'
             mission_task?(task)
         end
 
         # @deprecated use {#unmark_mission_task} instead
         def unmark_mission(task)
-            Roby.warn_deprecated "#unmark_mission is deprecated, use #unmark_mission_task instead"
+            Roby.warn_deprecated(
+                '#unmark_mission is deprecated, use #unmark_mission_task instead'
+            )
             unmark_mission_task(task)
-        end
-
-        # Tests whether a task is present in the plan
-        def has_task?(task)
-            tasks.include?(task)
         end
 
         # Add a task to the plan's set of missions
@@ -525,7 +540,8 @@ module Roby
         # @see add_mission_task mission_task?
         def unmark_mission_task(task)
             task = task.to_task
-            return if !@mission_tasks.include?(task)
+            return unless @mission_tasks.include?(task)
+
             @mission_tasks.delete(task)
             task.mission = false if task.self_owned?
             notify_task_status_change(task, :normal)
@@ -534,7 +550,10 @@ module Roby
 
         # @deprecated use {#add_permanent_task} or {#add_permanent_event} instead
         def add_permanent(object)
-            Roby.warn_deprecated "#add_permanent is deprecated, use either #add_permanent_task or #add_permanent_event instead"
+            Roby.warn_deprecated(
+                '#add_permanent is deprecated, use either #add_permanent_task '\
+                'or #add_permanent_event instead'
+            )
             object = normalize_add_arguments([object]).first
             if object.respond_to?(:to_task)
                 add_permanent_task(object)
@@ -546,7 +565,11 @@ module Roby
 
         # @deprecated use {#unmark_permanent_task} or {#unmark_permanent_event} instead
         def unmark_permanent(object)
-            Roby.warn_deprecated "#unmark_permanent is deprecated, use either #unmark_permanent_task or #unmark_permanent_event"
+            Roby.warn_deprecated(
+                '#unmark_permanent is deprecated, use either #unmark_permanent_task '\
+                'or #unmark_permanent_event'
+            )
+
             if object.respond_to?(:to_task)
                 unmark_permanent_task(object)
             elsif object.respond_to?(:to_event)
@@ -558,7 +581,11 @@ module Roby
 
         # @deprecated use {#permanent_task?} or {#permanent_event?} instead
         def permanent?(object)
-            Roby.warn_deprecated "#permanent? is deprecated, use either #permanent_task? or #permanent_event?"
+            Roby.warn_deprecated(
+                '#permanent? is deprecated, use either '\
+                '#permanent_task? or #permanent_event?'
+            )
+
             if object.respond_to?(:to_task)
                 permanent_task?(object)
             elsif object.respond_to?(:to_event)
@@ -576,6 +603,7 @@ module Roby
         def add_permanent_task(task)
             task = normalize_add_arguments([task]).first
             return if permanent_tasks.include?(task)
+
             add([task])
             permanent_tasks << task
             notify_task_status_change(task, :permanent)
@@ -597,8 +625,10 @@ module Roby
         # @see add_permanent_event permanent_event?
         def unmark_permanent_task(task)
             if @permanent_tasks.delete?(task.to_task)
+
                 notify_task_status_change(task, :normal)
             end
+            nil
         end
 
         # Mark an event as permanent, optionally adding to the plan
@@ -607,6 +637,7 @@ module Roby
         def add_permanent_event(event)
             event = normalize_add_arguments([event]).first
             return if permanent_events.include?(event)
+
             add([event])
             permanent_events << event
             notify_event_status_change(event, :permanent)
@@ -630,13 +661,14 @@ module Roby
             if @permanent_events.delete?(event.to_event)
                 notify_event_status_change(event, :normal)
             end
+            nil
         end
 
         # @api private
         #
         # Perform notifications related to the status change of a task
         def notify_task_status_change(task, status)
-            if services = plan_services[task]
+            if (services = plan_services[task])
                 services.each { |s| s.notify_task_status_change(status) }
             end
             log(:task_status_change, task, status)
@@ -650,9 +682,7 @@ module Roby
         end
 
         def edit
-            if block_given?
-                yield
-            end
+            yield if block_given?
         end
 
         # True if this plan owns the given object, i.e. if all the owners of the
@@ -675,15 +705,23 @@ module Roby
 
         def handle_force_replace(from, to)
             if !from.plan
-                raise ArgumentError, "#{from} has been removed from plan, cannot use as source in a replacement"
+                raise ArgumentError,
+                      "#{from} has been removed from plan, "\
+                      'cannot use as source in a replacement'
             elsif !to.plan
-                raise ArgumentError, "#{to} has been removed from plan, cannot use as target in a replacement"
+                raise ArgumentError,
+                      "#{to} has been removed from plan, "\
+                      'cannot use as target in a replacement'
             elsif from.plan != self
-                raise ArgumentError, "trying to replace #{from} but its plan is #{from.plan}, expected #{self}"
+                raise ArgumentError,
+                      "trying to replace #{from} but its plan "\
+                      "is #{from.plan}, expected #{self}"
             elsif to.plan.template?
                 add(to)
             elsif to.plan != self
-                raise ArgumentError, "trying to replace #{to} but its plan is #{to.plan}, expected #{self}"
+                raise ArgumentError,
+                      "trying to replace #{to} but its plan "\
+                      "is #{to.plan}, expected #{self}"
             elsif from == to
                 return
             end
@@ -707,24 +745,30 @@ module Roby
 
         def handle_replace(from, to) # :nodoc:
             handle_force_replace(from, to) do
-                # Check that +to+ is valid in all hierarchy relations where +from+ is a child
-                if !to.fullfills?(*from.fullfilled_model)
+                # Check that +to+ is valid in all hierarchy relations where
+                # +from+ is a child
+                unless to.fullfills?(*from.fullfilled_model)
                     models = from.fullfilled_model.first
                     missing = models.find_all do |m|
                         !to.fullfills?(m)
                     end
                     if missing.empty?
-                        mismatching_argument = from.fullfilled_model.last.find do |key, expected_value|
-                            to.arguments.set?(key) && (to.arguments[key] != expected_value)
-                        end
+                        mismatching_argument =
+                            from.fullfilled_model.last.find do |key, expected_value|
+                                to.arguments.set?(key) &&
+                                    (to.arguments[key] != expected_value)
+                            end
                     end
 
                     if mismatching_argument
-                        raise InvalidReplace.new(from, to), "argument mismatch for #{mismatching_argument.first}"
+                        raise InvalidReplace.new(from, to),
+                              "argument mismatch for #{mismatching_argument.first}"
                     elsif !missing.empty?
-                        raise InvalidReplace.new(from, to), "missing provided models #{missing.map(&:name).join(", ")}"
+                        raise InvalidReplace.new(from, to),
+                              "missing provided models #{missing.map(&:name).join(', ')}"
                     else
-                        raise InvalidReplace.new(from, to), "#{to} does not fullfill #{from}"
+                        raise InvalidReplace.new(from, to),
+                              "#{to} does not fullfill #{from}"
                     end
                 end
 
@@ -747,7 +791,9 @@ module Roby
             # A {ReplacementFilter} that excludes nothing
             class Null
                 def excluded_task?(task); end
+
                 def excluded_graph?(graph); end
+
                 def excluded_relation?(relation); end
             end
 
@@ -848,7 +894,9 @@ module Roby
         # Register a new plan service on this plan
         def add_plan_service(service)
             if service.task.plan != self
-                raise ArgumentError, "trying to register a plan service on #{self} for #{service.task}, which is included in #{service.task.plan}"
+                raise ArgumentError,
+                      "trying to register a plan service on #{self} for "\
+                      "#{service.task}, which is included in #{service.task.plan}"
             end
 
             set = (plan_services[service.task] ||= Set.new)
@@ -858,12 +906,10 @@ module Roby
 
         # Deregisters a plan service from this plan
         def remove_plan_service(service)
-            if set = plan_services[service.task]
-                set.delete(service)
-                if set.empty?
-                    plan_services.delete(service.task)
-                end
-            end
+            return unless (set = plan_services[service.task])
+
+            set.delete(service)
+            plan_services.delete(service.task) if set.empty?
         end
 
         # Whether there are services registered for the given task
@@ -882,15 +928,13 @@ module Roby
 
         # Find all the defined plan services for a given task
         def find_all_plan_services(task)
-            plan_services[task] || Array.new
+            plan_services[task] || []
         end
 
         # If at least one plan service is defined for +task+, returns one of
         # them. Otherwise, returns nil.
         def find_plan_service(task)
-            if set = plan_services[task]
-                set.find { true }
-            end
+            plan_services[task]&.first
         end
 
         # Replace subgraphs by another in the plan
@@ -906,7 +950,9 @@ module Roby
         #
         #    source => [nil, #call]
         #
-        def replace_subplan(task_mappings, event_mappings, task_children: true, event_children: true)
+        def replace_subplan(
+            task_mappings, event_mappings, task_children: true, event_children: true
+        )
             new_relations, removed_relations =
                 compute_subplan_replacement(task_mappings, each_task_relation_graph,
                                             child_objects: task_children)
@@ -922,43 +968,51 @@ module Roby
         def compute_subplan_replacement(mappings, relation_graphs, child_objects: true)
             mappings = mappings.dup
             mappings.compare_by_identity
-            new_relations, removed_relations = Array.new, Array.new
+            new_relations = []
+            removed_relations = []
             relation_graphs.each do |graph|
                 next if graph.strong?
 
-                resolved_mappings = Hash.new
+                resolved_mappings = {}
                 resolved_mappings.compare_by_identity
                 mappings.each do |obj, (mapped_obj, mapped_obj_resolver)|
                     next if !mapped_obj && !mapped_obj_resolver
 
                     graph.each_in_neighbour(obj) do |parent|
-                        next if mappings.has_key?(parent)
-                        if !graph.copy_on_replace?
+                        next if mappings.key?(parent)
+
+                        unless graph.copy_on_replace?
                             removed_relations << [graph, parent, obj]
                         end
-                        if !mapped_obj
+                        unless mapped_obj
                             mapped_obj = mapped_obj_resolver.call(obj)
                             resolved_mappings[obj] = mapped_obj
                         end
-                        new_relations << [graph, parent, mapped_obj, graph.edge_info(parent, obj)]
+                        new_relations << [
+                            graph, parent, mapped_obj, graph.edge_info(parent, obj)
+                        ]
                     end
 
-                    next if !child_objects
+                    next unless child_objects
+
                     graph.each_out_neighbour(obj) do |child|
-                        next if mappings.has_key?(child)
-                        if !graph.copy_on_replace?
+                        next if mappings.key?(child)
+
+                        unless graph.copy_on_replace?
                             removed_relations << [graph, obj, child]
                         end
-                        if !mapped_obj
+                        unless mapped_obj
                             mapped_obj = mapped_obj_resolver.call(obj)
                             resolved_mappings[obj] = mapped_obj
                         end
-                        new_relations << [graph, mapped_obj, child, graph.edge_info(obj, child)]
+                        new_relations << [
+                            graph, mapped_obj, child, graph.edge_info(obj, child)
+                        ]
                     end
                 end
                 mappings.merge!(resolved_mappings)
             end
-            return new_relations, removed_relations
+            [new_relations, removed_relations]
         end
 
         def apply_replacement_operations(new_relations, removed_relations)
@@ -973,11 +1027,11 @@ module Roby
         # Hook called when +replacing_task+ has replaced +replaced_task+ in this plan
         def replaced(replaced_task, replacing_task)
             # Make the PlanService object follow the replacement
-            if services = plan_services.delete(replaced_task)
-                services.each do |srv|
-                    srv.task = replacing_task
-                    (plan_services[replacing_task] ||= Set.new) << srv
-                end
+            return unless (services = plan_services.delete(replaced_task))
+
+            services.each do |srv|
+                srv.task = replacing_task
+                (plan_services[replacing_task] ||= Set.new) << srv
             end
         end
 
@@ -1027,14 +1081,23 @@ module Roby
             objects.each do |plan_object|
                 p = plan_object.plan
                 next if p == self
+
                 if plan_object.removed_at
-                    raise ArgumentError, "cannot add #{plan_object} in #{self}, it has been removed from the plan"
+                    raise ArgumentError,
+                          "cannot add #{plan_object} in #{self}, "\
+                          'it has been removed from the plan'
                 elsif !p
-                    raise InternalError, "there seem to be an inconsistency, #{plan_object}#plan is nil but #removed_at is not set"
+                    raise InternalError,
+                          "there seem to be an inconsistency, #{plan_object}#plan "\
+                          'is nil but #removed_at is not set'
                 elsif p.empty?
-                    raise InternalError, "there seem to be an inconsistency, #{plan_object} is associated with #{p} but #{p} is empty"
+                    raise InternalError,
+                          "there seem to be an inconsistency, #{plan_object} "\
+                          "is associated with #{p} but #{p} is empty"
                 elsif !p.template?
-                    raise ModelViolation, "cannot add #{plan_object} in #{self}, it is already included in #{p}"
+                    raise ModelViolation,
+                          "cannot add #{plan_object} in #{self}, "\
+                          "it is already included in #{p}"
                 end
                 plans << p
             end
@@ -1120,16 +1183,12 @@ module Roby
         # is discarded if the block returns without having committed it.
         def in_transaction
             yield(trsc = Transaction.new(self))
-
         ensure
-            if trsc && !trsc.finalized?
-                trsc.discard_transaction
-            end
+            trsc.discard_transaction if trsc && !trsc.finalized?
         end
 
         # Hook called when a new transaction has been built on top of this plan
-        def added_transaction(trsc)
-        end
+        def added_transaction(trsc); end
 
         # Removes the transaction +trsc+ from the list of known transactions
         # built on this plan
@@ -1152,7 +1211,7 @@ module Roby
         # @param [Set<Roby::Task>] seeds the root "useful" tasks
         # @param [Array<Relations::BidirectionalDirectedAdjancencyGraph>] graphs the
         #   graphs through which "usefulness" is propagated
-        # @return [Set] the set of tasks reachable from 'seeds' through the union of graphs
+        # @return [Set] the set of tasks reachable from 'seeds' through the graphs
         def compute_useful_tasks(seeds, graphs: default_useful_task_graphs)
             seeds = seeds.to_set
             visitors = graphs.map do |g|
@@ -1161,27 +1220,27 @@ module Roby
 
             result = seeds.dup
 
-            has_pending_seeds = true
-            while has_pending_seeds
-                has_pending_seeds = false
-                visitors.each do |graph, visitor, seeds|
-                    next if seeds.empty?
+            has_queued_nodes = true
+            while has_queued_nodes
+                has_queued_nodes = false
+                visitors.each do |graph, visitor, queue|
+                    next if queue.empty?
 
-                    new_seeds = Array.new
-                    seeds.each do |vertex|
+                    new_queue = []
+                    queue.each do |vertex|
                         if !visitor.finished_vertex?(vertex) && graph.has_vertex?(vertex)
                             graph.depth_first_visit(vertex, visitor) do |v|
                                 yield(v) if block_given?
-                                new_seeds << v
+                                new_queue << v
                             end
                         end
                     end
-                    if !new_seeds.empty?
-                        has_pending_seeds = true
-                        result.merge(new_seeds)
-                        visitors.each { |g, _, s| s.merge(new_seeds) if g != graph }
+                    unless new_queue.empty?
+                        has_queued_nodes = true
+                        result.merge(new_queue)
+                        visitors.each { |g, _, s| s.merge(new_queue) if g != graph }
                     end
-                    seeds.clear
+                    queue.clear
                 end
             end
 
@@ -1223,7 +1282,7 @@ module Roby
         end
 
         def remote_tasks
-            if local_tasks = task_index.self_owned
+            if (local_tasks = task_index.self_owned)
                 tasks - local_tasks
             else
                 tasks
@@ -1260,14 +1319,15 @@ module Roby
                 @useful
             end
 
-            def handle_examine_edge(u, v)
+            def handle_examine_edge(_u, v)
                 if task_events.include?(v) || useful_free_events.include?(v)
                     color_map[v] = :BLACK
                     @useful = true
                 end
+                nil
             end
 
-            def follow_edge?(u, v)
+            def follow_edge?(_u, v)
                 !task_events.include?(v)
             end
         end
@@ -1284,22 +1344,33 @@ module Roby
             # Quick path for a very common case
             return Set.new if free_events.empty?
 
-            graphs = each_event_relation_graph.
-                find_all { |g| g.root_relation? && !g.weak? }
+            graphs = each_event_relation_graph
+                     .find_all { |g| g.root_relation? && !g.weak? }
 
             seen = Set.new
             result = permanent_events.dup
             pending_events = free_events.to_a
-            while !pending_events.empty?
+            until pending_events.empty?
                 # This basically computes the subplan that contains "seed" and
                 # determines if it is useful or not
                 seed = pending_events.shift
                 next if seen.include?(seed)
 
-                visitors = Array.new
+                visitors = []
                 graphs.each do |g|
-                    visitors << [g, UsefulFreeEventVisitor.new(g, task_events, permanent_events), [seed].to_set]
-                    visitors << [g.reverse, UsefulFreeEventVisitor.new(g.reverse, task_events, permanent_events), [seed].to_set]
+                    visitors << [
+                        g, UsefulFreeEventVisitor.new(
+                            g, task_events, permanent_events
+                        ),
+                        [seed].to_set
+                    ]
+                    visitors << [
+                        g.reverse,
+                        UsefulFreeEventVisitor.new(
+                            g.reverse, task_events, permanent_events
+                        ),
+                        [seed].to_set
+                    ]
                 end
 
                 component = [seed].to_set
@@ -1309,13 +1380,17 @@ module Roby
                     visitors.each do |graph, visitor, seeds|
                         next if seeds.empty?
 
-                        new_seeds = Array.new
+                        new_seeds = []
                         seeds.each do |vertex|
-                            if !visitor.finished_vertex?(vertex) && graph.has_vertex?(vertex)
-                                graph.depth_first_visit(vertex, visitor) { |v| new_seeds << v }
+                            next if visitor.finished_vertex?(vertex)
+                            next unless graph.has_vertex?(vertex)
+
+                            graph.depth_first_visit(vertex, visitor) do |v|
+                                new_seeds << v
                             end
                         end
-                        if !new_seeds.empty?
+
+                        unless new_seeds.empty?
                             has_pending_seeds = true
                             component.merge(new_seeds)
                             visitors.each { |g, _, s| s.merge(new_seeds) if g != graph }
@@ -1324,9 +1399,7 @@ module Roby
                     end
                 end
                 seen.merge(component)
-                if visitors.any? { |_, v, _| v.useful? }
-                    result.merge(component)
-                end
+                result.merge(component) if visitors.any? { |_, v, _| v.useful? }
             end
 
             result
@@ -1382,22 +1455,30 @@ module Roby
         # @deprecated use the more specific {#has_task?}, {#has_free_event?} or
         #   {#has_task_event?} instead
         def include?(object)
-            Roby.warn_deprecated "Plan#include? is deprecated, use one of the more specific #has_task? #has_task_event? and #has_free_event?"
+            Roby.warn_deprecated(
+                'Plan#include? is deprecated, use one of the more specific '\
+                '#has_task? #has_task_event? and #has_free_event?'
+            )
             has_free_event?(object) || has_task_event?(object) || has_task?(object)
         end
 
         # Count of tasks in this plan
         def size
-            Roby.warn_deprecated "Plan#size is deprecated, use #num_tasks instead"
+            Roby.warn_deprecated 'Plan#size is deprecated, use #num_tasks instead'
             @tasks.size
         end
+
         # Returns true if there is no task in this plan
-        def empty?; @tasks.empty? && @free_events.empty? end
+        def empty?
+            @tasks.empty? && @free_events.empty?
+        end
+
         # Iterates on all tasks
         #
         # @yieldparam [Task] task
         def each_task
-            return enum_for(__method__) if !block_given?
+            return enum_for(__method__) unless block_given?
+
             @tasks.each { |t| yield(t) }
         end
 
@@ -1413,17 +1494,20 @@ module Roby
                 add(object)
                 object
             elsif object.finalized? && create
-                raise ArgumentError, "#{object} is has been finalized, and can't be reused"
+                raise ArgumentError,
+                      "#{object} is has been finalized, and can't be reused"
             else
                 raise ArgumentError, "#{object} is not from #{self}"
             end
         end
 
         def self.can_gc?(task)
-            if task.starting? then true # wait for the task to be started before deciding ...
+            if task.starting?
+                true # wait for the task to be started before deciding ...
             elsif task.running? && !task.finishing?
                 task.event(:stop).controlable?
-            else true
+            else
+                true
             end
         end
 
@@ -1431,27 +1515,35 @@ module Roby
         #
         # Perform sanity checks on a plan object that will be finalized
         def verify_plan_object_finalization_sanity(object)
-            if !object.root_object?
+            unless object.root_object?
                 raise ArgumentError, "cannot remove #{object} which is a non-root object"
-            elsif object.plan != self
-                if !object.plan
-                    if object.removed_at && !object.removed_at.empty?
-                        raise ArgumentError, "#{object} has already been removed from its plan\n" +
-                            "Removed at\n  #{object.removed_at.join("\n  ")}"
-                    else
-                        raise ArgumentError, "#{object} has already been removed from its plan. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
-                    end
-                elsif object.plan.template?
-                    raise ArgumentError, "#{object} has never been included in this plan"
+            end
+
+            return if object.plan == self
+
+            if !object.plan
+                if object.removed_at && !object.removed_at.empty?
+                    raise ArgumentError,
+                          "#{object} has already been removed from its plan\n"\
+                          "Removed at\n  #{object.removed_at.join("\n  ")}"
                 else
-                    raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
+                    raise ArgumentError,
+                          "#{object} has already been removed from its plan. "\
+                          'Set PlanObject.debug_finalization_place to true to '\
+                          'get the backtrace of where (in the code) the object '\
+                          'got finalized'
                 end
+            elsif object.plan.template?
+                raise ArgumentError, "#{object} has never been included in this plan"
+            else
+                raise ArgumentError,
+                      "#{object} is not in #{self}: #plan == #{object.plan}"
             end
         end
 
         def finalize_task(task, timestamp = nil)
             verify_plan_object_finalization_sanity(task)
-            if services = plan_services.delete(task)
+            if (services = plan_services.delete(task))
                 services.each(&:finalized!)
             end
 
@@ -1461,12 +1553,12 @@ module Roby
             task.clear_relations(remove_internal: true)
             task.mission = false
 
-            for ev in task.bound_events.each_value
+            task.bound_events.each_value do |ev|
                 finalized_event(ev)
             end
             finalized_task(task)
 
-            for ev in task.bound_events.each_value
+            task.bound_events.each_value do |ev|
                 ev.finalized!(timestamp)
             end
             task.finalized!(timestamp)
@@ -1494,7 +1586,7 @@ module Roby
             @permanent_tasks.delete(task)
             @task_index.remove(task)
 
-            for ev in task.bound_events.each_value
+            task.bound_events.each_value do |ev|
                 @task_events.delete(ev)
             end
             finalize_task(task, timestamp)
@@ -1515,23 +1607,24 @@ module Roby
 
         # @deprecated use {#remove_task} or {#remove_free_event} instead
         def remove_object(object, timestamp = Time.now)
-            Roby.warn_deprecated "#remove_object is deprecated, use either #remove_task or #remove_free_event"
+            Roby.warn_deprecated(
+                '#remove_object is deprecated, use either '\
+                '#remove_task or #remove_free_event'
+            )
+
             if has_task?(object)
                 remove_task(object, timestamp)
             elsif has_free_event?(object)
                 remove_free_event(object, timestamp)
             else
-                raise ArgumentError, "#{object} is neither a task nor a free event of #{self}"
+                raise ArgumentError,
+                      "#{object} is neither a task nor a free event of #{self}"
             end
         end
 
         def clear!
-            each_task_relation_graph do |g|
-                g.clear
-            end
-            each_event_relation_graph do |g|
-                g.clear
-            end
+            each_task_relation_graph(&:clear)
+            each_event_relation_graph(&:clear)
             @free_events.clear
             @mission_tasks.clear
             @tasks.clear
@@ -1543,8 +1636,10 @@ module Roby
 
         # Remove all tasks
         def clear
-            tasks, @tasks = @tasks, Set.new
-            free_events, @free_events = @free_events, Set.new
+            tasks = @tasks
+            @tasks = Set.new
+            free_events = @free_events
+            @free_events = Set.new
 
             clear!
 
@@ -1556,8 +1651,10 @@ module Roby
                     false
                 end
             end
-            if !remaining.empty?
-                Roby.warn "#{remaining.size} tasks remaining after clearing the plan as they are still running"
+
+            unless remaining.empty?
+                Roby.warn "#{remaining.size} tasks remaining after clearing "\
+                          'the plan as they are still running'
                 remaining.each do |t|
                     Roby.warn "  #{t}"
                 end
@@ -1571,9 +1668,10 @@ module Roby
 
         # Hook called when +task+ has been removed from this plan
         def finalized_task(task)
-            for trsc in transactions
+            transactions.each do |trsc|
                 next unless trsc.proxying?
-                if proxy = trsc.find_local_object_for_task(task)
+
+                if (proxy = trsc.find_local_object_for_task(task))
                     trsc.finalized_plan_task(proxy)
                 end
             end
@@ -1584,9 +1682,11 @@ module Roby
         def finalized_event(event)
             log(:finalized_event, droby_id, event)
             return unless event.root_object?
-            for trsc in transactions
+
+            transactions.each do |trsc|
                 next unless trsc.proxying?
-                if proxy = trsc.find_local_object_for_event(event)
+
+                if (proxy = trsc.find_local_object_for_event(event))
                     trsc.finalized_plan_event(proxy)
                 end
             end
@@ -1610,9 +1710,7 @@ module Roby
         # @param [Roby::Task] task the task that needs to be replanned
         # @return [Roby::Task] the new planning pattern
         def replan(task)
-            if !task.planning_task
-                return task.create_fresh_copy
-            end
+            return task.create_fresh_copy unless task.planning_task
 
             planner = replan(task.planning_task)
             planned = task.create_fresh_copy
@@ -1632,7 +1730,7 @@ module Roby
         #   of the exception's origin will be selected
         attr_reader :structure_checks
 
-        @structure_checks = Array.new
+        @structure_checks = []
         class << self
             # A set of structure checking procedures that must be performed on all plans
             #
@@ -1646,11 +1744,11 @@ module Roby
 
         # Get all missions that have failed
         def self.check_failed_missions(plan)
-            result = Array.new
-            for task in plan.mission_tasks
+            result = []
+            plan.mission_tasks.each do |task|
                 result << MissionFailedError.new(task) if task.failed?
             end
-            for task in plan.permanent_tasks
+            plan.permanent_tasks.each do |task|
                 result << PermanentTaskError.new(task) if task.failed?
             end
             result
@@ -1668,10 +1766,8 @@ module Roby
         def format_exception_set(result, new)
             [*new].each do |error, tasks|
                 roby_exception = error.to_execution_exception
-                if !tasks
-                    if error.kind_of?(RelationFailedError)
-                        tasks = [error.parent]
-                    end
+                unless tasks
+                    tasks = [error.parent] if error.kind_of?(RelationFailedError)
                 end
                 result[roby_exception] = tasks
             end
@@ -1688,8 +1784,8 @@ module Roby
         # @return [Hash<ExecutionException,Array<Roby::Task>,nil>
         def check_structure
             # Do structure checking and gather the raised exceptions
-            exceptions = Hash.new
-            for prc in (Plan.structure_checks + structure_checks)
+            exceptions = {}
+            (Plan.structure_checks + structure_checks).each do |prc|
                 new_exceptions = call_structure_check_handler(prc)
                 next unless new_exceptions
 
@@ -1718,12 +1814,13 @@ module Roby
         # the provided mappings to map objects from self to object in other_plan
         def find_plan_difference(other_plan, mappings)
             all_self_objects  = tasks | free_events | task_events
-            all_other_objects = (other_plan.tasks | other_plan.free_events | other_plan.task_events)
+            all_other_objects = (
+                other_plan.tasks | other_plan.free_events | other_plan.task_events
+            )
 
             all_mapped_objects = all_self_objects.map do |obj|
-                if !mappings.has_key?(obj)
-                    return [:new_object, obj]
-                end
+                return [:new_object, obj] unless mappings.key?(obj)
+
                 mappings[obj]
             end.to_set
 
@@ -1739,14 +1836,14 @@ module Roby
 
             each_task_relation_graph do |graph|
                 other_graph = other_plan.task_relation_graph_for(graph.class)
-                if diff = graph.find_edge_difference(other_graph, mappings)
+                if (diff = graph.find_edge_difference(other_graph, mappings))
                     return [graph.class] + diff
                 end
             end
 
             each_event_relation_graph do |graph|
                 other_graph = other_plan.event_relation_graph_for(graph.class)
-                if diff = graph.find_edge_difference(other_graph, mappings)
+                if (diff = graph.find_edge_difference(other_graph, mappings))
                     return [graph.class] + diff
                 end
             end
@@ -1782,9 +1879,7 @@ module Roby
         # See #find_local_tasks for a local query.
         def find_tasks(model = nil, args = nil)
             q = Queries::Query.new(self)
-            if model || args
-                q.which_fullfills(model, args)
-            end
+            q.which_fullfills(model, args) if model || args
             q
         end
 
@@ -1809,7 +1904,7 @@ module Roby
                 filtered
             else
                 result = Set.new
-                for task in filtered
+                filtered.each do |task|
                     result << task if matcher === task
                 end
                 result
@@ -1818,8 +1913,8 @@ module Roby
 
         # Called by TaskMatcher#each and Query#each to return the result of
         # this query on +self+
-        def query_each(result_set, &block) # :nodoc:
-            for task in result_set
+        def query_each(result_set) # :nodoc:
+            result_set.each do |task|
                 yield(task)
             end
         end
@@ -1855,7 +1950,7 @@ module Roby
         #   {#remove_fault_response_table}
         # @return [void]
         # @see remove_fault_response_table
-        def use_fault_response_table(table_model, arguments = Hash.new)
+        def use_fault_response_table(table_model, arguments = {})
             table = table_model.new(self, arguments)
             table.attach_to(self)
             active_fault_response_tables << table
@@ -1897,11 +1992,9 @@ module Roby
         # @return [Boolean]
         def in_useful_subplan?(reference_task, tested_task)
             compute_useful_tasks([reference_task]) do |useful_t|
-                if useful_t == tested_task
-                    return true
-                end
+                return true if useful_t == tested_task
             end
-            return false
+            false
         end
 
         # Enumerate object identities along the transaction stack
@@ -1914,12 +2007,14 @@ module Roby
         #   given level of the stack. Note that the last element is guaranteed
         #   to not be a transaction proxy.
         def each_object_in_transaction_stack(object)
-            return enum_for(__method__, object) if !block_given?
+            return enum_for(__method__, object) unless block_given?
+
             current_plan = self
-            while true
+            loop do
                 yield(current_plan, object)
 
-                return if !object.transaction_proxy?
+                return unless object.transaction_proxy?
+
                 current_plan = current_plan.plan
                 object = object.__getobj__
             end

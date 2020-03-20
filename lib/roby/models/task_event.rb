@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Models
         # Model-level API for task events
@@ -11,7 +13,9 @@ module Roby
             # If the event model defines a controlable event
             # By default, an event is controlable if the model
             # responds to #call
-            def controlable?; respond_to?(:call) end
+            def controlable?
+                respond_to?(:call)
+            end
 
             # Called by Task.update_terminal_flag to update the flag
             attr_predicate :terminal?, true
@@ -19,7 +23,10 @@ module Roby
             # @return [Symbol] the event name
             attr_accessor :symbol
 
-            def setup_submodel(submodel, task_model: nil, symbol: nil, command: false, terminal: false, **options, &block)
+            def setup_submodel(
+                submodel, task_model: nil, symbol: nil, command: false,
+                terminal: false, **options, &block
+            )
                 super(submodel, options, &block)
                 submodel.task_model = task_model
                 submodel.symbol     = symbol
@@ -54,9 +61,10 @@ module Roby
             #   to match all generators of this type, as well as any generator
             #   that is forwarded to it
             def generalized_match
-                Queries::TaskEventGeneratorMatcher.new(task_model.match, symbol.to_s).generalized
+                Queries::TaskEventGeneratorMatcher
+                    .new(task_model.match, symbol.to_s)
+                    .generalized
             end
         end
     end
 end
-

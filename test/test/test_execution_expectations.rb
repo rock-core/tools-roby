@@ -241,7 +241,7 @@ module Roby
                         assert_equal(
                             "1 unmet expectations\n#{generator} "\
                             'should be emitted, but it did not because of '\
-                            "#{PP.pp(cause, '', 0).chomp}",
+                            "#{PP.pp(cause, ''.dup, 0).chomp}",
                             e.message
                         )
                     end

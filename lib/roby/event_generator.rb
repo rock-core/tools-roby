@@ -678,7 +678,7 @@ module Roby
                 return
             end
 
-            if error = check_emission_validity
+            if (error = check_emission_validity)
                 clear_pending
                 raise error
             end

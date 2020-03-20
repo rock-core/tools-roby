@@ -6,7 +6,7 @@ module Roby
     class ConfigError < RuntimeError; end
     class ModelViolation < RuntimeError; end
     class InternalError < RuntimeError; end
-    
+
     class << self
         attr_reader :colorizer
     end
@@ -28,7 +28,7 @@ module Roby
     end
 
     # ExecutionException objects are used during the exception handling stage
-    # to keep information about the propagation. 
+    # to keep information about the propagation.
     #
     # When a propagation fork is found (for instance, a task with two parents),
     # two or more siblings are created with #fork. If at some point two
@@ -49,7 +49,7 @@ module Roby
         # If true, the underlying exception is a fatal error, i.e. should cause
         # parent tasks to be stopped if unhandled.
         def fatal?; exception.fatal? end
-    
+
         # The origin EventGenerator if there is one
         attr_reader :generator
         # The exception object
@@ -134,7 +134,7 @@ module Roby
         end
 
         def to_s
-            PP.pp(self, '')
+            PP.pp(self, ''.dup)
         end
 
         def pretty_print(pp)
@@ -187,7 +187,7 @@ module Roby
                 end
 
                 if matcher === exception_object
-                    catch(:next_exception_handler) do 
+                    catch(:next_exception_handler) do
                         begin
                             handler.call(self, exception_object)
                             return true
@@ -295,12 +295,12 @@ module Roby
 
     def self.format_one_exception(exception)
         message = begin
-                      PP.pp(exception, "")
+                      PP.pp(exception, ''.dup)
                   rescue Exception => formatting_error
                       begin
                           "error formatting exception\n" +
                               exception.full_message +
-                          "\nplease report the formatting error: \n" + 
+                          "\nplease report the formatting error: \n" +
                               formatting_error.full_message
                       rescue Exception => formatting_error
                           "\nerror formatting exception\n" +
@@ -343,14 +343,14 @@ module Roby
     end
 
     def self.log_pp(obj, logger, level)
-        return if !log_level_enabled?(logger, level)
+        return unless log_level_enabled?(logger, level)
 
         message = begin
-                      PP.pp(obj, "")
+                      PP.pp(obj, ''.dup)
                   rescue Exception => formatting_error
                       begin
                           "error formatting object\n" +
-                              obj + "\nplease report the formatting error: \n" + 
+                              obj + "\nplease report the formatting error: \n" +
                               formatting_error.full_message
                       rescue Exception => formatting_error
                           "\nerror formatting object\n" +
