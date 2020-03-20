@@ -1,5 +1,3 @@
-require 'utilrb/hash/map_value'
-
 module Roby
     module App
         # Module with helpers to be used in cucumber specifications
@@ -38,29 +36,36 @@ module Roby
                 parse_hash_numerical_values(hash, expected, strict: strict)
             end
 
-            def self.parse_hash_numerical_values(hash, expected = Hash.new, strict: true)
-                hash.map_value do |key, value|
-                    expected_quantity = expected[key]
-                    if strict && !expected_quantity
-                        raise UnexpectedArgument, "unexpected argument found #{key}"
-                    elsif value.kind_of?(Hash)
-                        parse_hash_numerical_values(value, expected_quantity || Hash.new, strict: strict)
-                    elsif value_with_unit = try_numerical_value_with_unit(value)
-                        if expected_quantity
-                            validate_unit(key, *value_with_unit, expected_quantity)
-                        end
-                        apply_unit(*value_with_unit)
-                    elsif expected_quantity
-                        raise InvalidUnit, "expected #{key}=#{value} to be a #{expected_quantity}, but it got no unit"
-                    else
+            def self.parse_hash_numerical_values(hash, expected = {}, strict: true)
+                hash.each_with_object({}) do |(key, value), h|
+                    h[name] = parse_hash_numerical_entry(
+                        key, value, expected[key], strict: strict
+                    )
+                end
+            end
+
+            def self.parse_hash_numerical_entry(key, value, expected)
+                if strict && !expected
+                    raise UnexpectedArgument, "unexpected argument found #{key}"
+                end
+
+                if value.kind_of?(Hash)
+                    parse_hash_numerical_values(value, expected || {}, strict: strict)
+                elsif value_with_unit = try_numerical_value_with_unit(value)
+                    validate_unit(key, *value_with_unit, expected_quantity) if expected
+                    apply_unit(*value_with_unit)
+                elsif expected
+                    raise InvalidUnit,
+                          "expected #{key}=#{value} to be a #{expected}, "\
+                          'but it got no unit'
+                else
+                    begin
+                        Integer(value)
+                    rescue ArgumentError
                         begin
-                            Integer(value)
+                            Float(value)
                         rescue ArgumentError
-                            begin
-                                Float(value)
-                            rescue ArgumentError
-                                value
-                            end
+                            value
                         end
                     end
                 end

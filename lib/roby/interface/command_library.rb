@@ -4,21 +4,23 @@ module Roby
         class CommandLibrary
             class << self
                 extend MetaRuby::Attributes
-                inherited_attribute(:command, :commands, map: true) { Hash.new }
-                inherited_attribute(:subcommand, :subcommands, map: true) { Hash.new }
+                inherited_attribute(:command, :commands, map: true) { {} }
+                inherited_attribute(:subcommand, :subcommands, map: true) { {} }
 
                 # Declares a command for this interface
                 def command(name, *info)
                     arguments = if info.last.kind_of?(Hash) then info.pop
-                                else Hash.new
+                                else {}
                                 end
 
-                    arguments = arguments.map_key do |name, _|
-                        name.to_sym
-                    end
-                    arguments = arguments.map_value do |name, description|
-                        CommandArgument.new(name.to_sym, Array(description))
-                    end
+                    arguments = arguments.transform_keys(&:to_sym)
+                    arguments =
+                        arguments.each_with_object({}) do |(arg_name, description), h|
+                            h[name] = CommandArgument.new(
+                                arg_name.to_sym, Array(description)
+                            )
+                        end
+
                     commands[name.to_sym] = Command.new(name.to_sym, info, arguments)
                 end
 

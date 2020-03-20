@@ -49,12 +49,17 @@ module Roby
             end
 
             def resolve_state_info
-                task_info.map_value do |task, task_info|
-                    task_info = StateInfo.new(task_info.required_tasks, task_info.forwards, Set.new, Hash.new)
+                task_info.each_with_object({}) do |(task, task_info), h|
+                    task_info = StateInfo.new(
+                        task_info.required_tasks,
+                        task_info.forwards,
+                        Set.new, {}
+                    )
                     model.each_transition do |in_state, event, new_state|
                         in_state = instance_for(in_state)
                         if in_state == task
-                            task_info.transitions << [instance_for(event), instance_for(new_state)]
+                            task_info.transitions <<
+                                [instance_for(event), instance_for(new_state)]
                         end
                     end
                     model.each_capture do |capture, (in_state, event)|
@@ -63,7 +68,7 @@ module Roby
                             task_info.captures[capture] = instance_for(event)
                         end
                     end
-                    task_info
+                    h[task] = task_info
                 end
             end
 

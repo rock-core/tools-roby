@@ -23,8 +23,8 @@ module Roby
 
             # Generates a task for this state in the given plan and returns
             # it
-            def instanciate(plan, variables = Hash.new)
-                arguments = action.arguments.map_value do |key, value|
+            def instanciate(plan, variables = {})
+                arguments = action.arguments.transform_values do |value|
                     if value.respond_to?(:evaluate)
                         value.evaluate(variables)
                     else value

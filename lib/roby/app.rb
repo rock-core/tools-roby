@@ -4,7 +4,7 @@ require 'roby/robot'
 require 'roby/app/robot_names'
 require 'roby/interface'
 require 'singleton'
-require 'utilrb/hash'
+require 'utilrb/hash/recursive_merge'
 require 'utilrb/module/attr_predicate'
 require 'yaml'
 require 'utilrb/pathname/find_matching_parent'
@@ -1787,8 +1787,8 @@ module Roby
             if robot_name && (robot_config = options.delete('robots'))
                 options = options.recursive_merge(robot_config[robot_name] || Hash.new)
             end
-            options = options.map_value do |k, val|
-                val || Hash.new
+            options = options.transform_values do |val|
+                val || {}
             end
             options = @options.recursive_merge(options)
             apply_config(options)

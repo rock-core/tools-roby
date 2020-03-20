@@ -23,6 +23,9 @@ end
 
 require 'concurrent'
 require 'backports/2.4.0/regexp/match'
+require 'backports/2.4.0/hash/transform_values'
+require 'backports/2.5.0/hash/slice'
+require 'backports/2.5.0/hash/transform_keys'
 require 'roby/backports'
 
 require 'pp'
