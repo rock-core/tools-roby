@@ -145,10 +145,13 @@ module Roby
                     @roby_interface.close
                 end
 
+                class JoinTimedOut < RuntimeError
+                end
+
                 # Stops an already started Roby controller
                 #
                 # @raise InvalidState if no controllers were started
-                def roby_stop(join: true)
+                def roby_stop(join: true, join_timeout: 5)
                     if !roby_running?
                         raise InvalidState, "cannot call #roby_stop if no controllers were started"
                     elsif !roby_connected?
@@ -158,31 +161,74 @@ module Roby
                     begin
                         roby_interface.quit
                     rescue Interface::ComError
+                        puts "QUIT FAILED"
                     ensure
                         roby_interface.close
                     end
 
-                    roby_join if join
+                    if join
+                        begin
+                            roby_join(timeout: join_timeout)
+                        rescue JoinTimedOut
+                            STDERR.puts 'timed out while waiting for '\
+                                        'Roby controller to stop'
+
+                            if roby_try_connect
+                                STDERR.puts 'trying to kill'
+                                roby_kill(join: true, join_timeout: join_timeout)
+                            end
+                        end
+                    end
                 end
 
                 # Kill the Roby controller process
-                def roby_kill(join: true)
-                    if !roby_running?
-                        raise InvalidState, "cannot call #roby_stop if no controllers were started"
+                def roby_kill(join: true, join_timeout: 5)
+                    unless roby_running?
+                        raise InvalidState,
+                              'cannot call #roby_stop if no controllers were started'
                     end
 
                     Process.kill('INT', roby_pid)
-                    roby_join if join
+                    if join
+                        begin
+                            roby_join(timeout: join_timeout)
+                        rescue JoinTimedOut
+                            STDERR.puts 'timed out while waiting for '\
+                                        'Roby controller to stop'
+
+                            if roby_try_connect
+                                STDERR.puts 'retrying'
+                                roby_kill(join: true, join_timeout: join_timeout)
+                            end
+                        end
+                    end
                 end
 
 
                 # Wait for the remote process to quit
-                def roby_join
-                    if !roby_running?
-                        raise InvalidState, "cannot call #roby_join without a running Roby controller"
+                def roby_join(timeout: nil)
+                    unless roby_running?
+                        raise InvalidState,
+                              'cannot call #roby_join without a running Roby controller'
                     end
 
-                    _, status = Process.waitpid2(roby_pid)
+                    status = nil
+                    if timeout
+                        deadline = Time.now + timeout
+                        loop do
+                            _, status = Process.waitpid2(roby_pid, Process::WNOHANG)
+                            break if status
+
+                            sleep 0.1
+                            if Time.now > deadline
+                                raise JoinTimedOut,
+                                      'roby_join timed out waiting for end of '\
+                                      "PID #{roby_pid}"
+                            end
+                        end
+                    else
+                        _, status = Process.waitpid2(roby_pid)
+                    end
                     @roby_pid = nil
                     status
                 rescue Errno::ECHILD
