@@ -213,17 +213,54 @@ module Roby
                 end
             end
 
-            describe "#poll_until" do
-                it 'does not affect the watched task after the script finishes' do
-                    child_task_m = Tasks::Simple.new_submodel { event :e }
-                    parent_task_m = Tasks::Simple.new_submodel do
+            describe '#poll_until' do
+                attr_reader :parent, :child, :parent_task_m, :child_task_m
+                before do
+                    @child_task_m = Tasks::Simple.new_submodel { event :e }
+                    @parent_task_m = Tasks::Simple.new_submodel do
                         script do
                             poll_until(c_child.e_event) { }
+                            emit stop_event
                         end
                     end
 
-                    plan.add(parent = parent_task_m.new)
-                    parent.depends_on(child = child_task_m.new, role: 'c')
+                    plan.add(@parent = parent_task_m.new)
+                    @parent.depends_on(
+                        @child = child_task_m.new,
+                        role: 'c', model: [Tasks::Simple, {}]
+                    )
+                end
+
+                it 'does not add extra fullfillment constraints on the dependency' do
+                    # This is a regression test. PollUntil was relying on
+                    # #depends_on to get an error when the waited-upon event
+                    # becomes unreachable. But it was doing so without
+                    # specifying a model argument, which is then picking by
+                    # default the most constrained model possible, without any
+                    # good reason
+                    fullfilled_model = @child.fullfilled_model
+                    execute do
+                        parent.start!
+                        child.start!
+                    end
+                    assert_equal fullfilled_model, @child.fullfilled_model
+                end
+
+                it 'does not change an existing dependency relation' do
+                    # This is a regression test. PollUntil was relying on
+                    # #depends_on to get an error when the waited-upon event
+                    # becomes unreachable. This was modifying the dependency relation
+                    # even after the poll_until finished
+                    info = @parent[@child, TaskStructure::Dependency]
+                    execute do
+                        parent.start!
+                        child.start!
+                    end
+                    execute { child.e_event.emit }
+                    assert_equal info, @parent[@child, TaskStructure::Dependency]
+                end
+
+                it 'does not affect the watched task after the script finishes' do
                     plan.add_permanent_task(child)
 
                     execute do
@@ -232,6 +269,36 @@ module Roby
                     end
                     expect_execution { parent.stop! }.garbage_collect(true).to_run
                     execute { child.e_event.emit }
+                end
+
+                it 'resolves the current event when starting, even after replacements' do
+                    plan.add(new_child = @child_task_m.new)
+                    plan.replace_task(child, new_child)
+
+                    execute do
+                        parent.start!
+                        child.start!
+                        new_child.start!
+                    end
+                    expect_execution { child.e_event.emit }
+                        .to { not_emit parent.stop_event }
+                    expect_execution { new_child.e_event.emit }
+                        .to { emit parent.stop_event }
+                end
+
+                it 'follows the replacements while waiting for the event' do
+                    plan.add(new_child = @child_task_m.new)
+
+                    execute do
+                        parent.start!
+                        child.start!
+                        new_child.start!
+                    end
+                    plan.replace_task(child, new_child)
+                    expect_execution { child.e_event.emit }
+                        .to { not_emit parent.stop_event }
+                    expect_execution { new_child.e_event.emit }
+                        .to { emit parent.stop_event }
                 end
             end
 
