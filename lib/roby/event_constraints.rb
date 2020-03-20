@@ -164,6 +164,7 @@ module Roby
         class UnboundTaskPredicate
             def initialize
                 @compiled_predicate = CompiledPredicate.new
+                freeze
             end
 
             def to_unbound_task_predicate
@@ -415,8 +416,8 @@ end
         class UnboundTaskPredicate::Negate < UnboundTaskPredicate
             attr_reader :predicate
             def initialize(pred)
-                super()
                 @predicate = pred
+                super()
             end
 
             def ==(pred); pred.kind_of?(Negate) && pred.predicate == predicate end
@@ -439,12 +440,13 @@ end
         class UnboundTaskPredicate::Never < UnboundTaskPredicate
             attr_reader :predicate
             def initialize(pred)
-                super()
                 if !pred.kind_of?(UnboundTaskPredicate::SingleEvent)
                     raise ArgumentError, "can only create a Never predicate on top of a SingleEvent"
                 end
 
                 @predicate = pred
+
+                super()
             end
 
             def ==(pred); pred.kind_of?(Never) && pred.predicate == predicate end
@@ -487,8 +489,8 @@ end
         class UnboundTaskPredicate::BinaryCommutativePredicate < UnboundTaskPredicate
             attr_reader :predicates
             def initialize(left, right)
-                super()
                 @predicates = [left, right]
+                super()
             end
 
             def required_events; predicates[0].required_events | predicates[1].required_events end
@@ -781,9 +783,9 @@ end
             attr_reader :required_events
 
             def initialize(event_name)
-                super()
                 @event_name = event_name
                 @required_events = [event_name].to_set
+                super()
             end
 
             def ==(pred); pred.kind_of?(SingleEvent) && pred.event_name == event_name end
@@ -830,8 +832,7 @@ end
             end
 
             def from_now
-                @deadline = Time.now
-                self
+                self.class.new(@event_name, deadline: Time.now)
             end
 
             def not_followed_by(event)
