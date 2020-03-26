@@ -183,6 +183,8 @@ module Roby
             # Execute the provided block once per execution cycle, until the
             # given event is emitted
             def poll_until(event, &block)
+                raise ArgumentError, "poll_until requires a block" unless block
+
                 event, model_event = resolve_event(event)
                 model.instructions << Script::Models::PollUntil.new(model_event, block)
                 event

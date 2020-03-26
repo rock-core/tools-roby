@@ -213,6 +213,28 @@ module Roby
                 end
             end
 
+            describe "#poll_until" do
+                it 'does not affect the watched task after the script finishes' do
+                    child_task_m = Tasks::Simple.new_submodel { event :e }
+                    parent_task_m = Tasks::Simple.new_submodel do
+                        script do
+                            poll_until(c_child.e_event) { }
+                        end
+                    end
+
+                    plan.add(parent = parent_task_m.new)
+                    parent.depends_on(child = child_task_m.new, role: 'c')
+                    plan.add_permanent_task(child)
+
+                    execute do
+                        parent.start!
+                        child.start!
+                    end
+                    expect_execution { parent.stop! }.garbage_collect(true).to_run
+                    execute { child.e_event.emit }
+                end
+            end
+
             describe "#timeout" do
                 attr_reader :task
                 before do
