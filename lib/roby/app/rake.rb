@@ -172,6 +172,7 @@ module Roby
                         ['--exclude', pattern]
                     end
                     args << '--ui' if ui?
+                    puts "Running roby test #{args.join(' ')}"
                     run_roby('test', *args)
                 end
 
@@ -185,7 +186,7 @@ module Roby
                         _, status = Process.waitpid2(pid)
                         status.success?
                     rescue Interrupt
-                        Process.kill pid
+                        Process.kill 'TERM', pid
                         Process.waitpid(pid)
                     end
                 end
