@@ -1,6 +1,7 @@
 require 'roby'
 require 'rake'
 require 'rake/tasklib'
+require 'shellwords'
 
 module Roby
     module App
@@ -172,6 +173,11 @@ module Roby
                         ['--exclude', pattern]
                     end
                     args << '--ui' if ui?
+                    if (minitest_opts = ENV['TESTOPTS'])
+                        args << "--"
+                        args.concat(Shellwords.split(minitest_opts))
+                    end
+
                     puts "Running roby test #{args.join(' ')}"
                     run_roby('test', *args)
                 end
