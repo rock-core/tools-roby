@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Queries
         # Predicate that matches characteristics on a plan object
@@ -55,16 +57,16 @@ module Roby
 
             # Initializes an empty TaskMatcher object
             def initialize(instance = nil)
-                @instance             = instance
-                @indexed_query        = !@instance
-                @model                = []
-                @predicates           = []
-                @neg_predicates       = []
+                @instance               = instance
+                @indexed_query          = !@instance
+                @model                  = []
+                @predicates             = []
+                @neg_predicates         = []
                 @indexed_predicates     = []
                 @indexed_neg_predicates = []
-                @owners               = []
-                @parents              = {}
-                @children             = {}
+                @owners                 = []
+                @parents                = {}
+                @children               = {}
                 @scope = :global
             end
 
@@ -105,7 +107,6 @@ module Roby
             def global_scope?
                 @scope == :global
             end
-
 
             # Match an instance explicitely
             def with_instance(instance)
@@ -155,8 +156,8 @@ module Roby
                     method_name = name.to_s.gsub(/\?$/, '')
                     if Index::PREDICATES.include?(name)
                         indexed_predicate = true
-                        positive_index ||= [["#{name}"], []]
-                        negative_index ||= [[], ["#{name}"]]
+                        positive_index ||= [[name.to_s], []]
+                        negative_index ||= [[], [name.to_s]]
                     end
                     positive_index ||= [[], []]
                     negative_index ||= [[], []]
@@ -168,7 +169,7 @@ module Roby
                             #{'@indexed_query = false' unless indexed_predicate}
                             predicates << :#{name}
                             #{['indexed_predicates', *positive_index[0]].join(' << :') unless positive_index[0].empty?}
-                            #{["indexed_neg_predicates", *positive_index[1]].join(' << :') unless positive_index[1].empty?}
+                            #{['indexed_neg_predicates', *positive_index[1]].join(' << :') unless positive_index[1].empty?}
                             self
                         end
                         def not_#{method_name}
@@ -177,8 +178,8 @@ module Roby
                             end
                             #{'@indexed_query = false' unless indexed_predicate}
                             neg_predicates << :#{name}
-                            #{["indexed_predicates", *negative_index[0]].join(' << :') unless negative_index[0].empty?}
-                            #{["indexed_neg_predicates", *negative_index[1]].join(' << :') unless negative_index[1].empty?}
+                            #{['indexed_predicates', *negative_index[0]].join(' << :') unless negative_index[0].empty?}
+                            #{['indexed_neg_predicates', *negative_index[1]].join(' << :') unless negative_index[1].empty?}
                             self
                         end
                     PREDICATE_METHOD
@@ -222,10 +223,16 @@ module Roby
             #   parent.depends_on(child)
             #   TaskMatcher.new.
             #       with_child(TaskMatcher.new.pending) === parent # => true
-            #   TaskMatcher.new.
-            #       with_child(TaskMatcher.new.pending, Roby::TaskStructure::Dependency) === parent # => true
-            #   TaskMatcher.new.
-            #       with_child(TaskMatcher.new.pending, Roby::TaskStructure::PlannedBy) === parent # => false
+            #   TaskMatcher.new
+            #   .with_child(
+            #       TaskMatcher.new.pending,
+            #       Roby::TaskStructure::Dependency
+            #   ) === parent # => true
+            #   TaskMatcher.new
+            #   .with_child(
+            #       TaskMatcher.new.pending,
+            #       Roby::TaskStructure::PlannedBy
+            #   ) === parent # => false
             #
             #   TaskMatcher.new.
             #       with_child(TaskMatcher.new.pending,
@@ -303,7 +310,6 @@ module Roby
                 ([description] + predicates.map(&:to_s) +
                  neg_predicates.map { |p| "not_#{p}" }).join('.')
             end
-
 
             # Tests whether the given object matches this predicate
             #
