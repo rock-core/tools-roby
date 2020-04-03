@@ -24,11 +24,29 @@ module Roby
             # @return [Hash]
             attr_reader :arguments
 
+            # @api private
+            #
+            # Set of predicates that should be true on the object, and for which
+            # the index maintains a set of objects for which it is true
+            #
+            # @return [Array<Symbol>]
+            attr_reader :indexed_predicates
+
+            # @api private
+            #
+            # Set of predicates that should be false on the object, and for which
+            # the index maintains a set of objects for which it is true
+            #
+            # @return [Array<Symbol>]
+            attr_reader :indexed_neg_predicates
+
             # Initializes an empty TaskMatcher object
             def initialize
                 super
                 @arguments = {}
-                @interruptible = nil
+                @indexed_query          = !@instance
+                @indexed_predicates     = []
+                @indexed_neg_predicates = []
             end
 
             def to_s
@@ -117,6 +135,7 @@ module Roby
             #       with_arguments(a: 10, c: 30) === task # => false
             def with_arguments(arguments)
                 @arguments ||= {}
+                @indexed_query = false
                 self.arguments.merge!(arguments) do |k, old, new|
                     if old != new
                         raise ArgumentError,
@@ -125,6 +144,57 @@ module Roby
                     old
                 end
                 self
+            end
+
+            def add_predicate(name)
+                @indexed_query = false unless Index::PREDICATES.include?(name)
+
+                super
+            end
+
+            def add_neg_predicate(name)
+                @indexed_query = false unless Index::PREDICATES.include?(name)
+
+                super
+            end
+
+            class << self
+                # @api private
+                def match_indexed_predicate(
+                    name,
+                    index: name.to_s, neg_index: nil,
+                    not_index: nil, not_neg_index: name.to_s
+                )
+                    method_name = name.to_s.gsub(/\?$/, '')
+                    class_eval <<~PREDICATE_METHOD, __FILE__, __LINE__ + 1
+                        def #{method_name}
+                            add_predicate(:#{name})
+                            #{"indexed_predicates << :#{index}" if index}
+                            #{"indexed_neg_predicates << :#{neg_index}" if neg_index}
+                            self
+                        end
+                        def not_#{method_name}
+                            add_neg_predicate(:#{name})
+                            #{"indexed_predicates << :#{not_index}" if not_index}
+                            #{"indexed_neg_predicates << :#{not_neg_index}" if not_neg_index}
+                            self
+                        end
+                    PREDICATE_METHOD
+                    declare_class_methods(method_name, "not_#{method_name}")
+                end
+
+                def match_indexed_predicates(*names)
+                    names.each do |n|
+                        unless Index::PREDICATES.include?(n)
+                            raise ArgumentError,
+                                  "#{n} is not declared in Index::PREDICATES. Use "\
+                                  'match_indexed_predicate directly to override '\
+                                  'this check'
+                        end
+
+                        match_indexed_predicate(n)
+                    end
+                end
             end
 
             ##
@@ -140,13 +210,6 @@ module Roby
             # Matches if the task is partially instanciated
             #
             # See also #fully_instanciated, Task#partially_instanciated?
-
-            ##
-            # :method: not_abstract
-            #
-            # Matches if the task is not abstract
-            #
-            # See also #abstract, Task#abstract?
 
             ##
             # :method: abstract
@@ -262,15 +325,20 @@ module Roby
 
             match_predicates(
                 :abstract?, :partially_instanciated?, :fully_instanciated?,
-                :starting?, :pending?, :running?, :finished?, :success?, :failed?,
                 :interruptible?
             )
 
+            match_indexed_predicates(
+                :starting?, :pending?, :running?, :finished?, :success?, :failed?
+            )
+
             # Finishing tasks are also running task, use the index on 'running'
-            match_predicate :finishing?, [[:running?], []]
+            match_indexed_predicate :finishing?, index: :running?, neg_index: nil,
+                                                 not_index: nil, not_neg_index: nil
 
             # Reusable tasks must be neither finishing nor finished
-            match_predicate :reusable?, [[], [:finished?]]
+            match_indexed_predicate :reusable?, index: nil, neg_index: :finished?,
+                                                not_index: nil, not_neg_index: nil
 
             # Helper method for #with_child and #with_parent
             def handle_parent_child_arguments(other_query, relation, relation_options)
@@ -303,7 +371,69 @@ module Roby
             # equivalent to calling #filter() using a Index. This is used to
             # avoid an explicit O(N) filtering step after filter() has been called
             def indexed_query?
-                arguments.empty? && super
+                @indexed_query
+            end
+
+            # @api private
+            #
+            # Resolve the indexed sets needed to filter an initial set in {#filter}
+            #
+            # @return [(Set,Set)] the positive (intersection) and
+            #   negative (difference) sets
+            def indexed_sets(index)
+                positive_sets = []
+                @model.each do |m|
+                    positive_sets << index.by_model[m]
+                end
+
+                @owners.each do |o|
+                    candidates = index.by_owner[o]
+                    return [Set.new, Set.new] unless candidates
+
+                    positive_sets << candidates
+                end
+
+                @indexed_predicates.each do |pred|
+                    positive_sets << index.by_predicate[pred]
+                end
+
+                negative_sets =
+                    @indexed_neg_predicates
+                    .map { |pred| index.by_predicate[pred] }
+
+                [positive_sets, negative_sets]
+            end
+
+            # Filters the tasks in +initial_set+ by using the information in
+            # +index+, and returns the result. The resulting set must
+            # include all tasks in +initial_set+ which match with #===, but can
+            # include tasks which do not match #===
+            #
+            # @param [Set] initial_set
+            # @param [Index] index
+            # @return [Set]
+            def filter(initial_set, index, initial_is_complete: false)
+                positive_sets, negative_sets = indexed_sets(index)
+                if !initial_is_complete || positive_sets.empty?
+                    positive_sets << initial_set
+                end
+
+                negative = negative_sets.shift || Set.new
+                unless negative_sets.empty?
+                    negative = negative.dup
+                    negative_sets.each { |set| negative.merge(set) }
+                end
+
+                positive_sets = positive_sets.sort_by(&:size)
+
+                result = Set.new
+                result.compare_by_identity
+                positive_sets.shift.each do |obj|
+                    next if negative.include?(obj)
+
+                    result.add(obj) if positive_sets.all? { |set| set.include?(obj) }
+                end
+                result
             end
 
             def find_event(event_name)
@@ -350,13 +480,28 @@ module Roby
             # TaskMatcher.new.which_fullfills
             declare_class_methods :which_fullfills, :with_arguments
 
-            # The set of tasks which match in plan. This is a cached value, so use
-            # #reset to actually recompute this set.
+            # @api private
+            #
+            # Resolves or returns the cached set of matching tasks in the plan
+            #
+            # This is a cached value, so use {#reset} to actually recompute
+            # this set.
+            #
+            # This should not be called directly. Use {#each_in_plan}
             def result_set(plan)
                 @result_set ||= plan.query_result_set(self)
             end
 
+            # Clears the cached results
+            def reset
+                @result_set = nil
+            end
+
             # Enumerate the objects matching self in the plan
+            #
+            # This resolves the query only the first time. After the first call,
+            # the same set of tasks will be returned. Use {#reset} to clear the
+            # cached results.
             def each_in_plan(plan, &block)
                 return enum_for(__method__, plan) unless block_given?
 

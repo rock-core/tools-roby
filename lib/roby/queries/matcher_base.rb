@@ -62,6 +62,30 @@ module Roby
             # @return [Array<Symbol>]
             attr_reader :neg_predicates
 
+            # @api private
+            #
+            # Add the given predicate to the set of predicates that must match
+            def add_predicate(predicate)
+                if @neg_predicates.include?(predicate)
+                    raise ArgumentError, "trying to match (#{predicate} & !#{predicate})"
+                end
+
+                @predicates << predicate
+                self
+            end
+
+            # @api private
+            #
+            # Add the given predicate to the set of predicates that must match
+            def add_neg_predicate(predicate)
+                if @predicates.include?(predicate)
+                    raise ArgumentError, "trying to match (#{predicate} & !#{predicate})"
+                end
+
+                @neg_predicates << predicate
+                self
+            end
+
             class << self
                 def declare_class_methods(*names) # :nodoc:
                     names.each do |name|
@@ -79,20 +103,10 @@ module Roby
                     method_name = name.to_s.gsub(/\?$/, '')
                     class_eval <<~PREDICATE_CODE, __FILE__, __LINE__ + 1
                         def #{method_name}
-                            if neg_predicates.include?(:#{name})
-                                raise ArgumentError,
-                                      "trying to match (#{name} & !#{name})"
-                            end
-                            predicates << :#{name}
-                            self
+                            add_predicate(:#{name})
                         end
                         def not_#{method_name}
-                            if predicates.include?(:#{name})
-                                raise ArgumentError,
-                                      "trying to match (#{name} & !#{name})"
-                            end
-                            neg_predicates << :#{name}
-                            self
+                            add_neg_predicate(:#{name})
                         end
                     PREDICATE_CODE
                     declare_class_methods(method_name, "not_#{method_name}")

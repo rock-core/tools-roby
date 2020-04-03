@@ -6,6 +6,179 @@ require 'roby/tasks/simple'
 module Roby
     module Queries
         describe TaskMatcher do
+            describe 'plan enumeration of basic predicates' do
+                after do
+                    plan.each_task do |t|
+                        execute { t.start_event.emit } if t.starting?
+                        execute { t.stop_event.emit } if t.finishing?
+                    end
+                end
+
+                it 'matches on #executable?' do
+                    plan.add(yes = Tasks::Simple.new)
+                    plan.add(no = Tasks::Simple.new)
+                    no.executable = false
+
+                    assert_finds_tasks [yes], TaskMatcher.executable
+                    assert_finds_tasks [no], TaskMatcher.not_executable
+                end
+
+                it 'matches on #abstract?' do
+                    plan.add(yes = Tasks::Simple.new)
+                    plan.add(no = Tasks::Simple.new)
+                    yes.abstract = true
+
+                    assert_finds_tasks [yes], TaskMatcher.abstract
+                    assert_finds_tasks [no], TaskMatcher.not_abstract
+                end
+
+                it 'matches on #fully_instanciated?' do
+                    task_m = Roby::Task.new_submodel { argument :arg }
+                    plan.add(yes = task_m.new(arg: 10))
+                    plan.add(no = task_m.new)
+                    assert_finds_tasks [yes], TaskMatcher.fully_instanciated
+                    assert_finds_tasks [no], TaskMatcher.not_fully_instanciated
+                end
+
+                it 'matches on #partially_instanciated?' do
+                    task_m = Roby::Task.new_submodel { argument :arg }
+                    plan.add(no = task_m.new(arg: 10))
+                    plan.add(yes = task_m.new)
+                    assert_finds_tasks [yes], TaskMatcher.partially_instanciated
+                    assert_finds_tasks [no], TaskMatcher.not_partially_instanciated
+                end
+
+                it 'deals with dynamic argument assignation' do
+                    task_m = Roby::Task.new_submodel { argument :arg }
+                    plan.add(t1 = task_m.new)
+                    plan.add(t2 = task_m.new(arg: 10))
+                    assert_finds_tasks [t1], TaskMatcher.partially_instanciated
+                    assert_finds_tasks [t1], TaskMatcher.not_fully_instanciated
+                    assert_finds_tasks [t2], TaskMatcher.fully_instanciated
+                    assert_finds_tasks [t2], TaskMatcher.not_partially_instanciated
+                    t1.arg = 10
+                    assert_finds_tasks [], TaskMatcher.partially_instanciated
+                    assert_finds_tasks [], TaskMatcher.not_fully_instanciated
+                    assert_finds_tasks [t1, t2], TaskMatcher.fully_instanciated
+                    assert_finds_tasks [t1, t2], TaskMatcher.not_partially_instanciated
+                end
+
+                it 'matches pending tasks' do
+                    plan.add(t = Roby::Tasks::Simple.new)
+                    assert_finds_tasks [t], TaskMatcher.pending
+                    assert_finds_tasks [], TaskMatcher.not_pending
+                    execute { t.start! }
+                    assert_finds_tasks [], TaskMatcher.pending
+                    assert_finds_tasks [t], TaskMatcher.not_pending
+                end
+
+                it 'matches starting tasks' do
+                    task_m = Roby::Tasks::Simple.new_submodel do
+                        event(:start) { |_| }
+                    end
+                    plan.add(t = task_m.new)
+                    assert_finds_tasks [t], TaskMatcher.not_starting
+                    assert_finds_tasks [], TaskMatcher.starting
+                    execute { t.start! }
+                    assert_finds_tasks [], TaskMatcher.not_starting
+                    assert_finds_tasks [t], TaskMatcher.starting
+                    execute { t.start_event.emit }
+                    assert_finds_tasks [t], TaskMatcher.not_starting
+                    assert_finds_tasks [], TaskMatcher.starting
+                end
+
+                it 'matches running tasks' do
+                    plan.add(t = Roby::Tasks::Simple.new)
+                    assert_finds_tasks [], TaskMatcher.running
+                    assert_finds_tasks [t], TaskMatcher.not_running
+                    execute { t.start! }
+                    assert_finds_tasks [t], TaskMatcher.running
+                    assert_finds_tasks [], TaskMatcher.not_running
+                    execute { t.stop_event.emit }
+                    assert_finds_tasks [], TaskMatcher.running
+                    assert_finds_tasks [t], TaskMatcher.not_running
+                end
+
+                it 'matches finishing tasks' do
+                    task_m = Roby::Tasks::Simple.new_submodel do
+                        event(:stop) { |_| }
+                    end
+                    plan.add(t = task_m.new)
+                    execute { t.start! }
+                    assert_finds_tasks [t], TaskMatcher.not_finishing
+                    assert_finds_tasks [], TaskMatcher.finishing
+                    execute { t.stop! }
+                    assert_finds_tasks [], TaskMatcher.not_finishing
+                    assert_finds_tasks [t], TaskMatcher.finishing
+                    execute { t.stop_event.emit }
+                    assert_finds_tasks [t], TaskMatcher.not_finishing
+                    assert_finds_tasks [], TaskMatcher.finishing
+                end
+
+                it 'matches successful tasks' do
+                    plan.add(t = Roby::Tasks::Simple.new)
+                    assert_finds_tasks [t], TaskMatcher.not_success
+                    assert_finds_tasks [], TaskMatcher.success
+                    execute { t.start! }
+                    assert_finds_tasks [t], TaskMatcher.not_success
+                    assert_finds_tasks [], TaskMatcher.success
+                    execute { t.success_event.emit }
+                    assert_finds_tasks [], TaskMatcher.not_success
+                    assert_finds_tasks [t], TaskMatcher.success
+                    assert_finds_tasks [t], TaskMatcher.finished
+                    assert_finds_tasks [t], TaskMatcher.not_failed
+                end
+
+                it 'matches failed tasks' do
+                    plan.add(t = Roby::Tasks::Simple.new)
+                    assert_finds_tasks [t], TaskMatcher.not_failed
+                    assert_finds_tasks [], TaskMatcher.failed
+                    execute { t.start! }
+                    assert_finds_tasks [t], TaskMatcher.not_failed
+                    assert_finds_tasks [], TaskMatcher.failed
+                    execute { t.failed_event.emit }
+                    assert_finds_tasks [], TaskMatcher.not_failed
+                    assert_finds_tasks [t], TaskMatcher.failed
+                    assert_finds_tasks [t], TaskMatcher.finished
+                    assert_finds_tasks [t], TaskMatcher.not_success
+                end
+
+                it 'matches finished tasks' do
+                    plan.add(t = Roby::Tasks::Simple.new)
+                    assert_finds_tasks [t], TaskMatcher.not_finished
+                    assert_finds_tasks [], TaskMatcher.finished
+                    execute { t.start! }
+                    assert_finds_tasks [t], TaskMatcher.not_finished
+                    assert_finds_tasks [], TaskMatcher.finished
+                    execute { t.stop_event.emit }
+                    assert_finds_tasks [], TaskMatcher.not_finished
+                    assert_finds_tasks [t], TaskMatcher.finished
+                    assert_finds_tasks [t], TaskMatcher.not_failed
+                    assert_finds_tasks [t], TaskMatcher.not_success
+                end
+
+                it 'matches reusable tasks set explicitly' do
+                    plan.add(t = Roby::Tasks::Simple.new)
+                    assert_finds_tasks [t], TaskMatcher.reusable
+                    assert_finds_tasks [], TaskMatcher.not_reusable
+                    t.do_not_reuse
+                    assert_finds_tasks [], TaskMatcher.reusable
+                    assert_finds_tasks [t], TaskMatcher.not_reusable
+                end
+
+                it 'matches tasks that are not reusable because they are finished' do
+                    plan.add(t = Roby::Tasks::Simple.new)
+                    assert_finds_tasks [t], TaskMatcher.reusable
+                    assert_finds_tasks [], TaskMatcher.not_reusable
+                    execute do
+                        t.start!
+                        t.stop!
+                    end
+                    assert_finds_tasks [], TaskMatcher.reusable
+                    assert_finds_tasks [t], TaskMatcher.not_reusable
+                end
+            end
+
             describe 'the _event accessor' do
                 attr_reader :task_m
                 before do
@@ -40,6 +213,19 @@ module Roby
                     assert_equal [], matcher.task_matcher.model
                     assert_equal 'start', matcher.symbol
                 end
+            end
+
+            def assert_match(m, obj)
+                assert m === obj
+            end
+
+            def refute_match(m, obj)
+                refute m === obj
+            end
+
+            def assert_finds_tasks(task_set, matcher)
+                found_tasks = matcher.each_in_plan(plan).to_set
+                assert_equal task_set.to_set, found_tasks
             end
         end
     end
@@ -116,47 +302,6 @@ class TestQueriesTaskMatcher < Minitest::Test
         plan.in_transaction do |trsc|
             check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])
         end
-    end
-
-    def test_query_predicates
-        t1 = Tasks::Simple.new_submodel { argument :fake }.new
-        t2 = Roby::Task.new
-        plan.add [t1, t2]
-
-        assert_finds_tasks [], TaskMatcher.executable
-        assert_finds_tasks [t1, t2], TaskMatcher.not_executable
-        assert_finds_tasks [t2], TaskMatcher.abstract
-        assert_finds_tasks [t1], TaskMatcher.partially_instanciated
-        assert_finds_tasks [t2], TaskMatcher.fully_instanciated
-        t1.arguments[:fake] = 2
-        assert_finds_tasks [t1, t2], TaskMatcher.fully_instanciated
-        assert_finds_tasks [t2], TaskMatcher.fully_instanciated.abstract
-
-        assert_finds_tasks [t1, t2], TaskMatcher.pending
-        execute { t1.start! }
-        assert_finds_tasks [t2], TaskMatcher.pending
-        assert_finds_tasks [t1, t2], TaskMatcher.not_failed
-        assert_finds_tasks [t1, t2], TaskMatcher.not_success
-        assert_finds_tasks [t1, t2], TaskMatcher.not_finished
-
-        assert_finds_tasks [t1], TaskMatcher.running
-        execute { t1.success! }
-        assert_finds_tasks [t1], TaskMatcher.success
-        assert_finds_tasks [t1], TaskMatcher.finished
-        assert_finds_tasks [t1, t2], TaskMatcher.not_failed
-        assert_finds_tasks [t2], TaskMatcher.not_finished
-
-        execute { plan.remove_task(t1) }
-
-        t1 = Tasks::Simple.new
-        plan.add(t1)
-        execute do
-            t1.start!
-            t1.failed!
-        end
-        assert_finds_tasks [t1], TaskMatcher.failed
-        assert_finds_tasks [t1], TaskMatcher.finished
-        assert_finds_tasks [t1], TaskMatcher.finished.not_success
     end
 
     def test_it_does_not_allow_specifying_different_constraints_on_the_same_argument

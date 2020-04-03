@@ -46,17 +46,11 @@ module Roby
                 self
             end
 
-            # @raise [NotImplementedError] Cannot yet do plan queries on task
-            #   event generators
-            def filter(_initial_set, _index)
-                raise NotImplementedError
-            end
-
-            alias plan_object_match :===
-
             def to_s
                 "#{task_matcher}.#{symbol}"
             end
+
+            alias plan_object_match ===
 
             # Tests whether the given task event generator matches self
             #
@@ -80,16 +74,22 @@ module Roby
 
             def match_not_generalized(object)
                 (symbol === object.symbol.to_s) &&
-                    plan_object_match(object) && (task_matcher === object.task)
+                    plan_object_match(object) &&
+                    (task_matcher === object.task)
             end
 
             # Enumerate the objects matching self in the plan
             def each_in_plan(plan)
+                if generalized?
+                    raise ArgumentError,
+                          'cannot resolve a generalized matcher in the plan'
+                end
+
                 return enum_for(__method__, plan) unless block_given?
 
                 @task_matcher.each_in_plan(plan) do |task|
                     event = task.event(symbol)
-                    yield(event) if self === task.event(symbol)
+                    yield(event) if self === event
                 end
             end
         end
