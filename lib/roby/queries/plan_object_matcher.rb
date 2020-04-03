@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Queries
         # Predicate that matches characteristics on a plan object
@@ -25,6 +27,20 @@ module Roby
 
             # @api private
             #
+            # Per-relation list of in-edges that the matched object is expected to have
+            #
+            # @return [Hash]
+            attr_reader :parents
+
+            # @api private
+            #
+            # Per relation list of out-edges that the matched object is expected to have
+            #
+            # @return [Hash]
+            attr_reader :children
+
+            # @api private
+            #
             # Set of predicates that should be true on the object, and for which
             # the index maintains a set of objects for which it is true
             #
@@ -39,38 +55,61 @@ module Roby
             # @return [Array<Symbol>]
             attr_reader :indexed_neg_predicates
 
-            # @api private
-            #
-            # Per-relation list of in-edges that the matched object is expected to have
-            #
-            # @return [Hash]
-            attr_reader :parents
-
-            # @api private
-            #
-            # Per relation list of out-edges that the matched object is expected to have
-            #
-            # @return [Hash]
-            attr_reader :children
-
             # Initializes an empty TaskMatcher object
             def initialize(instance = nil)
-                @instance             = instance
-                @indexed_query        = !@instance
-                @model                = []
-                @predicates           = []
-                @neg_predicates       = []
+                @instance               = instance
+                @model                  = []
+                @predicates             = []
+                @neg_predicates         = []
                 @indexed_predicates     = []
                 @indexed_neg_predicates = []
-                @owners               = []
-                @parents              = {}
-                @children             = {}
+                @owners                 = []
+                @parents                = {}
+                @children               = {}
+                @scope = :global
+            end
+
+            # Search scope for queries on transactions. If equal to :local, the
+            # query will apply only on the scope of the searched transaction,
+            # otherwise it applies on a virtual plan that is the result of the
+            # transaction stack being applied.
+            #
+            # The default is :global.
+            #
+            # @see #local_scope #local_scope? #global_scope #global_scope?
+            attr_reader :scope
+
+            # Changes the scope of this query
+            #
+            # @see #scope.
+            def local_scope
+                @scope = :local
+                self
+            end
+
+            # Whether this query is limited to its plan
+            #
+            # @see #scope
+            def local_scope?
+                @scope == :local
+            end
+
+            # Changes the scope of this query
+            #
+            # @see #scope
+            def global_scope
+                @scope = :global
+                self
+            end
+
+            # Whether this query is using the global scope
+            def global_scope?
+                @scope == :global
             end
 
             # Match an instance explicitely
             def with_instance(instance)
                 @instance = instance
-                @indexed_query = false
                 self
             end
 
@@ -88,7 +127,7 @@ module Roby
             #
             # Matches if the object is owned by the local plan manager.
             def self_owned
-                predicates << :self_owned?
+                add_predicate(:self_owned?)
                 self
             end
 
@@ -96,7 +135,7 @@ module Roby
             #
             # Matches if the object is owned by the local plan manager.
             def not_self_owned
-                neg_predicates << :self_owned?
+                add_neg_predicate(:self_owned?)
                 self
             end
 
@@ -107,43 +146,6 @@ module Roby
             def with_model(model)
                 @model = Array(model)
                 self
-            end
-
-            class << self
-                # @api private
-                def match_predicate(name, positive_index = nil, negative_index = nil)
-                    method_name = name.to_s.gsub(/\?$/, '')
-                    if Index::PREDICATES.include?(name)
-                        indexed_predicate = true
-                        positive_index ||= [["#{name}"], []]
-                        negative_index ||= [[], ["#{name}"]]
-                    end
-                    positive_index ||= [[], []]
-                    negative_index ||= [[], []]
-                    class_eval <<-EOD, __FILE__, __LINE__+1
-                    def #{method_name}
-                        if neg_predicates.include?(:#{name})
-                            raise ArgumentError, "trying to match (#{name} & !#{name})"
-                        end
-                        #{"@indexed_query = false" if !indexed_predicate}
-                        predicates << :#{name}
-                        #{if !positive_index[0].empty? then ["indexed_predicates", *positive_index[0]].join(" << :") end}
-                        #{if !positive_index[1].empty? then ["indexed_neg_predicates", *positive_index[1]].join(" << :") end}
-                        self
-                    end
-                    def not_#{method_name}
-                        if predicates.include?(:#{name})
-                            raise ArgumentError, "trying to match (#{name} & !#{name})"
-                        end
-                        #{"@indexed_query = false" if !indexed_predicate}
-                        neg_predicates << :#{name}
-                        #{if !negative_index[0].empty? then ["indexed_predicates", *negative_index[0]].join(" << :") end}
-                        #{if !negative_index[1].empty? then ["indexed_neg_predicates", *negative_index[1]].join(" << :") end}
-                        self
-                    end
-                    EOD
-                    declare_class_methods(method_name, "not_#{method_name}")
-                end
             end
 
             ##
@@ -182,10 +184,16 @@ module Roby
             #   parent.depends_on(child)
             #   TaskMatcher.new.
             #       with_child(TaskMatcher.new.pending) === parent # => true
-            #   TaskMatcher.new.
-            #       with_child(TaskMatcher.new.pending, Roby::TaskStructure::Dependency) === parent # => true
-            #   TaskMatcher.new.
-            #       with_child(TaskMatcher.new.pending, Roby::TaskStructure::PlannedBy) === parent # => false
+            #   TaskMatcher.new
+            #   .with_child(
+            #       TaskMatcher.new.pending,
+            #       Roby::TaskStructure::Dependency
+            #   ) === parent # => true
+            #   TaskMatcher.new
+            #   .with_child(
+            #       TaskMatcher.new.pending,
+            #       Roby::TaskStructure::PlannedBy
+            #   ) === parent # => false
             #
             #   TaskMatcher.new.
             #       with_child(TaskMatcher.new.pending,
@@ -229,22 +237,50 @@ module Roby
                 relation, matchers = *match_spec
                 return false if !relation && object.relations.empty?
 
-                matchers.all? do |m, relation_options|
-                    if relation
+                if relation
+                    matchers.all? do |m, relation_options|
                         yield(relation, m, relation_options)
-                    else
-                        object.relations.any? do |rel|
+                    end
+                else
+                    relations = object.relations
+                    matchers.all? do |m, relation_options|
+                        relations.any? do |rel|
                             yield(rel, m, relation_options)
                         end
                     end
                 end
             end
 
-            # Returns true if filtering with this TaskMatcher using #=== is
-            # equivalent to calling #filter() using a Index. This is used to
-            # avoid an explicit O(N) filtering step after filter() has been called
-            def indexed_query?
-                @indexed_query
+            def matches_parent_constraints?(object, parent_spec)
+                handle_parent_child_match(
+                    object, parent_spec
+                ) do |relation, m, relation_options|
+                    object
+                        .each_parent_object(relation)
+                        .any? do |parent|
+                            m === parent &&
+                                (
+                                    !relation_options ||
+                                    relation_options === parent[object, relation]
+                                )
+                        end
+                end
+            end
+
+            def matches_child_constraints?(object, child_spec)
+                handle_parent_child_match(
+                    object, child_spec
+                ) do |relation, m, relation_options|
+                    object
+                        .each_child_object(relation)
+                        .any? do |child|
+                            m === child &&
+                                (
+                                    !relation_options ||
+                                    relation_options === object[child, relation]
+                                )
+                        end
+                end
             end
 
             def to_s
@@ -260,7 +296,6 @@ module Roby
                  neg_predicates.map { |p| "not_#{p}" }).join('.')
             end
 
-
             # Tests whether the given object matches this predicate
             #
             # @param [PlanObject] object the object to match
@@ -268,40 +303,8 @@ module Roby
             def ===(object)
                 return if instance && object != instance
                 return if !model.empty? && !object.fullfills?(model)
-
-                @parents.each do |parent_spec|
-                    result = handle_parent_child_match(
-                        object, parent_spec
-                    ) do |relation, m, relation_options|
-                        object
-                            .each_parent_object(relation)
-                            .any? do |parent|
-                                m === parent &&
-                                    (
-                                        !relation_options ||
-                                        relation_options === parent[object, relation]
-                                    )
-                            end
-                    end
-                    return false unless result
-                end
-
-                @children.each do |child_spec|
-                    result = handle_parent_child_match(
-                        object, child_spec
-                    ) do |relation, m, relation_options|
-                        object
-                            .each_child_object(relation)
-                            .any? do |child|
-                                m === child &&
-                                    (
-                                        !relation_options ||
-                                        relation_options === object[child, relation]
-                                    )
-                            end
-                    end
-                    return false unless result
-                end
+                return unless @parents.all? { |s| matches_parent_constraints?(object, s) }
+                return unless @children.all? { |s| matches_child_constraints?(object, s) }
 
                 return unless predicates.all? { |pred| object.send(pred) }
                 return if neg_predicates.any? { |pred| object.send(pred) }
@@ -311,68 +314,6 @@ module Roby
                 end
 
                 true
-            end
-
-            # @api private
-            #
-            # Resolve the indexed sets needed to filter an initial set in {#filter}
-            #
-            # @return [(Set,Set)] the positive (intersection) and
-            #   negative (difference) sets
-            def indexed_sets(index)
-                positive_sets = []
-                @model.each do |m|
-                    positive_sets << index.by_model[m]
-                end
-
-                @owners.each do |o|
-                    candidates = index.by_owner[o]
-                    return [Set.new, Set.new] unless candidates
-
-                    positive_sets << candidates
-                end
-
-                @indexed_predicates.each do |pred|
-                    positive_sets << index.by_predicate[pred]
-                end
-
-                negative_sets =
-                    @indexed_neg_predicates
-                    .map { |pred| index.by_predicate[pred] }
-
-                [positive_sets, negative_sets]
-            end
-
-            # Filters the tasks in +initial_set+ by using the information in
-            # +index+, and returns the result. The resulting set must
-            # include all tasks in +initial_set+ which match with #===, but can
-            # include tasks which do not match #===
-            #
-            # @param [Set] initial_set
-            # @param [Index] index
-            # @return [Set]
-            def filter(initial_set, index, initial_is_complete: false)
-                positive_sets, negative_sets = indexed_sets(index)
-                if !initial_is_complete || positive_sets.empty?
-                    positive_sets << initial_set
-                end
-
-                negative = negative_sets.shift || Set.new
-                unless negative_sets.empty?
-                    negative = negative.dup
-                    negative_sets.each { |set| negative.merge(set) }
-                end
-
-                positive_sets = positive_sets.sort_by(&:size)
-
-                result = Set.new
-                result.compare_by_identity
-                positive_sets.shift.each do |obj|
-                    next if negative.include?(obj)
-
-                    result.add(obj) if positive_sets.all? { |set| set.include?(obj) }
-                end
-                result
             end
         end
     end

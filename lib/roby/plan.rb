@@ -19,17 +19,28 @@ module Roby
         attr_reader :tasks
         # The set of events that are defined by #tasks
         attr_reader :task_events
+
         # The set of the robot's missions
         # @see add_mission_task unmark_mission_task
-        attr_reader :mission_tasks
+        def mission_tasks
+            @task_index.mission_tasks
+        end
+
         # The set of tasks that are kept around "just in case"
         # @see add_permanent_task unmark_permanent_task
-        attr_reader :permanent_tasks
+        def permanent_tasks
+            @task_index.permanent_tasks
+        end
+
         # The list of events that are not included in a task
         attr_reader :free_events
+
         # The list of events that are kept outside GC. Do not change that set
         # directly, use #permanent and #auto instead.
-        attr_reader :permanent_events
+        def permanent_events
+            @task_index.permanent_events
+        end
+
         # A set of pair of task matching objects and blocks defining this plan's
         # triggers
         #
@@ -76,9 +87,6 @@ module Roby
         def initialize(graph_observer: nil, event_logger: DRoby::NullEventLogger.new)
             @local_owner = DRoby::PeerID.new('local')
 
-            @mission_tasks    = Set.new
-            @permanent_tasks  = Set.new
-            @permanent_events = Set.new
             @tasks = Set.new
             @free_events = Set.new
             @task_events = Set.new
@@ -527,7 +535,7 @@ module Roby
         #
         # @see add_mission_task unmark_mission_task
         def mission_task?(task)
-            @mission_tasks.include?(task.to_task)
+            @task_index.mission_tasks.include?(task.to_task)
         end
 
         # Removes a task from the plan's missions
@@ -540,9 +548,9 @@ module Roby
         # @see add_mission_task mission_task?
         def unmark_mission_task(task)
             task = task.to_task
-            return unless @mission_tasks.include?(task)
+            return unless @task_index.mission_tasks.include?(task)
 
-            @mission_tasks.delete(task)
+            @task_index.mission_tasks.delete(task)
             task.mission = false if task.self_owned?
             notify_task_status_change(task, :normal)
             self
@@ -612,7 +620,7 @@ module Roby
 
         # True if the given task is registered as a permanent task on self
         def permanent_task?(task)
-            @permanent_tasks.include?(task)
+            @task_index.permanent_tasks.include?(task)
         end
 
         # Removes a task from the set of permanent tasks
@@ -624,7 +632,7 @@ module Roby
         #
         # @see add_permanent_event permanent_event?
         def unmark_permanent_task(task)
-            if @permanent_tasks.delete?(task.to_task)
+            if @task_index.permanent_tasks.delete?(task.to_task)
 
                 notify_task_status_change(task, :normal)
             end
@@ -646,7 +654,7 @@ module Roby
 
         # True if the given event is registered as a permanent event on self
         def permanent_event?(generator)
-            @permanent_events.include?(generator)
+            @task_index.permanent_events.include?(generator)
         end
 
         # Removes a task from the set of permanent tasks
@@ -658,7 +666,7 @@ module Roby
         #
         # @see add_permanent_event permanent_event?
         def unmark_permanent_event(event)
-            if @permanent_events.delete?(event.to_event)
+            if @task_index.permanent_events.delete?(event.to_event)
                 notify_event_status_change(event, :normal)
             end
             nil
@@ -1249,7 +1257,7 @@ module Roby
 
         def locally_useful_roots(with_transactions: true)
             # Create the set of tasks which must be kept as-is
-            seeds = @mission_tasks | @permanent_tasks
+            seeds = @task_index.mission_tasks | @task_index.permanent_tasks
             if with_transactions
                 transactions.each do |trsc|
                     seeds.merge trsc.proxy_tasks.keys.to_set
@@ -1295,8 +1303,13 @@ module Roby
             all_tasks = compute_useful_tasks(
                 Array(tasks), graphs: default_useful_task_graphs.map(&:reverse)
             ).to_set
-            (@mission_tasks & all_tasks).each { |t| unmark_mission_task(t) }
-            (@permanent_tasks & all_tasks).each { |t| unmark_permanent_task(t) }
+            all_tasks.compare_by_identity
+            @task_index.mission_tasks.dup.each do |t|
+                unmark_mission_task(t) if all_tasks.include?(t)
+            end
+            @task_index.permanent_tasks.dup.each do |t|
+                unmark_permanent_task(t) if all_tasks.include?(t)
+            end
         end
 
         # Computes the set of useful tasks and checks that +task+ is in it.
@@ -1582,8 +1595,8 @@ module Roby
 
         def remove_task!(task, timestamp = Time.now)
             @tasks.delete(task)
-            @mission_tasks.delete(task)
-            @permanent_tasks.delete(task)
+            @task_index.mission_tasks.delete(task)
+            @task_index.permanent_tasks.delete(task)
             @task_index.remove(task)
 
             task.bound_events.each_value do |ev|
@@ -1600,7 +1613,7 @@ module Roby
 
         def remove_free_event!(event, timestamp = Time.now)
             @free_events.delete(event)
-            @permanent_events.delete(event)
+            @task_index.permanent_events.delete(event)
             finalize_event(event, timestamp)
             self
         end
@@ -1626,10 +1639,7 @@ module Roby
             each_task_relation_graph(&:clear)
             each_event_relation_graph(&:clear)
             @free_events.clear
-            @mission_tasks.clear
             @tasks.clear
-            @permanent_tasks.clear
-            @permanent_events.clear
             @task_index.clear
             @task_events.clear
         end
@@ -1895,44 +1905,12 @@ module Roby
             query
         end
 
-        # Called by TaskMatcher#result_set and Query#result_set to get the set
-        # of tasks matching +matcher+
-        def query_result_set(matcher) # :nodoc:
-            filtered = matcher.filter(tasks, task_index, initial_is_complete: true)
-
-            if matcher.indexed_query?
-                filtered
-            else
-                result = Set.new
-                filtered.each do |task|
-                    result << task if matcher === task
-                end
-                result
-            end
-        end
-
-        # Called by TaskMatcher#each and Query#each to return the result of
-        # this query on +self+
-        def query_each(result_set) # :nodoc:
-            result_set.each do |task|
-                yield(task)
-            end
-        end
-
-        def root_in_query?(result_set, task, graph)
-            graph.depth_first_visit(task) do |v|
-                return false if v != task && result_set.include?(v)
-            end
-            true
-        end
-
-        # Given the result set of +query+, returns the subset of tasks which
-        # have no parent in +query+
-        def query_roots(result_set, relation) # :nodoc:
-            graph = task_relation_graph_for(relation).reverse
-            result_set.find_all do |task|
-                root_in_query?(result_set, task, graph)
-            end
+        # @api private
+        #
+        # Internal delegation from the matchers to the plan object to determine
+        # the 'right' query algorithm
+        def query_result_set(matcher)
+            Queries::PlanQueryResult.from_plan(self, matcher)
         end
 
         # The list of fault response tables that are currently globally active
