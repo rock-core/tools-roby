@@ -49,20 +49,21 @@ class TestQueriesTaskMatcher < Minitest::Test
     TaskMatcher = Queries::TaskMatcher
 
     def check_matches_fullfill(task_model, plan, t0, t1, t2)
-        result = TaskMatcher.new.each(plan).to_set
+        result = TaskMatcher.new.each_in_plan(plan).to_set
         assert_equal([t1, t2, t0].to_set, result)
-        result = TaskMatcher.new.with_model(Roby::Task).each(plan).to_set
+        result = TaskMatcher.new.with_model(Roby::Task).each_in_plan(plan).to_set
         assert_equal([t1, t2, t0].to_set, result, plan.task_index.by_model)
 
-        result = TaskMatcher.which_fullfills(task_model).each(plan).to_set
+        result = TaskMatcher.which_fullfills(task_model).each_in_plan(plan).to_set
         assert_equal([t1, t2].to_set, result)
 
-        result = TaskMatcher.with_model(task_model).each(plan).to_set
+        result = TaskMatcher.with_model(task_model).each_in_plan(plan).to_set
         assert_equal([t1, t2].to_set, result)
-        result = TaskMatcher.with_arguments(value: 1).each(plan).to_set
+        result = TaskMatcher.with_arguments(value: 1).each_in_plan(plan).to_set
         assert_equal([t0, t1].to_set, result)
 
-        result = TaskMatcher.which_fullfills(task_model, value: 1).each(plan).to_set
+        result = TaskMatcher.which_fullfills(task_model, value: 1)
+                            .each_in_plan(plan).to_set
         assert_equal([t1].to_set, result)
     end
 
@@ -172,7 +173,7 @@ class TestQueriesTaskMatcher < Minitest::Test
     end
 
     def assert_finds_tasks(task_set, matcher)
-        found_tasks = matcher.each(plan).to_set
+        found_tasks = matcher.each_in_plan(plan).to_set
         assert_equal task_set.to_set, found_tasks
     end
 end

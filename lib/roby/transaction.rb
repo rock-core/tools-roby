@@ -1009,136 +1009,158 @@ module Roby
                 )
                 control.removing_plan_relation(self, parent, child, relations)
             end
+
+            nil
         end
 
-        # Returns [plan_set, transaction_set], where the first is the set of
-        # plan tasks matching +matcher+ and the second the set of transaction
-        # tasks matching it. The two sets are disjoint.
-        #
-        # This will be stored by the Query object as the query result. Note
-        # that, at this point, the transaction has not been modified even though
-        # it applies on the global scope. New proxies will only be created when
-        # Query#each is called.
-        def query_result_set(matcher) # :nodoc:
-            plan_set = Set.new
-            if matcher.scope == :global
-                plan_result_set = plan.query_result_set(matcher)
-                plan.query_each(plan_result_set) do |task|
-                    plan_set << task if !has_proxy_for_task?(task)
+        class TransactionQueryResult
+            def initialize(stack = [])
+                @stack = stack
+            end
+
+            def local_query_results
+                @stack
+            end
+
+            def push(query_result)
+                @stack.push(query_result)
+            end
+
+            def each_in_plan(plan, &block)
+                if plan != @stack.last.plan
+                    raise ArgumentError,
+                          'attempting to enumerate results of a query ran '\
+                          "in #{@stack.first.plan} from #{plan}"
+                end
+
+                stack = @stack.dup
+                stack.pop.each(&block)
+                plan_stack = [plan]
+
+                until stack.empty?
+                    local_results = stack.pop
+                    local_results.each do |local_obj|
+                        wrapped_obj = plan_stack.inject(local_obj) do |obj, p|
+                            p.wrap(obj)
+                        end
+                        yield(wrapped_obj)
+                    end
                 end
             end
-            
-            transaction_set = super
-            [plan_set, transaction_set]
         end
 
-        # Yields tasks in the result set of +query+. Unlike Query#result_set,
-        # all the tasks are included in the transaction
-        #
-        # +result_set+ is the value returned by #query_result_set.
-        def query_each(result_set) # :nodoc:
-            plan_set, trsc_set = result_set
-            plan_set.each { |task| yield(wrap_task(task)) }
-            trsc_set.each { |task| yield(task) }
+        def query_result_set(matcher) # :nodoc:
+            if matcher.scope == :global
+                up_results = plan.query_result_set(matcher).local_query_results
+                plan_results = up_results.pop # remove proxied tasks from the LAST plan
+
+                final_result_set = Set.new
+                plan_results.each do |task|
+                    final_result_set << task unless has_proxy_for_task?(task)
+                end
+                plan_results.result_set = final_result_set
+                up_results.push plan_results
+            else
+                up_results = []
+            end
+
+            TransactionQueryResult.new(up_results + super.local_query_results)
         end
 
         class ReachabilityVisitor < RGL::DFSVisitor
-            attr_reader :transaction
-            attr_reader :start_vertex
-
-            def initialize(graph, transaction)
+            def initialize(graph, up_plan, up_seeds, this_set, down_plan, down_seeds)
                 super(graph)
-                @transaction = transaction
+                @up_plan = up_plan
+                @up_seeds = up_seeds
+                @this_set = this_set
+                @down_plan = down_plan
+                @down_seeds = down_seeds
             end
 
             def handle_start_vertex(v)
                 @start_vertex = v
             end
-        end
-
-        class ReachabilityPlanVisitor < ReachabilityVisitor
-            attr_reader :transaction_seeds
-            attr_reader :plan_set
-
-            def initialize(graph, transaction, transaction_seeds, plan_set)
-                super(graph, transaction)
-                @transaction_seeds = transaction_seeds
-                @plan_set = plan_set
-            end
 
             def follow_edge?(u, v)
-                if transaction.find_local_object_for_task(u) && transaction.find_local_object_for_task(v)
-                    false
-                else true
-                end
+                !@down_plan || !(
+                    @down_plan.find_local_object_for_task(u) &&
+                    @down_plan.find_local_object_for_task(v)
+                )
             end
 
             def handle_examine_vertex(v)
-                if (start_vertex != v) && plan_set.include?(v)
+                if (@start_vertex != v) && @this_set.include?(v)
                     throw :reachable, true
-                elsif proxy = transaction.find_local_object_for_task(v)
-                    transaction_seeds << proxy
-                end
-            end
-        end
-
-        class ReachabilityTransactionVisitor < ReachabilityVisitor
-            attr_reader :transaction_set
-            attr_reader :plan_seeds
-
-            def initialize(graph, transaction, plan_seeds, transaction_set)
-                super(graph, transaction)
-                @plan_seeds = plan_seeds
-                @transaction_set = transaction_set
-            end
-
-            def handle_examine_vertex(v)
-                if (start_vertex != v) && transaction_set.include?(v)
-                    throw :reachable, true
+                elsif (proxy = @down_plan&.find_local_object_for_task(v))
+                    @down_seeds << proxy
                 elsif v.transaction_proxy?
-                    plan_seeds << v.__getobj__
+                    @up_seeds << v.__getobj__
                 end
             end
         end
 
         # @api private
         #
-        # Tests whether a task in plan_set or proxy_set would be reachable from
-        # 'task' if the transaction was applied
-        def reachable_on_applied_transaction?(transaction_seeds, transaction_set, transaction_graph,
-                                              plan_seeds, plan_set, plan_graph)
-            transaction_visitor = ReachabilityTransactionVisitor.new(
-                transaction_graph, self, plan_seeds, transaction_set)
-            if task = transaction_seeds.first
-                transaction_visitor.handle_start_vertex(task)
-            end
-            plan_visitor        = ReachabilityPlanVisitor.new(
-                plan_graph, self, transaction_seeds, plan_set)
-            if task = plan_seeds.first
-                plan_visitor.handle_start_vertex(task)
-            end
+        # Tests whether a set of tasks can be reached from a set of seeds 'as if'
+        # the transaction stack was applied
+        #
+        # Within 'stack', level N-1 is 'up', that is the plan of the
+        # transaction at level N, and level N+1 is 'down', that is a transaction
+        # built on top of level N.
+        #
+        # @param [Array<QueryRootsStackLevel>] stack
+        def reachable_on_applied_transactions?(stack)
+            visitors =
+                [QueryRootsStackLevel.null, *stack, QueryRootsStackLevel.null]
+                .each_cons(3).map do |up, this, down|
+                    visitor = ReachabilityVisitor.new(
+                        this.graph,
+                        up.plan, up.seeds,
+                        this.result_set,
+                        down.plan, down.seeds
+                    )
+                    if (start = this.seeds.first)
+                        visitor.handle_start_vertex(start)
+                    end
+                    [this, visitor]
+                end
 
             catch(:reachable) do
-                while !transaction_seeds.empty? || !plan_seeds.empty?
-                    transaction_seeds.each do |seed|
-                        seed = transaction_seeds.shift
-                        if !transaction_visitor.finished_vertex?(seed)
-                            transaction_graph.depth_first_visit(seed, transaction_visitor) {}
+                loop do
+                    all_empty = true
+                    visitors.each do |stack_level, visitor|
+                        seeds = stack_level.seeds
+                        until seeds.empty?
+                            all_empty = false
+                            seed = seeds.shift
+                            unless visitor.finished_vertex?(seed)
+                                stack_level.graph.depth_first_visit(
+                                    seed, visitor
+                                ) {}
+                            end
                         end
                     end
-                    transaction_seeds.clear
-
-                    plan_seeds.each do |seed|
-                        seed = plan_seeds.shift
-                        if !plan_visitor.finished_vertex?(seed)
-                            plan_graph.depth_first_visit(seed, plan_visitor) {}
-                        end
-                    end
-                    plan_seeds.clear
+                    break if all_empty
                 end
                 return false
             end
             true
+        end
+
+        QueryRootsStackLevel = Struct.new :local_results, :graph, :seeds do
+            def plan
+                local_results.plan
+            end
+
+            def result_set
+                local_results.result_set
+            end
+
+            def self.null
+                QueryRootsStackLevel.new(
+                    PlanQueryResult.new(nil, [], []), nil, []
+                )
+            end
         end
 
         # @api private
@@ -1148,25 +1170,26 @@ module Roby
         #
         # This is never called directly, but is used by the Query API
         def query_roots(result_set, relation) # :nodoc:
-            plan_set      , trsc_set      = *result_set
-            plan_children , trsc_children = Set.new     , Set.new
+            roots_results = []
 
-            trsc_graph = task_relation_graph_for(relation).reverse
-            plan_graph = plan.task_relation_graph_for(relation).reverse
-
-            plan_result = plan_set.find_all do |task|
-                !reachable_on_applied_transaction?(
-                    [], trsc_set, trsc_graph,
-                    [task], plan_set, plan_graph)
+            stack = result_set.local_query_results.map do |local_results|
+                graph = local_results.plan.task_relation_graph_for(relation).reverse
+                QueryRootsStackLevel.new(local_results, graph, [])
             end
 
-            trsc_result = trsc_set.find_all do |task|
-                !reachable_on_applied_transaction?(
-                    [task], trsc_set, trsc_graph,
-                    [], plan_set, plan_graph)
+            stack.each do |stack_level|
+                set = stack_level.local_results.result_set
+                roots = set.find_all do |task|
+                    stack_level.seeds[0] = task
+                    !reachable_on_applied_transactions?(stack)
+                end
+
+                new_results = stack_level.local_results.dup
+                new_results.result_set = roots
+                roots_results << new_results
             end
 
-            [plan_result.to_set, trsc_result.to_set]
+            TransactionQueryResult.new(roots_results)
         end
 
         def discard_modifications(object)

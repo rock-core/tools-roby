@@ -349,6 +349,19 @@ module Roby
             # TaskMatcher.which_fullfills is equivalent to
             # TaskMatcher.new.which_fullfills
             declare_class_methods :which_fullfills, :with_arguments
+
+            # The set of tasks which match in plan. This is a cached value, so use
+            # #reset to actually recompute this set.
+            def result_set(plan)
+                @result_set ||= plan.query_result_set(self)
+            end
+
+            # Enumerate the objects matching self in the plan
+            def each_in_plan(plan, &block)
+                return enum_for(__method__, plan) unless block_given?
+
+                result_set(plan).each_in_plan(plan, &block)
+            end
         end
     end
 end

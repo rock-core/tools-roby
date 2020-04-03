@@ -14,7 +14,6 @@ module Roby
 
             # Create a query object on the given plan
             def initialize(plan = nil)
-                @scope = :global
                 @plan = plan
                 super()
                 @plan_predicates = Set.new
@@ -25,44 +24,6 @@ module Roby
                 self
             end
 
-            # Search scope for queries on transactions. If equal to :local, the
-            # query will apply only on the scope of the searched transaction,
-            # otherwise it applies on a virtual plan that is the result of the
-            # transaction stack being applied.
-            #
-            # The default is :global.
-            #
-            # @see #local_scope #local_scope? #global_scope #global_scope?
-            attr_reader :scope
-
-            # Changes the scope of this query
-            #
-            # @see #scope.
-            def local_scope
-                @scope = :local
-                self
-            end
-
-            # Whether this query is limited to its plan
-            #
-            # @see #scope
-            def local_scope?
-                @scope == :local
-            end
-
-            # Changes the scope of this query
-            #
-            # @see #scope
-            def global_scope
-                @scope = :global
-                self
-            end
-
-            # Whether this query is using the global scope
-            def global_scope?
-                @scope == :global
-            end
-
             # Changes the plan this query works on. This calls #reset (obviously)
             def plan=(new_plan)
                 reset
@@ -71,7 +32,7 @@ module Roby
 
             # The set of tasks which match in plan. This is a cached value, so use
             # #reset to actually recompute this set.
-            def result_set
+            def result_set(plan)
                 @result_set ||= plan.query_result_set(self)
             end
 
@@ -79,17 +40,30 @@ module Roby
                 positive_sets, negative_sets = super
 
                 if plan_predicates.include?(:mission_task?)
-                    positive_sets << plan.mission_tasks
+                    positive_sets << index.mission_tasks
                 elsif neg_plan_predicates.include?(:mission_task?)
-                    negative_sets << plan.mission_tasks
+                    negative_sets << index.mission_tasks
                 end
 
                 if plan_predicates.include?(:permanent_task?)
-                    positive_sets << plan.permanent_tasks
+                    positive_sets << index.permanent_tasks
                 elsif neg_plan_predicates.include?(:permanent_task?)
-                    negative_sets << plan.permanent_tasks
+                    negative_sets << index.permanent_tasks
                 end
                 [positive_sets, negative_sets]
+            end
+
+            # True if +task+ matches the query. Call #result_set to have the set of
+            # tasks which match in the given plan.
+            def ===(task)
+                return unless plan_predicates.all? { |pred| plan.send(pred, task) }
+                if neg_plan_predicates.any? { |neg_pred| plan.send(neg_pred, task) }
+                    return
+                end
+
+                return unless super
+
+                true
             end
 
             # Reinitializes the cached query result.
@@ -175,21 +149,8 @@ module Roby
             # Will filter out tasks which have parents in +relation+ that are
             # included in the query result.
             def roots(relation)
-                @result_set = plan.query_roots(result_set, relation)
+                @result_set = plan.query_roots(result_set(plan), relation)
                 self
-            end
-
-            # True if +task+ matches the query. Call #result_set to have the set of
-            # tasks which match in the given plan.
-            def ===(task)
-                return unless plan_predicates.all? { |pred| plan.send(pred, task) }
-                if neg_plan_predicates.any? { |neg_pred| plan.send(neg_pred, task) }
-                    return
-                end
-
-                return unless super
-
-                true
             end
 
             # Iterates on all the tasks in the given plan which match the query
@@ -197,9 +158,7 @@ module Roby
             # This set is cached, i.e. #each will yield the same task set until
             # #reset is called.
             def each(&block)
-                return enum_for(__method__) unless block_given?
-
-                plan.query_each(result_set, &block)
+                each_in_plan(plan, &block)
             end
             include Enumerable
         end

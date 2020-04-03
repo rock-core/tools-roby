@@ -9,11 +9,15 @@ module Roby
                 false
             end
 
-            # Enumerates all tasks of +plan+ which match this TaskMatcher object
-            #
-            # It is O(N). You should prefer use Query which uses the plan's task
-            # indexes, thus leading to O(1) in simple cases.
             def each(plan)
+                Roby.warn_deprecated 'MatcherBase#each is deprecated, '\
+                                     'use #each_in_plan instead'
+
+                each_in_plan(plan)
+            end
+
+            # Enumerates all tasks of +plan+ which match this TaskMatcher object
+            def each_in_plan(plan)
                 return enum_for(__method__, plan) unless block_given?
 
                 plan.each_task do |t|

@@ -82,6 +82,16 @@ module Roby
                 (symbol === object.symbol.to_s) &&
                     plan_object_match(object) && (task_matcher === object.task)
             end
+
+            # Enumerate the objects matching self in the plan
+            def each_in_plan(plan)
+                return enum_for(__method__, plan) unless block_given?
+
+                @task_matcher.each_in_plan(plan) do |task|
+                    event = task.event(symbol)
+                    yield(event) if self === task.event(symbol)
+                end
+            end
         end
     end
 end

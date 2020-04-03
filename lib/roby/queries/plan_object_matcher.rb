@@ -65,7 +65,47 @@ module Roby
                 @owners               = []
                 @parents              = {}
                 @children             = {}
+                @scope = :global
             end
+
+            # Search scope for queries on transactions. If equal to :local, the
+            # query will apply only on the scope of the searched transaction,
+            # otherwise it applies on a virtual plan that is the result of the
+            # transaction stack being applied.
+            #
+            # The default is :global.
+            #
+            # @see #local_scope #local_scope? #global_scope #global_scope?
+            attr_reader :scope
+
+            # Changes the scope of this query
+            #
+            # @see #scope.
+            def local_scope
+                @scope = :local
+                self
+            end
+
+            # Whether this query is limited to its plan
+            #
+            # @see #scope
+            def local_scope?
+                @scope == :local
+            end
+
+            # Changes the scope of this query
+            #
+            # @see #scope
+            def global_scope
+                @scope = :global
+                self
+            end
+
+            # Whether this query is using the global scope
+            def global_scope?
+                @scope == :global
+            end
+
 
             # Match an instance explicitely
             def with_instance(instance)
@@ -120,28 +160,28 @@ module Roby
                     end
                     positive_index ||= [[], []]
                     negative_index ||= [[], []]
-                    class_eval <<-EOD, __FILE__, __LINE__+1
-                    def #{method_name}
-                        if neg_predicates.include?(:#{name})
-                            raise ArgumentError, "trying to match (#{name} & !#{name})"
+                    class_eval <<~PREDICATE_METHOD, __FILE__, __LINE__ + 1
+                        def #{method_name}
+                            if neg_predicates.include?(:#{name})
+                                raise ArgumentError, "trying to match (#{name} & !#{name})"
+                            end
+                            #{'@indexed_query = false' unless indexed_predicate}
+                            predicates << :#{name}
+                            #{['indexed_predicates', *positive_index[0]].join(' << :') unless positive_index[0].empty?}
+                            #{["indexed_neg_predicates", *positive_index[1]].join(' << :') unless positive_index[1].empty?}
+                            self
                         end
-                        #{"@indexed_query = false" if !indexed_predicate}
-                        predicates << :#{name}
-                        #{if !positive_index[0].empty? then ["indexed_predicates", *positive_index[0]].join(" << :") end}
-                        #{if !positive_index[1].empty? then ["indexed_neg_predicates", *positive_index[1]].join(" << :") end}
-                        self
-                    end
-                    def not_#{method_name}
-                        if predicates.include?(:#{name})
-                            raise ArgumentError, "trying to match (#{name} & !#{name})"
+                        def not_#{method_name}
+                            if predicates.include?(:#{name})
+                                raise ArgumentError, "trying to match (#{name} & !#{name})"
+                            end
+                            #{'@indexed_query = false' unless indexed_predicate}
+                            neg_predicates << :#{name}
+                            #{["indexed_predicates", *negative_index[0]].join(' << :') unless negative_index[0].empty?}
+                            #{["indexed_neg_predicates", *negative_index[1]].join(' << :') unless negative_index[1].empty?}
+                            self
                         end
-                        #{"@indexed_query = false" if !indexed_predicate}
-                        neg_predicates << :#{name}
-                        #{if !negative_index[0].empty? then ["indexed_predicates", *negative_index[0]].join(" << :") end}
-                        #{if !negative_index[1].empty? then ["indexed_neg_predicates", *negative_index[1]].join(" << :") end}
-                        self
-                    end
-                    EOD
+                    PREDICATE_METHOD
                     declare_class_methods(method_name, "not_#{method_name}")
                 end
             end
@@ -240,6 +280,10 @@ module Roby
                 end
             end
 
+            def reset
+                @result_set = nil
+            end
+
             # Returns true if filtering with this TaskMatcher using #=== is
             # equivalent to calling #filter() using a Index. This is used to
             # avoid an explicit O(N) filtering step after filter() has been called
@@ -304,7 +348,7 @@ module Roby
                 end
 
                 return unless predicates.all? { |pred| object.send(pred) }
-                return if predicates.any? { |pred| object.send(pred) }
+                return if neg_predicates.any? { |pred| object.send(pred) }
 
                 if !owners.empty? && !object.owners.all? { |o| owners.include?(o) }
                     return false
