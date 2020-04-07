@@ -355,8 +355,7 @@ module Roby
                         info   = task0[task1, TaskStructure::Dependency]
                         r_info = r_task0[r_task1, TaskStructure::Dependency]
                         assert_equal [[r_task1.model], Hash.new], r_info.delete(:model)
-                        info.delete(:model)
-                        assert_equal r_info, info
+                        assert_equal r_info, info.slice(*(info.keys - [:model]))
                     end
 
                     it "marshals relations between events" do
