@@ -162,21 +162,6 @@ class TC_Dependency < Minitest::Test
         assert_equal [task_m, Roby::Task], task.singleton_class.fullfilled_model
     end
 
-    def test_fullfilled_model_validation
-        tag = TaskService.new_submodel
-        klass = Roby::Task.new_submodel
-
-        p1, p2, child = prepare_plan add: 3, model: Tasks::Simple
-        p1.depends_on child, model: [Tasks::Simple, { id: "discover-3" }]
-        p2.depends_on child, model: [Tasks::Simple, { id: 'discover-3' }]
-
-        # Mess with the relation definition
-        p1[child, Dependency][:model].last[:id] = 'discover-10'
-        assert_raises(ModelViolation) { child.fullfilled_model }
-        p1[child, Dependency][:model] = [klass, {}]
-        assert_raises(ModelViolation) { child.fullfilled_model }
-    end
-
     def test_fullfilled_model_determination_from_dependency_relation
         tag = TaskService.new_submodel
         klass = Tasks::Simple.new_submodel do
