@@ -302,7 +302,7 @@ module Roby
                     e = assert_raises(CucumberHelpers::InvalidUnit) do
                         CucumberHelpers.validate_unit(:x, 20, 'foo', :length)
                     end
-                    assert_equal "expected a length in place of x=20foo", e.message
+                    assert_equal 'expected a length in place of x=20foo', e.message
                 end
 
                 it "passes if an angle is specified in 'deg'" do
@@ -312,7 +312,7 @@ module Roby
                     e = assert_raises(CucumberHelpers::InvalidUnit) do
                         CucumberHelpers.validate_unit(:x, 20, 'm', :angle)
                     end
-                    assert_equal "expected an angle in place of x=20m", e.message
+                    assert_equal 'expected a angle in place of x=20m', e.message
                 end
 
                 it "passes if a time is specified in 'h'" do
@@ -324,34 +324,35 @@ module Roby
                 it "passes if a time is specified in 's'" do
                     CucumberHelpers.validate_unit(:x, 20, 's', :time)
                 end
-                it "raises if an angle is not specified in h, min or s" do
+                it 'raises if an angle is not specified in h, min or s' do
                     e = assert_raises(CucumberHelpers::InvalidUnit) do
                         CucumberHelpers.validate_unit(:x, 20, 'm', :time)
                     end
-                    assert_equal "expected a time in place of x=20m", e.message
+                    assert_equal 'expected a time in place of x=20m', e.message
                 end
 
                 it 'raises ArgumentError if the quantity is unknown' do
                     e = assert_raises(ArgumentError) do
                         CucumberHelpers.validate_unit(:x, 20, 'm', :unknown)
                     end
-                    assert_equal "unknown quantity definition 'unknown', expected one of :length, :angle or :time",
-                        e.message
+                    assert_equal 'unknown quantity definition \'unknown\', '\
+                                 'expected one of :length, :angle, :time',
+                                 e.message
                 end
             end
 
-            describe ".parse_numerical_value" do
-                it "returns a pure numerical value as-is" do
-                    assert_equal 10, CucumberHelpers.parse_numerical_value("10")
+            describe '.parse_numerical_value' do
+                it 'returns a pure numerical value as-is' do
+                    assert_equal 10, CucumberHelpers.parse_numerical_value('10')
                 end
-                it "applies a unit if present" do
+                it 'applies a unit if present' do
                     flexmock(CucumberHelpers).should_receive(:apply_unit).with(1, 'deg').
                         and_return(ret = flexmock)
                     assert_equal [ret, 'deg'], CucumberHelpers.parse_numerical_value('1deg')
                 end
-                it "raises ArgumentError if the string is not a numerical value, with or without a unit" do
+                it 'raises ArgumentError if the string is not a numerical value, with or without a unit' do
                     assert_raises(ArgumentError) do
-                        CucumberHelpers.parse_numerical_value("bla")
+                        CucumberHelpers.parse_numerical_value('bla')
                     end
                 end
             end

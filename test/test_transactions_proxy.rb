@@ -44,7 +44,7 @@ class TC_TransactionsProxy < Minitest::Test
         wrapped_stop = p.event(:stop)
         assert_equal(transaction[t.event(:stop)], wrapped_stop)
     end
-    
+
     def test_event_proxy
         plan.add(ev = EventGenerator.new)
         wrapped = transaction[ev]
@@ -131,12 +131,18 @@ class TC_TransactionsProxy < Minitest::Test
         end
         refute proxy.executable?
         refute proxy.event(:start).executable?
-        assert_raises(TaskEventNotExecutable) { proxy.start_event.emit }
-        assert_raises(TaskEventNotExecutable) { proxy.start!(nil) }
+        assert_raises(TaskEventNotExecutable) do
+            execute { proxy.start_event.emit }
+        end
+        assert_raises(TaskEventNotExecutable) do
+            execute { proxy.start!(nil) }
+        end
 
         # Check that events that are only in the subclass of Task
         # are forbidden
-        assert_raises(TaskEventNotExecutable) { proxy.intermediate!(nil) }
+        assert_raises(TaskEventNotExecutable) do
+            execute { proxy.intermediate!(nil) }
+        end
     end
 
     def test_proxy_fullfills

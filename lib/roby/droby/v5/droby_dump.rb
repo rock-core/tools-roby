@@ -612,7 +612,7 @@ module Roby
                                    task_relation_graphs, event_relation_graphs)
                         @plan_class            = plan_class
                         @droby_id              = droby_id
-                        @tasks           = tasks
+                        @tasks                 = tasks
                         @task_events           = task_events
                         @free_events           = free_events
                         @mission_tasks         = mission_tasks

@@ -1,3 +1,7 @@
+# frozen_string_literal: true
+
+# rubocop:disable Style/ClassAndModuleChildren
+
 module Roby
     # This namespace contains predicates that allow to specify logic ordering
     # constraints between events. The predicate objects can then be evaluated
@@ -57,7 +61,7 @@ module Roby
 
             # @deprecated use {#emitted?} instead
             def happened?
-                Roby.warn_deprecated "#happened? is deprecated, use #emitted? instead"
+                Roby.warn_deprecated '#happened? is deprecated, use #emitted? instead'
                 emitted?
             end
 
@@ -91,8 +95,8 @@ module Roby
             # it will be true if the task on which it is applied has both
             # emitted :blocked and :updated at least once.
             def and(other)
-                to_unbound_task_predicate.
-                    and(other.to_unbound_task_predicate)
+                to_unbound_task_predicate
+                    .and(other.to_unbound_task_predicate)
             end
 
             # Returns an UnboundTaskPredicate that will be true if the generator
@@ -106,8 +110,8 @@ module Roby
             # it will be true if the task on which it is applied has either
             # emitted :blocked, or emitted :updated, or both.
             def or(other)
-                to_unbound_task_predicate.
-                    or(other.to_unbound_task_predicate)
+                to_unbound_task_predicate
+                    .or(other.to_unbound_task_predicate)
             end
 
             # Returns an UnboundTaskPredicate that will be true if the generator
@@ -122,8 +126,8 @@ module Roby
             # Unlike +and+, +or+ and +negate+, this only works on single events
             # (i.e. it cannot be applied on other predicates)
             def followed_by(other)
-                to_unbound_task_predicate.
-                    followed_by(other.to_unbound_task_predicate)
+                to_unbound_task_predicate
+                    .followed_by(other.to_unbound_task_predicate)
             end
 
             # Returns an UnboundTaskPredicate that will be true if the generator
@@ -138,8 +142,8 @@ module Roby
             # Unlike +and+, +or+ and +negate+, this only works on single events
             # (i.e. it cannot be applied on other predicates)
             def not_followed_by(other)
-                to_unbound_task_predicate.
-                    not_followed_by(other.to_unbound_task_predicate)
+                to_unbound_task_predicate
+                    .not_followed_by(other.to_unbound_task_predicate)
             end
 
             # Returns an UnboundTaskPredicate that will be true if the generator
@@ -208,21 +212,20 @@ module Roby
             # Note that it is valid only if evaluate(task) actually returned
             # true (it will silently return an invalid explanation if
             # evaluate(task) returns false).
-            def explain_true(task); nil end
+            def explain_true(task); end
 
             # Returns an Explanation object that explains why +self+ is false.
             # Note that it is valid only if evaluate(task) actually returned
             # false (it will silently return an invalid explanation if
             # evaluate(task) returns true).
-            def explain_false(task); nil end
+            def explain_false(task); end
 
             # Returns an Explanation object that explains why +self+ will not
             # change its value anymore.
             #
             # Note that it is valid only if static?(task) actually returned
             # true (it will silently return an invalid explanation otherwise)
-            def explain_static(task)
-            end
+            def explain_static(task); end
 
             def pretty_print(pp)
                 pp.text to_s
@@ -233,8 +236,9 @@ module Roby
             # Objects of this class hold the compiled predicate used for
             # evaluation
             class CompiledPredicate
-                def marshal_dump; nil end
-                def marshal_load(obj); nil end
+                def marshal_dump; end
+
+                def marshal_load(_obj); end
             end
 
             # Predicates are first represented as an AST using the subclasses of
@@ -244,18 +248,18 @@ module Roby
             # This is the main call that performs this compilation
             def compile
                 prelude = required_events.map do |event_name|
-                    "    task_event_#{event_name} = task.event(:#{event_name})\n" +
+                    "    task_event_#{event_name} = task.event(:#{event_name})\n" \
                     "    task_#{event_name} = task_event_#{event_name}.last"
                 end.join("\n")
 
-                compiled_predicate = CompiledPredicate.new
-                eval <<-END, binding, __FILE__, __LINE__+1
-def compiled_predicate.evaluate(task)
-#{prelude}
-    #{code}
-end
-                END
-                @compiled_predicate = compiled_predicate
+                @compiled_predicate
+                    .singleton_class
+                    .class_eval <<-CODE, __FILE__, __LINE__ + 1
+                        def evaluate(task)
+                        #{prelude}
+                            #{code}
+                        end
+                    CODE
             end
 
             # Evaluates this predicate on +task+. It returns either true or
@@ -294,7 +298,9 @@ end
             end
 
             def initialize(value, predicate, elements)
-                @value, @predicate, @elements = value, predicate, elements
+                @value = value
+                @predicate = predicate
+                @elements = elements
             end
 
             def report_exceptions_on(e)
@@ -309,9 +315,7 @@ end
                             e.report_exceptions_from(ev)
                         end
                     when EventGenerator
-                        if value == nil
-                            e.report_exceptions_from(el.unreachability_reason)
-                        end
+                        e.report_exceptions_from(el.unreachability_reason) if value.nil?
                     end
                 end
             end
@@ -319,14 +323,14 @@ end
             def pretty_print(pp, context_task: nil)
                 if value == false
                     predicate.pretty_print(pp)
-                    pp.text " is false"
+                    pp.text ' is false'
                 elsif value == true
                     predicate.pretty_print(pp)
-                    pp.text " is true"
-                elsif value == nil
-                    pp.text "the value of "
+                    pp.text ' is true'
+                elsif value.nil?
+                    pp.text 'the value of '
                     predicate.pretty_print(pp)
-                    pp.text " will not change anymore"
+                    pp.text ' will not change anymore'
                 end
 
                 pp.nest(2) do
@@ -334,40 +338,44 @@ end
                         pp.breakable
                         case explanation
                         when Event
-                            pp.text "the following event has been emitted:"
+                            pp.text 'the following event has been emitted:'
                         when EventGenerator
-                            if value == nil
-                                pp.text "the following event is unreachable:"
+                            if value.nil?
+                                pp.text 'the following event is unreachable:'
                             elsif value == true
-                                pp.text "the following event is reachable, but has not been emitted:"
+                                pp.text 'the following event is reachable, '\
+                                        'but has not been emitted:'
                             else
-                                pp.text "the following event has been emitted:"
+                                pp.text 'the following event has been emitted:'
                             end
                         end
 
                         pp.breakable
                         explanation.pretty_print(
-                            pp, context_task: context_task)
+                            pp, context_task: context_task
+                        )
                         case explanation
                         when Event
                             sources = explanation.all_sources
-                            if !sources.empty?
+                            unless sources.empty?
                                 pp.breakable
                                 pp.breakable
-                                pp.text "The emission was caused by the following events"
+                                pp.text 'The emission was caused by the following events'
                                 sources.each do |ev|
                                     pp.breakable
-                                    pp.text "< "
-                                    ev.pretty_print(pp,
-                                        context: false, context_task: context_task)
+                                    pp.text '< '
+                                    ev.pretty_print(
+                                        pp,
+                                        context: false, context_task: context_task
+                                    )
                                 end
                             end
 
                         when EventGenerator
-                            if value == nil && explanation.unreachability_reason
+                            if value.nil? && explanation.unreachability_reason
                                 pp.breakable
                                 pp.breakable
-                                pp.text "The unreachability was caused by"
+                                pp.text 'The unreachability was caused by'
                                 pp.nest(2) do
                                     pp.breakable
                                     explanation.unreachability_reason.pretty_print(pp)
@@ -383,22 +391,49 @@ end
 
         # Representation of a predicate that is always false
         class UnboundTaskPredicate::False < UnboundTaskPredicate
-            def required_events; Set.new end
-            def explain_true(task); Hash.new end
-            def explain_false(task); Hash.new end
-            def explain_static(task); Hash.new end
-            def evaluate(task); false end
-            def static?(task); true end
-            def to_s; "false" end
-
-            def ==(pred); pred.kind_of?(False) end
-
-            def code
-                "false"
+            def required_events
+                Set.new
             end
 
-            def or(pred); pred end
-            def and(pred); self end
+            def explain_true(_task)
+                {}
+            end
+
+            def explain_false(_task)
+                {}
+            end
+
+            def explain_static(_task)
+                {}
+            end
+
+            def evaluate(_task)
+                false
+            end
+
+            def static?(_task)
+                true
+            end
+
+            def to_s
+                'false'
+            end
+
+            def ==(other)
+                other.kind_of?(False)
+            end
+
+            def code
+                'false'
+            end
+
+            def or(pred)
+                pred
+            end
+
+            def and(_pred)
+                self
+            end
         end
 
         # Representation of predicates UnboundPredicateSupport#negate and
@@ -411,18 +446,37 @@ end
                 @predicate = pred
             end
 
-            def ==(pred); pred.kind_of?(Negate) && pred.predicate == predicate end
+            def ==(other)
+                other.kind_of?(Negate) && other.predicate == predicate
+            end
 
-            def explain_true(task);  predicate.explain_false(task) end
-            def explain_false(task); predicate.explain_true(task)  end
-            def explain_static(task); predicate.explain_static(task) end
+            def explain_true(task)
+                predicate.explain_false(task)
+            end
 
-            def required_events; predicate.required_events end
+            def explain_false(task)
+                predicate.explain_true(task)
+            end
+
+            def explain_static(task)
+                predicate.explain_static(task)
+            end
+
+            def required_events
+                predicate.required_events
+            end
+
             def code
                 "!(#{predicate.code})"
             end
-            def static?(task); predicate.static?(task) end
-            def to_s; "!#{predicate}" end
+
+            def static?(task)
+                predicate.static?(task)
+            end
+
+            def to_s
+                "!#{predicate}"
+            end
         end
 
         # Representation of UnboundPredicateSupport#never
@@ -431,21 +485,27 @@ end
         class UnboundTaskPredicate::Never < UnboundTaskPredicate
             attr_reader :predicate
             def initialize(pred)
-                if !pred.kind_of?(UnboundTaskPredicate::SingleEvent)
-                    raise ArgumentError, "can only create a Never predicate on top of a SingleEvent"
+                unless pred.kind_of?(UnboundTaskPredicate::SingleEvent)
+                    raise ArgumentError,
+                          'can only create a Never predicate on top of a SingleEvent'
                 end
 
                 @predicate = pred
             end
 
-            def ==(pred); pred.kind_of?(Never) && pred.predicate == predicate end
+            def ==(other)
+                other.kind_of?(Never) && other.predicate == predicate
+            end
 
             def explain_true(task)
-                return if !evaluate(task)
+                return unless evaluate(task)
+
                 predicate.explain_static(task)
             end
+
             def explain_false(task)
                 return if evaluate(task)
+
                 if predicate.evaluate(task)
                     predicate.explain_true(task)
                 elsif !predicate.static?(task)
@@ -454,6 +514,7 @@ end
                     explanation
                 end
             end
+
             def explain_static(task)
                 if predicate.evaluate(task)
                     predicate.explain_true(task)
@@ -462,14 +523,22 @@ end
                 end
             end
 
-            def required_events; predicate.required_events end
-            def code
-                "(!task_#{predicate.event_name} && task_event_#{predicate.event_name}.unreachable?)"
+            def required_events
+                predicate.required_events
             end
+
+            def code
+                "(!task_#{predicate.event_name} && "\
+                "task_event_#{predicate.event_name}.unreachable?)"
+            end
+
             def static?(task)
                 evaluate(task) || predicate.static?(task)
             end
-            def to_s; "never(#{predicate})" end
+
+            def to_s
+                "never(#{predicate})"
+            end
         end
 
         # Representation of a binary combination of predicates that is
@@ -481,16 +550,26 @@ end
                 @predicates = [left, right]
             end
 
-            def required_events; predicates[0].required_events | predicates[1].required_events end
+            def required_events
+                predicates[0].required_events | predicates[1].required_events
+            end
 
-            def ==(pred)
-                pred.kind_of?(self.class) &&
-                    ((predicates[0] == pred.predicates[0] && predicates[1] == pred.predicates[1]) ||
-                    (predicates[0] == pred.predicates[1] && predicates[1] == pred.predicates[0]))
+            def ==(other)
+                other.kind_of?(self.class) &&
+                    (
+                        (
+                            predicates[0] == other.predicates[0] &&
+                            predicates[1] == other.predicates[1]
+                        ) ||
+                        (
+                            predicates[0] == other.predicates[1] &&
+                            predicates[1] == other.predicates[0]
+                        )
+                    )
             end
 
             def explain_true(task)
-                return if !evaluate(task)
+                return unless evaluate(task)
 
                 reason0 = predicates[0].explain_true(task)
                 reason1 = predicates[1].explain_true(task)
@@ -500,19 +579,22 @@ end
                     reason0 || reason1
                 end
             end
+
             def explain_false(task)
                 return if evaluate(task)
 
                 reason0 = predicates[0].explain_false(task)
                 reason1 = predicates[1].explain_false(task)
+
                 if reason0 && reason1
                     Explanation.new(false, self, [reason0, reason1])
                 else
                     reason0 || reason1
                 end
             end
+
             def explain_static(task)
-                return if !static?(task)
+                return unless static?(task)
 
                 reason0 = predicates[0].explain_static(task)
                 reason1 = predicates[1].explain_static(task)
@@ -587,7 +669,9 @@ end
                 end
             end
 
-            def to_s; "(#{predicates[0]}) && (#{predicates[1]})" end
+            def to_s
+                "(#{predicates[0]}) && (#{predicates[1]})"
+            end
         end
 
         # Representation of UnboundPredicateSupport#or and
@@ -636,20 +720,25 @@ end
                     predicates[1].explain_static(task)
                 end
             end
-            def to_s; "(#{predicates[0]}) || (#{predicates[1]})" end
+
+            def to_s
+                "(#{predicates[0]}) || (#{predicates[1]})"
+            end
         end
 
         # Representation of UnboundPredicateSupport#followed_by
         #
         # See documentation from UnboundTaskPredicate
-        class UnboundTaskPredicate::FollowedBy < UnboundTaskPredicate::BinaryCommutativePredicate
+        class UnboundTaskPredicate::FollowedBy <
+                UnboundTaskPredicate::BinaryCommutativePredicate
             def explain_true(task)
-                return if !evaluate(task)
+                return unless evaluate(task)
 
                 this_event  = task.event(predicates[0].event_name).last
                 other_event = task.event(predicates[1].event_name).last
                 Explanation.new(true, self, [this_event, other_event])
             end
+
             def explain_false(task)
                 return if evaluate(task)
 
@@ -661,11 +750,12 @@ end
                     Explanation.new(false, self, [other_generator])
                 end
             end
+
             def explain_static(task)
-                return if !static?(task)
+                return unless static?(task)
 
                 if predicates[0].static?(task)
-                    this_generator  = task.event(predicates[0].event_name)
+                    this_generator = task.event(predicates[0].event_name)
                     if !predicates[0].evaluate(task) || evaluate(task)
                         Explanation.new(nil, self, [this_generator])
                     else # first event emitted, second event cannot be emitted (static)
@@ -677,14 +767,15 @@ end
                     Explanation.new(nil, self, [other_generator])
                 end
             end
+
             def static?(task)
                 event0 = task.event(predicates[0].event_name)
                 event1 = task.event(predicates[1].event_name)
 
                 if event0.unreachable?
-                    (!predicates[0].evaluate(task) || # will stay false as pred[0] can't emit
-                     evaluate(task) || # will stay true as pred[0] can't emit
-                     predicates[1].static?(task))
+                    (!predicates[0].evaluate(task) || # stays false as pred[0] can't emit
+                     evaluate(task) || # stays true as pred[0] can't emit
+                     predicates[1].static?(task)) # pred1 can't change value
                 elsif event1.unreachable?
                     !evaluate(task)
                 end
@@ -693,27 +784,33 @@ end
             def code
                 this_event  = predicates[0].event_name
                 other_event = predicates[1].event_name
-                "(task_#{this_event} && task_#{other_event} && task_#{other_event}.time > task_#{this_event}.time)"
+                "(task_#{this_event} && task_#{other_event} && "\
+                "(task_#{other_event}.time > task_#{this_event}.time))"
             end
-            def to_s; "#{predicates[0].event_name}.followed_by(#{predicates[1].event_name})" end
+
+            def to_s
+                "#{predicates[0].event_name}.followed_by(#{predicates[1].event_name})"
+            end
         end
 
         # Representation of UnboundPredicateSupport#not_followed_by
         #
         # See documentation from UnboundTaskPredicate
-        class UnboundTaskPredicate::NotFollowedBy < UnboundTaskPredicate::BinaryCommutativePredicate
+        class UnboundTaskPredicate::NotFollowedBy <
+                UnboundTaskPredicate::BinaryCommutativePredicate
             def explain_true(task)
-                return if !evaluate(task)
+                return unless evaluate(task)
 
-                this_event  = task.event(predicates[0].event_name).last
+                this_event = task.event(predicates[0].event_name).last
                 other_generator = task.event(predicates[1].event_name)
                 other_generator = other_generator.last || other_generator
                 Explanation.new(true, self, [this_event, other_generator])
             end
+
             def explain_false(task)
                 return if evaluate(task)
 
-                this_generator  = task.event(predicates[0].event_name)
+                this_generator = task.event(predicates[0].event_name)
                 if !this_generator.last
                     Explanation.new(false, self, [this_generator])
                 else
@@ -721,11 +818,12 @@ end
                     Explanation.new(false, self, [other_generator.last])
                 end
             end
+
             def explain_static(task)
-                return if !static?(task)
+                return unless static?(task)
 
                 if predicates[0].static?(task)
-                    this_generator  = task.event(predicates[0].event_name)
+                    this_generator = task.event(predicates[0].event_name)
                     if !predicates[0].evaluate(task) || !evaluate(task)
                         Explanation.new(nil, self, [this_generator])
                     else
@@ -737,26 +835,46 @@ end
                     Explanation.new(nil, self, [other_generator])
                 end
             end
+
             def static?(task)
                 event0 = task.event(predicates[0].event_name)
                 event1 = task.event(predicates[1].event_name)
 
                 if event0.unreachable?
-                    (!predicates[0].evaluate(task) || # stay false as first event can't emit
-                     !evaluate(task) || # stay false as first event can't emit
-                     predicates[1].static?(task))
+                    # event0 is unreachable, predicate0 is static
+
+                    # Stays true if predicates0 is false as event0 can't change
+                    # that anymore
+                    return true unless predicates[0].evaluate(task)
+
+                    # Stays false if it is false, since event0 can't be emitted
+                    return true unless evaluate(task)
+
+                    # Stays whatever it is if predicate1 is static as well
+                    return true if predicates[1].static?(task)
                 elsif event1.unreachable?
-                    evaluate(task) # stays true as the second event cannot
-                                   # appear after the first anymore
+                    # Stay true if it is true as event1 can't emit
+                    #
+                    # However, if its current value is false, (event0 is
+                    # followed by event1), it may change as event0 can still be
+                    # emitted
+                    evaluate(task)
                 end
             end
 
             def code
                 this_event  = predicates[0].event_name
                 other_event = predicates[1].event_name
-                "(task_#{this_event} && (!task_#{other_event} || task_#{other_event}.time < task_#{this_event}.time))"
+                "(task_#{this_event} && ("\
+                    "!task_#{other_event} || task_#{other_event}.time <"\
+                    "task_#{this_event}.time"\
+                '))'
             end
-            def to_s; "#{predicates[0].event_name}.not_followed_by(#{predicates[1].event_name})" end
+
+            def to_s
+                "#{predicates[0].event_name}"\
+                    ".not_followed_by(#{predicates[1].event_name})"
+            end
         end
 
         # Subclass of UnboundTaskPredicate to handle single event generators
@@ -776,12 +894,16 @@ end
                 super()
             end
 
-            def ==(pred); pred.kind_of?(SingleEvent) && pred.event_name == event_name end
+            def ==(other)
+                other.kind_of?(SingleEvent) && other.event_name == event_name
+            end
 
             # Code generation to create the overall evaluated predicate
             def code
                 if @deadline
-                    return "task_#{event_name} && (task_#{event_name}.time.to_f > #{@deadline.to_f})"
+                    "task_#{event_name} && ("\
+                        "task_#{event_name}.time.to_f > #{@deadline.to_f}"\
+                    ')'
                 else
                     "!!task_#{event_name}"
                 end
@@ -792,16 +914,16 @@ end
             # true (it will silently return an invalid explanation if
             # evaluate(task) returns false).
             def explain_true(task)
-                if event = task.event(event_name).last
-                    Explanation.new(true, self, [event])
-                end
+                return unless (event = task.event(event_name).last)
+
+                Explanation.new(true, self, [event])
             end
+
             def explain_false(task)
                 generator = task.event(event_name)
-                if !generator.emitted?
-                    Explanation.new(false, self, [generator])
-                end
+                Explanation.new(false, self, [generator]) unless generator.emitted?
             end
+
             def explain_static(task)
                 event = task.event(event_name)
                 if event.last
@@ -810,6 +932,7 @@ end
                     Explanation.new(nil, self, [event])
                 end
             end
+
             def static?(task)
                 event = task.event(event_name)
                 evaluate(task) || event.unreachable?
@@ -832,7 +955,11 @@ end
                 FollowedBy.new(self, event.to_unbound_task_predicate)
             end
 
-            def to_s; "#{event_name}?" end
+            def to_s
+                "#{event_name}?"
+            end
         end
     end
 end
+
+# rubocop:enable Style/ClassAndModuleChildren

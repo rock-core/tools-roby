@@ -41,8 +41,9 @@ module Roby
                     [mapping[task], role]
                 end
 
-                @captures = captures.map_value do |capture, (state, event)|
-                    [mapping[state], mapping[event.task].find_event(event.symbol)]
+                @captures = captures.transform_values do |(state, event)|
+                    [mapping[state], mapping[event.task]
+                        .find_event(event.symbol)]
                 end
             end
 

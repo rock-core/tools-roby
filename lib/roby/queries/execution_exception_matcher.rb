@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Queries
         # Object that allows to specify generalized matches on a Roby::ExecutionException
@@ -12,7 +14,7 @@ module Roby
 
             def initialize
                 @exception_matcher = LocalizedErrorMatcher.new
-                @involved_tasks_matchers = Array.new
+                @involved_tasks_matchers = []
                 @expected_edges = nil
                 @handled = nil
             end
@@ -89,54 +91,54 @@ module Roby
             # the given task matcher
             #
             # @param [TaskMatcher] task_matcher
-            def involving(task_matcher)
+            def involving(_task_matcher)
                 involved_tasks_matchers << origin_matcher
                 self
             end
 
             def to_s
-                PP.pp(self, "")
+                PP.pp(self, ''.dup)
             end
 
             def pretty_print(pp)
-                pp.text "ExecutionException("
+                pp.text 'ExecutionException('
                 exception_matcher.pretty_print(pp)
-                pp.text ")"
-                if !involved_tasks_matchers.empty?
-                    pp.text ".involving("
+                pp.text ')'
+                unless involved_tasks_matchers.empty?
+                    pp.text '.involving('
                     pp.nest(2) do
                         involved_tasks_matchers.each do |m|
                             pp.breakable
                             m.pretty_print(pp)
                         end
                     end
-                    pp.text ")"
+                    pp.text ')'
                 end
                 if @expected_edges
-                    pp.text ".with_trace("
+                    pp.text '.with_trace('
                     pp.nest(2) do
                         @expected_edges.each do |a, b, _|
                             pp.breakable
                             pp.text "#{a} => #{b}"
                         end
                     end
-                    pp.text ")"
+                    pp.text ')'
                 end
-                if !@handled.nil?
+                unless @handled.nil?
                     if @handled
-                        pp.text ".handled"
+                        pp.text '.handled'
                     else
-                        pp.text ".not_handled"
+                        pp.text '.not_handled'
                     end
                 end
+                nil
             end
 
             # @return [Boolean] true if the given execution exception object
             #   matches self, false otherwise
             def ===(exception)
-                if !exception.respond_to?(:to_execution_exception)
-                    return false
-                end
+                return false unless exception.respond_to?(:to_execution_exception)
+
                 exception = exception.to_execution_exception
                 exception_matcher === exception.exception &&
                     involved_tasks_matchers.all? { |m| exception.trace.any? { |t| m === t } } &&
@@ -145,11 +147,21 @@ module Roby
             end
 
             def describe_failed_match(exception)
-                if !(exception_matcher === exception.exception)
+                unless exception_matcher === exception.exception
                     return exception_matcher.describe_failed_match(exception.exception)
-                elsif missing_involved_task = involved_tasks_matchers.find { |m| exception.trace.none? { |t| m === t } }
-                    return "#{missing_involved_task} cannot be found in the exception trace\n  #{exception.trace.map(&:to_s).join("\n  ")}"
                 end
+
+                missing_involved_task = involved_tasks_matchers.find do |m|
+                    exception.trace.none? { |t| m === t }
+                end
+
+                if missing_involved_task
+                    return "#{missing_involved_task} cannot be found in "\
+                           "the exception trace\n"\
+                           "  #{exception.trace.map(&:to_s).join("\n  ")}"
+                end
+
+                nil
             end
 
             def matches_task?(task)

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rgl/mutable'
 require 'set'
 
@@ -57,8 +59,8 @@ module Roby
             #
             def initialize_copy(orig)
                 super
-                @forward_edges_with_info, forward_edges_with_info =
-                    IdentityHash.new, @forward_edges_with_info
+                forward_edges_with_info = @forward_edges_with_info
+                @forward_edges_with_info = IdentityHash.new
                 forward_edges_with_info.each do |u, out_edges|
                     mapped_out_edges = IdentityHash.new
                     out_edges.each do |v, info|
@@ -68,8 +70,8 @@ module Roby
                     @forward_edges_with_info[u] = mapped_out_edges
                 end
 
-                @backward_edges, backward_edges =
-                    IdentityHash.new, @backward_edges
+                backward_edges = @backward_edges
+                @backward_edges = IdentityHash.new
                 backward_edges.each do |v, in_edges|
                     @backward_edges[v] = in_edges.dup
                 end
@@ -78,12 +80,13 @@ module Roby
             # Make sure that self and source share identical hashes when
             # possible
             def dedupe(source)
-                all_identical = (@forward_edges_with_info.size == source.forward_edges_with_info.size)
+                all_identical = (@forward_edges_with_info.size ==
+                                 source.forward_edges_with_info.size)
                 @forward_edges_with_info.keys.each do |v|
                     self_out_edges   = @forward_edges_with_info[v]
                     source_out_edges = source.forward_edges_with_info[v]
                     if self_out_edges.empty?
-                        all_indentical &&= source_out_edges.empty?
+                        all_identical &&= source_out_edges.empty?
                         @forward_edges_with_info[v] = @@identity_hash_singleton
                     elsif self_out_edges == source_out_edges
                         @forward_edges_with_info[v] = source_out_edges.freeze
@@ -116,7 +119,8 @@ module Roby
             end
 
             def each_edge
-                return enum_for(__method__) if !block_given?
+                return enum_for(__method__) unless block_given?
+
                 @forward_edges_with_info.each do |u, out_edges|
                     out_edges.each do |v, info|
                         yield(u, v, info)
@@ -146,11 +150,11 @@ module Roby
 
             def move_edges(source, target)
                 source_out = @forward_edges_with_info[source]
-                return if !source_out
-                source_in = @backward_edges[source]
+                return unless source_out
 
+                source_in = @backward_edges[source]
                 target_out = (@forward_edges_with_info[target] ||= IdentityHash.new)
-                target_in  = (@backward_edges[target] ||= IdentityHash.new)
+                target_in = (@backward_edges[target] ||= IdentityHash.new)
 
                 source_out.each_key do |child|
                     child_in = @backward_edges[child]
@@ -168,28 +172,28 @@ module Roby
             end
 
             def each_out_neighbour(v, &b)
-                if v_out = @forward_edges_with_info[v]
+                if (v_out = @forward_edges_with_info[v])
                     v_out.each_key(&b)
                 elsif !block_given?
                     enum_for(__method__, v)
                 end
             end
-            alias :each_adjacent :each_out_neighbour
+            alias each_adjacent each_out_neighbour
 
             def out_neighbours(v)
                 each_out_neighbour(v).to_a
             end
-            alias :adjacent_vertices :out_neighbours
+            alias adjacent_vertices out_neighbours
 
             def out_degree(v)
-                if v_out = @forward_edges_with_info[v]
+                if (v_out = @forward_edges_with_info[v])
                     v_out.size
                 else 0
                 end
             end
 
             def each_in_neighbour(v, &b)
-                if v_in = @backward_edges[v]
+                if (v_in = @backward_edges[v])
                     v_in.each_key(&b)
                 elsif !block_given?
                     enum_for(__method__, v)
@@ -201,10 +205,7 @@ module Roby
             end
 
             def in_degree(v)
-                if v_in = @backward_edges[v]
-                    v_in.size
-                else 0
-                end
+                @backward_edges[v]&.size || 0
             end
 
             def replace(g)
@@ -244,7 +245,7 @@ module Roby
             # as values the lists of adjacent vertices of _v_.
             #
             def has_vertex?(v)
-                @forward_edges_with_info.has_key?(v)
+                @forward_edges_with_info.key?(v)
             end
 
             # Complexity is O(1), if a Set is used as adjacency list. Otherwise,
@@ -253,10 +254,8 @@ module Roby
             # ---
             # MutableGraph interface.
             #
-            def has_edge? (u, v)
-                if v_out = @forward_edges_with_info[u]
-                    v_out.has_key?(v)
-                end
+            def has_edge?(u, v)
+                @forward_edges_with_info[u]&.key?(v)
             end
 
             # See MutableGraph#add_vertex.
@@ -272,9 +271,7 @@ module Roby
             # See MutableGraph#add_edge.
             #
             def add_edge(u, v, i = nil)
-                if u == v
-                    raise ArgumentError, "cannot add self-referencing edges"
-                end
+                raise ArgumentError, 'cannot add self-referencing edges' if u == v
 
                 u_out = (@forward_edges_with_info[u] ||= IdentityHash.new)
                 @backward_edges[u] ||= IdentityHash.new
@@ -289,8 +286,9 @@ module Roby
             #
             def remove_vertex(v)
                 v_out = @forward_edges_with_info.delete(v)
-                return if !v_out
-                v_in  = @backward_edges.delete(v)
+                return unless v_out
+
+                v_in = @backward_edges.delete(v)
 
                 v_out.each_key do |child|
                     @backward_edges[child].delete(v)
@@ -298,7 +296,7 @@ module Roby
                 v_in.each_key do |parent|
                     @forward_edges_with_info[parent].delete(v)
                 end
-                return !v_out.empty? || !v_in.empty?
+                !v_out.empty? || !v_in.empty?
             end
 
             # See MutableGraph::remove_edge.
@@ -343,9 +341,10 @@ module Roby
 
             def set_edge_info(parent, child, info)
                 parent_out = @forward_edges_with_info.fetch(parent)
-                if !parent_out.has_key?(child)
+                unless parent_out.key?(child)
                     raise ArgumentError, "no edge #{parent} => #{child} in #{self}"
                 end
+
                 parent_out[child] = info
             rescue KeyError
                 raise ArgumentError, "no edge #{parent} => #{child} in #{self}"
@@ -372,28 +371,40 @@ module Roby
 
             def verify_consistency
                 @forward_edges_with_info.each do |v, out_edges|
-                    if !@backward_edges.has_key?(v)
-                        raise Inconsistent, "#{v} has an entry in the forward-edge set, but not in the backward-edge"
+                    unless @backward_edges.key?(v)
+                        raise Inconsistent,
+                              "#{v} has an entry in the forward-edge set, "\
+                              'but not in the backward-edge'
                     end
 
                     out_edges.each do |out_e, _info|
-                        if !@backward_edges.has_key?(out_e)
-                            raise Inconsistent, "#{out_e} is listed as an out-neighbour of #{v} but #{out_e} is not included in the graph"
-                        elsif !@backward_edges[out_e].has_key?(v)
-                            raise Inconsistent, "#{out_e} is listed as an out-neighbour of #{v} but #{out_e} does not list it as in-neighbour"
+                        if !@backward_edges.key?(out_e)
+                            raise Inconsistent,
+                                  "#{out_e} is listed as an out-neighbour of #{v} "\
+                                  "but #{out_e} is not included in the graph"
+                        elsif !@backward_edges[out_e].key?(v)
+                            raise Inconsistent,
+                                  "#{out_e} is listed as an out-neighbour of #{v} "\
+                                  "but #{out_e} does not list it as in-neighbour"
                         end
                     end
                 end
                 @backward_edges.each do |v, in_edges|
-                    if !@forward_edges_with_info.has_key?(v)
-                        raise Inconsistent, "#{v} has an entry in the forward-edge set, but not in the backward-edge"
+                    unless @forward_edges_with_info.key?(v)
+                        raise Inconsistent,
+                              "#{v} has an entry in the forward-edge set, "\
+                              'but not in the backward-edge'
                     end
 
                     in_edges.each do |in_e, _|
                         if !@forward_edges_with_info[in_e]
-                            raise Inconsistent, "#{in_e} is listed as an in-neighbour of #{v} but is not included in the graph"
-                        elsif !@forward_edges_with_info[in_e].has_key?(v)
-                            raise Inconsistent, "#{in_e} is listed as an in-neighbour of #{v} but #{in_e} does not list it as out-neighbour"
+                            raise Inconsistent,
+                                  "#{in_e} is listed as an in-neighbour of #{v} "\
+                                  'but is not included in the graph'
+                        elsif !@forward_edges_with_info[in_e].key?(v)
+                            raise Inconsistent,
+                                  "#{in_e} is listed as an in-neighbour of #{v} "\
+                                  "but #{in_e} does not list it as out-neighbour"
                         end
                     end
                 end
@@ -431,25 +442,28 @@ module Roby
             # The vertices are vertices of +self+ for +new+ and +updated+, and
             # vertices of +other_graph+ for +removed+
             def difference(other_graph, self_vertices, &mapping)
-                mapping ||= lambda { |v| v }
+                mapping ||= ->(v) { v }
                 other_vertices = Set.new
 
-                new, removed, updated = Array.new, Array.new, Array.new
+                new = []
+                removed = []
+                updated = []
 
                 seen_vertices    = IdentityHash.new
                 seen_connections = IdentityHash.new
-                for self_v in self_vertices
+                self_vertices.each do |self_v|
                     other_v = mapping[self_v]
                     other_vertices << other_v
 
                     each_in_neighbour(self_v) do |self_parent|
                         # If we already worked on +self_parent+, this connection has
                         # already been taken into account
-                        next if seen_vertices.has_key?(self_parent)
+                        next if seen_vertices.key?(self_parent)
 
                         other_parent = mapping[self_parent]
                         if other_graph.has_edge?(other_parent, other_v)
-                            if other_graph.edge_info(other_parent, other_v) != edge_info(self_parent, self_v)
+                            if other_graph.edge_info(other_parent, other_v) !=
+                               edge_info(self_parent, self_v)
                                 updated << [self_parent, self_v]
                             end
                             (seen_connections[other_parent] ||= IdentityHash.new)[other_v] = nil
@@ -461,11 +475,12 @@ module Roby
                     each_out_neighbour(self_v) do |self_child|
                         # If we already worked on +self_child+, this connection has
                         # already been taken into account
-                        next if seen_vertices.has_key?(self_child)
+                        next if seen_vertices.key?(self_child)
 
                         other_child = mapping[self_child]
                         if other_graph.has_edge?(other_v, other_child)
-                            if other_graph.edge_info(other_v, other_child) != edge_info(self_v, self_child)
+                            if other_graph.edge_info(other_v, other_child) !=
+                               edge_info(self_v, self_child)
                                 updated << [self_v, self_child]
                             end
                             (seen_connections[other_v] ||= IdentityHash.new)[other_child] = nil
@@ -478,23 +493,25 @@ module Roby
                 end
 
                 seen_vertices.clear
-                for other_v in other_vertices
+                other_vertices.each do |other_v|
                     other_graph.each_in_neighbour(other_v) do |other_parent|
-                        next if seen_vertices.has_key?(other_parent)
-                        if !(out_seen = seen_connections[other_parent]) || !out_seen.has_key?(other_v)
+                        next if seen_vertices.key?(other_parent)
+
+                        if !(out_seen = seen_connections[other_parent]) || !out_seen.key?(other_v)
                             removed << [other_parent, other_v]
                         end
                     end
                     other_graph.each_out_neighbour(other_v) do |other_child|
-                        next if seen_vertices.has_key?(other_child)
-                        if !(out_seen = seen_connections[other_v]) || !out_seen.has_key?(other_child)
+                        next if seen_vertices.key?(other_child)
+
+                        if !(out_seen = seen_connections[other_v]) || !out_seen.key?(other_child)
                             removed << [other_v, other_child]
                         end
                     end
                     seen_vertices[other_v] = nil
                 end
 
-                return new, removed, updated
+                [new, removed, updated]
             end
         end
     end

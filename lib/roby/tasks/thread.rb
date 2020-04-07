@@ -40,9 +40,9 @@ module Roby
             @interruption_event.set?
         end
 
-        def initialize(arguments = Hash.new, one_shot: true)
+        def initialize(one_shot: true, **arguments)
             @one_shot = one_shot
-            super(arguments)
+            super(**arguments)
         end
 
         # True if the thread will quit by itself, or run until an interruption

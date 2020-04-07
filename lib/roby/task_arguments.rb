@@ -421,7 +421,7 @@ module Roby
         # @raise NotMarshallable if the new values cannot be marshalled with
         #   DRoby. All task arguments must be marshallable
         # @raise ArgumentError if the merge would modify an existing value
-        def merge!(**hash)
+        def merge!(hash)
             hash.each do |key, value|
                 unless value.droby_marshallable?
                     raise NotMarshallable, "values used as task arguments must "\

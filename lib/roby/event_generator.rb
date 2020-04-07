@@ -341,7 +341,7 @@ module Roby
             self
         end
 
-        def initialize_replacement(event)
+        def initialize_replacement(event, &block)
             for h in handlers
                 if h.copy_on_replace?
                     event ||= yield
@@ -359,7 +359,7 @@ module Roby
 
             if event
                 super(event)
-            else super(nil, &Proc.new)
+            else super(nil, &block)
             end
         end
 
@@ -678,7 +678,7 @@ module Roby
                 return
             end
 
-            if error = check_emission_validity
+            if (error = check_emission_validity)
                 clear_pending
                 raise error
             end

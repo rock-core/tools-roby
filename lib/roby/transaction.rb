@@ -1,20 +1,27 @@
+# frozen_string_literal: true
+
 module Roby
     # Exception raised when someone tries do commit an invalid transaction
     class InvalidTransaction < RuntimeError; end
 
     # A transaction is a special kind of plan. It allows to build plans in a separate
-    # sandbox, and then to apply the modifications to the real plan (using #commit_transaction), or
-    # to discard all modifications (using #discard)
+    # sandbox, and then to apply the modifications to the real plan (using
+    # #commit_transaction), or to discard all modifications (using #discard)
     class Transaction < Plan
         # If true, an engine could execute tasks included in this plan. This is
         # alwxays false for transactions
         #
         # @return [Boolean]
-        def executable?; false end
+        def executable?
+            false
+        end
 
-        # If this is true, no new proxies can be created on the transaction.
+        # If this is true, no mutating operation can be attempted on the transaction
+        #
         # This is used during the commit process to verify that no new
         # modifications are applied to the transaction
+        #
+        # @see FrozenTransaction
         attr_predicate :frozen?
 
         # True if this transaction has been committed
@@ -26,7 +33,9 @@ module Roby
         #
         # @return [Boolean]
         # @see #committed?
-        def finalized?; !plan end
+        def finalized?
+            !plan
+        end
 
         # (see Plan#root_plan?)
         def root_plan?
@@ -38,7 +47,7 @@ module Roby
         end
 
         def setup_and_register_proxy_task(proxy, task)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
 
             proxy_tasks[task] = proxy
             extend_proxy_object(proxy, task)
@@ -50,40 +59,38 @@ module Roby
             elsif plan.permanent_task?(task)
                 add_permanent_task(proxy)
             end
-            if services = plan.find_all_plan_services(task)
-                services.each do |original_srv|
-                    create_and_register_proxy_plan_service(original_srv)
-                end
+            plan.find_all_plan_services(task).each do |original_srv|
+                create_and_register_proxy_plan_service(original_srv)
             end
+
             proxy
         end
 
         def setup_and_register_proxy_event(proxy, event)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
 
             proxy_events[event] = proxy
             extend_proxy_object(proxy, event)
             proxy.plan = self
             proxy.setup_proxy(event, self)
             register_event(proxy)
-            if plan.permanent_event?(event)
-                add_permanent_event(proxy)
-            end
+            add_permanent_event(proxy) if plan.permanent_event?(event)
             proxy
         end
 
         def setup_and_register_proxy_plan_service(proxy, plan_service)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
 
             extend_proxy_object(proxy, plan_service)
             proxy.setup_proxy(plan_service, self)
-            proxy.task = wrap_task(plan_service.to_task) 
+            proxy.task = wrap_task(plan_service.to_task)
             add_plan_service(proxy)
             proxy
         end
 
         def create_and_register_proxy_task(object)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
+
             proxy = object.dup
             setup_and_register_proxy_task(proxy, object)
             copy_object_relations(object, proxy, proxy_tasks)
@@ -91,7 +98,8 @@ module Roby
         end
 
         def create_and_register_proxy_event(object)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
+
             proxy = object.dup
             setup_and_register_proxy_event(proxy, object)
             copy_object_relations(object, proxy, proxy_events)
@@ -99,7 +107,8 @@ module Roby
         end
 
         def create_and_register_proxy_plan_service(object)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
+
             # Ensure the underlying task is wrapped
             proxy = object.dup
             setup_and_register_proxy_plan_service(proxy, object)
@@ -108,14 +117,15 @@ module Roby
 
         def find_local_object_for_plan_object(object, proxy_map)
             if object.plan == self
-                return object
-            elsif proxy = proxy_map[object]
-                return proxy
+                object
+            elsif (proxy = proxy_map[object])
+                proxy
             elsif !object.plan
-                raise ArgumentError, "#{object} has been removed from plan"
+                raise ArgumentError,
+                      "#{object} has been removed from plan"
             elsif object.plan.template?
                 add(object)
-                return object
+                object
             end
         end
 
@@ -128,21 +138,23 @@ module Roby
         end
 
         def find_local_object_for_plan_service(object)
-            if local_task = find_local_object_for_task(object.task)
-                find_plan_service(local_task)
-            end
+            return unless (local_task = find_local_object_for_task(object.task))
+
+            find_plan_service(local_task)
         end
 
         def wrap_plan_object(object, proxy_map)
-            if object.plan != self.plan
-                raise ArgumentError, "#{object} is in #{object.plan}, this transaction #{self} applies on #{self.plan}"
+            if object.plan != plan
+                raise ArgumentError,
+                      "#{object} is in #{object.plan}, "\
+                      "this transaction #{self} applies on #{plan}"
             else
-                return object.create_transaction_proxy(self)
+                object.create_transaction_proxy(self)
             end
         end
 
         def wrap_task(task, create: true)
-            if local_task = find_local_object_for_task(task)
+            if (local_task = find_local_object_for_task(task))
                 local_task
             elsif create
                 wrap_plan_object(task, proxy_tasks)
@@ -150,7 +162,7 @@ module Roby
         end
 
         def wrap_event(event, create: true)
-            if local_event = find_local_object_for_event(event)
+            if (local_event = find_local_object_for_event(event))
                 local_event
             elsif create
                 wrap_plan_object(event, proxy_events)
@@ -158,7 +170,7 @@ module Roby
         end
 
         def wrap_plan_service(plan_service, create: true)
-            if local_plan_service = find_local_object_for_plan_service(plan_service)
+            if (local_plan_service = find_local_object_for_plan_service(plan_service))
                 local_plan_service
             elsif create
                 plan_service.create_transaction_proxy(self)
@@ -173,12 +185,15 @@ module Roby
                 wrap_task(object, create: create)
             elsif object.respond_to?(:to_event)
                 wrap_event(object, create: create)
-            elsif object.respond_to?(:to_ary) 
+            elsif object.respond_to?(:to_ary)
                 object.map { |o| wrap(o, create: create) }
             elsif object.respond_to?(:each)
-                raise ArgumentError, "don't know how to wrap containers of class #{object.class}"
+                raise ArgumentError,
+                      "don't know how to wrap containers of class #{object.class}"
             else
-                raise TypeError, "don't know how to wrap #{object || 'nil'} of type #{object.class.ancestors}"
+                raise TypeError,
+                      "don't know how to wrap #{object || 'nil'} of type "\
+                      "#{object.class.ancestors}"
             end
         end
 
@@ -186,8 +201,8 @@ module Roby
             wrap(object, create: create)
         end
 
-
         def propose; end
+
         def edit
             yield if block_given?
         end
@@ -212,18 +227,26 @@ module Roby
                     # relations in the transaction
                     if plan_g.in_degree(plan_v) != self_g.in_degree(self_v)
                         plan_g.each_in_neighbour(plan_v) do |plan_parent|
-                            next if mappings.has_key?(plan_parent)
-                            if self_parent = proxy_map[plan_parent]
-                                self_g.add_edge(self_parent, self_v, plan_g.edge_info(plan_parent, plan_v))
+                            next if mappings.key?(plan_parent)
+
+                            if (self_parent = proxy_map[plan_parent])
+                                self_g.add_edge(
+                                    self_parent, self_v,
+                                    plan_g.edge_info(plan_parent, plan_v)
+                                )
                             end
                         end
                     end
 
                     if plan_g.out_degree(plan_v) != self_g.out_degree(self_v)
                         plan_g.each_out_neighbour(plan_v) do |plan_child|
-                            next if mappings.has_key?(plan_child)
-                            if self_child = proxy_map[plan_child]
-                                self_g.add_edge(self_v, self_child, plan_g.edge_info(plan_v, plan_child))
+                            next if mappings.key?(plan_child)
+
+                            if (self_child = proxy_map[plan_child])
+                                self_g.add_edge(
+                                    self_v, self_child,
+                                    plan_g.edge_info(plan_v, plan_child)
+                                )
                             end
                         end
                     end
@@ -240,13 +263,19 @@ module Roby
                 trsc_graph = proxy.relation_graph_for(rel)
 
                 plan_graph.each_in_neighbour(object) do |parent|
-                    if parent_proxy = proxy_map[parent]
-                        trsc_graph.add_edge(parent_proxy, proxy, plan_graph.edge_info(parent, object))
+                    if (parent_proxy = proxy_map[parent])
+                        trsc_graph.add_edge(
+                            parent_proxy, proxy,
+                            plan_graph.edge_info(parent, object)
+                        )
                     end
                 end
                 plan_graph.each_out_neighbour(object) do |child|
-                    if child_proxy = proxy_map[child]
-                        trsc_graph.add_edge(proxy, child_proxy, plan_graph.edge_info(object, child))
+                    if (child_proxy = proxy_map[child])
+                        trsc_graph.add_edge(
+                            proxy, child_proxy,
+                            plan_graph.edge_info(object, child)
+                        )
                     end
                 end
             end
@@ -259,10 +288,11 @@ module Roby
         #
         # @param [Roby::Task] object the object to test for
         def has_proxy_for_task?(object)
-            if object.plan != self.plan
-                raise ArgumentError, "#{object} is not in #{self}.plan (#{plan})"
+            if object.plan != plan
+                raise ArgumentError,
+                      "#{object} is not in #{self}.plan (#{plan})"
             end
-            proxy_tasks.has_key?(object)
+            proxy_tasks.key?(object)
         end
 
         # Tests whether an event has a proxy in self
@@ -272,26 +302,29 @@ module Roby
         #
         # @param [Roby::EventGenerator] object the object to test for
         def has_proxy_for_event?(object)
-            if object.plan != self.plan
-                raise ArgumentError, "#{object} is not in #{self}.plan (#{plan})"
+            if object.plan != plan
+                raise ArgumentError,
+                      "#{object} is not in #{self}.plan (#{plan})"
             end
-            proxy_events.has_key?(object)
+            proxy_events.key?(object)
         end
 
         def restore_relation(proxy, relation)
             object = proxy.__getobj__
 
             proxy_children = proxy.child_objects(relation)
-            object.child_objects(relation).each do |object_child| 
-                next unless proxy_child = wrap(object_child, create: false)
+            object.child_objects(relation).each do |object_child|
+                next unless (proxy_child = wrap(object_child, create: false))
+
                 if proxy_children.include?(proxy_child)
                     relation.remove_edge(proxy, proxy_child)
                 end
             end
 
             proxy_parents = proxy.parent_objects(relation)
-            object.parent_objects(relation).each do |object_parent| 
-                next unless proxy_parent = wrap(object_parent, create: false)
+            object.parent_objects(relation).each do |object_parent|
+                next unless (proxy_parent = wrap(object_parent, create: false))
+
                 if proxy_parents.include?(proxy_parent)
                     relation.remove_edge(parent, proxy_parent)
                 end
@@ -308,16 +341,18 @@ module Roby
         # objects directly is (at best) dangerous, and should be handled by
         # garbage collection.
         def remove_plan_object(object, proxy_map)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
 
             object = may_unwrap(object)
             proxy  = proxy_map.delete(object)
             actual_plan = (proxy || object).plan
 
             if actual_plan != self
-                raise InternalError, "inconsistency: #{proxy || object} plan is #{actual_plan}, was expected to be #{self}"
+                raise InternalError,
+                      "inconsistency: #{proxy || object} plan is #{actual_plan}, "\
+                      "was expected to be #{self}"
             end
-            return object, proxy
+            [object, proxy]
         end
 
         def remove_task(task, timestamp = Time.now)
@@ -334,9 +369,7 @@ module Roby
 
         def remove_free_event(event, timestamp = Time.now)
             unwrapped, proxy = remove_plan_object(event, proxy_events)
-            if proxy
-                unmarked_permanent_events.delete(unwrapped)
-            end
+            unmarked_permanent_events.delete(unwrapped) if proxy
             super(proxy || event, timestamp)
         end
 
@@ -344,21 +377,22 @@ module Roby
             if objects.respond_to?(:to_ary)
                 objects.map { |obj| may_wrap(obj, create: create) }
             elsif objects.respond_to?(:each)
-                raise ArgumentError, "don't know how to wrap containers of class #{objects.class}"
+                raise ArgumentError,
+                      "don't know how to wrap containers of class #{objects.class}"
             elsif objects.kind_of?(PlanObject)
                 wrap(objects, create: create)
             else
                 objects
             end
         end
-        
+
         # If +object+ is in this transaction, may_unwrap will return the
         # underlying plan object. In all other cases, returns object.
         def may_unwrap(object)
-            if object.respond_to?(:plan) 
+            if object.respond_to?(:plan)
                 if object.plan == self && object.respond_to?(:__getobj__)
                     object.__getobj__
-                elsif object.plan == self.plan
+                elsif object.plan == plan
                     object
                 else
                     object
@@ -387,13 +421,13 @@ module Roby
 
         # The decision control object associated with this transaction. It is
         # in general plan.control
-        def control; plan.control end
+        def control
+            plan.control
+        end
 
         # Creates a new transaction which applies on +plan+
         def initialize(plan, options = {})
-            if !plan
-                raise ArgumentError, "cannot create a transaction with no plan"
-            end
+            raise ArgumentError, 'cannot create a transaction with no plan' unless plan
 
             @options = options
             @frozen = false
@@ -402,12 +436,12 @@ module Roby
 
             super()
 
-            @plan   = plan
+            @plan = plan
 
-            @proxy_tasks      = Hash.new
-            @proxy_events     = Hash.new
-            @unmarked_mission_tasks    = Set.new
-            @unmarked_permanent_tasks  = Set.new
+            @proxy_tasks = {}
+            @proxy_events = {}
+            @unmarked_mission_tasks = Set.new
+            @unmarked_permanent_tasks = Set.new
             @unmarked_permanent_events = Set.new
 
             plan.transactions << self
@@ -424,72 +458,67 @@ module Roby
         end
 
         def add_mission_task(t)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
-            if t.transaction_proxy?
-                unmarked_mission_tasks.delete(t.__getobj__)
-            end
+            validate_transaction_not_frozen
+
+            unmarked_mission_tasks.delete(t.__getobj__) if t.transaction_proxy?
             super(t)
         end
 
         def add_permanent_task(t)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
-            if t.transaction_proxy?
-                unmarked_permanent_tasks.delete(t.__getobj__)
-            end
+            validate_transaction_not_frozen
+
+            unmarked_permanent_tasks.delete(t.__getobj__) if t.transaction_proxy?
             super(t)
         end
 
         def add_permanent_event(e)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
-            if e.transaction_proxy?
-                unmarked_permanent_events.delete(e.__getobj__)
-            end
+            validate_transaction_not_frozen
+
+            unmarked_permanent_events.delete(e.__getobj__) if e.transaction_proxy?
             super(e)
         end
 
         def add(objects)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
+
             super(objects)
             self
         end
 
         def unmark_permanent_event(t)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
+
             t = t.as_plan
-            if proxy = find_local_object_for_event(t)
+            if (proxy = find_local_object_for_event(t))
                 super(proxy)
             end
 
             t = may_unwrap(t)
-            if t.plan == self.plan
-                unmarked_permanent_events.add(t)
-            end
+            unmarked_permanent_events.add(t) if t.plan == plan
         end
 
         def unmark_permanent_task(t)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
+
             t = t.as_plan
-            if proxy = find_local_object_for_task(t)
+            if (proxy = find_local_object_for_task(t))
                 super(proxy)
             end
 
             t = may_unwrap(t)
-            if t.plan == self.plan
-                unmarked_permanent_tasks.add(t)
-            end
+            unmarked_permanent_tasks.add(t) if t.plan == plan
         end
 
         def unmark_mission_task(t)
-            raise "transaction #{self} has been either committed or discarded. No modification allowed" if frozen?
+            validate_transaction_not_frozen
+
             t = t.as_plan
-            if proxy = find_local_object_for_task(t)
+            if (proxy = find_local_object_for_task(t))
                 super(proxy)
             end
 
             t = may_unwrap(t)
-            if t.plan == self.plan
-                unmarked_mission_tasks.add(t)
-            end
+            unmarked_mission_tasks.add(t) if t.plan == plan
         end
 
         # The set of invalidation reasons registered with {#invalidate}. It is
@@ -497,20 +526,20 @@ module Roby
         # {#invalid=}.
         #
         # @return [Array<String>]
-        attribute(:invalidation_reasons) { Array.new }
+        attribute(:invalidation_reasons) { [] }
 
         # Marks this transaction as either invalid or valid. If it is marked as
         # valid, it clears {#invalidation_reasons}.
         def invalid=(flag)
-            if !flag
-                invalidation_reasons.clear
-            end
+            invalidation_reasons.clear unless flag
             @invalid = flag
         end
 
         # True if {#invalidate} has been called, and {#invalid=} has not been
         # called to clear the invalidation afterwards.
-        def invalid?; @invalid end
+        def invalid?
+            @invalid
+        end
 
         # Tests if it is safe to commit this transaction
         #
@@ -518,7 +547,9 @@ module Roby
         #   top of it. They must be committed or discarded before this transaction
         #   can be committed or discarded. It also returns safe if if this
         #   transaction has been marked as invalid with {#invalidate}
-        def valid_transaction?; transactions.empty? && !invalid? end
+        def valid_transaction?
+            transactions.empty? && !invalid?
+        end
 
         # Marks this transaction as valid
         def invalidate(reason = nil)
@@ -538,8 +569,9 @@ module Roby
             return if valid_transaction?
 
             unless transactions.empty?
-                raise InvalidTransaction, "there is still transactions on top of this one"
+                raise InvalidTransaction, 'there is still transactions on top of this one'
             end
+
             message = invalidation_reasons.map do |reason, trace|
                 "#{trace[0]}: #{reason}\n  #{trace[1..-1].join("\n  ")}"
             end.join("\n")
@@ -569,9 +601,13 @@ module Roby
         # It only computes the parent modifications involving objects that are
         # not proxies themselves. It computes the child modifications for every
         # child
-        def compute_graph_modifications_for(proxy, new_relations, removed_relations, updated_relations)
+        def compute_graph_modifications_for(
+            proxy, new_relations, removed_relations, updated_relations
+        )
             real_object = proxy.__getobj__
-            proxy.partition_new_old_relations(:each_parent_object, include_proxies: false) do |trsc_objects, rel, new, del, existing|
+            proxy.partition_new_old_relations(
+                :each_parent_object, include_proxies: false
+            ) do |trsc_objects, rel, new, del, existing|
                 trsc_graph = proxy.relation_graph_for(rel)
                 plan_graph = proxy.__getobj__.relation_graph_for(rel)
 
@@ -590,7 +626,9 @@ module Roby
                 end
             end
 
-            proxy.partition_new_old_relations(:each_child_object) do |trsc_objects, rel, new, del, existing|
+            proxy.partition_new_old_relations(
+                :each_child_object
+            ) do |trsc_objects, rel, new, del, existing|
                 trsc_graph = proxy.relation_graph_for(rel)
                 plan_graph = proxy.__getobj__.relation_graph_for(rel)
 
@@ -615,17 +653,15 @@ module Roby
         # This compute the triggers that shoul be applied if we commit this
         # transaction
         def compute_triggers_for_committed_transaction
-            trigger_matches = Hash.new
+            trigger_matches = {}
             plan.triggers.each do |tr|
                 tr.each(self) do |t|
                     trigger_matches[t] = tr
                 end
             end
             proxy_tasks.each do |obj, proxy|
-                if tr = trigger_matches.delete(proxy)
-                    if !(tr === obj) # already triggered
-                        trigger_matches[obj] = tr
-                    end
+                if (tr = trigger_matches.delete(proxy))
+                    trigger_matches[obj] = tr unless tr === obj # already triggered
                 end
             end
             trigger_matches
@@ -648,24 +684,24 @@ module Roby
             new_permanent_tasks  = Set.new
             new_permanent_events = Set.new
 
-            added_relations   = Array.new
-            removed_relations = Array.new
-            updated_relations = Array.new
+            added_relations   = []
+            removed_relations = []
+            updated_relations = []
 
             # We're doing a lot of modifications of this plan .. store some of
             # the sets we need for later, one part to keep them unchanged, one
             # part to make sure we don't do modify-while-iterate
-            proxy_tasks     = self.proxy_tasks.dup
-            proxy_events    = self.proxy_events.dup
-            plan_services   = self.plan_services.dup
-            unmarked_mission_tasks    = self.unmarked_mission_tasks.dup
-            unmarked_permanent_tasks  = self.unmarked_permanent_tasks.dup
+            proxy_tasks = self.proxy_tasks.dup
+            proxy_events = self.proxy_events.dup
+            plan_services = self.plan_services.dup
+            unmarked_mission_tasks = self.unmarked_mission_tasks.dup
+            unmarked_permanent_tasks = self.unmarked_permanent_tasks.dup
             unmarked_permanent_events = self.unmarked_permanent_events.dup
             # We're taking care of the proxies first, so that we can merge the
             # transaction using Plan#merge!. However, this means that
             # #may_unwrap does not work after the first few steps. We therefore
             # have to store the object-to-proxy mapping
-            real_objects  = Hash.new
+            real_objects = {}
 
             # We make a copy of all relation graphs, and update them with the
             # transaction data. The underlying plan graphs are not modified
@@ -676,7 +712,8 @@ module Roby
             # of just copying them
             task_work_graphs, event_work_graphs =
                 plan.class.instanciate_relation_graphs
-            work_graphs, transaction_graphs = Hash.new, Hash.new
+            work_graphs = {}
+            transaction_graphs = {}
             plan.each_task_relation_graph do |g|
                 work_g = work_graphs[g] = task_work_graphs[g.class]
                 g.each_vertex { |v| work_g.add_vertex(v) }
@@ -703,7 +740,8 @@ module Roby
             proxy_objects.each do |object, proxy|
                 real_objects[proxy] = object
                 compute_graph_modifications_for(
-                    proxy, added_relations, removed_relations, updated_relations)
+                    proxy, added_relations, removed_relations, updated_relations
+                )
                 proxy.commit_transaction
             end
             proxy_tasks.dup.each do |object, proxy|
@@ -718,9 +756,7 @@ module Roby
             end
             proxy_events.dup.each do |object, proxy|
                 if proxy.root_object?
-                    if permanent_event?(proxy)
-                        new_permanent_events << object
-                    end
+                    new_permanent_events << object if permanent_event?(proxy)
                     remove_free_event(proxy)
                 end
             end
@@ -728,11 +764,13 @@ module Roby
             work_graphs.each do |plan_g, work_g|
                 work_g.merge(transaction_graphs[plan_g])
             end
-            apply_graph_modifications(work_graphs, added_relations, removed_relations, updated_relations)
+            apply_graph_modifications(
+                work_graphs, added_relations, removed_relations, updated_relations
+            )
 
             begin
                 validate_graphs(work_graphs.values)
-            rescue Exception => e
+            rescue StandardError => e
                 raise e, "cannot apply #{self}: #{e.message}", e.backtrace
             end
 
@@ -745,8 +783,10 @@ module Roby
 
             # What is left in the transaction is the network of new tasks. Just
             # merge it
-            plan.merge_transaction!(self, work_graphs,
-                                   added_relations, removed_relations, updated_relations)
+            plan.merge_transaction!(
+                self, work_graphs,
+                added_relations, removed_relations, updated_relations
+            )
 
             # Update the plan services on the underlying plan. The only
             # thing we need to take care of is replacements and new
@@ -760,9 +800,7 @@ module Roby
                         # of the method
                         task     = real_objects[task] || task
                         srv.commit_transaction
-                        if original.task != task
-                            plan.move_plan_service(original, task)
-                        end
+                        plan.move_plan_service(original, task) if original.task != task
                     elsif task.transaction_proxy?
                         # New service on an already existing task
                         srv.task = task.__getobj__
@@ -776,7 +814,7 @@ module Roby
 
             new_mission_tasks.each { |t| plan.add_mission_task(t) }
             new_permanent_tasks.each { |t| plan.add_permanent_task(t) }
-            new_permanent_events.each { |e| plan.add_permanent_event(e) }
+            new_permanent_events.each { |ev| plan.add_permanent_event(ev) }
 
             active_fault_response_tables.each do |tbl|
                 plan.use_fault_response_table tbl.model, tbl.arguments
@@ -787,7 +825,8 @@ module Roby
             unmarked_mission_tasks.each { |t| plan.unmark_mission_task(t) }
 
             proxy_objects.each do |object, proxy|
-                forwarder_module = Transaction::Proxying.forwarder_module_for(object.model)
+                forwarder_module =
+                    Transaction::Proxying.forwarder_module_for(object.model)
                 proxy.extend forwarder_module
                 proxy.__getobj__ = object
                 proxy.__freeze__
@@ -816,36 +855,41 @@ module Roby
         # @return [void]
         def committed_transaction; end
 
-        def enable_proxying; @disable_proxying = false end
+        def enable_proxying
+            @disable_proxying = false
+        end
+
         def disable_proxying
             @disable_proxying = true
-            if block_given?
-                begin
-                    yield
-                ensure
-                    @disable_proxying = false
-                end
+            return unless block_given?
+
+            begin
+                yield
+            ensure
+                @disable_proxying = false
             end
         end
-        def proxying?; !@frozen && !@disable_proxying end
+
+        def proxying?
+            !@frozen && !@disable_proxying
+        end
 
         # Discards this transaction and all the transactions it is part of
         #
         # @return [void]
         def discard_transaction!
-            transactions.each do |trsc|
-                trsc.discard_transaction!
-            end
+            transactions.dup.each(&:discard_transaction!)
             discard_transaction
         end
 
-        # Discard all the modifications that have been registered 
+        # Discard all the modifications that have been registered
         # in this transaction
         #
         # @return [void]
         def discard_transaction
-            if !transactions.empty?
-                raise InvalidTransaction, "there is still transactions on top of this one"
+            unless transactions.empty?
+                raise InvalidTransaction,
+                      'there are still transactions on top of this one'
             end
 
             frozen!
@@ -872,9 +916,9 @@ module Roby
             unmarked_mission_tasks.clear
             unmarked_permanent_tasks.clear
             unmarked_permanent_events.clear
-            proxy_tasks.each_value { |proxy| proxy.clear_relations }
+            proxy_tasks.each_value(&:clear_relations)
             proxy_tasks.clear
-            proxy_events.each_value { |proxy| proxy.clear_relations }
+            proxy_events.each_value(&:clear_relations)
             proxy_events.clear
             super
         end
@@ -899,7 +943,8 @@ module Roby
         # It invalidates the transaction and calls
         # DecisionControl#finalized_plan_event(self, event) for further actions
         #
-        # @param [EventGenerator] event the finalized event represented by its proxy in self
+        # @param [EventGenerator] event the finalized event represented by
+        #        its proxy in self
         # @return [void]
         def finalized_plan_event(event)
             proxied_event = event.__getobj__
@@ -913,8 +958,9 @@ module Roby
         # present in the transaction
         #
         # If the new relation is not present in the transaction as well, it
-        # invalidates the transaction and calls 
-        # DecisionControl#adding_plan_relation(self, parent, child, relations, info) for further action
+        # invalidates the transaction and calls
+        # DecisionControl#adding_plan_relation(self, parent, child, relations,
+        # info) for further action
         #
         # @param [PlanObject] parent the parent object represented by its proxy in self
         # @param [PlanObject] child the child object represented by its proxy in self
@@ -927,18 +973,25 @@ module Roby
             missing_relations = relations.find_all do |rel|
                 !parent.child_object?(child, rel)
             end
+
             unless missing_relations.empty?
-                invalidate("plan added a relation #{parent} -> #{child} in #{relations} with info #{info}")
+                invalidate(
+                    "plan added a relation #{parent} -> #{child} "\
+                    "in #{relations} with info #{info}"
+                )
                 control.adding_plan_relation(self, parent, child, relations, info)
             end
+
+            nil
         end
 
         # Hook called when a relation is removed between plan objects that are
         # present in the transaction
         #
         # If the removed relation is still present in the transaction as well, it
-        # invalidates the transaction and calls 
-        # DecisionControl#removing_plan_relation(self, parent, child, relations, info) for further action
+        # invalidates the transaction and calls
+        # DecisionControl#removing_plan_relation(self, parent, child, relations, info)
+        #       for further action
         #
         # @param [PlanObject] parent the parent object represented by its proxy in self
         # @param [PlanObject] child the child object represented by its proxy in self
@@ -949,8 +1002,11 @@ module Roby
             present_relations = relations.find_all do |rel|
                 parent.child_object?(child, rel)
             end
+
             unless present_relations.empty?
-                invalidate("plan removed a relation #{parent} -> #{child} in #{relations}")
+                invalidate(
+                    "plan removed a relation #{parent} -> #{child} in #{relations}"
+                )
                 control.removing_plan_relation(self, parent, child, relations)
             end
         end
@@ -1120,6 +1176,27 @@ module Roby
                 remove_event(object.to_task)
             end
         end
+
+        # Exception raised when a mutation operation is attempted on a transaction
+        # that has been committed or discarded
+        class FrozenTransaction < RuntimeError
+        end
+
+        # @api private
+        #
+        # Method called before any mutating operation to verify that the
+        # transaction can actually be modified - i.e. that it has not been
+        # commited or discarded yet
+        #
+        # @raise FrozenTransaction
+        def validate_transaction_not_frozen
+            if frozen?
+                raise FrozenTransaction,
+                      "transaction #{self} has been either committed or discarded. "\
+                      'No modification allowed'
+            end
+
+            nil
+        end
     end
 end
-

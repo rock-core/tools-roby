@@ -1,6 +1,7 @@
+# frozen_string_literal: true
+
 require 'roby/test/self'
 require 'roby/schedulers/basic'
-
 
 module Roby
     module Schedulers
@@ -9,12 +10,11 @@ module Roby
     end
 end
 
-class TC_Schedulers_Basic < Minitest::Test
-
+class TestCaseSchedulersBasic < Minitest::Test
     attr_reader :scheduler
 
     def verify_event_ordering(*events)
-        mock = flexmock("event ordering for #{events.map(&:to_s).join(", ")}")
+        mock = flexmock("event ordering for #{events.map(&:to_s).join(', ')}")
         events.each do |ev|
             mock.should_receive(:emitted).with(ev).ordered.once
             ev.on { |event| mock.emitted(event.generator) }
@@ -22,8 +22,8 @@ class TC_Schedulers_Basic < Minitest::Test
     end
 
     def scheduler_initial_events
-        while true
-            break if execute { scheduler.initial_events.empty? }
+        loop do
+            return if execute { scheduler.initial_events.empty? }
         end
     end
 
@@ -108,6 +108,3 @@ class TC_Schedulers_Basic < Minitest::Test
         assert t.running?
     end
 end
-
-
-

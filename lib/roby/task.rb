@@ -219,7 +219,7 @@ module Roby
         #   is to add it to its own TemplatePlan object
         # @param [Hash<Symbol,Object>] arguments assignation to task arguments
         def initialize(plan: TemplatePlan.new, **arguments)
-            @bound_events = Hash.new
+            @bound_events = {}
             super(plan: plan)
 
             @model   = self.class
@@ -257,7 +257,7 @@ module Roby
             plan.register_task(self)
             template = self.model.template
 
-            mappings = Hash.new
+            mappings = {}
             template.events_by_name.each do |name, template_event|
                 mappings[template_event] = bound_events[name]
             end
@@ -318,14 +318,14 @@ module Roby
         # @param [Symbol] state
         # @return [Boolean]
         def current_state?(state)
-            return state == current_state.to_sym
+            state == current_state.to_sym
         end
 
         # Helper methods which creates all the necessary TaskEventGenerator
         # objects and stores them in the #bound_events map
         def initialize_events # :nodoc:
             # Create all event generators
-            bound_events = Hash.new
+            bound_events = {}
             model.each_event do |ev_symbol, ev_model|
                 ev = TaskEventGenerator.new(self, ev_model)
                 ev.plan = plan
@@ -740,9 +740,7 @@ module Roby
                 @failure_event  ||= event
             end
 
-            if event.terminal?
-                @terminal_event ||= event
-            end
+            @terminal_event ||= event if event.terminal?
 
             if event.symbol == :stop
                 plan.task_index.remove_state(self, :running?)
@@ -752,6 +750,7 @@ module Roby
                 @finished   = true
                 @executable = false
             end
+            nil
         end
 
         # List of EventGenerator objects bound to this task

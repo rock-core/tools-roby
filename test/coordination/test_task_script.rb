@@ -5,7 +5,7 @@ require 'roby/schedulers/temporal'
 module Roby
     module Coordination
         describe TaskScript do
-            describe "#wait" do
+            describe '#wait' do
                 attr_reader :root, :task_m, :event_source_task
                 before do
                     @task_m = Tasks::Simple.new_submodel do
@@ -17,7 +17,7 @@ module Roby
                 # Common behaviour description for all the possible waiting
                 # options
                 def self.common_behaviour(context)
-                    context.it "does not pass if the event was already emitted" do
+                    context.it 'does not pass if the event was already emitted' do
                         event_source_task = self.event_source_task
                         root.script do
                             wait event_source_task.start_event
@@ -26,7 +26,7 @@ module Roby
                         expect_execution { root.start! }.
                             to { not_emit root.stop_event }
                     end
-                    context.it "passes after a new emission" do
+                    context.it 'passes after a new emission' do
                         event_source_task = self.event_source_task
                         root.script do
                             wait event_source_task.test_event
@@ -37,7 +37,7 @@ module Roby
                         expect_execution { event_source_task.test_event.emit }.
                             to { emit root.stop_event }
                     end
-                    context.it "does not pass if the event is emitted before an explicit deadline" do
+                    context.it 'does not pass if the event is emitted before an explicit deadline' do
                         event_source_task = self.event_source_task
                         Timecop.freeze(t = Time.now)
                         root.script do
@@ -49,7 +49,7 @@ module Roby
                         expect_execution { event_source_task.test_event.emit }.
                             to { not_emit root.stop_event }
                     end
-                    context.it "passes if the event is emitted after an explicit deadline" do
+                    context.it 'passes if the event is emitted after an explicit deadline' do
                         event_source_task = self.event_source_task
                         Timecop.freeze(t = Time.now)
                         root.script do
@@ -62,7 +62,7 @@ module Roby
                         expect_execution { event_source_task.test_event.emit }.
                             to { emit root.stop_event }
                     end
-                    context.it "fails if the event becomes unreachable" do
+                    context.it 'fails if the event becomes unreachable' do
                         event_source_task = self.event_source_task
                         root.script do
                             wait event_source_task.test_event
