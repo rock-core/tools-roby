@@ -16,7 +16,6 @@ Lint/RedundantCopDisableDirective:
 # URISchemes: http, https
 Layout/LineLength:
   Exclude:
-    - 'benchmark/relations/graph.rb'
     - 'benchmark/ruby/yield_vs_block.rb'
     - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'doc/guide/ext/init.rb'
@@ -299,7 +298,6 @@ Layout/MultilineMethodCallBraceLayout:
 # SupportedStyles: aligned, indented, indented_relative_to_receiver
 Layout/MultilineMethodCallIndentation:
   Exclude:
-    - 'benchmark/attic/transactions.rb'
     - 'doc/guide/ext/previous_next.rb'
     - 'lib/roby/actions/interface.rb'
     - 'lib/roby/actions/models/coordination_action.rb'
@@ -545,8 +543,6 @@ Lint/ShadowingOuterLocalVariable:
 # Configuration parameters: AllowComments.
 Lint/SuppressedException:
   Exclude:
-    - 'benchmark/attic/garbage_collection.rb'
-    - 'benchmark/attic/transactions.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/scripts/distributed.rb'
     - 'lib/roby/coordination/task_base.rb'
@@ -564,7 +560,6 @@ Lint/SuppressedException:
 # Configuration parameters: IgnoreEmptyBlocks, AllowUnusedKeywordArguments.
 Lint/UnusedBlockArgument:
   Exclude:
-    - 'benchmark/attic/transactions.rb'
     - 'benchmark/ruby/identity.rb'
     - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'doc/guide/ext/previous_next.rb'
@@ -707,7 +702,6 @@ Lint/UnusedMethodArgument:
 # Offense count: 157
 Lint/UselessAssignment:
   Exclude:
-    - 'benchmark/relations/graph.rb'
     - 'benchmark/transactions.rb'
     - 'doc/guide/ext/rdoc_links.rb'
     - 'lib/roby/actions/models/interface_base.rb'
@@ -787,7 +781,6 @@ Lint/UselessAssignment:
 # Configuration parameters: Max.
 Metrics/AbcSize:
   Exclude:
-    - 'benchmark/attic/transactions.rb'
     - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'benchmark/transactions.rb'
     - 'doc/guide/ext/previous_next.rb'
@@ -964,10 +957,8 @@ Metrics/AbcSize:
 Metrics/BlockLength:
   Exclude:
     - '**/*.gemspec'
-    - 'benchmark/attic/transactions.rb'
-    - 'benchmark/relations/graph.rb'
-    - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
-    - 'benchmark/transactions.rb'
+    - 'test/**/*.rb'
+    - 'benchmark/**/*.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/cucumber/helpers.rb'
     - 'lib/roby/app/scripts/autotest.rb'
@@ -1629,10 +1620,9 @@ Style/ConditionalAssignment:
 # Offense count: 330
 Style/Documentation:
   Exclude:
+    - 'benchmark/**/*'
     - 'spec/**/*'
     - 'test/**/*'
-    - 'benchmark/relations/graph.rb'
-    - 'benchmark/ruby/set_intersect_vs_hash_merge.rb'
     - 'doc/guide/ext/extended_menu.rb'
     - 'doc/guide/ext/previous_next.rb'
     - 'doc/guide/ext/rdoc_links.rb'
@@ -1948,7 +1938,6 @@ Style/HashSyntax:
 # Cop supports --auto-correct.
 Style/IfUnlessModifier:
   Exclude:
-    - 'benchmark/attic/garbage_collection.rb'
     - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'benchmark/transactions.rb'
     - 'bin/roby'
@@ -2109,7 +2098,6 @@ Style/MultilineBlockChain:
 # SupportedStyles: both, prefix, postfix
 Style/NegatedIf:
   Exclude:
-    - 'benchmark/attic/garbage_collection.rb'
     - 'doc/guide/ext/extended_menu.rb'
     - 'lib/roby/actions/models/action.rb'
     - 'lib/roby/actions/models/interface_base.rb'
@@ -2214,7 +2202,6 @@ Style/NegatedIf:
 # Cop supports --auto-correct.
 Style/NegatedWhile:
   Exclude:
-    - 'benchmark/attic/genom.rb'
     - 'doc/guide/ext/previous_next.rb'
     - 'lib/roby/app/scripts/restart.rb'
     - 'lib/roby/cli/log.rb'
@@ -2480,7 +2467,6 @@ Style/RescueStandardError:
 # Configuration parameters: AllowAsExpressionSeparator.
 Style/Semicolon:
   Exclude:
-    - 'benchmark/attic/transactions.rb'
     - 'test/coordination/test_task_script.rb'
     - 'test/state/test_state_events.rb'
     - 'test/task_structure/test_dependency.rb'

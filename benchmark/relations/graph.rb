@@ -19,8 +19,6 @@ end
 
 COUNT = 10_000
 Benchmark.bm(80) do |x|
-    tasks = []
-
     graph = Graph.new
     vertices = (1..COUNT).map { Vertex.new(graph) }
     x.report("add #{COUNT} vertices") do
@@ -57,7 +55,8 @@ Benchmark.bm(80) do |x|
     graph = Graph.new
     shared_v = Vertex.new(graph)
     vertices = (1..COUNT).map { Vertex.new(graph) }
-    x.report("#{COUNT} links with a shared vertex, inserting vertices at the same time") do
+    x.report("#{COUNT} links with a shared vertex, "\
+             "inserting vertices at the same time") do
         vertices.each { |o| graph.add_relation(shared_v, o, nil) }
     end
 end
