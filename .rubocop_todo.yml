@@ -16,7 +16,6 @@ Lint/RedundantCopDisableDirective:
 # URISchemes: http, https
 Layout/LineLength:
   Exclude:
-    - 'benchmark/ruby/yield_vs_block.rb'
     - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'doc/guide/ext/init.rb'
     - 'doc/guide/ext/rdoc_links.rb'
@@ -1387,7 +1386,6 @@ Naming/MethodName:
 # AllowedNames: io, id, to, by, on, in, at, ip, db, os, pp
 Naming/MethodParameterName:
   Exclude:
-    - 'benchmark/ruby/yield_vs_block.rb'
     - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/cucumber/controller.rb'
@@ -1812,7 +1810,6 @@ Style/For:
 # SupportedStyles: annotated, template, unannotated
 Style/FormatStringToken:
   Exclude:
-    - 'benchmark/ruby/yield_vs_block.rb'
     - 'lib/roby/cli/log.rb'
     - 'lib/roby/droby/timepoints_ctf.rb'
     - 'lib/roby/gui/plan_rebuilder_widget.rb'
