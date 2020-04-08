@@ -49,7 +49,7 @@ module Roby
                         end
                     end
 
-                    if !result.empty?
+                    unless result.empty?
                         plan.control.conflict(task, result)
                         return
                     end

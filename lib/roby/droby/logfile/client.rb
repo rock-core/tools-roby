@@ -162,7 +162,7 @@ module Roby
                             @init_size = data[1]
                         else
                             @rx += (data_size + 4)
-                            if !init_done?
+                            unless init_done?
                                 run_hook :on_init_progress, rx, init_size
                             end
                             run_hook :on_data, data

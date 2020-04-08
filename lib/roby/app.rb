@@ -1718,7 +1718,7 @@ module Roby
 
             model.definition_location.each do |location|
                 file = location.absolute_path
-                next if !(base_path = find_base_path_for(file))
+                next unless (base_path = find_base_path_for(file))
 
                 relative = Pathname.new(file).relative_path_from(base_path)
                 split = relative.each_filename.to_a
@@ -1737,7 +1737,7 @@ module Roby
             test_files = []
             model.definition_location.each do |location|
                 file = location.absolute_path
-                next if !(base_path = find_base_path_for(file))
+                next unless (base_path = find_base_path_for(file))
 
                 relative = Pathname.new(file).relative_path_from(base_path)
                 split = relative.each_filename.to_a
@@ -1754,17 +1754,17 @@ module Roby
         end
 
         def define_actions_module
-            if !app_module.const_defined_here?(:Actions)
+            unless app_module.const_defined_here?(:Actions)
                 app_module.const_set(:Actions, Module.new)
             end
         end
 
         def define_main_planner_if_needed
-            if !app_module::Actions.const_defined_here?(:Main)
+            unless app_module::Actions.const_defined_here?(:Main)
                 app_module::Actions.const_set(:Main, Class.new(Roby::Actions::Interface))
             end
             if backward_compatible_naming?
-                if !Object.const_defined_here?(:Main)
+                unless Object.const_defined_here?(:Main)
                     Object.const_set(:Main, app_module::Actions::Main)
                 end
             end
@@ -1846,7 +1846,7 @@ module Roby
             match = /(.*):(\d+)$/.match(host_port)
             host = match[1]
             @shell_interface_host =
-                if !host.empty?
+                unless host.empty?
                     host
                 end
             @shell_interface_port = Integer(match[2])
@@ -1865,7 +1865,7 @@ module Roby
 
             find_dirs("lib", "ROBOT", all: true, order: :specific_last)
                 .each do |libdir|
-                    if !$LOAD_PATH.include?(libdir)
+                    unless $LOAD_PATH.include?(libdir)
                         $LOAD_PATH.unshift libdir
                     end
                 end
@@ -1891,7 +1891,7 @@ module Roby
             if p
                 @default_auto_load = false
                 require p
-                if !robot_type
+                unless robot_type
                     robot(robot_name, robot_name)
                 end
             elsif !find_dir("config", "robots", order: :specific_first) || (robot_name == robots.default_robot_name) || !robots.strict?
@@ -2299,7 +2299,7 @@ module Roby
                         result << file_path
                     end
                 end
-                break if !options[:all]
+                break unless options[:all]
             end
             result
         end
@@ -2391,7 +2391,7 @@ module Roby
 
         # Returns the first match from {#find_files}, or nil if nothing matches
         def find_file(*args)
-            if !args.last.kind_of?(Hash)
+            unless args.last.kind_of?(Hash)
                 args.push({})
             end
             args.last.delete("all")
@@ -2401,7 +2401,7 @@ module Roby
 
         # Returns the first match from {#find_dirs}, or nil if nothing matches
         def find_dir(*args)
-            if !args.last.kind_of?(Hash)
+            unless args.last.kind_of?(Hash)
                 args.push({})
             end
             args.last.delete("all")

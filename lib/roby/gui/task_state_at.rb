@@ -24,7 +24,7 @@ module Roby
                 last_emitted_event = ev
             end
 
-            if !last_emitted_event
+            unless last_emitted_event
                 return :pending
             end
 

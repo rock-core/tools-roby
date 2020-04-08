@@ -142,7 +142,7 @@ module Roby
 
         # Create a model structure and associate it with this openstruct
         def new_model
-            if !@model
+            unless @model
                 @model = create_model
                 attach_model
             end

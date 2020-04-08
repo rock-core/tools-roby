@@ -122,7 +122,7 @@ module Roby
 
                 (tasks | finalized_tasks | free_events | finalized_events)
                     .each do |obj|
-                        next if !display.displayed?(obj)
+                        next unless display.displayed?(obj)
 
                         obj.apply_layout(bounding_rects, positions, display)
                     end
@@ -214,12 +214,12 @@ module Roby
             end
 
             def apply_layout(bounding_rects, positions, display)
-                if !(task = positions[dot_id])
+                unless (task = positions[dot_id])
                     puts "No layout for #{self}"
                     return
                 end
                 each_event do |ev|
-                    next if !display.displayed?(ev)
+                    next unless display.displayed?(ev)
 
                     positions[ev.dot_id] += task
                 end
@@ -230,13 +230,13 @@ module Roby
                 # And recalculate the bounding box
                 bounding_rect = Qt::RectF.new
                 each_event.map do |ev|
-                    next if !display.displayed?(ev)
+                    next unless display.displayed?(ev)
 
                     graphics = display[ev]
                     bounding_rect |= graphics.map_rect_to_scene(graphics.bounding_rect)
                     bounding_rect |= graphics.text.map_rect_to_scene(graphics.text.bounding_rect)
                 end
-                if !graphics_item = display[self]
+                unless graphics_item = display[self]
                     raise "no graphics for #{self}" unless graphics_item = display[self]
                 end
                 if bounding_rect.null? # no events, we need to take the bounding box from the fake task node
@@ -315,7 +315,7 @@ module Roby
                 end
 
                 graph_bb = bounding_rects.delete(nil)
-                if !graph_bb
+                unless graph_bb
                     raise "Graphviz failed to generate a layout for this plan"
                 end
 
@@ -394,20 +394,20 @@ module Roby
                 # positions and then make their positions relative
                 event_positions = {}
                 all_tasks.each do |t|
-                    next if !display.displayed?(t)
+                    next unless display.displayed?(t)
 
                     bb = Qt::RectF.new
                     if p = positions[t.dot_id]
                         bb |= Qt::RectF.new(p, p)
                     end
                     t.each_event do |ev|
-                        next if !display.displayed?(ev)
+                        next unless display.displayed?(ev)
 
                         p = positions[ev.dot_id]
                         bb |= Qt::RectF.new(p, p)
                     end
                     t.each_event do |ev|
-                        next if !display.displayed?(ev)
+                        next unless display.displayed?(ev)
 
                         event_positions[ev.dot_id] = positions[ev.dot_id] - bb.topLeft
                     end

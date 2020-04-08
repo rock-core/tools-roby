@@ -16,7 +16,7 @@ module Roby
             attr_accessor :actual_success_event
             # Set the start event
             def actual_start_event=(ev)
-                if !ev.controlable?
+                unless ev.controlable?
                     raise ArgumentError, "the start event of a virtual task must be controlable"
                 end
 

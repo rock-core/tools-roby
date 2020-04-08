@@ -114,7 +114,7 @@ module Roby
                 # @param [String] suffix that should be added to all the names
                 def parse_names(suffixes)
                     definition_context = binding.callers.find { |b| b.frame_type == :block }
-                    return if !definition_context
+                    return unless definition_context
 
                     # Assign names to tasks using the local variables
                     definition_context.local_variables.each do |var|
@@ -135,7 +135,7 @@ module Roby
 
                 def method_missing(m, *args, &block)
                     if has_argument?(m)
-                        if !args.empty?
+                        unless args.empty?
                             raise ArgumentError, "expected zero arguments to #{m}, got #{args.size}"
                         end
 

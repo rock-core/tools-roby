@@ -117,14 +117,14 @@ module Roby
                     end
                     s.non_scheduled_tasks.each do |task, reports|
                         reports.each do |report|
-                            if !state.non_scheduled_tasks[task].include?(report)
+                            unless state.non_scheduled_tasks[task].include?(report)
                                 state.non_scheduled_tasks[task] << report
                             end
                         end
                     end
                     s.actions.each do |task, reports|
                         reports.each do |report|
-                            if !state.actions[task].include?(report)
+                            unless state.actions[task].include?(report)
                                 state.actions[task] << report
                             end
                         end

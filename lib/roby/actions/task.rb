@@ -83,7 +83,7 @@ module Roby
                 # Don't replace the planning task with ourselves if the
                 # transaction specifies another planning task
                 if new_planning_task = result_task.planning_task
-                    if !new_planning_task.arguments.set?(:job_id)
+                    unless new_planning_task.arguments.set?(:job_id)
                         new_planning_task.job_id = job_id
                     end
                 else

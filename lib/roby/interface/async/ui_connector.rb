@@ -78,7 +78,7 @@ module Roby
                     def run(arg)
                         if getter = options[:getter]
                             arg = getter.call(arg)
-                            if !arg
+                            unless arg
                                 Interface.warn "not setting argument #{action}.#{argument_name}: getter returned nil"
                                 return
                             end

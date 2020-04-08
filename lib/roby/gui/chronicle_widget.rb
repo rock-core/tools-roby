@@ -118,7 +118,7 @@ module Roby
             attr_reader :sort_mode
             # See #sort_mode
             def sort_mode=(mode)
-                if !%i[start_time last_event].include?(mode)
+                unless %i[start_time last_event].include?(mode)
                     raise ArgumentError, "sort_mode can either be :start_time or :last_event, got #{mode}"
                 end
 
@@ -166,7 +166,7 @@ module Roby
 
             # See #show_mode
             def show_mode=(mode)
-                if !%i[all running current in_range].include?(mode)
+                unless %i[all running current in_range].include?(mode)
                     raise ArgumentError, "show_mode can be :all, :running, :in_range or :current, got #{mode}"
                 end
 
@@ -393,7 +393,7 @@ module Roby
             # Update the time at the end of the chronicle
             def update_current_time(time)
                 @current_time = time
-                if !base_time
+                unless base_time
                     update_base_time(time)
                 end
                 if !display_time || track_current_time?
@@ -408,14 +408,14 @@ module Roby
             # Update the currently displayed time
             def update_display_time(time)
                 @display_time = time
-                if !base_time
+                unless base_time
                     update_base_time(time)
                 end
 
                 _, end_time = displayed_time_range
                 update_display_point
 
-                if !horizontal_scroll_bar_down?
+                unless horizontal_scroll_bar_down?
                     update_scroll_ranges
                     horizontal_scroll_bar.value = time_to_pixel * (display_time - base_time)
                 end
@@ -556,10 +556,10 @@ module Roby
 
             def setDisplayTime(time = nil)
                 time = massage_slot_time_argument(time, display_time)
-                return if !time
+                return unless time
 
-                update_base_time(time) if !base_time
-                update_current_time(time) if !current_time
+                update_base_time(time) unless base_time
+                update_current_time(time) unless current_time
                 update_display_time(time)
                 update
             end
@@ -567,9 +567,9 @@ module Roby
 
             def setCurrentTime(time = nil)
                 time = massage_slot_time_argument(time, current_time)
-                return if !time
+                return unless time
 
-                update_base_time(time) if !base_time
+                update_base_time(time) unless base_time
                 update_current_time(time)
                 update
             end
@@ -734,7 +734,7 @@ module Roby
                                 end
                             end
                         end
-                        result if !result.empty?
+                        result unless result.empty?
                     end
                 end
 
@@ -847,7 +847,7 @@ module Roby
             end
 
             def paintEvent(event)
-                return if !display_time
+                return unless display_time
 
                 painter = Qt::Painter.new(viewport)
                 font = painter.font
@@ -892,7 +892,7 @@ module Roby
                 click_y = event.pos.y
                 layout = task_layout.find { |layout| layout.top_y < click_y && layout.top_y + layout.height > click_y }
                 if layout
-                    if !@info_view
+                    unless @info_view
                         @info_view = ObjectInfoView.new
                         Qt::Object.connect(@info_view, SIGNAL("selectedTime(QDateTime)"),
                                            self, SIGNAL("selectedTime(QDateTime)"))

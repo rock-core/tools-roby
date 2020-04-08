@@ -17,7 +17,7 @@ module Roby
                         app = Roby::Application.new
                         app.guess_app_dir
                         app.setup_robot_names_from_config_dir
-                        if !app.robot_name?(file)
+                        unless app.robot_name?(file)
                             raise ArgumentError,
                                   "expected #{file} to either the path to a log file, "\
                                   "or a robot name to get the last log file from "\

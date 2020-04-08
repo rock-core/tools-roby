@@ -343,7 +343,7 @@ module Roby
         def emit_relation_graph_transaction_application_hooks(list, prefix: nil)
             hooks = {}
             list.each do |graph, parent, child, *args|
-                if !hooks.has_key?(graph)
+                unless hooks.has_key?(graph)
                     rel = graph.class
                     if (name = rel.child_name)
                         parent_hook = "#{prefix}_#{name}"
@@ -355,7 +355,7 @@ module Roby
                 end
 
                 parent_hook, child_hook = hooks[graph]
-                next if !child_hook
+                next unless child_hook
 
                 parent.send(parent_hook, child, *args)
                 child.send(child_hook, parent, *args)
@@ -421,7 +421,7 @@ module Roby
         #
         # Emits the added_* hooks when a plan gets merged in self
         def merged_plan(plan)
-            if !plan.event_relation_graph_for(EventStructure::Precedence).empty?
+            unless plan.event_relation_graph_for(EventStructure::Precedence).empty?
                 execution_engine.event_ordering.clear
             end
 

@@ -210,7 +210,7 @@ class Ui::RelationsView
         @verticalLayout.setMenuBar(@menubar)
 
         @actionConfigure.connect(SIGNAL(:triggered)) do
-            if !@configuration_widget
+            unless @configuration_widget
                 @configuration_widget = Qt::Widget.new
                 @configuration_widget_ui = Ui::RelationsConfig.new(@configuration_widget, display)
             end

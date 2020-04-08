@@ -210,10 +210,10 @@ module Roby
             #   false otherwise
             # @see kill_job
             def drop_job(job_id)
-                return if !(task = find_job_by_id(job_id))
+                return unless (task = find_job_by_id(job_id))
 
                 placeholder_task = task.planned_task
-                if !placeholder_task
+                unless placeholder_task
                     plan.unmark_mission_task(task)
                     return true
                 end

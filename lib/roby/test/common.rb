@@ -213,7 +213,7 @@ module Roby
             Timecop.return
 
             @transactions.each do |trsc|
-                if !trsc.finalized?
+                unless trsc.finalized?
                     trsc.discard_transaction
                 end
             end
@@ -251,7 +251,7 @@ module Roby
                     errors =
                         begin
                             current_scheduler_state = engine.scheduler.enabled?
-                            if !enable_scheduler.nil?
+                            unless enable_scheduler.nil?
                                 engine.scheduler.enabled = enable_scheduler
                             end
 

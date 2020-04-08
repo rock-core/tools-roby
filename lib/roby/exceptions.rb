@@ -74,7 +74,7 @@ module Roby
         # Enumerates all tasks that are involved in this exception (either
         # origin or in the trace)
         def each_involved_task(&block)
-            return enum_for(__method__) if !block_given?
+            return enum_for(__method__) unless block_given?
 
             trace.each_vertex(&block)
         end
@@ -374,7 +374,7 @@ module Roby
     end
 
     def self.log_exception(e, logger, level, with_original_exceptions: true)
-        return if !log_level_enabled?(logger, level)
+        return unless log_level_enabled?(logger, level)
 
         first_line = true
         format_exception(e, with_original_exceptions: with_original_exceptions).each do |line|
@@ -501,13 +501,13 @@ module Roby
     end
 
     def self.display_exception(io = STDOUT, e = nil, filter_backtraces = nil)
-        if !filter_backtraces.nil?
+        unless filter_backtraces.nil?
             old_filter_backtraces = Roby.app.filter_backtraces?
             Roby.app.filter_backtraces = filter_backtraces
         end
 
         if !block_given?
-            if !e
+            unless e
                 raise ArgumentError, "expected an exception object as no block was given"
             end
 
@@ -527,7 +527,7 @@ module Roby
         end
         e
     ensure
-        if !filter_backtraces.nil?
+        unless filter_backtraces.nil?
             Roby.app.filter_backtraces = old_filter_backtraces
         end
     end

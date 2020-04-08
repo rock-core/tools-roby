@@ -109,7 +109,7 @@ module Roby
 
             # Yields the relations that are defined on this space
             def each_relation
-                return enum_for(__method__) if !block_given?
+                return enum_for(__method__) unless block_given?
 
                 relations.each do |rel|
                     yield(rel)
@@ -120,10 +120,10 @@ module Roby
             # is a root relation when it has no parent relation (i.e. it is the
             # subset of no other relations).
             def each_root_relation
-                return enum_for(__method__) if !block_given?
+                return enum_for(__method__) unless block_given?
 
                 relations.each do |rel|
-                    yield(rel) if !rel.parent
+                    yield(rel) unless rel.parent
                 end
             end
 

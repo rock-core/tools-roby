@@ -18,7 +18,7 @@ module Roby
             end
 
             def erb
-                if !@erb
+                unless @erb
                     template = File.read(scheduler_view_rhtml)
                     @erb = ERB.new(template)
                 end

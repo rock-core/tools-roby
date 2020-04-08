@@ -68,7 +68,7 @@ module Roby
         #   end
         #
         def trigger_when(*state_path, &block)
-            if !block_given?
+            unless block_given?
                 raise ArgumentError, "#trigger_when expects a block"
             end
 
@@ -182,7 +182,7 @@ module Roby
         end
 
         def poll
-            return if !armed?
+            return unless armed?
 
             if !variable_path.empty?
                 value = variable_path.inject(state_space) do |value, element|
@@ -195,7 +195,7 @@ module Roby
                             value.send(element)
                         end
 
-                    if !result
+                    unless result
                         break
                     end
 

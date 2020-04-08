@@ -22,13 +22,13 @@ module Roby
             def initialize(options = {})
                 @robots = options["robots"] || {}
                 @default_robot_name = options["default_robot"] || "default"
-                if !has_robot?(default_robot_name)
+                unless has_robot?(default_robot_name)
                     robots[default_robot_name] = default_robot_name
                 end
 
                 @aliases = options["aliases"] || {}
                 aliases.each do |name_alias, name|
-                    if !has_robot?(name)
+                    unless has_robot?(name)
                         raise ArgumentError, "cannot use #{name_alias} as an alias to #{name}: #{name} is not a declared robot"
                     end
                     if has_robot?(name_alias)

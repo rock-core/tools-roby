@@ -6,11 +6,11 @@ module Webgen::Tag
 
         def specific_menu_tree_for(content_node)
             tree = __specific_menu_tree_for__(content_node)
-            return if !tree
+            return unless tree
 
             tree.children.delete_if do |menu_info|
                 si = menu_info.node["sort_info"]
-                next if !si
+                next unless si
 
                 if param("tag.menu.range_start") && si < param("tag.menu.range_start")
                     true

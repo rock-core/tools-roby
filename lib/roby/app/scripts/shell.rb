@@ -96,7 +96,7 @@ Readline.completion_proc = lambda do |string|
         actions = main_remote_interface__.client.actions.find_all do |act|
             prefix_match === act.name
         end
-        if !actions.empty?
+        unless actions.empty?
             return actions.map { |act| "#{act.name}!" }
         end
     end
@@ -171,7 +171,7 @@ begin
                 shell_context__.process_pending
 
                 begin
-                    if !main_remote_interface__.silent?
+                    unless main_remote_interface__.silent?
                         output_sync.synchronize do
                             messages.each { |msg| RbReadline.puts(msg) }
                         end

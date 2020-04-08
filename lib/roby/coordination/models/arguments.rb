@@ -35,12 +35,12 @@ module Roby
                 def validate_arguments(arguments)
                     arguments = Kernel.normalize_options arguments
                     arguments.keys.each do |arg_name|
-                        if !find_argument(arg_name)
+                        unless find_argument(arg_name)
                             raise ArgumentError, "#{arg_name} is not an argument on #{self}"
                         end
                     end
                     each_argument do |_, arg|
-                        if !arguments.has_key?(arg.name)
+                        unless arguments.has_key?(arg.name)
                             if arg.required
                                 raise ArgumentError, "#{arg.name} is required by #{self}, but is not provided (given arguments: #{arguments})"
                             end

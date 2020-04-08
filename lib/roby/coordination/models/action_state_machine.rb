@@ -114,7 +114,7 @@ module Roby
                 #   transition measure_heading.success_event, keep_heading(heading: current_heading)
                 #
                 def capture(state, event = nil, &block)
-                    if !event
+                    unless event
                         state, event = state.task, state
                     end
 
@@ -144,7 +144,7 @@ module Roby
                 end
 
                 def validate_task(object)
-                    if !object.kind_of?(Coordination::Models::Task)
+                    unless object.kind_of?(Coordination::Models::Task)
                         raise ArgumentError,
                               "expected a state object, got #{object}. States need "\
                               "to be created from e.g. actions by calling #state "\
@@ -183,14 +183,14 @@ module Roby
                 def parse(&block)
                     super
 
-                    if !starting_state
+                    unless starting_state
                         raise ArgumentError, "no starting state defined"
                     end
 
                     # Validate that all source states in transitions are reachable
                     # from the start state
                     unreachable = compute_unreachable_states
-                    if !unreachable.empty?
+                    unless unreachable.empty?
                         raise UnreachableStateUsed.new(unreachable),
                               "#{unreachable.size} states are used in transitions "\
                               "but are actually not reachable"
@@ -219,7 +219,7 @@ module Roby
                         state, state_event, new_state = *spec
                         validate_task(state)
                         validate_task(new_state)
-                        if !event_active_in_state?(state_event, state)
+                        unless event_active_in_state?(state_event, state)
                             raise EventNotActiveInState,
                                   "cannot transition on #{state_event} while in "\
                                   "state #{state} as the event is not active "\

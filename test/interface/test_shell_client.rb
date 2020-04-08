@@ -51,7 +51,7 @@ module Roby
                         @shell_client.close
                     end
                 end
-                @server.close if !@server.closed?
+                @server.close unless @server.closed?
             end
 
             describe "#summarize_pending_messages" do

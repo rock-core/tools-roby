@@ -255,9 +255,9 @@ module Roby
             # @param info the new edge info
             # @return [Boolean] true if the edge existed and false otherwise
             def try_updating_existing_edge_info(from, to, info)
-                return false if !has_edge?(from, to)
+                return false unless has_edge?(from, to)
 
-                if !(old_info = edge_info(from, to)).nil?
+                unless (old_info = edge_info(from, to)).nil?
                     if old_info == info
                         return true
                     elsif !(info = merge_info(from, to, old_info, info))
@@ -276,7 +276,7 @@ module Roby
             #
             # @return true if a new edge was created
             def add_edge(a, b, info)
-                if !try_updating_existing_edge_info(a, b, info)
+                unless try_updating_existing_edge_info(a, b, info)
                     super
                     true
                 end
@@ -311,14 +311,14 @@ module Roby
                 new_relations_ids = []
                 rel = self
                 while rel
-                    if !rel.has_edge?(from, to)
+                    unless rel.has_edge?(from, to)
                         new_relations << rel
                         new_relations_ids << rel.class
                     end
                     rel = rel.parent
                 end
 
-                if !new_relations.empty?
+                unless new_relations.empty?
                     observer&.adding_edge(from, to, new_relations_ids, info)
                     for rel in new_relations
                         rel.add_edge(from, to, (info if self == rel))
@@ -348,7 +348,7 @@ module Roby
             alias remove_vertex! remove_vertex
 
             def remove_vertex(object)
-                if !observer
+                unless observer
                     return super
                 end
 
@@ -387,7 +387,7 @@ module Roby
             # <tt>[self, parent, parent.parent, ...]</tt> up to the root relation
             # which is a superset of +self+.
             def remove_relation(from, to)
-                if !has_edge?(from, to)
+                unless has_edge?(from, to)
                     return
                 end
 
@@ -464,7 +464,7 @@ module Roby
             #   subset of self
             # @raise [ArgumentError] if 'relation' is not empty
             def superset_of(relation)
-                if !relation.empty?
+                unless relation.empty?
                     raise ArgumentError, "cannot pass a non-empty graph to #superset_of"
                 end
 

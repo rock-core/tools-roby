@@ -3,7 +3,7 @@
 module Roby
     class Task
         def self.state
-            if !@state
+            unless @state
                 if superclass.respond_to?(:state)
                     supermodel = superclass.state
                 end
@@ -21,7 +21,7 @@ module Roby
         end
 
         def self.goal
-            if !@goal
+            unless @goal
                 if superclass.respond_to?(:goal)
                     supermodel = superclass.goal
                 end
@@ -35,7 +35,7 @@ module Roby
         end
 
         def resolve_goals
-            if !fully_instanciated?
+            unless fully_instanciated?
                 raise ArgumentError, "cannot resolve goals on a task that is not fully instanciated"
             end
 

@@ -208,7 +208,7 @@ module Roby
                 self.window_title = "roby-display: #{filename}"
                 emit sourceChanged
                 analyze
-                if !history.empty?
+                unless history.empty?
                     apply(history[history.keys.min][1])
                 end
             end

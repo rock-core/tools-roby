@@ -213,7 +213,7 @@ module Roby
             # should be saved to be referred to as the +dataset_name+ dataset
             def dataset_file_path(dataset_name, file)
                 path = File.join(datasets_dir, dataset_name, file)
-                if !File.file?(path)
+                unless File.file?(path)
                     raise "#{path} does not exist"
                 end
 

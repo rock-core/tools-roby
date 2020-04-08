@@ -5,7 +5,7 @@ require "fileutils"
 Roby.app.load_base_config
 app = Roby.app
 
-if !(name = ARGV.shift)
+unless (name = ARGV.shift)
     STDERR.puts "calling 'results' with no arguments does nothing anymore"
     exit 0
 end

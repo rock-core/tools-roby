@@ -35,7 +35,7 @@ module Roby::TaskStructure
                     end
                 end
                 add_planning_task(task, optional: optional, plan_early: true)
-                if !plan_early
+                unless plan_early
                     task.schedule_as(self)
                 end
 
@@ -49,8 +49,8 @@ module Roby::TaskStructure
             result = []
             each_edge do |planned_task, planning_task, options|
                 next if plan != planning_task.plan
-                next if !planning_task.failed?
-                next if !planned_task.self_owned?
+                next unless planning_task.failed?
+                next unless planned_task.self_owned?
 
                 if (planned_task.pending? && !planned_task.executable?) || !options[:optional]
                     result << [Roby::PlanningFailedError.new(planned_task, planning_task), nil]

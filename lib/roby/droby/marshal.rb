@@ -173,7 +173,7 @@ module Roby
                 if resolved
                     local_object
                 elsif marshalled.respond_to?(:remote_siblings)
-                    if !create
+                    unless create
                         raise NoLocalObject, "#{marshalled} cannot be resolved into a local object and create is false"
                     end
 

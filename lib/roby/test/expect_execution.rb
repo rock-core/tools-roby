@@ -152,7 +152,7 @@ module Roby
             # @raise [InvalidContext] if called outside of an
             #   {#expect_execution} context
             def add_expectations(&block)
-                if !@current_expect_execution
+                unless @current_expect_execution
                     raise InvalidContext, "#add_expectations not called within an expect_execution context"
                 end
 

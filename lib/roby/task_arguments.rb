@@ -173,7 +173,7 @@ module Roby
             return assigned_arguments unless block_given?
 
             each do |key, value|
-                if !TaskArguments.delayed_argument?(value)
+                unless TaskArguments.delayed_argument?(value)
                     yield(key, value)
                 end
             end
@@ -580,7 +580,7 @@ module Roby
                 if v.kind_of?(Roby::Task) && v.model.has_argument?(m)
                     # We are trying to access a task argument, throw no_value if the
                     # argument is not set
-                    if !v.arguments.has_key?(m)
+                    unless v.arguments.has_key?(m)
                         throw :no_value
                     end
 

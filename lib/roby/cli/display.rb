@@ -136,7 +136,7 @@ module Roby
                     parts = host_spec.split(":")
                     if parts[0] == "vagrant"
                         vagrant_id = parts[1]
-                        if !vagrant_id
+                        unless vagrant_id
                             raise ArgumentError, "expected vagrant: to be followed by the ID of a vagrant VM"
                         end
 
@@ -147,7 +147,7 @@ module Roby
                         host, port = *parts
                         host = "localhost" if !host || host.empty?
                     end
-                    port = Interface::DEFAULT_PORT.to_s if !port
+                    port = Interface::DEFAULT_PORT.to_s unless port
 
                     if port[0, 1] != "!"
                         port = discover_log_server_port(host, Integer(port) || Interface::DEFAULT_PORT)

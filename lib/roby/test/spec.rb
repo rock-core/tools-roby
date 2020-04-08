@@ -94,7 +94,7 @@ module Roby
             def clear_newly_defined_models
                 app.root_models.each do |root_model|
                     ([root_model] + root_model.each_submodel.to_a).each do |m|
-                        if !models_present_in_setup.include?(m)
+                        unless models_present_in_setup.include?(m)
                             m.permanent_model = false
                             m.clear_model
                         end
@@ -121,7 +121,7 @@ module Roby
                     execution_engine.cycle_end({})
                 end
 
-                if !exceptions.empty?
+                unless exceptions.empty?
                     if exceptions.size == 1
                         raise exceptions.first.exception
                     else

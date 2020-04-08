@@ -26,7 +26,7 @@ module Roby
                     send(enum, rel) do |obj|
                         plan_object =
                             if obj.transaction_proxy?
-                                next if !include_proxies
+                                next unless include_proxies
 
                                 obj.__getobj__
                             else obj

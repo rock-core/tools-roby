@@ -247,15 +247,15 @@ module Roby
                             end
 
                             @arguments.each do |name, has_default, default, doc|
-                                if !local_object.has_argument?(name)
-                                    if !has_default
+                                unless local_object.has_argument?(name)
+                                    unless has_default
                                         default = Roby::Models::Task::NO_DEFAULT_ARGUMENT
                                     end
                                     local_object.argument name, default: peer.local_object(default), doc: doc
                                 end
                             end
                             events.each do |name, controlable, terminal|
-                                if !local_object.has_event?(name)
+                                unless local_object.has_event?(name)
                                     local_object.event name, controlable: controlable, terminal: terminal
                                 end
                             end
@@ -566,7 +566,7 @@ module Roby
                             end
                         end
 
-                        if !fresh_proxy
+                        unless fresh_proxy
                             task.arguments.merge!(peer.local_object(arguments))
                         end
                         task.instance_variable_set("@data", peer.local_object(data))

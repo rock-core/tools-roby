@@ -79,7 +79,7 @@ module Roby
                 #   commands will be added to this batch. Otherwise, a new batch
                 #   is created and {Client::BatchContext#__process} is called.
                 def kill(batch: nil)
-                    if !running?
+                    unless running?
                         raise InvalidState, "cannot kill a non-running action"
                     end
 

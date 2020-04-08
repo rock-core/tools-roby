@@ -61,7 +61,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
                 assert_explained_by(expectation[0], el.predicate, expectation[1], el)
             end
         else
-            if !event.respond_to?(:to_ary)
+            unless event.respond_to?(:to_ary)
                 event = [event]
             end
             assert_equal(event, explanation.elements)

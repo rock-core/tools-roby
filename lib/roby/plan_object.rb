@@ -78,7 +78,7 @@ module Roby
                 options, other = Kernel.send("#{method}_options", options,
                                              on_replace: (defaults[:on_replace] || :drop))
 
-                if !%i[drop copy].include?(options[:on_replace])
+                unless %i[drop copy].include?(options[:on_replace])
                     raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
                 end
 
@@ -292,7 +292,7 @@ module Roby
         #
         # Will yield the same set of tasks, but included in +self.plan+.
         def merged_relations(enumerator, intrusive, &block)
-            return enum_for(__method__, enumerator, intrusive) if !block_given?
+            return enum_for(__method__, enumerator, intrusive) unless block_given?
 
             plan_chain = self.transaction_stack
             object     = self.real_object
@@ -443,7 +443,7 @@ module Roby
 
         # Called when all links to +peer+ should be removed.
         def forget_peer(peer)
-            if !root_object?
+            unless root_object?
                 raise ArgumentError, "#{self} is not root"
             end
 
@@ -457,7 +457,7 @@ module Roby
         def add_child_object(child, type, info = nil) # :nodoc:
             if child.plan != plan
                 root_object.synchronize_plan(child.root_object)
-                if !type.kind_of?(Class)
+                unless type.kind_of?(Class)
                     # If given a graph, we need to re-resolve it as #plan might
                     # have changed
                     type = relation_graphs.fetch(type.class)

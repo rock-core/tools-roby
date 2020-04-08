@@ -41,7 +41,7 @@ module Roby
                     flags |= EVENT_CONTROLABLE
                 end
 
-                if !styles.has_key?(flags)
+                unless styles.has_key?(flags)
                     raise ArgumentError,
                           "event #{object} has flags #{flags}, which has no "\
                           "defined style (controlable=#{object.controlable?})"
@@ -88,7 +88,7 @@ module Roby
                 if display.show_ownership
                     owners = self.owners.dup
                     owners.delete_if { |o| o.remote_name == "log_replay" }
-                    if !owners.empty?
+                    unless owners.empty?
                         name << "[#{owners.map(&:name).join(', ')}]"
                     end
                 end
@@ -197,7 +197,7 @@ module Roby
                 if display.show_ownership
                     owners = self.owners.dup
                     owners.delete_if { |o| o.remote_name == "log_replay" }
-                    if !owners.empty?
+                    unless owners.empty?
                         name << "\n[#{owners.map(&:name).join(', ')}]"
                     end
                 end
@@ -283,7 +283,7 @@ module Roby
                 painter.begin(svg)
                 scene.render(painter)
                 painter.end
-                if !path
+                unless path
                     buffer.data
                 end
             end
@@ -571,7 +571,7 @@ module Roby
 
             def object_of(item)
                 id = item.data(0).to_string
-                return if !id
+                return unless id
 
                 id = Integer(id)
 
@@ -608,7 +608,7 @@ module Roby
             # Creates or reuses an arrow object to represent the given relation
             def arrow(from, to, rel, info, base_layer)
                 id = [from, to, rel]
-                if !(item = arrows[id])
+                unless (item = arrows[id])
                     if item = last_arrows.delete(id)
                         arrows[id] = item
                     else
@@ -733,7 +733,7 @@ module Roby
             attr_reader :relation_pens
             attr_reader :relation_brushes
             def relation_color(relation)
-                if !relation_colors.has_key?(relation)
+                unless relation_colors.has_key?(relation)
                     update_relation_color(relation, allocate_color)
                 end
                 relation_colors[relation]
@@ -785,7 +785,7 @@ module Roby
             DISPLAY_POLICIES = %i[explicit emitters emitters_and_parents].freeze
             attr_reader :display_policy
             def display_policy=(policy)
-                if !DISPLAY_POLICIES.include?(policy)
+                unless DISPLAY_POLICIES.include?(policy)
                     raise ArgumentError,
                           "got #{policy.inspect} as a display policy, accepted "\
                           "values are #{DISPLAY_POLICIES.map(&:inspect).join(', ')}"
@@ -803,7 +803,7 @@ module Roby
             end
 
             def create_or_get_item(object, initial_selection)
-                if !(item = graphics[object])
+                unless (item = graphics[object])
                     item = graphics[object] = object.display_create(self)
                     if item
                         if object.display_parent
@@ -847,7 +847,7 @@ module Roby
                 removed_objects = []
                 flashing_objects.delete_if do |object, blocks|
                     blocks.delete_if { |block| !block.call }
-                    if !blocks.empty?
+                    unless blocks.empty?
                         next
                     end
 
@@ -1061,7 +1061,7 @@ module Roby
 
                 # Update arrow visibility
                 arrows.each do |(from, to, rel), item|
-                    next if !@enabled_relations.include?(rel)
+                    next unless @enabled_relations.include?(rel)
 
                     item.visible = (displayed?(from) && displayed?(to))
                 end
