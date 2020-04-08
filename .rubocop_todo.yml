@@ -16,7 +16,6 @@ Lint/RedundantCopDisableDirective:
 # URISchemes: http, https
 Layout/LineLength:
   Exclude:
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/actions/task.rb'
     - 'lib/roby/and_generator.rb'
@@ -296,7 +295,6 @@ Layout/MultilineMethodCallIndentation:
     - 'doc/guide/ext/previous_next.rb'
     - 'lib/roby/actions/interface.rb'
     - 'lib/roby/actions/models/coordination_action.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/scripts/shell.rb'
     - 'lib/roby/cli/log.rb'
@@ -390,7 +388,6 @@ Layout/ParameterAlignment:
 # Configuration parameters: AllowSafeAssignment.
 Lint/AssignmentInCondition:
   Exclude:
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/actions/task.rb'
     - 'lib/roby/app.rb'
@@ -623,7 +620,6 @@ Lint/UnusedBlockArgument:
 Lint/UnusedMethodArgument:
   Exclude:
     - 'lib/roby/actions/action.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/and_generator.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/cucumber/controller.rb'
@@ -695,7 +691,6 @@ Lint/UnusedMethodArgument:
 Lint/UselessAssignment:
   Exclude:
     - 'benchmark/transactions.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/autotest_console_reporter.rb'
     - 'lib/roby/app/scripts.rb'
@@ -774,7 +769,6 @@ Metrics/AbcSize:
   Exclude:
     - 'benchmark/transactions.rb'
     - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/autotest_console_reporter.rb'
@@ -1097,7 +1091,6 @@ Metrics/CyclomaticComplexity:
     - 'benchmark/transactions.rb'
     - 'doc/guide/ext/extended_menu.rb'
     - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/cucumber/controller.rb'
@@ -1234,7 +1227,6 @@ Metrics/PerceivedComplexity:
   Exclude:
     - 'doc/guide/ext/extended_menu.rb'
     - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/cucumber/controller.rb'
@@ -1373,7 +1365,6 @@ Naming/MethodName:
 # AllowedNames: io, id, to, by, on, in, at, ip, db, os, pp
 Naming/MethodParameterName:
   Exclude:
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/cucumber/controller.rb'
     - 'lib/roby/app/scripts/shell.rb'
@@ -1612,7 +1603,6 @@ Style/Documentation:
     - 'lib/roby/actions.rb'
     - 'lib/roby/actions/library.rb'
     - 'lib/roby/actions/models/interface.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app/base.rb'
     - 'lib/roby/app/cucumber/world.rb'
@@ -1806,7 +1796,6 @@ Style/FormatStringToken:
 Style/GuardClause:
   Exclude:
     - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/autotest_console_reporter.rb'
     - 'lib/roby/app/cucumber/controller.rb'
@@ -2077,7 +2066,6 @@ Style/MultilineBlockChain:
 Style/NegatedIf:
   Exclude:
     - 'doc/guide/ext/extended_menu.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/actions/task.rb'
     - 'lib/roby/app.rb'
@@ -2207,7 +2195,6 @@ Style/ParallelAssignment:
   Exclude:
     - 'benchmark/transactions.rb'
     - 'lib/roby/actions/action.rb'
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/cli/display.rb'
     - 'lib/roby/cli/main.rb'
@@ -2371,7 +2358,6 @@ Style/RedundantBegin:
 # Cop supports --auto-correct.
 Style/RedundantSelf:
   Exclude:
-    - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/coordination/fault_handler.rb'
     - 'lib/roby/coordination/models/action_state_machine.rb'
