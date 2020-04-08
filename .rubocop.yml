@@ -31,3 +31,6 @@ Style/MultilineMemoization:
 
 Style/StderrPuts:
     Enabled: false
+
+Naming/PredicateName:
+    Enabled: false

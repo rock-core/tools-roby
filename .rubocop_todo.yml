@@ -16,7 +16,6 @@ Lint/RedundantCopDisableDirective:
 # URISchemes: http, https
 Layout/LineLength:
   Exclude:
-    - 'lib/roby/actions/models/action.rb'
     - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/actions/task.rb'
@@ -775,7 +774,6 @@ Metrics/AbcSize:
   Exclude:
     - 'benchmark/transactions.rb'
     - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/actions/models/action.rb'
     - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app.rb'
@@ -1461,7 +1459,6 @@ Naming/PredicateName:
   Exclude:
     - 'spec/**/*'
     - 'lib/roby/actions/action.rb'
-    - 'lib/roby/actions/models/action.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/robot_names.rb'
     - 'lib/roby/coordination/models/task.rb'
@@ -1746,7 +1743,6 @@ Style/Documentation:
 # Offense count: 36
 Style/DoubleNegation:
   Exclude:
-    - 'lib/roby/actions/models/action.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/debug.rb'
     - 'lib/roby/app/robot_names.rb'
@@ -1810,7 +1806,6 @@ Style/FormatStringToken:
 Style/GuardClause:
   Exclude:
     - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/actions/models/action.rb'
     - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/autotest_console_reporter.rb'
@@ -1925,7 +1920,6 @@ Style/IfUnlessModifier:
   Exclude:
     - 'benchmark/transactions.rb'
     - 'bin/roby'
-    - 'lib/roby/actions/models/action.rb'
     - 'lib/roby/and_generator.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/base.rb'
@@ -2083,7 +2077,6 @@ Style/MultilineBlockChain:
 Style/NegatedIf:
   Exclude:
     - 'doc/guide/ext/extended_menu.rb'
-    - 'lib/roby/actions/models/action.rb'
     - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/actions/task.rb'
@@ -2378,7 +2371,6 @@ Style/RedundantBegin:
 # Cop supports --auto-correct.
 Style/RedundantSelf:
   Exclude:
-    - 'lib/roby/actions/models/action.rb'
     - 'lib/roby/actions/models/interface_base.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/coordination/fault_handler.rb'
