@@ -16,7 +16,6 @@ Lint/RedundantCopDisableDirective:
 # URISchemes: http, https
 Layout/LineLength:
   Exclude:
-    - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'doc/guide/ext/init.rb'
     - 'doc/guide/ext/rdoc_links.rb'
     - 'lib/roby/actions/models/action.rb'
@@ -560,7 +559,6 @@ Lint/SuppressedException:
 Lint/UnusedBlockArgument:
   Exclude:
     - 'benchmark/ruby/identity.rb'
-    - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'doc/guide/ext/previous_next.rb'
     - 'lib/roby/actions/task.rb'
     - 'lib/roby/and_generator.rb'
@@ -780,7 +778,6 @@ Lint/UselessAssignment:
 # Configuration parameters: Max.
 Metrics/AbcSize:
   Exclude:
-    - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'benchmark/transactions.rb'
     - 'doc/guide/ext/previous_next.rb'
     - 'doc/guide/ext/rdoc_links.rb'
@@ -1105,7 +1102,6 @@ Metrics/ClassLength:
 # Configuration parameters: Max.
 Metrics/CyclomaticComplexity:
   Exclude:
-    - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'benchmark/transactions.rb'
     - 'doc/guide/ext/extended_menu.rb'
     - 'doc/guide/ext/previous_next.rb'
@@ -1244,7 +1240,6 @@ Metrics/ParameterLists:
 # Configuration parameters: Max.
 Metrics/PerceivedComplexity:
   Exclude:
-    - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'doc/guide/ext/extended_menu.rb'
     - 'doc/guide/ext/previous_next.rb'
     - 'lib/roby/actions/models/interface_base.rb'
@@ -1935,7 +1930,6 @@ Style/HashSyntax:
 # Cop supports --auto-correct.
 Style/IfUnlessModifier:
   Exclude:
-    - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'benchmark/transactions.rb'
     - 'bin/roby'
     - 'lib/roby/actions/models/action.rb'
@@ -2225,7 +2219,6 @@ Style/OptionalArguments:
 # Cop supports --auto-correct.
 Style/ParallelAssignment:
   Exclude:
-    - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'benchmark/transactions.rb'
     - 'lib/roby/actions/action.rb'
     - 'lib/roby/actions/models/interface_base.rb'
