@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -15,15 +17,15 @@ module Roby
                 # @param [#call] filter an object that is used to process the
                 #   event's context. It is passed the context as-is (i.e. as an
                 #   array) and should return the value that should be captured
-                def initialize(filter = lambda { |event| event.context })
+                def initialize(filter = lambda(&:context))
                     @filter = filter
                 end
 
                 # Filter the context through the filter object passed to
                 # {#initialize}
                 def filter(state_machine, event)
-                    CaptureEvaluationContext.new(state_machine).
-                        instance_exec(event, &@filter)
+                    CaptureEvaluationContext.new(state_machine)
+                        .instance_exec(event, &@filter)
                 end
 
                 class CaptureEvaluationContext < Object
@@ -83,4 +85,3 @@ module Roby
         end
     end
 end
-

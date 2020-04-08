@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     describe ExecutionException do
@@ -118,4 +120,3 @@ module Roby
         end
     end
 end
-

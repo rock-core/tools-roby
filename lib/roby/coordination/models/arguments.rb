@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -8,7 +10,7 @@ module Roby
 
                 # The set of arguments available to this execution context
                 # @return [Array<Symbol>]
-                inherited_attribute(:argument, :arguments, map: true) { Hash.new }
+                inherited_attribute(:argument, :arguments, map: true) { {} }
 
                 # Define a new argument for this coordination model
                 #
@@ -20,7 +22,7 @@ module Roby
                 # @option options :default a default value for this argument. Note
                 #   that 'nil' is considered as a proper default value.
                 # @return [Argument] the new argument object
-                def argument(name, options = Hash.new)
+                def argument(name, options = {})
                     options = Kernel.validate_options options, :default
                     arguments[name.to_sym] = Argument.new(name.to_sym, !options.has_key?(:default), options[:default])
                 end
@@ -42,6 +44,7 @@ module Roby
                             if arg.required
                                 raise ArgumentError, "#{arg.name} is required by #{self}, but is not provided (given arguments: #{arguments})"
                             end
+
                             arguments[arg.name] = arg.default
                         end
                     end
@@ -51,5 +54,3 @@ module Roby
         end
     end
 end
-
-

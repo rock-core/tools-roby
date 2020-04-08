@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Models
@@ -23,36 +25,35 @@ module Roby
             it "stores a plain default value as a DefaultArgument object" do
                 model.argument :test, default: 10
                 assert_equal [true, DefaultArgument.new(10)],
-                    model.default_argument(:test)
+                             model.default_argument(:test)
             end
 
             it "allows to use 'nil' as a default argument value" do
                 model.argument :test, default: nil
                 assert_equal [true, DefaultArgument.new(nil)],
-                    model.default_argument(:test)
+                             model.default_argument(:test)
             end
 
             it "stores a delayed argument value as-is" do
                 default = flexmock(evaluate_delayed_argument: false)
                 model.argument :test, default: default
                 assert_equal [true, default],
-                    model.default_argument(:test)
+                             model.default_argument(:test)
             end
 
             it "extracts the comment block as documentation by default" do
                 # This is a documentation block
                 model.argument :test
                 assert_equal "This is a documentation block",
-                    model.find_argument(:test).doc
+                             model.find_argument(:test).doc
             end
 
             it "allows to set the documentation programmatically as well" do
                 # This is a documentation block
                 model.argument :test, doc: "Programmatically"
                 assert_equal "Programmatically",
-                    model.find_argument(:test).doc
+                             model.find_argument(:test).doc
             end
         end
     end
 end
-

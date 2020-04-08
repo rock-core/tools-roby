@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # Representation of a subcommand on {Interface} on the shell side

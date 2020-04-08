@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # A namespace in which are defined position-related classes.
 module Roby::Pos
     # A (x, y, z) vector
@@ -10,31 +12,52 @@ module Roby::Pos
         end
 
         def to_s # :nodoc:
-            "Vector3D(x=%f,y=%f,z=%f)" % [x,y,z] 
+            format("Vector3D(x=%f,y=%f,z=%f)", x, y, z)
         end
+
         def pretty_print(pp)
             pp.text to_s
         end
 
         # The length of the vector
-        def length; distance(0, 0, 0) end
+        def length
+            distance(0, 0, 0)
+        end
+
         # Returns self + v
-        def +(v); Vector3D.new(x + v.x, y + v.y, z + v.z) end
+        def +(other)
+            Vector3D.new(x + other.x, y + other.y, z + other.z)
+        end
+
         # Returns self - v
-        def -(v); Vector3D.new(x - v.x, y - v.y, z - v.z) end
+        def -(other)
+            Vector3D.new(x - other.x, y - other.y, z - other.z)
+        end
+
         # Returns the product of this vector with the scalar +a+
-        def *(a); Vector3D.new(x * a, y * a, z * a) end
+        def *(other)
+            Vector3D.new(x * other, y * other, z * other)
+        end
+
         # Returns the division of this vector with the scalar +a+
-        def /(a); Vector3D.new(x / a, y / a, z / a) end
+        def /(other)
+            Vector3D.new(x / other, y / other, z / other)
+        end
+
         # Returns the opposite of this vector
-        def -@; Vector3D.new(-x, -y, -z) end
+        def -@
+            Vector3D.new(-x, -y, -z)
+        end
 
         # Returns the [x, y, z] array
-        def xyz; [x, y, z] end
+        def xyz
+            [x, y, z]
+        end
+
         # True if +v+ is the same vector than +self+
-        def ==(v)
-            v.kind_of?(Vector3D) &&
-                v.x == x && v.y == y && v.z == z
+        def ==(other)
+            other.kind_of?(Vector3D) &&
+                other.x == x && other.y == y && other.z == z
         end
 
         # True if this vector is of zero length. If +tolerance+ is non-zero,
@@ -60,7 +83,7 @@ module Roby::Pos
                 y ||= 0
             end
 
-            Math.sqrt( (x - self.x) ** 2 + (y - self.y) ** 2 )
+            Math.sqrt((x - self.x)**2 + (y - self.y)**2)
         end
 
         # call-seq:
@@ -82,7 +105,7 @@ module Roby::Pos
                 z ||= 0
             end
 
-            Math.sqrt( (x - self.x) ** 2 + (y - self.y) ** 2 + (z - self.z) ** 2)
+            Math.sqrt((x - self.x)**2 + (y - self.y)**2 + (z - self.z)**2)
         end
     end
 
@@ -103,8 +126,7 @@ module Roby::Pos
         end
 
         def to_s # :nodoc:
-            "Euler3D(x=%f,y=%f,z=%f,y=%f,p=%f,r=%f)" % [x,y,z,yaw,pitch,roll]
+            format("Euler3D(x=%f,y=%f,z=%f,y=%f,p=%f,r=%f)", x, y, z, yaw, pitch, roll)
         end
     end
 end
-

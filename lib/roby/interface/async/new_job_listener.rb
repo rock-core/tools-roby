@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         module Async

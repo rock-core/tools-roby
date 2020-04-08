@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module TaskStructure
         relation :Conflicts, noinfo: true
@@ -101,4 +103,3 @@ module Roby
         prepend TaskStructure::Conflicts::EventGeneratorExtension
     end
 end
-

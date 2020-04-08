@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         module Async
@@ -139,7 +141,7 @@ module Roby
 
                     @connection_method = connection_method || lambda {
                         Roby::Interface.connect_with_tcp_to(remote_name, port,
-                            handshake: [:actions, :commands, :jobs, :log_server_port])
+                                                            handshake: %i[actions commands jobs log_server_port])
                     }
                     @log_server_port = nil
 
@@ -149,15 +151,16 @@ module Roby
                         attempt_connection
                     end
 
-                    @job_monitors = Hash.new
-                    @new_job_listeners = Array.new
+                    @job_monitors = {}
+                    @new_job_listeners = []
                 end
 
                 # Schedules an async call on the client
                 #
                 # @see Client#async_call
                 def async_call(path, m, *args, &block)
-                    raise 'client not connected' unless connected?
+                    raise "client not connected" unless connected?
+
                     client.async_call(path, m, *args, &block)
                 end
 
@@ -208,10 +211,10 @@ module Roby
                         @client.io.reset_thread_guard
                         @connection_future = nil
                         @log_server_port = @client.handshake_results[:log_server_port]
-                        jobs = @client.handshake_results[:jobs].
-                            map do |job_id, (job_state, placeholder_task, job_task)|
+                        jobs = @client.handshake_results[:jobs]
+                            .map do |job_id, (job_state, placeholder_task, job_task)|
                                 JobMonitor.new(self, job_id, state: job_state,
-                                    placeholder_task: placeholder_task, task: job_task)
+                                                             placeholder_task: placeholder_task, task: job_task)
                             end
                         run_hook :on_reachable, jobs
                         new_job_listeners.each do |listener|
@@ -237,7 +240,7 @@ module Roby
                     end
                     client.ui_event_queue.clear
 
-                    finalized_monitors = Hash.new
+                    finalized_monitors = {}
                     finalized_jobs = []
                     client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
                         new_job_listeners.each do |listener|
@@ -269,7 +272,7 @@ module Roby
                                     m.replaced(args.first)
                                 end
                                 if m.finalized?
-                                    (finalized_monitors[job_id] ||= Array.new) << m
+                                    (finalized_monitors[job_id] ||= []) << m
                                 end
                             end
                         end
@@ -364,7 +367,6 @@ module Roby
                     connection_future.complete?
                 end
 
-
                 # Active part of the async. This has to be called regularly within
                 # the system's main event loop (e.g. Roby's, Vizkit's or Qt's)
                 #
@@ -430,7 +432,7 @@ module Roby
                 #
                 # @return [Array<JobMonitor>]
                 def jobs
-                    return Array.new if !reachable?
+                    return [] if !reachable?
 
                     client.jobs.map do |job_id, (job_state, placeholder_task, job_task)|
                         JobMonitor.new(self, job_id, placeholder_task: placeholder_task, task: job_task, state: job_state)
@@ -497,9 +499,7 @@ module Roby
 
                 def cleanup_dead_monitors
                     job_monitors.delete_if do |job_id, monitors|
-                        monitors.delete_if do |job|
-                            job.finalized?
-                        end
+                        monitors.delete_if(&:finalized?)
                         monitors.empty?
                     end
                 end

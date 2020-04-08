@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/tasks/virtual'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/tasks/virtual"
 
 module Roby
     module Tasks
@@ -50,16 +52,16 @@ module Roby
                 start, success = EventGenerator.new(true), EventGenerator.new
                 plan.add(task = VirtualTask.create(start, success))
                 execute { task.start! }
-                expect_execution { success.unreachable! }.
-                    to { emit task.failed_event }
+                expect_execution { success.unreachable! }
+                    .to { emit task.failed_event }
             end
 
             it "fails if its success event is garbage collected" do
                 start, success = EventGenerator.new(true), EventGenerator.new
                 plan.add(task = VirtualTask.create(start, success))
                 execute { task.start! }
-                expect_execution { plan.remove_free_event(success) }.
-                    to { emit task.failed_event }
+                expect_execution { plan.remove_free_event(success) }
+                    .to { emit task.failed_event }
             end
 
             it "does nothing if the success event is emitted while the task is still pending" do
@@ -71,6 +73,3 @@ module Roby
         end
     end
 end
-
-
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Base class for events emitted by tasks.
     #
@@ -117,14 +119,28 @@ module Roby
         end
 
         # If the event is controlable
-        def controlable?; model.controlable? end
+        def controlable?
+            model.controlable?
+        end
+
         # If this event is terminal
-        def success?; @terminal_flag == :success end
+        def success?
+            @terminal_flag == :success
+        end
+
         # If this event is terminal
-        def failure?; @terminal_flag == :failure end
+        def failure?
+            @terminal_flag == :failure
+        end
+
         # If this event is terminal
-        def terminal?; @terminal_flag end
+        def terminal?
+            @terminal_flag
+        end
+
         # The event symbol
-        def symbol; model.symbol end
+        def symbol
+            model.symbol
+        end
     end
 end

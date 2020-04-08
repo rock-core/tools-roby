@@ -1,4 +1,6 @@
-require 'roby/tasks/timeout'
+# frozen_string_literal: true
+
+require "roby/tasks/timeout"
 module Roby
     module Coordination
         module Models
@@ -22,7 +24,10 @@ module Roby
                     end
 
                     def new(script)
-                        Start.new(script.instance_for(task), explicit_start: explicit_start?, **dependency_options)
+                        Start.new(
+                            script.instance_for(task),
+                            explicit_start: explicit_start?, **dependency_options
+                        )
                     end
 
                     def execute(script)
@@ -30,7 +35,9 @@ module Roby
                         true
                     end
 
-                    def to_s; "start(#{task}, #{dependency_options})" end
+                    def to_s
+                        "start(#{task}, #{dependency_options})"
+                    end
                 end
 
                 # Script element that implements {Script#wait}
@@ -84,36 +91,62 @@ module Roby
 
                         if event.task != root_task
                             role_name = "wait_#{self.object_id}"
-                            current_roles = (root_task.depends_on?(event.task) && root_task.roles_of(event.task))
-                            root_task.depends_on event.task, success: nil, role: role_name
+                            current_roles = (
+                                root_task.depends_on?(event.task) &&
+                                root_task.roles_of(event.task)
+                            )
+                            root_task.depends_on(
+                                event.task, success: nil, role: role_name
+                            )
                         end
 
-                        event.if_unreachable(cancel_at_emission: true) do |reason, generator|
+                        event.if_unreachable(
+                            cancel_at_emission: true
+                        ) do |reason, generator|
                             if !disabled?
-                                generator.plan.add_error(DeadInstruction.new(script.root_task))
+                                generator.plan.add_error(
+                                    DeadInstruction.new(script.root_task)
+                                )
                             end
                         end
 
                         event.on on_replace: :copy do |event|
                             if event.generator == self.event.resolve && !disabled?
-                                if !time_barrier || event.time > time_barrier
-                                    if role_name && (child = script.root_task.find_child_from_role(role_name))
-                                        script.root_task.remove_roles(child, role_name, remove_child_when_empty: !current_roles || !current_roles.empty?)
-                                    end
-                                    cancel
-                                    script.step
-                                end
+                                handle_event(script, role_name, current_roles, event)
                             end
                         end
 
                         false
                     end
 
+                    # @api private
+                    #
+                    # Helper to handle events
+                    def handle_event(script, role_name, current_roles, event)
+                        return if time_barrier && event.time < time_barrier
+
+                        child = role_name &&
+                                script.root_task.find_child_from_role(role_name)
+                        if child
+                            script.root_task.remove_roles(
+                                child, role_name,
+                                remove_child_when_empty: (
+                                    !current_roles || !current_roles.empty?
+                                )
+                            )
+                        end
+
+                        cancel
+                        script.step
+                    end
+
                     def waited_task_role
                         "wait_#{object_id}"
                     end
 
-                    def to_s; "wait(#{event})" end
+                    def to_s
+                        "wait(#{event})"
+                    end
                 end
 
                 # Script element that implements {Script#emit}
@@ -135,14 +168,16 @@ module Roby
                         true
                     end
 
-                    def to_s; "emit(#{event})" end
+                    def to_s
+                        "emit(#{event})"
+                    end
                 end
 
                 class TimeoutStart
                     attr_reader :seconds
                     attr_reader :event
 
-                    def initialize(seconds, options = Hash.new)
+                    def initialize(seconds, options = {})
                         @seconds = seconds
                         options = Kernel.validate_options options, emit: nil
                         @event = options[:emit]
@@ -169,7 +204,7 @@ module Roby
                     end
                 end
 
-                inherited_single_value_attribute('__terminal') { false }
+                inherited_single_value_attribute("__terminal") { false }
 
                 # Marks this script has being terminated, i.e. that no new
                 # instructions can be added to it
@@ -188,7 +223,7 @@ module Roby
 
                 # The list of instructions in this script
                 # @return [Array]
-                attribute(:instructions) { Array.new }
+                attribute(:instructions) { [] }
 
                 # Starts the given task
                 #
@@ -208,7 +243,7 @@ module Roby
                 #   calling {Base#task} on the relevant object
                 # @param [Hash] options the dependency relation options. See
                 #   {Roby::TaskStructure::Dependency::Extension#depends_on}
-                def execute(task, options = Hash.new)
+                def execute(task, options = {})
                     task = validate_or_create_task task
                     start(task, options)
                     wait(task.success_event)
@@ -259,7 +294,7 @@ module Roby
                     instructions.concat(script.instructions)
                 end
 
-                def timeout_start(delay, options = Hash.new)
+                def timeout_start(delay, options = {})
                     ins = TimeoutStart.new(delay, options)
                     add ins
                     ins
@@ -275,6 +310,7 @@ module Roby
                     if terminal?
                         raise ArgumentError, "a terminal command has been called on this script, cannot add anything further"
                     end
+
                     instructions << instruction
                 end
             end

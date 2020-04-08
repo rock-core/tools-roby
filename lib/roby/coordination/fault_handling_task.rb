@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         # Representation of a fault response from a {FaultResponseTable}
@@ -9,5 +11,3 @@ module Roby
         end
     end
 end
-
-

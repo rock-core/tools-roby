@@ -1,4 +1,6 @@
-require 'roby/cli/exceptions'
+# frozen_string_literal: true
+
+require "roby/cli/exceptions"
 
 module Roby
     module CLI
@@ -13,8 +15,8 @@ module Roby
                 #
                 # Both paths are returned relative to the given roots
                 #
-                # @raise InconsistenName if parts of the given name are inconsistent with the given
-                #   roots
+                # @raise InconsistenName if parts of the given name are
+                #   inconsistent with the given roots
                 #
                 # @example
                 #   resolve_names('models/actions/navigation.rb',
@@ -22,22 +24,32 @@ module Roby
                 #                 ['Actions']) # => [['navigation.rb'], ['Navigation']]
                 #   resolve_names('models/tasks/navigation/goto.rb',
                 #                 ['models', 'tasks'],
-                #                 ['Tasks']) # => [['navigation/goto.rb'], ['Navigation', 'Goto']]
+                #                 ['Tasks'])
+                #           # => [['navigation/goto.rb'], ['Navigation', 'Goto']]
                 #   resolve_names('models/tasks/navigation/goto.rb',
                 #                 ['models', 'actions'],
-                #                 ['Actions']) # => raise, as models/actions must be the path root
-                def resolve_name(gen_type, given_name, robot_name, file_root, namespace_root)
+                #                 ['Actions'])
+                #           # => raise, as models/actions must be the path root
+                def resolve_name(
+                    gen_type, given_name, robot_name, file_root, namespace_root
+                )
                     if given_name =~ /\// || given_name[0, 1] !~ /[A-Z]/
-                        resolve_name_as_path(gen_type, given_name, robot_name, file_root, namespace_root)
+                        resolve_name_as_path(
+                            gen_type, given_name, robot_name, file_root, namespace_root
+                        )
                     else
-                        resolve_name_as_constant(gen_type, given_name, robot_name, file_root, namespace_root)
+                        resolve_name_as_constant(
+                            gen_type, given_name, robot_name, file_root, namespace_root
+                        )
                     end
                 end
 
                 # @api private
                 #
                 # Helper for {#resolve_name}
-                def resolve_name_as_path(gen_type, given_name, robot_name, file_root, namespace_root)
+                def resolve_name_as_path(
+                    gen_type, given_name, robot_name, file_root, namespace_root
+                )
                     robot_module =
                         if robot_name
                             [robot_name.camelcase(:upper)]
@@ -45,23 +57,27 @@ module Roby
                             []
                         end
 
-                    file_name = given_name.split('/')
+                    file_name = given_name.split("/")
                     non_matching_prefix = file_root.each_with_index.find do |p, i|
                         file_name[i] != p
                     end
                     if non_matching_prefix
                         if non_matching_prefix[1] != 0
-                            raise CLIInvalidArguments, "attempted to create a #{gen_type} model outside of #{file_root.join("/")}"
+                            raise CLIInvalidArguments,
+                                  "attempted to create a #{gen_type} model "\
+                                  "outside of #{file_root.join('/')}"
                         else
                             file_name = file_root + file_name
                         end
                     end
 
                     if robot_name && file_name[-2] != robot_name
-                        raise CLIInvalidArguments, "attempted to create a model for robot #{robot_name} outside a #{robot_name}/ subfolder"
+                        raise CLIInvalidArguments,
+                              "attempted to create a model for robot #{robot_name} "\
+                              "outside a #{robot_name}/ subfolder"
                     end
 
-                    file_name[-1] = File.basename(file_name[-1], '.rb')
+                    file_name[-1] = File.basename(file_name[-1], ".rb")
                     file_name_without_root = file_name[file_root.size..-1]
 
                     app_module_name = Roby.app.module_name.split("::")
@@ -69,13 +85,15 @@ module Roby
                         namespace_root +
                         file_name_without_root.map { |n| n.camelcase(:upper) }
                     class_name = app_module_name + class_without_app
-                    return file_name_without_root, class_name
+                    [file_name_without_root, class_name]
                 end
 
                 # @api private
                 #
                 # Helper for {#resolve_name}
-                def resolve_name_as_constant(gen_type, given_name, robot_name, file_root, namespace_root)
+                def resolve_name_as_constant(
+                    gen_type, given_name, robot_name, file_root, namespace_root
+                )
                     robot_module =
                         if robot_name
                             [robot_name.camelcase(:upper)]
@@ -87,37 +105,52 @@ module Roby
                     app_module_name = Roby.app.module_name.split("::")
                     full_namespace_root = app_module_name + namespace_root
 
-                    non_matching_full_prefix = full_namespace_root.each_with_index.find do |p, i|
-                        given_class_name[i] != p
-                    end
+                    non_matching_full_prefix =
+                        full_namespace_root.each_with_index.find do |p, i|
+                            given_class_name[i] != p
+                        end
+
                     if non_matching_full_prefix
                         if non_matching_full_prefix[1] != 0
-                            raise CLIInvalidArguments, "attempted to create a #{gen_type} model outside of its expected namespace #{full_namespace_root.join("::")}"
+                            raise CLIInvalidArguments,
+                                  "attempted to create a #{gen_type} model outside "\
+                                  "of its expected namespace "\
+                                  "#{full_namespace_root.join('::')}"
                         else
-                            non_matching_app_prefix = namespace_root.each_with_index.find do |p, i|
-                                given_class_name[i] != p
-                            end
+                            non_matching_app_prefix =
+                                namespace_root.each_with_index.find do |p, i|
+                                    given_class_name[i] != p
+                                end
                             if non_matching_app_prefix
                                 if non_matching_app_prefix[1] != 0
-                                    raise CLIInvalidArguments, "attempted to create a #{gen_type} model outside of its expected namespace #{full_namespace_root.join("::")}"
+                                    raise CLIInvalidArguments,
+                                          "attempted to create a #{gen_type} model "\
+                                          "outside of its expected namespace "\
+                                          "#{full_namespace_root.join('::')}"
                                 else
-                                    given_class_name = full_namespace_root + given_class_name
+                                    given_class_name =
+                                        full_namespace_root + given_class_name
                                 end
                             else
-                                given_class_name = app_module_name + given_class_name
+                                given_class_name =
+                                    app_module_name + given_class_name
                             end
                         end
                     end
 
-
                     if robot_name && given_class_name[-2, 1] != robot_module
-                        raise CLIInvalidArguments, "attempted to create a model for robot #{robot_name} outside the expected namespace #{robot_module.join("::")} (e.g. #{given_class_name[0..-2].join("::")}::#{robot_module.join("::")}::#{given_class_name[-1]})"
+                        raise CLIInvalidArguments,
+                              "attempted to create a model for robot #{robot_name} "\
+                              "outside the expected namespace "\
+                              "#{robot_module.join('::')} "\
+                              "(e.g. #{given_class_name[0..-2].join('::')}"\
+                              "::#{robot_module.join('::')}"\
+                              "::#{given_class_name[-1]})"
                     end
 
-                    file_name = *given_class_name[full_namespace_root.size..-1].map do |camel|
-                        pathize(camel)
-                    end
-                    return file_name, given_class_name
+                    file_name = given_class_name[full_namespace_root.size..-1]
+                                .map { |camel| pathize(camel) }
+                    [file_name, given_class_name]
                 end
 
                 # @api private
@@ -161,14 +194,14 @@ module Roby
                 #
                 def in_module(*module_path)
                     indent = ""
-                    open_code  = []
+                    open_code = []
                     close_code = []
                     module_path.each do |m|
                         open_code.push "#{indent}module #{m}"
                         close_code.unshift "#{indent}end"
-                        indent = indent + "    "
+                        indent += "    "
                     end
-                    return indent, open_code.join("\n"), close_code.join("\n")
+                    [indent, open_code.join("\n"), close_code.join("\n")]
                 end
 
                 # Converts an input string that is in camelcase into a path string
@@ -179,14 +212,14 @@ module Roby
                 #   'GPS'.pathize => 'gp_s'
                 #
                 def pathize(string)
-                    string.
-                        gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
-                        gsub(/([a-z])([A-Z][a-z])/,'\1_\2').
-                        gsub('__','/').
-                        gsub('::','/').
-                        gsub(/\s+/, '').                # spaces are bad form
-                        gsub(/[?%*:|"<>.]+/, '').   # reserved characters
-                        downcase
+                    string
+                        .gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
+                        .gsub(/([a-z])([A-Z][a-z])/, '\1_\2')
+                        .gsub("__", "/")
+                        .gsub("::", "/")
+                        .gsub(/\s+/, "") # spaces are bad form
+                        .gsub(/[?%*:|"<>.]+/, "") # reserved characters
+                        .downcase
                 end
 
                 class Base
@@ -200,4 +233,3 @@ module Roby
         end
     end
 end
-

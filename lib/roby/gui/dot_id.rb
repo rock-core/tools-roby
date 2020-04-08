@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Object
     def dot_id
         id = object_id

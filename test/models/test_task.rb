@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Models
@@ -48,7 +50,7 @@ module Roby
                         event :other
                     end
                     event_model = model.custom_event
-                    assert_same model.find_event_model('custom'), event_model
+                    assert_same model.find_event_model("custom"), event_model
                 end
             end
 
@@ -69,7 +71,7 @@ module Roby
 
                 it "validates the block arity" do
                     assert_raises(ArgumentError) { task_m.event(:start) { |a, b| } }
-                    assert_raises(ArgumentError) { task_m.event(:start) { } }
+                    assert_raises(ArgumentError) { task_m.event(:start) {} }
                     task_m.event(:start) { |*| }
                 end
             end
@@ -82,7 +84,7 @@ module Roby
 
                 it "validates the block arity" do
                     assert_raises(ArgumentError) { task_m.on_exception(LocalizedError) { |a, b| } }
-                    assert_raises(ArgumentError) { task_m.on_exception(LocalizedError) { } }
+                    assert_raises(ArgumentError) { task_m.on_exception(LocalizedError) {} }
                     task_m.on_exception(LocalizedError) { |*| }
                 end
             end
@@ -95,11 +97,10 @@ module Roby
 
                 it "validates the block arity" do
                     assert_raises(ArgumentError) { task_m.on(:start) { |a, b| } }
-                    assert_raises(ArgumentError) { task_m.on(:start) { } }
+                    assert_raises(ArgumentError) { task_m.on(:start) {} }
                     task_m.on(:start) { |*| }
                 end
             end
         end
     end
 end
-

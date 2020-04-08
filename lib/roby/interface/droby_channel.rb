@@ -1,8 +1,11 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # A wrapper on top of raw IO that uses droby marshalling to communicate
         class DRobyChannel
-            # @return [#read_nonblock,#write] the channel that allows us to communicate to clients
+            # @return [#read_nonblock,#write] the channel that allows us to
+            #   communicate to clients
             attr_reader :io
             # @return [Boolean] true if the local process is the client or the
             #   server
@@ -14,10 +17,20 @@ module Roby
             # until it bails out
             attr_reader :max_write_buffer_size
 
-            def initialize(io, client, marshaller: DRoby::Marshal.new(auto_create_plans: true), max_write_buffer_size: 25*1024**2)
+            def initialize(
+                io, client,
+                marshaller: DRoby::Marshal.new(auto_create_plans: true),
+                max_write_buffer_size: 25 * 1024**2
+            )
                 @io = io
                 @io.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
                 @client = client
+                @websocket_packet =
+                    if client
+                        WebSocket::Frame::Outgoing::Client
+                    else
+                        WebSocket::Frame::Outgoing::Server
+                    end
 
                 @incoming =
                     if client?
@@ -27,7 +40,7 @@ module Roby
                     end
                 @marshaller = marshaller
                 @max_write_buffer_size = max_write_buffer_size
-                @read_buffer  = String.new
+                @read_buffer = String.new
                 @write_buffer = String.new
                 @write_thread = nil
             end
@@ -73,7 +86,9 @@ module Roby
             def read_packet(timeout = 0)
                 @read_thread ||= Thread.current
                 if @read_thread != Thread.current
-                    raise InternalError, "cross-thread access to droby channel: from #{@read_thread} to #{Thread.current}"
+                    raise InternalError,
+                          "cross-thread access to droby channel: "\
+                          "from #{@read_thread} to #{Thread.current}"
                 end
 
                 deadline       = Time.now + timeout if timeout
@@ -83,10 +98,10 @@ module Roby
                     return unmarshal_packet(packet)
                 end
 
-                while true
+                loop do
                     if IO.select([io], [], [], remaining_time)
                         begin
-                            if io.sysread(1024 ** 2, @read_buffer)
+                            if io.sysread(1024**2, @read_buffer)
                                 @incoming << @read_buffer
                             end
                         rescue Errno::EWOULDBLOCK, Errno::EAGAIN
@@ -102,16 +117,19 @@ module Roby
                         return if remaining_time < 0
                     end
                 end
-
-            rescue SystemCallError, EOFError, IOError
+            rescue SystemCallError, IOError
                 raise ComError, "closed communication"
             end
 
             def unmarshal_packet(packet)
-                unmarshalled = begin Marshal.load(packet.to_s)
-                               rescue TypeError => e
-                                   raise ProtocolError, "failed to unmarshal received packet: #{e.message}"
-                               end
+                unmarshalled =
+                    begin
+                        Marshal.load(packet.to_s)
+                    rescue TypeError => e
+                        raise ProtocolError,
+                              "failed to unmarshal received packet: #{e.message}"
+                    end
+
                 marshaller.local_object(unmarshalled)
             end
 
@@ -122,13 +140,7 @@ module Roby
             # @return [void]
             def write_packet(object)
                 marshalled = Marshal.dump(marshaller.dump(object))
-                packet =
-                    if client?
-                        WebSocket::Frame::Outgoing::Client.new(data: marshalled, type: :binary)
-                    else
-                        WebSocket::Frame::Outgoing::Server.new(data: marshalled, type: :binary)
-                    end
-
+                packet = @websocket_packet.new(data: marshalled, type: :binary)
                 push_write_data(packet.to_s)
             end
 
@@ -147,7 +159,9 @@ module Roby
             def push_write_data(new_bytes = nil)
                 @write_thread ||= Thread.current
                 if @write_thread != Thread.current
-                    raise InternalError, "cross-thread access to droby channel: from #{@write_thread} to #{Thread.current}"
+                    raise InternalError,
+                          "cross-thread access to droby channel: "\
+                          "from #{@write_thread} to #{Thread.current}"
                 end
 
                 @write_buffer.concat(new_bytes) if new_bytes
@@ -157,9 +171,12 @@ module Roby
                 !@write_buffer.empty?
             rescue Errno::EWOULDBLOCK, Errno::EAGAIN
                 if @write_buffer.size > max_write_buffer_size
-                    raise ComError, "droby_channel reached an internal buffer size of #{@write_buffer.size}, which is bigger than the limit of #{max_write_buffer_size}, bailing out"
+                    raise ComError,
+                          "droby_channel reached an internal buffer size of "\
+                          "#{@write_buffer.size}, which is bigger than the limit "\
+                          "of #{max_write_buffer_size}, bailing out"
                 end
-            rescue SystemCallError, IOError, EOFError
+            rescue SystemCallError, IOError
                 raise ComError, "broken communication channel"
             rescue RuntimeError => e
                 # Workaround what seems to be a Ruby bug ...
@@ -171,4 +188,3 @@ module Roby
         end
     end
 end
-

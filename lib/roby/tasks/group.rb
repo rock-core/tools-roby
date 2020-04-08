@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby::Tasks
     class Group < Roby::Task
         def initialize(*tasks)

@@ -1,4 +1,6 @@
-require 'roby/droby/rebuilt_plan'
+# frozen_string_literal: true
+
+require "roby/droby/rebuilt_plan"
 
 module Roby
     module DRoby
@@ -44,7 +46,7 @@ module Roby
 
                 @scheduler_state = Schedulers::State.new
                 clear_changes
-                @stats = Hash.new
+                @stats = {}
             end
 
             def analyze_stream(event_stream, until_cycle = nil)
@@ -63,7 +65,6 @@ module Roby
 
                             history << snapshot(relations)
                         end
-
                     ensure
                         clear_integrated
                     end
@@ -125,13 +126,13 @@ module Roby
                 rescue Exception => e
                     display_args = args.map do |obj|
                         case obj
-                        when NilClass then 'nil'
+                        when NilClass then "nil"
                         when Time then obj.to_hms
                         else (obj.to_s rescue "failed_to_s")
                         end
                     end
 
-                    raise e, "#{e.message} while serving #{m}(#{display_args.join(", ")})", e.backtrace
+                    raise e, "#{e.message} while serving #{m}(#{display_args.join(', ')})", e.backtrace
                 end
                 nil
             end
@@ -185,7 +186,8 @@ module Roby
 
             def merged_plan(time, plan_id, merged_plan)
                 merged_plan = local_object(merged_plan)
-                tasks_and_events = merged_plan.tasks.to_a +
+                tasks_and_events =
+                    merged_plan.tasks.to_a +
                     merged_plan.free_events.to_a +
                     merged_plan.task_events.to_a
 
@@ -277,6 +279,7 @@ module Roby
                 object_manager.deregister_object(event)
                 [plan, event]
             end
+
             def finalized_task(time, plan_id, task)
                 plan = local_object(plan_id)
                 task = local_object(task)
@@ -387,14 +390,11 @@ module Roby
                 announce_state_update
             end
 
-            def timepoint_group_start(time, *)
-            end
+            def timepoint_group_start(time, *); end
 
-            def timepoint_group_end(time, *)
-            end
+            def timepoint_group_end(time, *); end
 
-            def timepoint(time, *)
-            end
+            def timepoint(time, *); end
 
             def pretty_print(pp)
                 pp.text "Plan rebuilder state for #{plan}"

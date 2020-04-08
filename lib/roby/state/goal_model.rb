@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Proc
     def to_goal_variable_model(field, name)
         check_arity(self, 1)
@@ -42,7 +44,10 @@ module Roby
                 if value.respond_to?(:to_goal_variable_model)
                     value.to_goal_variable_model(self, name)
                 else
-                    raise ArgumentError, "cannot set #{value} on #{name} in a goal model. Only allowed values are GoalVariableModel, and values that respond to #to_goal_variable_model"
+                    raise ArgumentError,
+                          "cannot set #{value} on #{name} in a goal model. Only "\
+                          "allowed values are GoalVariableModel, and values that "\
+                          "respond to #to_goal_variable_model"
                 end
             end
         end
@@ -52,8 +57,8 @@ module Roby
         end
 
         def create_subfield(name)
-            superklass = if superclass then superclass.get(name) end
-            supermodel = if model then model.get(name) end
+            superklass = superclass&.get(name)
+            supermodel = model&.get(name)
             self.class.new(supermodel, superklass, self, name)
         end
 
@@ -74,4 +79,3 @@ module Roby
     class GoalSpace < OpenStruct
     end
 end
-

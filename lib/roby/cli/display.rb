@@ -1,28 +1,30 @@
-require 'roby'
-require 'thor'
-require 'roby/droby/logfile/server'
-require 'roby/droby/logfile/client'
-require 'roby/interface'
+# frozen_string_literal: true
+
+require "roby"
+require "thor"
+require "roby/droby/logfile/server"
+require "roby/droby/logfile/client"
+require "roby/interface"
 
 module Roby
     module CLI
         class Display < Thor
             Server = Roby::DRoby::Logfile::Server
 
-            default_command 'backward'
+            default_command "backward"
 
             class_option :debug, type: :boolean, default: false
             class_option :config, type: :string, default: nil,
-                desc: 'path to the roby-display configuration file'
+                                  desc: "path to the roby-display configuration file"
 
-            desc 'backward', 'backward-compatible interface with the old roby-display'
+            desc "backward", "backward-compatible interface with the old roby-display"
             option :client, type: :string, lazy_default: "localhost:#{Interface::DEFAULT_PORT}"
             option :host, type: :string, lazy_default: "localhost:#{Interface::DEFAULT_PORT}"
             option :vagrant, type: :string, default: nil
             option :server, type: :numeric
             option :sampling, type: :numeric
             def backward(*path)
-                host, port = 'localhost', Server::DEFAULT_PORT
+                host, port = "localhost", Server::DEFAULT_PORT
                 if remote_addr = (options[:client] || options[:host])
                     if options[:host]
                         Roby.warn_deprecated "--host is deprecated, use 'roby-display client' instead, run roby-display help for more information"
@@ -30,7 +32,7 @@ module Roby
                         Roby.warn_deprecated "roby-display --client=HOST is now roby-display client HOST, run roby-display help for more information"
                     end
                     if vagrant_host = options[:vagrant]
-                        _, port = remote_addr.split(':')
+                        _, port = remote_addr.split(":")
                         remote_addr = "vagrant:#{vagrant_host}:#{port}"
                     end
                     client(remote_addr)
@@ -42,8 +44,8 @@ module Roby
                 end
             end
 
-            desc 'file PATH', 'inspect an existing log file'
-            option :display, type: :string, desc: 'a display to open right away (relations, chronicle or all)'
+            desc "file PATH", "inspect an existing log file"
+            option :display, type: :string, desc: "a display to open right away (relations, chronicle or all)"
             def file(path, index_path: nil)
                 apply_common_options
 
@@ -52,8 +54,8 @@ module Roby
                 end
             end
 
-            desc 'client HOST[:PORT]', 'connect to a running Roby instance'
-            option :display, type: :string, desc: 'a display to open right away (relations, chronicle or all)'
+            desc "client HOST[:PORT]", "connect to a running Roby instance"
+            option :display, type: :string, desc: "a display to open right away (relations, chronicle or all)"
             def client(remote_addr)
                 apply_common_options
 
@@ -63,15 +65,15 @@ module Roby
                 end
             end
 
-            desc 'server PATH', 'serve the given log file'
-            option :fd, desc: 'the file descriptor of the TCP server socket',
+            desc "server PATH", "serve the given log file"
+            option :fd, desc: "the file descriptor of the TCP server socket",
                         type: :numeric
-            option :port, desc: 'port number on which to create the server',
+            option :port, desc: "port number on which to create the server",
                           type: :numeric, default: Server::DEFAULT_PORT
             option :sampling, type: :numeric,
                               default: Server::DEFAULT_SAMPLING_PERIOD,
-                              desc: 'period in seconds at which the server '\
-                                    'should poll the log file'
+                              desc: "period in seconds at which the server "\
+                                    "should poll the log file"
             def server(path, port: options[:port])
                 # NOTE: the 'port' argument is here so that it can be overriden
                 # in {#backward}
@@ -86,7 +88,7 @@ module Roby
                         # Workaround for https://bugs.ruby-lang.org/issues/10203
                         rescue TypeError
                             raise Errno::EADDRINUSE,
-                                  'Address already in use - bind(2) for '\
+                                  "Address already in use - bind(2) for "\
                                   "\"0.0.0.0\" port #{port}"
                         end
                 end
@@ -116,7 +118,9 @@ module Roby
                     if config_path = options[:config]
                         @config_path = File.expand_path(config_path)
                     elsif Roby.app.app_dir
-                        @config_path = Roby.app.find_file('config', 'roby-display.yml', order: :specific_first) ||
+                        @config_path =
+                            Roby.app.find_file("config", "roby-display.yml",
+                                               order: :specific_first) ||
                             File.join(Roby.app.app_dir, "config", "roby-display.yml")
                     end
                 end
@@ -125,44 +129,45 @@ module Roby
                     client = Interface.connect_with_tcp_to(host, interface_port)
                     port = client.log_server_port
                 ensure
-                    client.close if client
+                    client&.close
                 end
 
-                def resolve_remote_host(host_spec = '')
-                    parts = host_spec.split(':')
-                    if parts[0] == 'vagrant'
+                def resolve_remote_host(host_spec = "")
+                    parts = host_spec.split(":")
+                    if parts[0] == "vagrant"
                         vagrant_id = parts[1]
                         if !vagrant_id
                             raise ArgumentError, "expected vagrant: to be followed by the ID of a vagrant VM"
                         end
-                        require 'roby/app/vagrant'
+
+                        require "roby/app/vagrant"
                         host = Roby::App::Vagrant.resolve_ip(vagrant_id)
                         port = parts[2]
                     else
                         host, port = *parts
-                        host = 'localhost' if !host || host.empty?
+                        host = "localhost" if !host || host.empty?
                     end
                     port = Interface::DEFAULT_PORT.to_s if !port
 
-                    if port[0, 1] != '!'
+                    if port[0, 1] != "!"
                         port = discover_log_server_port(host, Integer(port) || Interface::DEFAULT_PORT)
                     else
                         port = Integer(port[1..-1] || Server::DEFAULT_PORT)
                     end
-                    return host, port
+                    [host, port]
                 end
 
                 def with_display
-                    require 'Qt'
-                    require 'roby/droby/logfile/reader'
-                    require 'roby/droby/plan_rebuilder'
-                    require 'roby/gui/log_display'
+                    require "Qt"
+                    require "roby/droby/logfile/reader"
+                    require "roby/droby/plan_rebuilder"
+                    require "roby/gui/log_display"
 
                     app = Qt::Application.new(ARGV)
 
                     display = Roby::GUI::LogDisplay.new
                     if display_mode = options[:display]
-                        if display_mode == 'all'
+                        if display_mode == "all"
                             display.create_all_displays
                         else
                             display.create_display(display_mode)
@@ -186,9 +191,10 @@ module Roby
                         display.load_options(config_path)
                     end
                 end
+
                 def save_config(display, config_path)
                     FileUtils.mkdir_p(File.dirname(config_path))
-                    File.open(config_path, 'w') do |io|
+                    File.open(config_path, "w") do |io|
                         YAML.dump(display.save_options, io)
                     end
                 end
@@ -196,4 +202,3 @@ module Roby
         end
     end
 end
-

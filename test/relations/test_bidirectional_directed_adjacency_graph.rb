@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Relations
@@ -17,7 +19,7 @@ module Roby
             end
 
             def setup
-                @created_graphs = Array.new
+                @created_graphs = []
                 super
             end
 
@@ -85,9 +87,9 @@ module Roby
                     dg.add_edge(src, target)
                 end
                 assert_equal(4, dg.edges.length)
-                assert_equal([1, 2, 2, 3], dg.edges.map { |l| l.source }.sort)
-                assert_equal([2, 2, 3, 4], dg.edges.map { |l| l.target }.sort)
-                assert_equal("(1-2)(2-3)(2-4)(3-2)", dg.edges.map { |l| l.to_s }.sort.join)
+                assert_equal([1, 2, 2, 3], dg.edges.map(&:source).sort)
+                assert_equal([2, 2, 3, 4], dg.edges.map(&:target).sort)
+                assert_equal("(1-2)(2-3)(2-4)(3-2)", dg.edges.map(&:to_s).sort.join)
                 #    assert_equal([0,1,2,3], dg.edges.map {|l| l.info}.sort)
             end
 
@@ -126,7 +128,7 @@ module Roby
                 dg.remove_vertex 3
                 assert !dg.has_vertex?(3)
                 assert !dg.has_edge?(2, 3)
-                assert_equal('(2-4)', dg.edges.join)
+                assert_equal("(2-4)", dg.edges.join)
             end
 
             def test_add_vertices
@@ -141,7 +143,7 @@ module Roby
             def test_creating_from_array
                 dg = BidirectionalDirectedAdjacencyGraph[1, 2, 3, 4]
                 assert_equal([1, 2, 3, 4], dg.vertices.sort)
-                assert_equal('(1-2)(3-4)', dg.edges.join)
+                assert_equal("(1-2)(3-4)", dg.edges.join)
             end
 
             def test_reverse
@@ -158,7 +160,7 @@ module Roby
                     assert_equal [u], reverted.edge_info(v, u)
                 end
 
-                assert(reverted.has_vertex?(42), 'Reverted graph should contain isolated Vertex 42')
+                assert(reverted.has_vertex?(42), "Reverted graph should contain isolated Vertex 42")
             end
 
             def test_dup
@@ -171,7 +173,7 @@ module Roby
                 dg.add_edge(3, 5, edge_info.new(35))
                 copy = dg.dup
                 assert_equal dg.each_edge.to_a,
-                    copy.each_edge.to_a
+                             copy.each_edge.to_a
             end
 
             def test_move_edges
@@ -199,7 +201,7 @@ module Roby
                 before do
                     @v_a = (1..3).map { Object.new }
                     @v_b = (1..3).map { Object.new }
-                    @mapping = Hash.new
+                    @mapping = {}
                     v_a.each_with_index do |v, i|
                         mapping[v] = v_b[i]
                     end
@@ -455,12 +457,12 @@ module Roby
                 it "adds all forward edges to the receiver" do
                     receiver.merge(argument)
                     assert_equal [[0, 2, nil], [1, 2, nil], [2, 3, nil], [2, 4, nil], [2, 5, nil], [6, 7, nil]].sort,
-                        receiver.each_edge.to_a.sort
+                                 receiver.each_edge.to_a.sort
                 end
                 it "does not modify the argument" do
                     receiver.merge(argument)
                     assert_equal [[0, 2, nil], [2, 3, nil], [2, 5, nil], [6, 7, nil]].sort,
-                        argument.each_edge.to_a.sort
+                                 argument.each_edge.to_a.sort
                 end
                 it "ensures that the receiver and argument have separate out and in-edge sets" do
                     receiver.merge(argument)
@@ -539,5 +541,3 @@ module Roby
         end
     end
 end
-
-

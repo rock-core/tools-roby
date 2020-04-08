@@ -1,4 +1,6 @@
-require 'set'
+# frozen_string_literal: true
+
+require "set"
 
 module Roby
     module DRoby
@@ -32,7 +34,7 @@ module Roby
                         droby
                     end
 
-                    class DRoby < Exception
+                    class DRoby < Exception # rubocop:disable Lint/InheritException
                         attr_reader :exception_class
                         attr_reader :formatted_message
 
@@ -80,7 +82,7 @@ module Roby
 
                 module HashDumper
                     def droby_dump(peer)
-                        result = Hash.new
+                        result = {}
                         each do |k, v|
                             result[peer.dump(k)] = peer.dump(v)
                         end
@@ -88,7 +90,7 @@ module Roby
                     end
 
                     def proxy(peer) # :nodoc:
-                        result = Hash.new
+                        result = {}
                         each do |k, v|
                             result[peer.local_object(k)] = peer.local_object(v)
                         end
@@ -117,4 +119,3 @@ module Roby
         end
     end
 end
-

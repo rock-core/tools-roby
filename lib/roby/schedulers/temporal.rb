@@ -1,4 +1,6 @@
-require 'roby/schedulers/basic'
+# frozen_string_literal: true
+
+require "roby/schedulers/basic"
 module Roby
     module Schedulers
         # The temporal scheduler adds to the decisions made by the Basic
@@ -17,8 +19,8 @@ module Roby
             def initialize(with_basic = true, with_children = true, plan = nil)
                 super(with_children, plan)
                 @basic_constraints = with_basic
-                @scheduling_constraints_graph = self.plan.
-                    event_relation_graph_for(EventStructure::SchedulingConstraints)
+                @scheduling_constraints_graph = self.plan
+                    .event_relation_graph_for(EventStructure::SchedulingConstraints)
             end
 
             def can_schedule?(task, time = Time.now, stack = [])
@@ -65,7 +67,7 @@ module Roby
 
                 if basic_constraints?
                     if super
-                        return true
+                        true
                     else
                         # Special case: check in Dependency if there are some
                         # parents for which a forward constraint from +self+ to
@@ -79,13 +81,12 @@ module Roby
                                 end
                             end
                         end
-                        return false
+                        false
                     end
                 else
-                    return true
+                    true
                 end
             end
         end
     end
 end
-

@@ -1,5 +1,7 @@
-require 'benchmark'
-require 'set'
+# frozen_string_literal: true
+
+require "benchmark"
+require "set"
 
 class Set
     def intersect_with_merge(other)
@@ -13,9 +15,8 @@ end
 
 Benchmark.bm(40) do |x|
     [1, 10, 100, 1000].each do |count|
-
-        sets = Array.new
-        10000.times do
+        sets = []
+        10_000.times do
             elements = (0..count * 2).to_a
             left = Set.new
             right = Set.new

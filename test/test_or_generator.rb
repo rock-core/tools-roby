@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     describe OrGenerator do
@@ -14,11 +16,11 @@ module Roby
                 source0.signals subject
                 source1.signals subject
 
-                expect_execution { source0.emit }.
-                    to { emit subject }
+                expect_execution { source0.emit }
+                    .to { emit subject }
                 assert subject.emitted?
-                expect_execution { source1.emit }.
-                    to { not_emit subject }
+                expect_execution { source1.emit }
+                    .to { not_emit subject }
             end
 
             it "only considers events at the point where the source was added" do
@@ -26,40 +28,40 @@ module Roby
                 source0.signals subject
                 source1.signals subject
 
-                expect_execution { source0.emit }.
-                    to { emit subject }
-                expect_execution { source1.emit }.
-                    to { not_emit subject }
+                expect_execution { source0.emit }
+                    .to { emit subject }
+                expect_execution { source1.emit }
+                    .to { not_emit subject }
             end
 
             it "becomes unreachable if all its sources are" do
                 source0.signals subject
                 source1.signals subject
-                expect_execution { source0.unreachable! }.
-                    to { not_become_unreachable subject }
-                expect_execution { source1.unreachable! }.
-                    to { become_unreachable subject }
+                expect_execution { source0.unreachable! }
+                    .to { not_become_unreachable subject }
+                expect_execution { source1.unreachable! }
+                    .to { become_unreachable subject }
             end
 
             it "does not become unreachable if a source that has already emitted becomes unreachable" do
                 source0.signals subject
                 source1.signals subject
                 execute { source1.emit }
-                expect_execution { source1.unreachable! }.
-                    to do
+                expect_execution { source1.unreachable! }
+                    .to do
                         become_unreachable source1
                         not_become_unreachable subject
                     end
-                expect_execution { source0.unreachable! }.
-                    to { not_become_unreachable subject }
+                expect_execution { source0.unreachable! }
+                    .to { not_become_unreachable subject }
             end
 
             it "does not become unreachable for events that have been removed" do
                 source0.signals subject
                 source1.signals subject
                 source1.remove_signal subject
-                expect_execution { source1.unreachable! }.
-                    to { not_become_unreachable subject }
+                expect_execution { source1.unreachable! }
+                    .to { not_become_unreachable subject }
             end
 
             it "becomes unreachable if the removal of an event causes all the events to be unreachable" do
@@ -82,25 +84,25 @@ module Roby
             end
 
             it "emits when any of its sources have emitted" do
-                expect_execution { source0.emit }.
-                    to { emit subject }
+                expect_execution { source0.emit }
+                    .to { emit subject }
                 execute { source1.emit }
                 assert_equal 1, subject.history.size
             end
 
             it "becomes unreachable if all of its sources are" do
-                expect_execution { source0.unreachable! }.
-                    to { not_become_unreachable subject }
-                expect_execution { source1.unreachable! }.
-                    to { become_unreachable subject }
+                expect_execution { source0.unreachable! }
+                    .to { not_become_unreachable subject }
+                expect_execution { source1.unreachable! }
+                    .to { become_unreachable subject }
             end
 
             it "does not become unreachable if a source that has already emitted becomes unreachable" do
                 execute { source1.emit }
-                expect_execution { source1.unreachable! }.
-                    to { not_become_unreachable subject }
-                expect_execution { source0.unreachable! }.
-                    to { not_become_unreachable subject }
+                expect_execution { source1.unreachable! }
+                    .to { not_become_unreachable subject }
+                expect_execution { source0.unreachable! }
+                    .to { not_become_unreachable subject }
             end
         end
 
@@ -117,10 +119,10 @@ module Roby
                     t.commit_transaction
                 end
 
-                expect_execution { source1.emit }.
-                    to { emit subject }
-                expect_execution { source0.emit }.
-                    to { not_emit subject }
+                expect_execution { source1.emit }
+                    .to { emit subject }
+                expect_execution { source0.emit }
+                    .to { not_emit subject }
             end
 
             it "only considers events at the point where the source was added" do
@@ -130,10 +132,10 @@ module Roby
                     t.commit_transaction
                 end
 
-                expect_execution { source1.emit }.
-                    to { emit subject }
-                expect_execution { source0.emit }.
-                    to { not_emit subject }
+                expect_execution { source1.emit }
+                    .to { emit subject }
+                expect_execution { source0.emit }
+                    .to { not_emit subject }
             end
 
             it "becomes unreachable if all sources become unreachable" do
@@ -141,10 +143,10 @@ module Roby
                     t[source1].signals t[subject]
                     t.commit_transaction
                 end
-                expect_execution { source0.unreachable! }.
-                    to { not_become_unreachable subject }
-                expect_execution { source1.unreachable! }.
-                    to { become_unreachable subject }
+                expect_execution { source0.unreachable! }
+                    .to { not_become_unreachable subject }
+                expect_execution { source1.unreachable! }
+                    .to { become_unreachable subject }
             end
 
             it "does not become unreachable if a source that has already emitted becomes unreachable" do
@@ -176,10 +178,10 @@ module Roby
                     t[source1].remove_signal t[subject]
                     t.commit_transaction
                 end
-                expect_execution { source1.emit }.
-                    to { not_emit subject }
-                expect_execution { source0.emit }.
-                    to { emit subject }
+                expect_execution { source1.emit }
+                    .to { not_emit subject }
+                expect_execution { source0.emit }
+                    .to { emit subject }
             end
         end
 
@@ -195,8 +197,8 @@ module Roby
                     t.commit_transaction
                 end
 
-                expect_execution { source1.emit }.
-                    to { emit subject }
+                expect_execution { source1.emit }
+                    .to { emit subject }
             end
 
             it "becomes unreachable only if the new source also become unreachable" do
@@ -204,10 +206,10 @@ module Roby
                     source1.signals t[subject]
                     t.commit_transaction
                 end
-                expect_execution { source0.unreachable! }.
-                    to { not_become_unreachable subject }
-                expect_execution { source1.unreachable! }.
-                    to { become_unreachable subject }
+                expect_execution { source0.unreachable! }
+                    .to { not_become_unreachable subject }
+                expect_execution { source1.unreachable! }
+                    .to { become_unreachable subject }
             end
         end
 
@@ -229,13 +231,12 @@ module Roby
                 source0.signals subject
                 source1.signals subject
                 plan.add(subject)
-                expect_execution { source0.emit }.
-                    to { emit subject }
+                expect_execution { source0.emit }
+                    .to { emit subject }
                 subject.reset
-                expect_execution { source1.emit }.
-                    to { emit subject }
+                expect_execution { source1.emit }
+                    .to { emit subject }
             end
         end
     end
 end
-

@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/state'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/state"
 
 class TC_StateSpace < Minitest::Test
     class Position
@@ -8,7 +10,7 @@ class TC_StateSpace < Minitest::Test
     def create_state_space(*fields)
         model = StateModel.new
         fields.each do |field_name|
-            field_name = field_name.split('.')
+            field_name = field_name.split(".")
             field_name, leaf_name = field_name[0..-2], field_name[-1]
             parent = field_name.inject(model) do |leaf, f|
                 leaf.send(f)
@@ -21,7 +23,7 @@ class TC_StateSpace < Minitest::Test
 
     def test_state_space_creates_structure
         m = StateModel.new
-        pose = m.send('pose')
+        pose = m.send("pose")
         pose.set(:position, StateVariableModel.new(nil, nil))
         m.val = Class.new
 
@@ -69,17 +71,17 @@ class TC_StateSpace < Minitest::Test
     end
 
     def test_model_access_from_subfield
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         assert_same(s.pose.model, s.model.pose)
     end
 
     def test_field_model_is_accessible_from_the_field
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.model.pose.position = Position
         assert_equal Position, s.model.pose.position.type
         assert_same s.pose.model.position, s.model.pose.position
 
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.pose.model.position = Position
         assert_equal Position, s.model.pose.position.type
         assert_same s.pose.model.position, s.model.pose.position
@@ -92,19 +94,19 @@ class TC_StateSpace < Minitest::Test
     end
 
     def test_field_cannot_be_assigned_if_a_data_source_is_specified
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.pose.data_sources.position = Object.new
         assert_raises(ArgumentError) { s.pose.position = Object.new }
     end
 
     def test_field_returns_nil_if_a_type_is_specified_and_no_value_exists
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.pose.model.position = Position
         assert !s.pose.position
     end
 
     def test_field_assignation_validates_type_if_model_gives_one
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.pose.model.position = Position
         s.pose.position = Position.new
 
@@ -112,7 +114,7 @@ class TC_StateSpace < Minitest::Test
     end
 
     def test_export
-        s = create_state_space('pos.x', 'speed.x')
+        s = create_state_space("pos.x", "speed.x")
         s.pos.x   = 42
         s.speed.x = 0
 
@@ -151,11 +153,11 @@ class TC_StateSpace < Minitest::Test
     def test_last_known_is_accessible_from_the_field
         source = Object.new
 
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.last_known.pose.set(:position, source)
         assert_same s.pose.last_known.position, s.last_known.pose.position
 
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.pose.last_known.set(:position, source)
         assert_same s.pose.last_known.position, s.last_known.pose.position
     end
@@ -163,7 +165,7 @@ class TC_StateSpace < Minitest::Test
     def test_last_known_is_read_only
         source = Object.new
 
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         assert_raises(ArgumentError) { s.last_known.pose.position = source }
     end
 
@@ -178,25 +180,25 @@ class TC_StateSpace < Minitest::Test
     def test_data_sources_is_accessible_from_the_field
         source = Object.new
 
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.data_sources.pose.position = source
         assert_same s.pose.data_sources.position, s.data_sources.pose.position
 
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.data_sources.pose.position = source
         assert_same s.pose.data_sources.position, s.data_sources.pose.position
 
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.pose.data_sources.position = source
         assert_same s.pose.data_sources.position, s.data_sources.pose.position
     end
 
     def test_state_model_read
         source = flexmock
-        source.should_receive(:read).once.
-            and_return(obj = Object.new)
+        source.should_receive(:read).once
+            .and_return(obj = Object.new)
 
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
 
         s.data_sources.pose.position = source
         assert !s.pose.position?
@@ -212,20 +214,19 @@ class TC_StateSpace < Minitest::Test
 
     def test_state_model_read_should_validate_type
         source = flexmock
-        source.should_receive(:read).once.
-            and_return(obj = Object.new)
+        source.should_receive(:read).once
+            .and_return(obj = Object.new)
         field_type = Class.new
 
-        s = create_state_space('pose.position')
+        s = create_state_space("pose.position")
         s.model.pose.position = field_type
         s.data_sources.pose.position = source
         assert_raises(ArgumentError) { s.pose.read }
         assert !s.pose.position?
         assert !s.last_known.pose.position?
-        source.should_receive(:read).once.
-            and_return(field_type.new)
+        source.should_receive(:read).once
+            .and_return(field_type.new)
         s.pose.read
-
     end
 
     def test_state_leaf_model_path
@@ -237,8 +238,8 @@ class TC_StateSpace < Minitest::Test
 
     def test_state_model_resolve_data_sources
         source_model = flexmock
-        source_model.should_receive(:to_state_variable_model).
-            and_return do |field, name|
+        source_model.should_receive(:to_state_variable_model)
+            .and_return do |field, name|
                 var = StateVariableModel.new(field, name)
                 var.data_source = source_model
                 var
@@ -251,8 +252,8 @@ class TC_StateSpace < Minitest::Test
 
         obj = Object.new
         source = flexmock
-        source_model.should_receive(:resolve).with(obj).once.
-            and_return(source)
+        source_model.should_receive(:resolve).with(obj).once
+            .and_return(source)
         model.resolve_data_sources(obj, state)
         assert_equal source, state.data_sources.pose.position
     end
@@ -269,5 +270,3 @@ class TC_StateSpace < Minitest::Test
         assert !State.value
     end
 end
-
-

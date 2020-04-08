@@ -1,14 +1,13 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         class NullEventLogger
-            def dump(m, time, *args)
-            end
+            def dump(m, time, *args); end
 
-            def dump_timepoint(m, time, *args)
-            end
+            def dump_timepoint(m, time, *args); end
 
-            def close
-            end
+            def close; end
 
             def log_queue_size
                 0
@@ -18,8 +17,7 @@ module Roby
                 0
             end
 
-            def flush_cycle(m, *args)
-            end
+            def flush_cycle(m, *args); end
         end
     end
 end

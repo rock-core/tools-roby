@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/state'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/state"
 
 class TC_StateInTask < Minitest::Test
     def test_state_model_gets_inherited
@@ -16,8 +18,8 @@ class TC_StateInTask < Minitest::Test
     def test_resolve_state_sources
         task_model = Roby::Task.new_submodel
         source_model = flexmock
-        source_model.should_receive(:to_state_variable_model).
-            and_return do |field, name|
+        source_model.should_receive(:to_state_variable_model)
+            .and_return do |field, name|
                 result = Roby::StateVariableModel.new(field, name)
                 result.data_source = source_model
                 result
@@ -25,8 +27,8 @@ class TC_StateInTask < Minitest::Test
         task_model.state.pose.position = source_model
 
         task = task_model.new
-        source_model.should_receive(:resolve).with(task).once.
-            and_return(source = Object.new)
+        source_model.should_receive(:resolve).with(task).once
+            .and_return(source = Object.new)
         task.resolve_state_sources
         assert_same source, task.state.data_sources.pose.position
     end
@@ -47,4 +49,3 @@ class TC_StateInTask < Minitest::Test
         assert_same task_model.state, task_model.goal.model
     end
 end
-

@@ -427,7 +427,7 @@ module Roby
 
         # Creates a new transaction which applies on +plan+
         def initialize(plan, options = {})
-            raise ArgumentError, 'cannot create a transaction with no plan' unless plan
+            raise ArgumentError, "cannot create a transaction with no plan" unless plan
 
             @options = options
             @frozen = false
@@ -569,7 +569,7 @@ module Roby
             return if valid_transaction?
 
             unless transactions.empty?
-                raise InvalidTransaction, 'there is still transactions on top of this one'
+                raise InvalidTransaction, "there is still transactions on top of this one"
             end
 
             message = invalidation_reasons.map do |reason, trace|
@@ -889,7 +889,7 @@ module Roby
         def discard_transaction
             unless transactions.empty?
                 raise InvalidTransaction,
-                      'there are still transactions on top of this one'
+                      "there are still transactions on top of this one"
             end
 
             frozen!
@@ -1045,7 +1045,7 @@ module Roby
             if frozen?
                 raise FrozenTransaction,
                       "transaction #{self} has been either committed or discarded. "\
-                      'No modification allowed'
+                      "No modification allowed"
             end
 
             nil

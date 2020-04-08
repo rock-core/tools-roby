@@ -1,5 +1,7 @@
-require 'roby'
-require 'fileutils'
+# frozen_string_literal: true
+
+require "roby"
+require "fileutils"
 Roby.app.load_base_config
 app = Roby.app
 
@@ -22,4 +24,3 @@ STDERR.puts "  to #{dest}"
 FileUtils.rm_f File.join(Roby.app.log_base_dir, "current")
 FileUtils.ln_sf dest, File.join(Roby.app.log_base_dir, "current")
 STDERR.puts "the symbolic link logs/current has been updated to the new location"
-

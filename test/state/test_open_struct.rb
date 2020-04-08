@@ -1,13 +1,15 @@
-require 'roby/test/self'
-require 'roby/state'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/state"
 
 class TC_OpenStruct < Minitest::Test
     def test_openstruct_behavior
         s = OpenStruct.new
-        assert( s.respond_to?(:value=) )
-        assert( ! s.respond_to?(:value) )
+        assert(s.respond_to?(:value=))
+        assert(!s.respond_to?(:value))
         s.value = 42
-        assert( s.respond_to?(:value) )
+        assert(s.respond_to?(:value))
         assert_equal(42, s.value)
     end
 
@@ -51,8 +53,8 @@ class TC_OpenStruct < Minitest::Test
         s.a = 10
         s.b.a = 10
 
-        assert_equal({a: 10, b: { a: 10 }}, s.to_hash)
-        assert_equal({a: 10, b: s.b}, s.to_hash(false))
+        assert_equal({ a: 10, b: { a: 10 } }, s.to_hash)
+        assert_equal({ a: 10, b: s.b }, s.to_hash(false))
     end
 
     def test_pending_subfields_behaviour
@@ -62,14 +64,14 @@ class TC_OpenStruct < Minitest::Test
         child = s.child
         child.send(:attach)
         assert_equal(child, s.child)
-        
+
         s = OpenStruct.new
         child = s.child
-        assert_equal([s, 'child'], child.send(:attach_as))
+        assert_equal([s, "child"], child.send(:attach_as))
         s.child = 10
-        # child should NOT attach itself to s 
+        # child should NOT attach itself to s
         assert_equal(10, s.child)
-        assert( !child.send(:attach_as) )
+        assert(!child.send(:attach_as))
 
         child.test = 20
         refute_equal(child, s.child)
@@ -93,7 +95,7 @@ class TC_OpenStruct < Minitest::Test
         assert field.attached?
         assert_same(field, s.child)
     end
-    
+
     def test_alias
         r = OpenStruct.new
         obj = Object.new
@@ -191,13 +193,13 @@ class TC_OpenStruct < Minitest::Test
     def test_stable
         s = OpenStruct.new
         s.other.attach
-        
+
         s.stable!
         assert(s.stable?)
         assert(!s.other.stable?)
         assert_raises(NoMethodError) { s.test }
         assert_raises(NoMethodError) { s.test = 10 }
-        assert(! s.respond_to?(:test=))
+        assert(!s.respond_to?(:test=))
         assert !s.other.test.attached?
         s.other.test = 10
 
@@ -209,7 +211,7 @@ class TC_OpenStruct < Minitest::Test
         assert_raises(NoMethodError) { s.other.another_test }
         assert_equal 10, s.other.test
         assert_raises(NoMethodError) { s.other.test = 10 }
-        
+
         s.stable!(false, false)
         assert(!s.stable?)
         assert !s.test.attached?
@@ -218,7 +220,7 @@ class TC_OpenStruct < Minitest::Test
         assert_raises(NoMethodError) { s.other.another_test }
         s.other.test
         assert_raises(NoMethodError) { s.other.test = 10 }
-        
+
         s.stable!(true, false)
         assert(!s.stable?)
         assert(!s.other.stable?)
@@ -274,7 +276,7 @@ class TC_OpenStruct < Minitest::Test
     def test_global_filter
         s = OpenStruct.new
         s.global_filter do |name, v|
-            assert_equal 'test', name
+            assert_equal "test", name
             Integer(v)
         end
         s.test = "10"
@@ -284,7 +286,7 @@ class TC_OpenStruct < Minitest::Test
     def test_global_filter_can_call_stable
         s = OpenStruct.new
         s.global_filter do |name, v|
-            assert_equal 'test', name
+            assert_equal "test", name
             result = OpenStruct.new
             result.value = v
             s.stable!
@@ -299,7 +301,7 @@ class TC_OpenStruct < Minitest::Test
     def test_raising_global_filter_cancels_attachment
         s = OpenStruct.new
         s.global_filter do |name, v|
-            assert_equal 'test', name
+            assert_equal "test", name
             Integer(v)
         end
         assert_raises(ArgumentError) { s.test = "a" }
@@ -310,7 +312,7 @@ class TC_OpenStruct < Minitest::Test
         s = OpenStruct.new
         s.test = 10
         s.global_filter do |name, v|
-            assert_equal 'test', name
+            assert_equal "test", name
             Integer(v)
         end
         assert_raises(ArgumentError) { s.test = "a" }
@@ -329,16 +331,16 @@ class TC_OpenStruct < Minitest::Test
 
         mock = flexmock
         s.on_change(:value, true) { |n, v| mock.updated(n, v) }
-        mock.should_receive(:updated).with('value', 42).once
+        mock.should_receive(:updated).with("value", 42).once
         s.value = 42
 
         mock = flexmock
         # Notification when substruct gets attached
-        mock.should_receive(:updated).with('substruct', OpenStruct).once.ordered
+        mock.should_receive(:updated).with("substruct", OpenStruct).once.ordered
         # Notification when the value gets written
-        mock.should_receive(:updated).with('value', 42).once.ordered
+        mock.should_receive(:updated).with("value", 42).once.ordered
         # Notification when the value gets written
-        mock.should_receive(:updated).with('substruct', 42).once.ordered
+        mock.should_receive(:updated).with("substruct", 42).once.ordered
         s.on_change(:substruct, true) { |n, v| mock.updated(n, v.value) }
         s.substruct.on_change(:value, true) { |n, v| mock.updated(n, v) }
         s.substruct.value = 42
@@ -348,13 +350,13 @@ class TC_OpenStruct < Minitest::Test
         s = OpenStruct.new
         mock = flexmock
         s.on_change(nil, false) { |n, v| mock.updated(n, v) }
-        mock.should_receive(:updated).with('value', 42).once
+        mock.should_receive(:updated).with("value", 42).once
         s.value = 42
 
         s = OpenStruct.new
         mock = flexmock
-        mock.should_receive(:updated).with('substruct', any).once
-        mock.should_receive(:updated).with('value', 42).once
+        mock.should_receive(:updated).with("substruct", any).once
+        mock.should_receive(:updated).with("value", 42).once
         s.on_change(nil, false) { |n, v| mock.updated(n, v.value) }
         s.substruct.on_change(nil, false) { |n, v| mock.updated(n, v) }
         s.substruct.value = 42
@@ -365,14 +367,14 @@ class TC_OpenStruct < Minitest::Test
 
         mock = flexmock
         s.on_change(:value, false) { |n, v| mock.updated(n, v) }
-        mock.should_receive(:updated).with('value', 42).once
+        mock.should_receive(:updated).with("value", 42).once
         s.value = 42
 
         mock = flexmock
         # One notification when the substruct gets attached
-        mock.should_receive(:updated).with('substruct', any).once
+        mock.should_receive(:updated).with("substruct", any).once
         # One notification when the value gets written
-        mock.should_receive(:updated).with('value', 42).once
+        mock.should_receive(:updated).with("value", 42).once
         s.on_change(:substruct, false) { |n, v| mock.updated(n, v.value) }
         s.substruct.on_change(:value, false) { |n, v| mock.updated(n, v) }
         s.substruct.value = 42
@@ -393,7 +395,7 @@ class TC_OpenStruct < Minitest::Test
         s = OpenStruct.new
         s.value = 42
         s.substruct.value = 24
-        s.invalid = Proc.new {}
+        s.invalid = proc {}
 
         s.on_change(:substruct) {}
         s.filter(:value) { |v| Numeric === v }
@@ -403,7 +405,7 @@ class TC_OpenStruct < Minitest::Test
         s = Marshal.load(str)
         assert_equal(42, s.value)
         assert_equal(s, s.substruct.__parent_struct)
-        assert_equal('substruct', s.substruct.__parent_name)
+        assert_equal("substruct", s.substruct.__parent_name)
         assert_equal(24, s.substruct.value)
         assert(!s.respond_to?(:invalid))
     end
@@ -433,9 +435,9 @@ class TC_OpenStruct < Minitest::Test
         s = OpenStruct.new
         assert_equal [], s.path
         s.pose.attach
-        assert_equal ['pose'], s.pose.path
+        assert_equal ["pose"], s.pose.path
         s.pose.position.attach
-        assert_equal ['pose', 'position'], s.pose.position.path
+        assert_equal %w[pose position], s.pose.position.path
     end
 
     def test_does_not_catch_equality_operators
@@ -506,9 +508,8 @@ class TC_OpenStruct < Minitest::Test
 
     def test_it_raises_if_trying_to_access_a_non_method
         s = Roby::OpenStruct.new
-        assert_raises(NoMethodError) do 
+        assert_raises(NoMethodError) do
             s.send("not:a:method")
         end
     end
 end
-

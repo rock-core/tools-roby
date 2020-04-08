@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'roby/droby/logfile/reader'
+require "roby/droby/logfile/reader"
 
 module Roby
     module DRoby
@@ -13,7 +13,7 @@ module Roby
 
                     index_io.write(
                         [stat.size, stat.mtime.tv_sec, stat.mtime.tv_nsec]
-                            .pack('Q<L<L<')
+                            .pack("Q<L<L<")
                     )
                     until event_log.eof?
                         current_pos = event_log.tell
@@ -29,7 +29,7 @@ module Roby
                         yield(Float(event_io.tell) / end_pos) if block_given?
 
                         info = ::Marshal.dump(info)
-                        index_io.write [info.size].pack('L<')
+                        index_io.write [info.size].pack("L<")
                         index_io.write info
                     end
                 rescue EOFError # rubocop:disable Lint/SuppressedException
@@ -42,8 +42,8 @@ module Roby
                 # @param [Pathname] log_path
                 # @param [Pathname] index_path
                 def self.rebuild_file(log_path, index_path)
-                    File.open(log_path, 'r') do |event_io|
-                        File.open(index_path, 'w') do |index_io|
+                    File.open(log_path, "r") do |event_io|
+                        File.open(index_path, "w") do |index_io|
                             Index.rebuild(event_io, index_io)
                         end
                     end
@@ -113,7 +113,7 @@ module Roby
                 def self.read(filename)
                     io = File.open(filename)
                     file_info = io.read(16)
-                    size, tv_sec, tv_nsec = file_info.unpack('Q<L<L<')
+                    size, tv_sec, tv_nsec = file_info.unpack("Q<L<L<")
                     data = []
                     begin
                         data << ::Marshal.load(Logfile.read_one_chunk(io)) until io.eof?

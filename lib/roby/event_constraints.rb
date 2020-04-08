@@ -61,7 +61,7 @@ module Roby
 
             # @deprecated use {#emitted?} instead
             def happened?
-                Roby.warn_deprecated '#happened? is deprecated, use #emitted? instead'
+                Roby.warn_deprecated "#happened? is deprecated, use #emitted? instead"
                 emitted?
             end
 
@@ -331,14 +331,14 @@ module Roby
             def pretty_print(pp, context_task: nil)
                 if value == false
                     predicate.pretty_print(pp)
-                    pp.text ' is false'
+                    pp.text " is false"
                 elsif value == true
                     predicate.pretty_print(pp)
-                    pp.text ' is true'
+                    pp.text " is true"
                 elsif value.nil?
-                    pp.text 'the value of '
+                    pp.text "the value of "
                     predicate.pretty_print(pp)
-                    pp.text ' will not change anymore'
+                    pp.text " will not change anymore"
                 end
 
                 pp.nest(2) do
@@ -346,15 +346,15 @@ module Roby
                         pp.breakable
                         case explanation
                         when Event
-                            pp.text 'the following event has been emitted:'
+                            pp.text "the following event has been emitted:"
                         when EventGenerator
                             if value.nil?
-                                pp.text 'the following event is unreachable:'
+                                pp.text "the following event is unreachable:"
                             elsif value == true
-                                pp.text 'the following event is reachable, '\
-                                        'but has not been emitted:'
+                                pp.text "the following event is reachable, "\
+                                        "but has not been emitted:"
                             else
-                                pp.text 'the following event has been emitted:'
+                                pp.text "the following event has been emitted:"
                             end
                         end
 
@@ -368,10 +368,10 @@ module Roby
                             unless sources.empty?
                                 pp.breakable
                                 pp.breakable
-                                pp.text 'The emission was caused by the following events'
+                                pp.text "The emission was caused by the following events"
                                 sources.each do |ev|
                                     pp.breakable
-                                    pp.text '< '
+                                    pp.text "< "
                                     ev.pretty_print(
                                         pp,
                                         context: false, context_task: context_task
@@ -383,7 +383,7 @@ module Roby
                             if value.nil? && explanation.unreachability_reason
                                 pp.breakable
                                 pp.breakable
-                                pp.text 'The unreachability was caused by'
+                                pp.text "The unreachability was caused by"
                                 pp.nest(2) do
                                     pp.breakable
                                     explanation.unreachability_reason.pretty_print(pp)
@@ -424,7 +424,7 @@ module Roby
             end
 
             def to_s
-                'false'
+                "false"
             end
 
             def ==(other)
@@ -432,7 +432,7 @@ module Roby
             end
 
             def code
-                'false'
+                "false"
             end
 
             def or(pred)
@@ -496,7 +496,7 @@ module Roby
             def initialize(pred)
                 unless pred.kind_of?(UnboundTaskPredicate::SingleEvent)
                     raise ArgumentError,
-                          'can only create a Never predicate on top of a SingleEvent'
+                          "can only create a Never predicate on top of a SingleEvent"
                 end
 
                 @predicate = pred
@@ -880,7 +880,7 @@ module Roby
                 "(task_#{this_event} && ("\
                     "!task_#{other_event} || task_#{other_event}.time <"\
                     "task_#{this_event}.time"\
-                '))'
+                "))"
             end
 
             def to_s
@@ -916,7 +916,7 @@ module Roby
                 if @deadline
                     "task_#{event_name} && ("\
                         "task_#{event_name}.time.to_f > #{@deadline.to_f}"\
-                    ')'
+                    ")"
                 else
                     "!!task_#{event_name}"
                 end

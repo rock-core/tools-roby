@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Tasks
         # A special task model which does nothing and emits +success+
@@ -8,12 +10,12 @@ module Roby
             forward start: :success
 
             # Always true. See Task#null?
-            def null?; true end
+            def null?
+                true
+            end
         end
     end
 
     # For backward-compatibility only
     NullTask = Tasks::Null
 end
-
-

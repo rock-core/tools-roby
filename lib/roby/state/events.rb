@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     class StateSpace
         # Create an event which will be emitted everytime some state parameters
@@ -27,8 +29,8 @@ module Roby
                 unless klass = DeltaEvent.event_types[name]
                     raise "unknown delta type #{name}. Known types are #{DeltaEvent.event_types.keys}"
                 end
-                
-                ev    = klass.new
+
+                ev = klass.new
                 ev.threshold = value
                 ev
             end
@@ -39,7 +41,9 @@ module Roby
                          end
 
                 result.on { |ev| result.reset }
-                def result.or(spec); DeltaEvent.or(spec, self) end
+                def result.or(spec)
+                    DeltaEvent.or(spec, self)
+                end
                 events.each { |ev| result << ev }
                 result
             else
@@ -104,7 +108,7 @@ module Roby
             end
         end
     end
-    Roby::ExecutionEngine.add_propagation_handler(description: 'poll_state_events', type: :propagation, &Roby.method(:poll_state_events))
+    Roby::ExecutionEngine.add_propagation_handler(description: "poll_state_events", type: :propagation, &Roby.method(:poll_state_events))
 
     # A state event is an event which emits when some parameters over the state
     # are reached. See DeltaEvent and TimePointEvent.
@@ -131,18 +135,27 @@ module Roby
         end
 
         # True if this event is currently active
-        def enabled?; !@disabled end
+        def enabled?
+            !@disabled
+        end
+
         # True if this event is currently disabled
-        def disabled?; @disabled end
+        def disabled?
+            @disabled
+        end
+
         # Call to reenable this event. If +reset+ is true, the event is reset
         # at the same time.
         def enable(reset = true)
             @disabled = false
             self.reset if reset
         end
+
         # Call to disable this event. When the state events are disabled, they
         # will no more emit.
-        def disable; @disabled = true end
+        def disable
+            @disabled = true
+        end
 
         # Emit only if the event is armed
         def emit(*context) # :nodoc:
@@ -185,6 +198,7 @@ module Roby
                     if !result
                         break
                     end
+
                     result
                 end
 
@@ -200,22 +214,25 @@ module Roby
     # Generic implementation of events which emit when a given delta is reached
     # in the state. Subclasses must implement the following methods:
     #
-    # [<tt>#has_sample</tt>] 
+    # [<tt>#has_sample</tt>]
     #   must return true if the state variable can be read
-    # [<tt>#delta</tt>] 
+    # [<tt>#delta</tt>]
     #   must return the delta between the current value and the
     #   value at the last emission (#last_value). The returned value
     #   must be comparable with #threshold.
     # [<tt>#read</tt>]
     #   must return the current value.
     class DeltaEvent < StateEvent
-        @@event_types = Hash.new
-        # The set of event types which 
-        def self.event_types; @@event_types end
+        @@event_types = {}
+        # The set of event types which
+        def self.event_types
+            @@event_types
+        end
+
         # Declare that the currently defined delta event has to be registered
         # as a +name+ option for StateSpace#on_delta. For instance, the TimeDeltaEvent
         # is registered by using
-        # 
+        #
         #   class TimeDeltaEvent < DeltaEvent
         #     register_as :t
         #   end
@@ -247,7 +264,9 @@ module Roby
             result << base_event
             result << new
             result.on { |ev| result.reset }
-            def result.or(spec); DeltaEvent.or(spec, self) end
+            def result.or(spec)
+                DeltaEvent.or(spec, self)
+            end
             result
         end
 
@@ -258,14 +277,12 @@ module Roby
         # Called at each cycle by Roby.poll_state_events
         def poll # :nodoc:
             if !has_sample?
-                return
+                nil
             elsif !last_value
                 @last_value = read
-            else
-                if delta.abs >= threshold
-                    reset
-                    emit(last_value)
-                end
+            elsif delta.abs >= threshold
+                reset
+                emit(last_value)
             end
         end
     end
@@ -274,11 +291,19 @@ module Roby
     class TimeDeltaEvent < DeltaEvent
         register_as :t
         # Always true, as we can always measure time
-        def has_sample?; true end
+        def has_sample?
+            true
+        end
+
         # Returns how much time elapsed since the last emission
-        def delta; Time.now - last_value end
+        def delta
+            Time.now - last_value
+        end
+
         # Returns the current time
-        def read;  Time.now end
+        def read
+            Time.now
+        end
     end
 
     # An event which emits everytime the robot heading moves more than a given
@@ -286,11 +311,19 @@ module Roby
     class YawDeltaEvent < DeltaEvent
         register_as :yaw
         # True if State.pos is set
-        def has_sample?; State.pos? end
+        def has_sample?
+            State.pos?
+        end
+
         # Returns the variation in heading since the last emission (in radians)
-        def delta; State.pos.yaw - last_value end
+        def delta
+            State.pos.yaw - last_value
+        end
+
         # Returns the current heading position (in radians)
-        def read;  State.pos.yaw end
+        def read
+            State.pos.yaw
+        end
     end
 
     # An event which emits everytime the robot moves more than a given
@@ -298,11 +331,18 @@ module Roby
     class PosDeltaEvent < DeltaEvent
         register_as :d
         # True if State.pos is set
-        def has_sample?; State.pos? end
+        def has_sample?
+            State.pos?
+        end
+
         # Returns the distance this the position at the last emission
-        def delta; State.pos.distance(last_value) end
+        def delta
+            State.pos.distance(last_value)
+        end
+
         # Returns the current position
-        def read;  State.pos.dup end
+        def read
+            State.pos.dup
+        end
     end
 end
-

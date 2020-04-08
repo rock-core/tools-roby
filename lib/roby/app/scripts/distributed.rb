@@ -1,4 +1,6 @@
-require 'roby/distributed'
+# frozen_string_literal: true
+
+require "roby/distributed"
 
 config = Roby.app
 config.setup
@@ -9,4 +11,3 @@ rescue Interrupt
 ensure
     config.stop_distributed
 end
-

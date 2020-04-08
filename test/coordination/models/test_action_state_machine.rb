@@ -1,9 +1,11 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 describe Roby::Coordination::Models::ActionStateMachine do
     attr_reader :task_m, :action_m, :description
     before do
-        task_m = @task_m = Roby::Task.new_submodel(name: 'TaskModel') do
+        task_m = @task_m = Roby::Task.new_submodel(name: "TaskModel") do
             terminates
         end
         description = nil
@@ -13,7 +15,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
             describe("the next task").returns(task_m)
             define_method(:next_task) { task_m.new(id: :next) }
             describe("a monitoring task").returns(task_m)
-            define_method(:monitoring_task) { task_m.new(id: 'monitoring') }
+            define_method(:monitoring_task) { task_m.new(id: "monitoring") }
             description = describe("state machine").returns(task_m)
         end
         @description = description
@@ -28,7 +30,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
     def state_machine(name, &block)
         action_m.action_state_machine(name) do
-            def start_task(task)
+            define_method :start_task do |task|
                 tasks = super
                 tasks.each do |t|
                     t.planning_task.start!
@@ -40,15 +42,15 @@ describe Roby::Coordination::Models::ActionStateMachine do
     end
 
     it "defines an action whose name is the state machine name" do
-        state_machine('state_machine_action') do
+        state_machine("state_machine_action") do
             start(state(Roby::Task))
         end
-        assert action_m.find_action_by_name('state_machine_action')
+        assert action_m.find_action_by_name("state_machine_action")
     end
 
     it "raises if attempting to set two start states" do
         assert_raises(ArgumentError) do
-            state_machine('state_machine_action') do
+            state_machine("state_machine_action") do
                 start(state(Roby::Task))
                 start(state(Roby::Task))
             end
@@ -56,12 +58,12 @@ describe Roby::Coordination::Models::ActionStateMachine do
     end
 
     it "defines the 'start_state' argument" do
-        state_machine('state_machine_action') do
+        state_machine("state_machine_action") do
             start(state(Roby::Task))
         end
-        machine = action_m.find_action_by_name('state_machine_action')
-        state_arg = machine.arguments.find { |arg| arg.name == 'start_state' }
-        assert_equal 'name of the state in which the state machine should start', state_arg.doc
+        machine = action_m.find_action_by_name("state_machine_action")
+        state_arg = machine.arguments.find { |arg| arg.name == "start_state" }
+        assert_equal "name of the state in which the state machine should start", state_arg.doc
         refute state_arg.required
         assert_nil state_arg.default
     end
@@ -69,10 +71,10 @@ describe Roby::Coordination::Models::ActionStateMachine do
     describe "#transition" do
         it "raises if the source state if not reachable" do
             assert_raises(Roby::Coordination::Models::UnreachableStateUsed) do
-                state_machine 'test' do
+                state_machine "test" do
                     start_state = state start_task
                     start_state.depends_on(monitor = state(monitoring_task))
-                    next_state  = state next_task
+                    next_state = state next_task
                     start(start_state)
                     transition(monitor.success_event, next_state)
                 end
@@ -81,10 +83,10 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
         it "raises if the event is not active in the source state" do
             assert_raises(Roby::Coordination::Models::EventNotActiveInState) do
-                state_machine 'test' do
+                state_machine "test" do
                     start_state = state start_task
                     monitor = state(monitoring_task)
-                    next_state  = state next_task
+                    next_state = state next_task
                     start(start_state)
                     transition(start_state, monitor.success_event, next_state)
                 end
@@ -93,38 +95,38 @@ describe Roby::Coordination::Models::ActionStateMachine do
     end
 
     it "assigns the name of the local variable, suffixed with _suffix, to the state name" do
-        _, machine = state_machine 'test' do
+        _, machine = state_machine "test" do
             first = state(start_task(id: 10))
             start(first)
         end
-        assert_equal 'first_state', machine.tasks.first.name
+        assert_equal "first_state", machine.tasks.first.name
     end
 
     it "forwards #find_child to its root" do
-        _, machine = state_machine 'test' do
+        _, machine = state_machine "test" do
             first = state(start_task(id: 10))
             start(first)
         end
-        flexmock(task_m).should_receive(:find_child).explicitly.with('first_state').
-            and_return(obj = flexmock)
-        assert_equal Roby::Coordination::Models::Child.new(machine.root, 'first_state', obj),
-            machine.find_child('first_state')
+        flexmock(task_m).should_receive(:find_child).explicitly.with("first_state")
+            .and_return(obj = flexmock)
+        assert_equal Roby::Coordination::Models::Child.new(machine.root, "first_state", obj),
+                     machine.find_child("first_state")
     end
 
     describe "event forwarding" do
         attr_reader :state_machine, :start
         before do
-            _, @state_machine = @action_m.action_state_machine 'test' do
+            _, @state_machine = @action_m.action_state_machine "test" do
                 start = state(start_task)
                 start(start)
             end
-            @start = state_machine.find_state_by_name('start')
+            @start = state_machine.find_state_by_name("start")
         end
 
         describe "Event#forward_to" do
             it "forwards an event to the state machine's root using Event#forward_to" do
-                flexmock(state_machine).should_receive(:forward).
-                    with(start, start.success_event, state_machine.success_event).once
+                flexmock(state_machine).should_receive(:forward)
+                    .with(start, start.success_event, state_machine.success_event).once
                 start.success_event.forward_to(state_machine.success_event)
             end
             it "raises if the target event is not a root event" do
@@ -141,7 +143,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
             monitoring = state_machine.state(action_m.monitoring_task)
             start.depends_on(monitoring)
             state_machine.forward start, monitoring.success_event,
-                state_machine.success_event
+                                  state_machine.success_event
 
             assert_equal 1, state_machine.forwards.size
             state, from_event, to_event = state_machine.forwards.first
@@ -155,7 +157,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
             assert_raises(Roby::Coordination::Models::NotToplevelState) do
                 state_machine.forward monitoring, monitoring.success_event,
-                    state_machine.success_event
+                                      state_machine.success_event
             end
         end
         it "raises if attempting to specify an event that is not active in the state" do
@@ -164,7 +166,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
             assert_raises(Roby::Coordination::Models::EventNotActiveInState) do
                 state_machine.forward start, monitoring.success_event,
-                    state_machine.success_event
+                                      state_machine.success_event
             end
         end
         it "raises if attempting to forward to a non-root event" do
@@ -172,7 +174,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
             state_machine.transition start.success_event, monitoring
             assert_raises(Roby::Coordination::Models::NotRootEvent) do
                 state_machine.forward start.success_event,
-                    monitoring.success_event
+                                      monitoring.success_event
             end
         end
     end
@@ -184,10 +186,10 @@ describe Roby::Coordination::Models::ActionStateMachine do
             task_m = self.task_m
             assert_raises(ArgumentError) do
                 Roby::Actions::Interface.new_submodel do
-                    describe('state machine').
-                        required_arg(:first_state, 'the first state').
-                        returns(task_m)
-                    state_machine('test') do
+                    describe("state machine")
+                        .required_arg(:first_state, "the first state")
+                        .returns(task_m)
+                    state_machine("test") do
                         start(obj)
                     end
                 end
@@ -196,7 +198,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
         it "raises if an unknown argument is accessed" do
             assert_raises(NameError) do
-                state_machine 'test' do
+                state_machine "test" do
                     start(state(start_task(id: task_id)))
                 end
             end
@@ -210,10 +212,10 @@ describe Roby::Coordination::Models::ActionStateMachine do
             task_m = self.task_m
             assert_raises(ArgumentError) do
                 Roby::Actions::Interface.new_submodel do
-                    describe('state machine').
-                        required_arg(:first_state, 'the first state').
-                        returns(task_m)
-                    state_machine('test') do
+                    describe("state machine")
+                        .required_arg(:first_state, "the first state")
+                        .returns(task_m)
+                    state_machine("test") do
                         state = state(obj)
                         start(state)
                     end
@@ -225,7 +227,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
     describe "#capture" do
         before do
             state = nil
-            _, @machine = @action_m.action_state_machine 'test' do
+            _, @machine = @action_m.action_state_machine "test" do
                 state = state(start_task)
                 start(state)
                 c = capture(state.success_event) do |ev|
@@ -244,10 +246,10 @@ describe Roby::Coordination::Models::ActionStateMachine do
         it "allows separating the state and the event" do
             monitor, state = nil
             @action_m.describe "another_machine"
-            _, machine = @action_m.action_state_machine 'another_test' do
+            _, machine = @action_m.action_state_machine "another_test" do
                 monitor = state(monitoring_task)
-                state = state(start_task).
-                    depends_on(monitor)
+                state = state(start_task)
+                    .depends_on(monitor)
                 start(state)
 
                 c = capture(state, monitor.start_event) do |ev|
@@ -261,21 +263,21 @@ describe Roby::Coordination::Models::ActionStateMachine do
             assert_kind_of Roby::Coordination::Models::Capture, capture
         end
         it "is given a name if assigned to a local variable" do
-            assert @machine.each_capture.find { |c, _| c.name == 'c' }
+            assert(@machine.each_capture.any? { |c, _| c.name == "c" })
         end
     end
 
     describe "#rebind" do
         attr_reader :state_machine_action, :action_m, :new_action_m
         before do
-            @state_machine_action, _ = @action_m.action_state_machine 'test' do
+            @state_machine_action, = @action_m.action_state_machine "test" do
                 start_task = state(self.start_task)
                 next_task  = state(self.next_task)
                 monitoring_task = state(self.monitoring_task)
-                depends_on monitoring_task, role: 'test'
+                depends_on monitoring_task, role: "test"
 
                 start(start_task)
-                start_task.depends_on monitoring_task, role: 'task_dependency'
+                start_task.depends_on monitoring_task, role: "task_dependency"
                 transition start_task, start_task.start_event, next_task
                 next_task.success_event.forward_to success_event
             end
@@ -283,68 +285,74 @@ describe Roby::Coordination::Models::ActionStateMachine do
         end
 
         it "rebinds the root" do
-            rebound = state_machine_action.rebind(new_action_m).
-                coordination_model
+            rebound = state_machine_action.rebind(new_action_m)
+                .coordination_model
             refute_same rebound.root, state_machine_action.coordination_model.root
             assert_same rebound, rebound.root.coordination_model
         end
         it "rebinds action-states" do
-            rebound = state_machine_action.rebind(new_action_m).
-                coordination_model
+            rebound = state_machine_action.rebind(new_action_m)
+                .coordination_model
 
             assert_equal new_action_m.start_task,
-                rebound.find_state_by_name('start_task').action
+                         rebound.find_state_by_name("start_task").action
             assert_equal new_action_m.next_task,
-                rebound.find_state_by_name('next_task').action
+                         rebound.find_state_by_name("next_task").action
         end
         it "rebinds the starting state" do
-            rebound = state_machine_action.rebind(new_action_m).
-                coordination_model
+            rebound = state_machine_action.rebind(new_action_m)
+                .coordination_model
 
             assert_equal new_action_m.start_task,
-                rebound.starting_state.action
+                         rebound.starting_state.action
         end
         it "rebinds the transitions" do
-            rebound = state_machine_action.rebind(new_action_m).
-                coordination_model
+            rebound = state_machine_action.rebind(new_action_m)
+                .coordination_model
 
             assert_equal 1, rebound.transitions.size
             from, event, to = rebound.transitions[0]
             assert_equal new_action_m.start_task, from.action
             assert_equal new_action_m.start_task, event.task.action
             assert_equal :start, event.symbol
-            assert_equal new_action_m.next_task,  to.action
+            assert_equal new_action_m.next_task, to.action
         end
         it "rebinds the machine's own dependencies" do
-            rebound = state_machine_action.rebind(new_action_m).
-                coordination_model
+            rebound = state_machine_action.rebind(new_action_m)
+                .coordination_model
 
-            assert_equal [[new_action_m.monitoring_task, 'test']],
+            assert_equal(
+                [[new_action_m.monitoring_task, "test"]],
                 rebound.dependencies.map { |task, role| [task.action, role] }
+            )
         end
         it "rebinds the state-local dependencies" do
-            rebound = state_machine_action.rebind(new_action_m).
-                coordination_model
+            rebound = state_machine_action.rebind(new_action_m)
+                .coordination_model
 
-            assert_equal [[new_action_m.monitoring_task, 'task_dependency']],
-                rebound.find_state_by_name('start_task').dependencies.
-                    map { |task, role| [task.action, role] }
+            assert_equal(
+                [[new_action_m.monitoring_task, "task_dependency"]],
+                rebound.find_state_by_name("start_task").dependencies
+                       .map { |task, role| [task.action, role] }
+            )
         end
         it "rebinds the forwardings" do
-            rebound = state_machine_action.rebind(new_action_m).
-                coordination_model
+            rebound = state_machine_action.rebind(new_action_m)
+                      .coordination_model
 
             assert_equal 1, rebound.forwards.size
-            assert_equal [[new_action_m.monitoring_task, 'task_dependency']],
-                rebound.find_state_by_name('start_task').dependencies.
-                    map { |task, role| [task.action, role] }
+            assert_equal(
+                [[new_action_m.monitoring_task, "task_dependency"]],
+                rebound.find_state_by_name("start_task").dependencies
+                       .map { |task, role| [task.action, role] }
+            )
         end
     end
 
     describe "DRoby handling" do
         before do
             task_m = self.task_m
-            action_m.action_state_machine 'test' do
+            action_m.action_state_machine "test" do
                 task = state(task_m)
                 start task
             end
@@ -359,8 +367,8 @@ describe Roby::Coordination::Models::ActionStateMachine do
             end
 
             it "returns the existing action" do
-                @r_interface.describe 'test'
-                @r_interface.action_state_machine 'test' do
+                @r_interface.describe "test"
+                @r_interface.action_state_machine "test" do
                     start state(Roby::Task)
                 end
                 test = droby_transfer(action_m.test)
@@ -375,8 +383,8 @@ describe Roby::Coordination::Models::ActionStateMachine do
                 #
                 # We do the "system test" side: this only cares that the
                 # task model can be transferred afterwards
-                @r_interface.describe 'test'
-                @r_interface.action_state_machine 'test' do
+                @r_interface.describe "test"
+                @r_interface.action_state_machine "test" do
                     start state(Roby::Task)
                 end
                 return_task_m = action_m.test.model.returned_type
@@ -394,13 +402,13 @@ describe Roby::Coordination::Models::ActionStateMachine do
                 # task model can be transferred afterwards
                 test_task_m = Roby::Task.new_submodel
                 start_task_m = Roby::Task.new_submodel
-                action_m.describe("with_arguments").
-                    optional_arg('test', 'test', test_task_m)
-                action_m.action_state_machine 'with_arguments' do
+                action_m.describe("with_arguments")
+                    .optional_arg("test", "test", test_task_m)
+                action_m.action_state_machine "with_arguments" do
                     start state(start_task_m)
                 end
-                @r_interface.describe 'with arguments'
-                @r_interface.action_state_machine 'with_arguments' do
+                @r_interface.describe "with arguments"
+                @r_interface.action_state_machine "with_arguments" do
                     start state(start_task_m)
                 end
                 droby_transfer(action_m.with_arguments)

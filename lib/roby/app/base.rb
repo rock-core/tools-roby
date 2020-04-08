@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 module Roby
     module App
-        DEFAULT_ROBOT_NAME = 'default'
-        DEFAULT_ROBOT_TYPE = 'default'
+        DEFAULT_ROBOT_NAME = "default"
+        DEFAULT_ROBOT_TYPE = "default"
 
         # Resolves the ROBOT keyword in the given path
         #
@@ -14,8 +16,8 @@ module Roby
             end
             robot_name ||= ""
 
-            path.gsub(/ROBOT/, robot_name).
-                gsub(/\/\//, '/')
+            path.gsub(/ROBOT/, robot_name)
+                .gsub(/\/\//, "/")
         end
     end
 end

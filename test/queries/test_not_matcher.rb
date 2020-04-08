@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require 'roby/test/self'
-require 'roby/tasks/simple'
+require "roby/test/self"
+require "roby/tasks/simple"
 
 module Roby
     module Queries
         describe NotMatcher do
-            it 'negates a task matcher' do
+            it "negates a task matcher" do
                 t1 = Tasks::Simple.new_submodel { argument :id }.new(id: 1)
                 t2 = Tasks::Simple.new_submodel { argument :id }.new(id: 2)
                 t3 = Roby::Task.new

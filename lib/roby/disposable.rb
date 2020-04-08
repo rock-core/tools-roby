@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Basic disposable adaptor for blocks and other disposables
     class Disposable
@@ -18,7 +20,7 @@ module Roby
                 d.dispose
                 true
             end
-            @block.call if @block
+            @block&.call
             @disposed = true
         end
 
@@ -26,6 +28,7 @@ module Roby
             def disposed?
                 true
             end
+
             def dispose; end
         end
     end

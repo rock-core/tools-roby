@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # A plan service represents a "place" in the plan. I.e. it initially is
     # attached to a given task instance, but its attachment will move when the
@@ -31,10 +33,10 @@ module Roby
         attr_reader :plan_status_handlers
 
         def initialize(task)
-            @event_handlers = Hash.new
-            @finalization_handlers = Array.new
-            @replacement_handlers = Array.new
-            @plan_status_handlers = Array.new
+            @event_handlers = {}
+            @finalization_handlers = []
+            @replacement_handlers = []
+            @plan_status_handlers = []
             self.task = task
             task.plan.add_plan_service(self)
         end
@@ -56,7 +58,7 @@ module Roby
 
         alias __to_s__ to_s
         def to_s # :nodoc:
-            "#<service #{task.to_s}>"
+            "#<service #{task}>"
         end
 
         # Register a callback that should be called when the underlying task is
@@ -123,9 +125,7 @@ module Roby
         # Called by the plan when the service is finalized
         def finalized!
             if task.plan.executable?
-                finalization_handlers.each do |h|
-                    h.call
-                end
+                finalization_handlers.each(&:call)
             end
         end
 
@@ -159,7 +159,7 @@ module Roby
                 event_handlers[event] << block
             else
                 task.event(event).on(on_replace: :drop, &method(:__handle_event__))
-                (event_handlers[event] = Array.new) << block
+                (event_handlers[event] = []) << block
             end
         end
 

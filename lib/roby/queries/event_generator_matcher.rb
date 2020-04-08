@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Queries
         # Object that allows to describe an event generator and match it in the
@@ -6,4 +8,3 @@ module Roby
         end
     end
 end
-

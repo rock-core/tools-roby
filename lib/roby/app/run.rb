@@ -1,7 +1,9 @@
-require 'roby'
+# frozen_string_literal: true
+
+require "roby"
 
 app = Roby.app
-require 'optparse'
+require "optparse"
 parser = OptionParser.new do |opt|
     opt.banner = "#{$0} [options] [robot_name [robot_type]]"
     opt.on("--sim", "run in simulation mode") do
@@ -12,4 +14,3 @@ parser = OptionParser.new do |opt|
     end
 end
 parser.parse!(ARGV)
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Relations
         module Models
@@ -14,5 +16,3 @@ module Roby
         end
     end
 end
-
-

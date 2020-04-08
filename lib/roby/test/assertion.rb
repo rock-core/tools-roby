@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Test
         class Assertion < MiniTest::Assertion
@@ -13,4 +15,3 @@ module Roby
         end
     end
 end
-

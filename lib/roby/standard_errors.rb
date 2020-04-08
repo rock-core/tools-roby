@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Exception
     # Create a {Queries::CodeErrorMatcher} object that matches this exception
     #
@@ -19,7 +21,9 @@ class Exception
         false
     end
 
-    def user_error?; false end
+    def user_error?
+        false
+    end
 end
 
 module Roby
@@ -46,7 +50,7 @@ module Roby
         # @return [Array<Exception>]
         attr_accessor :original_exceptions
 
-        def initialize(exceptions = Array.new)
+        def initialize(exceptions = [])
             @original_exceptions = exceptions
         end
 
@@ -77,14 +81,19 @@ module Roby
     class LocalizedError < ExceptionBase
         # If true, such an exception causes the execution engine to stop tasks
         # in the hierarchy. Otherwise, it only causes notification(s).
-        def fatal?; true end
+        def fatal?
+            true
+        end
+
         # If true, such an exception will be propagated in the plan dependency
         # structure. Otherwise, it's directly reported to the plan itself (which
         # can choose to handle it).
         #
         # This is usually set to false for exceptions that report global
         # information about the plan, such as e.g. MissionFailedError
-        def propagated?; true end
+        def propagated?
+            true
+        end
         # The object describing the point of failure
         attr_reader :failure_point
 
@@ -113,9 +122,7 @@ module Roby
                 raise ArgumentError, "cannot deduce a task and/or a generator from #{failure_point}"
             end
 
-            if failed_event
-                failed_event.protect_all_sources
-            end
+            failed_event&.protect_all_sources
         end
 
         def to_execution_exception
@@ -123,7 +130,7 @@ module Roby
         end
 
         def pretty_print(pp)
-            pp.text "#{self.class.name}"
+            pp.text self.class.name.to_s
             if !message.empty?
                 pp.text ": #{message}"
             end
@@ -134,9 +141,7 @@ module Roby
         # True if +obj+ is involved in this error
         def involved_plan_object?(obj)
             obj.kind_of?(PlanObject) &&
-                (obj == failed_event ||
-                 obj == failed_generator ||
-                 obj == failed_task)
+                [failed_event, failed_generator, failed_task].include?(obj)
         end
 
         # @return [Queries::ExecutionExceptionMatcher]
@@ -156,7 +161,6 @@ module Roby
         # The parent in the failed relation
         attr_reader :parent
     end
-
 
     # Exception raises when attempting to add relations to a
     # garbaged-but-not-finalized task
@@ -182,8 +186,9 @@ module Roby
             end
         end
 
-        def plan; @plan end
-        def removed_at; @removed_at end
+        attr_reader :plan
+
+        attr_reader :removed_at
 
         def pretty_print(pp)
             pp.text "#{failed_generator.symbol} called but it is not executable on"
@@ -263,15 +268,22 @@ module Roby
         include UserExceptionWrapper
 
         # The original exception object
-        def original_exception; original_exceptions.first end
+        def original_exception
+            original_exceptions.first
+        end
+
         # @deprecated use {#original_exception} instead
-        def error; original_exception end
+        def error
+            original_exception
+        end
+
         # Create a CodeError object from the given original exception object, and
         # with the given failure point
         def initialize(error, *args)
             if error && !error.kind_of?(Exception)
                 raise TypeError, "#{error} should be an exception"
             end
+
             super(*args)
             report_exceptions_from(error)
         end
@@ -371,7 +383,7 @@ module Roby
         # +generator+ has become unreachable.
         def initialize(generator, reason)
             super(generator)
-            @reason    = reason
+            @reason = reason
             report_exceptions_from(reason)
         end
 
@@ -393,6 +405,7 @@ module Roby
         def pretty_print(pp) # :nodoc:
             pp.text "control loop aborting because of unhandled exceptions"
         end
+
         def backtrace # :nodoc:
             []
         end
@@ -409,6 +422,7 @@ module Roby
         def initialize(from, to)
             @from, @to = from, to
         end
+
         def pretty_print(pp) # :nodoc:
             pp.text "invalid replacement: #{message}"
             pp.breakable
@@ -426,7 +440,9 @@ module Roby
 
         attr_reader :reason
 
-        def propagated?; false end
+        def propagated?
+            false
+        end
 
         # Create a new MissionFailedError for the given mission
         def initialize(task, reason = nil)
@@ -459,7 +475,10 @@ module Roby
 
     # Exception raised when a permanent task has failed
     class PermanentTaskError < ToplevelTaskError
-        def fatal?; false end
+        def fatal?
+            false
+        end
+
         def pretty_print(pp)
             pp.text "permanent task failed: "
             failed_task.pretty_print(pp)
@@ -523,7 +542,7 @@ module Roby
         def initialize(root_task, from_state, event, to_state, original_exception)
             super(root_task)
             @from_state = from_state
-            @event    = event
+            @event = event
             @to_state = to_state
             report_exceptions_from(original_exception)
         end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         # Common functionality of coordination models that manipulate actions
@@ -21,10 +23,10 @@ module Roby
             # @return [Hash<Models::Capture, Object>]
             attr_reader :resolved_captures
 
-            def initialize(root_task, arguments = Hash.new)
+            def initialize(root_task, arguments = {})
                 super(root_task, arguments)
                 @task_info = resolve_task_info
-                @resolved_captures = Hash.new
+                @resolved_captures = {}
             end
 
             def action_interface_model
@@ -32,7 +34,7 @@ module Roby
             end
 
             def task_info_for(task)
-                required_tasks  = model.required_tasks_for(task).map do |t, roles|
+                required_tasks = model.required_tasks_for(task).map do |t, roles|
                     [instance_for(t), roles]
                 end
 
@@ -48,7 +50,7 @@ module Roby
             end
 
             def resolve_task_info
-                result = Hash.new
+                result = {}
                 model.each_task do |task|
                     result[instance_for(task)] = task_info_for(task)
                 end
@@ -61,8 +63,8 @@ module Roby
                     roles << task.name
                 end
                 Hash[roles: roles,
-                    failure: :stop.or(:start.never),
-                    remove_when_done: true]
+                     failure: :stop.or(:start.never),
+                     remove_when_done: true]
             end
 
             def start_task(toplevel, explicit_start: false)
@@ -91,7 +93,7 @@ module Roby
             end
 
             def remove_current_task
-                current_task_child = root_task.find_child_from_role('current_task')
+                current_task_child = root_task.find_child_from_role("current_task")
                 task_info[current_task].required_tasks.each do |task, roles|
                     if state_name = task.name
                         roles = [state_name, *roles]

@@ -36,7 +36,7 @@ module Roby
 
         def initialize(
             execution_engine,
-            executor: execution_engine.thread_pool, description: 'promise', &block
+            executor: execution_engine.thread_pool, description: "promise", &block
         )
             @execution_engine = execution_engine
             execution_engine.waiting_work << self
@@ -76,7 +76,7 @@ module Roby
         # steps in the pipeline, given how the promises are used in Roby (to
         # avoid freezing due to blocking calls)
         def run_pipeline(*state)
-            Thread.current.name = 'run_promises'
+            Thread.current.name = "run_promises"
 
             execution_engine.log_timepoint_group description.to_s do
                 begin
@@ -160,12 +160,12 @@ module Roby
             if (current_element = self.current_element)
                 pp.text ", currently: #{current_element})"
             else
-                pp.text ')'
+                pp.text ")"
             end
 
             pipeline.each do |element|
                 pp.nest(2) do
-                    pp.text '.'
+                    pp.text "."
                     pp.breakable
                     if element.run_in_engine
                         pp.text "on_success(#{element.description})"
@@ -176,7 +176,7 @@ module Roby
             end
             error_pipeline.each do |element|
                 pp.nest(2) do
-                    pp.text '.'
+                    pp.text "."
                     pp.breakable
                     pp.text "on_error(#{element.description}, "\
                             "in_engine: #{element.run_in_engine})"
@@ -267,13 +267,13 @@ module Roby
         def value(timeout = nil)
             return promise.value(timeout) if promise.complete?
 
-            raise NotComplete, 'cannot call #value on a non-complete promise'
+            raise NotComplete, "cannot call #value on a non-complete promise"
         end
 
         def value!(timeout = nil)
             return promise.value!(timeout) if promise.complete?
 
-            raise NotComplete, 'cannot call #value on a non-complete promise'
+            raise NotComplete, "cannot call #value on a non-complete promise"
         rescue Failure => e
             raise e.actual_exception
         end
@@ -320,23 +320,23 @@ module Roby
             end
 
             def before(*)
-                raise NullPromise, 'attempting to add a step on a null promise'
+                raise NullPromise, "attempting to add a step on a null promise"
             end
 
             def on_success(*)
-                raise NullPromise, 'attempting to add a step on a null promise'
+                raise NullPromise, "attempting to add a step on a null promise"
             end
 
             def on_error(*)
-                raise NullPromise, 'attempting to add a step on a null promise'
+                raise NullPromise, "attempting to add a step on a null promise"
             end
 
             def then(*)
-                raise NullPromise, 'attempting to add a step on a null promise'
+                raise NullPromise, "attempting to add a step on a null promise"
             end
 
             def fail(*)
-                raise NullPromise, 'a null promise cannot fail'
+                raise NullPromise, "a null promise cannot fail"
             end
 
             def execute

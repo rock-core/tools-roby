@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -46,8 +48,7 @@ module Roby
                 #
                 # Used in {Base#rebind} to update the internal relationships
                 # between coordination tasks
-                def map_tasks(mapping)
-                end
+                def map_tasks(mapping); end
 
                 # Returns an instance-level coordination task that can be used
                 # to represent self
@@ -67,7 +68,7 @@ module Roby
                 # @return [Boolean] true if the event is an event of self, and
                 #   false otherwise
                 def has_event?(event_name)
-                    if model && model.respond_to?(:find_event)
+                    if model&.respond_to?(:find_event)
                         model.find_event(event_name.to_sym)
                     else true
                     end
@@ -81,7 +82,7 @@ module Roby
                 #   if the event does not exist
                 def find_event(event_name)
                     if has_event?(event_name)
-                        return Event.new(self, event_name)
+                        Event.new(self, event_name)
                     end
                 end
 
@@ -94,7 +95,7 @@ module Roby
                 # @return [Boolean] true if {#has_child?} and
                 #   {#find_child_model} can return meaningful information.
                 def can_resolve_child_models?
-                    model && model.respond_to?(:find_child)
+                    model&.respond_to?(:find_child)
                 end
 
                 # Tests if this task has a child with the given role
@@ -143,23 +144,23 @@ module Roby
                 #   nil if there is no such child on self
                 def find_child(role, child_model = nil)
                     if has_child?(role)
-                        return Child.new(self, role, child_model || find_child_model(role))
+                        Child.new(self, role, child_model || find_child_model(role))
                     end
                 end
 
                 def find_through_method_missing(m, args)
                     MetaRuby::DSLs.find_through_method_missing(
                         self, m, args,
-                        '_event' => :find_event,
-                        '_child' => :find_child) ||
+                        "_event" => :find_event,
+                        "_child" => :find_child) ||
                         super
                 end
 
                 def has_through_method_missing?(m)
                     MetaRuby::DSLs.has_through_method_missing?(
                         self, m,
-                        '_event' => :has_event?,
-                        '_child' => :has_child?) ||
+                        "_event" => :has_event?,
+                        "_child" => :has_child?) ||
                         super
                 end
 
@@ -171,14 +172,12 @@ module Roby
 
                 # This method must be overloaded in the tasks that will be
                 # actually used in the coordination primitives
-                def instanciate(plan, variables = Hash.new)
+                def instanciate(plan, variables = {})
                     raise NotImplementedError, "must reimplement #instanciate in the task objects used in coordination primitives"
                 end
 
-                def setup_instanciated_task(coordination_context, task, arguments = Hash.new)
-                end
+                def setup_instanciated_task(coordination_context, task, arguments = {}); end
             end
         end
     end
 end
-

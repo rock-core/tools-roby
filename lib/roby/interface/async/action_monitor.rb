@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         module Async
@@ -34,14 +36,9 @@ module Roby
                     !!async
                 end
 
-                # If at least one job ran and is terminated
-                def terminated?
-                    async && async.terminated?
-                end
-
                 # The job ID of the last job that ran
                 def job_id
-                    async && async.job_id
+                    async&.job_id
                 end
 
                 # The set of arguments that should be passed to the action
@@ -111,10 +108,10 @@ module Roby
                     end
                 end
 
-                def initialize(interface, action_name, static_arguments = Hash.new)
+                def initialize(interface, action_name, static_arguments = {})
                     @interface, @action_name, @static_arguments =
                         interface, action_name, static_arguments
-                    @arguments = Hash.new
+                    @arguments = {}
 
                     interface.on_reachable do
                         run_hook :on_progress
@@ -136,23 +133,23 @@ module Roby
                 end
 
                 def running?
-                    async && async.running?
+                    async&.running?
                 end
 
                 def success?
-                    async && async.success?
+                    async&.success?
                 end
 
                 def failed?
-                    async && async.failed?
+                    async&.failed?
                 end
 
                 def finished?
-                    async && async.finished?
+                    async&.finished?
                 end
 
                 def terminated?
-                    async && async.terminated?
+                    async&.terminated?
                 end
 
                 def state
@@ -185,4 +182,3 @@ module Roby
         end
     end
 end
-

@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/interface/async'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/interface/async"
 module Roby
     module Interface
         module Async
@@ -190,9 +192,7 @@ module Roby
                         assert job_monitor.finalized?
                     end
                 end
-
             end
         end
     end
 end
-

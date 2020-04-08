@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -10,18 +12,19 @@ module Roby
                     super(task_model)
                 end
 
-                def instanciate(plan, variables = Hash.new)
+                def instanciate(plan, variables = {})
                     obj = variables[variable_name]
                     if !obj.respond_to?(:as_plan)
                         raise ArgumentError, "expected variable #{variable_name} to contain an object that can generate tasks, found #{obj}"
                     end
+
                     obj.as_plan
                 end
 
-                def to_s; "var(#{variable_name})[#{task_model}]" end
+                def to_s
+                    "var(#{variable_name})[#{task_model}]"
+                end
             end
         end
     end
 end
-
-

@@ -195,7 +195,7 @@ module Roby
                     has_cycle_end = process_packet(*packet) do |reply_value|
                         if result
                             raise ProtocolError,
-                                  'got more than one sync reply in a single poll call'
+                                  "got more than one sync reply in a single poll call"
                         end
                         result = reply_value
                         expected_count -= 1
@@ -364,7 +364,7 @@ module Roby
             # @param [Object] args the command or action arguments
             # @return [Object] an Object associated with the call @see async_call_pending?
             def async_call(path, m, *args, &block)
-                raise 'no callback block given' unless block_given?
+                raise "no callback block given" unless block_given?
 
                 if (action_match = /(.*)!$/.match(m.to_s))
                     action_name = action_match[1]
@@ -463,8 +463,8 @@ module Roby
 
                     ::Kernel.raise ::NoMethodError.new(m),
                                    "#{m} either does not exist, or is not "\
-                                   'supported in batch context (only '\
-                                   'starting and killing jobs is)'
+                                   "supported in batch context (only "\
+                                   "starting and killing jobs is)"
                 end
 
                 # Process the batch and return the list of return values for all

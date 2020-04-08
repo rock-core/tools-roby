@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     class Transaction
         module PlanObjectProxy
@@ -11,20 +13,21 @@ module Roby
             # Uses the +enum+ method on this proxy and on the proxied object to get
             # a set of objects related to this one in both the plan and the
             # transaction.
-            # 
+            #
             # The block is then given a plan_object => transaction_object hash, the
             # relation which is being considered, the set of new relations (the
             # relations that are in the transaction but not in the plan) and the
             # set of deleted relation (relations that are in the plan but not in
             # the transaction)
-            def partition_new_old_relations(enum, include_proxies: true) # :yield:
-                trsc_objects = Hash.new
+            def partition_new_old_relations(enum, include_proxies: true)
+                trsc_objects = {}
                 each_relation do |rel|
                     trsc_others = Set.new
                     send(enum, rel) do |obj|
                         plan_object =
                             if obj.transaction_proxy?
                                 next if !include_proxies
+
                                 obj.__getobj__
                             else obj
                             end
@@ -57,7 +60,6 @@ module Roby
                 # exclusively using self (NOT other) because if 'other' was a new
                 # task, it has been already moved to the new plan (and its relation
                 # graph resolution is using the new plan's new graphs already)
-
 
                 super
 
@@ -95,5 +97,3 @@ module Roby
         end
     end
 end
-
-

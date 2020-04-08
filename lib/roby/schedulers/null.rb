@@ -1,4 +1,6 @@
-require 'roby/schedulers/reporting'
+# frozen_string_literal: true
+
+require "roby/schedulers/reporting"
 
 module Roby
     module Schedulers

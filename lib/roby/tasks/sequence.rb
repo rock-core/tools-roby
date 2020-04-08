@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby::Tasks
     # Creates an ordered sequence of tasks.
     #
@@ -6,7 +8,7 @@ module Roby::Tasks
     # successfully when the last task finished.
     class Sequence < TaskAggregator
         def name # :nodoc:
-            @name || @tasks.map { |t| t.name }.join("+")
+            @name || @tasks.map(&:name).join("+")
         end
 
         # Quite often, a sequence is meant to implement a higher-level
@@ -19,7 +21,7 @@ module Roby::Tasks
         # first creates a new instance of this model and returns it.
         #
         # For instance:
-        #   
+        #
         #   seq = (Sequence.new <<
         #       GoTo.new(target: a) <<
         #       Pickup.new(object: b) <<
@@ -30,6 +32,7 @@ module Roby::Tasks
         #
         def child_of(task = nil)
             return super() unless task
+
             task = task.new unless task.kind_of?(Roby::Task)
             @tasks.each { |t| task.depends_on t }
 
@@ -61,7 +64,10 @@ module Roby::Tasks
 
         # Adds +task+ at the beginning of the sequence
         def unshift(task)
-            raise "trying to do Sequence#unshift on a running or finished sequence" if (running? || finished?)
+            if running? || finished?
+                raise "trying to do Sequence#unshift on a running or finished sequence"
+            end
+
             connect_start(task)
             connect_stop(task) if @tasks.empty?
 
@@ -73,9 +79,10 @@ module Roby::Tasks
         # Adds +task+ at the end of the sequence
         def <<(task)
             raise "trying to do Sequence#<< on a finished sequence" if finished?
+
             connect_start(task) if @tasks.empty?
             connect_stop(task)
-            
+
             @tasks << task
             depends_on task
             self

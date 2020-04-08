@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'roby/droby/logfile'
+require "roby/droby/logfile"
 
 module Roby
     module DRoby
@@ -16,13 +16,13 @@ module Roby
 
                 def initialize(event_io, **options)
                     @event_io = event_io
-                    @buffer_io = StringIO.new(''.dup, 'w')
+                    @buffer_io = StringIO.new("".dup, "w")
 
                     Logfile.write_header(event_io, options)
                 end
 
                 def self.open(path, **options)
-                    event_io = File.open(path, 'w')
+                    event_io = File.open(path, "w")
                     new(event_io, **options)
                 end
 
@@ -34,7 +34,7 @@ module Roby
                     buffer_io.truncate(0)
                     buffer_io.seek(0)
                     ::Marshal.dump(object, buffer_io)
-                    io.write([buffer_io.size].pack('L<'))
+                    io.write([buffer_io.size].pack("L<"))
                     io.write(buffer_io.string)
                 end
 
@@ -103,10 +103,10 @@ module Roby
                         nil
                     rescue StandardError => e
                         begin
-                            return "#{obj} (#{obj.class})", e
+                            ["#{obj} (#{obj.class})", e]
                         rescue StandardError
-                            return '-- cannot display object, #to_s raised -- '\
-                                   "(#{obj.class})", e
+                            ["-- cannot display object, #to_s raised -- "\
+                                   "(#{obj.class})", e]
                         end
                     end
                 end

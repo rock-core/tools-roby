@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Schedulers
@@ -10,16 +12,15 @@ module Roby
                     state.report_pending_non_executable_task("NonExecutableMessageFormatted %1", "TASK")
                     state.report_holdoff("NonScheduledMessage %1", "TASK")
                     state.pretty_print(pp)
-                    assert_equal <<-EXPECTED, "#{s.string}\n"
-Pending non-executable tasks
-  NonExecutableMessageFormatted TASK
-Non scheduled tasks
-  "TASK"
-    NonScheduledMessage TASK
+                    assert_equal <<~EXPECTED, "#{s.string}\n"
+                        Pending non-executable tasks
+                          NonExecutableMessageFormatted TASK
+                        Non scheduled tasks
+                          "TASK"
+                            NonScheduledMessage TASK
                     EXPECTED
                 end
             end
         end
     end
 end
-

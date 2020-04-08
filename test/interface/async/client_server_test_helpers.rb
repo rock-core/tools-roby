@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         module Async
@@ -40,7 +42,7 @@ module Roby
 
                 def connect(server = nil, **options, &block)
                     server ||= create_server
-                    client = create_client('localhost', port: server.ip_port, **options)
+                    client = create_client("localhost", port: server.ip_port, **options)
                     yield(client) if block_given?
                     client
                 ensure
@@ -54,13 +56,9 @@ module Roby
                 def process_call(&block)
                     poll_async_interfaces = Concurrent::Future.new do
                         @interfaces.each do |async_interface|
-                            if async_interface.client
-                                async_interface.client.io.reset_thread_guard
-                            end
+                            async_interface.client&.io&.reset_thread_guard
                             async_interface.poll
-                            if async_interface.client
-                                async_interface.client.io.reset_thread_guard
-                            end
+                            async_interface.client&.io&.reset_thread_guard
                         end
                     end
                     futures = [Concurrent::Future.new(&block), poll_async_interfaces]

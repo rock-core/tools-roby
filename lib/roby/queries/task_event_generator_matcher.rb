@@ -82,7 +82,7 @@ module Roby
             def each_in_plan(plan)
                 if generalized?
                     raise ArgumentError,
-                          'cannot resolve a generalized matcher in the plan'
+                          "cannot resolve a generalized matcher in the plan"
                 end
 
                 return enum_for(__method__, plan) unless block_given?

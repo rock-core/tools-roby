@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Relations
         # @api private
@@ -38,7 +40,7 @@ module Roby
                 @origin_neighbours = origin_neighbours
 
                 @vertex_to_object = Hash[origin => object]
-                @pending_merges = Hash.new { |h, k| h[k] = Array.new }
+                @pending_merges = Hash.new { |h, k| h[k] = [] }
 
                 @in_degree, @out_degree = compute_in_out_degrees(origin, origin_neighbours)
             end
@@ -57,14 +59,17 @@ module Roby
                     @in_degree = Hash.new(0)
                     super(graph)
                 end
+
                 def handle_tree_edge(u, v)
                     out_degree[u] += 1
                     in_degree[v] += 1
                 end
+
                 def handle_back_edge(u, v)
                     out_degree[u] += 1
                     in_degree[v] += 1
                 end
+
                 def handle_forward_edge(u, v)
                     out_degree[u] += 1
                     in_degree[v] += 1
@@ -78,7 +83,8 @@ module Roby
                 visitor = SubgraphDegreeCounter.new(graph)
                 origin_neighbours.each do |v|
                     next if visitor.color_map[v] != :WHITE
-                    graph.depth_first_visit(v, visitor) { }
+
+                    graph.depth_first_visit(v, visitor) {}
                 end
                 in_degree, out_degree = visitor.in_degree, visitor.out_degree
 
@@ -87,7 +93,7 @@ module Roby
                 origin_neighbours.each do |v|
                     in_degree[v] += 1
                 end
-                return in_degree, out_degree
+                [in_degree, out_degree]
             end
 
             def follow_edge?(u, v)
@@ -151,4 +157,3 @@ module Roby
         end
     end
 end
-

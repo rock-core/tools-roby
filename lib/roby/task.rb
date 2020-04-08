@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # In a plan, Task objects represent the system's activities.
     #
@@ -118,7 +120,7 @@ module Roby
         # currently have a value
         def freeze_delayed_arguments
             if !arguments.static?
-                result = Hash.new
+                result = {}
                 arguments.each do |key, value|
                     if TaskArguments.delayed_argument?(value)
                         catch(:no_value) do
@@ -135,6 +137,7 @@ module Roby
         # @return [String]
         def name
             return @name if @name
+
             name = "#{model.name || self.class.name}:0x#{address.to_s(16)}"
             if !frozen?
                 @name = name
@@ -149,12 +152,12 @@ module Roby
         attr_predicate :mission?, true
 
         def inspect
-            state = if pending? then 'pending'
-                    elsif failed_to_start? then 'failed to start'
-                    elsif starting? then 'starting'
-                    elsif finishing? then 'finishing'
-                    elsif running? then 'running'
-                    else 'finished'
+            state = if pending? then "pending"
+                    elsif failed_to_start? then "failed to start"
+                    elsif starting? then "starting"
+                    elsif finishing? then "finishing"
+                    elsif running? then "running"
+                    else "finished"
                     end
             "#<#{self} executable=#{executable?} state=#{state} plan=#{plan}>"
         end
@@ -186,11 +189,11 @@ module Roby
                     if v1 != v2
                         raise ArgumentError, "trying to override #{k}=#{v1} to #{v2}"
                     end
+
                     v1
                 end
             end
             initial_arguments.merge!(current_arguments)
-
         ensure
             @arguments = initial_arguments
         end
@@ -222,7 +225,7 @@ module Roby
             @bound_events = {}
             super(plan: plan)
 
-            @model   = self.class
+            @model = self.class
             @abstract = @model.abstract?
 
             @failed_to_start = false
@@ -234,8 +237,8 @@ module Roby
             @finishing = false
             @success = nil
             @reusable = true
-            @history = Array.new
-            @coordination_objects = Array.new
+            @history = []
+            @coordination_objects = []
 
             @arguments = TaskArguments.new(self)
             assign_arguments(**arguments)
@@ -265,7 +268,8 @@ module Roby
             apply_terminal_flags(
                 template.terminal_events.map(&mappings.method(:[])),
                 template.success_events.map(&mappings.method(:[])),
-                template.failure_events.map(&mappings.method(:[])))
+                template.failure_events.map(&mappings.method(:[]))
+            )
             @terminal_flag_invalid = false
 
             if self.model.state_machine
@@ -297,19 +301,19 @@ module Roby
 
             # True, when task has never been started
             if pending?
-                return :pending
+                :pending
             elsif failed_to_start?
-                return :failed_to_start
+                :failed_to_start
             elsif starting?
-                return :starting
+                :starting
             # True, when terminal event is pending
             elsif finishing?
-                return :finishing
+                :finishing
             # Terminated with success or failure
             elsif success?
-                return :succeeded
+                :succeeded
             elsif failed?
-                return :failed
+                :failed
             end
         end
 
@@ -345,6 +349,7 @@ module Roby
             elsif finished?
                 raise PromiseInFinishedTask, "attempting to create a promise on #{self} that is finished"
             end
+
             super
         end
 
@@ -386,7 +391,7 @@ module Roby
         def initialize_copy(old) # :nodoc:
             super
 
-            @name    = nil
+            @name = nil
 
             @arguments = TaskArguments.new(self)
             arguments.force_merge! old.arguments
@@ -395,7 +400,7 @@ module Roby
             @instantiated_model_events = false
 
             # Create all event generators
-            @bound_events = Hash.new
+            @bound_events = {}
             @execute_handlers = old.execute_handlers.dup
             @poll_handlers = old.poll_handlers.dup
             if m = old.instance_variable_get(:@fullfilled_model)
@@ -407,8 +412,7 @@ module Roby
             super
 
             @relation_graphs =
-                if plan then plan.task_relation_graphs
-                end
+                plan&.task_relation_graphs
             for ev in bound_events.each_value
                 ev.plan = plan
             end
@@ -449,7 +453,10 @@ module Roby
         end
 
         # Returns true if this task's stop event is controlable
-        def interruptible?; stop_event.controlable? end
+        def interruptible?
+            stop_event.controlable?
+        end
+
         # Set the executable flag. executable cannot be set to +false+ if the
         # task is running, and cannot be set to true on a finished task.
         def executable=(flag)
@@ -460,6 +467,7 @@ module Roby
             elsif !flag && running?
                 raise ModelViolation, "cannot unset the executable flag of #{self} since it is running"
             end
+
             super
         end
 
@@ -492,7 +500,9 @@ module Roby
 
         # True if at least one argument required by the task model is not set.
         # See Task.argument.
-        def partially_instanciated?; !fully_instanciated? end
+        def partially_instanciated?
+            !fully_instanciated?
+        end
 
         # True if this task has an event of the required model. The event model
         # can either be a event class or an event name.
@@ -507,7 +517,9 @@ module Roby
         attr_predicate :pending?, true
         # True if this task is currently running (i.e. is has already started,
         # and is not finished)
-        def running?; started? && !finished? end
+        def running?
+            started? && !finished?
+        end
 
         attr_predicate :started?, true
         attr_predicate :finished?, true
@@ -544,7 +556,9 @@ module Roby
             @quarantined = true
         end
 
-        def failed_to_start?; @failed_to_start end
+        def failed_to_start?
+            @failed_to_start
+        end
 
         def mark_failed_to_start(reason, time)
             if failed_to_start?
@@ -552,10 +566,11 @@ module Roby
             elsif !pending? && !starting?
                 raise Roby::InternalError, "#{self} is neither pending nor starting, cannot mark as failed_to_start!"
             end
+
             @failed_to_start = true
             @failed_to_start_time = time
             @failure_reason = reason
-            @pending  = false
+            @pending = false
             @starting = false
             @failed   = true
             plan.task_index.set_state(self, :failed?)
@@ -578,7 +593,7 @@ module Roby
                     graph = plan.event_relation_graph_for(rel)
                     next if !remove_strong && graph.strong?
 
-                    to_remove = Array.new
+                    to_remove = []
                     graph.each_in_neighbour(event) do |neighbour|
                         if !task_events.include?(neighbour)
                             to_remove << neighbour << event
@@ -617,19 +632,25 @@ module Roby
             super(remove_strong: remove_strong) || modified_plan
         end
 
-        def invalidated_terminal_flag?; !!@terminal_flag_invalid end
-        def invalidate_terminal_flag; @terminal_flag_invalid = true end
+        def invalidated_terminal_flag?
+            !!@terminal_flag_invalid
+        end
+
+        def invalidate_terminal_flag
+            @terminal_flag_invalid = true
+        end
 
         # Updates the terminal flag for all events in the task. An event is
         # terminal if the +stop+ event of the task will be called because this
         # event is.
         def update_terminal_flag # :nodoc:
             return if !invalidated_terminal_flag?
+
             terminal_events, success_events, failure_events =
                 self.model.compute_terminal_events(bound_events)
             apply_terminal_flags(terminal_events, success_events, failure_events)
             @terminal_flag_invalid = false
-            return terminal_events, success_events, failure_events
+            [terminal_events, success_events, failure_events]
         end
 
         def apply_terminal_flags(terminal_events, success_events, failure_events)
@@ -646,10 +667,6 @@ module Roby
                 end
             end
         end
-
-        # Returns a list of Event objects, for all events that have been fired
-        # by this task. The list is sorted by emission times.
-        attr_reader :history
 
         # Returns the set of tasks directly related to this task, either because
         # of task relations or because of task events that are related to other
@@ -669,22 +686,33 @@ module Roby
                 ev.related_events(result)
             end
 
-            result.reject { |ev| ev.respond_to?(:task) && ev.task == self }.
-                to_set
+            result.reject { |ev| ev.respond_to?(:task) && ev.task == self }
+                .to_set
         end
 
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
         def check_emission_validity(event) # :nodoc:
             if finished? && !event.terminal?
-                EmissionRejected.new(event).
-                    exception("#{self}.emit(#{event.symbol}) called by #{execution_engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{stop_event.last.sources.to_a}.")
+                EmissionRejected.new(event).exception(
+                    "#{self}.emit(#{event.symbol}) called by "\
+                    "#{execution_engine.propagation_sources.to_a} but the task "\
+                    "has finished. Task has been terminated by "\
+                    "#{stop_event.last.sources.to_a}."
+                )
             elsif pending? && event.symbol != :start
-                EmissionRejected.new(event).
-                    exception("#{self}.emit(#{event.symbol}) called by #{execution_engine.propagation_sources.to_a} but the task has never been started")
+                EmissionRejected.new(event).exception(
+                    "#{self}.emit(#{event.symbol}) called by "\
+                    "#{execution_engine.propagation_sources.to_a} but the task "\
+                    "has never been started"
+                )
             elsif running? && event.symbol == :start
-                EmissionRejected.new(event).
-                    exception("#{self}.emit(#{event.symbol}) called by #{execution_engine.propagation_sources.to_a} but the task is already running. Task has been started by #{start_event.last.sources.to_a}.")
+                EmissionRejected.new(event).exception(
+                    "#{self}.emit(#{event.symbol}) called by "\
+                    "#{execution_engine.propagation_sources.to_a} but the task "\
+                    "is already running. Task has been started by "\
+                    "#{start_event.last.sources.to_a}."
+                )
             end
         end
 
@@ -787,10 +815,9 @@ module Roby
             self
         end
 
-
         # @deprecated use {TaskEventGenerator#on} on the event object, e.g.
         #   task.start_event.on { |event| ... }
-        def on(event_model, options = Hash.new, &user_handler)
+        def on(event_model, options = {}, &user_handler)
             Roby.warn_deprecated "Task#on is deprecated, use EventGenerator#on instead (e.g. #{event_model}_event.signals other_event)"
             event(event_model).on(options, &user_handler)
             self
@@ -826,7 +853,7 @@ module Roby
             if Hash === to_task_events.last
                 delay = to_task_events.pop
             end
-            to_events = case
+            to_events = case to
                         when Task
                             to_task_events.map { |ev| to.event(ev) }
                         when EventGenerator then [to]
@@ -853,12 +880,13 @@ module Roby
         # @return self
         def each_event(only_wrapped = true)
             return enum_for(__method__, only_wrapped) if !block_given?
+
             for ev in bound_events.each_value
                 yield(ev)
             end
             self
         end
-        alias :each_plan_child :each_event
+        alias each_plan_child each_event
 
         # Returns this task's set of terminal events.
         #
@@ -868,7 +896,7 @@ module Roby
         #
         # @return [Array<TaskEventGenerator>]
         def terminal_events
-            bound_events.each_value.find_all { |ev| ev.terminal? }
+            bound_events.each_value.find_all(&:terminal?)
         end
 
         # (see Models::Task#event_model)
@@ -880,6 +908,7 @@ module Roby
             s = "#{name}<id:#{droby_id.id}>(#{arguments})"
             id = owners.map do |owner|
                 next if plan && (owner == plan.local_owner)
+
                 sibling = remote_siblings[owner]
                 "#{sibling ? Object.address_from_id(sibling.ref).to_s(16) : 'nil'}@#{owner.remote_name}"
             end
@@ -920,9 +949,14 @@ module Roby
         end
 
         # True if this task is a null task. See NullTask.
-        def null?; false end
+        def null?
+            false
+        end
+
         # Converts this object into a task object
-        def to_task; self end
+        def to_task
+            self
+        end
 
         # Event emitted when the task is started
         #
@@ -1004,8 +1038,7 @@ module Roby
 
         # This hook is called whenever the internal data of this task is
         # updated.  See #data, #data= and the +updated_data+ event
-        def updated_data
-        end
+        def updated_data; end
         event :updated_data, command: false
 
         # Checks if +task+ is in the same execution state than +self+
@@ -1033,8 +1066,8 @@ module Roby
         #
         # @macro InstanceHandlerOptions
         # @return [void]
-        def execute(options = Hash.new, &block)
-            default_on_replace = if abstract? then :copy else :drop end
+        def execute(options = {}, &block)
+            default_on_replace = abstract? ? :copy : :drop
             options = InstanceHandler.validate_options(options, on_replace: default_on_replace)
 
             check_arity(block, 1)
@@ -1049,8 +1082,8 @@ module Roby
         #   executed. It might be different than the one on which it has been
         #   added because of replacements.
         # @return [Object] an ID that can be used in {#remove_poll_handler}
-        def poll(options = Hash.new, &block)
-            default_on_replace = if abstract? then :copy else :drop end
+        def poll(options = {}, &block)
+            default_on_replace = abstract? ? :copy : :drop
             options = InstanceHandler.validate_options(options, on_replace: default_on_replace)
 
             check_arity(block, 1)
@@ -1098,7 +1131,7 @@ module Roby
                 end
 
                 if machine = state_machine
-                   machine.do_poll(self)
+                    machine.do_poll(self)
                 end
 
                 @poll_handlers.each do |poll_block|
@@ -1131,7 +1164,7 @@ module Roby
 
         # Declares that this fault response table should be made active when
         # this task starts, and deactivated when it ends
-        def use_fault_response_table(table_model, arguments = Hash.new)
+        def use_fault_response_table(table_model, arguments = {})
             arguments = table_model.validate_arguments(arguments)
 
             table = nil
@@ -1160,11 +1193,9 @@ module Roby
                 return false
             end
 
-            if args
-                args.each do |key, name|
-                    if self.arguments[key] != name
-                        return false
-                    end
+            args&.each do |key, name|
+                if self.arguments[key] != name
+                    return false
                 end
             end
 
@@ -1225,9 +1256,8 @@ module Roby
 
             tasks = find_all_matching_repair_tasks(e)
             return super if tasks.empty?
-            if !tasks.any? { |t| t.running? }
-                tasks.first.start!
-            end
+
+            tasks.first.start! if tasks.none?(&:running?)
             true
         end
 
@@ -1285,10 +1315,11 @@ module Roby
             edges, edges_candidates = [], []
             subplan_tasks = Set[self, object]
             subplan_tasks.compare_by_identity
-            parent_tasks  = Set.new
+            parent_tasks = Set.new
             parent_tasks.compare_by_identity
             plan.each_task_relation_graph do |g|
                 next if g.strong? || filter.excluded_graph?(g)
+
                 rel = g.class
                 next if filter.excluded_relation?(rel)
 
@@ -1315,19 +1346,20 @@ module Roby
 
             transaction_stack = plan.each_object_in_transaction_stack(self).to_a
             object_transaction_stack = plan.each_object_in_transaction_stack(object).to_a
-            event_pairs = Array.new
+            event_pairs = []
             model.each_event do |_, event|
-                event = transaction_stack.
-                    find { |_, o| o.find_event(event.symbol) }.
-                    last.event(event.symbol)
-                object_event = object_transaction_stack.
-                    find { |_, o| o.find_event(event.symbol) }.
-                    last.event(event.symbol)
+                event = transaction_stack
+                    .find { |_, o| o.find_event(event.symbol) }
+                    .last.event(event.symbol)
+                object_event = object_transaction_stack
+                    .find { |_, o| o.find_event(event.symbol) }
+                    .last.event(event.symbol)
                 event_pairs << [event, object_event]
             end
 
             plan.each_event_relation_graph do |g|
                 next if g.strong? || filter.excluded_graph?(g)
+
                 rel = g.class
                 next if filter.excluded_relation?(rel)
 
@@ -1347,7 +1379,7 @@ module Roby
                 end
             end
 
-            return edges, edges_candidates, subplan_tasks, parent_tasks
+            [edges, edges_candidates, subplan_tasks, parent_tasks]
         end
 
         # @api private
@@ -1372,11 +1404,11 @@ module Roby
                     removed << [g, removed_parent, removed_child]
                 end
             end
-            return added, removed
+            [added, removed]
         end
 
         def compute_task_replacement_operation(object, filter)
-            edges, edges_candidates, _ = compute_replacement_candidates(object, filter, true)
+            edges, edges_candidates, = compute_replacement_candidates(object, filter, true)
             edges_candidates.each do |reference_task, op|
                 if filter.excluded_task?(reference_task)
                     next
@@ -1386,7 +1418,7 @@ module Roby
                     edges << op
                 end
             end
-            return transform_candidates_into_operations(edges)
+            transform_candidates_into_operations(edges)
         end
 
         # @api private
@@ -1406,7 +1438,7 @@ module Roby
                     edges << op
                 end
             end
-            return transform_candidates_into_operations(edges)
+            transform_candidates_into_operations(edges)
         end
 
         # Replaces self by object
@@ -1488,8 +1520,8 @@ module Roby
         # Register a hook that is called when this task is finalized (removed from its plan)
         #
         # @macro InstanceHandlerOptions
-        def when_finalized(options = Hash.new, &block)
-            default = if abstract? then :copy else :drop end
+        def when_finalized(options = {}, &block)
+            default = abstract? ? :copy : :drop
             options, remaining = InstanceHandler.filter_options options, on_replace: default
             super(options.merge(remaining), &block)
         end
@@ -1549,14 +1581,14 @@ module Roby
         #
         #   Sequence.new << a << b << c << d
         #
-        def +(task)
+        def +(other)
             # !!!! + is NOT commutative
-            if task.null?
+            if other.null?
                 self
             elsif self.null?
-                task
+                other
             else
-                Tasks::Sequence.new << self << task
+                Tasks::Sequence.new << self << other
             end
         end
 
@@ -1574,13 +1606,13 @@ module Roby
         #
         #   Parallel.new << a << b << c << d
         #
-        def |(task)
+        def |(other)
             if self.null?
-                task
-            elsif task.null?
+                other
+            elsif other.null?
                 self
             else
-                Tasks::Parallel.new << self << task
+                Tasks::Parallel.new << self << other
             end
         end
 
@@ -1626,9 +1658,8 @@ module Roby
         end
     end
 
-
     unless defined? TaskStructure
-        TaskStructure   = RelationSpace(Task)
+        TaskStructure = RelationSpace(Task)
         TaskStructure.default_graph_class = Relations::TaskRelationGraph
     end
 end

@@ -1,4 +1,6 @@
-require 'roby/droby/logfile/reader'
+# frozen_string_literal: true
+
+require "roby/droby/logfile/reader"
 
 module Roby
     module DRoby
@@ -50,7 +52,7 @@ module Roby
                 def initialize(host, port = Server::DEFAULT_PORT)
                     @host = host
                     @port = port
-                    @buffer = ""
+                    @buffer = String.new
 
                     @rx = 0
                     @socket =
@@ -61,14 +63,14 @@ module Roby
                     socket.fcntl(Fcntl::FD_CLOEXEC, 1)
                     socket.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
                 rescue Exception
-                    socket.close if socket
+                    socket&.close
                     raise
                 end
 
                 def disconnect
                     @socket.close
                 end
-            
+
                 def close
                     @socket.close
                 end
@@ -131,18 +133,20 @@ module Roby
                 def read_and_process_one_pending_cycle
                     Logfile.debug "#{buffer.size} bytes of data in buffer"
 
-                    while true
+                    data_size = nil
+                    loop do
                         if buffer.size > 4
-                            data_size = buffer.unpack('L<').first
+                            data_size = buffer.unpack1("L<")
                             Logfile.debug "expecting data block of #{data_size} bytes"
-                            if buffer.size >= data_size + 4
-                                break
-                            end
-                            return if !read_from_socket([Server::DATA_CHUNK_SIZE, buffer.size - data_size].max)
-                        else
-                            return if !read_from_socket
-                        end
+                            break if buffer.size >= data_size + 4
 
+                            read_success = read_from_socket(
+                                [Server::DATA_CHUNK_SIZE, buffer.size - data_size].max
+                            )
+                            return unless read_success
+                        else
+                            return unless read_from_socket
+                        end
                     end
 
                     if data_size && (buffer.size >= data_size + 4)
@@ -163,14 +167,13 @@ module Roby
                             end
                             run_hook :on_data, data
                         end
-                        Logfile.debug "processed #{data_size} bytes of data, #{@buffer.size} remaining in buffer"
+                        Logfile.debug "processed #{data_size} bytes of data, "\
+                                      "#{@buffer.size} remaining in buffer"
                         true
                     end
-
                 rescue Errno::EAGAIN
                 end
             end
         end
     end
 end
-

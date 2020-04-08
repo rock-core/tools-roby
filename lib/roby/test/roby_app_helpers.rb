@@ -23,7 +23,7 @@ module Roby
                 app.cleanup
                 pending_children = @spawned_pids.find_all do |pid|
                     begin
-                        Process.kill 'INT', pid
+                        Process.kill "INT", pid
                         true
                     rescue Errno::ESRCH # rubocop:disable Lint/SuppressedException
                     end
@@ -36,13 +36,13 @@ module Roby
             end
 
             def gen_app(app_dir = self.app_dir)
-                require 'roby/cli/gen_main'
-                Dir.chdir(app_dir) { CLI::GenMain.start(['app', '--quiet']) }
+                require "roby/cli/gen_main"
+                Dir.chdir(app_dir) { CLI::GenMain.start(["app", "--quiet"]) }
             end
 
             def roby_bin
                 File.expand_path(
-                    File.join('..', '..', '..', 'bin', 'roby'),
+                    File.join("..", "..", "..", "bin", "roby"),
                     __dir__
                 )
             end
@@ -64,12 +64,12 @@ module Roby
             end
 
             def assert_roby_app_is_running(
-                pid, timeout: 10, host: 'localhost', port: Roby::Interface::DEFAULT_PORT
+                pid, timeout: 10, host: "localhost", port: Roby::Interface::DEFAULT_PORT
             )
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
                     if ::Process.waitpid(pid, Process::WNOHANG)
-                        flunk 'Roby app unexpectedly quit'
+                        flunk "Roby app unexpectedly quit"
                     end
 
                     begin
@@ -118,7 +118,7 @@ module Roby
             # Path to the app test fixtures, that is test/app/fixtures
             def roby_app_fixture_path
                 File.expand_path(
-                    File.join('..', '..', '..', 'test', 'app', 'fixtures'),
+                    File.join("..", "..", "..", "test", "app", "fixtures"),
                     __dir__
                 )
             end
@@ -131,21 +131,21 @@ module Roby
             # @return [String] the path to the app root
             def roby_app_setup_single_script(*scripts)
                 dir = make_tmpdir
-                FileUtils.mkdir_p File.join(dir, 'config', 'robots')
-                FileUtils.mkdir_p File.join(dir, 'scripts')
-                FileUtils.touch File.join(dir, 'config', 'app.yml')
-                FileUtils.touch File.join(dir, 'config', 'robots', 'default.rb')
+                FileUtils.mkdir_p File.join(dir, "config", "robots")
+                FileUtils.mkdir_p File.join(dir, "scripts")
+                FileUtils.touch File.join(dir, "config", "app.yml")
+                FileUtils.touch File.join(dir, "config", "robots", "default.rb")
                 scripts.each do |p|
                     p = File.expand_path(p, roby_app_fixture_path)
-                    FileUtils.cp p, File.join(dir, 'scripts')
+                    FileUtils.cp p, File.join(dir, "scripts")
                 end
                 dir
             end
 
             def roby_app_spawn(*args, silent: false, **options)
                 if silent
-                    options[:out] ||= '/dev/null'
-                    options[:err] ||= '/dev/null'
+                    options[:out] ||= "/dev/null"
+                    options[:err] ||= "/dev/null"
                 end
                 pid = spawn(roby_bin, *args, chdir: app_dir, **options)
                 @spawned_pids << pid
@@ -163,9 +163,9 @@ module Roby
             end
 
             def roby_app_create_logfile
-                require 'roby/droby/logfile/writer'
+                require "roby/droby/logfile/writer"
                 logfile_dir = make_tmpdir
-                logfile_path = File.join(logfile_dir, 'logfile')
+                logfile_path = File.join(logfile_dir, "logfile")
                 writer = DRoby::Logfile::Writer.open(logfile_path)
                 [logfile_path, writer]
             end
@@ -177,7 +177,7 @@ module Roby
             # @yieldparam [Roby::Interface::Client] client the interface client
             # @yieldreturn [Object] object returned by the method
             def roby_app_call_remote_interface(
-                host: 'localhost', port: Interface::DEFAULT_PORT
+                host: "localhost", port: Interface::DEFAULT_PORT
             )
                 interface = Interface.connect_with_tcp_to(host, port)
                 yield(interface) if block_given?
@@ -191,7 +191,7 @@ module Roby
             #
             # @yieldparam [Roby::Interface::Client] client the interface client
             # @yieldreturn [Object] object returned by the method
-            def roby_app_call_interface(host: 'localhost', port: Interface::DEFAULT_PORT)
+            def roby_app_call_interface(host: "localhost", port: Interface::DEFAULT_PORT)
                 client_thread = Thread.new do
                     begin
                         interface = Interface.connect_with_tcp_to(host, port)
@@ -221,7 +221,7 @@ module Roby
                     message: "connecting to the log server on port #{port}"
                 ) do
                     begin
-                        DRoby::Logfile::Client.new('localhost', port)
+                        DRoby::Logfile::Client.new("localhost", port)
                     rescue Interface::ConnectionError # rubocop:disable Lint/SuppressedException
                     end
                 end

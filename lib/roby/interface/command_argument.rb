@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # An argument of a {Command}
@@ -13,4 +15,3 @@ module Roby
         end
     end
 end
-

@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Interface
@@ -9,8 +11,8 @@ module Roby
                     @interface = Interface.new(@notify_app)
                     @notify_app.execution_engine.display_exceptions = false
 
-                    _client_io, server_io = Socket.pair(:UNIX, :STREAM, 0)
-                    _client_io.close
+                    client_io, server_io = Socket.pair(:UNIX, :STREAM, 0)
+                    client_io.close
                     server_channel = DRobyChannel.new(server_io, false)
                     server_channel.reset_thread_guard(Thread.current, Thread.current)
                     @server = Server.new(server_channel, @interface)
@@ -38,7 +40,7 @@ module Roby
                 end
                 it "returns a hash of the requested commands" do
                     flexmock(@interface, commands: 42, jobs: 84)
-                    result = @server.handshake("42", [:commands, :jobs])
+                    result = @server.handshake("42", %i[commands jobs])
                     assert_equal Hash[commands: 42, jobs: 84], result
                 end
                 it "does not listen to notifications once closed" do
@@ -64,12 +66,13 @@ module Roby
                     flexmock(@server)
                     @server.listen_to_notifications
 
-                    @written_packets = Array.new
-                    flexmock(server_channel).should_receive(:write_packet).
-                        and_return do |pkt|
+                    @written_packets = []
+                    flexmock(server_channel).should_receive(:write_packet)
+                        .and_return do |pkt|
                             if Thread.current != main_thread
                                 raise "write_packet called in invalid thread"
                             end
+
                             @written_packets << pkt
                         end
                     client_channel.close
@@ -83,49 +86,49 @@ module Roby
                     assert @server.notifications_enabled?
                 end
                 it "sends notifications right away if notified from the main thread" do
-                    @notify_app.notify('test', :warn, 'some_message')
-                    assert_equal [[:notification, 'test', :warn, 'some_message']],
-                        @written_packets
+                    @notify_app.notify("test", :warn, "some_message")
+                    assert_equal [[:notification, "test", :warn, "some_message"]],
+                                 @written_packets
                 end
                 it "queues notifications that come from a different thread" do
-                    Thread.new { @notify_app.notify('test', :warn, 'some_message') }.
-                        join
+                    Thread.new { @notify_app.notify("test", :warn, "some_message") }
+                        .join
                     assert_equal [], @written_packets
                 end
                 it "keeps order between queued notifications when a new one "\
                     "is received from the main thread" do
-                    Thread.new { @notify_app.notify('thread', :warn, 'some_message') }.
-                        join
-                    @notify_app.notify('main', :warn, 'some_message')
+                    Thread.new { @notify_app.notify("thread", :warn, "some_message") }
+                        .join
+                    @notify_app.notify("main", :warn, "some_message")
                     expected = [
-                        [:notification, 'thread', :warn, 'some_message'],
-                        [:notification, 'main', :warn, 'some_message']
+                        [:notification, "thread", :warn, "some_message"],
+                        [:notification, "main", :warn, "some_message"]
                     ]
                     assert_equal expected, @written_packets
                 end
                 it "flushes queued notifications on write" do
-                    Thread.new { @notify_app.notify('thread', :warn, 'some_message') }.
-                        join
-                    @server.write_packet([:some, 'packet'])
+                    Thread.new { @notify_app.notify("thread", :warn, "some_message") }
+                        .join
+                    @server.write_packet([:some, "packet"])
                     expected = [
-                        [:notification, 'thread', :warn, 'some_message'],
-                        [:some, 'packet']
+                        [:notification, "thread", :warn, "some_message"],
+                        [:some, "packet"]
                     ]
                     assert_equal expected, @written_packets
                 end
                 it "does not send notifications if they are disabled" do
                     @server.disable_notifications
                     refute @server.notifications_enabled?
-                    @notify_app.notify('main', :warn, 'some_message')
+                    @notify_app.notify("main", :warn, "some_message")
                     assert_equal [], @written_packets
                 end
                 it "sends new notifications once they are re-enabled" do
                     @server.disable_notifications
                     @server.enable_notifications
                     assert @server.notifications_enabled?
-                    @notify_app.notify('main', :warn, 'some_message')
-                    assert_equal [[:notification, 'main', :warn, 'some_message']],
-                        @written_packets
+                    @notify_app.notify("main", :warn, "some_message")
+                    assert_equal [[:notification, "main", :warn, "some_message"]],
+                                 @written_packets
                 end
                 it "forwards UI events" do
                     @notify_app.ui_event(:test, 42)
@@ -134,10 +137,10 @@ module Roby
                 it "queues UI events that come from a different thread" do
                     Thread.new { @notify_app.ui_event(:test, 42) }.join
                     assert_equal [], @written_packets
-                    @server.write_packet([:cycle_end, Hash.new])
+                    @server.write_packet([:cycle_end, {}])
                     refute @server.has_deferred_exception?
-                    assert_equal [[:ui_event, :test, 42], [:cycle_end, Hash.new]],
-                        @written_packets
+                    assert_equal [[:ui_event, :test, 42], [:cycle_end, {}]],
+                                 @written_packets
                 end
             end
 
@@ -161,43 +164,43 @@ module Roby
                 end
 
                 it "passes call and arguments, and replies with the result of the call" do
-                    flexmock(server).should_receive(:test_call).
-                        explicitly.once.with(24).and_return([42])
+                    flexmock(server).should_receive(:test_call)
+                        .explicitly.once.with(24).and_return([42])
                     client_channel.write_packet([[], :test_call, 24])
                     server.poll
                     assert_equal [:reply, [42]], client_channel.read_packet
                 end
 
                 it "resolves the subcommand from the path argument before calling" do
-                    flexmock(interface).should_receive(:sub).explicitly.
-                        and_return(cmd = flexmock)
+                    flexmock(interface).should_receive(:sub).explicitly
+                        .and_return(cmd = flexmock)
                     cmd.should_receive(:cmd).and_return(target = flexmock)
-                    target.should_receive(:test_call).
-                        explicitly.once.with(24).and_return([42])
-                    client_channel.write_packet([[:sub, :cmd], :test_call, 24])
+                    target.should_receive(:test_call)
+                        .explicitly.once.with(24).and_return([42])
+                    client_channel.write_packet([%i[sub cmd], :test_call, 24])
                     server.poll
                     assert_equal [:reply, [42]], client_channel.read_packet
                 end
 
                 it "properly handles if the argument is a Hash" do
-                    flexmock(server).should_receive(:test_call).
-                        explicitly.once.with(Hash.new).and_return(42)
-                    client_channel.write_packet([[], :test_call, Hash.new])
+                    flexmock(server).should_receive(:test_call)
+                        .explicitly.once.with({}).and_return(42)
+                    client_channel.write_packet([[], :test_call, {}])
                     server.poll
                     assert_equal [:reply, 42], client_channel.read_packet
                 end
 
                 it "properly handles if the reply is a Hash" do
-                    flexmock(server).should_receive(:test_call).
-                        explicitly.once.with(24).and_return(Hash.new)
+                    flexmock(server).should_receive(:test_call)
+                        .explicitly.once.with(24).and_return({})
                     client_channel.write_packet([[], :test_call, 24])
                     server.poll
-                    assert_equal [:reply, Hash.new], client_channel.read_packet
+                    assert_equal [:reply, {}], client_channel.read_packet
                 end
 
                 it "replies with :bad_call and the exception if the call raises" do
-                    flexmock(server).should_receive(:test_call).
-                        explicitly.and_raise(ArgumentError.exception("test message"))
+                    flexmock(server).should_receive(:test_call)
+                        .explicitly.and_raise(ArgumentError.exception("test message"))
                     client_channel.write_packet([[], :test_call, 24])
                     server.poll
                     type, exception = client_channel.read_packet
@@ -208,10 +211,10 @@ module Roby
 
                 it "processes all calls from a batch and returns "\
                     "all their return values" do
-                    flexmock(server).should_receive(:test_call).
-                        explicitly.once.with(24).and_return([42])
-                    flexmock(server).should_receive(:test_call).
-                        explicitly.once.with(12).and_return([24])
+                    flexmock(server).should_receive(:test_call)
+                        .explicitly.once.with(24).and_return([42])
+                    flexmock(server).should_receive(:test_call)
+                        .explicitly.once.with(12).and_return([24])
                     client_channel.write_packet(
                         [
                             [], :process_batch, [
@@ -223,18 +226,18 @@ module Roby
                 end
 
                 it "resolves subcommands as specified in the batch" do
-                    flexmock(interface).should_receive(:sub).explicitly.
-                        and_return(cmd = flexmock)
+                    flexmock(interface).should_receive(:sub).explicitly
+                        .and_return(cmd = flexmock)
                     cmd.should_receive(:cmd).and_return(target = flexmock)
-                    target.should_receive(:test_call).
-                        explicitly.once.with(12).and_return(84)
-                    target.should_receive(:test_call).
-                        explicitly.once.with(24).and_return(42)
+                    target.should_receive(:test_call)
+                        .explicitly.once.with(12).and_return(84)
+                    target.should_receive(:test_call)
+                        .explicitly.once.with(24).and_return(42)
                     client_channel.write_packet(
                         [
                             [], :process_batch, [
-                                [[:sub, :cmd], :test_call, 24],
-                                [[:sub, :cmd], :test_call, 12]
+                                [%i[sub cmd], :test_call, 24],
+                                [%i[sub cmd], :test_call, 12]
                             ]
                         ])
                     server.poll
@@ -243,10 +246,10 @@ module Roby
 
                 it "replies with :bad_call and the exception "\
                     "if any of the calls raises" do
-                    flexmock(server).should_receive(:test_call).
-                        explicitly.once.with(24).and_return([42])
-                    flexmock(server).should_receive(:test_call).
-                        explicitly.and_raise(ArgumentError.exception('test message'))
+                    flexmock(server).should_receive(:test_call)
+                        .explicitly.once.with(24).and_return([42])
+                    flexmock(server).should_receive(:test_call)
+                        .explicitly.and_raise(ArgumentError.exception("test message"))
                     client_channel.write_packet(
                         [
                             [], :process_batch, [
@@ -271,7 +274,7 @@ module Roby
                     flexmock(@server)
                     @server.listen_to_notifications
                     @com_error_m = Class.new(ComError)
-                    @error_m = Class.new(Exception)
+                    @error_m = Class.new(RuntimeError)
                 end
 
                 def self.handler_error_behaviour(&block)
@@ -300,33 +303,33 @@ module Roby
 
                 describe "the job handler" do
                     handler_error_behaviour do
-                        interface.job_notify JOB_MONITORED, 10, 'test'
+                        interface.job_notify JOB_MONITORED, 10, "test"
                         interface.push_pending_notifications
                     end
                 end
 
                 it "passes a non-ComError if read_packet raises" do
-                    server_io.should_receive(:read_packet).
-                        and_raise(error_m.exception("test message"))
+                    server_io.should_receive(:read_packet)
+                        .and_raise(error_m.exception("test message"))
                     msg = assert_raises(error_m) { server.poll }
                     assert_match(/test message/, msg.message)
                 end
 
                 it "passes a ComError from #read_packet as-is" do
-                    server_io.should_receive(:read_packet).
-                        and_raise(ComError.exception("test message"))
+                    server_io.should_receive(:read_packet)
+                        .and_raise(ComError.exception("test message"))
                     msg = assert_raises(ComError) { server.poll }
                     assert_equal "test message", msg.message
                 end
 
                 def self.request_handling_behaviour
                     it "passes an exception raised by writing a bad_call" do
-                        e = Exception.exception 'test message'
-                        server.should_receive(:process_call).
-                            with([], :test).and_raise(e)
-                        server_io.should_receive(:write_packet).
-                            with([:bad_call, e]).
-                            and_raise(error_m.exception("test message"))
+                        e = Exception.exception "test message"
+                        server.should_receive(:process_call)
+                            .with([], :test).and_raise(e)
+                        server_io.should_receive(:write_packet)
+                            .with([:bad_call, e])
+                            .and_raise(error_m.exception("test message"))
 
                         msg = assert_raises(error_m) { server.poll }
                         assert_match "test message", msg.message
@@ -334,20 +337,20 @@ module Roby
 
                     it "passes a ComError raised by writing a bad_call" do
                         e = @error_m.exception "test"
-                        server.should_receive(:process_call).
-                            with([], :test).and_raise(e)
-                        server_io.should_receive(:write_packet).
-                            with([:bad_call, e]).
-                            and_raise(@com_error_m.exception("test message"))
+                        server.should_receive(:process_call)
+                            .with([], :test).and_raise(e)
+                        server_io.should_receive(:write_packet)
+                            .with([:bad_call, e])
+                            .and_raise(@com_error_m.exception("test message"))
 
                         msg = assert_raises(@com_error_m) { server.poll }
                         assert_equal "test message", msg.message
                     end
 
                     it "passes a ComError raised by writing a reply" do
-                        server_io.should_receive(:write_packet).
-                            with([:reply, @ret]).
-                            and_raise(@com_error_m.exception("test message"))
+                        server_io.should_receive(:write_packet)
+                            .with([:reply, @ret])
+                            .and_raise(@com_error_m.exception("test message"))
 
                         msg = assert_raises(@com_error_m) { server.poll }
                         assert_match "test message", msg.message
@@ -356,12 +359,12 @@ module Roby
                     it "notifies the remote side of a non-ComError exception that "\
                         "was raised during reply marshalling, and fails the local side" do
                         reply_e = @error_m.exception("test message")
-                        server_io.should_receive(:write_packet).
-                            with([:reply, @ret]).
-                            and_raise(reply_e)
-                        server_io.should_receive(:write_packet).
-                            with([:protocol_error, reply_e]).
-                            once
+                        server_io.should_receive(:write_packet)
+                            .with([:reply, @ret])
+                            .and_raise(reply_e)
+                        server_io.should_receive(:write_packet)
+                            .with([:protocol_error, reply_e])
+                            .once
 
                         msg = assert_raises(@error_m) { server.poll }
                         assert_equal "test message", msg.message
@@ -369,12 +372,12 @@ module Roby
 
                     it "raises in poll if both reply and bad_call failed" do
                         reply_e = @error_m.exception("reply message")
-                        server_io.should_receive(:write_packet).
-                            with([:reply, @ret]).
-                            and_raise(reply_e)
-                        server_io.should_receive(:write_packet).
-                            with([:protocol_error, reply_e]).
-                            and_raise(@error_m.exception("test message"))
+                        server_io.should_receive(:write_packet)
+                            .with([:reply, @ret])
+                            .and_raise(reply_e)
+                        server_io.should_receive(:write_packet)
+                            .with([:protocol_error, reply_e])
+                            .and_raise(@error_m.exception("test message"))
 
                         msg = assert_raises(@error_m) { server.poll }
                         assert_equal "test message", msg.message
@@ -383,22 +386,22 @@ module Roby
 
                 describe "while handling a request" do
                     before do
-                        server_io.should_receive(:read_packet).
-                            and_return([[], :test])
-                        server.should_receive(:process_call).
-                            with([], :test).
-                            and_return(@ret = flexmock).by_default
+                        server_io.should_receive(:read_packet)
+                            .and_return([[], :test])
+                        server.should_receive(:process_call)
+                            .with([], :test)
+                            .and_return(@ret = flexmock).by_default
                     end
                     request_handling_behaviour
                 end
 
                 describe "while handling a batch" do
                     before do
-                        server_io.should_receive(:read_packet).
-                            and_return([[], :process_batch, [[[], :test]]])
-                        server.should_receive(:process_call).
-                            with([], :test).
-                            and_return(ret = flexmock).by_default
+                        server_io.should_receive(:read_packet)
+                            .and_return([[], :process_batch, [[[], :test]]])
+                        server.should_receive(:process_call)
+                            .with([], :test)
+                            .and_return(ret = flexmock).by_default
                         @ret = [ret]
                     end
                     request_handling_behaviour

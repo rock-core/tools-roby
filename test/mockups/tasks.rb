@@ -1,4 +1,6 @@
-require 'roby/task'
+# frozen_string_literal: true
+
+require "roby/task"
 
 # We define here a set of tasks needed by unit testing
 if !defined?(ChoiceTask)
@@ -24,4 +26,3 @@ if !defined?(ChoiceTask)
         forward start: :inter, inter: :success
     end
 end
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     class Transaction
         module PlanServiceProxy
@@ -40,4 +42,3 @@ module Roby
         end
     end
 end
-

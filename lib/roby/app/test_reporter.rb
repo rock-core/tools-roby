@@ -1,4 +1,6 @@
-require 'roby/app/test_server'
+# frozen_string_literal: true
+
+require "roby/app/test_server"
 
 module Roby
     module App
@@ -71,4 +73,3 @@ module Roby
         end
     end
 end
-

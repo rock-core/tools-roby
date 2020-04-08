@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/schedulers/temporal'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/schedulers/temporal"
 
 module Roby
     module EventStructure
@@ -29,8 +31,8 @@ module Roby
                 e1.add_occurence_constraint(e2, 1, 2)
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
-                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
-                        with_origin(e2)
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match
+                        .with_origin(e2)
                 end
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
@@ -52,8 +54,8 @@ module Roby
                 execute { e1.emit }
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
-                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
-                        with_origin(e2)
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match
+                        .with_origin(e2)
                 end
             end
 
@@ -63,8 +65,8 @@ module Roby
                 e1.add_occurence_constraint(e2, 1, 2, true)
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
-                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
-                        with_origin(e2)
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match
+                        .with_origin(e2)
                 end
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
@@ -76,8 +78,8 @@ module Roby
                 # Counts are reset
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
-                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
-                        with_origin(e2)
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match
+                        .with_origin(e2)
                 end
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
@@ -90,8 +92,8 @@ module Roby
                 execute { e1.emit }
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
-                    have_error_matching EventStructure::OccurenceConstraintViolation.match.
-                        with_origin(e2)
+                    have_error_matching EventStructure::OccurenceConstraintViolation.match
+                        .with_origin(e2)
                 end
             end
 
@@ -167,15 +169,15 @@ module Roby
                 assert temporal_constraints_graph.has_edge?(e1, e2)
                 assert_equal [[-5, 10]], e1[e2, TemporalConstraints].intervals
                 assert temporal_constraints_graph.has_edge?(e2, e1)
-                assert_equal [[-10, 5]],  e2[e1, TemporalConstraints].intervals
+                assert_equal [[-10, 5]], e2[e1, TemporalConstraints].intervals
 
                 t1.start_event.add_temporal_constraint(t2.start_event, 12, 13)
                 assert_equal [[-5, 10], [12, 13]], e1[e2, TemporalConstraints].intervals
-                assert_equal [[-10, 5]],  e2[e1, TemporalConstraints].intervals
+                assert_equal [[-10, 5]], e2[e1, TemporalConstraints].intervals
 
                 t1.start_event.add_temporal_constraint(t2.start_event, -7, -6)
                 assert_equal [[-5, 10], [12, 13]], e1[e2, TemporalConstraints].intervals
-                assert_equal [[-10, 5], [6, 7]],  e2[e1, TemporalConstraints].intervals
+                assert_equal [[-10, 5], [6, 7]], e2[e1, TemporalConstraints].intervals
             end
 
             def test_missed_deadline
@@ -184,7 +186,7 @@ module Roby
                 e2 = t2.start_event
 
                 e1.add_temporal_constraint(e2, 0, 10)
-                
+
                 FlexMock.use(Time) do |time|
                     current_time = Time.now
                     time.should_receive(:now).and_return { current_time }
@@ -207,7 +209,7 @@ module Roby
                 e2 = t2.start_event
 
                 e1.add_temporal_constraint(e2, 0, 10)
-                
+
                 FlexMock.use(Time) do |time|
                     current_time = Time.now
                     time.should_receive(:now).and_return { current_time }
@@ -234,7 +236,7 @@ module Roby
                 # depending on when e2 has been emitted
                 e1.add_temporal_constraint(e2, -5, 10)
                 e1.add_temporal_constraint(e3, -5, 10)
-                
+
                 FlexMock.use(Time) do |time|
                     current_time = Time.now
                     time.should_receive(:now).and_return { current_time }
@@ -277,8 +279,8 @@ module Roby
                     execute { e1.emit }
                     current_time += 12
                     expect_execution { e2.emit }.to do
-                        have_error_matching EventStructure::TemporalConstraintViolation.match.
-                            with_origin(e2)
+                        have_error_matching EventStructure::TemporalConstraintViolation.match
+                            .with_origin(e2)
                     end
                 end
             end
@@ -302,8 +304,8 @@ module Roby
                     current_time += 6
 
                     expect_execution { e2.emit }.to do
-                        have_error_matching EventStructure::TemporalConstraintViolation.match.
-                            with_origin(e2)
+                        have_error_matching EventStructure::TemporalConstraintViolation.match
+                            .with_origin(e2)
                     end
                 end
             end
@@ -431,4 +433,3 @@ module Roby
         end
     end
 end
-

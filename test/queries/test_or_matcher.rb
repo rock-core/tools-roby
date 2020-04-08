@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require 'roby/test/self'
-require 'roby/tasks/simple'
+require "roby/test/self"
+require "roby/tasks/simple"
 
 module Roby
     module Queries
         describe OrMatcher do
-            it 'combines task matchers' do
+            it "combines task matchers" do
                 t1 = Tasks::Simple.new_submodel { argument :id }.new(id: 1)
                 t2 = Tasks::Simple.new_submodel { argument :id }.new(id: 2)
                 t3 = Roby::Task.new
@@ -17,7 +17,7 @@ module Roby
                 assert_equal [t1, t2].to_set, query.each_in_plan(plan).to_set
             end
 
-            it 'combines an OR with a task matcher' do
+            it "combines an OR with a task matcher" do
                 t1 = Tasks::Simple.new_submodel { argument :id }.new(id: 1)
                 t2 = Tasks::Simple.new_submodel { argument :id }.new(id: 2)
                 t2.executable = false

@@ -1,12 +1,16 @@
+# frozen_string_literal: true
+
 module Roby
     class Transaction
         # Transaction proxy for Roby::Task
         module TaskProxy
             proxy_for Task
 
-            def to_s; "tProxy(#{__getobj__.name})#{arguments}" end
+            def to_s
+                "tProxy(#{__getobj__.name})#{arguments}"
+            end
 
-            STATE_PREDICATES = [:pending?, :running?, :finished?, :success?, :failed?]
+            STATE_PREDICATES = %i[pending? running? finished? success? failed?].freeze
 
             STATE_PREDICATES.each do |predicate_name|
                 attr_predicate predicate_name
@@ -36,10 +40,11 @@ module Roby
                     end
                 end
 
-                proxied_events = Array.new
+                proxied_events = []
                 events = object.each_event.to_a
                 transaction.plan.each_event_relation_graph do |g|
                     next if !g.root_relation?
+
                     events.delete_if do |event|
                         should_proxy =
                             g.each_in_neighbour(event).any? { |e| !e.respond_to?(:task) || e.task != object } ||
@@ -72,7 +77,7 @@ module Roby
             # practice, it updates the task arguments as needed.
             def commit_transaction
                 super
-                
+
                 # Update the task arguments. The original
                 # Roby::Task#commit_transaction has already translated the proxy
                 # objects into real objects
@@ -131,5 +136,3 @@ module Roby
         end
     end
 end
-
-

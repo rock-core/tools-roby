@@ -1,7 +1,9 @@
-require 'roby/test/self'
-require 'roby/interface/async'
-require 'roby/interface/tcp'
-require_relative 'client_server_test_helpers'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/interface/async"
+require "roby/interface/tcp"
+require_relative "client_server_test_helpers"
 
 Concurrent.disable_at_exit_handlers!
 
@@ -16,13 +18,13 @@ module Roby
                 before do
                     @server = create_server
                     @client = connect(server)
-                    @mock_jobs = Array.new
+                    @mock_jobs = []
                     flexmock(client, :strict).should_receive(:jobs).and_return { mock_jobs }
                 end
 
                 subject do
                     process_call do
-                        ActionMonitor.new(client, 'test', id: 20)
+                        ActionMonitor.new(client, "test", id: 20)
                     end
                 end
 
@@ -37,8 +39,8 @@ module Roby
 
                 def assert_client_receives_batch(*calls)
                     batch = nil
-                    flexmock(client.client, :strict).should_receive(:process_batch).
-                        once.with(->(b) { batch = b })
+                    flexmock(client.client, :strict).should_receive(:process_batch)
+                        .once.with(->(b) { batch = b })
                     yield
                     assert batch
                     assert_equal calls, batch.__calls
@@ -46,13 +48,13 @@ module Roby
 
                 describe "#initialize" do
                     it "binds itself to an existing job if there's one, and starts the job monitor" do
-                        job = create_mock_job(42, 'test', id: 20)
+                        job = create_mock_job(42, "test", id: 20)
                         job.should_receive(:start).once
                         assert_same job, subject.async
                     end
 
                     it "filters out on the static arguments" do
-                        job = create_mock_job(42, 'test', id: 30)
+                        job = create_mock_job(42, "test", id: 30)
                         job.should_receive(:start).never
                         assert !subject.async
                     end
@@ -77,7 +79,7 @@ module Roby
                 describe "a monitor with a job" do
                     attr_reader :job
                     before do
-                        @job = create_mock_job(42, 'test', id: 20)
+                        @job = create_mock_job(42, "test", id: 20)
                     end
                     describe "#running?" do
                         it "returns false if the attached job is not running" do
@@ -125,16 +127,16 @@ module Roby
 
                 describe "#restart" do
                     it "simply starts the job if there are no running jobs" do
-                        flexmock(client.client, :strict).should_receive(:has_action?).with('test').and_return(true)
-                        assert_client_receives_batch [[], :start_job, 'test', id: 20] do
+                        flexmock(client.client, :strict).should_receive(:has_action?).with("test").and_return(true)
+                        assert_client_receives_batch [[], :start_job, "test", id: 20] do
                             subject.restart
                         end
                     end
                     it "kills and starts the job if there is one running" do
-                        job = create_mock_job(42, 'test', id: 20)
+                        job = create_mock_job(42, "test", id: 20)
                         job.should_receive(:running?).and_return(true)
-                        flexmock(client.client, :strict).should_receive(:has_action?).with('test').and_return(true)
-                        assert_client_receives_batch [[], :kill_job, 42], [[], :start_job, 'test', id: 20] do
+                        flexmock(client.client, :strict).should_receive(:has_action?).with("test").and_return(true)
+                        assert_client_receives_batch [[], :kill_job, 42], [[], :start_job, "test", id: 20] do
                             subject.restart
                         end
                     end
@@ -143,5 +145,3 @@ module Roby
         end
     end
 end
-
-

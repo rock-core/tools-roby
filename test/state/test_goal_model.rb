@@ -1,11 +1,13 @@
-require 'roby/test/self'
-require 'roby/state'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/state"
 
 class TC_StateModel < Minitest::Test
     def test_it_calls_to_global_variable_model_on_assigned_values
         mock = flexmock
-        mock.should_receive(:to_goal_variable_model).once.
-            and_return(obj = Object.new)
+        mock.should_receive(:to_goal_variable_model).once
+            .and_return(obj = Object.new)
 
         goal_model = Roby::GoalModel.new
         goal_model.pose.position = mock
@@ -66,4 +68,3 @@ class TC_StateModel < Minitest::Test
         assert_equal 20, g.value
     end
 end
-

@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module TaskStructure
@@ -29,7 +31,7 @@ module Roby
                 end
                 submodel = model.new_submodel
 
-                assert_equal([ExecutionAgentModel, {id: 20}], submodel.execution_agent)
+                assert_equal([ExecutionAgentModel, { id: 20 }], submodel.execution_agent)
             end
 
             def test_failure_to_emit_ready_marks_executed_tasks_as_failed_to_start_by_default
@@ -54,8 +56,8 @@ module Roby
                 end.new
                 task.executed_by execution_agent
 
-                flexmock(plan.control).should_receive(:execution_agent_failed_to_start).
-                    once
+                flexmock(plan.control).should_receive(:execution_agent_failed_to_start)
+                    .once
 
                 execute { execution_agent.failed_to_start!(reason = flexmock) }
                 refute task.failed_to_start?
@@ -83,8 +85,8 @@ module Roby
                 end.new
                 task.executed_by execution_agent
 
-                flexmock(plan.control).should_receive(:pending_executed_by_failed).
-                    once
+                flexmock(plan.control).should_receive(:pending_executed_by_failed)
+                    .once
 
                 execute do
                     execution_agent.start!
@@ -138,8 +140,8 @@ module Roby
                     task.start!
                 end
 
-                expect_execution { exec.stop! }.
-                    to { emit task.aborted_event }
+                expect_execution { exec.stop! }
+                    .to { emit task.aborted_event }
             end
 
             def test_task_has_wrong_agent
@@ -165,17 +167,15 @@ module Roby
                 task_model = Tasks::Simple.new_submodel
                 task_model.executed_by ExecutionAgentModel, id: 2
                 plan.add(task = task_model.new)
-                expect_execution { task.start! }.
-                    to { fail_to_start task, reason: TaskStructure::MissingRequiredExecutionAgent }
+                expect_execution { task.start! }
+                    .to { fail_to_start task, reason: TaskStructure::MissingRequiredExecutionAgent }
             end
 
             def test_as_plan
                 model = Tasks::Simple.new_submodel do
                     event :ready, controlable: true
-                    def self.as_plan
-                        new(id: 10)
-                    end
                 end
+                flexmock(model).should_receive(:as_plan).and_return { model.new(id: 10) }
                 root = prepare_plan add: 1, model: Tasks::Simple
                 agent = root.executed_by(model)
                 assert_kind_of model, agent
@@ -195,8 +195,8 @@ module Roby
                 plan.add(task = Tasks::Simple.new)
                 plan.add(agent = ExecutionAgentModel.new)
                 task.executed_by agent
-                expect_execution { task.start! }.
-                    to { fail_to_start task, reason: TaskStructure::ExecutionAgentNotReady }
+                expect_execution { task.start! }
+                    .to { fail_to_start task, reason: TaskStructure::ExecutionAgentNotReady }
             end
 
             it "marks the executed tasks as failed_to_start if the agent's ready_event becomes unreachable" do
@@ -205,8 +205,8 @@ module Roby
                 execute { agent.start! }
 
                 error_m = Class.new(LocalizedError)
-                expect_execution { agent.ready_event.unreachable!(error_m.new(task)) }.
-                    to { fail_to_start task, reason: error_m }
+                expect_execution { agent.ready_event.unreachable!(error_m.new(task)) }
+                    .to { fail_to_start task, reason: error_m }
             end
 
             it "does not mark the executed task as failed_to_start because the ready_event becomes unreachable once it has been emitted" do
@@ -239,4 +239,3 @@ module Roby
         end
     end
 end
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Relations
         module Models
@@ -53,6 +55,7 @@ module Roby
                     if @parent && @parent != rel
                         raise ArgumentError, "#{self} already has a parent (#{@parent})"
                     end
+
                     @parent = rel
                 end
 
@@ -72,4 +75,3 @@ module Roby
         end
     end
 end
-

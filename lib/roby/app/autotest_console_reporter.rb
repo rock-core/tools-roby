@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module App
         # Reporter class for the Roby autotest, that outputs on an IO object
@@ -14,7 +16,7 @@ module Roby
             # @return [Hash<Autorespawn::Slave,Integer>] mapping from
             #   a slave to the unique ID associated with it
             attr_reader :slave_to_id
-            
+
             # @return [Hash<Integer,Autorespawn::Slave>] mapping from
             #   a process ID to the slave object
             attr_reader :pid_to_slave
@@ -35,6 +37,7 @@ module Roby
                 if slave_to_id[slave]
                     raise ArgumentError, "#{slave} is already registered"
                 end
+
                 slave_to_id[slave] = (@slave_id += 1)
             end
 
@@ -49,12 +52,12 @@ module Roby
             def register_slave_pid(slave)
                 if slave_id = slave_to_id[slave]
                     pid_to_slave[slave.pid] = slave
-                    return slave_id
+                    slave_id
                 else
                     raise ArgumentError, "#{slave} has not been registered with #register_slave"
                 end
             end
-            
+
             # @api private
             #
             # Returns a slave from its PID
@@ -65,7 +68,7 @@ module Roby
             # @raise [ArgumentError] if no slave is registered for this PID
             def slave_from_pid(pid)
                 if slave = pid_to_slave[pid]
-                    return slave, slave_to_id[slave]
+                    [slave, slave_to_id[slave]]
                 else
                     raise ArgumentError, "no slave registered for PID #{pid}"
                 end
@@ -81,7 +84,7 @@ module Roby
             #   PID
             def deregister_slave_pid(pid)
                 if slave = pid_to_slave.delete(pid)
-                    return slave, slave_to_id[slave]
+                    [slave, slave_to_id[slave]]
                 else
                     raise ArgumentError, "no slave known for #{pid}"
                 end
@@ -90,8 +93,8 @@ module Roby
             def initialize(server, manager, io: STDOUT)
                 @io = io
                 @slave_id = 0
-                @slave_to_id = Hash.new
-                @pid_to_slave = Hash.new
+                @slave_to_id = {}
+                @pid_to_slave = {}
                 manager.on_slave_new do |slave|
                     slave_id = register_slave(slave)
                     io.puts "[##{slave_id}] new slave #{slave_to_s(slave)}"

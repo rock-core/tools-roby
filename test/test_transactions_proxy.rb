@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 class TC_TransactionsProxy < Minitest::Test
     attr_reader :transaction
@@ -6,6 +8,7 @@ class TC_TransactionsProxy < Minitest::Test
         super
         @transaction = Roby::Transaction.new(plan)
     end
+
     def teardown
         transaction.discard_transaction
         super
@@ -15,7 +18,7 @@ class TC_TransactionsProxy < Minitest::Test
         task = Tasks::Simple.new
         assert_same(task, transaction[task])
         assert_equal(transaction, task.plan)
-        ev   = EventGenerator.new
+        ev = EventGenerator.new
         assert_same(ev, transaction[ev])
         assert_equal(transaction, ev.plan)
     end
@@ -102,7 +105,7 @@ class TC_TransactionsProxy < Minitest::Test
     end
 
     def test_proxy_class_selection
-        task  = Roby::Task.new
+        task = Roby::Task.new
         plan.add(task)
         proxy = transaction[task]
 
@@ -119,7 +122,7 @@ class TC_TransactionsProxy < Minitest::Test
     end
 
     def test_proxy_not_executable
-        task  = Tasks::Simple.new_submodel do
+        task = Tasks::Simple.new_submodel do
             event :intermediate, command: true
         end.new
         plan.add(task)
@@ -148,7 +151,7 @@ class TC_TransactionsProxy < Minitest::Test
     def test_proxy_fullfills
         model = Roby::Task.new_submodel
         other_model = model.new_submodel
-        tag   = Roby::TaskService.new_submodel do
+        tag = Roby::TaskService.new_submodel do
             argument :id
             argument :other
         end
@@ -168,7 +171,6 @@ class TC_TransactionsProxy < Minitest::Test
         assert(!p.fullfills?(model, id: 10, other: 20))
         p.arguments[:other] = 20
         assert(p.fullfills?(model, id: 10, other: 20))
-
     end
 
     # Tests that the graph of proxys is separated from
@@ -183,7 +185,7 @@ class TC_TransactionsProxy < Minitest::Test
 
         assert_equal([], t1.enum_for(:each_child_object, Dependency).to_a)
         t2.depends_on t3
-        assert(! p2.child_object?(p1, Dependency))
+        assert(!p2.child_object?(p1, Dependency))
     end
 
     def test_proxy_plan
@@ -204,7 +206,7 @@ class TC_TransactionsProxy < Minitest::Test
         t1.depends_on t2
 
         p1 = transaction[t1]
-        assert(p1.leaf?(TaskStructure::Dependency), "#{p1} should have been a leaf, but has the following chilren: #{p1.children.map(&:to_s).join(", ")}")
+        assert(p1.leaf?(TaskStructure::Dependency), "#{p1} should have been a leaf, but has the following chilren: #{p1.children.map(&:to_s).join(', ')}")
         p2 = transaction[t2]
         assert_equal([p2], p1.children.to_a)
     end
@@ -232,12 +234,19 @@ module Roby
                     parent_proxy_m = Module.new { proxy_for parent_task_m }
                     task_m = parent_task_m.new_submodel
                     proxy_m = Proxying.proxying_module_for(task_m)
-                    assert_equal [proxy_m, parent_proxy_m, root_proxy_m, Roby::Transaction::TaskProxy, Roby::Transaction::PlanObjectProxy, Roby::Transaction::Proxying],
-                        proxy_m.ancestors.find_all { |k| k.name !~ /GUI/ } # the whole test suite loads the GUI, which in turn includes modules in the base classes
+
+                    # the whole test suite loads the GUI, which in turn
+                    # includes modules in the base classes, thus we filter
+                    # them out in this test
+                    assert_equal(
+                        [proxy_m, parent_proxy_m, root_proxy_m,
+                         Roby::Transaction::TaskProxy,
+                         Roby::Transaction::PlanObjectProxy,
+                         Roby::Transaction::Proxying],
+                        proxy_m.ancestors.find_all { |k| k.name !~ /GUI/ }
+                    )
                 end
             end
         end
     end
 end
-
-

@@ -1,5 +1,7 @@
 #! /usr/bin/env ruby
-require 'roby/cli/log'
+# frozen_string_literal: true
+
+require "roby/cli/log"
 
 Roby::CLI::Log.start(ARGV)
 exit 0

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This is needed because of Ruby bug #9244
 module Kernel
     alias syskit_original_require require
@@ -23,4 +25,3 @@ module Kernel
         syskit_original_require(path)
     end
 end
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         module V5
@@ -26,11 +28,15 @@ module Roby
                     @hash = [@peer_id, @droby_id].hash
                 end
 
-                def eql?(obj)
-                    obj.kind_of?(RemoteDRobyID) &&
-                        obj.peer_id == peer_id && obj.droby_id == droby_id
+                def eql?(other)
+                    other.kind_of?(RemoteDRobyID) &&
+                        other.peer_id == peer_id &&
+                        other.droby_id == droby_id
                 end
-                def ==(obj); eql?(obj) end
+
+                def ==(other)
+                    eql?(other)
+                end
 
                 def to_s
                     "#<RemoteDRobyID #{peer_id}@#{droby_id}>"
@@ -39,4 +45,3 @@ module Roby
         end
     end
 end
-

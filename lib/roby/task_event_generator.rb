@@ -201,7 +201,7 @@ module Roby
         def pretty_print(pp, context_task: nil) # :nodoc:
             pp.text "event '#{symbol}'"
             if !context_task || context_task != task
-                pp.text ' of'
+                pp.text " of"
                 pp.nest(2) do
                     pp.breakable
                     task.pretty_print(pp)
@@ -257,24 +257,24 @@ module Roby
             elsif task.event(:stop).emitted?
                 CommandRejected.new(self).exception(
                     "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
-                    'but the task has finished. Task has been terminated by '\
+                    "but the task has finished. Task has been terminated by "\
                     "#{task.event(:stop).history.first.sources.to_a}."
                 )
             elsif task.finished? && !terminal?
                 CommandRejected.new(self).exception(
                     "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
-                    'but the task has finished. Task has been terminated by '\
+                    "but the task has finished. Task has been terminated by "\
                     "#{task.event(:stop).history.first.sources.to_a}."
                 )
             elsif task.pending? && symbol != :start
                 CommandRejected.new(self).exception(
                     "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
-                    'but the task has never been started'
+                    "but the task has never been started"
                 )
             elsif task.running? && symbol == :start
                 CommandRejected.new(self).exception(
                     "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
-                    'but the task is already running. Task has been started by '\
+                    "but the task is already running. Task has been started by "\
                     "#{task.event(:start).history.first.sources.to_a}."
                 )
             else
@@ -311,7 +311,7 @@ module Roby
             elsif !plan
                 TaskEventNotExecutable.new(self).exception(
                     "#{symbol}_event.call on #{task} but "\
-                    'the task has been removed from its plan'
+                    "the task has been removed from its plan"
                 )
             elsif !plan.executable?
                 TaskEventNotExecutable.new(self).exception(
@@ -343,7 +343,7 @@ module Roby
             elsif !plan
                 TaskEventNotExecutable.new(self).exception(
                     "#{symbol}_event.emit on #{task} but "\
-                    'the task has been removed from its plan'
+                    "the task has been removed from its plan"
                 )
             elsif !plan.executable?
                 TaskEventNotExecutable.new(self).exception(

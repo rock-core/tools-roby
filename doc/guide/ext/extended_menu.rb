@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Webgen::Tag
     class Menu
         alias __specific_menu_tree_for__ specific_menu_tree_for
@@ -7,12 +9,12 @@ module Webgen::Tag
             return if !tree
 
             tree.children.delete_if do |menu_info|
-                si = menu_info.node['sort_info']
+                si = menu_info.node["sort_info"]
                 next if !si
 
-                if param('tag.menu.range_start') && si < param('tag.menu.range_start')
+                if param("tag.menu.range_start") && si < param("tag.menu.range_start")
                     true
-                elsif param('tag.menu.range_end') && si > param('tag.menu.range_end')
+                elsif param("tag.menu.range_end") && si > param("tag.menu.range_end")
                     true
                 else
                     false
@@ -26,4 +28,3 @@ end
 config = Webgen::WebsiteAccess.website.config
 config.tag.menu.range_start nil, mandatory: false
 config.tag.menu.range_end   nil, mandatory: false
-

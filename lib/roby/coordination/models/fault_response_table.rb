@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -9,7 +11,7 @@ module Roby
                 # The set of defined fault handlers
                 #
                 # @return [FaultHandler]
-                inherited_attribute('fault_handler', 'fault_handlers') { Array.new }
+                inherited_attribute("fault_handler", "fault_handlers") { [] }
 
                 def find_all_matching_handlers(exception)
                     each_fault_handler.find_all do |h|
@@ -50,6 +52,7 @@ module Roby
 
                 def each_task
                     return enum_for(:each_task) if !block_given?
+
                     super
                     each_fault_handler do |handler|
                         if task = handler.replacement
@@ -74,4 +77,3 @@ module Roby
         end
     end
 end
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # List of backports waiting to be accepted in the backports gem
 class Set
     # Defined in 2.4.0

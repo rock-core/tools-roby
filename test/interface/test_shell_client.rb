@@ -1,7 +1,9 @@
-require 'roby/test/self'
-require 'socket'
-require 'roby/interface/shell_client'
-require 'roby/interface/tcp'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "socket"
+require "roby/interface/shell_client"
+require "roby/interface/tcp"
 
 module Roby
     module Interface
@@ -13,9 +15,9 @@ module Roby
 
                 @interface = flexmock(Interface.new(@app))
 
-                server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0) 
+                server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0)
                 @server_channel = DRobyChannel.new(server_socket, false)
-                @server    = Server.new(@server_channel, @interface)
+                @server = Server.new(@server_channel, @interface)
             end
 
             def with_polling_server(&block)
@@ -36,8 +38,8 @@ module Roby
 
             let :shell_client do
                 with_polling_server do
-                    ShellClient.new 'remote' do
-                        Client.new(DRobyChannel.new(@client_socket, true), 'test')
+                    ShellClient.new "remote" do
+                        Client.new(DRobyChannel.new(@client_socket, true), "test")
                     end
                 end
             end
@@ -46,7 +48,7 @@ module Roby
                 @plan.execution_engine.display_exceptions = true
                 if @shell_client && !@shell_client.closed?
                     with_polling_server do
-                        @shell_client.close 
+                        @shell_client.close
                     end
                 end
                 @server.close if !@server.closed?
@@ -66,7 +68,7 @@ module Roby
                     it "displays them and returns their IDs" do
                         msg_ids, messages = @shell_client.summarize_pending_messages
                         assert_equal 1, messages.size
-                        assert_match /#1 \[INFO\] test: test message/, messages[0]
+                        assert_match(/#1 \[INFO\] test: test message/, messages[0])
                         assert_equal [1], msg_ids.to_a
                     end
                     it "removes notification messages from the queue" do
@@ -87,9 +89,9 @@ module Roby
                 it "displays notification messages" do
                     @app.notify("test", "INFO", "test message")
                     m = flexmock(@shell_client).should_receive(:puts)
-                    m.explicitly.
-                        with(/-- #\d+ \(notification\) --.*\[INFO\] test: test message/m).
-                        once
+                    m.explicitly
+                        .with(/-- #\d+ \(notification\) --.*\[INFO\] test: test message/m)
+                        .once
                     @shell_client.client.poll
                     @shell_client.wtf?
                 end
@@ -97,4 +99,3 @@ module Roby
         end
     end
 end
-

@@ -1,4 +1,6 @@
-require 'socket'
+# frozen_string_literal: true
+
+require "socket"
 
 module Roby
     module Interface
@@ -45,7 +47,7 @@ module Roby
                     interface
                     .execution_engine
                     .add_propagation_handler(
-                        description: 'TCPServer#process_pending_requests',
+                        description: "TCPServer#process_pending_requests",
                         on_error: :ignore
                     ) { process_pending_requests }
                 @warn_about_disconnection = false
@@ -124,8 +126,8 @@ module Roby
                 raise exceptions.first unless exceptions.empty?
             rescue Exception => e
                 if abort_on_exception?
-                    @app.execution_engine.
-                        add_framework_error(e, "Interface::TCPServer")
+                    @app.execution_engine
+                        .add_framework_error(e, "Interface::TCPServer")
                 else
                     Roby.log_exception_with_backtrace(e, Roby, :warn)
                 end
@@ -155,13 +157,12 @@ module Roby
         # @return [Client] the connected {Client} object
         def self.connect_with_tcp_to(host, port = DEFAULT_PORT,
                 marshaller: DRoby::Marshal.new(auto_create_plans: true),
-                handshake: [:actions, :commands])
-            require 'socket'
+                handshake: %i[actions commands])
+            require "socket"
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
             channel = DRobyChannel.new(socket, true, marshaller: marshaller)
             Client.new(channel, "#{addr[2]}:#{addr[1]}", handshake: handshake)
-
         rescue Errno::ECONNREFUSED => e
             raise ConnectionError, "failed to connect to #{host}:#{port}: #{e.message}",
                   e.backtrace

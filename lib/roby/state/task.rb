@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     class Task
         def self.state
@@ -36,8 +38,8 @@ module Roby
             if !fully_instanciated?
                 raise ArgumentError, "cannot resolve goals on a task that is not fully instanciated"
             end
+
             self.model.goal.resolve_goals(self, self.goal)
         end
     end
 end
-

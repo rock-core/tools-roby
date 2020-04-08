@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Tasks
         class Timeout < Roby::Task
@@ -14,4 +16,3 @@ module Roby
         end
     end
 end
-

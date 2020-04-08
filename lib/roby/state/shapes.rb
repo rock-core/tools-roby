@@ -1,8 +1,11 @@
+# frozen_string_literal: true
+
 class Cylinder
     attr_accessor :radius, :height, :axis
     def initialize(radius, height, axis)
         @radius, @height, @axis = radius.to_f, height.to_f, axis.to_f
     end
+
     def diameter(axis)
         if axis == self.axis
             radius * 2
@@ -10,9 +13,14 @@ class Cylinder
             raise NotImplementedError
         end
     end
-    alias :max_length :diameter 
-    def length; diameter(:z) end 
-    def width; diameter(:z) end 
+    alias max_length diameter
+    def length
+        diameter(:z)
+    end
+
+    def width
+        diameter(:z)
+    end
 end
 
 class Cube
@@ -29,4 +37,3 @@ class Cube
         end
     end
 end
-

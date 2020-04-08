@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     class Transaction
         # Transaction proxy for Roby::TaskEventGenerator
@@ -12,8 +14,9 @@ module Roby
 
             # Task event generators do not have siblings on remote plan managers.
             # They are always referenced by their name and task.
-            def has_sibling?(peer); false end
+            def has_sibling?(peer)
+                false
+            end
         end
     end
 end
-

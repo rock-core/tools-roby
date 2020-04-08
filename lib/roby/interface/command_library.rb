@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # Objects that hold a set of commands
@@ -41,16 +43,21 @@ module Roby
             # @return [Roby::Application] the application
             attr_reader :app
             # @return [Roby::Plan] the {#app}'s plan
-            def plan; app.plan end
+            def plan
+                app.plan
+            end
+
             # @return [Roby::ExecutionEngine] the {#plan}'s engine
-            def execution_engine; plan.execution_engine end
+            def execution_engine
+                plan.execution_engine
+            end
             # @return [Hash<String,CommandInterface>] the set of command subcommands
             #   attached to this command interface
             attr_reader :subcommands
 
             def initialize(app)
                 @app = app
-                @subcommands = Hash.new
+                @subcommands = {}
                 refresh_subcommands
             end
 
@@ -90,9 +97,11 @@ module Roby
             #   self (with key '') and of its subcommands (where the key is not
             #   empty)
             def commands
-                result = Hash['' => InterfaceCommands.new('', nil, self.class.commands)]
+                result = Hash["" => InterfaceCommands.new("", nil, self.class.commands)]
                 each_subcommand do |name, interface, description|
-                    result[name] = InterfaceCommands.new(name, description, interface.commands)
+                    result[name] = InterfaceCommands.new(
+                        name, description, interface.commands
+                    )
                 end
                 result
             end

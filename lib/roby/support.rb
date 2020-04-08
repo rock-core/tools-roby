@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-require 'facets/string/camelcase'
-require 'facets/string/snakecase'
-require 'facets/string/modulize'
-require 'facets/kernel/constant'
-require 'utilrb/time/to_hms'
-require 'utilrb/module/define_or_reuse'
-require 'utilrb/logger'
-require 'utilrb/marshal/load_with_missing_constants'
+require "facets/string/camelcase"
+require "facets/string/snakecase"
+require "facets/string/modulize"
+require "facets/kernel/constant"
+require "utilrb/time/to_hms"
+require "utilrb/module/define_or_reuse"
+require "utilrb/logger"
+require "utilrb/marshal/load_with_missing_constants"
 
 class IO
     def ask(question, default, output_io = STDOUT)
@@ -18,9 +18,9 @@ class IO
 
             if answer.empty?
                 return default
-            elsif answer == 'y'
+            elsif answer == "y"
                 return true
-            elsif answer == 'n'
+            elsif answer == "n"
                 return false
             else
                 output_io.print "\nInvalid answer, try again: "
@@ -42,7 +42,7 @@ class Object
     def inspect
         guard = (Thread.current[:ROBY_SUPPORT_INSPECT_RECURSION_GUARD] ||= {})
         guard.compare_by_identity
-        return '...' if guard.key?(self)
+        return "..." if guard.key?(self)
 
         begin
             guard[self] = self
@@ -60,7 +60,7 @@ class Set
 
     unless method_defined?(:intersect?)
         def intersect?(set)
-            raise ArgumentError, 'value must be a set' unless set.kind_of?(Set)
+            raise ArgumentError, "value must be a set" unless set.kind_of?(Set)
 
             if size < set.size
                 any? { |o| set.include?(o) }
@@ -99,17 +99,17 @@ class Thread
 end
 
 module Roby
-    def self.format_time(time, format = 'hms')
-        if format == 'sec'
+    def self.format_time(time, format = "hms")
+        if format == "sec"
             time.to_f.to_s
-        elsif format == 'hms'
-            time.strftime('%H:%M:%S.%3N')
+        elsif format == "hms"
+            time.strftime("%H:%M:%S.%3N")
         else
             time.strftime(format)
         end
     end
 
-    logger_m = Logger::Root('Roby', Logger::WARN) do |_severity, time, progname, msg|
+    logger_m = Logger::Root("Roby", Logger::WARN) do |_severity, time, progname, msg|
         "#{Roby.format_time(time)} (#{progname}) #{msg}\n"
     end
     extend logger_m
@@ -119,7 +119,7 @@ module Roby
         attr_accessor :deprecation_warnings_are_errors
     end
     @enable_deprecation_warnings = true
-    @deprecation_warnings_are_errors = (ENV['ROBY_ALL_DEPRECATIONS_ARE_ERRORS'] == '1')
+    @deprecation_warnings_are_errors = (ENV["ROBY_ALL_DEPRECATIONS_ARE_ERRORS"] == "1")
 
     def self.warn_deprecated(msg, caller_depth = 1)
         if deprecation_warnings_are_errors

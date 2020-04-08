@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 describe Roby::Models::TaskEvent do
     describe "#match" do

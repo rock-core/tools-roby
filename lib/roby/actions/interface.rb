@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Actions
         # Functionality to gather information about the actions available on a
@@ -24,22 +26,23 @@ module Roby
                 @plan = plan
             end
 
-            def model; self.class end
+            def model
+                self.class
+            end
 
             def action_state_machine(task, &block)
-                model = Coordination::ActionStateMachine.
-                    new_submodel(action_interface: self.model, root: task.model)
+                model = Coordination::ActionStateMachine
+                    .new_submodel(action_interface: self.model, root: task.model)
                 model.parse(&block)
                 model.new(task)
             end
 
             def action_script(task, &block)
-                model = Coordination::ActionScript.
-                    new_submodel(action_interface: self.model, root: task.model)
+                model = Coordination::ActionScript
+                    .new_submodel(action_interface: self.model, root: task.model)
                 model.parse(&block)
                 model.new(task)
             end
         end
     end
 end
-

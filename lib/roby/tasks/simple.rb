@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Tasks
         # This task model is a simple task where +start+, +success+ and
@@ -17,4 +19,3 @@ module Roby
         end
     end
 end
-

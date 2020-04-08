@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/tasks/simple'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/tasks/simple"
 
 module Roby
     module TaskStructure
@@ -45,8 +47,8 @@ module Roby
                 end
                 it "fails a conflicting task that attempts to start" do
                     execute { task_1.start! }
-                    expect_execution { task_2.start! }.
-                        to do
+                    expect_execution { task_2.start! }
+                        .to do
                             have_error_matching CommandRejected.match.with_origin(task_2.start_event)
                             fail_to_start task_2, reason: ConflictError
                         end

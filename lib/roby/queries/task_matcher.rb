@@ -51,7 +51,7 @@ module Roby
             def to_s
                 result = super
                 unless arguments.empty?
-                    args_to_s = arguments.map { |k, v| ":#{k} => #{v}" }.join(', ')
+                    args_to_s = arguments.map { |k, v| ":#{k} => #{v}" }.join(", ")
                     result << ".with_arguments(#{args_to_s})"
                 end
                 result
@@ -164,7 +164,7 @@ module Roby
                     index: name.to_s, neg_index: nil,
                     not_index: nil, not_neg_index: name.to_s
                 )
-                    method_name = name.to_s.gsub(/\?$/, '')
+                    method_name = name.to_s.gsub(/\?$/, "")
                     class_eval <<~PREDICATE_METHOD, __FILE__, __LINE__ + 1
                         def #{method_name}
                             add_predicate(:#{name})
@@ -187,8 +187,8 @@ module Roby
                         unless Index::PREDICATES.include?(n)
                             raise ArgumentError,
                                   "#{n} is not declared in Index::PREDICATES. Use "\
-                                  'match_indexed_predicate directly to override '\
-                                  'this check'
+                                  "match_indexed_predicate directly to override "\
+                                  "this check"
                         end
 
                         match_indexed_predicate(n)
@@ -377,7 +377,7 @@ module Roby
                 add_neg_plan_predicate :mission_task?
             end
 
-            declare_class_methods 'mission', 'not_mission'
+            declare_class_methods "mission", "not_mission"
 
             # Matches if the task is permanent
             def permanent
@@ -389,7 +389,7 @@ module Roby
                 add_neg_plan_predicate :permanent_task?
             end
 
-            declare_class_methods 'permanent', 'not_permanent'
+            declare_class_methods "permanent", "not_permanent"
 
             # Helper method for #with_child and #with_parent
             def handle_parent_child_arguments(other_query, relation, relation_options)
@@ -397,10 +397,10 @@ module Roby
                     if relation.kind_of?(Hash)
                         arguments = relation
                         relation = (arguments.delete(:relation) ||
-                                    arguments.delete('relation'))
+                                    arguments.delete("relation"))
                         relation_options = (
                             arguments.delete(:relation_options) ||
-                            arguments.delete('relation_options')
+                            arguments.delete("relation_options")
                         )
                     else
                         arguments = {}
@@ -519,12 +519,12 @@ module Roby
             end
 
             def respond_to_missing?(m, include_private)
-                m.to_s.end_with?('_event') || super
+                m.to_s.end_with?("_event") || super
             end
 
             def method_missing(m, *args)
                 m_string = m.to_s
-                return super unless m_string.end_with?('_event')
+                return super unless m_string.end_with?("_event")
 
                 event_name = m[0..-7]
                 model = find_event(event_name)
@@ -533,7 +533,7 @@ module Roby
                     raise NoMethodError.new(m),
                           "no event '#{event_name}' in match model "\
                           "#{task_models.map(&:to_s).join(', ')}, use "\
-                          '#which_fullfills to narrow the task model'
+                          "#which_fullfills to narrow the task model"
                 elsif !args.empty?
                     raise ArgumentError,
                           "#{m} expected zero arguments, got #{args.size}"

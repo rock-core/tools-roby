@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/tasks/simple'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/tasks/simple"
 
 describe Roby::Queries::LocalizedErrorMatcher do
     describe "#===" do
@@ -59,5 +61,3 @@ describe Roby::Queries::LocalizedErrorMatcher do
         end
     end
 end
-
-

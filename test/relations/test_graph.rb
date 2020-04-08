@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Relations
@@ -70,7 +72,7 @@ module Roby
                 end
                 it "returns :num_edges_differ if the two graphs have a different number of edges" do
                     graph.add_edge(a, b, nil)
-                    assert_equal [:num_edges_differ], graph.find_edge_difference(mapped_graph, Hash.new)
+                    assert_equal [:num_edges_differ], graph.find_edge_difference(mapped_graph, {})
                 end
                 it "returns :missing_mapping if the source of an edge is not mapped" do
                     graph.add_edge(a, b, nil)
@@ -135,8 +137,8 @@ module Roby
                 end
                 it "calls #merge_info to merge the info" do
                     graph.add_edge(a, b, old_info = Object.new)
-                    flexmock(graph).should_receive(:merge_info).with(a, b, old_info, new_info = Object.new).
-                        once.and_return(info = flexmock)
+                    flexmock(graph).should_receive(:merge_info).with(a, b, old_info, new_info = Object.new)
+                        .once.and_return(info = flexmock)
                     assert graph.try_updating_existing_edge_info(a, b, new_info)
                     assert_same info, graph.edge_info(a, b)
                 end
@@ -148,7 +150,7 @@ module Roby
                     end
                 end
             end
-            
+
             describe "#replace_vertex" do
                 attr_reader :graph
                 attr_reader :old, :new, :parent, :child
@@ -175,7 +177,7 @@ module Roby
                     assert_same info, graph.edge_info(parent, new)
                     assert !graph.has_edge?(parent, old)
                 end
-                
+
                 it "moves the out-edges of the old vertex to the new vertex" do
                     graph.add_edge(old, child, (info = Object.new))
                     graph.replace_vertex(old, new)
@@ -183,7 +185,7 @@ module Roby
                     assert_same info, graph.edge_info(new, child)
                     assert !graph.has_edge?(old, child)
                 end
-                
+
                 it "does not touch the existing out-edges of the new vertex" do
                     graph.add_edge(new, child, (info = Object.new))
                     graph.replace_vertex(old, new)
@@ -249,7 +251,7 @@ module Roby
                     Class.new do
                         include DirectedRelationSupport
                         attr_reader :relation_graphs
-                        def initialize(relation_graphs = Hash.new)
+                        def initialize(relation_graphs = {})
                             @relation_graphs = relation_graphs
                         end
                     end
@@ -275,9 +277,9 @@ module Roby
 
                 it "uses the merge_info method if updating a non-nil to a non-nil value" do
                     parent.add_child_object(child, graph_m, false)
-                    flexmock(subject).should_receive(:merge_info).
-                        with(parent, child, false, true).
-                        and_return(2)
+                    flexmock(subject).should_receive(:merge_info)
+                        .with(parent, child, false, true)
+                        .and_return(2)
                     parent.add_child_object(child, graph_m, true)
                     assert_equal 2, parent[child, graph_m]
                 end
@@ -292,12 +294,21 @@ module Roby
                         superset_graph.superset_of(graph)
                     end
 
-                    let(:parent) { vertex_m.new(
-                        graph => graph, graph_m => graph,
-                        superset_graph => superset_graph, superset_graph_m => superset_graph) }
-                    let(:child) { vertex_m.new(
-                        graph => graph, graph_m => graph,
-                        superset_graph => superset_graph, superset_graph_m => superset_graph) }
+                    let(:parent) do
+                        vertex_m.new(
+                            graph => graph, graph_m => graph,
+                            superset_graph => superset_graph,
+                            superset_graph_m => superset_graph
+                        )
+                    end
+
+                    let(:child) do
+                        vertex_m.new(
+                            graph => graph, graph_m => graph,
+                            superset_graph => superset_graph,
+                            superset_graph_m => superset_graph
+                        )
+                    end
 
                     describe "creating edges in superset graphs" do
                         it "does not create edges in the subgraphs" do
@@ -345,23 +356,23 @@ module Roby
                     observer.should_receive(:adding_edge)
                     observer.should_receive(:added_edge)
                     parent.add_relation(a, b, nil)
-                    observer.should_receive(:removing_edge).with(a, b, [parent.class, grandparent.class]).
-                        once.globally.ordered.
-                        and_return { assert parent.has_edge?(a, b) }
-                    observer.should_receive(:removed_edge).with(a, b, [parent.class, grandparent.class]).
-                        once.globally.ordered.
-                        and_return { refute parent.has_edge?(a, b) }
+                    observer.should_receive(:removing_edge).with(a, b, [parent.class, grandparent.class])
+                        .once.globally.ordered
+                        .and_return { assert parent.has_edge?(a, b) }
+                    observer.should_receive(:removed_edge).with(a, b, [parent.class, grandparent.class])
+                        .once.globally.ordered
+                        .and_return { refute parent.has_edge?(a, b) }
                     parent.remove_relation(a, b)
                 end
 
                 it "calls the add*edge methods with the list of graphs that have been updated in the hierarchy" do
                     grandparent.add_edge(a, b, nil)
-                    observer.should_receive(:adding_edge).with(a, b, [graph.class, parent.class], nil).
-                        once.globally.ordered.
-                        and_return { refute graph.has_edge?(a, b) }
-                    observer.should_receive(:added_edge).with(a, b, [graph.class, parent.class], nil).
-                        once.globally.ordered.
-                        and_return { assert graph.has_edge?(a, b) }
+                    observer.should_receive(:adding_edge).with(a, b, [graph.class, parent.class], nil)
+                        .once.globally.ordered
+                        .and_return { refute graph.has_edge?(a, b) }
+                    observer.should_receive(:added_edge).with(a, b, [graph.class, parent.class], nil)
+                        .once.globally.ordered
+                        .and_return { assert graph.has_edge?(a, b) }
                     graph.add_relation(a, b, nil)
                 end
 
@@ -372,12 +383,12 @@ module Roby
                     old_info = flexmock
                     new_info = flexmock
                     graph.add_relation(a, b, old_info)
-                    observer.should_receive(:updating_edge_info).with(a, b, graph.class, new_info).
-                        once.globally.ordered.
-                        and_return { assert_same old_info, graph.edge_info(a, b) }
-                    observer.should_receive(:updated_edge_info).with(a, b, graph.class, new_info).
-                        once.globally.ordered.
-                        and_return { assert_same new_info, graph.edge_info(a, b) }
+                    observer.should_receive(:updating_edge_info).with(a, b, graph.class, new_info)
+                        .once.globally.ordered
+                        .and_return { assert_same old_info, graph.edge_info(a, b) }
+                    observer.should_receive(:updated_edge_info).with(a, b, graph.class, new_info)
+                        .once.globally.ordered
+                        .and_return { assert_same new_info, graph.edge_info(a, b) }
                     graph.set_edge_info(a, b, new_info)
                 end
             end
@@ -475,4 +486,3 @@ module Roby
         end
     end
 end
-

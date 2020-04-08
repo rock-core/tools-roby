@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'rgl/mutable'
-require 'set'
+require "rgl/mutable"
+require "set"
 
 module Roby
     module Relations
@@ -271,7 +271,7 @@ module Roby
             # See MutableGraph#add_edge.
             #
             def add_edge(u, v, i = nil)
-                raise ArgumentError, 'cannot add self-referencing edges' if u == v
+                raise ArgumentError, "cannot add self-referencing edges" if u == v
 
                 u_out = (@forward_edges_with_info[u] ||= IdentityHash.new)
                 @backward_edges[u] ||= IdentityHash.new
@@ -374,7 +374,7 @@ module Roby
                     unless @backward_edges.key?(v)
                         raise Inconsistent,
                               "#{v} has an entry in the forward-edge set, "\
-                              'but not in the backward-edge'
+                              "but not in the backward-edge"
                     end
 
                     out_edges.each do |out_e, _info|
@@ -393,14 +393,14 @@ module Roby
                     unless @forward_edges_with_info.key?(v)
                         raise Inconsistent,
                               "#{v} has an entry in the forward-edge set, "\
-                              'but not in the backward-edge'
+                              "but not in the backward-edge"
                     end
 
                     in_edges.each do |in_e, _|
                         if !@forward_edges_with_info[in_e]
                             raise Inconsistent,
                                   "#{in_e} is listed as an in-neighbour of #{v} "\
-                                  'but is not included in the graph'
+                                  "but is not included in the graph"
                         elsif !@forward_edges_with_info[in_e].key?(v)
                             raise Inconsistent,
                                   "#{in_e} is listed as an in-neighbour of #{v} "\

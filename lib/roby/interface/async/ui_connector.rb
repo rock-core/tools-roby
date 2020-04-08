@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         module Async
@@ -45,6 +47,7 @@ module Roby
                         if !options[:restart] && action.exists? && !action.terminated?
                             return
                         end
+
                         action.restart
                     end
                 end
@@ -123,7 +126,7 @@ module Roby
                         widget = args.shift
                         signal = args.shift
                         action = args.shift
-                        action.options = args.shift || Hash.new
+                        action.options = args.shift || {}
                         if widget.respond_to?(:to_widget)
                             widget = widget.to_widget
                         end
@@ -180,4 +183,3 @@ module Roby
         end
     end
 end
-

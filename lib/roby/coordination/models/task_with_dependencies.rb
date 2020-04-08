@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
             # Generic representation of an execution context task that can be
-            # instanciated 
+            # instanciated
             class TaskWithDependencies < Task
                 # @return [Set<(Task,String)>] set of dependencies needed for this
                 #   task, as a (task,role) pair
@@ -39,6 +41,7 @@ module Roby
                     if !action.kind_of?(Coordination::Models::Task)
                         raise ArgumentError, "expected a task, got #{action}. You probably forgot to convert it using #task or #state"
                     end
+
                     dependencies << [action, role]
                     self
                 end

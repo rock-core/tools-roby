@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -25,7 +27,7 @@ module Roby
             #
             #       # Then, once we're done with that, stand still for 20s
             #       stand_task = task move(speed: 0)
-            #       t_monitor  = task monitor_time_threshold(t: 20) 
+            #       t_monitor  = task monitor_time_threshold(t: 20)
             #       t_monitor.depends_on stand_task
             #       execute t_monitor
             #
@@ -42,7 +44,7 @@ module Roby
 
                 def respond_to_missing?(m, include_private)
                     if m =~ /(.*)!/
-                        action_interface && action_interface.find_action_by_name(m.to_s)
+                        action_interface&.find_action_by_name(m.to_s)
                     else super
                     end
                 end
@@ -61,4 +63,3 @@ module Roby
         end
     end
 end
-

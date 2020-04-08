@@ -189,8 +189,8 @@ module Roby
                     AsPlanProxy.new(self, arguments)
                 else
                     raise NoMethodError,
-                          '#with_arguments is invalid on #self, as #self does not '\
-                          'have an #as_plan method'
+                          "#with_arguments is invalid on #self, as #self does not "\
+                          "have an #as_plan method"
                 end
             end
 
@@ -229,7 +229,7 @@ module Roby
                 if abstract?
                     raise Application::ActionResolutionError,
                           "#{self} is abstract and no planning method exists "\
-                          'that returns it'
+                          "that returns it"
                 end
 
                 new(arguments)
@@ -309,19 +309,19 @@ module Roby
             # @!group Event Relations
 
             # The set of signals that are registered on this task model
-            model_relation 'signal'
+            model_relation "signal"
 
             # The set of forwardings that are registered on this task model
-            model_relation('forwarding')
+            model_relation("forwarding")
 
             # The set of causal links that are registered on this task model
-            model_relation('causal_link')
+            model_relation("causal_link")
 
             # The set of event handlers that are registered on this task model
-            model_attribute_list('handler')
+            model_attribute_list("handler")
 
             # The set of precondition handlers that are registered on this task model
-            model_attribute_list('precondition')
+            model_attribute_list("precondition")
 
             # Establish model-level signals between events of that task. These
             # signals will be established on all the instances of this task model
@@ -347,7 +347,7 @@ module Roby
                         non_terminal = targets.find_all { |ev| !ev.terminal? }
                         unless non_terminal.empty?
                             raise ArgumentError,
-                                  'trying to establish a signal from the terminal '\
+                                  "trying to establish a signal from the terminal "\
                                   "event #{from} to the non-terminal "\
                                   "events #{non_terminal}"
                         end
@@ -356,7 +356,7 @@ module Roby
                     unless non_controlable.empty?
                         raise ArgumentError,
                               "trying to signal #{non_controlable.join(' ')} which "\
-                              'is/are not controlable'
+                              "is/are not controlable"
                     end
 
                     signal_sets[from.symbol].merge(
@@ -419,7 +419,7 @@ module Roby
                         end
                         unless non_terminal.empty?
                             raise ArgumentError,
-                                  'trying to establish a forwarding relation from '\
+                                  "trying to establish a forwarding relation from "\
                                   "the terminal event #{from} to the non-terminal "\
                                   "event(s) #{targets}"
                         end
@@ -471,7 +471,7 @@ module Roby
             # @raise [ArgumentError] if {Roby::Task#failed_event} is not controlable.
             def interruptible
                 if !has_event?(:failed) || !event_model(:failed).controlable?
-                    raise ArgumentError, 'failed is not controlable'
+                    raise ArgumentError, "failed is not controlable"
                 end
 
                 event(:stop) do |context|
@@ -662,13 +662,13 @@ module Roby
 
                 unless valid_command
                     raise ArgumentError,
-                          'Allowed values for :command option: true, false, nil and '\
+                          "Allowed values for :command option: true, false, nil and "\
                           "an object responding to #call. Got #{options[:command]}"
                 end
 
                 if event_name.to_sym == :stop
                     if options.key?(:terminal) && !options[:terminal]
-                        raise ArgumentError, 'the \'stop\' event cannot be non-terminal'
+                        raise ArgumentError, "the 'stop' event cannot be non-terminal"
                     end
 
                     options[:terminal] = true
@@ -683,7 +683,7 @@ module Roby
                     if old_event.terminal? && !options[:terminal]
                         raise ArgumentError,
                               "trying to override #{old_event.symbol} in #{self} "\
-                              'which is terminal into a non-terminal event'
+                              "which is terminal into a non-terminal event"
                     elsif old_event.controlable? && !options[:command]
                         raise ArgumentError,
                               "trying to override #{old_event.symbol} in "\
@@ -702,7 +702,7 @@ module Roby
 
             def enum_events
                 Roby.warn_deprecated(
-                    '#enum_events is deprecated, use #each_event without a block instead'
+                    "#enum_events is deprecated, use #each_event without a block instead"
                 )
                 each_event
             end
@@ -773,7 +773,7 @@ module Roby
             # @yieldparam [Object] context the arguments passed to {Roby::Task#emit}
             #   when the event was emitted
             def on(*event_names, &user_handler)
-                raise ArgumentError, '#on called without a block' unless user_handler
+                raise ArgumentError, "#on called without a block" unless user_handler
 
                 check_arity(user_handler, 1, strict: true)
                 event_names.each do |from|
@@ -813,7 +813,7 @@ module Roby
             # If the given polling block raises an exception, the task will be
             # terminated by emitting its +failed+ event.
             def poll(&block)
-                raise ArgumentError, 'no block given' unless block_given?
+                raise ArgumentError, "no block given" unless block_given?
 
                 define_method(:poll_handler, &block)
             end

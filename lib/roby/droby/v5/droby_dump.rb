@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         module V5
@@ -28,7 +30,7 @@ module Roby
 
                 def droby_dump(peer)
                     peer.dump_groups(self.vertices) do |vertices|
-                        edges = Array.new
+                        edges = []
                         each_edge.each do |u, v, info|
                             edges << peer.dump(u) << peer.dump(v) << peer.dump(info)
                         end
@@ -65,13 +67,13 @@ module Roby
 
                     def initialize(exception_class, formatted_class, message = nil)
                         super
-                        @original_exceptions = Array.new
+                        @original_exceptions = []
                     end
 
                     def proxy(peer)
                         exception = super
-                        exception.original_exceptions.
-                            concat(peer.local_object(self.original_exceptions))
+                        exception.original_exceptions
+                            .concat(peer.local_object(self.original_exceptions))
                         exception
                     end
                 end
@@ -120,7 +122,7 @@ module Roby
                 # Intermediate representation used to marshal/unmarshal a LocalizedError
                 class DRoby
                     attr_reader :model, :failure_point, :fatal, :message, :backtrace,
-                        :original_exceptions, :formatted_message
+                                :original_exceptions, :formatted_message
                     def initialize(model, failure_point, fatal, message, backtrace,
                                    original_exceptions, formatted_message = [])
                         @model, @failure_point, @fatal, @message, @backtrace,
@@ -158,6 +160,7 @@ module Roby
                         @planning_task = planning_task
                         @failure_reason = failure_reason
                     end
+
                     def proxy(peer)
                         planned_task  = peer.local_object(self.planned_task)
                         planning_task = peer.local_object(self.planning_task)
@@ -346,7 +349,7 @@ module Roby
                     def proxy(peer)
                         local_object = peer.local_object(model).new(plan: local_plan(peer))
                         if controlable
-                            local_object.command = lambda { }
+                            local_object.command = -> {}
                         end
                         local_object
                     end
@@ -413,7 +416,7 @@ module Roby
                     def initialize(remote_siblings, emitted, task, symbol)
                         @remote_siblings = remote_siblings
                         @emitted = emitted
-                        @task   = task
+                        @task = task
                         @symbol = symbol
                     end
 
@@ -463,6 +466,7 @@ module Roby
                     def initialize(klass, object, methods, weak)
                         @klass, @object, @methods, @weak = klass, object, methods, weak
                     end
+
                     def proxy(peer)
                         base = peer.local_object(@klass).new(peer.local_object(@object), @weak)
                         @methods.inject(base) do |delayed_arg, m|
@@ -495,7 +499,7 @@ module Roby
                 # Returns an intermediate representation of +self+ suitable to be sent
                 # to the +dest+ peer.
                 def droby_dump(peer)
-                    arguments = Hash.new
+                    arguments = {}
                     model.arguments.each do |arg_name|
                         if self.arguments.assigned?(arg_name)
                             arguments[arg_name] = self.arguments.raw_get(arg_name)
@@ -574,7 +578,7 @@ module Roby
                 def droby_dump(peer)
                     peer.dump_groups(tasks, task_events, free_events) do |tasks, task_events, free_events|
                         mission_tasks = peer.dump(self.mission_tasks)
-                        permanent_tasks  = peer.dump(self.permanent_tasks)
+                        permanent_tasks = peer.dump(self.permanent_tasks)
                         permanent_events = peer.dump(self.permanent_events)
                         task_relation_graphs = each_task_relation_graph.map do |g|
                             edges = peer.dump(g.each_edge.flat_map { |*args| args })
@@ -722,7 +726,7 @@ module Roby
                                 peer.local_model(returned_type)
                                 arguments.each { |arg| peer.local_object(arg.default) }
                             end
-                            return action, interface_model
+                            [action, interface_model]
                         end
                     end
 
@@ -750,7 +754,7 @@ module Roby
                         def proxy(peer)
                             existing, interface_model = proxy_from_existing(peer)
                             if existing
-                                return existing
+                                existing
                             else
                                 action = super(peer)
                                 action.coordination_model =
@@ -800,6 +804,7 @@ module Roby
                         def initialize(ops)
                             @ops = ops
                         end
+
                         def proxy(peer)
                             Roby::Queries::AndMatcher.new(*peer.local_object(ops))
                         end
@@ -819,6 +824,7 @@ module Roby
                         def initialize(op)
                             @op = op
                         end
+
                         def proxy(peer)
                             Roby::Queries::NotMatcher.new(peer.local_object(@op))
                         end
@@ -839,6 +845,7 @@ module Roby
                         def initialize(ops)
                             @ops = ops
                         end
+
                         def proxy(peer)
                             Roby::Queries::OrMatcher.new(*peer.local_object(ops))
                         end
@@ -860,6 +867,7 @@ module Roby
                             @exception_matcher = exception_matcher
                             @involved_tasks_matchers = involved_tasks_matchers
                         end
+
                         def proxy(peer)
                             matcher = Roby::Queries::ExecutionExceptionMatcher.new
                             matcher.with_exception(peer.local_object(exception_matcher))
@@ -888,6 +896,7 @@ module Roby
                             @model = model
                             @failure_point_matcher = failure_point_matcher
                         end
+
                         def proxy(peer)
                             matcher = Roby::Queries::LocalizedErrorMatcher.new
                             matcher.with_model(peer.local_model(model))
@@ -966,7 +975,7 @@ module Roby
                         attr_reader :arguments
 
                         def initialize(*args)
-                            @arguments = Hash.new
+                            @arguments = {}
                             super(*args)
                         end
 

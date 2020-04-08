@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require 'roby/test/self'
-require 'roby/droby/logfile/reader'
-require 'roby/droby/logfile/writer'
-require 'roby/test/droby_log_helpers'
+require "roby/test/self"
+require "roby/droby/logfile/reader"
+require "roby/droby/logfile/writer"
+require "roby/test/droby_log_helpers"
 
 module Roby
     module DRoby
@@ -17,83 +17,83 @@ module Roby
                 FileUtils.rm_rf tmpdir if tmpdir
             end
 
-            it 'can generate and load an empty file' do
-                w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'))
+            it "can generate and load an empty file" do
+                w = Logfile::Writer.open(File.join(tmpdir, "test-events.log"))
                 w.close
-                r = Logfile::Reader.open(File.join(tmpdir, 'test-events.log'))
+                r = Logfile::Reader.open(File.join(tmpdir, "test-events.log"))
                 assert !r.load_one_cycle
             end
 
-            it 'writes the current file format by default' do
-                path = File.join(tmpdir, 'test-events.log')
-                File.open(path, 'w') do |io|
+            it "writes the current file format by default" do
+                path = File.join(tmpdir, "test-events.log")
+                File.open(path, "w") do |io|
                     Logfile.write_header(io)
                 end
-                File.open(path, 'r') do |io|
+                File.open(path, "r") do |io|
                     assert_equal Logfile::FORMAT_VERSION, Logfile.guess_version(io)
                 end
             end
 
-            it 'allows passing a version ID explicitely' do
-                path = File.join(tmpdir, 'test-events.log')
-                File.open(path, 'w') do |io|
+            it "allows passing a version ID explicitely" do
+                path = File.join(tmpdir, "test-events.log")
+                File.open(path, "w") do |io|
                     Logfile.write_header(io, version: 0)
                 end
-                File.open(path, 'r') do |io|
+                File.open(path, "r") do |io|
                     assert_equal 0, Logfile.guess_version(io)
                 end
             end
 
-            it 'loads the plugins registered in the log file' do
+            it "loads the plugins registered in the log file" do
                 w = Logfile::Writer.open(
-                    File.join(tmpdir, 'test-events.log'), plugins: ['test']
+                    File.join(tmpdir, "test-events.log"), plugins: ["test"]
                 )
                 w.close
 
-                flexmock(Roby.app).should_receive(:using).with('test').once
-                r = Logfile::Reader.open(File.join(tmpdir, 'test-events.log'))
+                flexmock(Roby.app).should_receive(:using).with("test").once
+                r = Logfile::Reader.open(File.join(tmpdir, "test-events.log"))
                 assert !r.load_one_cycle
             end
 
-            it 'dumps and loads one cycle' do
-                w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'))
+            it "dumps and loads one cycle" do
+                w = Logfile::Writer.open(File.join(tmpdir, "test-events.log"))
                 w.dump([:cycle_end, 0, 0, [Hash[test: 10]]])
                 w.close
 
-                r = Logfile::Reader.open(File.join(tmpdir, 'test-events.log'))
+                r = Logfile::Reader.open(File.join(tmpdir, "test-events.log"))
                 data = r.load_one_cycle
                 assert_equal [:cycle_end, 0, 0, [Hash[test: 10]]], data
             end
 
-            it 'raises on creation if it encounters the wrong magic' do
-                File.open(dummy_path = File.join(tmpdir, 'dummy'), 'w') do |io|
-                    io.write 'FGOEIJDOEJIDEOIJ'
+            it "raises on creation if it encounters the wrong magic" do
+                File.open(dummy_path = File.join(tmpdir, "dummy"), "w") do |io|
+                    io.write "FGOEIJDOEJIDEOIJ"
                 end
                 assert_raises(Logfile::InvalidFileError) do
                     Logfile::Reader.open(dummy_path)
                 end
             end
 
-            it 'raises on creation if the file is outdated' do
-                File.open(dummy_path = File.join(tmpdir, 'dummy'), 'w') do |io|
+            it "raises on creation if the file is outdated" do
+                File.open(dummy_path = File.join(tmpdir, "dummy"), "w") do |io|
                     io.write(Logfile::MAGIC_CODE)
-                    io.write([4].pack('L<'))
+                    io.write([4].pack("L<"))
                 end
                 assert_raises(Logfile::InvalidFormatVersion) do
                     Logfile::Reader.open(dummy_path)
                 end
             end
 
-            describe 'index handling' do
-                it 'raises if there is no index and rebuild is false' do
-                    w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'))
+            describe "index handling" do
+                it "raises if there is no index and rebuild is false" do
+                    w = Logfile::Writer.open(File.join(tmpdir, "test-events.log"))
                     w.close
-                    r = Logfile::Reader.open(File.join(tmpdir, 'test-events.log'))
+                    r = Logfile::Reader.open(File.join(tmpdir, "test-events.log"))
                     assert_raises(Logfile::IndexMissing) { r.index(rebuild: false) }
                 end
 
-                it 'generates a missing index' do
-                    w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'))
+                it "generates a missing index" do
+                    w = Logfile::Writer.open(File.join(tmpdir, "test-events.log"))
                     start = Time.at(1, 1)
                     stop = Time.at(1, 2)
                     log_data = [
@@ -106,7 +106,7 @@ module Roby
                     w.dump(log_data[1])
                     w.close
 
-                    path = File.join(tmpdir, 'test-events.log')
+                    path = File.join(tmpdir, "test-events.log")
                     r = Logfile::Reader.open(path)
                     flexmock(Logfile::Index).should_receive(:rebuild).once.pass_thru
                     messages = capture_log(Logfile, :warn) do
@@ -119,11 +119,11 @@ module Roby
                     assert_equal ["rebuilding index file for #{path}"], messages
                 end
 
-                it 'regenerates an invalid index' do
-                    w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'))
+                it "regenerates an invalid index" do
+                    w = Logfile::Writer.open(File.join(tmpdir, "test-events.log"))
                     w.close
 
-                    path = File.join(tmpdir, 'test-events.log')
+                    path = File.join(tmpdir, "test-events.log")
                     r = Logfile::Reader.open(path)
                     capture_log(Logfile, :warn) { r.rebuild_index }
                     flexmock(Logfile::Index).should_receive(:rebuild).once.pass_thru
@@ -137,7 +137,7 @@ module Roby
                 end
 
                 it "does not influence the logfile's IO status by rebuilding the index" do
-                    path = File.join(tmpdir, 'test-events.log')
+                    path = File.join(tmpdir, "test-events.log")
                     w = Logfile::Writer.open(path)
                     start = Time.at(1, 1)
                     stop = Time.at(1, 2)
@@ -161,11 +161,11 @@ module Roby
                     assert_equal ["rebuilding index file for #{path}"], messages
                 end
 
-                it 'raises if the index is invalid and rebuild is false' do
-                    w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'))
+                it "raises if the index is invalid and rebuild is false" do
+                    w = Logfile::Writer.open(File.join(tmpdir, "test-events.log"))
                     w.close
 
-                    path = File.join(tmpdir, 'test-events.log')
+                    path = File.join(tmpdir, "test-events.log")
                     r = Logfile::Reader.open(path)
                     capture_log(Logfile, :warn) { r.rebuild_index }
                     flexmock(Logfile::Index).should_receive(:rebuild).never
@@ -179,19 +179,19 @@ module Roby
             end
 
             describe Logfile::Reader do
-                describe '#index_path' do
-                    it 'generates the default index path for the file' do
-                        w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'))
+                describe "#index_path" do
+                    it "generates the default index path for the file" do
+                        w = Logfile::Writer.open(File.join(tmpdir, "test-events.log"))
                         w.close
-                        r = Logfile::Reader.open(File.join(tmpdir, 'test-events.log'))
-                        assert_equal File.join(tmpdir, 'test-events.idx'), r.index_path
+                        r = Logfile::Reader.open(File.join(tmpdir, "test-events.log"))
+                        assert_equal File.join(tmpdir, "test-events.idx"), r.index_path
                     end
                 end
             end
 
             describe Logfile::Writer do
-                describe 'find_invalid_marshalling_object' do
-                    it 'finds an invalid instance variable' do
+                describe "find_invalid_marshalling_object" do
+                    it "finds an invalid instance variable" do
                         obj = Object.new
                         obj.instance_variable_set :@test, (i = Class.new)
                         invalid, = Logfile::Writer.find_invalid_marshalling_object(obj)
@@ -199,7 +199,7 @@ module Roby
                         assert(invalid =~ /@test/)
                     end
 
-                    it 'finds an invalid element in an enumerable' do
+                    it "finds an invalid element in an enumerable" do
                         obj = [i = Class.new]
                         invalid, = Logfile::Writer.find_invalid_marshalling_object(obj)
                         assert(invalid =~ /#{i}/)
@@ -207,8 +207,8 @@ module Roby
                     end
                 end
 
-                it 'warns the user about a cycle that cannot be marshalled' do
-                    w = Logfile::Writer.open(File.join(tmpdir, 'test-events.log'))
+                it "warns the user about a cycle that cannot be marshalled" do
+                    w = Logfile::Writer.open(File.join(tmpdir, "test-events.log"))
                     klass = Class.new
                     flexmock(Roby::DRoby::Logfile.logger) do |r|
                         r.should_receive(:fatal).with(/#{klass}/).once
@@ -221,12 +221,12 @@ module Roby
             end
 
             describe Logfile::Index do
-                describe '.rebuild' do
+                describe ".rebuild" do
                     include Test::DRobyLogHelpers
 
-                    it 'creates an index that describes the log file' do
+                    it "creates an index that describes the log file" do
                         Timecop.freeze(Time.at(0))
-                        path = droby_create_event_log 'test.0.log' do
+                        path = droby_create_event_log "test.0.log" do
                             10.times do |i|
                                 Timecop.freeze(Time.at(i + 1))
                                 droby_write_event :test, i
@@ -240,7 +240,7 @@ module Roby
                         assert_equal 11, index.cycle_count
                         assert_equal [Time.at(0), Time.at(10)], index.range
 
-                        File.open(path, 'r') do |io|
+                        File.open(path, "r") do |io|
                             index.each_with_index do |data, i|
                                 break if i == 10
 
@@ -253,25 +253,25 @@ module Roby
                     end
                 end
 
-                describe '.valid_file?' do
+                describe ".valid_file?" do
                     include Test::DRobyLogHelpers
 
                     before do
-                        @log_path = droby_create_event_log('test.log') {}
-                        @index_path = @log_path + '.idx'
+                        @log_path = droby_create_event_log("test.log") {}
+                        @index_path = @log_path + ".idx"
                     end
-                    it 'returns true if the file exists and is valid' do
+                    it "returns true if the file exists and is valid" do
                         Logfile::Index.rebuild_file(@log_path, @index_path)
                         assert Logfile::Index.valid_file?(@log_path, @index_path)
                     end
-                    it 'returns false if the file exists but is not compatible with the log file' do
+                    it "returns false if the file exists but is not compatible with the log file" do
                         Logfile::Index.rebuild_file(@log_path, @index_path)
                         droby_create_event_log(@log_path) do
                             droby_write_event :test
                         end
                         refute Logfile::Index.valid_file?(@log_path, @index_path)
                     end
-                    it 'returns false if the file does not exist' do
+                    it "returns false if the file does not exist" do
                         refute Logfile::Index.valid_file?(@log_path, @index_path)
                     end
                 end

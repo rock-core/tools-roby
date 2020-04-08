@@ -1,4 +1,6 @@
-require 'roby/schedulers/state'
+# frozen_string_literal: true
+
+require "roby/schedulers/state"
 
 module Roby
     module Schedulers
@@ -28,4 +30,3 @@ module Roby
         end
     end
 end
-

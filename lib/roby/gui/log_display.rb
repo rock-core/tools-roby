@@ -1,7 +1,9 @@
-require 'Qt4'
-require 'roby/gui/plan_rebuilder_widget'
-require 'roby/gui/relations_view'
-require 'roby/gui/chronicle_view'
+# frozen_string_literal: true
+
+require "Qt4"
+require "roby/gui/plan_rebuilder_widget"
+require "roby/gui/relations_view"
+require "roby/gui/chronicle_view"
 
 module Roby
     module GUI
@@ -36,8 +38,8 @@ module Roby
                 attr_reader :available_displays
             end
             @available_displays =
-                { 'Relations' => 'Roby::GUI::RelationsView',
-                  'Chronicle' => 'Roby::GUI::ChronicleView' }
+                { "Relations" => "Roby::GUI::RelationsView",
+                  "Chronicle" => "Roby::GUI::ChronicleView" }
 
             def initialize(parent = nil, plan_rebuilder = nil)
                 super
@@ -45,7 +47,7 @@ module Roby
                 plan_rebuilder ||= DRoby::PlanRebuilder.new
                 @plan_rebuilder = plan_rebuilder
 
-                @displays = Hash.new { |h, k| h[k] = Array.new }
+                @displays = Hash.new { |h, k| h[k] = [] }
 
                 @btn_create_display = Qt::PushButton.new("New Display", self)
                 @lbl_info = Qt::Label.new(self)
@@ -55,12 +57,12 @@ module Roby
                 @layout.add_widget(@lbl_info)
                 @layout.add_widget(@history_widget)
 
-                Qt::Object.connect(history_widget, SIGNAL('sourceChanged()'),
-                                   self, SLOT('updateWindowTitle()'))
-                Qt::Object.connect(history_widget, SIGNAL('info(QString)'),
-                                   self, SLOT('info(QString)'))
-                Qt::Object.connect(history_widget, SIGNAL('warn(QString)'),
-                                   self, SLOT('warn(QString)'))
+                Qt::Object.connect(history_widget, SIGNAL("sourceChanged()"),
+                                   self, SLOT("updateWindowTitle()"))
+                Qt::Object.connect(history_widget, SIGNAL("info(QString)"),
+                                   self, SLOT("info(QString)"))
+                Qt::Object.connect(history_widget, SIGNAL("warn(QString)"),
+                                   self, SLOT("warn(QString)"))
 
                 btn_create_display.text = "New Display"
                 @menu_displays = Qt::Menu.new(@btn_create_display)
@@ -69,7 +71,7 @@ module Roby
                     action.setData(Qt::Variant.new(klass_name))
                 end
                 btn_create_display.setMenu(menu_displays)
-                menu_displays.connect(SIGNAL('triggered(QAction*)')) do |action|
+                menu_displays.connect(SIGNAL("triggered(QAction*)")) do |action|
                     create_display(action.data.toString)
                 end
 
@@ -79,7 +81,7 @@ module Roby
             def updateWindowTitle
                 self.window_title = history_widget.window_title
             end
-            slots 'updateWindowTitle()'
+            slots "updateWindowTitle()"
 
             def create_all_displays
                 self.class.available_displays.each do |user_name, klass_name|
@@ -144,32 +146,32 @@ module Roby
                     view.update_time_range(history_widget.start_time, history_widget.current_time)
                     view.update_display_time(history_widget.display_time)
                 end
-                Qt::Object.connect(history_widget, SIGNAL('appliedSnapshot(QDateTime)'),
-                                   view, SLOT('setDisplayTime(QDateTime)'))
-                Qt::Object.connect(history_widget, SIGNAL('liveUpdate(QDateTime)'),
-                                   view, SLOT('setCurrentTime(QDateTime)'))
-                Qt::Object.connect(history_widget, SIGNAL('sourceChanged()'),
-                                   view, SLOT('updateWindowTitle()'))
+                Qt::Object.connect(history_widget, SIGNAL("appliedSnapshot(QDateTime)"),
+                                   view, SLOT("setDisplayTime(QDateTime)"))
+                Qt::Object.connect(history_widget, SIGNAL("liveUpdate(QDateTime)"),
+                                   view, SLOT("setCurrentTime(QDateTime)"))
+                Qt::Object.connect(history_widget, SIGNAL("sourceChanged()"),
+                                   view, SLOT("updateWindowTitle()"))
             end
 
             def disconnect_display(history_widget, view)
-                Qt::Object.disconnect(history_widget, SIGNAL('appliedSnapshot(QDateTime)'),
-                                   view, SLOT('setDisplayTime(QDateTime)'))
-                Qt::Object.disconnect(history_widget, SIGNAL('liveUpdate(QDateTime)'),
-                                   view, SLOT('setCurrentTime(QDateTime)'))
-                Qt::Object.disconnect(history_widget, SIGNAL('sourceChanged()'),
-                                   view, SLOT('updateWindowTitle()'))
+                Qt::Object.disconnect(history_widget, SIGNAL("appliedSnapshot(QDateTime)"),
+                                      view, SLOT("setDisplayTime(QDateTime)"))
+                Qt::Object.disconnect(history_widget, SIGNAL("liveUpdate(QDateTime)"),
+                                      view, SLOT("setCurrentTime(QDateTime)"))
+                Qt::Object.disconnect(history_widget, SIGNAL("sourceChanged()"),
+                                      view, SLOT("updateWindowTitle()"))
             end
 
             def info(message)
                 lbl_info.text = message
             end
-            slots 'info(QString)'
+            slots "info(QString)"
 
             def warn(message)
                 lbl_info.setText("<font color=\"red\">#{message}</font>")
             end
-            slots 'warn(QString)'
+            slots "warn(QString)"
 
             # Opens +filename+ and reads the data from there
             def open(filename, index_path: nil)
@@ -182,7 +184,7 @@ module Roby
             #
             # +update_period+ is, in seconds, the period at which the
             # display will check whether there is new data on the port.
-            def connect(client, options = Hash.new)
+            def connect(client, options = {})
                 history_widget.connect(client, options)
             end
 
@@ -204,63 +206,66 @@ module Roby
             end
 
             def save_options
-                options = Hash.new
-                options['main'] = Hash.new
-                options['plugins'] = Roby.app.plugins.map(&:first)
-                save_widget_state(options['main'], self)
-                options['views'] = Array.new
+                options = {}
+                options["main"] = {}
+                options["plugins"] = Roby.app.plugins.map(&:first)
+                save_widget_state(options["main"], self)
+                options["views"] = []
                 displays.each do |klass_name, views|
                     views.each_with_index do |view, id|
                         next if !view
-                        view_options = Hash.new
+
+                        view_options = {}
                         view_options["class"] = view.class.name
-                        view_options['id'] = id
+                        view_options["id"] = id
                         save_widget_state(view_options, view)
 
                         if view.respond_to?(:save_options)
                             view_options.merge!(view.save_options)
                         end
-                        options['views'] << view_options
+                        options["views"] << view_options
                     end
                 end
                 options
             end
 
             def save_widget_state(options, widget)
-                options['geometry'] =
+                options["geometry"] =
                     [widget.geometry.x, widget.geometry.y,
-                        widget.geometry.width, widget.geometry.height]
+                     widget.geometry.width, widget.geometry.height]
             end
 
             def apply_widget_state(options, widget)
-                if geom = options['geometry']
+                if geom = options["geometry"]
                     widget.set_geometry(*geom)
                 end
             end
 
             def apply_options(options)
-                (options['plugins'] || Array.new).each do |plugin_name|
+                (options["plugins"] || []).each do |plugin_name|
                     begin
                         Roby.app.using plugin_name
                     rescue ArgumentError => e
-                        Roby.warn "the display configuration file mentions the #{plugin_name} plugin, but it is not available on this system. Some information might not be displayed"
+                        Roby.warn "the display configuration file mentions the "\
+                                  "#{plugin_name} plugin, but it is not available "\
+                                  "on this system. Some information might not "\
+                                  "be displayed"
                     end
                 end
 
-                filters = options['plan_rebuilder'] || Hash.new
-                apply_widget_state(options['main'] || Hash.new, self)
-                (options['views'] || Array.new).each do |view_options|
-                    id = view_options['id']
+                filters = options["plan_rebuilder"] || {}
+                apply_widget_state(options["main"] || {}, self)
+                (options["views"] || []).each do |view_options|
+                    id = view_options["id"]
                     klass_name = view_options["class"]
                     if w = display_from_id(klass_name, id)
                         if w.class.name != klass_name
                             next
                         end
-                    else
-                        if !(w = create_display(klass_name, id))
-                            next
-                        end
+                    elsif !(w = create_display(klass_name, id))
+                        next
                     end
+
                     apply_widget_state(view_options, w)
                     if w.respond_to?(:apply_options)
                         w.apply_options(view_options)
@@ -270,4 +275,3 @@ module Roby
         end
     end
 end
-

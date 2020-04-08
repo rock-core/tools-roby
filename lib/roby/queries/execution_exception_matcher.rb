@@ -97,38 +97,38 @@ module Roby
             end
 
             def to_s
-                PP.pp(self, ''.dup)
+                PP.pp(self, "".dup)
             end
 
             def pretty_print(pp)
-                pp.text 'ExecutionException('
+                pp.text "ExecutionException("
                 exception_matcher.pretty_print(pp)
-                pp.text ')'
+                pp.text ")"
                 unless involved_tasks_matchers.empty?
-                    pp.text '.involving('
+                    pp.text ".involving("
                     pp.nest(2) do
                         involved_tasks_matchers.each do |m|
                             pp.breakable
                             m.pretty_print(pp)
                         end
                     end
-                    pp.text ')'
+                    pp.text ")"
                 end
                 if @expected_edges
-                    pp.text '.with_trace('
+                    pp.text ".with_trace("
                     pp.nest(2) do
                         @expected_edges.each do |a, b, _|
                             pp.breakable
                             pp.text "#{a} => #{b}"
                         end
                     end
-                    pp.text ')'
+                    pp.text ")"
                 end
                 unless @handled.nil?
                     if @handled
-                        pp.text '.handled'
+                        pp.text ".handled"
                     else
-                        pp.text '.not_handled'
+                        pp.text ".not_handled"
                     end
                 end
                 nil

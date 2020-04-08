@@ -1,5 +1,7 @@
-require 'roby'
-require 'benchmark'
+# frozen_string_literal: true
+
+require "roby"
+require "benchmark"
 
 def randomly_modify_plan(plan, num_tasks, num_relation_changes, num_mission_changes, commit: true)
     plan.in_transaction do |trsc|
@@ -75,5 +77,3 @@ Benchmark.bm(30) do |x|
         end
     end
 end
-
-

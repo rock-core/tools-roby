@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -26,10 +28,10 @@ module Roby
                     Coordination::Child.new(execution_context, self)
                 end
 
-                def to_s; "#{parent}.#{role}_child[#{model}]" end
+                def to_s
+                    "#{parent}.#{role}_child[#{model}]"
+                end
             end
         end
     end
 end
-
-

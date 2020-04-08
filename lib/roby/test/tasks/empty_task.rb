@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Test
         class EmptyTask < Roby::Task
@@ -6,4 +8,3 @@ module Roby
         end
     end
 end
-

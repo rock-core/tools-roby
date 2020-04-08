@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # A task service that is used to tag tasks that are job in the plan.
         # Only the tasks that provide Job, are missions and have a non-nil
         # {#job_id} argument are proper jobs.
-        task_service 'Job' do
+        task_service "Job" do
             # The job ID
             #
             # If non-nil, it is used to refer to the job in various Interface
@@ -35,7 +37,7 @@ module Roby
                 to_s
             end
 
-            def initialize(arguments = Hash.new)
+            def initialize(arguments = {})
                 super
                 if Conf.app.auto_allocate_job_ids? && !job_id
                     allocate_job_id
@@ -44,4 +46,3 @@ module Roby
         end
     end
 end
-

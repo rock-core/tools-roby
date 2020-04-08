@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Relations
@@ -28,9 +30,9 @@ module Roby
                     visitor = ForkMergeVisitor.new(graph, mock_value, 1)
                     in_degree, out_degree = visitor.compute_in_out_degrees(1, [21, 22])
                     assert_equal Hash[1 => 0, 21 => 1, 22 => 1, 3 => 2, 4 => 1, 5 => 2],
-                        in_degree
+                                 in_degree
                     assert_equal Hash[1 => 2, 21 => 1, 22 => 2, 3 => 1, 4 => 1],
-                        out_degree
+                                 out_degree
                 end
 
                 it "does not count neighbours twice if they are children of each other" do
@@ -38,27 +40,27 @@ module Roby
                     graph.add_edge 21, 22, nil
                     in_degree, out_degree = visitor.compute_in_out_degrees(1, [21, 22])
                     assert_equal Hash[1 => 0, 21 => 1, 22 => 2, 3 => 2, 4 => 1, 5 => 2],
-                        in_degree
+                                 in_degree
                     assert_equal Hash[1 => 2, 21 => 2, 22 => 2, 3 => 1, 4 => 1],
-                        out_degree
+                                 out_degree
                 end
 
                 it "restricts itself to the subgraph defined by the origin argument" do
                     visitor = ForkMergeVisitor.new(graph, mock_value, 1)
                     in_degree, out_degree = visitor.compute_in_out_degrees(22, [3, 5])
                     assert_equal Hash[22 => 0, 3 => 1, 4 => 1, 5 => 2],
-                        in_degree
+                                 in_degree
                     assert_equal Hash[22 => 2, 3 => 1, 4 => 1],
-                        out_degree
+                                 out_degree
                 end
 
                 it "restricts itself to the subgraph defined by the neighbour argument" do
                     visitor = ForkMergeVisitor.new(graph, mock_value, 1)
                     in_degree, out_degree = visitor.compute_in_out_degrees(1, [21])
                     assert_equal Hash[1 => 0, 21 => 1, 3 => 1, 4 => 1, 5 => 1],
-                        in_degree
+                                 in_degree
                     assert_equal Hash[1 => 1, 21 => 1, 3 => 1, 4 => 1],
-                        out_degree
+                                 out_degree
                 end
             end
 
@@ -118,12 +120,14 @@ module Roby
 
                     def initialize(id = [0])
                         @id = id
-                        @fork_counter  = 0
+                        @fork_counter = 0
                         @merge_counter = 0
                     end
+
                     def fork
                         self.class.new(@id + [@fork_counter += 1])
                     end
+
                     def merge(object)
                         self.class.new([[@id, object.id].to_set])
                     end
@@ -133,15 +137,14 @@ module Roby
                 visitor.visit
                 assert_equal [0], visitor.vertex_to_object[1].id
                 assert_equal [[0, 1], [0, 2]].to_set,
-                    [visitor.vertex_to_object[21].id, visitor.vertex_to_object[22].id].to_set
+                             [visitor.vertex_to_object[21].id, visitor.vertex_to_object[22].id].to_set
                 assert_equal [[[0, 1], [0, 2, 1]].to_set],
-                    visitor.vertex_to_object[3].id
+                             visitor.vertex_to_object[3].id
                 assert_equal [[[0, 1], [0, 2, 1]].to_set],
-                    visitor.vertex_to_object[4].id
-                assert_equal [[[[[0, 1], [0, 2, 1]].to_set], [0,2,2]].to_set],
-                    visitor.vertex_to_object[5].id
+                             visitor.vertex_to_object[4].id
+                assert_equal [[[[[0, 1], [0, 2, 1]].to_set], [0, 2, 2]].to_set],
+                             visitor.vertex_to_object[5].id
             end
         end
     end
 end
-

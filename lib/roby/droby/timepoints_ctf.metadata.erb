@@ -9,7 +9,7 @@ typealias integer { size = 64; align = 8; signed = false; } := unsigned long;
 trace {
     major = 2;
     minor = 0;
-    uuid = "<%= _uuid_s %>";
+    uuid = "<%= uuid_s %>";
     byte_order = le;
     packet.header := struct {
         uint32_t magic;

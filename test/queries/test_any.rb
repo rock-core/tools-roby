@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/tasks/simple'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/tasks/simple"
 
 describe Roby::Queries::Any do
     describe "#===" do
@@ -8,5 +10,3 @@ describe Roby::Queries::Any do
         end
     end
 end
-
-

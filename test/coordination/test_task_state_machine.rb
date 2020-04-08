@@ -1,6 +1,8 @@
-require 'roby/test/self'
-require 'roby/tasks/simple'
-require 'roby/test/tasks/empty_task'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/tasks/simple"
+require "roby/test/tasks/empty_task"
 
 module Roby
     describe TaskStateMachine do
@@ -18,8 +20,8 @@ module Roby
                 end
 
                 plan.add(task = task_m.new)
-                expect_execution { task.start! }.
-                    to { achieve { poll_called && running_state_poll_called } }
+                expect_execution { task.start! }
+                    .to { achieve { poll_called && running_state_poll_called } }
             end
 
             it "is polling in the expected state" do
@@ -40,10 +42,10 @@ module Roby
                 end
 
                 plan.add(task = task_m.new)
-                expect_execution { task.start! }.
-                    to { achieve { running_poll && !one_poll } }
-                expect_execution { task.intermediate_event.emit }.
-                    to { achieve { one_poll } }
+                expect_execution { task.start! }
+                    .to { achieve { running_poll && !one_poll } }
+                expect_execution { task.intermediate_event.emit }
+                    .to { achieve { one_poll } }
                 running_poll = false
                 expect_execution.to { achieve { !running_poll && one_poll } }
             end
@@ -59,8 +61,8 @@ module Roby
                     end
                 end
                 plan.add(task = task_m.new)
-                yield_task = expect_execution { task.start! }.
-                    to { achieve { running_task } }
+                yield_task = expect_execution { task.start! }
+                    .to { achieve { running_task } }
                 assert_equal task, yield_task
             end
         end
@@ -89,15 +91,15 @@ module Roby
                 end
 
                 plan.add(task = task_m.new)
-                expect_execution { task.start! }.
-                    to do
+                expect_execution { task.start! }
+                    .to do
                         achieve { running_poll && !one_poll }
                         emit task.running_poll_event
                     end
 
                 running_poll = false
-                expect_execution { task.intermediate_event.emit }.
-                    to do
+                expect_execution { task.intermediate_event.emit }
+                    .to do
                         achieve { !running_poll && one_poll }
                         emit task.one_poll_event
                     end
@@ -116,23 +118,22 @@ module Roby
                 end
 
                 plan.add(task = task_m.new)
-                expect_execution { task.start! }.
-                    to { achieve { running_poll == 2 } }
-                expect_execution { task.done_event.emit }.
-                    to { achieve { running_poll <= 3 } }
-                expect_execution.
-                    to { achieve { running_poll <= 3 } }
+                expect_execution { task.start! }
+                    .to { achieve { running_poll == 2 } }
+                expect_execution { task.done_event.emit }
+                    .to { achieve { running_poll <= 3 } }
+                expect_execution
+                    .to { achieve { running_poll <= 3 } }
             end
         end
     end
 end
 
-
 class TC_TaskStateMachine < Minitest::Test
     class TestTask < Roby::Task
         refine_running_state do
-            on :one do 
-                transition [:running, :zero] => :one
+            on :one do
+                transition %i[running zero] => :one
             end
 
             on :two do
@@ -152,10 +153,10 @@ class TC_TaskStateMachine < Minitest::Test
     end
 
     class SecondTestTask < Roby::Task
-        refine_running_state namespace: 'test' do
-            on :firstly do 
+        refine_running_state namespace: "test" do
+            on :firstly do
                 transition [:running] => :first
-            end 
+            end
 
             on :secondly do
                 transition [:first] => :second
@@ -213,22 +214,22 @@ class TC_TaskStateMachine < Minitest::Test
     end
 
     def test_responds_to_state_machine
-        assert( @testTask.respond_to?("state_machine") )
+        assert(@testTask.respond_to?("state_machine"))
     end
 
     def test_responds_to_state_machine_status
-        assert( @testTask.state_machine.status )
+        assert(@testTask.state_machine.status)
     end
-      
-    def test_has_initial_state_running 
-        assert( @testTask.state_machine.status == 'running')
+
+    def test_has_initial_state_running
+        assert(@testTask.state_machine.status == "running")
     end
 
     def test_has_states
         all_states = @testTask.state_machine.states
-        check_states = [ :zero, :one, :two, :three ]
+        check_states = %i[zero one two three]
         check_states.each do |state|
-            assert( all_states.index(state) >= 0 )
+            assert(all_states.index(state) >= 0)
         end
     end
 
@@ -236,16 +237,16 @@ class TC_TaskStateMachine < Minitest::Test
         oneTask = TestTask.new
         twoTask = TestTask.new
         scndTask = SecondTestTask.new
-        
+
         oneTask.state_machine.one!
-        assert(oneTask.state_machine.status == 'one')
-        assert(twoTask.state_machine.status == 'running')
-        assert(scndTask.state_machine.status == 'running')
-        
+        assert(oneTask.state_machine.status == "one")
+        assert(twoTask.state_machine.status == "running")
+        assert(scndTask.state_machine.status == "running")
+
         scndTask.state_machine.firstly_test!
-        assert(oneTask.state_machine.status == 'one')
-        assert(twoTask.state_machine.status == 'running')
-        assert(scndTask.state_machine.status == 'first')
+        assert(oneTask.state_machine.status == "one")
+        assert(twoTask.state_machine.status == "running")
+        assert(scndTask.state_machine.status == "first")
     end
 
     def test_automatically_created_new_events
@@ -259,15 +260,15 @@ class TC_TaskStateMachine < Minitest::Test
 
         task = prepare_plan add: 1, model: model
         execute { task.start! }
-        assert_equal 'running', task.state_machine.status
+        assert_equal "running", task.state_machine.status
         execute { task.intermediate! }
-        assert_equal 'one', task.state_machine.status
+        assert_equal "one", task.state_machine.status
 
         task = prepare_plan add: 1, model: model
         execute { task.start! }
-        assert_equal 'running', task.state_machine.status
+        assert_equal "running", task.state_machine.status
         execute { task.intermediate_event.emit }
-        assert_equal 'one', task.state_machine.status
+        assert_equal "one", task.state_machine.status
     end
 
     def test_does_not_override_existing_events
@@ -282,9 +283,9 @@ class TC_TaskStateMachine < Minitest::Test
 
         task = prepare_plan add: 1, model: model
         execute { task.start! }
-        assert_equal 'running', task.state_machine.status
+        assert_equal "running", task.state_machine.status
         execute { task.intermediate_event.emit }
-        assert_equal 'one', task.state_machine.status
+        assert_equal "one", task.state_machine.status
     end
 
     def test_inheritance
@@ -294,8 +295,8 @@ class TC_TaskStateMachine < Minitest::Test
         assert(derivedTask.state_machine.proxy.respond_to?(:three))
         assert(derivedTask.state_machine.proxy.respond_to?(:reset))
         assert(derivedTask.state_machine.proxy.respond_to?(:four))
-      
-        event = [ :one, :two, :three, :four, :reset ] 
+
+        event = %i[one two three four reset]
         begin
             event.each do |event|
                 derivedTask.state_machine.send("#{event}!")
@@ -307,13 +308,11 @@ class TC_TaskStateMachine < Minitest::Test
 
     def test_exception
         task = ExceptionTask.new
-        task.state_machine.status = 'exception'
+        task.state_machine.status = "exception"
         assert(task.state_machine.respond_to?(:do_poll))
 
         assert_raises(ArgumentError) do
             task.state_machine.do_poll(task)
         end
     end
-
 end
-

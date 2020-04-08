@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Queries
@@ -44,4 +46,3 @@ module Roby
         end
     end
 end
-
