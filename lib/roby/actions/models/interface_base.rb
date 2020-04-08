@@ -3,6 +3,7 @@
 module Roby
     module Actions
         module Models
+            # Model-level API for {Actions::Interface}
             module InterfaceBase
                 # IMPORTANT: ModelAsClass / ModelAsModule must NOT be included here.
                 # This interface model is used by both Interface (which is a
@@ -15,7 +16,7 @@ module Roby
                 # This method does nothing, it's here so that the registered_action
                 # attribute gets promotion enabled. It's overloaded in Interface to
                 # actually rebind the action to the interface
-                def promote_registered_action(name, action)
+                def promote_registered_action(_name, action)
                     action
                 end
 
@@ -56,7 +57,7 @@ module Roby
                 #
                 # @yieldparam [Models::Action] action
                 def each_action
-                    return enum_for(:each_action) if !block_given?
+                    return enum_for(:each_action) unless block_given?
 
                     each_registered_action do |_, description|
                         yield(description)
@@ -143,7 +144,7 @@ module Roby
                             terminates
                         end
                         const_set task_model_name, task_model
-                        task_model.permanent_model = self.permanent_model?
+                        task_model.permanent_model = permanent_model?
                         action_model.returns(task_model)
                     end
                 end
@@ -151,38 +152,52 @@ module Roby
                 # Hook used to export methods for which there is a description
                 def method_added(method_name)
                     super
-                    if @current_description
-                        name = method_name.to_s
-                        description, @current_description = @current_description, nil
-                        description = MethodAction.new(self, description)
+                    return unless @current_description
 
-                        if existing = find_action_by_name(name)
-                            if description.returned_type == Roby::Task
-                                description.returns(existing.returned_type)
-                            end
-                            description.overloads(existing)
+                    description = @current_description
+                    @current_description = nil
+                    register_added_method_as_action(method_name, description)
+                end
+
+                # Register an existing instance method as action
+                #
+                # @param [String] method_name the method name
+                # @param [Models::Action] description the action model
+                def register_added_method_as_action(method_name, description)
+                    name = method_name.to_s
+                    action_m = MethodAction.new(self, description)
+
+                    if (existing = find_action_by_name(name))
+                        if action_m.returned_type == Roby::Task
+                            action_m.returns(existing.returned_type)
+                        end
+                        action_m.overloads(existing)
+                    end
+
+                    added_method_action_check_arity(name, action_m)
+                    register_action!(name, action_m)
+                end
+
+                def added_method_action_check_arity(name, description)
+                    expected_argument_count =
+                        if description.arguments.empty? then 0
+                        else 1
                         end
 
-                        expected_argument_count =
-                            if description.arguments.empty? then 0
-                            else 1
-                            end
-                        begin
-                            check_arity(instance_method(name), expected_argument_count)
-                        rescue ArgumentError => e
-                            if expected_argument_count == 0
-                                raise ArgumentCountMismatch,
-                                      "action #{name} has been declared to have no "\
-                                      "arguments, the #{name} method must be callable "\
-                                      "without any arguments"
-                            else
-                                raise ArgumentCountMismatch,
-                                      "action #{name} has been declared to have "\
-                                      "arguments, the #{name} method must be "\
-                                      "callable with a single Hash argument"
-                            end
+                    begin
+                        check_arity(instance_method(name), expected_argument_count)
+                    rescue ArgumentError
+                        if expected_argument_count == 0
+                            raise ArgumentCountMismatch,
+                                  "action #{name} has been declared to have no "\
+                                  "arguments, the #{name} method must be callable "\
+                                  "without any arguments"
+                        else
+                            raise ArgumentCountMismatch,
+                                  "action #{name} has been declared to have "\
+                                  "arguments, the #{name} method must be "\
+                                  "callable with a single Hash argument"
                         end
-                        register_action!(name, description)
                     end
                 end
 
@@ -219,7 +234,9 @@ module Roby
                 #
                 # @raise [ArgumentError] if describe was not called
                 def require_current_description
-                    action_model, @current_description = @current_description, nil
+                    action_model = @current_description
+                    @current_description = nil
+
                     unless action_model
                         raise ArgumentError,
                               "you must describe the action with #describe "\
@@ -234,11 +251,15 @@ module Roby
                 # Create an action that will instanciate a coordination model
                 #
                 # @return [(CoordinationAction,Action)]
-                def create_and_register_coordination_action(name, coordination_class, action_model: require_current_description, &block)
+                def create_and_register_coordination_action(
+                    name, coordination_class,
+                    action_model: require_current_description, &block
+                )
                     name = name.to_s
                     create_default_action_return_type(name, action_model)
-                    action_model, coordination_model =
-                        create_coordination_action(action_model, coordination_class, &block)
+                    action_model, coordination_model = create_coordination_action(
+                        action_model, coordination_class, &block
+                    )
                     register_action!(name, action_model)
                     coordination_model.name = name
 
@@ -251,7 +272,8 @@ module Roby
 
                 def create_coordination_model(action_model, coordination_class, &block)
                     root_m = action_model.returned_type
-                    coordination_model = coordination_class
+                    coordination_model =
+                        coordination_class
                         .new_submodel(action_interface: self, root: root_m)
 
                     action_model.arguments.each do |arg|
@@ -267,8 +289,11 @@ module Roby
 
                 # Helper method for {#action_state_machine} and {#action_script}
                 def create_coordination_action(action_model, coordination_class, &block)
-                    coordination_model = create_coordination_model(action_model, coordination_class, &block)
-                    action_model = CoordinationAction.new(coordination_model, action_model)
+                    coordination_model = create_coordination_model(
+                        action_model, coordination_class, &block
+                    )
+                    action_model =
+                        CoordinationAction.new(coordination_model, action_model)
                     [action_model, coordination_model]
                 end
 
@@ -286,13 +311,23 @@ module Roby
                 def action_state_machine(name, &block)
                     action_model = require_current_description
 
-                    # Define user-possible starting states, this will override the default starting state
+                    # Define user-possible starting states, this will override
+                    # the default starting state
                     if action_model.has_arg?("start_state")
-                        raise ArgumentError, "A argument \"start_state\" has defined for the statemachine, but this keyword is reserved"
+                        raise ArgumentError,
+                              "A argument \"start_state\" has defined for the "\
+                              "statemachine, but this keyword is reserved"
                     end
 
-                    action_model.optional_arg("start_state", "name of the state in which the state machine should start", nil)
-                    create_and_register_coordination_action(name, Coordination::ActionStateMachine, action_model: action_model, &block)
+                    action_model.optional_arg(
+                        "start_state",
+                        "name of the state in which the state machine should start",
+                        nil
+                    )
+                    create_and_register_coordination_action(
+                        name, Coordination::ActionStateMachine,
+                        action_model: action_model, &block
+                    )
                 end
 
                 # @deprecated use {#action_state_machine} instead
@@ -309,25 +344,29 @@ module Roby
                 #
                 # The action script model can later be retrieved using
                 # {Action#coordination_model}
-                def action_script(name, options = {}, &block)
-                    create_and_register_coordination_action(name, Coordination::ActionScript, &block)
+                def action_script(name, **options, &block)
+                    create_and_register_coordination_action(
+                        name, Coordination::ActionScript, **options, &block
+                    )
                 end
 
-                def respond_to_missing?(m, include_private)
-                    find_action_by_name(m.to_s) || super
+                def respond_to_missing?(name, include_private)
+                    find_action_by_name(name.to_s) || super
                 end
 
                 # Returns an action description if 'm' is the name of a known action
                 #
                 # @return [Action]
-                def method_missing(m, *args)
-                    if model = find_action_by_name(m.to_s)
+                def method_missing(name, *args)
+                    if (model = find_action_by_name(name.to_s))
                         if args.size > 1
-                            raise ArgumentError, "expected zero or one argument, got #{args.size}"
+                            raise ArgumentError,
+                                  "expected zero or one argument, got #{args.size}"
                         end
 
                         return model.new(*args)
                     end
+
                     super
                 end
 
