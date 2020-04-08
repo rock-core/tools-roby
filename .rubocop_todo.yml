@@ -16,7 +16,6 @@ Lint/RedundantCopDisableDirective:
 # URISchemes: http, https
 Layout/LineLength:
   Exclude:
-    - 'benchmark/attic/discovery_latency.rb'
     - 'benchmark/relations/graph.rb'
     - 'benchmark/ruby/yield_vs_block.rb'
     - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
@@ -478,7 +477,6 @@ Lint/ParenthesesAsGroupedExpression:
 # Offense count: 75
 Lint/RescueException:
   Exclude:
-    - 'benchmark/attic/discovery_latency.rb'
     - 'bin/roby-display'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/scripts/shell.rb'
@@ -789,7 +787,6 @@ Lint/UselessAssignment:
 # Configuration parameters: Max.
 Metrics/AbcSize:
   Exclude:
-    - 'benchmark/attic/discovery_latency.rb'
     - 'benchmark/attic/transactions.rb'
     - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'benchmark/transactions.rb'
@@ -1951,7 +1948,6 @@ Style/HashSyntax:
 # Cop supports --auto-correct.
 Style/IfUnlessModifier:
   Exclude:
-    - 'benchmark/attic/discovery_latency.rb'
     - 'benchmark/attic/garbage_collection.rb'
     - 'benchmark/synthetic_plan_modifications_with_transactions.rb'
     - 'benchmark/transactions.rb'
@@ -2507,24 +2503,6 @@ Style/SpecialGlobalVars:
     - 'lib/roby/gui/relations_view/relations_config.rb'
     - 'lib/roby/state/open_struct.rb'
     - 'lib/roby/test/testcase.rb'
-
-# Offense count: 29
-# Cop supports --auto-correct.
-Style/StderrPuts:
-  Exclude:
-    - 'benchmark/attic/discovery_latency.rb'
-    - 'benchmark/attic/genom.rb'
-    - 'bin/roby'
-    - 'lib/roby/app.rb'
-    - 'lib/roby/app/cucumber/controller.rb'
-    - 'lib/roby/app/plugins/rake.rb'
-    - 'lib/roby/app/scripts/results.rb'
-    - 'lib/roby/gui/plan_dot_layout.rb'
-    - 'lib/roby/gui/relations_view/relations_canvas.rb'
-    - 'lib/roby/interface/shell_client.rb'
-    - 'lib/roby/test/tasks/goto.rb'
-    - 'test/mockups/external_process'
-    - 'test/mockups/random_log.rb'
 
 # Offense count: 8
 # Cop supports --auto-correct.
