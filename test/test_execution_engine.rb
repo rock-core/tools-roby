@@ -1067,7 +1067,7 @@ module Roby
                 @task_m = Task.new_submodel do
                     attr_accessor :hold_stop
                     event(:stop) do |_|
-                        if !hold_stop
+                        unless hold_stop
                             stop_event.emit
                         end
                     end
@@ -1886,7 +1886,7 @@ module Roby
                 recorder.should_receive(:called).at_least.twice
                 plan.add_permanent_event(ev = EventGenerator.new)
                 add_propagation_handler(type: :propagation) do |plan|
-                    if !ev.emitted?
+                    unless ev.emitted?
                         ev.emit
                     end
                     recorder.called(plan)
@@ -1915,13 +1915,13 @@ module Roby
 
                 add_propagation_handler(type: :propagation) do |plan|
                     recorder.handler_called(index += 1)
-                    if !event.emitted?
+                    unless event.emitted?
                         event.emit
                     end
                 end
                 add_propagation_handler(type: :propagation, late: true) do |plan|
                     recorder.late_handler_called(index += 1)
-                    if !late_event.emitted?
+                    unless late_event.emitted?
                         late_event.emit
                     end
                 end
@@ -2559,7 +2559,7 @@ class TC_ExecutionEngine < Minitest::Test
             source = Tasks::Simple.new(id: "source")
             target = Tasks::Simple.new_submodel do
                 event :start do |context|
-                    if !stop_called
+                    unless stop_called
                         raise ArgumentError, "ordering failed"
                     end
 
@@ -2606,7 +2606,7 @@ class TC_ExecutionEngine < Minitest::Test
         plan.add(task = task_model.new(obj: obj))
         execute { task.start! }
         plan.execution_engine.at_cycle_begin do
-            if !obj.stopped?
+            unless obj.stopped?
                 obj.stop
             end
         end

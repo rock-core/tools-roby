@@ -33,7 +33,7 @@ module Roby
         def each_member(&block)
             super(&block)
             superclass&.each_member do |name, value|
-                if !@members.has_key?(name)
+                unless @members.has_key?(name)
                     yield(name, value)
                 end
             end

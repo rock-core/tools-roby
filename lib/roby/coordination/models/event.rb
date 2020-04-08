@@ -28,7 +28,7 @@ module Roby
                 # When running in this event's state, forward this event to the
                 # given root task event
                 def forward_to(root_event)
-                    if !root_event.task.respond_to?(:coordination_model)
+                    unless root_event.task.respond_to?(:coordination_model)
                         raise NotRootEvent, "can only forward to a root event"
                     end
 

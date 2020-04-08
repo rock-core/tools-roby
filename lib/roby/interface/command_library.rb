@@ -63,7 +63,7 @@ module Roby
 
             def refresh_subcommands
                 self.class.each_subcommand do |name, (interface_model, description)|
-                    if !subcommands[name]
+                    unless subcommands[name]
                         subcommand(name, interface_model.new(app), description)
                     end
                 end
@@ -81,7 +81,7 @@ module Roby
             #
             # @yieldparam [String] name the subcommand name
             def each_subcommand
-                return enum_for(__method__) if !block_given?
+                return enum_for(__method__) unless block_given?
 
                 refresh_subcommands
                 subcommands.each do |name, (interface, description)|

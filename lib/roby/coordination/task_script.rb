@@ -86,7 +86,7 @@ module Roby
                     else
                         event = model.root.find_event(symbol)
                     end
-                    if !event
+                    unless event
                         raise ArgumentError, "#{model.root} has no event called #{symbol}"
                     end
                 end

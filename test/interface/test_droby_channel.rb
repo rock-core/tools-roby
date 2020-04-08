@@ -9,8 +9,8 @@ module Roby
                 @io_r, @io_w = Socket.pair(:UNIX, :STREAM, 0)
             end
             after do
-                @io_r.close if !@io_r.closed?
-                @io_w.close if !@io_w.closed?
+                @io_r.close unless @io_r.closed?
+                @io_w.close unless @io_w.closed?
             end
             it "does not block on read" do
                 channel = DRobyChannel.new(@io_r, false)

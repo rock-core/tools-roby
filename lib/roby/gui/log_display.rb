@@ -213,7 +213,7 @@ module Roby
                 options["views"] = []
                 displays.each do |klass_name, views|
                     views.each_with_index do |view, id|
-                        next if !view
+                        next unless view
 
                         view_options = {}
                         view_options["class"] = view.class.name

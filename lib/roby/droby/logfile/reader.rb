@@ -105,7 +105,7 @@ module Roby
                     if @index
                         return @index
                     elsif !File.file?(path)
-                        if !rebuild
+                        unless rebuild
                             raise IndexMissing, "there's no file #{path}"
                         end
 

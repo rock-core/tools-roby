@@ -35,7 +35,7 @@ module Roby
                     end
                 end
 
-                if !events.empty?
+                unless events.empty?
                     parent.start_event.on(on_replace: :drop) do |ev|
                         ev.plan.task_relation_graph_for(self.class).interesting_events << ev.generator
                     end
@@ -243,7 +243,7 @@ module Roby
                         failure = options[:failure]
 
                         has_success = success&.evaluate(child)
-                        if !has_success
+                        unless has_success
                             has_failure = failure&.evaluate(child)
                         end
 
@@ -332,7 +332,7 @@ module Roby
 
                 # Enumerates all the roles this task has
                 def each_role(&block)
-                    if !block_given?
+                    unless block_given?
                         return enum_for(:each_role, &block)
                     end
 
@@ -363,7 +363,7 @@ module Roby
                     dependency_info = self[child, Dependency].dup
                     child_roles = dependency_info[:roles].dup
                     roles.each do |r|
-                        if !child_roles.include?(r)
+                        unless child_roles.include?(r)
                             raise ArgumentError, "#{r} is not a role of #{child} with respect to #{self}"
                         end
 
@@ -405,7 +405,7 @@ module Roby
                 # costly operation of raising an exception in cases it is expected that
                 # the role may not exist.
                 def child_from_role(role_name, validate = true)
-                    if !validate
+                    unless validate
                         Roby.warn_deprecated "#child_from_role(name, false) has been replaced by #find_child_from_role"
                     end
 
@@ -441,7 +441,7 @@ module Roby
                     up_until_now = []
                     path.inject(self) do |task, role|
                         up_until_now << role
-                        if !(next_task = task.find_child_from_role(role))
+                        unless (next_task = task.find_child_from_role(role))
                             raise ArgumentError, "the child #{up_until_now.join('.')} of #{task} does not exist"
                         end
 
@@ -544,7 +544,7 @@ module Roby
                     if !options[:model].respond_to?(:to_ary)
                         options[:model] = [Array(options[:model]), {}]
                     elsif options[:model].size == 2
-                        if !options[:model].first.respond_to?(:to_ary)
+                        unless options[:model].first.respond_to?(:to_ary)
                             if options[:model].last.kind_of?(Hash)
                                 options[:model] = [Array(options[:model].first), options[:model].last]
                             else
@@ -583,7 +583,7 @@ module Roby
                     if options[:success]
                         not_there = options[:success].required_events
                             .find_all { |name| !task.has_event?(name) }
-                        if !not_there.empty?
+                        unless not_there.empty?
                             raise ArgumentError, "#{task} does not have the following events: #{not_there.join(', ')}"
                         end
                     end
@@ -591,7 +591,7 @@ module Roby
                     if options[:failure]
                         not_there = options[:failure].required_events
                             .find_all { |name| !task.has_event?(name) }
-                        if !not_there.empty?
+                        unless not_there.empty?
                             raise ArgumentError, "#{task} does not have the following events: #{not_there.join(', ')}"
                         end
                     end
@@ -601,7 +601,7 @@ module Roby
                     # in :success would become unreachable)
                     #
                     # Add !:start in failure
-                    if !options[:success]
+                    unless options[:success]
                         not_started = :start.to_unbound_task_predicate.never
                         if options[:failure]
                             options[:failure] = not_started.or(options[:failure])
@@ -677,7 +677,7 @@ module Roby
                 # This parameter can be set model-wide by using #fullfilled_model= on
                 # the class object
                 def fullfilled_model=(model)
-                    if !model[0].kind_of?(Class)
+                    unless model[0].kind_of?(Class)
                         raise ArgumentError, "expected a task model as first element, got #{model[0]}"
                     end
                     if !model[1].respond_to?(:to_ary)
@@ -686,7 +686,7 @@ module Roby
                         raise ArgumentError, "expected an array of model tags as second element, got #{model[1]}"
                     end
 
-                    if !model[2].respond_to?(:to_hash)
+                    unless model[2].respond_to?(:to_hash)
                         raise ArgumentError, "expected a hash as third element, got #{model[2]}"
                     end
 
@@ -838,7 +838,7 @@ module Roby
                 # @return [Array<Models::Task,TaskService>] the list of models
                 #   fullfilled by this task
                 def implicit_fullfilled_model
-                    if !@implicit_fullfilled_model
+                    unless @implicit_fullfilled_model
                         @implicit_fullfilled_model = []
                         ancestors.each do |m|
                             next if m.singleton_class?

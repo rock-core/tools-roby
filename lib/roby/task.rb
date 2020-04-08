@@ -119,7 +119,7 @@ module Roby
         # Evaluate delayed arguments, and replace in {#arguments} the ones that
         # currently have a value
         def freeze_delayed_arguments
-            if !arguments.static?
+            unless arguments.static?
                 result = {}
                 arguments.each do |key, value|
                     if TaskArguments.delayed_argument?(value)
@@ -139,7 +139,7 @@ module Roby
             return @name if @name
 
             name = "#{model.name || self.class.name}:0x#{address.to_s(16)}"
-            if !frozen?
+            unless frozen?
                 @name = name
             end
             name
@@ -595,12 +595,12 @@ module Roby
 
                     to_remove = []
                     graph.each_in_neighbour(event) do |neighbour|
-                        if !task_events.include?(neighbour)
+                        unless task_events.include?(neighbour)
                             to_remove << neighbour << event
                         end
                     end
                     graph.each_out_neighbour(event) do |neighbour|
-                        if !task_events.include?(neighbour)
+                        unless task_events.include?(neighbour)
                             to_remove << event << neighbour
                         end
                     end
@@ -644,7 +644,7 @@ module Roby
         # terminal if the +stop+ event of the task will be called because this
         # event is.
         def update_terminal_flag # :nodoc:
-            return if !invalidated_terminal_flag?
+            return unless invalidated_terminal_flag?
 
             terminal_events, success_events, failure_events =
                 self.model.compute_terminal_events(bound_events)
@@ -879,7 +879,7 @@ module Roby
         #   tied to this task
         # @return self
         def each_event(only_wrapped = true)
-            return enum_for(__method__, only_wrapped) if !block_given?
+            return enum_for(__method__, only_wrapped) unless block_given?
 
             for ev in bound_events.each_value
                 yield(ev)
@@ -1189,7 +1189,7 @@ module Roby
                 args ||= models.meaningful_arguments
                 models = models.model
             end
-            if !model.fullfills?(models)
+            unless model.fullfills?(models)
                 return false
             end
 
@@ -1252,7 +1252,7 @@ module Roby
         #
         # @param [ExecutionException] e
         def handle_exception(e)
-            return if !plan
+            return unless plan
 
             tasks = find_all_matching_repair_tasks(e)
             return super if tasks.empty?
@@ -1325,7 +1325,7 @@ module Roby
 
                 each_in_neighbour_merged(rel, intrusive: true) do |parent|
                     parent_tasks << parent
-                    if !filter.excluded_task?(parent)
+                    unless filter.excluded_task?(parent)
                         edges << [g, parent, self, parent, object]
                     end
                 end
@@ -1400,7 +1400,7 @@ module Roby
                 info = g.edge_info(removed_parent, removed_child)
 
                 added << [g, added_parent, added_child, info]
-                if !g.copy_on_replace?
+                unless g.copy_on_replace?
                     removed << [g, removed_parent, removed_child]
                 end
             end
@@ -1527,14 +1527,14 @@ module Roby
         end
 
         def internal_error_handler(exception)
-            if !exception.originates_from?(self)
+            unless exception.originates_from?(self)
                 return pass_exception
             end
 
             gen = exception.generator
             error = exception.exception
             if (gen == start_event) && !gen.emitted?
-                if !failed_to_start?
+                unless failed_to_start?
                     failed_to_start!(error)
                 end
             elsif !running?

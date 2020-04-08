@@ -50,7 +50,7 @@ module Roby
 
             def initialize(arguments = {})
                 if arg = arguments[:command_line]
-                    arguments[:command_line] = [arg] if !arg.kind_of?(Array)
+                    arguments[:command_line] = [arg] unless arg.kind_of?(Array)
                 end
                 @pid = nil
                 @buffer = nil

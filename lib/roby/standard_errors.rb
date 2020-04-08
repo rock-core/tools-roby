@@ -131,7 +131,7 @@ module Roby
 
         def pretty_print(pp)
             pp.text self.class.name.to_s
-            if !message.empty?
+            unless message.empty?
                 pp.text ": #{message}"
             end
             pp.breakable
@@ -181,7 +181,7 @@ module Roby
     class TaskEventNotExecutable < EventNotExecutable
         def initialize(failure_point)
             super(failure_point)
-            if !(@plan = failed_generator.task.plan)
+            unless (@plan = failed_generator.task.plan)
                 @removed_at = failed_generator.task.removed_at
             end
         end
@@ -235,7 +235,7 @@ module Roby
             pp.breakable
             super
             pp.breakable
-            if !original_exceptions.include?(reason)
+            unless original_exceptions.include?(reason)
                 reason.pretty_print(pp)
             end
         end
@@ -331,7 +331,7 @@ module Roby
     class EmissionFailed < CodeError
         def initialize(*args, &block)
             super
-            if !failed_generator
+            unless failed_generator
                 raise ArgumentError, "creating an EmissionFailed error without a generator"
             end
         end

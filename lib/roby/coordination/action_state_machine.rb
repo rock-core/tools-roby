@@ -27,7 +27,7 @@ module Roby
                 start_state = model.starting_state
                 if arguments[:start_state]
                     start_state = model.find_state_by_name(arguments[:start_state])
-                    if !start_state
+                    unless start_state
                         raise ArgumentError,
                               "The starting state #{arguments[:start_state]} is "\
                               "unkown, make sure its defined in #{self}"

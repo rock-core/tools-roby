@@ -284,7 +284,7 @@ module Roby
                 plan = local_object(plan_id)
                 task = local_object(task)
                 task.finalization_time = time
-                if !plan.garbaged_tasks.include?(task)
+                unless plan.garbaged_tasks.include?(task)
                     plan.finalized_tasks << task
                     plan.remove_task(task)
                     announce_structure_update

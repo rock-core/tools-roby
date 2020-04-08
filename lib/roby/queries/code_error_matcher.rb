@@ -30,7 +30,7 @@ module Roby
             end
 
             def ===(error)
-                return false if !super
+                return false unless super
 
                 ruby_exception_class === error.error
             end

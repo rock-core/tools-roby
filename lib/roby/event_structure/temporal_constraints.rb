@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Define Infinity
-if !defined? Infinity
+unless defined? Infinity
     Infinity = 1.0 / 0 # rubocop:disable Naming/ConstantName
 end
 
@@ -420,7 +420,7 @@ module Roby
                             disjoint_set.include?(diff)
                         end
 
-                        if !is_fullfilled
+                        unless is_fullfilled
                             deadlines.add(event.time + disjoint_set.boundaries[1], event, target)
                         end
                     end
@@ -464,7 +464,7 @@ module Roby
                 def find_failed_temporal_constraint(time)
                     each_backward_temporal_constraint do |parent|
                         if block_given?
-                            next if !yield(parent)
+                            next unless yield(parent)
                         end
 
                         disjoint_set = parent[self, TemporalConstraints]
@@ -541,7 +541,7 @@ module Roby
                     end
                     each_backward_temporal_constraint do |parent|
                         if block_given?
-                            next if !yield(parent)
+                            next unless yield(parent)
                         end
 
                         constraints = parent[self, TemporalConstraints]

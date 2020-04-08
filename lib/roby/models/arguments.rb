@@ -60,7 +60,7 @@ module Roby
             #   argument :main_direction, default: nil
             def argument(name, default: NO_DEFAULT_ARGUMENT, doc: nil)
                 name = name.to_sym
-                if !TaskArguments.delayed_argument?(default)
+                unless TaskArguments.delayed_argument?(default)
                     default = DefaultArgument.new(default)
                 end
                 doc ||= MetaRuby::DSLs.parse_documentation_block(/\.rb$/, "argument")
@@ -98,12 +98,12 @@ module Roby
 
             # Checks if this model fullfills everything in +models+
             def fullfills?(models)
-                if !models.respond_to?(:each)
+                unless models.respond_to?(:each)
                     models = [models]
                 end
 
                 for tag in models
-                    if !has_ancestor?(tag)
+                    unless has_ancestor?(tag)
                         return false
                     end
                 end

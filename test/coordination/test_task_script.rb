@@ -35,7 +35,7 @@ module Roby
                             emit success_event
                         end
                         execute { root.start! }
-                        execute { event_source_task.start! } if !event_source_task.running?
+                        execute { event_source_task.start! } unless event_source_task.running?
                         expect_execution { event_source_task.test_event.emit }
                             .to { emit root.stop_event }
                     end
@@ -47,7 +47,7 @@ module Roby
                             emit success_event
                         end
                         execute { root.start! }
-                        execute { event_source_task.start! } if !event_source_task.running?
+                        execute { event_source_task.start! } unless event_source_task.running?
                         expect_execution { event_source_task.test_event.emit }
                             .to { not_emit root.stop_event }
                     end
@@ -59,7 +59,7 @@ module Roby
                             emit success_event
                         end
                         execute { root.start! }
-                        execute { event_source_task.start! } if !event_source_task.running?
+                        execute { event_source_task.start! } unless event_source_task.running?
                         Timecop.travel(t + 11)
                         expect_execution { event_source_task.test_event.emit }
                             .to { emit root.stop_event }
@@ -72,7 +72,7 @@ module Roby
                         end
                         expect_execution do
                             root.start!
-                            event_source_task.start! if !event_source_task.running?
+                            event_source_task.start! unless event_source_task.running?
                             event_source_task.test_event.unreachable!
                         end.to { have_error_matching Models::Script::DeadInstruction.match.with_origin(root) }
                     end

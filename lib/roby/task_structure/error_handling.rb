@@ -8,7 +8,7 @@ module Roby::TaskStructure
                 repairing_task = repairing_task.as_plan
             end
 
-            if !task.child_object?(repairing_task, ErrorHandling)
+            unless task.child_object?(repairing_task, ErrorHandling)
                 task.add_error_handler repairing_task, Set.new
             end
 
@@ -100,7 +100,7 @@ module Roby::TaskStructure
         #
         # @return [Boolean]
         def handles_error?(exception)
-            return if !plan
+            return unless plan
 
             exception = exception.to_execution_exception
             ((running? || starting?) && can_repair_error?(exception)) ||

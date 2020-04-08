@@ -103,7 +103,7 @@ module Roby
                         event.if_unreachable(
                             cancel_at_emission: true
                         ) do |reason, generator|
-                            if !disabled?
+                            unless disabled?
                                 generator.plan.add_error(
                                     DeadInstruction.new(script.root_task)
                                 )

@@ -140,7 +140,7 @@ module Roby
                 rescue ComError
                     Log.info "link closed, trying to reconnect"
                     unreachable!
-                    if !closed?
+                    unless closed?
                         attempt_connection
                     end
                     false
@@ -148,7 +148,7 @@ module Roby
                     Log.warn "error while polling connection, trying to reconnect"
                     Roby.log_exception_with_backtrace(e, Log, :warn)
                     unreachable!
-                    if !closed?
+                    unless closed?
                         attempt_connection
                     end
                     false
@@ -156,7 +156,7 @@ module Roby
 
                 def unreachable!
                     if client
-                        client.close if !client.closed?
+                        client.close unless client.closed?
                         @client = nil
                         run_hook :on_unreachable
                     end

@@ -733,7 +733,7 @@ module Roby
                     achieved = false
                     expect_execution.timeout(60).to do
                         block = proc do
-                            execute { achieved = true } if !achieved
+                            execute { achieved = true } unless achieved
                             values << achieved
                             true
                         end

@@ -128,7 +128,7 @@ module Roby
                     begin
                         yield
                     rescue Exception => e
-                        if !e.respond_to?(:each_original_exception)
+                        unless e.respond_to?(:each_original_exception)
                             raise
                         end
 
@@ -138,7 +138,7 @@ module Roby
                         # Try to be smart and to only keep the toplevel
                         # exceptions
                         filter_execution_exceptions(exceptions).each do |original_e|
-                            if !original_e.backtrace
+                            unless original_e.backtrace
                                 original_e.set_backtrace(e.backtrace)
                             end
                             register_failure(original_e)

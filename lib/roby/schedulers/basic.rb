@@ -70,7 +70,7 @@ module Roby
 
             def can_start?(task)
                 start_event = task.start_event
-                if !start_event.controlable?
+                unless start_event.controlable?
                     report_holdoff "start event not controlable", task
                     return false
                 end
@@ -80,7 +80,7 @@ module Roby
                     return false
                 end
 
-                if !start_event.root?(EventStructure::CausalLink)
+                unless start_event.root?(EventStructure::CausalLink)
                     report_holdoff "start event not root in the causal link relation", task
                     return false
                 end
@@ -95,7 +95,7 @@ module Roby
             end
 
             def can_schedule?(task, time = Time.now, stack = [])
-                if !can_start?(task)
+                unless can_start?(task)
                     report_holdoff "cannot be started", task
                     return false
                 end

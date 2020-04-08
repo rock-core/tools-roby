@@ -51,7 +51,7 @@ module Roby
                 end
 
                 def each_task
-                    return enum_for(:each_task) if !block_given?
+                    return enum_for(:each_task) unless block_given?
 
                     super
                     each_fault_handler do |handler|

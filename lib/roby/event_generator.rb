@@ -185,7 +185,7 @@ module Roby
         end
 
         def check_call_validity_after_calling
-            if !executable?
+            unless executable?
                 EventNotExecutable.new(self)
                     .exception("#call called on #{self} which is a non-executable event")
             end
@@ -241,7 +241,7 @@ module Roby
                     command.call(context)
                 end
             rescue Exception => e
-                if !e.kind_of?(LocalizedError)
+                unless e.kind_of?(LocalizedError)
                     e = CommandFailed.new(e, self)
                 end
                 if command_emitted?
@@ -283,7 +283,7 @@ module Roby
             # other ones: it is possible, using Distributed.update, to disable
             # ownership tests, but that does not work if the test is in
             # #emit_without_propagation
-            if !self_owned?
+            unless self_owned?
                 raise OwnershipError, "not owner"
             end
 
@@ -347,7 +347,7 @@ module Roby
         # * if set to :forward, the handler is added to the replacing task
         #
         def on(on_replace: :drop, once: false, &handler)
-            if !%i[drop copy].include?(on_replace)
+            unless %i[drop copy].include?(on_replace)
                 raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{on_replace}"
             end
 
@@ -386,7 +386,7 @@ module Roby
         # delay in seconds and in the second case it is a Time object which is
         # the absolute point in time at which this propagation must happen.
         def signals(generator, timespec = nil)
-            if !generator.controlable?
+            unless generator.controlable?
                 raise EventNotControlable.new(self), "trying to establish a signal from #{self} to #{generator} which is not controllable"
             end
 
@@ -432,7 +432,7 @@ module Roby
                                               cancel_at_emission: false,
                                               on_replace: :drop
 
-            if !%i[drop copy].include?(options[:on_replace])
+            unless %i[drop copy].include?(options[:on_replace])
                 raise ArgumentError,
                       "wrong value for the :on_replace option. "\
                       "Expecting either :drop or :copy, got #{options[:on_replace]}"
@@ -663,7 +663,7 @@ module Roby
             new_error.set_backtrace error.backtrace
             error = new_error
 
-            if !error.kind_of?(LocalizedError)
+            unless error.kind_of?(LocalizedError)
                 error = EmissionFailed.new(error, self)
             end
 
@@ -688,7 +688,7 @@ module Roby
 
             # Create the event object
             event = new(context)
-            if !event.respond_to?(:add_sources)
+            unless event.respond_to?(:add_sources)
                 raise TypeError, "#{event} is not a valid event object in #{self}"
             end
 
@@ -720,7 +720,7 @@ module Roby
             # other ones: it is possible, using Distributed.update, to disable
             # ownership tests, but that does not work if the test is in
             # #emit_without_propagation
-            if !self_owned?
+            unless self_owned?
                 raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
             end
 
@@ -887,7 +887,7 @@ module Roby
                              raise
                          end
 
-                if !result
+                unless result
                     raise EventPreconditionFailed.new(self), "precondition #{reason} failed"
                 end
             end
@@ -965,7 +965,7 @@ module Roby
 
         # Checks that ownership allows to add the self => child relation
         def add_child_object(child, type, info) # :nodoc:
-            if !child.read_write?
+            unless child.read_write?
                 raise OwnershipError,
                       "cannot add an event relation on a child we don't own. "\
                       "#{child} is owned by #{child.owners.to_a} (plan is "\

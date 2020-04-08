@@ -24,7 +24,7 @@ module Roby
                 @execute_handlers.clear
 
                 @arguments = Roby::TaskArguments.new(self)
-                if !bound_events.empty?
+                unless bound_events.empty?
                     raise ArgumentError, "expected bound_events to be empty when setting the proxy up"
                 end
 
@@ -43,7 +43,7 @@ module Roby
                 proxied_events = []
                 events = object.each_event.to_a
                 transaction.plan.each_event_relation_graph do |g|
-                    next if !g.root_relation?
+                    next unless g.root_relation?
 
                     events.delete_if do |event|
                         should_proxy =
@@ -96,7 +96,7 @@ module Roby
                 if @fullfilled_model
                     __getobj__.fullfilled_model = @fullfilled_model.dup
                 end
-                __getobj__.do_not_reuse if !@reusable
+                __getobj__.do_not_reuse unless @reusable
             end
 
             def initialize_replacement(task)
@@ -126,7 +126,7 @@ module Roby
                     # Do the same for all events that are not present at this level
                     # of the transaction
                     real_object.each_event do |event|
-                        if !seen_events.include?(event.symbol)
+                        unless seen_events.include?(event.symbol)
                             event.initialize_replacement(nil) { task.event(event.symbol) }
                             seen_events << event.symbol
                         end

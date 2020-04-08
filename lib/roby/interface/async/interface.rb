@@ -194,7 +194,7 @@ module Roby
                 # with {#on_reachable}
                 def poll_connection_attempt
                     return if client
-                    return if !connection_future.complete?
+                    return unless connection_future.complete?
 
                     case e = connection_future.reason
                     when ConnectionError, ComError, ProtocolError
@@ -391,7 +391,7 @@ module Roby
                     job_monitors.clear
 
                     if client
-                        client.close if !client.closed?
+                        client.close unless client.closed?
                         @client = nil
                         @log_server_port = nil
                         run_hook :on_unreachable
@@ -432,7 +432,7 @@ module Roby
                 #
                 # @return [Array<JobMonitor>]
                 def jobs
-                    return [] if !reachable?
+                    return [] unless reachable?
 
                     client.jobs.map do |job_id, (job_state, placeholder_task, job_task)|
                         JobMonitor.new(self, job_id, placeholder_task: placeholder_task, task: job_task, state: job_state)

@@ -233,7 +233,7 @@ module Ui
 
         def initialize(widget, display)
             super()
-            if !system("dot", "-V")
+            unless system("dot", "-V")
                 raise "the 'dot' tool is unavailable"
             end
 

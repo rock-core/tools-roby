@@ -24,7 +24,7 @@ module Roby
             #
             # @yieldparam [Class<Graph>]
             def each_relation
-                return enum_for(__method__) if !block_given?
+                return enum_for(__method__) unless block_given?
 
                 relation_graphs.each do |k, g|
                     yield(k) if k != g
@@ -35,7 +35,7 @@ module Roby
             #
             # @yieldparam [Graph]
             def each_relation_graph
-                return enum_for(__method__) if !block_given?
+                return enum_for(__method__) unless block_given?
 
                 relation_graphs.each do |k, g|
                     yield(g) if g.has_vertex?(self) && (k == g)
@@ -47,7 +47,7 @@ module Roby
             #
             # @yieldparam [Graph]
             def each_root_relation_graph
-                return enum_for(__method__) if !block_given?
+                return enum_for(__method__) unless block_given?
 
                 each_relation_graph do |g|
                     yield(g) if g.root_relation?
@@ -204,7 +204,7 @@ module Roby
             # Remove all edges in which +self+ is the source. If +relation+
             # is given, it removes only the edges in that relation graph.
             def remove_children(relation = nil)
-                if !relation
+                unless relation
                     for rel in sorted_relations
                         remove_children(rel)
                     end
@@ -227,7 +227,7 @@ module Roby
             # Remove all edges in which +self+ is the target. If +relation+
             # is given, it removes only the edges in that relation graph.
             def remove_parents(relation = nil)
-                if !relation
+                unless relation
                     for rel in sorted_relations
                         remove_parents(rel)
                     end
@@ -245,14 +245,14 @@ module Roby
             #
             # If +relation+ is not nil, only edges of that relation graph are removed.
             def remove_relations(relation = nil)
-                if !relation
+                unless relation
                     for rel in sorted_relations
                         remove_relations(rel)
                     end
                     return
                 end
                 relation = relation_graphs[relation]
-                return if !relation.has_vertex?(self)
+                return unless relation.has_vertex?(self)
 
                 each_parent_object(relation).to_a.each do |parent|
                     relation.remove_relation(parent, self)

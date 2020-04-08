@@ -43,7 +43,7 @@ module Roby
 
                 @current_cycle_position = 0
                 @current_cycle_size = 0
-                if !logfile.eof?
+                unless logfile.eof?
                     @current_cycle_data = logfile.load_one_cycle
                     @current_cycle_position = 0
                     @current_cycle_size = @current_cycle_data.size / 4

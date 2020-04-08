@@ -140,7 +140,7 @@ module Roby
                     new_data = event_file.read
                     return if new_data.empty?
 
-                    if !found_header?
+                    unless found_header?
                         if new_data.size >= Logfile::PROLOGUE_SIZE
                             # This will read and validate the prologue
                             Logfile.read_prologue(StringIO.new(new_data))

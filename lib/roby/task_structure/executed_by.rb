@@ -26,7 +26,7 @@ module Roby
                 end
 
                 plan = execution_agent.plan
-                if !tasks.empty?
+                unless tasks.empty?
                     plan.control.execution_agent_failed_to_start(execution_agent, tasks, reason)
                 end
             end
@@ -41,7 +41,7 @@ module Roby
                     end
 
                     plan = execution_agent.plan
-                    if !tasks.empty?
+                    unless tasks.empty?
                         plan.control.pending_executed_by_failed(execution_agent, tasks)
                     end
                 end
@@ -124,7 +124,7 @@ module Roby
 
                     return if execution_agent == agent
 
-                    if !agent.has_event?(:ready)
+                    unless agent.has_event?(:ready)
                         raise ArgumentError, "execution agent tasks should define the :ready event"
                     end
 
@@ -145,7 +145,7 @@ module Roby
                     super
 
                     if model_agent = model.execution_agent
-                        if !child.fullfills?(*model_agent)
+                        unless child.fullfills?(*model_agent)
                             raise Roby::ModelViolation, "execution agent #{child} does not fullfill the expected #{model_agent}"
                         end
                     end
@@ -156,14 +156,14 @@ module Roby
                 # See the documentation of #used_with_an_execution_agent?
                 def added_execution_agent(child, info)
                     super
-                    if !used_with_an_execution_agent?
+                    unless used_with_an_execution_agent?
                         start_event.on(&ExecutionAgent.method(:establish_agent_aborted_relation))
                         stop_event.on(&ExecutionAgent.method(:remove_agent_aborted_relation))
                         self.used_with_an_execution_agent = true
 
                     end
-                    if !child.used_as_execution_agent?
-                        if !child.ready_event.emitted?
+                    unless child.used_as_execution_agent?
+                        unless child.ready_event.emitted?
                             child.ready_event.when_unreachable(
                                 true, &ExecutionAgent.method(:execution_agent_failed_to_start))
                         end

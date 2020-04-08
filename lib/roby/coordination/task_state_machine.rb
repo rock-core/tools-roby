@@ -21,7 +21,7 @@ module Roby
             }
             state_machine.state(state) do
                 define_method(:poll) do |task|
-                    if !@script_engine
+                    unless @script_engine
                         @script_engine = script_engine.bind(task)
                         @script_engine.prepare
                         @script_engine.step
@@ -288,7 +288,7 @@ module Roby
             # Roby requires the self to be the subclassed Roby::Task
             # Thus embed import into refine_running_state and using eval here
             machine.events.each do |e|
-                if !has_event?(e.name)
+                unless has_event?(e.name)
                     event e.name, controlable: true
                 end
                 # when event is called transition the state_machine

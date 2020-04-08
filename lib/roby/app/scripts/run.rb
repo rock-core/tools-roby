@@ -85,13 +85,13 @@ end
 
 remaining_arguments = options.parse(ARGV)
 additional_controller_files = []
-if !extra_args.empty?
+unless extra_args.empty?
     additional_controller_files << extra_args.shift
     ARGV.replace(extra_args)
 end
 
 additional_controller_files.each do |file|
-    if !File.file?(file)
+    unless File.file?(file)
         Roby.error "#{file}, given as a controller script on the command line, does not exist"
         exit 1
     end
@@ -115,7 +115,7 @@ error = Roby.display_exception(STDERR) do
         app.setup
         actions = actions.map do |act_name|
             _, action = Roby.app.find_action_from_name(act_name)
-            if !action
+            unless action
                 Robot.error "#{act_name}, given as an action on the command line, does not exist"
                 exit 1
             end

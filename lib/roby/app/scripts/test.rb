@@ -118,7 +118,7 @@ exception = Roby.display_exception do
                     all.merge(Find.enum_for(:find, dir).find_all { |f| f =~ /\/test_.*\.rb$/ && File.file?(f) }.to_set)
                 end
                 not_run = (all_existing_tests - test_files.to_set)
-                if !not_run.empty?
+                unless not_run.empty?
                     puts "\nWould NOT load #{not_run.size} tests"
                     not_run.to_a.sort.each do |not_loaded|
                         puts "  #{not_loaded}"

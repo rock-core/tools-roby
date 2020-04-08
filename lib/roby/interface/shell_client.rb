@@ -79,13 +79,13 @@ module Roby
                                     optional_arguments << argument
                                 end
                             end
-                            if !required_arguments.empty?
+                            unless required_arguments.empty?
                                 puts "    required arguments"
                                 required_arguments.each do |argument|
                                     puts "        #{argument.name}: #{argument.doc} [default: #{argument.default}]"
                                 end
                             end
-                            if !optional_arguments.empty?
+                            unless optional_arguments.empty?
                                 puts "    optional arguments:"
                                 optional_arguments.each do |argument|
                                     puts "        #{argument.name}: #{argument.doc} [default: #{argument.default}]"
@@ -364,7 +364,7 @@ module Roby
                 end
 
                 commands = subcommand.commands[""].commands
-                if !commands.empty?
+                unless commands.empty?
                     puts Roby.color("Commands", :bold)
                     puts Roby.color("--------", :bold)
                     commands.keys.sort.each do |command_name|
@@ -373,7 +373,7 @@ module Roby
                     end
                 end
                 if subcommand.commands.size > 1
-                    puts if !commands.empty?
+                    puts unless commands.empty?
                     puts Roby.color("Subcommands (use help <subcommand name> for more details)", :bold)
                     puts Roby.color("-----------", :bold)
                     subcommand.commands.keys.sort.each do |subcommand_name|
@@ -405,7 +405,7 @@ module Roby
                 queues.each do |type, q|
                     q.delete_if do |id, args|
                         summarized << id
-                        if !already_summarized.include?(id)
+                        unless already_summarized.include?(id)
                             msg, complete = send("summarize_#{type}", *args)
                             messages << "##{id} #{msg}"
                             complete

@@ -224,7 +224,7 @@ module Roby
             end
 
             def initialize(description, handler, on_error: :raise, late: false, once: false)
-                if !PollBlockDefinition::ON_ERROR.include?(on_error.to_sym)
+                unless PollBlockDefinition::ON_ERROR.include?(on_error.to_sym)
                     raise ArgumentError, "invalid value '#{on_error} for the :on_error option. Accepted values are #{ON_ERROR.map(&:to_s).join(', ')}"
                 end
 
@@ -478,7 +478,7 @@ module Roby
         attr_reader :scheduler
 
         def scheduler=(scheduler)
-            if !scheduler
+            unless scheduler
                 raise ArgumentError,
                       "cannot set the scheduler to nil. You can disable the current "\
                       "scheduler with .enabled = false instead, or set it to "\
@@ -674,7 +674,7 @@ module Roby
             # We don't aggregate exceptions, so report them all and raise one
             if display_exceptions?
                 application_errors.each do |error, source|
-                    if !error.kind_of?(Interrupt)
+                    unless error.kind_of?(Interrupt)
                         fatal "Application error in #{source}"
                         Roby.log_exception_with_backtrace(error, self, :fatal)
                     end
@@ -793,7 +793,7 @@ module Roby
                 end
 
                 log_timepoint_group handler.description do
-                    if !handler.call(self, plan)
+                    unless handler.call(self, plan)
                         handler.disabled = true
                     end
                 end
@@ -833,7 +833,7 @@ module Roby
             call_poll_blocks(self.class.propagation_handlers, false)
             call_poll_blocks(self.propagation_handlers, false)
 
-            if !has_queued_events?
+            unless has_queued_events?
                 call_poll_blocks(self.class.propagation_handlers, true)
                 call_poll_blocks(self.propagation_handlers, true)
             end
@@ -916,7 +916,7 @@ module Roby
             kill_tasks, fatal_errors, nonfatal_errors, free_events_errors, handled_errors =
                 errors.kill_tasks, errors.fatal_errors, errors.nonfatal_errors, errors.free_events_errors, errors.handled_errors
 
-            if !nonfatal_errors.empty?
+            unless nonfatal_errors.empty?
                 if display_exceptions?
                     warn "#{nonfatal_errors.size} unhandled non-fatal exceptions"
                 end
@@ -925,7 +925,7 @@ module Roby
                 end
             end
 
-            if !handled_errors.empty?
+            unless handled_errors.empty?
                 if display_exceptions?
                     warn "#{handled_errors.size} handled errors"
                 end
@@ -934,7 +934,7 @@ module Roby
                 end
             end
 
-            if !free_events_errors.empty?
+            unless free_events_errors.empty?
                 if display_exceptions?
                     warn "#{free_events_errors.size} free event exceptions"
                 end
@@ -943,7 +943,7 @@ module Roby
                 end
             end
 
-            if !fatal_errors.empty?
+            unless fatal_errors.empty?
                 if display_exceptions?
                     warn "#{fatal_errors.size} unhandled fatal exceptions, involving #{kill_tasks.size} tasks that will be forcefully killed"
                 end
@@ -1204,7 +1204,7 @@ module Roby
             def propagate_object(u, v, obj)
                 raise if u == v
 
-                if !obj.handled?
+                unless obj.handled?
                     obj.propagate(u, v)
                     obj
                 end
@@ -1216,7 +1216,7 @@ module Roby
 
             def handle_examine_vertex(u)
                 e = vertex_to_object.fetch(u)
-                return if !e
+                return unless e
 
                 if e.handled = exception_handler[e, u]
                     handled_exceptions << e
@@ -1272,7 +1272,7 @@ module Roby
                 debug do
                     debug "propagating exception "
                     log_pp :debug, exception
-                    if !parents.empty?
+                    unless parents.empty?
                         debug "  constrained to parents"
                         log_nest(2) do
                             parents.each do |p|
@@ -1441,7 +1441,7 @@ module Roby
         # down.
         attr_reader :application_exceptions
         def clear_application_exceptions
-            if !@application_exceptions
+            unless @application_exceptions
                 raise RecursivePropagationContext, "unbalanced call to #clear_application_exceptions"
             end
 
@@ -1643,7 +1643,7 @@ module Roby
             end
 
             def pretty_print(pp)
-                if !emitted_events.empty?
+                unless emitted_events.empty?
                     pp.text "received #{emitted_events.size} events:"
                     pp.nest(2) do
                         emitted_events.each do |ev|
@@ -1653,8 +1653,8 @@ module Roby
                     end
                 end
                 exceptions = self.exceptions
-                if !exceptions.empty?
-                    pp.breakable if !emitted_events.empty?
+                unless exceptions.empty?
+                    pp.breakable unless emitted_events.empty?
                     pp.text "#{exceptions.size} unhandled exceptions:"
                     pp.nest(2) do
                         exceptions.map do |e|
@@ -1663,7 +1663,7 @@ module Roby
                         end
                     end
                 end
-                if !handled_errors.empty?
+                unless handled_errors.empty?
                     pp.breakable if !emitted_events.empty? || !exceptions.empty?
                     pp.text "#{handled_errors.size} handled exceptions:"
                     pp.nest(2) do
@@ -1681,7 +1681,7 @@ module Roby
                         end
                     end
                 end
-                if !framework_errors.empty?
+                unless framework_errors.empty?
                     pp.breakable if !emitted_events.empty? || !exceptions.empty? || !handled_errors.empty?
                     pp.text "#{framework_errors.size} framework errors"
                     pp.nest(2) do
@@ -1801,7 +1801,7 @@ module Roby
             scheduler.enabled = enable_scheduler
 
             propagation_info = propagate_events_and_errors(seeds, initial_errors, garbage_collect_pass: false)
-            if !propagation_info.kill_tasks.empty?
+            unless propagation_info.kill_tasks.empty?
                 gc_initial_errors = nil
                 gc_seeds = gather_propagation do
                     gc_initial_errors = gather_errors do
@@ -1912,13 +1912,13 @@ module Roby
             finished_missions = (plan.mission_tasks & to_unmark)
             # Remove all missions that are finished
             for finished_mission in finished_missions
-                if !finished_mission.being_repaired?
+                unless finished_mission.being_repaired?
                     plan.unmark_mission_task(finished_mission)
                 end
             end
             finished_permanent = (plan.permanent_tasks & to_unmark)
             for finished_permanent in (plan.permanent_tasks & to_unmark)
-                if !finished_permanent.being_repaired?
+                unless finished_permanent.being_repaired?
                     plan.unmark_permanent_task(finished_permanent)
                 end
             end
@@ -1942,7 +1942,7 @@ module Roby
                         true
                     end
                 end
-                if !mismatching_plan.empty?
+                unless mismatching_plan.empty?
                     mismatches_s = mismatching_plan.map { |t| "#{t}(plan=#{t.plan})" }
                                                    .join(", ")
                     raise ArgumentError,
@@ -2067,7 +2067,7 @@ module Roby
         def wait_one_cycle
             current_cycle = execute { cycle_index }
             while current_cycle == execute { cycle_index }
-                raise ExecutionQuitError if !running?
+                raise ExecutionQuitError unless running?
 
                 sleep(cycle_length)
             end
@@ -2325,7 +2325,7 @@ module Roby
 
                         begin
                             remaining = clear
-                            return if !remaining
+                            return unless remaining
 
                             if (last_stop_count != remaining.size) || (Time.now - last_quit_warning) > 10
                                 if last_stop_count == 0
@@ -2378,7 +2378,7 @@ module Roby
                 end
             end
         ensure
-            if !plan.tasks.empty?
+            unless plan.tasks.empty?
                 warn "the following tasks are still present in the plan:"
                 plan.tasks.each do |t|
                     warn "  #{t}"
@@ -2548,10 +2548,10 @@ module Roby
                     ivar.fail(UnreachableEvent.new(ev, ev.unreachability_reason))
                 else
                     ev.if_unreachable(cancel_at_emission: true) do |reason, event|
-                        ivar.fail(UnreachableEvent.new(event, reason)) if !ivar.complete?
+                        ivar.fail(UnreachableEvent.new(event, reason)) unless ivar.complete?
                     end
                     ev.once do |ev|
-                        ivar.set(result) if !ivar.complete?
+                        ivar.set(result) unless ivar.complete?
                     end
                     begin
                         result = yield if block_given?

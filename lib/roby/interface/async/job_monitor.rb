@@ -78,7 +78,7 @@ module Roby
                 #   not listening to the new job yet, call {#start} for that
                 def restart
                     batch = interface.client.create_batch
-                    if !terminated?
+                    unless terminated?
                         batch.kill_job(job_id)
                     end
                     batch.start_job(action_name, action_arguments)

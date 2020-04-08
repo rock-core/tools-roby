@@ -179,7 +179,7 @@ module Roby
             end
 
             def setDisplayTime(time)
-                if !chronicle.base_time
+                unless chronicle.base_time
                     chronicle.update_base_time(history_widget.start_time)
                     chronicle.update_current_time(history_widget.current_time)
                 end
@@ -188,7 +188,7 @@ module Roby
             slots "setDisplayTime(QDateTime)"
 
             def setCurrentTime(time)
-                if !chronicle.base_time
+                unless chronicle.base_time
                     chronicle.update_base_time(history_widget.start_time)
                     chronicle.update_current_time(history_widget.current_time)
                 end

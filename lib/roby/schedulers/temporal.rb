@@ -43,7 +43,7 @@ module Roby
                 end
 
                 meets_constraints = start_event.meets_temporal_constraints?(time, &event_filter)
-                if !meets_constraints
+                unless meets_constraints
                     if failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter)
                         report_holdoff "temporal constraints not met (%2: %3)", task, failed_temporal[0], failed_temporal[1]
                     end
@@ -56,7 +56,7 @@ module Roby
                 start_event.each_backward_scheduling_constraint do |parent|
                     begin
                         stack.push task
-                        if !can_schedule?(parent.task, time, stack)
+                        unless can_schedule?(parent.task, time, stack)
                             report_holdoff "held by a schedule_as constraint with %2", task, parent
                             return false
                         end

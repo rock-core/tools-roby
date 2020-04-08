@@ -143,7 +143,7 @@ module Roby
         attr_reader :data_sources
 
         def initialize(model = nil, attach_to = nil, attach_name = nil)
-            if !attach_to
+            unless attach_to
                 # We are root, initialize last_known and data_sources
                 @last_known = StateLastValueField.new
                 @data_sources = StateDataSourceField.new
@@ -156,7 +156,7 @@ module Roby
                 # the model's type
                 global_filter do |name, value|
                     if (field_model = model.get(name)) && (field_type = field_model.type)
-                        if !(field_type === value)
+                        unless (field_type === value)
                             raise ArgumentError,
                                   "field #{name} is expected to have values of "\
                                   "type #{field_type.name}, #{value} is of type "\

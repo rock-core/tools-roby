@@ -134,7 +134,7 @@ module Roby
             # @param [Coordination::Models::Task] object the model-level coordination task
             # @return [Coordination::Task] object the instance-level coordination task
             def instance_for(object)
-                if !(ins = instances[object])
+                unless (ins = instances[object])
                     if !parent || !(ins = parent.instances[object])
                         ins = instances[object] = object.new(self)
                     end

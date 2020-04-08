@@ -45,7 +45,7 @@ module Roby
                     action_interface = action_interface_model.new(plan)
 
                     if self.arguments.empty?
-                        if !arguments.empty?
+                        unless arguments.empty?
                             raise ArgumentError, "#{name} expects no arguments, but #{arguments.size} are given"
                         end
 

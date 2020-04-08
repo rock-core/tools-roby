@@ -98,7 +98,7 @@ module Roby
 
             def follow_edge?(u, v)
                 if u == origin
-                    return if !origin_neighbours.include?(v)
+                    return unless origin_neighbours.include?(v)
                 end
 
                 degree = in_degree[v]
@@ -111,7 +111,7 @@ module Roby
 
             def handle_forward_edge(u, v)
                 if u == origin
-                    return if !origin_neighbours.include?(v)
+                    return unless origin_neighbours.include?(v)
                 end
 
                 obj = vertex_to_object.fetch(u)

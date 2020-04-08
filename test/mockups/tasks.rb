@@ -3,7 +3,7 @@
 require "roby/task"
 
 # We define here a set of tasks needed by unit testing
-if !defined?(ChoiceTask)
+unless defined?(ChoiceTask)
     class ChoiceTask < Roby::Task
         event :start do |context|
             start_event.emit context

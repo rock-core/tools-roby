@@ -14,7 +14,7 @@ module Roby
 
                 def instanciate(plan, variables = {})
                     obj = variables[variable_name]
-                    if !obj.respond_to?(:as_plan)
+                    unless obj.respond_to?(:as_plan)
                         raise ArgumentError, "expected variable #{variable_name} to contain an object that can generate tasks, found #{obj}"
                     end
 
