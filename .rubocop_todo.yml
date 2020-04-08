@@ -16,7 +16,6 @@ Lint/RedundantCopDisableDirective:
 # URISchemes: http, https
 Layout/LineLength:
   Exclude:
-    - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/actions/task.rb'
     - 'lib/roby/and_generator.rb'
     - 'lib/roby/app.rb'
@@ -245,7 +244,6 @@ Layout/LineLength:
 Layout/MultilineMethodCallBraceLayout:
   Exclude:
     - 'lib/roby/actions/models/coordination_action.rb'
-    - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/scripts/autotest.rb'
     - 'lib/roby/cli/main.rb'
@@ -388,7 +386,6 @@ Layout/ParameterAlignment:
 # Configuration parameters: AllowSafeAssignment.
 Lint/AssignmentInCondition:
   Exclude:
-    - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/actions/task.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/autotest_console_reporter.rb'
@@ -769,7 +766,6 @@ Metrics/AbcSize:
   Exclude:
     - 'benchmark/transactions.rb'
     - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/autotest_console_reporter.rb'
     - 'lib/roby/app/cucumber/controller.rb'
@@ -1091,7 +1087,6 @@ Metrics/CyclomaticComplexity:
     - 'benchmark/transactions.rb'
     - 'doc/guide/ext/extended_menu.rb'
     - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/cucumber/controller.rb'
     - 'lib/roby/app/cucumber/helpers.rb'
@@ -1227,7 +1222,6 @@ Metrics/PerceivedComplexity:
   Exclude:
     - 'doc/guide/ext/extended_menu.rb'
     - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/cucumber/controller.rb'
     - 'lib/roby/app/cucumber/helpers.rb'
@@ -1603,7 +1597,6 @@ Style/Documentation:
     - 'lib/roby/actions.rb'
     - 'lib/roby/actions/library.rb'
     - 'lib/roby/actions/models/interface.rb'
-    - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/app/base.rb'
     - 'lib/roby/app/cucumber/world.rb'
     - 'lib/roby/app/debug.rb'
@@ -2159,7 +2152,6 @@ Style/PreferredHashMethods:
   Exclude:
     - 'bin/roby'
     - 'lib/roby/actions/action.rb'
-    - 'lib/roby/actions/models/method_action.rb'
     - 'lib/roby/and_generator.rb'
     - 'lib/roby/app.rb'
     - 'lib/roby/app/robot_names.rb'
